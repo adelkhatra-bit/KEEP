@@ -71,6 +71,13 @@ commandes, ~2 minutes).
   incluant la construction réelle de la requête multipart (pas seulement
   le traitement de la réponse). Statut TESTED-mock, jamais appelé contre
   le vrai serveur AudD (nécessite une clé API réelle).
+- Agrégats + recherche/filtre Super Admin (`packages/admin/lib/aggregate.ts`) :
+  **16/16 vérifications exécutées avec succès** via
+  `npx tsx packages/admin/scripts/verify.ts` — persiste enfin dans le
+  dépôt une vérification qui n'existait auparavant que de façon ad-hoc
+  (perdue entre les sessions). Inclut une vérification de cohérence entre
+  les clés de `DEMO_FEATURE_FLAGS` et le seed SQL réel
+  (`0007_seed_defaults.sql`), pour éviter toute divergence future.
 - **Les 7 migrations SQL appliquées pour de vrai contre un vrai PostgreSQL
   16** (`bash supabase/scripts/verify-migrations.sh`, testé dans cette
   session ET ajouté en CI `.github/workflows/verify-migrations.yml`, sans
@@ -132,8 +139,12 @@ commandes, ~2 minutes).
   encore écrite, seulement `DemoRecognitionProvider`.
 - Backend Express (`packages/backend`) : uniquement un health-check, aucune
   route métier.
-- Super Admin Next.js (`packages/admin`) : page d'accueil statique
-  uniquement, aucun des écrans du cahier des charges (§45-63).
+- Super Admin Next.js (`packages/admin`) : Dashboard, Utilisateurs,
+  Abonnements & Prix, Coûts & Rentabilité, Feature Flags construits et
+  testés (voir TESTED) ; Paiements, Analytics produit avancé, Logs
+  (audit_logs), Rôles/RBAC et authentification réelle restent à faire —
+  voir l'avertissement permanent affiché dans l'interface elle-même
+  (`AdminLayout.tsx`) tant que l'auth n'est pas branchée.
 - Onboarding (Apple/Google/Email) : les boutons existent et réagissent
   honnêtement ("backend pas encore connecté"), aucune authentification
   réelle.

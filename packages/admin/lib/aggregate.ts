@@ -1,4 +1,4 @@
-import { DemoCost, DemoSubscription, DemoUser } from './demoData';
+import { DemoCost, DemoSubscription, DemoUser, PlanCode } from './demoData';
 
 /** Tous les agrégats Super Admin passent par ces fonctions — jamais de chiffre en dur dans une page. */
 
@@ -34,4 +34,20 @@ export function computeARPU(users: DemoUser[], subs: DemoSubscription[]): number
 
 export function computeKeepsTotal(users: DemoUser[]): number {
   return users.reduce((sum, u) => sum + u.keepsThisMonth, 0);
+}
+
+/**
+ * Filtre la liste Utilisateurs (recherche + plan). Logique isolée de la
+ * page React pour rester testable avec `tsx` (voir scripts/verify.ts) --
+ * aucune fonction de filtrage/agrégat de ce fichier ne doit vivre
+ * uniquement dans un composant, sinon elle échappe à toute vérification
+ * automatisée dans ce sandbox (pas de Jest/DOM disponible).
+ */
+export function filterUsers(users: DemoUser[], query: string, planFilter: PlanCode | 'ALL'): DemoUser[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  return users.filter((u) => {
+    const matchesPlan = planFilter === 'ALL' || u.plan === planFilter;
+    const matchesQuery = normalizedQuery === '' || u.username.toLowerCase().includes(normalizedQuery) || u.country.toLowerCase().includes(normalizedQuery);
+    return matchesPlan && matchesQuery;
+  });
 }

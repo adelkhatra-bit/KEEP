@@ -37,9 +37,16 @@
       du destinataire, déjà prêt).
 
 ## Priorité 4 — Super Admin + monétisation
-- [ ] Construire réellement `packages/admin` (actuellement une page vide) :
-      Dashboard, Utilisateurs, Abonnements, Paiements, Comptabilité de gestion,
-      Coûts & Rentabilité, Analytics produit, Feature flags, Rôles/RBAC, Logs.
+- [x] Dashboard, Utilisateurs (recherche + filtre par plan), Abonnements &
+      Prix (édition), Coûts & Rentabilité, Feature Flags — construits,
+      agrégats/filtres testés (16/16, `packages/admin/scripts/verify.ts`).
+      Bannière d'avertissement permanente (sidebar) tant que l'auth n'est
+      pas branchée.
+- [ ] Paiements, Analytics produit avancé, Logs (audit_logs) — pas encore
+      construits.
+- [ ] Rôles/RBAC + authentification Super Admin réelle — toujours ouvert,
+      voir avertissement dans `AdminLayout.tsx` : ne pas déployer
+      publiquement avant ça (n'importe qui pourrait éditer les prix/flags).
 - [ ] RBAC + audit logs déjà modélisés en base (`admin_users`, `audit_logs`,
       RLS bloquant tout accès hors service role) — auth Super Admin à construire.
 - [ ] Intégration Apple IAP / Google Play Billing (sandbox d'abord —

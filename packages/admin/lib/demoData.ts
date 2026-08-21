@@ -34,6 +34,30 @@ export interface DemoCost {
   monthlyAmountEur: number;
 }
 
+export interface DemoFeatureFlag {
+  key: string;
+  description: string;
+  isEnabledGlobally: boolean;
+}
+
+/**
+ * Doit rester IDENTIQUE (clés + valeurs par défaut) au seed réel
+ * `supabase/migrations/0007_seed_defaults.sql` (`insert into feature_flags`)
+ * -- toute divergence ici serait une source de confusion "l'admin affiche
+ * un flag qui n'existe pas en base, ou avec une valeur par défaut fausse".
+ * `keep_dna` reste désactivé par défaut ici comme en base (voir
+ * docs/INNOVATIONS.md pour le contexte produit) -- ne jamais l'activer par
+ * défaut dans l'UI sans que ce soit aussi le cas en base.
+ */
+export const DEMO_FEATURE_FLAGS: DemoFeatureFlag[] = [
+  { key: 'compare_keep', description: 'Compare nos KEEP', isEnabledGlobally: true },
+  { key: 'events', description: 'Événements', isEnabledGlobally: true },
+  { key: 'local_discovery', description: 'Découverte locale', isEnabledGlobally: false },
+  { key: 'creator', description: 'Profils Creator', isEnabledGlobally: true },
+  { key: 'venue', description: 'Profils Venue', isEnabledGlobally: true },
+  { key: 'keep_dna', description: 'KEEP DNA — ADN musical (voir docs/INNOVATIONS.md)', isEnabledGlobally: false },
+];
+
 export const DEMO_USERS: DemoUser[] = [
   { id: 'u1', username: 'adel', country: 'FR', plan: 'PREMIUM', keepsThisMonth: 42, joinedAt: '2026-06-01' },
   { id: 'u2', username: 'lea_m', country: 'FR', plan: 'FREE', keepsThisMonth: 12, joinedAt: '2026-07-10' },
