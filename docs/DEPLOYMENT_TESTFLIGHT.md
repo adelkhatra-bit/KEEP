@@ -108,6 +108,16 @@ dépend aussi du déblocage de l'accès push GitHub pour cette session — voir
 Ce blocage est indépendant d'Apple : c'est un réglage de session
 Coword/Claude, pas une action Apple.
 
+## Ne pas confondre avec la clé MusicKit (Apple Music réel, pas TestFlight)
+
+Les 3 actions ci-dessus suffisent pour que KEEP arrive dans TestFlight — en
+Mode Démo, comme aujourd'hui. Une clé Apple **différente** (MusicKit,
+`APPLE_MUSICKIT_TEAM_ID`/`_KEY_ID`/`_PRIVATE_KEY`, voir
+`packages/backend/src/lib/appleDeveloperToken.ts` et
+`packages/music/src/providers/AppleMusicProvider.ts`) sera nécessaire plus
+tard pour sortir le Mode Réel Apple Music — non bloquant pour voir KEEP
+sur TestFlight, à traiter séparément (Priorité 1 de RESTE_A_FAIRE.md).
+
 ## Frein pour la revue TestFlight externe (à anticiper, pas bloquant maintenant)
 
 Le testing **interne** (jusqu'à 100 testeurs, comptes ayant un rôle sur

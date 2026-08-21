@@ -3,8 +3,12 @@
 ## Priorité 1-2 — Cœur musical (EN COURS)
 - [ ] Débloquer npm/Expo (voir PROJECT_STATUS.md ACTION UTILISATEUR REQUISE) et
       confirmer que KEEP Mobile s'affiche réellement sur iPhone (Milestone 1).
-- [ ] Implémenter un vrai `MusicProviderAdapter` Apple Music (MusicKit) — provider
-      principal retenu (voir PLATFORM_COMPLIANCE.md).
+- [x] Implémenter un vrai `MusicProviderAdapter` Apple Music (REST, provider
+      principal retenu — voir PLATFORM_COMPLIANCE.md) : écrit et testé
+      (14/14, fetch simulé fidèle à la doc Apple). Reste : brancher dans
+      `musicEngine` une fois le backend déployé (developer token) et
+      valider le flux WebView sur un vrai appareil avec un vrai compte
+      Apple Music (impossible depuis ce sandbox).
 - [ ] Implémenter un vrai `MusicProviderAdapter` Spotify (Development Mode, 5
       comptes max) en parallèle.
 - [ ] Implémenter un vrai `MusicRecognitionProvider` AudD (clé API requise).

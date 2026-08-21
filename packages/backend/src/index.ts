@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import musicRoutes from './routes/music';
 
 dotenv.config();
 
@@ -15,6 +16,10 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Musique (Apple Music developer token, etc. -- voir routes/music.ts pour le
+// statut de sécurité honnête de ces routes : CODED, pas encore CONNECTED).
+app.use('/api/music', musicRoutes);
 
 // Start server
 app.listen(PORT, () => {

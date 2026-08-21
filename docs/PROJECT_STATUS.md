@@ -47,6 +47,24 @@ commandes, ~2 minutes).
   de session). Couvre : résolution ISRC/fuzzy, non-fusion abusive,
   déduplication, apprentissage par correction, personnalisation par
   utilisateur, détection de doublons cross-playlist, calcul d'ADN musical.
+- `AppleMusicProvider` (implémentation réelle du `MusicProviderAdapter`
+  pour Apple Music) : **14/14 vérifications exécutées avec succès** via
+  `npx tsx packages/music/scripts/verify-apple-music.ts`, avec un fetch
+  simulé reproduisant fidèlement les réponses documentées par Apple
+  (pagination, authentification à deux jetons, ISRC absent/présent,
+  erreurs). Statut TESTED-mock, jamais appelé contre le vrai serveur Apple
+  (nécessite un compte Apple Developer + un developer token réel).
+- Signature JWT ES256 du developer token Apple Music
+  (`packages/backend/src/lib/appleDeveloperToken.ts`) : **10/10
+  vérifications exécutées avec succès** via
+  `npx tsx packages/backend/scripts/verify-apple-developer-token.ts`,
+  incluant une **vérification cryptographique réelle** de la signature
+  (génération d'une vraie paire de clés EC P-256, signature, puis
+  `crypto.verify` avec la clé publique correspondante — pas une simple
+  inspection de forme).
+- Génération HTML + parsing des messages du flux d'autorisation Apple
+  Music (`appleMusicAuthHtml.ts`) : **7/7 vérifications exécutées avec
+  succès** via `npx tsx packages/mobile/scripts/verify-apple-music-auth.ts`.
 - Des tests Jest équivalents existent aussi dans `src/__tests__/*.test.ts`
   (format standard pour CI future) mais **Jest lui-même n'a pas pu être
   installé** dans ce sandbox — non exécutés via Jest, seulement via `tsx`.
@@ -70,8 +88,20 @@ commandes, ~2 minutes).
 
 ## CODED (écrit, non branché à un provider réel)
 
-- `MusicProviderAdapter` (interface) — aucune implémentation Spotify/Apple
-  Music réelle encore écrite, seulement `DemoMusicProvider`.
+- `MusicProviderAdapter` (interface) — implémentation Apple Music réelle
+  écrite et testée en isolation (voir TESTED ci-dessus), pas encore
+  branchée dans `musicEngine` (le backend qui délivre le developer token
+  n'est pas déployé, et le flux WebView n'a jamais tourné sur un vrai
+  appareil) ; aucune implémentation Spotify réelle encore écrite,
+  seulement `DemoMusicProvider`.
+- `AppleMusicAuthScreen` (WebView MusicKit JS) + `appleMusicAuth.ts`
+  (stockage sécurisé du Music User Token via expo-secure-store) — écrits,
+  jamais exécutés sur un vrai appareil.
+- `GET /api/music/apple/developer-token` (backend) — signe un vrai JWT
+  ES256 quand les variables d'env MusicKit sont présentes, répond
+  honnêtement 501 sinon. Pas encore protégé par une authentification KEEP
+  (voir avertissement de sécurité dans `routes/music.ts`) — À CORRIGER
+  avant tout déploiement public.
 - `MusicRecognitionProvider` (interface) — aucune implémentation AudD/ACRCloud
   réelle encore écrite, seulement `DemoRecognitionProvider`.
 - Backend Express (`packages/backend`) : uniquement un health-check, aucune
@@ -112,6 +142,21 @@ commandes, ~2 minutes).
 | Reconnaissance musicale réelle (AudD) | Aucune clé API AudD. | Créer un compte AudD (free tier 300 requêtes sans CB) et fournir la clé via une méthode sécurisée. |
 | Spotify Extended Quota (>5 comptes) | Nécessite 250k MAU + entité légale (voir PLATFORM_COMPLIANCE.md) — non actionnable maintenant. | Décision produit : Apple Music comme provider principal du lancement. |
 | Apple Developer / Google Play accounts | Nécessite identité, paiement, 2FA personnels. | Voir ACTION UTILISATEUR REQUISE ci-dessous. |
+
+## Corrections de fond effectuées (bug bloquant pour tout le monde, pas juste TestFlight)
+
+- `packages/mobile/package.json` déclarait `react-navigation`,
+  `react-navigation-bottom-tabs`, `react-navigation-native` — **ces noms de
+  package n'existent pas sur npm** (les vrais paquets React Navigation v6
+  sont scopés : `@react-navigation/native`, `@react-navigation/bottom-tabs`,
+  déjà ceux réellement importés dans `Navigation.tsx`). N'importe quel
+  `npm install`/`npm ci` — y compris celui du pipeline CI EAS Build tout
+  juste écrit — aurait donc échoué dès l'installation des dépendances.
+  Corrigé : remplacés par les vrais paquets scopés aux bonnes versions
+  (compatibles React Navigation v6 / Expo SDK 51). Cause racine corrigée,
+  pas seulement contournée — root cause: erreur de nommage de package,
+  jamais détectée faute d'avoir pu lancer `npm install` dans ce sandbox
+  jusqu'à cette relecture ligne à ligne du package.json.
 
 ## Sécurité — corrections effectuées
 

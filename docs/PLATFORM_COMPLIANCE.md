@@ -72,9 +72,39 @@ pochettes/métadonnées en lien avec la lecture/les playlists.
   ajoute un jour des "moments partagés" avec extrait audio.
 
 **Statut** : pas de seuil MAU documenté comparable à Spotify → recommandé
-comme **provider principal du MVP public**. Implémentation réelle PLANNED.
+comme **provider principal du MVP public**. Implémentation réelle : voir
+`packages/music/src/providers/AppleMusicProvider.ts` (CODED + vérifié par
+`packages/music/scripts/verify-apple-music.ts`, 14/14 vérifications
+réussies avec un fetch simulé fidèle aux réponses réelles de l'API —
+jamais encore appelé en conditions réelles, statut TESTED-mock pas
+PRODUCTION_READY).
 
-Source : [Apple Developer Forums — music app development](https://developer.apple.com/forums/thread/688335)
+**Contraintes techniques réelles découvertes (vérifiées le 21/08/2026,
+documentation officielle Apple + forums développeurs Apple) :**
+- Authentification à **deux jetons distincts et obligatoires ensemble** :
+  `Authorization: Bearer <developer token>` (JWT ES256 signé côté backend
+  KEEP, jamais dans l'app) + `Music-User-Token: <jeton utilisateur>` (obtenu
+  côté app via MusicKit JS dans une WebView, pas d'échange OAuth
+  code→token côté serveur comme Spotify).
+- **Aucun endpoint de profil utilisateur** (pas de nom, pas d'email) —
+  choix de confidentialité assumé par Apple. `getProfile()` ne doit jamais
+  inventer ces informations.
+- **La suppression d'un morceau d'une playlist de bibliothèque via l'API
+  REST n'est PAS supportée par Apple** (confirmé sur les forums
+  développeurs Apple, demandé depuis des années, jamais implémenté —
+  seul MusicKit natif Swift le permet). Conséquence produit directe :
+  "Ranger ma musique" doit, pour les utilisateurs Apple Music, seulement
+  **proposer** les doublons détectés (l'utilisateur les supprime lui-même
+  dans l'app Musique), jamais prétendre les avoir supprimés.
+- L'ISRC des morceaux de bibliothèque n'est pas garanti par l'API (relation
+  `catalog` parfois vide, signalé sur les forums Apple) — traité comme
+  best-effort, avec repli automatique sur la résolution fuzzy titre+artiste
+  déjà en place dans `TrackResolver`.
+
+Sources : [Apple Developer Forums — music app development](https://developer.apple.com/forums/thread/688335),
+[Get All Library Playlists](https://developer.apple.com/documentation/applemusicapi/get-all-library-playlists),
+[User Authentication for MusicKit](https://developer.apple.com/documentation/applemusicapi/user-authentication-for-musickit),
+[Can we remove tracks from a user's Library Playlist yet?](https://developer.apple.com/forums/thread/707759)
 
 ## 3. Deezer API — ⚠️ NON RETENU pour le MVP commercial
 
