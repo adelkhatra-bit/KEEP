@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "KEEP",
+    "slug": "keep-app",
+    "version": "0.0.1",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTabletMode": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow KEEP to access your music library",
+          "cameraPermission": "Allow KEEP to access your camera"
+        }
+      ]
+    ]
+  }
+}
