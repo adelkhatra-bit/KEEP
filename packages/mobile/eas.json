@@ -1,8 +1,38 @@
 {
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
   "build": {
-    "preview": {
-      "ios": {"resourceClass": "default"}
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
+      }
     },
-    "production": {}
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "ios": {
+        "resourceClass": "m-medium",
+        "simulator": false
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleTeamId": "REMPLACER_APRES_INSCRIPTION_APPLE_DEVELOPER",
+        "ascAppId": "REMPLACER_APRES_CREATION_FICHE_APP_STORE_CONNECT"
+      }
+    }
   }
 }

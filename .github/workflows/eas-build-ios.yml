@@ -1,0 +1,82 @@
+name: KEEP — Build iOS (EAS) + TestFlight
+
+# Objectif : à chaque changement du code mobile sur main, produire un build
+# iOS via EAS Build et le soumettre automatiquement à TestFlight, sans
+# intervention manuelle. Voir docs/DEPLOYMENT_TESTFLIGHT.md pour la liste
+# exhaustive (et minimale) des actions propriétaire nécessaires une seule
+# fois avant que ce workflow puisse tourner.
+#
+# Rien dans ce fichier ne doit jamais recevoir de secret en clair : tout
+# passe par les "Repository secrets" GitHub (Settings → Secrets and
+# variables → Actions), jamais collé dans une conversation ni committé ici.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/mobile/**"
+      - "packages/music/**"
+      - ".github/workflows/eas-build-ios.yml"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Profil EAS (development | preview | production)"
+        required: false
+        default: "production"
+        type: choice
+        options: [development, preview, production]
+      auto_submit:
+        description: "Soumettre automatiquement à TestFlight après le build"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  build-ios:
+    name: Build iOS via EAS
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies (workspace root)
+        working-directory: .
+        run: npm ci
+
+      - name: Écrire la clé API App Store Connect (fichier temporaire, jamais committé)
+        if: ${{ secrets.ASC_API_KEY_P8_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.ASC_API_KEY_P8_BASE64 }}" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
+          echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
+
+      - name: Build iOS (non-interactif, credentials gérés par EAS)
+        env:
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          AUTO_SUBMIT_FLAG=""
+          if [ "${{ github.event.inputs.auto_submit }}" != "false" ]; then
+            AUTO_SUBMIT_FLAG="--auto-submit"
+          fi
+          eas build --platform ios --profile "$PROFILE" --non-interactive --no-wait $AUTO_SUBMIT_FLAG
+
+      - name: Nettoyage clé API
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc-api-key.p8"

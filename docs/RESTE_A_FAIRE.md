@@ -41,10 +41,19 @@
 - [ ] Découverte locale (localisation approximative uniquement).
 
 ## Priorité 6 — Stores
-- [ ] Compte Apple Developer / Google Play Console (ACTION UTILISATEUR).
+- [x] Pipeline CI/CD automatisé prêt : `.github/workflows/eas-build-ios.yml`
+      + `eas.json` (profils dev/preview/production, credentials via ASC API
+      Key) + assets icône/splash réels. Voir `docs/DEPLOYMENT_TESTFLIGHT.md`
+      pour les 3 actions propriétaire restantes (compte Expo, compte Apple
+      Developer, fiche App Store Connect) — tout le reste est automatique.
+- [ ] Compte Apple Developer / Google Play Console (ACTION UTILISATEUR —
+      voir docs/DEPLOYMENT_TESTFLIGHT.md).
 - [ ] Fiches store (nom, description, mots-clés, captures, politique de
       confidentialité publiée, notes de review expliquant que KEEP route
       vers des comptes existants — cf. Guideline 4.2.2).
+- [ ] Pipeline équivalent Android (`eas build --platform android` +
+      `eas submit`) — non prioritaire tant que le cœur iOS n'est pas validé
+      en TestFlight, cf. décision produit Apple Music en premier.
 
 ## Documentation restante (§85 du cahier des charges)
 - [ ] ARCHITECTURE.md, DATABASE.md, SECURITY.md, PRIVACY.md, PAYMENTS.md,

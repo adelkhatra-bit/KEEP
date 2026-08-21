@@ -81,6 +81,18 @@ commandes, ~2 minutes).
 - Onboarding (Apple/Google/Email) : les boutons existent et réagissent
   honnêtement ("backend pas encore connecté"), aucune authentification
   réelle.
+- Pipeline CI/CD iOS (`.github/workflows/eas-build-ios.yml` + `eas.json`) :
+  écrit et cohérent avec la doc officielle EAS Build (vérifié via
+  recherche web le 21/08/2026, pas juste supposé), jamais exécuté — dépend
+  de 3 actions propriétaire (compte Expo, compte Apple Developer, fiche
+  App Store Connect) et du déblocage du push GitHub. Voir
+  `docs/DEPLOYMENT_TESTFLIGHT.md`.
+- Assets app store (`packages/mobile/assets/icon.png`, `adaptive-icon.png`,
+  `splash.png`, `favicon.png`) : générés programmatiquement (ImageMagick,
+  couleurs de marque KEEP), remplacent les fichiers manquants référencés
+  par `app.json` mais jamais présents. Non validés par un humain — à
+  revoir avant soumission réelle si un vrai logo designé existe par
+  ailleurs.
 
 ## MOCK (Mode Démo assumé, jamais présenté comme réel)
 
@@ -153,10 +165,14 @@ Action exacte : créer un compte (free tier 300 requêtes, sans CB), fournir
 la clé API par une méthode sécurisée (pas collée en clair ici).
 Temps estimé : 5 minutes.
 
-**5. Apple Developer Program / Google Play Console**
-Service : Apple / Google
+**5. Pipeline TestFlight (3 sous-actions détaillées)**
+Service : Expo / Apple Developer / App Store Connect
 Pourquoi : identité, paiement et 2FA personnels — je ne peux légalement pas
-le faire à ta place.
-Action exacte : à faire uniquement quand on approche TestFlight/Play
-testing (Priorité 12 du cahier des charges) — pas bloquant maintenant.
-Temps estimé : variable.
+le faire à ta place. Le pipeline CI/CD qui automatisera tout le reste
+(build + soumission TestFlight à chaque push) est déjà écrit et prêt.
+Action exacte : voir `docs/DEPLOYMENT_TESTFLIGHT.md` — 3 actions dans
+l'ordre (compte Expo + token, compte Apple Developer + clé API ASC, fiche
+App Store Connect), chacune avec son lien exact et les secrets GitHub à
+renseigner (jamais collés ici).
+Temps estimé : 15-20 min de ta part, + 24-48h d'attente de validation
+Apple entre les étapes 2 et 3.
