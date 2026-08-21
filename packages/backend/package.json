@@ -1,0 +1,26 @@
+{
+  "name": "keep-backend",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "@supabase/supabase-js": "^2.38.5",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6",
+    "ts-node-dev": "^2.0.0"
+  },
+  "private": true
+}
