@@ -1,0 +1,26 @@
+{
+  "name": "keep",
+  "version": "0.0.1",
+  "private": true,
+  "description": "KEEP - Musical Recognition & Smart Playlist Management",
+  "workspaces": [
+    "packages/mobile",
+    "packages/backend",
+    "packages/admin"
+  ],
+  "scripts": {
+    "install:all": "yarn install",
+    "dev:mobile": "cd packages/mobile && expo start",
+    "dev:backend": "cd packages/backend && npm run dev",
+    "dev:admin": "cd packages/admin && npm run dev",
+    "build:mobile": "cd packages/mobile && eas build",
+    "build:backend": "cd packages/backend && npm run build",
+    "build:admin": "cd packages/admin && npm run build",
+    "test": "yarn workspaces run test",
+    "lint": "yarn workspaces run lint",
+    "type-check": "yarn workspaces run type-check"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
