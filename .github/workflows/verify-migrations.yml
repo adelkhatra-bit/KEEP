@@ -1,0 +1,47 @@
+name: KEEP — Vérification migrations SQL (PostgreSQL réel)
+
+# Aucun secret nécessaire (contrairement à eas-build-ios.yml) : ce workflow
+# utilise un vrai service PostgreSQL fourni par GitHub Actions, applique les
+# 7 migrations, et exécute les assertions métier réelles (triggers,
+# cohérence devise, RLS) via supabase/scripts/verify-migrations.sh.
+# Tourne sur toute PR qui touche supabase/migrations -- aucune régression
+# de schéma/RLS ne doit jamais atteindre main sans que ce job passe.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/scripts/verify-migrations.sh"
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/scripts/verify-migrations.sh"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Vérifier les migrations + triggers + RLS
+        run: bash supabase/scripts/verify-migrations.sh

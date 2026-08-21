@@ -178,6 +178,18 @@ AudD et ACRCloud n'imposent pas de restriction connue incompatible avec un
 usage commercial standard (reconnaissance ponctuelle, pas de revente du
 résultat brut en tant que produit de données).
 
+**Implémentation réelle AudD** (`packages/music/src/providers/AudDRecognitionProvider.ts`,
+vérifiée le 21/08/2026 contre docs.audd.io) : endpoint unique
+`POST https://api.audd.io/`, multipart/form-data (`api_token`, `file`,
+`return=apple_music,spotify` pour obtenir l'ISRC — absent de la réponse de
+base). Point d'attention retenu dans le code : **AudD ne fournit aucun
+score de confiance continu** (contrairement à ACRCloud) — correspondance
+binaire trouvé/pas trouvé, `confidence` fixé à 1.0 documenté comme non
+probabiliste plutôt que d'inventer un pourcentage. Testé : 13/13
+vérifications via `packages/music/scripts/verify-audd.ts` (requête
+multipart + réponses simulées fidèles à la doc, y compris les deux formes
+"pas de correspondance" — `result:null` et `result:[]`).
+
 ## Synthèse — ce qui structure la suite du build
 
 | Provider | Statut MVP | Raison |

@@ -65,6 +65,29 @@ commandes, ~2 minutes).
 - Génération HTML + parsing des messages du flux d'autorisation Apple
   Music (`appleMusicAuthHtml.ts`) : **7/7 vérifications exécutées avec
   succès** via `npx tsx packages/mobile/scripts/verify-apple-music-auth.ts`.
+- `AudDRecognitionProvider` (implémentation réelle de
+  `MusicRecognitionProvider` pour AudD) : **13/13 vérifications exécutées
+  avec succès** via `npx tsx packages/music/scripts/verify-audd.ts`,
+  incluant la construction réelle de la requête multipart (pas seulement
+  le traitement de la réponse). Statut TESTED-mock, jamais appelé contre
+  le vrai serveur AudD (nécessite une clé API réelle).
+- **Les 7 migrations SQL appliquées pour de vrai contre un vrai PostgreSQL
+  16** (`bash supabase/scripts/verify-migrations.sh`, testé dans cette
+  session ET ajouté en CI `.github/workflows/verify-migrations.yml`, sans
+  secret nécessaire). Ce n'est pas Supabase managé (pas de test contre le
+  vrai service Supabase), mais un test réel et automatisé du même moteur
+  PostgreSQL avec un schéma `auth` shim reproduisant le contrat Supabase
+  Auth. Assertions métier vérifiées, pas seulement "ça s'applique sans
+  erreur" :
+  - trigger `sync_is_adult` : 20 ans → `is_adult=true`, 10 ans → `false`.
+  - trigger `check_subscription_currency` : accepte EUR/EUR, **rejette
+    réellement** un abonnement AED sur un prix EUR (message d'erreur du
+    trigger vérifié mot pour mot).
+  - RLS testée avec un rôle non-superuser réel (`app_user`, sans
+    `BYPASSRLS` — sans ça le test ne prouverait rien, le propriétaire des
+    tables contourne toujours RLS) : Alice voit son propre profil, Alice
+    ne voit **0 ligne** de `profile_private_info` de Bob, et `admin_users`
+    reste invisible même avec une vraie ligne dedans.
 - Des tests Jest équivalents existent aussi dans `src/__tests__/*.test.ts`
   (format standard pour CI future) mais **Jest lui-même n'a pas pu être
   installé** dans ce sandbox — non exécutés via Jest, seulement via `tsx`.
@@ -102,8 +125,11 @@ commandes, ~2 minutes).
   honnêtement 501 sinon. Pas encore protégé par une authentification KEEP
   (voir avertissement de sécurité dans `routes/music.ts`) — À CORRIGER
   avant tout déploiement public.
-- `MusicRecognitionProvider` (interface) — aucune implémentation AudD/ACRCloud
-  réelle encore écrite, seulement `DemoRecognitionProvider`.
+- `MusicRecognitionProvider` (interface) — implémentation AudD réelle
+  écrite et testée en isolation (voir TESTED ci-dessus), pas encore
+  branchée dans `musicEngine` (nécessite une vraie clé API AudD, ACTION
+  UTILISATEUR) ; aucune implémentation ACRCloud (solution de secours)
+  encore écrite, seulement `DemoRecognitionProvider`.
 - Backend Express (`packages/backend`) : uniquement un health-check, aucune
   route métier.
 - Super Admin Next.js (`packages/admin`) : page d'accueil statique
@@ -138,7 +164,7 @@ commandes, ~2 minutes).
 |---|---|---|
 | Push GitHub (`adelkhatra-bit/keep`) | Le proxy git de cette session refuse le push : *"adelkhatra-bit/keep is not in this session's authorized repository set"* — dépôt non autorisé, indépendamment du token GitHub déjà connecté en lecture. | Autoriser ce dépôt pour la session (paramètres Cowork/Claude, pas un token à coller). |
 | `npm install` / tests Jest / Expo tunnel | Accès réseau sortant restreint dans ce sandbox cloud (voir section environnement). | Élargir l'accès réseau (Admin → Capabilities) OU exécuter en local sur ta machine. |
-| Déploiement Supabase (schéma déjà prêt) | Aucun projet Supabase KEEP n'existe. Connecteur Supabase disponible dans le registre mais non installé pour cette organisation. | Connecter le connecteur Supabase (méthode sécurisée, pas de clé à coller ici), ou créer le projet et transmettre l'URL. |
+| Déploiement Supabase managé (le schéma lui-même est maintenant vérifié contre un vrai PostgreSQL 16, voir TESTED) | Aucun projet Supabase KEEP n'existe. Connecteur Supabase disponible dans le registre mais non installé pour cette organisation. | Connecter le connecteur Supabase (méthode sécurisée, pas de clé à coller ici), ou créer le projet et transmettre l'URL. |
 | Reconnaissance musicale réelle (AudD) | Aucune clé API AudD. | Créer un compte AudD (free tier 300 requêtes sans CB) et fournir la clé via une méthode sécurisée. |
 | Spotify Extended Quota (>5 comptes) | Nécessite 250k MAU + entité légale (voir PLATFORM_COMPLIANCE.md) — non actionnable maintenant. | Décision produit : Apple Music comme provider principal du lancement. |
 | Apple Developer / Google Play accounts | Nécessite identité, paiement, 2FA personnels. | Voir ACTION UTILISATEUR REQUISE ci-dessous. |

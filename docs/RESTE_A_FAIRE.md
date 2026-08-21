@@ -11,9 +11,17 @@
       Apple Music (impossible depuis ce sandbox).
 - [ ] Implémenter un vrai `MusicProviderAdapter` Spotify (Development Mode, 5
       comptes max) en parallèle.
-- [ ] Implémenter un vrai `MusicRecognitionProvider` AudD (clé API requise).
+- [x] Implémenter un vrai `MusicRecognitionProvider` AudD : écrit et testé
+      (13/13, requête multipart + réponses simulées fidèles à l'API
+      réelle). Reste : une vraie clé API (compte audd.io, free tier 300
+      requêtes) pour sortir du mock — ACTION UTILISATEUR, voir
+      PROJECT_STATUS.md.
 - [ ] Remplacer le micro DEMO par un vrai enregistrement `expo-av`/`expo-audio`.
-- [ ] Déployer le schéma Supabase (`supabase/migrations/`) sur un vrai projet.
+- [x] Schéma Supabase vérifié contre un vrai PostgreSQL 16 (7 migrations +
+      triggers + RLS réellement testés, voir PROJECT_STATUS.md et
+      `supabase/scripts/verify-migrations.sh` + CI associée). Reste : le
+      déployer sur un vrai projet Supabase managé (ACTION UTILISATEUR —
+      connecteur Supabase ou création manuelle du projet).
 - [ ] Brancher Supabase Auth (email + Sign in with Apple + Google) dans
       `OnboardingScreen`/`useUserStore` — actuellement affiche honnêtement
       "pas connecté" au lieu de simuler une connexion.
