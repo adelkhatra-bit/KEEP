@@ -1,0 +1,8 @@
+{
+  "build": {
+    "preview": {
+      "ios": {"resourceClass": "default"}
+    },
+    "production": {}
+  }
+}
