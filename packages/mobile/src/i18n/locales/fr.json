@@ -1,0 +1,52 @@
+{
+  "onboarding": {
+    "welcomeTitle": "KEEP",
+    "welcomeSubtitle": "Tu l'aimes. KEEP la range.",
+    "continueApple": "Continuer avec Apple",
+    "continueGoogle": "Continuer avec Google",
+    "continueEmail": "Continuer avec e-mail",
+    "legalNotice": "En continuant, tu acceptes les CGU et la politique de confidentialité de KEEP."
+  },
+  "nav": {
+    "listen": "Écouter",
+    "discover": "Découvrir",
+    "myMusic": "Mes musiques",
+    "profile": "Profil"
+  },
+  "listen": {
+    "noSongTitle": "Aucune musique en cours",
+    "startListening": "Commencer à écouter",
+    "listening": "KEEP écoute...",
+    "recognized": "Reconnu",
+    "pass": "PASSER",
+    "keep": "GARDER",
+    "keptIn": "Rangé dans {{playlist}}",
+    "confidence": "Confiance {{value}}%"
+  },
+  "myMusic": {
+    "title": "Mes musiques",
+    "playlists": "Playlists",
+    "organizeMyMusic": "Ranger ma musique",
+    "songsAnalyzed": "{{count}} morceaux analysés",
+    "suggestions": "{{count}} propositions de rangement",
+    "duplicates": "{{count}} doublons potentiels",
+    "viewSuggestions": "Voir les propositions"
+  },
+  "profile": {
+    "title": "Profil",
+    "shareProfile": "Partager mon KEEP",
+    "settings": "Réglages",
+    "logout": "Déconnexion",
+    "completion": "Ton KEEP est complété à {{percent}} %",
+    "followers": "Abonnés",
+    "following": "Abonnements"
+  },
+  "demo": {
+    "badge": "🎭 MODE DÉMO — données fictives, réinitialisées au rafraîchissement"
+  },
+  "common": {
+    "comingSoon": "Bientôt disponible",
+    "notConnected": "Pas encore connecté",
+    "error": "Une erreur est survenue"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "onboarding": {
+    "welcomeTitle": "KEEP",
+    "welcomeSubtitle": "You love it. KEEP files it.",
+    "continueApple": "Continue with Apple",
+    "continueGoogle": "Continue with Google",
+    "continueEmail": "Continue with email",
+    "legalNotice": "By continuing, you agree to KEEP's Terms and Privacy Policy."
+  },
+  "nav": {
+    "listen": "Listen",
+    "discover": "Discover",
+    "myMusic": "My Music",
+    "profile": "Profile"
+  },
+  "listen": {
+    "noSongTitle": "No song playing",
+    "startListening": "Start Listening",
+    "listening": "KEEP is listening...",
+    "recognized": "Recognized",
+    "pass": "PASS",
+    "keep": "KEEP",
+    "keptIn": "Filed in {{playlist}}",
+    "confidence": "{{value}}% confidence"
+  },
+  "myMusic": {
+    "title": "My Music",
+    "playlists": "Playlists",
+    "organizeMyMusic": "Organize My Music",
+    "songsAnalyzed": "{{count}} tracks analyzed",
+    "suggestions": "{{count}} filing suggestions",
+    "duplicates": "{{count}} potential duplicates",
+    "viewSuggestions": "View suggestions"
+  },
+  "profile": {
+    "title": "Profile",
+    "shareProfile": "Share my KEEP",
+    "settings": "Settings",
+    "logout": "Log out",
+    "completion": "Your KEEP is {{percent}}% complete",
+    "followers": "Followers",
+    "following": "Following"
+  },
+  "demo": {
+    "badge": "🎭 DEMO MODE — sample data, resets on refresh"
+  },
+  "common": {
+    "comingSoon": "Coming soon",
+    "notConnected": "Not connected yet",
+    "error": "Something went wrong"
+  }
+}

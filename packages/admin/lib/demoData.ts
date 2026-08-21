@@ -1,0 +1,57 @@
+/**
+ * Données DEMO du Super Admin — reflètent la structure réelle de
+ * `supabase/migrations/` mais ne sont PAS lues depuis un vrai projet
+ * Supabase (aucun n'est encore connecté, voir docs/PROJECT_STATUS.md).
+ *
+ * Règle "aucun faux résultat" : tous les agrégats affichés dans l'UI sont
+ * CALCULÉS à partir de ces tableaux (voir lib/aggregate.ts), jamais des
+ * nombres inventés écrits directement dans un composant.
+ */
+
+export type PlanCode = 'FREE' | 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
+
+export interface DemoSubscription {
+  id: string;
+  plan: PlanCode;
+  status: 'TRIALING' | 'ACTIVE' | 'CANCELLED';
+  monthlyAmountEur: number;
+  countryCode: string;
+  createdAt: string;
+}
+
+export interface DemoUser {
+  id: string;
+  username: string;
+  country: string;
+  plan: PlanCode;
+  keepsThisMonth: number;
+  joinedAt: string;
+}
+
+export interface DemoCost {
+  category: 'supabase' | 'music_recognition' | 'hosting' | 'email' | 'push' | 'other';
+  label: string;
+  monthlyAmountEur: number;
+}
+
+export const DEMO_USERS: DemoUser[] = [
+  { id: 'u1', username: 'adel', country: 'FR', plan: 'PREMIUM', keepsThisMonth: 42, joinedAt: '2026-06-01' },
+  { id: 'u2', username: 'lea_m', country: 'FR', plan: 'FREE', keepsThisMonth: 12, joinedAt: '2026-07-10' },
+  { id: 'u3', username: 'dj_nova', country: 'FR', plan: 'CREATOR_PRO', keepsThisMonth: 87, joinedAt: '2026-05-15' },
+  { id: 'u4', username: 'club_lumen', country: 'FR', plan: 'VENUE_PRO', keepsThisMonth: 5, joinedAt: '2026-04-20' },
+  { id: 'u5', username: 'sam_k', country: 'BE', plan: 'FREE', keepsThisMonth: 3, joinedAt: '2026-08-02' },
+];
+
+export const DEMO_SUBSCRIPTIONS: DemoSubscription[] = [
+  { id: 's1', plan: 'PREMIUM', status: 'ACTIVE', monthlyAmountEur: 4.99, countryCode: 'FR', createdAt: '2026-06-01' },
+  { id: 's2', plan: 'CREATOR_PRO', status: 'ACTIVE', monthlyAmountEur: 9.99, countryCode: 'FR', createdAt: '2026-05-15' },
+  { id: 's3', plan: 'VENUE_PRO', status: 'TRIALING', monthlyAmountEur: 29.0, countryCode: 'FR', createdAt: '2026-08-10' },
+];
+
+export const DEMO_COSTS: DemoCost[] = [
+  { category: 'supabase', label: 'Supabase (Pro)', monthlyAmountEur: 25 },
+  { category: 'music_recognition', label: 'AudD (pay-as-you-go)', monthlyAmountEur: 18 },
+  { category: 'hosting', label: 'Hosting web public + admin', monthlyAmountEur: 12 },
+  { category: 'push', label: 'Notifications push', monthlyAmountEur: 0 },
+  { category: 'email', label: 'Emails transactionnels', monthlyAmountEur: 0 },
+];

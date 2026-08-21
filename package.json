@@ -6,11 +6,13 @@
   "workspaces": [
     "packages/mobile",
     "packages/backend",
-    "packages/admin"
+    "packages/admin",
+    "packages/music"
   ],
   "scripts": {
     "install:all": "yarn install",
     "dev:mobile": "cd packages/mobile && expo start",
+    "dev:mobile:tunnel": "cd packages/mobile && expo start --tunnel",
     "dev:backend": "cd packages/backend && npm run dev",
     "dev:admin": "cd packages/admin && npm run dev",
     "build:mobile": "cd packages/mobile && eas build",

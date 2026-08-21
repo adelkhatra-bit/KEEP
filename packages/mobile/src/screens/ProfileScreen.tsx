@@ -1,17 +1,14 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Share } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../store/useUserStore';
+import { colors } from '../theme/colors';
+import { spacing, radius, typography } from '../theme/spacing';
+import { musicEngine } from '../services/musicEngine';
 
 export default function ProfileScreen() {
-  const { user, logout } = useUserStore();
+  const { t } = useTranslation();
+  const { user, isDemoMode, logout, profileCompletion } = useUserStore();
 
   if (!user) {
     return (
@@ -23,23 +20,42 @@ export default function ProfileScreen() {
     );
   }
 
+  const completion = profileCompletion();
+
+  const handleShare = async () => {
+    // Lien universel réel (deep link scheme "keep://") — la résolution web
+    // publique (keep.app/@handle) nécessite le déploiement du site public,
+    // voir docs/PROJECT_STATUS.md (statut PLANNED).
+    try {
+      await Share.share({
+        message: `Découvre mon KEEP 🎵 keep://profile/${user.username}`,
+      });
+    } catch {
+      // L'utilisateur a annulé le partage natif — pas une erreur applicative.
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <Text style={styles.title}>{t('profile.title')}</Text>
         </View>
 
-        {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <View style={styles.avatar} />
           <Text style={styles.username}>{user.username}</Text>
           <Text style={styles.email}>{user.email}</Text>
           <Text style={styles.bio}>{user.bio}</Text>
         </View>
 
-        {/* Stats */}
+        <View style={styles.completionCard}>
+          <Text style={styles.completionText}>{t('profile.completion', { percent: completion })}</Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${completion}%` }]} />
+          </View>
+        </View>
+
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{user.playlistCount}</Text>
@@ -47,157 +63,77 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{user.followerCount}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
+            <Text style={styles.statLabel}>{t('profile.followers')}</Text>
           </View>
         </View>
 
-        {/* Actions */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>🔗 Share Profile</Text>
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+            <Text style={styles.actionButtonText}>🔗 {t('profile.shareProfile')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>⚙️ Settings</Text>
+            <Text style={styles.actionButtonText}>⚙️ {t('profile.settings')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.logoutButton]}
-            onPress={logout}
-          >
-            <Text style={styles.logoutButtonText}>🚪 Logout</Text>
+          <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={logout}>
+            <Text style={styles.logoutButtonText}>🚪 {t('profile.logout')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Demo Badge */}
-        <View style={styles.demoBadge}>
-          <Text style={styles.demoText}>🎭 DEMO Profile</Text>
-        </View>
+        {isDemoMode && musicEngine.isDemoMode && (
+          <View style={styles.demoBadge}>
+            <Text style={styles.demoText}>{t('demo.badge')}</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  scrollContent: {
-    paddingBottom: 30,
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#999',
-  },
-  header: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  avatarSection: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#333',
-    marginBottom: 20,
-  },
-  username: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  email: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
-  bio: {
-    fontSize: 14,
-    color: '#bbb',
-    marginTop: 8,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-    paddingVertical: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1DB954',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 8,
-  },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { paddingBottom: spacing.xxl },
+  centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { fontSize: 18, color: colors.textSecondary },
+  header: { paddingVertical: spacing.xl, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
+  title: { ...typography.h1, color: colors.textPrimary },
+  avatarSection: { alignItems: 'center', paddingVertical: spacing.xxl, borderBottomWidth: 1, borderBottomColor: colors.border },
+  avatar: { width: 110, height: 110, borderRadius: 55, backgroundColor: colors.backgroundCard, marginBottom: spacing.lg },
+  username: { ...typography.h2, color: colors.textPrimary },
+  email: { fontSize: 14, color: colors.textMuted, marginTop: spacing.xs },
+  bio: { fontSize: 14, color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center', paddingHorizontal: spacing.xl },
+  completionCard: { marginHorizontal: spacing.xl, marginTop: spacing.lg },
+  completionText: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm },
+  progressTrack: { height: 6, borderRadius: radius.pill, backgroundColor: colors.backgroundCard, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.pill },
+  statsContainer: { flexDirection: 'row', paddingVertical: spacing.xl, paddingHorizontal: spacing.xl, gap: spacing.md },
+  statCard: { flex: 1, backgroundColor: colors.backgroundCard, paddingVertical: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+  statNumber: { ...typography.h2, color: colors.primaryLight },
+  statLabel: { fontSize: 12, color: colors.textMuted, marginTop: spacing.sm },
+  actionsContainer: { paddingHorizontal: spacing.xl, gap: spacing.md },
   actionButton: {
-    backgroundColor: '#1a1a1a',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: colors.backgroundCard,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: colors.border,
+    minHeight: 48,
+    justifyContent: 'center',
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  actionButtonText: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
+  logoutButton: { backgroundColor: colors.danger, borderColor: colors.danger },
+  logoutButtonText: { color: colors.white, fontSize: 15, fontWeight: '600' },
   demoBadge: {
-    marginHorizontal: 20,
-    marginTop: 30,
-    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+    backgroundColor: colors.demoBadgeBg,
     borderWidth: 1,
-    borderColor: '#FFC107',
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderColor: colors.demoBadgeBorder,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
-  demoText: {
-    color: '#FFC107',
-    fontSize: 12,
-    fontWeight: '500',
-  },
+  demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
 });

@@ -1,22 +1,8 @@
-export interface Song {
-  id: string;
-  title: string;
-  artist: string;
-  album: string;
-  cover: string;
-  duration: number;
-  isRecognized: boolean;
-}
-
-export interface Playlist {
-  id: string;
-  name: string;
-  description: string;
-  songCount: number;
-  cover: string;
-  isSmartPlaylist: boolean;
-}
-
+/**
+ * Types locaux à l'app mobile (profil affiché, etc.).
+ * Les types musicaux (morceau, playlist, recommandation) viennent de
+ * @keep/music — pas de duplication ici (cf. règle anti-doublon).
+ */
 export interface User {
   id: string;
   username: string;

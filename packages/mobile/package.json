@@ -36,7 +36,12 @@
     "expo-media-library": "~15.9.0",
     "@react-native-async-storage/async-storage": "^1.23.1",
     "@supabase/supabase-js": "^2.43.4",
-    "react-native-url-polyfill": "^2.0.0"
+    "react-native-url-polyfill": "^2.0.0",
+    "@keep/music": "*",
+    "i18next": "^23.11.5",
+    "react-i18next": "^14.1.2",
+    "expo-localization": "~15.0.3",
+    "expo-linear-gradient": "~13.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.23.6",
