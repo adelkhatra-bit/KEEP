@@ -24,16 +24,5 @@
   },
   "devDependencies": {
     "typescript": "^5.3.3"
-  },
-  "overrides": {
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "next": {
-      "react": "$react",
-      "react-dom": "$react-dom"
-    },
-    "@testing-library/react-native": {
-      "react": "$react"
-    }
   }
 }

@@ -47,7 +47,7 @@ export default function AppleMusicAuthScreen({ developerToken, onSuccess, onErro
   return (
     <View style={styles.container}>
       {loading && (
-        <View style={styles.loadingOverlay}>
+        <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
           <ActivityIndicator color={colors.keep} size="large" />
           <Text style={styles.loadingText}>Connexion à Apple Music…</Text>
         </View>
@@ -68,7 +68,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   webview: { flex: 1, backgroundColor: colors.background },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
     zIndex: 1,
     alignItems: 'center',
     justifyContent: 'center',

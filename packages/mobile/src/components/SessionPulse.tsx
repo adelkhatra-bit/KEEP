@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
   withDelay,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 
@@ -82,7 +83,7 @@ export default function SessionPulse({ active = true }: { active?: boolean }) {
   );
 }
 
-function Bar({ progress }: { progress: Animated.SharedValue<number> }) {
+function Bar({ progress }: { progress: SharedValue<number> }) {
   const style = useAnimatedStyle(() => ({
     height: 8 + progress.value * 22,
     opacity: 0.55 + progress.value * 0.45,

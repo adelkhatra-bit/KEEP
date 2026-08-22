@@ -10,7 +10,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0a"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTabletMode": true,
       "bundleIdentifier": "com.adelkhatra.keep",
@@ -32,14 +34,29 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["expo-build-properties", {"ios": {"useFrameworks": "static"}}],
-      ["expo-image-picker", {"photosPermission": "Allow KEEP to access your photos"}],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow KEEP to access your photos"
+        }
+      ],
       [
         "expo-location",
         {
           "locationWhenInUsePermission": "KEEP can attach an approximate location to a session and show nearby profiles/events in Discover — only if you turn this on in your profile."
         }
-      ]
+      ],
+      "expo-localization",
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "scheme": "keep"
   }
