@@ -17,11 +17,11 @@
     "ios": {
       "supportsTabletMode": true,
       "bundleIdentifier": "com.adelkhatra.keep",
-      "buildNumber": "1",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "KEEP uses your microphone during a session to identify the songs playing around you.",
         "NSLocationWhenInUseUsageDescription": "KEEP can attach an approximate location to a session and show nearby profiles/events in Discover — only if you turn this on in your profile.",
-        "NSLocalNetworkUsageDescription": "KEEP needs local network access"
+        "NSLocalNetworkUsageDescription": "KEEP needs local network access",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
