@@ -116,7 +116,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       try {
         const recognition = await musicEngine.recognitionProvider.recognize(new ArrayBuffer(0));
         if (!recognition) {
-          set({ recognizing: false });
+          // Rien entendu ce tick -- normal (silence, morceau non reconnu),
+          // pas une erreur : on efface une éventuelle erreur précédente.
+          set({ recognizing: false, error: null });
           return;
         }
 
@@ -126,7 +128,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           // Même morceau toujours en cours, pas une nouvelle détection —
           // mais la musique continue : repousse la détection de fin.
           lastDetectionAt = Date.now();
-          set({ recognizing: false, showEndPrompt: false });
+          set({ recognizing: false, showEndPrompt: false, error: null });
           return;
         }
 
@@ -142,7 +144,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           detectedAt: new Date().toISOString(),
         };
         lastDetectionAt = Date.now();
-        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, showEndPrompt: false }));
+        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, showEndPrompt: false, error: null }));
       } catch (e: any) {
         set({ recognizing: false, error: e?.message ?? 'Erreur de reconnaissance' });
       }

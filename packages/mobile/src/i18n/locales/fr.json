@@ -34,7 +34,8 @@
     "namePlaceholder": "Nommer cette session (ex. Chez Paul, Ibiza…)",
     "keepAll": "Garder tout ({{count}})",
     "chooseDestination": "Choisir où ranger ce morceau",
-    "pendingCount": "{{count}} en attente"
+    "pendingCount": "{{count}} en attente",
+    "emptySessionEnded": "Session terminée — aucun morceau détecté, rien à garder."
   },
   "history": {
     "title": "Mes Sessions",

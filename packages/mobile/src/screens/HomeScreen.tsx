@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, Modal, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -47,15 +47,19 @@ export default function HomeScreen({ navigation }: any) {
   const detectedCount = tracks.length;
   const keptCount = tracks.filter((tr) => tr.status === 'kept').length;
 
-  const handleEndNow = () => {
+  const finishSession = () => {
     const sessionId = requestEndSession();
-    if (sessionId) navigation.navigate('SessionRecap', { sessionId });
+    if (sessionId) {
+      navigation.navigate('SessionRecap', { sessionId });
+    } else {
+      // 0 morceau détecté sur cette session -- rien à archiver, mais
+      // l'utilisateur doit quand même avoir un retour (jamais de silence).
+      Alert.alert(t('session.endNow'), t('session.emptySessionEnded'));
+    }
   };
 
-  const handleConfirmEndFromPrompt = () => {
-    const sessionId = requestEndSession();
-    if (sessionId) navigation.navigate('SessionRecap', { sessionId });
-  };
+  const handleEndNow = () => finishSession();
+  const handleConfirmEndFromPrompt = () => finishSession();
 
   if (!isActive) {
     return (
@@ -98,6 +102,12 @@ export default function HomeScreen({ navigation }: any) {
       </View>
 
       <SessionPulse active />
+
+      {error && (
+        <View style={styles.liveErrorBanner}>
+          <Text style={styles.liveErrorText}>{error}</Text>
+        </View>
+      )}
 
       <FlatList
         data={tracks}
@@ -166,6 +176,12 @@ const styles = StyleSheet.create({
   liveTitle: { fontSize: 13, color: colors.primaryLight, fontWeight: '700', letterSpacing: 1 },
   timer: { fontSize: 34, color: colors.textPrimary, fontWeight: '700', marginTop: spacing.xs, fontVariant: ['tabular-nums'] },
   liveStats: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs },
+  liveErrorBanner: {
+    marginHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.xs,
+    backgroundColor: 'rgba(255,92,114,0.12)', borderWidth: 1, borderColor: colors.danger,
+    borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+  },
+  liveErrorText: { color: colors.danger, fontSize: 12, textAlign: 'center' },
 
   list: { flex: 1 },
   listContent: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg },

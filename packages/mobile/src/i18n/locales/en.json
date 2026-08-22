@@ -34,7 +34,8 @@
     "namePlaceholder": "Name this session (e.g. At Paul's, Ibiza…)",
     "keepAll": "Keep all ({{count}})",
     "chooseDestination": "Choose where to file this track",
-    "pendingCount": "{{count}} pending"
+    "pendingCount": "{{count}} pending",
+    "emptySessionEnded": "Session ended — no track detected, nothing to keep."
   },
   "history": {
     "title": "My Sessions",
