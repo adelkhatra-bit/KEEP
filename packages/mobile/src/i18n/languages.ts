@@ -33,5 +33,5 @@ export const LANGUAGES: LanguageDef[] = [
   { code: 'hi', label: 'हिन्दी', rtl: false, status: 'PLANNED' },
 ];
 
-export const DEFAULT_LANGUAGE = 'en';
-export const FALLBACK_LANGUAGE = 'en';
+export const DEFAULT_LANGUAGE = 'fr';
+export const FALLBACK_LANGUAGE = 'fr';

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { KeepSession, SessionTrackStatus } from '../types';
+import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { commitKeep } from '../services/keepTrackAction';
 
 /**
@@ -22,6 +22,10 @@ interface SessionHistoryStore {
   passTrackInSession: (sessionId: string, entryId: string) => void;
   keepAllPendingInSession: (sessionId: string) => Promise<void>;
   getSession: (sessionId: string) => KeepSession | undefined;
+  /** Nombre total de morceaux gardés mais pas encore synchronisés (aucun service connecté au moment du GARDER) — toutes sessions confondues. */
+  countWaitingSync: () => number;
+  /** Appelée une fois un service musical connecté (voir useMusicServiceStore) — rejoue GARDER pour chaque morceau en attente. */
+  syncAllWaitingTracks: () => Promise<void>;
 }
 
 function updateEntryStatus(
@@ -29,12 +33,13 @@ function updateEntryStatus(
   sessionId: string,
   entryId: string,
   status: SessionTrackStatus,
-  keptPlaylistId?: string
+  keptPlaylistId?: string,
+  syncState?: SessionTrackEntry['syncState']
 ): KeepSession[] {
   return sessions.map((s) =>
     s.id !== sessionId
       ? s
-      : { ...s, tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, status, keptPlaylistId } : t)) }
+      : { ...s, tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, status, keptPlaylistId, syncState } : t)) }
   );
 }
 
@@ -53,8 +58,8 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const entry = session?.tracks.find((t) => t.id === entryId);
         if (!session || !entry) return;
 
-        const { targetPlaylistId } = await commitKeep(entry.track, entry.recommendations, playlistId);
-        set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId) }));
+        const { targetPlaylistId, syncState } = await commitKeep(entry.track, entry.recommendations, playlistId);
+        set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, syncState) }));
       },
 
       passTrackInSession: (sessionId, entryId) => {
@@ -71,6 +76,25 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       },
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),
+
+      countWaitingSync: () =>
+        get().sessions.reduce(
+          (total, s) => total + s.tracks.filter((t) => t.status === 'kept' && t.syncState === 'waiting_sync').length,
+          0
+        ),
+
+      syncAllWaitingTracks: async () => {
+        const sessions = get().sessions;
+        for (const session of sessions) {
+          for (const entry of session.tracks) {
+            if (entry.status !== 'kept' || entry.syncState !== 'waiting_sync') continue;
+            const { targetPlaylistId, syncState } = await commitKeep(entry.track, entry.recommendations);
+            set((s) => ({
+              sessions: updateEntryStatus(s.sessions, session.id, entry.id, 'kept', targetPlaylistId, syncState),
+            }));
+          }
+        }
+      },
     }),
     {
       name: 'keep-session-history',

@@ -11,6 +11,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
+import SpotifyConnectScreen from '../screens/SpotifyConnectScreen';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
@@ -73,6 +74,7 @@ export default function Navigation() {
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
+        <RootStack.Screen name="SpotifyConnect" component={SpotifyConnectScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

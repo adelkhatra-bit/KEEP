@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { AppAlert as Alert } from '../utils/AppAlert';
 
 interface Props {
   entry: SessionTrackEntry;
@@ -67,7 +68,8 @@ export default function TrackRow({ entry, onKeep, onPass, playlists }: Props) {
         </View>
       ) : (
         <View style={styles.statusBadge}>
-          {status === 'kept' && <Text style={styles.keptText}>✓ {topPlaylistName ?? t('listen.keep')}</Text>}
+          {status === 'kept' && entry.syncState === 'waiting_sync' && <Text style={styles.keptText}>✓ {t('listen.keep')}</Text>}
+          {status === 'kept' && entry.syncState !== 'waiting_sync' && <Text style={styles.keptText}>✓ {topPlaylistName ?? t('listen.keep')}</Text>}
           {status === 'passed' && <Text style={styles.passedText}>{t('listen.pass')}</Text>}
           {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
         </View>

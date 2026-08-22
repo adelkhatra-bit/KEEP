@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, Platform, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, TextInput, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { spacing, radius, typography } from '../../theme/spacing';
 import { useUserStore } from '../../store/useUserStore';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
 import { createAuthService } from '../../services/authService';
+import { AppAlert as Alert } from '../../utils/AppAlert';
 
 type EmailStep = 'idle' | 'codeSent';
 
@@ -107,6 +108,10 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.actions}>
+        <TouchableOpacity style={[styles.button, styles.demoButton]} onPress={() => enterDemoMode()}>
+          <Text style={styles.demoButtonText}>{t('onboarding.tryDemoMode')}</Text>
+        </TouchableOpacity>
+
         {Platform.OS === 'ios' && (
           <TouchableOpacity style={[styles.button, styles.appleButton]} onPress={() => handleAuthPress('apple')}>
             <Text style={styles.appleButtonText}> {t('onboarding.continueApple')}</Text>
@@ -201,6 +206,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  demoButton: {
+    backgroundColor: colors.primary,
+  },
+  demoButtonText: {
+    ...typography.button,
+    color: colors.white,
   },
   appleButton: {
     backgroundColor: colors.white,

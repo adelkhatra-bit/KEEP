@@ -39,13 +39,35 @@ async function ensurePermission(): Promise<void> {
  * forme de Blob (format attendu par AudDRecognitionProvider.recognize).
  * Chaque appel crée et détruit son propre enregistrement -- pas d'état
  * partagé entre deux échantillons successifs.
+ *
+ * `onLevel` (0-1, silence->fort) reçoit le niveau micro réel en direct
+ * (metering natif expo-av) pendant l'enregistrement -- utilisé par
+ * SessionPulse pour une animation qui réagit vraiment au son détecté au
+ * lieu d'une boucle décorative indépendante (cf. demande explicite du
+ * 22/08/2026 : "si y'a pas de son ça bouge pas, dès qu'elle détecte un son
+ * ça bouge"). Le support du metering sur Web dépend du navigateur -- si
+ * `status.metering` n'est jamais renseigné, `onLevel` n'est simplement
+ * jamais appelé (pas de fausse activité inventée).
  */
-export async function captureAudioSample(): Promise<Blob> {
+export async function captureAudioSample(onLevel?: (level: number) => void): Promise<Blob> {
   await ensurePermission();
 
-  const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+  const options = { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true };
+  const { recording } = await Audio.Recording.createAsync(
+    options,
+    onLevel
+      ? (status) => {
+          if (typeof status.metering === 'number') {
+            // dBFS (silence ≈ -160, fort ≈ 0) -> 0..1, seuil de silence pratique à -50dB.
+            onLevel(Math.max(0, Math.min(1, (status.metering + 50) / 50)));
+          }
+        }
+      : undefined,
+    100
+  );
   await new Promise((resolve) => setTimeout(resolve, SAMPLE_DURATION_MS));
   await recording.stopAndUnloadAsync();
+  onLevel?.(0);
 
   const uri = recording.getURI();
   if (!uri) {

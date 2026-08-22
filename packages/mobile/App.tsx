@@ -1,3 +1,4 @@
+import './src/polyfills/bindFetch';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import './src/i18n';
@@ -9,6 +10,7 @@ import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { colors } from './src/theme/colors';
 import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService } from './src/services/authService';
+import { WebAlertHost } from './src/utils/AppAlert';
 
 // __DEV__ uniquement, jamais en build production/TestFlight -- pratique pour
 // débugger (console/web) sans dépendre de flux UI natifs (ex. Alert.alert,
@@ -37,6 +39,7 @@ export default function App() {
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
       <StatusBar style="light" backgroundColor={colors.background} />
+      <WebAlertHost />
     </>
   );
 }

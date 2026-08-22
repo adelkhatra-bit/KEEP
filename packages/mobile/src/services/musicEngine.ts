@@ -24,9 +24,11 @@ import {
   MusicRecognitionProvider,
   ProviderPlaylist,
   SmartPlaylistRouter,
+  SpotifyProvider,
   TrackResolver,
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
+import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
 
 const IS_DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -87,66 +89,113 @@ export async function getAppleMusicDeveloperToken(): Promise<string> {
   return fetchAppleMusicDeveloperToken(API_URL!);
 }
 
-function createRealRecognitionProvider(): MusicRecognitionProvider {
-  if (isPlaceholder(AUDD_API_KEY)) {
-    throw new Error(
-      'KEEP est en Mode Réel mais EXPO_PUBLIC_AUDD_API_KEY est manquant ou factice. ' +
-        'Crée un compte sur audd.io (free tier 300 requêtes) et renseigne la clé dans packages/mobile/.env.'
-    );
-  }
-  return new AudDRecognitionProvider({ apiToken: AUDD_API_KEY! });
-}
+/**
+ * Reconnaissance réelle dès qu'une vraie clé AudD est configurée, INDÉPENDAMMENT
+ * du reste de l'app (playlists/auth peuvent rester en Mode Démo pour être
+ * testables sans backend Supabase) -- cf. demande explicite du 22/08/2026 :
+ * "je veux que le micro soit réel" sans devoir aussi monter tout le backend.
+ */
+const HAS_REAL_AUDD_KEY = !isPlaceholder(AUDD_API_KEY);
 
-function createRealMusicProvider(): MusicProviderAdapter {
-  if (isPlaceholder(API_URL)) {
-    throw new Error(
-      'KEEP est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ' +
-        'Renseigne l’URL du backend KEEP déployé dans packages/mobile/.env.'
-    );
-  }
-  return new AppleMusicProvider(createBackendDeveloperTokenProvider(API_URL!));
+function createBackendDeveloperTokenProviderIfConfigured(): DeveloperTokenProvider | null {
+  if (isPlaceholder(API_URL)) return null;
+  return createBackendDeveloperTokenProvider(API_URL!);
 }
 
 class MusicEngine {
   readonly isDemoMode = IS_DEMO_MODE;
+  /** true dès qu'une vraie clé AudD est configurée -- pilote la capture micro réelle (voir useSessionStore.ts). */
+  readonly isRealRecognition = HAS_REAL_AUDD_KEY;
   readonly recognitionProvider: MusicRecognitionProvider;
-  readonly musicProvider: MusicProviderAdapter;
   readonly trackResolver: TrackResolver;
   readonly router: SmartPlaylistRouter;
-  private session: { provider: string; userId: string; accessToken: string } | null = null;
+
+  private readonly demoMusicProvider = new DemoMusicProvider(SEED_PLAYLISTS);
+  private readonly realProviders = new Map<MusicServiceId, MusicProviderAdapter>();
+  private session: { provider: string; userId: string; accessToken: string; refreshToken?: string; expiresAt?: number } | null = null;
 
   constructor() {
-    if (IS_DEMO_MODE) {
-      this.recognitionProvider = new DemoRecognitionProvider();
-      this.musicProvider = new DemoMusicProvider(SEED_PLAYLISTS);
-    } else {
-      this.recognitionProvider = createRealRecognitionProvider();
-      this.musicProvider = createRealMusicProvider();
-    }
+    this.recognitionProvider = HAS_REAL_AUDD_KEY
+      ? new AudDRecognitionProvider({ apiToken: AUDD_API_KEY! })
+      : new DemoRecognitionProvider();
     this.trackResolver = new TrackResolver();
     this.router = new SmartPlaylistRouter(new InMemoryRoutingWeightsStore());
   }
 
-  async getSession() {
-    if (!this.session) {
-      if (IS_DEMO_MODE) {
-        this.session = await this.musicProvider.connect('demo-auth-code');
-      } else {
-        // Mode Réel : le Music User Token vient du flux WebView MusicKit JS
-        // (voir screens/auth/AppleMusicAuthScreen.tsx), stocké via
-        // expo-secure-store -- jamais un "auth-code" inventé.
-        const { getSavedMusicUserToken } = await import('./appleMusicAuth');
-        const musicUserToken = await getSavedMusicUserToken();
-        if (!musicUserToken) {
-          throw new Error('Apple Music non connecté -- va dans Profil pour lancer la connexion Apple Music.');
-        }
-        this.session = await this.musicProvider.connect(musicUserToken);
-      }
+  /**
+   * Provider musical actif -- source unique des playlists (cf. règle "une
+   * donnée créée une seule fois puis réutilisée partout"). En Mode Démo,
+   * toujours DemoMusicProvider. En Mode Réel, résolu depuis le service
+   * connecté via useMusicServiceStore (Apple Music / Spotify) -- jette une
+   * erreur explicite si aucun service n'est connecté plutôt que de deviner.
+   */
+  get musicProvider(): MusicProviderAdapter {
+    if (IS_DEMO_MODE) return this.demoMusicProvider;
+
+    const connected = useMusicServiceStore.getState().connectedService;
+    if (!connected) {
+      throw new Error('Aucun service musical connecté -- va dans Profil pour en connecter un.');
     }
-    return this.session;
+    const cached = this.realProviders.get(connected);
+    if (cached) return cached;
+
+    const provider = this.buildRealProvider(connected);
+    this.realProviders.set(connected, provider);
+    return provider;
   }
 
-  /** Réinitialise la session en cache -- utilisé après (re)connexion Apple Music. */
+  private buildRealProvider(service: MusicServiceId): MusicProviderAdapter {
+    if (service === 'apple_music') {
+      const tokenProvider = createBackendDeveloperTokenProviderIfConfigured();
+      if (!tokenProvider) {
+        throw new Error('EXPO_PUBLIC_API_URL manquant -- renseigne l’URL du backend KEEP déployé dans packages/mobile/.env.');
+      }
+      return new AppleMusicProvider(tokenProvider);
+    }
+    if (service === 'spotify') {
+      return new SpotifyProvider();
+    }
+    throw new Error(`"${service}" n'a pas encore d'intégration réelle côté KEEP.`);
+  }
+
+  async getSession(): Promise<{ provider: string; userId: string; accessToken: string; refreshToken?: string; expiresAt?: number }> {
+    if (this.session) return this.session;
+
+    if (IS_DEMO_MODE) {
+      const session = await this.musicProvider.connect('demo-auth-code');
+      this.session = session;
+      return session;
+    }
+
+    const connected = useMusicServiceStore.getState().connectedService;
+    let session: { provider: string; userId: string; accessToken: string; refreshToken?: string; expiresAt?: number };
+    if (connected === 'apple_music') {
+      // Mode Réel : le Music User Token vient du flux WebView MusicKit JS
+      // (voir screens/auth/AppleMusicAuthScreen.tsx), stocké via
+      // expo-secure-store -- jamais un "auth-code" inventé.
+      const { getSavedMusicUserToken } = await import('./appleMusicAuth');
+      const musicUserToken = await getSavedMusicUserToken();
+      if (!musicUserToken) {
+        throw new Error('Apple Music non connecté -- va dans Profil pour lancer la connexion Apple Music.');
+      }
+      session = await this.musicProvider.connect(musicUserToken);
+    } else if (connected === 'spotify') {
+      // Mode Réel : jeton obtenu via le flux PKCE (voir services/spotifyAuth.ts).
+      const { getSavedSpotifyTokens } = await import('./spotifyAuth');
+      const tokens = await getSavedSpotifyTokens();
+      if (!tokens) {
+        throw new Error('Spotify non connecté -- va dans Profil pour lancer la connexion Spotify.');
+      }
+      const base = await this.musicProvider.connect(tokens.accessToken);
+      session = { ...base, refreshToken: tokens.refreshToken, expiresAt: tokens.expiresAt };
+    } else {
+      throw new Error('Aucun service musical connecté -- va dans Profil pour en connecter un.');
+    }
+    this.session = session;
+    return session;
+  }
+
+  /** Réinitialise la session en cache -- utilisé après (re)connexion à un service musical. */
   resetSession() {
     this.session = null;
   }

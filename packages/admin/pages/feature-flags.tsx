@@ -1,22 +1,49 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import DataModeBanner from '../components/DataModeBanner';
 import { DEMO_FEATURE_FLAGS, DemoFeatureFlag, DEMO_APP_SETTINGS, DemoAppSetting } from '../lib/demoData';
+import { useLiveOrDemo } from '../lib/useLiveOrDemo';
+import { adminApi, AdminApiError } from '../lib/apiClient';
+
+interface RawFeatureFlag {
+  key: string;
+  description: string | null;
+  is_enabled_globally: boolean;
+}
+
+function mapFlags(raw: RawFeatureFlag[]): DemoFeatureFlag[] {
+  return raw.map((f) => ({ key: f.key, description: f.description ?? f.key, isEnabledGlobally: f.is_enabled_globally }));
+}
 
 /**
- * Écran Feature Flags — cf. cahier des charges "TOUT DOIT ÊTRE MODIFIABLE"
- * et RESTE_A_FAIRE.md Priorité 4. Reflète `feature_flags`
- * (supabase/migrations/0007_seed_defaults.sql), y compris `keep_dna`
- * désactivé par défaut -- ne jamais l'activer par défaut ici sans que ce
- * soit aussi le cas côté base de données.
+ * Écran Feature Flags -- cf. cahier des charges "TOUT DOIT ÊTRE MODIFIABLE"
+ * et RESTE_A_FAIRE.md Priorité 4. En Mode Réel (NEXT_PUBLIC_API_URL +
+ * Supabase configurés côté admin ET backend), lit/écrit réellement
+ * `feature_flags` via PATCH /api/admin/feature-flags/:key (voir
+ * packages/backend/src/routes/admin.ts), avec audit_log serveur. Repli
+ * honnête en Mode Démo sinon (voir lib/useLiveOrDemo.ts) -- jamais de faux
+ * "enregistré" si l'écriture réelle a échoué.
+ *
+ * `DEMO_APP_SETTINGS` (durée de silence de session) reste Mode Démo pur :
+ * aucune table `app_settings` n'existe encore côté backend (voir
+ * lib/demoData.ts) -- ne pas prétendre le contraire.
  */
 export default function FeatureFlags() {
+  const flagsResult = useLiveOrDemo('/feature-flags', mapFlags, DEMO_FEATURE_FLAGS);
   const [flags, setFlags] = useState<DemoFeatureFlag[]>(DEMO_FEATURE_FLAGS);
   const [settings, setSettings] = useState<DemoAppSetting[]>(DEMO_APP_SETTINGS);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFlags(flagsResult.data);
+  }, [flagsResult.data]);
 
   const toggle = (key: string) => {
     setFlags((prev) => prev.map((f) => (f.key === key ? { ...f, isEnabledGlobally: !f.isEnabledGlobally } : f)));
     setSavedAt(null);
+    setSaveError(null);
   };
 
   const updateSetting = (key: string, value: number) => {
@@ -24,12 +51,29 @@ export default function FeatureFlags() {
     setSavedAt(null);
   };
 
-  const handleSave = () => {
-    // MODE DÉMO : pas d'écriture réelle. En Mode Réel, PATCH /admin/feature-flags
-    // qui écrit dans `feature_flags` + une ligne `audit_logs` par changement.
-    // Les réglages numériques (DEMO_APP_SETTINGS) n'ont pas encore de table
-    // `app_settings` équivalente — voir le commentaire dans lib/demoData.ts.
-    setSavedAt(new Date().toLocaleTimeString('fr-FR'));
+  const handleSave = async () => {
+    if (flagsResult.mode !== 'live') {
+      // MODE DÉMO : pas d'écriture réelle possible (pas de backend connecté).
+      setSavedAt(new Date().toLocaleTimeString('fr-FR'));
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const changed = flags.filter((f) => {
+        const original = flagsResult.data.find((o) => o.key === f.key);
+        return original && original.isEnabledGlobally !== f.isEnabledGlobally;
+      });
+      for (const f of changed) {
+        await adminApi.patch(`/feature-flags/${f.key}`, { is_enabled_globally: f.isEnabledGlobally });
+      }
+      setSavedAt(new Date().toLocaleTimeString('fr-FR'));
+      flagsResult.refresh();
+    } catch (e) {
+      setSaveError(e instanceof AdminApiError ? `${e.message} (HTTP ${e.status})` : 'Échec de l’enregistrement.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -37,11 +81,12 @@ export default function FeatureFlags() {
       <div className="page-title">Feature Flags</div>
       <div className="page-subtitle">Activation globale des fonctionnalités — France</div>
 
-      <div className="demo-banner">
-        🎭 MODE DÉMO — modification en mémoire uniquement (perdue au
-        rafraîchissement). En Mode Réel, chaque changement sera tracé dans
-        `audit_logs` (qui l'a fait, avant/après).
-      </div>
+      <DataModeBanner
+        mode={flagsResult.mode}
+        loading={flagsResult.loading}
+        reason={flagsResult.reason}
+        demoNote="modification en mémoire uniquement (perdue au rafraîchissement)."
+      />
 
       <table>
         <thead>
@@ -80,6 +125,9 @@ export default function FeatureFlags() {
       </table>
 
       <div className="page-subtitle" style={{ marginTop: 32 }}>Réglages session</div>
+      <p className="save-hint" style={{ marginTop: -12, marginBottom: 12 }}>
+        Pas encore de table `app_settings` côté backend — reste Mode Démo pur quel que soit l'état de connexion ci-dessus.
+      </p>
       <table>
         <thead>
           <tr><th>Réglage</th><th>Clé</th><th>Valeur</th></tr>
@@ -110,6 +158,7 @@ export default function FeatureFlags() {
 
       <button
         onClick={handleSave}
+        disabled={saving}
         style={{
           marginTop: 20,
           background: 'var(--primary)',
@@ -118,12 +167,20 @@ export default function FeatureFlags() {
           borderRadius: 8,
           padding: '10px 20px',
           fontWeight: 700,
-          cursor: 'pointer',
+          cursor: saving ? 'default' : 'pointer',
+          opacity: saving ? 0.6 : 1,
         }}
       >
-        Enregistrer
+        {saving ? 'Enregistrement…' : 'Enregistrer'}
       </button>
-      {savedAt && <p className="save-hint">Enregistré (Mode Démo) à {savedAt} — non persisté, aucun backend connecté.</p>}
+      {saveError && <p className="save-hint" style={{ color: 'var(--pass)' }}>{saveError}</p>}
+      {savedAt && !saveError && (
+        <p className="save-hint">
+          {flagsResult.mode === 'live'
+            ? `Enregistré (backend réel) à ${savedAt}.`
+            : `Enregistré (Mode Démo) à ${savedAt} — non persisté, aucun backend connecté.`}
+        </p>
+      )}
     </AdminLayout>
   );
 }

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextI
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
-import { musicEngine } from '../services/musicEngine';
+import { useMusicServiceStore } from '../store/useMusicServiceStore';
 import { shareSession } from '../services/sharingService';
 import TrackRow from '../components/TrackRow';
 import { colors } from '../theme/colors';
@@ -22,6 +22,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const session = useSessionHistoryStore((s) => s.sessions.find((x) => x.id === sessionId));
   const { keepTrackInSession, passTrackInSession, keepAllPendingInSession, renameSession } = useSessionHistoryStore();
   const { playlists } = usePlaylistStore();
+  const connectedService = useMusicServiceStore((s) => s.connectedService);
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
 
@@ -101,20 +102,19 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TrackRow
-            entry={item}
-            playlists={playlists}
-            onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId)}
-            onPass={(entryId) => passTrackInSession(sessionId, entryId)}
-          />
+          <View>
+            <TrackRow
+              entry={item}
+              playlists={connectedService ? playlists : undefined}
+              onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId)}
+              onPass={(entryId) => passTrackInSession(sessionId, entryId)}
+            />
+            {item.status === 'kept' && item.syncState === 'waiting_sync' && (
+              <Text style={styles.waitingSyncText}>⏳ {t('session.waitingSync')}</Text>
+            )}
+          </View>
         )}
       />
-
-      {musicEngine.isDemoMode && (
-        <View style={styles.demoBadge}>
-          <Text style={styles.demoText}>{t('demo.badge')}</Text>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -149,10 +149,5 @@ const styles = StyleSheet.create({
   },
   keepAllButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
-  demoBadge: {
-    marginHorizontal: spacing.xl, marginBottom: spacing.md,
-    backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder,
-    borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center',
-  },
-  demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
+  waitingSyncText: { color: colors.textMuted, fontSize: 10, marginLeft: 68, marginTop: -spacing.sm, marginBottom: spacing.xs },
 });

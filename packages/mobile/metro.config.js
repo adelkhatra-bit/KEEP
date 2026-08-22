@@ -16,4 +16,10 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.disableHierarchicalLookup = false;
 
+// Force CJS resolution (no `import.meta`) even for the web target: some
+// packages (e.g. zustand) ship an ESM build gated behind the "import"
+// condition that references `import.meta.env`, which crashes when Metro
+// serves it as a classic (non-module) <script> for expo web.
+config.resolver.unstable_conditionNames = ['require', 'react-native', 'browser'];
+
 module.exports = config;

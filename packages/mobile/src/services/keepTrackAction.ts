@@ -9,18 +9,32 @@
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import { musicEngine } from './musicEngine';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useMusicServiceStore } from '../store/useMusicServiceStore';
 import { withRetry } from './retry';
 
 export interface CommitKeepResult {
-  targetPlaylistId: string;
-  playlistName: string;
+  targetPlaylistId?: string;
+  playlistName?: string;
+  /** 'waiting_sync' = gardé dans KEEP, aucun service connecté -- rien perdu, synchronisable plus tard (voir syncWaitingTracks ci-dessous). */
+  syncState: 'synced' | 'waiting_sync';
 }
 
+/**
+ * GARDER un morceau ne doit JAMAIS échouer simplement parce qu'aucun
+ * service musical n'est connecté (cf. demande explicite du 22/08/2026 :
+ * "il ne doit jamais être perdu"). Sans service connecté, on s'arrête ici
+ * avec syncState='waiting_sync' -- aucun appel à musicEngine.musicProvider,
+ * donc aucune tentative de connexion implicite.
+ */
 export async function commitKeep(
   track: CanonicalTrack,
   recommendations: RoutingRecommendation[],
   chosenPlaylistId?: string
 ): Promise<CommitKeepResult> {
+  if (!useMusicServiceStore.getState().connectedService) {
+    return { syncState: 'waiting_sync' };
+  }
+
   const topRecommendation = recommendations[0]?.playlistId ?? null;
   const targetPlaylistId = chosenPlaylistId ?? topRecommendation;
   if (!targetPlaylistId) {
@@ -54,5 +68,5 @@ export async function commitKeep(
   await usePlaylistStore.getState().refresh();
 
   const playlistName = recommendations.find((r) => r.playlistId === targetPlaylistId)?.playlistName ?? 'ta playlist';
-  return { targetPlaylistId, playlistName };
+  return { targetPlaylistId, playlistName, syncState: 'synced' };
 }

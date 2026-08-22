@@ -18,6 +18,9 @@
       "ios": {
         "resourceClass": "m-medium",
         "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {

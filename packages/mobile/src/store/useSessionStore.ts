@@ -52,6 +52,8 @@ interface SessionStore {
   silenceTimeoutMin: number;
   showEndPrompt: boolean;
   recognizing: boolean;
+  /** Niveau micro réel 0-1 en direct (metering expo-av) -- 0 hors capture ou si le navigateur ne fournit pas de metering. */
+  micLevel: number;
   error: string | null;
   locationLabel?: string;
   lat?: number;
@@ -91,6 +93,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   silenceTimeoutMin: DEFAULT_SESSION_SILENCE_TIMEOUT_MIN,
   showEndPrompt: false,
   recognizing: false,
+  micLevel: 0,
   error: null,
   locationLabel: undefined,
   lat: undefined,
@@ -106,6 +109,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       tracks: [],
       showEndPrompt: false,
       error: null,
+      micLevel: 0,
       locationLabel: undefined,
       lat: undefined,
       lng: undefined,
@@ -115,9 +119,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (!get().isActive || get().recognizing) return;
       set({ recognizing: true });
       try {
-        // DÉMO : buffer vide, DemoRecognitionProvider l'ignore (voir
-        // docs/PROJECT_STATUS.md). Mode Réel : vrai échantillon micro.
-        const audioSample = musicEngine.isDemoMode ? new ArrayBuffer(0) : await captureAudioSample();
+        // Reconnaissance factice (pas de vraie clé AudD) : buffer vide,
+        // DemoRecognitionProvider l'ignore. Reconnaissance réelle (vraie clé
+        // AudD configurée, cf. musicEngine.isRealRecognition) : vrai
+        // échantillon micro, indépendamment du reste de l'app (Mode Démo ou
+        // non) -- cf. demande explicite du 22/08/2026.
+        const audioSample = musicEngine.isRealRecognition
+          ? await captureAudioSample((level) => set({ micLevel: level }))
+          : new ArrayBuffer(0);
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!recognition) {
           // Rien entendu ce tick -- normal (silence, morceau non reconnu),
@@ -127,10 +136,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }
 
         const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
-        const last = get().tracks[0];
-        if (last && sameTrack(last.track, track)) {
-          // Même morceau toujours en cours, pas une nouvelle détection —
-          // mais la musique continue : repousse la détection de fin.
+        // Un morceau déjà vu CE SOIR (gardé, passé, ou encore en attente) ne
+        // redemande jamais — PASS = fermé, pas question du même morceau tant
+        // que la session n'est pas terminée (cf. demande explicite du
+        // 22/08/2026 : "PASS ne doit jamais reproposer le même morceau").
+        // La musique continue en revanche : repousse la détection de fin.
+        const alreadySeen = get().tracks.find((t) => sameTrack(t.track, track));
+        if (alreadySeen) {
           lastDetectionAt = Date.now();
           set({ recognizing: false, showEndPrompt: false, error: null });
           return;
@@ -208,10 +220,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const entry = get().tracks.find((t) => t.id === entryId);
     if (!entry) return;
     try {
-      const { targetPlaylistId } = await commitKeep(entry.track, entry.recommendations, playlistId);
+      const { targetPlaylistId, syncState } = await commitKeep(entry.track, entry.recommendations, playlistId);
       set((s) => ({
         tracks: s.tracks.map((t) =>
-          t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId } : t
+          t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, syncState } : t
         ),
       }));
     } catch (e: any) {

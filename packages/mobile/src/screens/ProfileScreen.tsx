@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Switch, Modal, Alert, Image,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Switch, Modal, Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
@@ -16,6 +16,11 @@ import { supabase } from '../services/supabaseClient';
 import { createAuthService } from '../services/authService';
 import { shareProfile, shareCompareInvite } from '../services/sharingService';
 import { ProfileKind, SocialLink, GenderOption } from '../types';
+import { AppAlert as Alert } from '../utils/AppAlert';
+import BirthDatePicker from '../components/BirthDatePicker';
+import PublicProfilePreview from '../components/PublicProfilePreview';
+import { LANGUAGES, setAppLanguage } from '../i18n';
+import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
 const PLATFORM_OPTIONS: SocialLink['platform'][] = ['instagram', 'tiktok', 'facebook', 'snapchat', 'youtube', 'x', 'website', 'other'];
@@ -33,14 +38,17 @@ const DEMO_FRIEND_DECISIONS: DnaSourceDecision[] = [
   { artist: 'Harry Styles', genres: ['pop', 'rock'], decision: 'KEPT', createdAt: '2026-08-03T19:00:00.000Z' },
 ];
 
+const ACTIVE_LANGUAGES = LANGUAGES.filter((l) => l.status === 'ACTIVE');
+
 export default function ProfileScreen({ navigation }: any) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     user, isDemoMode, logout, profileCompletion, updateUser,
     addFavoriteGenre, removeFavoriteGenre, addFavoriteArtist, removeFavoriteArtist,
     addSocialLink, removeSocialLink, toggleSocialLinkVisibility, setPrivateInfo,
   } = useUserStore();
   const sessions = useSessionHistoryStore((s) => s.sessions);
+  const { connectedService, connectDemo, disconnect: disconnectService } = useMusicServiceStore();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ bio: '', city: '', countryCode: '', website: '' });
@@ -49,6 +57,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [newLinkPlatform, setNewLinkPlatform] = useState<SocialLink['platform']>('instagram');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [qrVisible, setQrVisible] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((s) =>
@@ -178,6 +187,20 @@ export default function ProfileScreen({ navigation }: any) {
           <TouchableOpacity onPress={editing ? saveEditing : startEditing}>
             <Text style={styles.editLink}>{editing ? t('profile.save') : t('profile.edit')}</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.languageRow}>
+          {ACTIVE_LANGUAGES.map((lang) => (
+            <TouchableOpacity
+              key={lang.code}
+              style={[styles.languageChip, i18n.language === lang.code && styles.platformChipActive]}
+              onPress={() => setAppLanguage(lang.code)}
+            >
+              <Text style={[styles.platformChipText, i18n.language === lang.code && styles.platformChipTextActive]}>
+                {lang.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.avatarSection}>
@@ -376,26 +399,44 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
 
         <Section title={t('profile.privateInfoTitle')} hint={t('profile.privateInfoHint')}>
-          <TextInput
-            style={styles.smallInput}
-            value={user.privateInfo.birthDate ?? ''}
-            onChangeText={(v) => setPrivateInfo({ birthDate: v || undefined })}
-            placeholder={`${t('profile.birthDate')} (AAAA-MM-JJ)`}
-            placeholderTextColor={colors.textMuted}
+          <Text style={styles.fieldLabel}>{t('profile.birthDate')}</Text>
+          <BirthDatePicker
+            value={user.privateInfo.birthDate}
+            onChange={(isoDate) => setPrivateInfo({ birthDate: isoDate })}
           />
-          <View style={styles.platformPicker}>
+
+          <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>{t('profile.gender')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genderRow}>
             {GENDER_OPTIONS.map((g) => (
               <TouchableOpacity
                 key={g}
-                style={[styles.platformChip, user.privateInfo.gender === g && styles.platformChipActive]}
-                onPress={() => setPrivateInfo({ gender: g })}
+                style={[styles.genderChip, user.privateInfo.gender === g && styles.platformChipActive]}
+                onPress={() => setPrivateInfo({ gender: user.privateInfo.gender === g ? undefined : g })}
               >
                 <Text style={[styles.platformChipText, user.privateInfo.gender === g && styles.platformChipTextActive]}>
                   {genderLabel(g)}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
+        </Section>
+
+        <Section title={t('profile.musicServices')}>
+          <MusicServiceRow
+            id="apple_music" label="Apple Music" connectedService={connectedService} isDemoMode={isDemoMode}
+            onConnect={() => (isDemoMode ? connectDemo('apple_music') : navigation.navigate('AppleMusicConnect'))}
+            onDisconnect={disconnectService} t={t}
+          />
+          <MusicServiceRow
+            id="spotify" label="Spotify" connectedService={connectedService} isDemoMode={isDemoMode}
+            onConnect={() => (isDemoMode ? connectDemo('spotify') : navigation.navigate('SpotifyConnect'))}
+            onDisconnect={disconnectService} t={t}
+          />
+          <MusicServiceRow
+            id="youtube_music" label="YouTube Music" connectedService={connectedService} isDemoMode={isDemoMode}
+            onConnect={() => (isDemoMode ? connectDemo('youtube_music') : Alert.alert(t('common.notConnected'), 'YouTube Music n’est pas encore branché.'))}
+            onDisconnect={disconnectService} t={t}
+          />
         </Section>
 
         <View style={styles.actionsContainer}>
@@ -407,6 +448,10 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.actionButtonText}>▦ {t('profile.qrTitle')}</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.actionButton} onPress={() => setPreviewVisible(true)}>
+            <Text style={styles.actionButtonText}>👁️ {t('profile.previewAsVisitor')}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionButton} onPress={handleCompare}>
             <Text style={styles.actionButtonText}>🎧 {t('profile.compareKeep')}</Text>
           </TouchableOpacity>
@@ -415,21 +460,13 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.actionButtonText}>🔗 {t('profile.shareCompareInvite')}</Text>
           </TouchableOpacity>
 
-          {!isDemoMode && (
-            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('AppleMusicConnect')}>
-              <Text style={styles.actionButtonText}>🎵 {t('profile.connectAppleMusic')}</Text>
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>🚪 {t('profile.logout')}</Text>
           </TouchableOpacity>
         </View>
 
         {isDemoMode && musicEngine.isDemoMode && (
-          <View style={styles.demoBadge}>
-            <Text style={styles.demoText}>{t('demo.badge')}</Text>
-          </View>
+          <Text style={styles.demoFootnote}>{t('demo.badge')}</Text>
         )}
       </ScrollView>
 
@@ -447,7 +484,45 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={previewVisible} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.previewCard}>
+            <Text style={styles.qrTitle}>{t('profile.previewAsVisitor')}</Text>
+            <Text style={styles.previewHint}>{t('profile.previewHint')}</Text>
+            <View style={styles.previewFrame}>
+              <PublicProfilePreview user={user} sessions={sessions} />
+            </View>
+            <TouchableOpacity style={styles.qrCloseBtn} onPress={() => setPreviewVisible(false)}>
+              <Text style={styles.qrCloseBtnText}>{t('common.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
+  );
+}
+
+function MusicServiceRow({
+  id, label, connectedService, isDemoMode, onConnect, onDisconnect, t,
+}: {
+  id: MusicServiceId; label: string; connectedService: MusicServiceId | null; isDemoMode: boolean;
+  onConnect: () => void; onDisconnect: () => void; t: (k: string, o?: any) => string;
+}) {
+  const connected = connectedService === id;
+  return (
+    <View style={styles.serviceRow}>
+      <Text style={styles.serviceLabel}>{label}</Text>
+      {connected ? (
+        <TouchableOpacity onPress={onDisconnect}>
+          <Text style={styles.serviceConnected}>✓ {t('profile.connected')}{isDemoMode ? ' (démo)' : ''}</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={styles.serviceConnectBtn} onPress={onConnect}>
+          <Text style={styles.serviceConnectBtnText}>{t('profile.connect')}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -558,6 +633,16 @@ const styles = StyleSheet.create({
   linkVisibility: { color: colors.primaryLight, fontSize: 11, fontWeight: '700' },
   linkRemove: { color: colors.danger, fontSize: 14, fontWeight: '700' },
 
+  languageRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm },
+  serviceLabel: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
+  serviceConnected: { color: colors.keep, fontSize: 12, fontWeight: '700' },
+  serviceConnectBtn: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  serviceConnectBtnText: { color: colors.primaryLight, fontSize: 12, fontWeight: '700' },
+  languageChip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  fieldLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: spacing.xs },
+  genderRow: { flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.xl },
+  genderChip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   platformPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   platformChip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   platformChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
@@ -581,11 +666,7 @@ const styles = StyleSheet.create({
   logoutButton: { backgroundColor: colors.danger, borderColor: colors.danger },
   logoutButtonText: { color: colors.white, fontSize: 15, fontWeight: '600' },
 
-  demoBadge: {
-    marginHorizontal: spacing.xl, marginTop: spacing.xl, backgroundColor: colors.demoBadgeBg,
-    borderWidth: 1, borderColor: colors.demoBadgeBorder, paddingVertical: spacing.md, borderRadius: radius.md, alignItems: 'center',
-  },
-  demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
+  demoFootnote: { color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.xl },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   qrCard: { backgroundColor: colors.backgroundElevated, borderRadius: radius.xl, padding: spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
@@ -594,4 +675,10 @@ const styles = StyleSheet.create({
   qrHint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.lg },
   qrCloseBtn: { marginTop: spacing.xl, paddingVertical: spacing.sm, paddingHorizontal: spacing.xl },
   qrCloseBtnText: { color: colors.primaryLight, fontWeight: '700' },
+  previewCard: {
+    backgroundColor: colors.backgroundElevated, borderRadius: radius.xl, padding: spacing.lg,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.border, maxWidth: 380, width: '100%', alignSelf: 'center',
+  },
+  previewHint: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: spacing.xs, marginBottom: spacing.md },
+  previewFrame: { width: '100%', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.background },
 });

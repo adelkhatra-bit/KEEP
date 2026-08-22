@@ -107,7 +107,9 @@ export class AppleMusicProvider implements MusicProviderAdapter {
 
   constructor(
     private readonly developerTokenProvider: DeveloperTokenProvider,
-    private readonly fetchImpl: typeof fetch = fetch,
+    // .bind(globalThis) -- Safari refuse `fetch` appelé avec un `this` autre
+    // que `window` ; voir le même correctif détaillé dans AudDRecognitionProvider.ts.
+    private readonly fetchImpl: typeof fetch = fetch.bind(globalThis),
     private readonly baseUrl = 'https://api.music.apple.com'
   ) {}
 

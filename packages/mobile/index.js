@@ -1,3 +1,4 @@
+import './src/polyfills/bindFetch';
 import { registerRootComponent } from 'expo';
 import App from './App';
 

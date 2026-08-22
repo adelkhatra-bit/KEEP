@@ -62,12 +62,44 @@ function appleArtworkUrl(url?: string, size = 300): string | undefined {
   return url.replace('{w}', String(size)).replace('{h}', String(size));
 }
 
+/**
+ * Nom de fichier ENVOYÉ À AUDD AVEC LA BONNE EXTENSION -- envoyer un blob
+ * webm sous le nom "sample.m4a" (comme avant ce correctif) fait échouer le
+ * fingerprint côté AudD ("problem with creating an audio fingerprint"),
+ * confirmé en test réel sur iPhone (Safari, capture web via expo-av) le
+ * 22/08/2026 : `expo-av` sur Web utilise MediaRecorder, dont le format réel
+ * dépend du navigateur (souvent audio/webm), pas garanti m4a comme sur
+ * natif. On lit le vrai type MIME du Blob plutôt que de le deviner.
+ */
+function fileNameForBlob(blob: Blob): string {
+  const type = blob.type.split(';')[0].trim().toLowerCase();
+  const extensionByMime: Record<string, string> = {
+    'audio/webm': 'webm',
+    'audio/ogg': 'ogg',
+    'audio/wav': 'wav',
+    'audio/wave': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'audio/x-m4a': 'm4a',
+    'audio/aac': 'aac',
+  };
+  const ext = extensionByMime[type] ?? 'm4a'; // m4a = format réel sur natif (HIGH_QUALITY preset), repli raisonnable si type absent.
+  return `sample.${ext}`;
+}
+
 export class AudDRecognitionProvider implements MusicRecognitionProvider {
   readonly providerId = 'audd';
 
   constructor(
     private readonly config: AudDConfig,
-    private readonly fetchImpl: typeof fetch = fetch,
+    // .bind(globalThis) -- Safari refuse d'exécuter `fetch` avec un `this`
+    // autre que `window` ("Can only call Window.fetch on instances of
+    // Window"), ce qui arrive dès que `fetch` est passé nu comme valeur par
+    // défaut puis appelé via `this.fetchImpl(...)` (`this` devient alors
+    // l'instance du provider, pas `window`). Confirmé cassé sur iPhone réel
+    // (Safari) le 22/08/2026, invisible sur Chromium qui est plus permissif.
+    private readonly fetchImpl: typeof fetch = fetch.bind(globalThis),
     private readonly baseUrl = 'https://api.audd.io/'
   ) {}
 
@@ -81,11 +113,16 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
     const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample]);
     const form = new FormData();
     form.append('api_token', this.config.apiToken);
-    form.append('file', blob, 'sample.m4a');
+    form.append('file', blob, fileNameForBlob(blob));
     form.append('return', 'apple_music,spotify');
     if (this.config.market) form.append('market', this.config.market);
 
-    const res = await this.fetchImpl(this.baseUrl, { method: 'POST', body: form });
+    // `body: form as any` -- `typeof fetch` résout ici vers les types globaux
+    // React Native (via node_modules), dont le `FormData` diffère du DOM
+    // standard utilisé pour construire `form` juste au-dessus -- un simple
+    // conflit de déclaration de types ambiants, aucun risque runtime (les
+    // deux décrivent le même objet FormData natif).
+    const res = await this.fetchImpl(this.baseUrl, { method: 'POST', body: form as any });
     if (!res.ok) {
       throw new AudDRecognitionError(`AudD API -> HTTP ${res.status}`);
     }

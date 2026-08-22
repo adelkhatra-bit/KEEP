@@ -54,6 +54,14 @@ export interface User {
 
 export type SessionTrackStatus = 'pending' | 'kept' | 'passed';
 
+/**
+ * `synced` = réellement ajouté à un service musical connecté.
+ * `waiting_sync` = gardé dans KEEP mais aucun service n'était connecté au
+ * moment du GARDER -- jamais perdu, synchronisable plus tard via "Sync Now"
+ * (voir store/useMusicServiceStore.ts, services/keepTrackAction.ts).
+ */
+export type TrackSyncState = 'synced' | 'waiting_sync';
+
 /** Un morceau détecté pendant une session KEEP, avec sa décision GARDER/PASSER. */
 export interface SessionTrackEntry {
   id: string;
@@ -62,6 +70,7 @@ export interface SessionTrackEntry {
   status: SessionTrackStatus;
   detectedAt: string;
   keptPlaylistId?: string;
+  syncState?: TrackSyncState;
 }
 
 /**

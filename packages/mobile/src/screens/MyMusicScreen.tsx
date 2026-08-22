@@ -1,22 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { useMusicServiceStore } from '../store/useMusicServiceStore';
 import { musicEngine } from '../services/musicEngine';
 import { sharePlaylist } from '../services/sharingService';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { AppAlert as Alert } from '../utils/AppAlert';
 
 export default function MyMusicScreen() {
   const { t } = useTranslation();
   const { playlists, isLoading, refresh } = usePlaylistStore();
   const [analysis, setAnalysis] = useState<LibraryAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const connectedService = useMusicServiceStore((s) => s.connectedService);
+  const countWaitingSync = useSessionHistoryStore((s) => s.countWaitingSync());
+  const syncAllWaitingTracks = useSessionHistoryStore((s) => s.syncAllWaitingTracks);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    await syncAllWaitingTracks();
+    await refresh();
+    setSyncing(false);
+  };
 
   const runOrganizeAnalysis = async () => {
     setAnalyzing(true);
@@ -57,6 +71,21 @@ export default function MyMusicScreen() {
         <Text style={styles.title}>{t('myMusic.title')}</Text>
       </View>
 
+      {countWaitingSync > 0 && (
+        <View style={styles.syncBanner}>
+          <Text style={styles.syncBannerText}>
+            {countWaitingSync} {t('session.waitingSync').toLowerCase()}
+          </Text>
+          {connectedService ? (
+            <TouchableOpacity style={styles.syncNowBtn} onPress={handleSyncNow} disabled={syncing}>
+              <Text style={styles.syncNowBtnText}>{syncing ? '…' : 'Sync now'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.syncBannerHint}>{t('profile.connectAppleMusic')} →</Text>
+          )}
+        </View>
+      )}
+
       <TouchableOpacity style={styles.organizeButton} onPress={runOrganizeAnalysis} disabled={analyzing}>
         <Text style={styles.organizeButtonText}>
           {analyzing ? '…' : `🧹 ${t('myMusic.organizeMyMusic')}`}
@@ -94,12 +123,6 @@ export default function MyMusicScreen() {
         refreshing={isLoading}
         onRefresh={refresh}
       />
-
-      {musicEngine.isDemoMode && (
-        <View style={styles.demoBadge}>
-          <Text style={styles.demoText}>{t('demo.badge')}</Text>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -141,13 +164,14 @@ const styles = StyleSheet.create({
   songCount: { fontSize: 12, color: colors.keep, marginTop: spacing.xs, fontWeight: '600' },
   playlistShareBtn: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.md },
   playlistShareBtnText: { fontSize: 18 },
-  demoBadge: {
-    backgroundColor: colors.demoBadgeBg,
-    borderTopWidth: 1,
-    borderTopColor: colors.demoBadgeBorder,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
+  syncBanner: {
+    marginHorizontal: spacing.xl, marginTop: spacing.md,
+    backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
+  syncBannerText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  syncBannerHint: { color: colors.primaryLight, fontSize: 12, fontWeight: '700' },
+  syncNowBtn: { backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  syncNowBtnText: { color: colors.white, fontSize: 12, fontWeight: '700' },
 });

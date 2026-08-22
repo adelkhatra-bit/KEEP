@@ -92,4 +92,15 @@ td input {
   margin-bottom: 24px;
 }
 
+.live-banner {
+  background: rgba(45,225,194,0.12);
+  border: 1px solid var(--keep);
+  color: var(--keep);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 24px;
+  font-weight: 600;
+}
+
 .save-hint { font-size: 12px; color: var(--text-muted); margin-top: 12px; }
