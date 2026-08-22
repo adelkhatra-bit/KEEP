@@ -93,6 +93,8 @@
     "qrTitle": "Profile QR",
     "qrHint": "Scan to see my KEEP",
     "compareKeep": "Compare our KEEP",
+    "shareCompareInvite": "Share to compare",
+    "photoPermissionDenied": "Allow photo access in iPhone Settings to change your profile picture.",
     "connectAppleMusic": "Connect Apple Music",
     "compareResult": "Musical compatibility with {{name}}: {{percent}}%",
     "compareNeedsData": "Keep at least one track during a session to compute your music DNA.",

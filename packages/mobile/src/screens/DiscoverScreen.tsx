@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { computeMusicDNA, compareMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { shareEvent } from '../services/sharingService';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { ProfileKind } from '../types';
@@ -152,14 +153,23 @@ export default function DiscoverScreen() {
                 <Text style={styles.eventName}>{event.name}</Text>
                 <Text style={styles.eventMeta}>{event.venueName} · {date}</Text>
                 <Text style={styles.eventMeta}>{event.djArtistNames.map((n) => `@${n}`).join(', ')}</Text>
-                <TouchableOpacity
-                  style={[styles.interestedBtn, interested && styles.interestedBtnActive]}
-                  onPress={() => toggleInterested(event.id)}
-                >
-                  <Text style={[styles.interestedBtnText, interested && styles.interestedBtnTextActive]}>
-                    {interested ? t('discover.interestedMarked') : t('discover.interested')}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.eventActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.interestedBtn, interested && styles.interestedBtnActive]}
+                    onPress={() => toggleInterested(event.id)}
+                  >
+                    <Text style={[styles.interestedBtnText, interested && styles.interestedBtnTextActive]}>
+                      {interested ? t('discover.interestedMarked') : t('discover.interested')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.eventShareBtn}
+                    hitSlop={8}
+                    onPress={() => shareEvent(event.id, event.name).catch(() => {})}
+                  >
+                    <Text style={styles.eventShareBtnText}>🔗</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
@@ -224,7 +234,10 @@ const styles = StyleSheet.create({
   eventCard: { backgroundColor: colors.backgroundCard, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
   eventName: { color: colors.textPrimary, fontWeight: '700', fontSize: 14 },
   eventMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  interestedBtn: { alignSelf: 'flex-start', marginTop: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  eventActionsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  eventShareBtn: { padding: spacing.xs },
+  eventShareBtnText: { fontSize: 16 },
+  interestedBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   interestedBtnActive: { backgroundColor: colors.keep, borderColor: colors.keep },
   interestedBtnText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   interestedBtnTextActive: { color: colors.black },

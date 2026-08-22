@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { musicEngine } from '../services/musicEngine';
+import { sharePlaylist } from '../services/sharingService';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
@@ -40,6 +41,13 @@ export default function MyMusicScreen() {
         )}
         <Text style={styles.songCount}>{item.trackCount} songs</Text>
       </View>
+      <TouchableOpacity
+        style={styles.playlistShareBtn}
+        hitSlop={8}
+        onPress={() => sharePlaylist(item.id, item.name).catch(() => {})}
+      >
+        <Text style={styles.playlistShareBtnText}>🔗</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -131,6 +139,8 @@ const styles = StyleSheet.create({
   playlistName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   playlistDesc: { fontSize: 12, color: colors.textMuted, marginTop: spacing.xs },
   songCount: { fontSize: 12, color: colors.keep, marginTop: spacing.xs, fontWeight: '600' },
+  playlistShareBtn: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.md },
+  playlistShareBtnText: { fontSize: 18 },
   demoBadge: {
     backgroundColor: colors.demoBadgeBg,
     borderTopWidth: 1,

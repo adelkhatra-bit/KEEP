@@ -9,6 +9,7 @@
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import { musicEngine } from './musicEngine';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { withRetry } from './retry';
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
@@ -28,9 +29,12 @@ export async function commitKeep(
 
   const session = await musicEngine.getSession();
 
-  const alreadyThere = await musicEngine.musicProvider.isTrackInPlaylist(session, targetPlaylistId, track);
+  // Coupure réseau pendant l'écriture réelle chez le provider = retente,
+  // ne perd jamais silencieusement un GARDER (cf. demande explicite du
+  // 22/08/2026 "retry si Internet coupe").
+  const alreadyThere = await withRetry(() => musicEngine.musicProvider.isTrackInPlaylist(session, targetPlaylistId, track));
   if (!alreadyThere) {
-    await musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track);
+    await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
   }
 
   if (targetPlaylistId === topRecommendation) {

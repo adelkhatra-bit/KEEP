@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { musicEngine } from '../services/musicEngine';
+import { shareSession } from '../services/sharingService';
 import TrackRow from '../components/TrackRow';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
@@ -47,6 +48,14 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     setProcessing(false);
   };
 
+  const handleShare = async () => {
+    try {
+      await shareSession(sessionId, titleDraft.trim() || t('session.recapTitle'), keptCount);
+    } catch {
+      // Annulé -- pas une erreur applicative.
+    }
+  };
+
   const handleTitleBlur = () => {
     const trimmed = titleDraft.trim();
     if (trimmed && trimmed !== session.title) renameSession(sessionId, trimmed);
@@ -59,6 +68,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('session.recapTitle')}</Text>
+        <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn}>
+          <Text style={styles.shareBtnText}>🔗</Text>
+        </TouchableOpacity>
       </View>
 
       <TextInput
@@ -118,7 +130,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm,
   },
   backArrow: { color: colors.textPrimary, fontSize: 22 },
-  title: { ...typography.h2, color: colors.textPrimary },
+  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
+  shareBtn: { padding: spacing.xs },
+  shareBtnText: { fontSize: 20 },
   titleInput: {
     marginHorizontal: spacing.xl, marginTop: spacing.sm,
     color: colors.textPrimary, fontSize: 15, fontWeight: '600',

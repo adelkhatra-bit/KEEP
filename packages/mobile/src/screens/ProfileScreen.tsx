@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Share, TextInput, Switch, Modal, Alert,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Switch, Modal, Alert, Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import QRCode from 'react-native-qrcode-svg';
 import { computeMusicDNA, compareMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
@@ -13,6 +14,7 @@ import { spacing, radius, typography } from '../theme/spacing';
 import { musicEngine } from '../services/musicEngine';
 import { supabase } from '../services/supabaseClient';
 import { createAuthService } from '../services/authService';
+import { shareProfile, shareCompareInvite } from '../services/sharingService';
 import { ProfileKind, SocialLink, GenderOption } from '../types';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
@@ -70,13 +72,18 @@ export default function ProfileScreen({ navigation }: any) {
   const completion = profileCompletion();
 
   const handleShare = async () => {
-    // Lien universel réel (deep link scheme "keep://") — la résolution web
-    // publique (keep.app/@handle) nécessite le déploiement du site public,
-    // voir docs/PROJECT_STATUS.md (statut PLANNED).
     try {
-      await Share.share({ message: `Découvre mon KEEP 🎵 keep://profile/${user.username}` });
+      await shareProfile(user!.username);
     } catch {
       // L'utilisateur a annulé le partage natif — pas une erreur applicative.
+    }
+  };
+
+  const handleShareCompareInvite = async () => {
+    try {
+      await shareCompareInvite(user!.username);
+    } catch {
+      // Annulé -- pas une erreur applicative.
     }
   };
 
@@ -105,6 +112,23 @@ export default function ProfileScreen({ navigation }: any) {
 
   const genderLabel = (g: GenderOption) =>
     ({ MALE: t('profile.genderMale'), FEMALE: t('profile.genderFemale'), OTHER: t('profile.genderOther'), PREFER_NOT_TO_SAY: t('profile.genderPreferNot') }[g]);
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('profile.title'), t('profile.photoPermissionDenied'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      updateUser({ avatar: result.assets[0].uri });
+    }
+  };
 
   const handleToggleLocation = async (value: boolean) => {
     if (!value) {
@@ -157,7 +181,15 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
 
         <View style={styles.avatarSection}>
-          <View style={styles.avatar} />
+          <TouchableOpacity onPress={handlePickPhoto}>
+            {user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarGlyph}>+</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           <Text style={styles.username}>{user.username}</Text>
           <TouchableOpacity style={styles.kindChip} onPress={cycleKind}>
             <Text style={styles.kindChipText}>{kindLabel(user.kind)}</Text>
@@ -379,6 +411,10 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.actionButtonText}>🎧 {t('profile.compareKeep')}</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.actionButton} onPress={handleShareCompareInvite}>
+            <Text style={styles.actionButtonText}>🔗 {t('profile.shareCompareInvite')}</Text>
+          </TouchableOpacity>
+
           {!isDemoMode && (
             <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('AppleMusicConnect')}>
               <Text style={styles.actionButtonText}>🎵 {t('profile.connectAppleMusic')}</Text>
@@ -469,6 +505,8 @@ const styles = StyleSheet.create({
   editLink: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
   avatarSection: { alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
   avatar: { width: 110, height: 110, borderRadius: 55, backgroundColor: colors.backgroundCard, marginBottom: spacing.lg },
+  avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  avatarGlyph: { color: colors.textMuted, fontSize: 32, fontWeight: '300' },
   username: { ...typography.h2, color: colors.textPrimary },
   kindChip: { backgroundColor: colors.smartBadgeBg, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4, marginTop: spacing.sm },
   kindChipText: { color: colors.smartBadgeText, fontSize: 12, fontWeight: '700' },
