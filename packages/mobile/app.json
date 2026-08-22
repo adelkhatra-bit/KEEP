@@ -56,8 +56,7 @@
         }
       ],
       "expo-localization",
-      "expo-secure-store",
-      "expo-status-bar"
+      "expo-secure-store"
     ],
     "scheme": "keep",
     "extra": {
