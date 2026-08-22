@@ -86,6 +86,45 @@ le blocage réseau qui l'empêchait est levé sur cette machine. Reste
 seulement `npx expo start --tunnel` + scanner le QR avec Expo Go — voir en
 bas de ce document pour le lien lancé pendant cette session.
 
+## Session locale du 22/08/2026 — bug critique trouvé en testant réellement
+
+Pour vérifier réellement l'app (pas juste `tsc`/`jest`, qui ne détectent pas
+les crashs à l'exécution), `react-native-web` a été ajouté temporairement
+comme harnais de test (`expo start --web`), avec les stores exposés sur
+`window` en `__DEV__` uniquement pour naviguer sans dépendre d'`Alert.alert`
+(non implémenté par react-native-web).
+
+**Trouvé : crash total au montage de la navigation** ("Invalid hook call" /
+"Cannot read properties of null (reading 'useEffect')"). Cause réelle :
+**deux copies de React installées** dans le monorepo npm workspaces —
+`packages/admin` autorisait `^18.2.0` et se faisait hisser 18.3.1 à la
+racine, tandis que `packages/mobile` exige exactement `18.2.0` (contrainte
+Expo SDK 51) et se retrouvait avec une copie imbriquée. Un hook invalide
+n'est pas un problème web — ce bug aurait aussi crashé sur iOS/Expo Go dès
+qu'un écran montait `NativeStackNavigator`. Corrigé via `"overrides"` npm à
+la racine (`react`/`react-dom` forcés à `18.2.0` partout) + réinstallation
+complète (suppression de tous les `node_modules` + lockfile, sinon npm ne
+réappliquait pas l'override sur une install incrémentale). Vérifié : une
+seule copie de `react` dans tout l'arbre, `npm ls react --all` ne montre
+plus aucune résolution `invalid`.
+
+**Testé en cliquant réellement dans tout le flux** (démarrer une session →
+garder un morceau → garder tout → terminer → récapitulatif → historique →
+réouverture d'une session archivée → profil → découvrir → mes musiques) :
+plus aucune erreur console après le fix. Second bug trouvé au passage : le
+bouton retour de `SessionRecapScreen` visait `navigate('Main')` en dur ;
+depuis Historique → Récap, ça ne revenait pas au bon écran. Corrigé avec
+`goBack()`/`canGoBack()`.
+
+**Limite connue, non corrigée (web uniquement, sans impact iOS)** : le
+bouton "Fermer" de la modale QR profil ne ferme pas la modale sous
+`react-native-web` (le handler `onPress` React est bien attaché mais son
+exécution ne déclenche pas la fermeture visible — vraisemblablement une
+particularité de l'implémentation Modal/Pressable de react-native-web, pas
+du code applicatif). `<Modal>` sur iOS utilise une présentation native
+(UIKit) sans rapport avec cette implémentation web — non bloquant pour
+TestFlight, pas d'investigation plus poussée pour l'instant.
+
 ## ⚠️ Contrainte d'environnement — session cloud précédente (historique)
 
 Cette session de développement tourne dans un environnement cloud dont
