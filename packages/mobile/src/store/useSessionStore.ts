@@ -3,6 +3,7 @@ import { CanonicalTrack } from '@keep/music';
 import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
+import { captureAudioSample } from '../services/micCapture';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 /**
@@ -15,9 +16,9 @@ import { useSessionHistoryStore } from './useSessionHistoryStore';
  * DÉMO : la cadence de reconnaissance simule un DJ qui enchaîne les
  * morceaux, en interrogeant recognitionProvider.recognize() à intervalle
  * régulier — pas de vrai buffer micro (voir docs/PROJECT_STATUS.md).
- * En Mode Réel, cet intervalle appellera un vrai échantillon micro
- * (expo-av) tant que KEEP est au premier plan. La continuité en
- * arrière-plan (écran verrouillé) est un chantier séparé, contraint par
+ * MODE RÉEL : chaque tick capture un vrai échantillon micro (voir
+ * services/micCapture.ts) tant que KEEP est au premier plan. La continuité
+ * en arrière-plan (écran verrouillé) est un chantier séparé, contraint par
  * l'OS — voir docs/PLATFORM_COMPLIANCE.md section "Continuité de la
  * reconnaissance en session" : ne jamais prétendre écouter en permanence
  * tant que ce n'est pas réellement câblé et vérifié sur un vrai appareil.
@@ -114,7 +115,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (!get().isActive || get().recognizing) return;
       set({ recognizing: true });
       try {
-        const recognition = await musicEngine.recognitionProvider.recognize(new ArrayBuffer(0));
+        // DÉMO : buffer vide, DemoRecognitionProvider l'ignore (voir
+        // docs/PROJECT_STATUS.md). Mode Réel : vrai échantillon micro.
+        const audioSample = musicEngine.isDemoMode ? new ArrayBuffer(0) : await captureAudioSample();
+        const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!recognition) {
           // Rien entendu ce tick -- normal (silence, morceau non reconnu),
           // pas une erreur : on efface une éventuelle erreur précédente.

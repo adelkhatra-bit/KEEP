@@ -11,6 +11,8 @@ import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { musicEngine } from '../services/musicEngine';
+import { supabase } from '../services/supabaseClient';
+import { createAuthService } from '../services/authService';
 import { ProfileKind, SocialLink, GenderOption } from '../types';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
@@ -29,7 +31,7 @@ const DEMO_FRIEND_DECISIONS: DnaSourceDecision[] = [
   { artist: 'Harry Styles', genres: ['pop', 'rock'], decision: 'KEPT', createdAt: '2026-08-03T19:00:00.000Z' },
 ];
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: any) {
   const { t } = useTranslation();
   const {
     user, isDemoMode, logout, profileCompletion, updateUser,
@@ -122,6 +124,16 @@ export default function ProfileScreen() {
     if (!url) return;
     addSocialLink({ platform: newLinkPlatform, url, visibility: 'PUBLIC' });
     setNewLinkUrl('');
+  };
+
+  const handleLogout = async () => {
+    // Un vrai compte a une session Supabase persistée (AsyncStorage) --
+    // sans ça, elle se restaurerait toute seule au prochain lancement
+    // (voir App.tsx) malgré la déconnexion explicite ici.
+    if (!isDemoMode && supabase) {
+      await createAuthService(supabase).signOut();
+    }
+    logout();
   };
 
   const handleCompare = () => {
@@ -367,7 +379,13 @@ export default function ProfileScreen() {
             <Text style={styles.actionButtonText}>🎧 {t('profile.compareKeep')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={logout}>
+          {!isDemoMode && (
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('AppleMusicConnect')}>
+              <Text style={styles.actionButtonText}>🎵 {t('profile.connectAppleMusic')}</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>🚪 {t('profile.logout')}</Text>
           </TouchableOpacity>
         </View>

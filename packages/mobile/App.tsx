@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
@@ -7,6 +7,8 @@ import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { colors } from './src/theme/colors';
+import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
+import { createAuthService } from './src/services/authService';
 
 // __DEV__ uniquement, jamais en build production/TestFlight -- pratique pour
 // débugger (console/web) sans dépendre de flux UI natifs (ex. Alert.alert,
@@ -17,6 +19,19 @@ if (__DEV__) {
 
 export default function App() {
   const user = useUserStore((s) => s.user);
+
+  // Reflète la session Supabase réelle dans useUserStore dès qu'elle change
+  // (connexion, rafraîchissement de jeton, déconnexion). No-op tant que
+  // Supabase n'est pas configuré (voir services/supabaseClient.ts).
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    const authService = createAuthService(supabase);
+    const syncFromAuthSession = useUserStore.getState().syncFromAuthSession;
+
+    authService.getCurrentSession().then(syncFromAuthSession);
+    const unsubscribe = authService.onSessionChange(syncFromAuthSession);
+    return unsubscribe;
+  }, []);
 
   return (
     <>

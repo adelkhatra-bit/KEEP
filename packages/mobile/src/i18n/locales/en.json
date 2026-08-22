@@ -93,6 +93,7 @@
     "qrTitle": "Profile QR",
     "qrHint": "Scan to see my KEEP",
     "compareKeep": "Compare our KEEP",
+    "connectAppleMusic": "Connect Apple Music",
     "compareResult": "Musical compatibility with {{name}}: {{percent}}%",
     "compareNeedsData": "Keep at least one track during a session to compute your music DNA.",
     "keepDnaTitle": "KEEP DNA — your music DNA",

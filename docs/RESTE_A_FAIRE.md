@@ -10,26 +10,36 @@
       que non vu sur l'appareil).
 - [x] Implémenter un vrai `MusicProviderAdapter` Apple Music (REST, provider
       principal retenu — voir PLATFORM_COMPLIANCE.md) : écrit et testé
-      (14/14, fetch simulé fidèle à la doc Apple). Reste : brancher dans
-      `musicEngine` une fois le backend déployé (developer token) et
-      valider le flux WebView sur un vrai appareil avec un vrai compte
-      Apple Music (impossible depuis ce sandbox).
+      (14/14, fetch simulé fidèle à la doc Apple). **Branché dans
+      `musicEngine` le 22/08/2026** (Mode Réel instancie
+      `AppleMusicProvider` avec un `DeveloperTokenProvider` réel) + écran
+      de connexion enfin atteignable (`AppleMusicConnectScreen`, bouton
+      dans `ProfileScreen`). Reste : un vrai backend déployé + un vrai
+      compte Apple Music pour valider le flux WebView sur un vrai appareil.
 - [ ] Implémenter un vrai `MusicProviderAdapter` Spotify (Development Mode, 5
       comptes max) en parallèle.
 - [x] Implémenter un vrai `MusicRecognitionProvider` AudD : écrit et testé
       (13/13, requête multipart + réponses simulées fidèles à l'API
-      réelle). Reste : une vraie clé API (compte audd.io, free tier 300
-      requêtes) pour sortir du mock — ACTION UTILISATEUR, voir
-      PROJECT_STATUS.md.
-- [ ] Remplacer le micro DEMO par un vrai enregistrement `expo-av`/`expo-audio`.
+      réelle). **Branché dans `musicEngine` le 22/08/2026** (Mode Réel
+      l'instancie directement). Reste : une vraie clé API (compte audd.io,
+      free tier 300 requêtes) — ACTION UTILISATEUR, voir PROJECT_STATUS.md.
+- [x] Remplacer le micro DEMO par un vrai enregistrement `expo-av` —
+      `services/micCapture.ts`, câblé dans `useSessionStore` le 22/08/2026.
+      CODED, pas encore testé sur un vrai appareil (nécessite une clé AudD
+      + un device réel).
 - [x] Schéma Supabase vérifié contre un vrai PostgreSQL 16 (7 migrations +
       triggers + RLS réellement testés, voir PROJECT_STATUS.md et
-      `supabase/scripts/verify-migrations.sh` + CI associée). Reste : le
-      déployer sur un vrai projet Supabase managé (ACTION UTILISATEUR —
-      connecteur Supabase ou création manuelle du projet).
-- [ ] Brancher Supabase Auth (email + Sign in with Apple + Google) dans
-      `OnboardingScreen`/`useUserStore` — actuellement affiche honnêtement
-      "pas connecté" au lieu de simuler une connexion.
+      `supabase/scripts/verify-migrations.sh` + CI associée). **+1
+      migration le 22/08/2026** (`0008_pricing_rls_and_remote_config.sql`,
+      RLS manquante sur les tables commerce/admin — pas encore vérifiée
+      par exécution réelle, pas de Postgres local disponible). Reste : le
+      déployer sur un vrai projet Supabase managé — ACTION UTILISATEUR
+      #1, voir PROJECT_STATUS.md (LE blocage qui débloque tout le reste).
+- [x] Brancher Supabase Auth (e-mail, code à 6 chiffres) dans
+      `OnboardingScreen`/`useUserStore` — fait le 22/08/2026
+      (`services/authService.ts`, 15/15 vérifications réelles). Sign in
+      with Apple / Google restent honnêtement "pas encore connecté"
+      (configuration native séparée pour chacun, non commencée).
 
 ## Priorité 3 — Profil + partage + Compare
 - [x] Écran profil complet (kind, styles/artistes favoris, réseaux sociaux
@@ -55,13 +65,22 @@
       agrégats/filtres testés (16/16, `packages/admin/scripts/verify.ts`).
       Bannière d'avertissement permanente (sidebar) tant que l'auth n'est
       pas branchée.
-- [ ] Paiements, Analytics produit avancé, Logs (audit_logs) — pas encore
-      construits.
-- [ ] Rôles/RBAC + authentification Super Admin réelle — toujours ouvert,
-      voir avertissement dans `AdminLayout.tsx` : ne pas déployer
-      publiquement avant ça (n'importe qui pourrait éditer les prix/flags).
-- [ ] RBAC + audit logs déjà modélisés en base (`admin_users`, `audit_logs`,
-      RLS bloquant tout accès hors service role) — auth Super Admin à construire.
+- [x] **API backend Super Admin réelle** (`packages/backend/src/routes/admin.ts`,
+      22/08/2026) : feature flags, `remote_config` (durée de silence de
+      session incluse), plans/prix/entitlements/quotas, promotions, coûts
+      opérationnels, utilisateurs, analytics (MRR/ARR calculés sur vraies
+      données). RBAC réel (`lib/adminAuth.ts`, 11/11 vérifications
+      réelles) : lecture pour tout admin actif, écriture réservée
+      SUPER_ADMIN/ADMIN (+ FINANCE pour les prix, MARKETING pour les
+      promotions). Chaque mutation écrit `audit_logs`. CODED, jamais
+      exécuté contre un vrai Supabase (aucun projet n'existe).
+- [ ] **Brancher le Super Admin Next.js (`packages/admin`) sur cette
+      nouvelle API** — actuellement encore 100% DEMO_* en mémoire.
+      Volontairement pas fait le 22/08/2026 : chantier UI séparé, non
+      vérifiable en aveugle sans un projet Supabase + un compte
+      `admin_users` réels pour tester contre.
+- [ ] Analytics produit avancé (au-delà de MRR/ARR/conversions), Logs
+      (visualisation `audit_logs` côté admin) — pas encore construits.
 - [ ] Intégration Apple IAP / Google Play Billing (sandbox d'abord —
       obligatoire, voir PLATFORM_COMPLIANCE.md §5-6).
 - [ ] Webhooks paiement (Apple Server Notifications V2, Google RTDN).

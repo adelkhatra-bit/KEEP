@@ -125,6 +125,77 @@ du code applicatif). `<Modal>` sur iOS utilise une présentation native
 (UIKit) sans rapport avec cette implémentation web — non bloquant pour
 TestFlight, pas d'investigation plus poussée pour l'instant.
 
+## Session locale du 22/08/2026 (suite) — câblage Mode Réel complet
+
+Sur demande explicite d'Adel ("le Mode Démo est suffisamment testé, passe
+aux vraies connexions"), tout ce qui pouvait être câblé SANS compte externe
+a été fait. Statut CODED partout ci-dessous : rien n'a encore tourné contre
+un vrai projet Supabase (aucun n'existe -- c'est le seul blocage qui reste,
+voir ACTION UTILISATEUR REQUISE).
+
+- **`musicEngine.ts` bascule réellement en Mode Réel** (`EXPO_PUBLIC_DEMO_MODE=false`) :
+  instancie `AudDRecognitionProvider` (vraie clé requise) et
+  `AppleMusicProvider` (avec un `DeveloperTokenProvider` qui appelle le
+  backend, protégé par la session KEEP réelle). Erreurs de config exactes
+  et immédiates si une variable manque -- jamais un repli silencieux vers
+  la démo.
+- **Capture micro réelle** (`services/micCapture.ts`, expo-av) : remplace
+  le buffer vide de la démo dès que `!musicEngine.isDemoMode`. Permission,
+  format m4a (accepté par AudD), 6s par échantillon.
+- **Auth Supabase réelle, code à 6 chiffres par e-mail** (pas de deep link
+  à gérer) : `services/supabaseClient.ts` (client unique, gated par config)
+  + `services/authService.ts` (logique testable par injection, **15/15
+  vérifications réelles** via `npx tsx packages/mobile/scripts/verify-auth-service.ts`)
+  + `OnboardingScreen` (formulaire email→code réel) + `App.tsx` (écoute
+  `onSessionChange`, bascule automatique vers `<Navigation />`) +
+  déconnexion réelle câblée (`ProfileScreen`). Apple/Google restent
+  honnêtement "pas encore connecté" (Sign in with Apple et OAuth Google
+  demandent chacun leur propre configuration native, hors périmètre ici).
+- **Connexion Apple Music enfin atteignable** : `AppleMusicAuthScreen`
+  existait depuis une session précédente mais n'était relié à AUCUN écran
+  (littéralement injoignable). Ajouté `AppleMusicConnectScreen` (récupère
+  le developer token puis lance la WebView MusicKit JS) + bouton "Connecter
+  Apple Music" dans `ProfileScreen` + route dans `Navigation.tsx`.
+- **Sécurité corrigée en le faisant** : `routes/music.ts` distribuait le
+  developer token sans protection -- corrigé une session plus tôt
+  aujourd'hui, réutilisé ici tel quel.
+- **Super Admin -- vraie API backend écrite** (`packages/backend/src/routes/admin.ts`) :
+  feature flags, `remote_config` (durée de silence de session incluse),
+  plans/prix/entitlements/quotas, promotions, coûts opérationnels,
+  utilisateurs, analytics (MRR/ARR/abonnements actifs calculés sur données
+  réelles, jamais un chiffre inventé). Gate RBAC réel
+  (`lib/adminAuth.ts`, **11/11 vérifications réelles** via
+  `npx tsx packages/backend/scripts/verify-admin-auth.ts`) : n'importe quel
+  admin actif peut lire, seuls SUPER_ADMIN/ADMIN (et FINANCE pour les prix,
+  MARKETING pour les promotions) peuvent écrire. Chaque mutation écrit une
+  ligne `audit_logs` (avant/après). **Trouvé en le construisant** : les
+  tables `plans/plan_prices/features/plan_entitlements/usage_limits/
+  feature_flags/promotions/promo_codes/operating_costs/remote_config/
+  provider_health` n'avaient AUCUNE policy RLS (contrairement à
+  `admin_users`/`audit_logs`, déjà protégées) -- corrigé dans une nouvelle
+  migration `0008_pricing_rls_and_remote_config.sql` (lecture publique
+  pour ce que l'app doit afficher : plans/prix/features/entitlements/
+  quotas/feature_flags ; strictement interne pour le reste : promotions,
+  promo_codes, coûts, remote_config, provider_health).
+- **Ce qui reste explicitement APRÈS la connexion Super Admin — pas fait
+  aujourd'hui, par choix** : le Super Admin Next.js (`packages/admin`)
+  affiche toujours des tableaux DEMO_* en mémoire, pas encore branché sur
+  cette nouvelle API. C'est un chantier UI séparé (remplacer chaque page
+  par de vrais appels fetch + états de chargement/erreur), qui n'a de sens
+  à vérifier qu'une fois un projet Supabase réel + un compte
+  `admin_users` existent -- sinon c'est du code non testable en aveugle.
+
+**Vérifications réelles ajoutées aujourd'hui** : `verify-auth-service.ts`
+(15/15), `verify-admin-auth.ts` (11/11) -- en plus des scripts déjà
+existants, tous ré-exécutés et toujours verts. `tsc --noEmit` propre sur
+mobile/backend/admin après tous ces changements.
+
+**La migration 0008 n'a pas pu être vérifiée par exécution réelle** (pas de
+Postgres/Docker disponible sur cette machine, contrairement à la session
+cloud qui avait accès à un Postgres 16 réel pour `verify-migrations.sh`) --
+syntaxe cohérente avec les migrations existantes, mais son exécution
+contre un vrai Postgres reste à faire une fois le projet Supabase créé.
+
 ## ⚠️ Contrainte d'environnement — session cloud précédente (historique)
 
 Cette session de développement tourne dans un environnement cloud dont
@@ -354,58 +425,50 @@ commandes, ~2 minutes).
   `@types/cors` manquant empêchait aussi `tsc --noEmit` de tourner
   proprement sur `packages/backend` — ajouté.
 
-## ACTION UTILISATEUR REQUISE
+## ACTION UTILISATEUR REQUISE (à jour du 22/08/2026, session locale)
 
-**1. Accès push GitHub**
-Service : GitHub (dépôt `adelkhatra-bit/keep`)
-Pourquoi : le proxy git de cette session bloque le push tant que le dépôt
-n'est pas explicitement autorisé — c'est la méthode sécurisée que tu as
-demandée (pas de token à coller).
-Action exacte : autoriser `adelkhatra-bit/keep` dans les paramètres de
-connexion GitHub de cette session/organisation Cowork.
-Temps estimé : 1-2 minutes.
-Ce que je reprendrai ensuite : push immédiat de tous les commits locaux
-déjà prêts, puis push automatique à chaque étape suivante.
+**1. Supabase — LE blocage qui débloque tout le reste**
+Service : https://supabase.com/dashboard/new (créer un projet, gratuit pour démarrer)
+Pourquoi : Auth réelle, Apple Music réel (le developer token passe par une
+route protégée par Supabase Auth), Super Admin réel — tout en dépend.
+Action exacte : créer le projet (nom "keep", région Europe si tu es en
+France/Belgique, mot de passe DB à choisir et garder). Une fois créé,
+Project Settings → API → copier : Project URL, `anon` `public` key,
+`service_role` key (secret). Poser ces 3 valeurs dans un fichier local
+`packages/mobile/.env` (EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY)
+et `packages/backend/.env` (SUPABASE_URL, SUPABASE_ANON_KEY,
+SUPABASE_SERVICE_ROLE_KEY) — jamais collées dans le chat.
+Ce que je fais ensuite, dès que tu dis "fait" : j'applique les 8 migrations
+(`supabase/migrations/`), je crée ta ligne `admin_users` (rôle
+SUPER_ADMIN), je bascule `EXPO_PUBLIC_DEMO_MODE=false`, et le flux
+e-mail/code à 6 chiffres devient réellement utilisable.
+Temps estimé : 10 minutes.
 
-**2. Accès réseau du sandbox (npm/pip)**
-Service : Admin settings → Capabilities (mentionné dans la documentation
-produit Claude/Cowork)
-Pourquoi : sans ça, je ne peux ni installer les dépendances, ni exécuter
-Jest/ESLint/TypeScript check complet, ni lancer `expo start --tunnel` pour
-que tu voies KEEP en direct sur ton iPhone depuis cette session.
-Action exacte : élargir l'accès réseau sortant de cette session (registres
-npm/pip), OU — alternative sans réglage à changer — ouvrir un terminal sur
-ta machine dans le dossier du repo et lancer `npm install && npx expo start
---tunnel`, puis scanner le QR avec Expo Go.
-Temps estimé : 2 minutes (option locale) ou variable (option réglage admin).
-Ce que je reprendrai ensuite : dès que l'un des deux est fait, j'exécute
-réellement tous les tests, je type-check tout le monorepo, et je confirme
-le Milestone 1.
+**2. Compte AudD (reconnaissance musicale réelle)**
+Service : https://audd.io (free tier 300 requêtes, sans CB)
+Action exacte : créer un compte, copier la clé API, la poser dans
+`packages/mobile/.env` (EXPO_PUBLIC_AUDD_API_KEY) — jamais collée ici.
+Temps estimé : 5 minutes. Indépendant de Supabase, peut être fait en parallèle.
 
-**3. Connecteur Supabase**
-Service : connecteur Supabase (déjà visible dans le registre de connecteurs,
-non installé pour cette organisation)
-Pourquoi : aucun projet Supabase KEEP n'existe ; le schéma est prêt
-(`supabase/migrations/`) mais rien n'est déployé.
-Action exacte : connecter le connecteur Supabase depuis claude.ai (méthode
-sécurisée), ou créer le projet toi-même et m'indiquer son URL.
-Temps estimé : 3-5 minutes.
+**3. Hébergement backend**
+Service : Render ou Railway (les deux ont un plan gratuit de démarrage)
+Pourquoi : `packages/backend` n'est déployé nulle part — sans backend en
+ligne, ni le developer token Apple Music ni le Super Admin ne sont
+joignables depuis le mobile/l'app admin.
+Action exacte : créer un compte, dis-moi lequel tu préfères et je configure
+le déploiement (variables d'env à ajouter une fois le service créé).
+Temps estimé : 10 minutes de ta part.
 
-**4. Compte AudD (reconnaissance musicale)**
-Service : audd.io
-Pourquoi : nécessaire pour sortir la reconnaissance musicale du Mode Démo.
-Action exacte : créer un compte (free tier 300 requêtes, sans CB), fournir
-la clé API par une méthode sécurisée (pas collée en clair ici).
-Temps estimé : 5 minutes.
-
-**5. Pipeline TestFlight (3 sous-actions détaillées)**
+**4. Pipeline TestFlight (indépendant de tout ce qui précède)**
 Service : Expo / Apple Developer / App Store Connect
-Pourquoi : identité, paiement et 2FA personnels — je ne peux légalement pas
-le faire à ta place. Le pipeline CI/CD qui automatisera tout le reste
-(build + soumission TestFlight à chaque push) est déjà écrit et prêt.
-Action exacte : voir `docs/DEPLOYMENT_TESTFLIGHT.md` — 3 actions dans
-l'ordre (compte Expo + token, compte Apple Developer + clé API ASC, fiche
-App Store Connect), chacune avec son lien exact et les secrets GitHub à
-renseigner (jamais collés ici).
-Temps estimé : 15-20 min de ta part, + 24-48h d'attente de validation
-Apple entre les étapes 2 et 3.
+Voir `docs/DEPLOYMENT_TESTFLIGHT.md` — 3 actions dans l'ordre (compte Expo
++ token, compte Apple Developer + clé API ASC, fiche App Store Connect).
+Temps estimé : 15-20 min + 24-48h d'attente de validation Apple.
+
+**5. Clé MusicKit Apple Music (différente de la clé App Store Connect)**
+Service : developer.apple.com/account → Certificates, Identifiers & Profiles → Keys
+Pourquoi : nécessaire pour que le backend signe de vrais developer tokens
+Apple Music (`APPLE_MUSICKIT_TEAM_ID`/`_KEY_ID`/`_PRIVATE_KEY`).
+Action exacte : accessible seulement une fois le compte Apple Developer
+validé (voir action 4). Je te guide précisément à ce moment-là.
+Temps estimé : 10 minutes, après validation Apple Developer.
