@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "KEEP",
-    "slug": "keep-app",
+    "slug": "keep",
+    "owner": "saleme01s-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -58,6 +59,11 @@
       "expo-secure-store",
       "expo-status-bar"
     ],
-    "scheme": "keep"
+    "scheme": "keep",
+    "extra": {
+      "eas": {
+        "projectId": "f9598ced-2480-4fa6-8d6e-885dd4e489e8"
+      }
+    }
   }
 }
