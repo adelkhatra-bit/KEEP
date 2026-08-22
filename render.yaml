@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: keep-backend-production
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build --workspace=packages/backend
+    startCommand: node packages/backend/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: APPLE_MUSICKIT_TEAM_ID
+        sync: false
+      - key: APPLE_MUSICKIT_KEY_ID
+        sync: false
+      - key: APPLE_MUSICKIT_PRIVATE_KEY
+        sync: false
+
+  - type: web
+    name: keep-backend-staging
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build --workspace=packages/backend
+    startCommand: node packages/backend/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: APPLE_MUSICKIT_TEAM_ID
+        sync: false
+      - key: APPLE_MUSICKIT_KEY_ID
+        sync: false
+      - key: APPLE_MUSICKIT_PRIVATE_KEY
+        sync: false
