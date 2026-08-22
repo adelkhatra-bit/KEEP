@@ -10,19 +10,30 @@
     "packages/music"
   ],
   "scripts": {
-    "install:all": "yarn install",
-    "dev:mobile": "cd packages/mobile && expo start",
-    "dev:mobile:tunnel": "cd packages/mobile && expo start --tunnel",
-    "dev:backend": "cd packages/backend && npm run dev",
-    "dev:admin": "cd packages/admin && npm run dev",
-    "build:mobile": "cd packages/mobile && eas build",
-    "build:backend": "cd packages/backend && npm run build",
-    "build:admin": "cd packages/admin && npm run build",
-    "test": "yarn workspaces run test",
-    "lint": "yarn workspaces run lint",
-    "type-check": "yarn workspaces run type-check"
+    "install:all": "npm install",
+    "dev:mobile": "npm run start --workspace=packages/mobile",
+    "dev:mobile:tunnel": "npm run start --workspace=packages/mobile -- --tunnel",
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:admin": "npm run dev --workspace=packages/admin",
+    "build:mobile": "npm run build:ios:local --workspace=packages/mobile",
+    "build:backend": "npm run build --workspace=packages/backend",
+    "build:admin": "npm run build --workspace=packages/admin",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
+  },
+  "overrides": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "next": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    },
+    "@testing-library/react-native": {
+      "react": "$react"
+    }
   }
 }

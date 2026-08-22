@@ -29,7 +29,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
           <Text style={styles.emptyText}>{t('session.recapNotFound')}</Text>
-          <TouchableOpacity style={styles.backLink} onPress={() => navigation.navigate('Main')}>
+          <TouchableOpacity style={styles.backLink} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}>
             <Text style={styles.backLinkText}>← {t('common.back')}</Text>
           </TouchableOpacity>
         </View>
@@ -55,7 +55,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')} hitSlop={8}>
+        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('session.recapTitle')}</Text>
