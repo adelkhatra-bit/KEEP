@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { DEMO_FEATURE_FLAGS, DemoFeatureFlag } from '../lib/demoData';
+import { DEMO_FEATURE_FLAGS, DemoFeatureFlag, DEMO_APP_SETTINGS, DemoAppSetting } from '../lib/demoData';
 
 /**
  * Écran Feature Flags — cf. cahier des charges "TOUT DOIT ÊTRE MODIFIABLE"
@@ -11,6 +11,7 @@ import { DEMO_FEATURE_FLAGS, DemoFeatureFlag } from '../lib/demoData';
  */
 export default function FeatureFlags() {
   const [flags, setFlags] = useState<DemoFeatureFlag[]>(DEMO_FEATURE_FLAGS);
+  const [settings, setSettings] = useState<DemoAppSetting[]>(DEMO_APP_SETTINGS);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   const toggle = (key: string) => {
@@ -18,9 +19,16 @@ export default function FeatureFlags() {
     setSavedAt(null);
   };
 
+  const updateSetting = (key: string, value: number) => {
+    setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, value } : s)));
+    setSavedAt(null);
+  };
+
   const handleSave = () => {
     // MODE DÉMO : pas d'écriture réelle. En Mode Réel, PATCH /admin/feature-flags
     // qui écrit dans `feature_flags` + une ligne `audit_logs` par changement.
+    // Les réglages numériques (DEMO_APP_SETTINGS) n'ont pas encore de table
+    // `app_settings` équivalente — voir le commentaire dans lib/demoData.ts.
     setSavedAt(new Date().toLocaleTimeString('fr-FR'));
   };
 
@@ -65,6 +73,35 @@ export default function FeatureFlags() {
                 >
                   {f.isEnabledGlobally ? 'Désactiver' : 'Activer'}
                 </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="page-subtitle" style={{ marginTop: 32 }}>Réglages session</div>
+      <table>
+        <thead>
+          <tr><th>Réglage</th><th>Clé</th><th>Valeur</th></tr>
+        </thead>
+        <tbody>
+          {settings.map((s) => (
+            <tr key={s.key}>
+              <td>{s.description}</td>
+              <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: 12 }}>{s.key}</td>
+              <td>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={s.value}
+                  onChange={(e) => updateSetting(s.key, Math.max(1, Number(e.target.value) || 1))}
+                  style={{
+                    width: 64, background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    borderRadius: 6, color: 'var(--text-primary)', padding: '6px 8px', fontSize: 13,
+                  }}
+                />{' '}
+                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{s.unit}</span>
               </td>
             </tr>
           ))}

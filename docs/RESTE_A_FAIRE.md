@@ -1,8 +1,13 @@
 # KEEP — Reste à faire (par priorité, cf. cahier des charges §93)
 
 ## Priorité 1-2 — Cœur musical (EN COURS)
-- [ ] Débloquer npm/Expo (voir PROJECT_STATUS.md ACTION UTILISATEUR REQUISE) et
-      confirmer que KEEP Mobile s'affiche réellement sur iPhone (Milestone 1).
+- [x] Débloquer npm/Expo — fait en session locale le 21/08/2026 (voir
+      PROJECT_STATUS.md "Session locale du 21/08/2026") : `npm install`
+      réel, plusieurs bugs bloquants corrigés (tsconfig, entrée
+      `AppEntry.js`, deps fantômes), bundle Metro réel (`expo export`)
+      réussi. Reste : `expo start --tunnel` + scan Expo Go pour confirmer
+      l'affichage sur un vrai iPhone (Milestone 1 pas encore coché tant
+      que non vu sur l'appareil).
 - [x] Implémenter un vrai `MusicProviderAdapter` Apple Music (REST, provider
       principal retenu — voir PLATFORM_COMPLIANCE.md) : écrit et testé
       (14/14, fetch simulé fidèle à la doc Apple). Reste : brancher dans
@@ -27,14 +32,22 @@
       "pas connecté" au lieu de simuler une connexion.
 
 ## Priorité 3 — Profil + partage + Compare
-- [ ] Écran profil complet (photo, styles musicaux, réseaux sociaux publics/privés).
-- [ ] Champs facultatifs date de naissance/genre déjà modélisés en base
-      (`profile_private_info`, RLS propriétaire uniquement) — UI à construire.
-- [ ] Deep link `keep://profile/:username` + résolution web publique.
-- [ ] Écran Compare nos KEEP (peut réutiliser `compareMusicDNA` si le flag
-      `keep_dna` est activé, sinon comparaison simple par morceaux communs).
+- [x] Écran profil complet (kind, styles/artistes favoris, réseaux sociaux
+      publics/privés, ville/pays, site) — fait 21/08/2026, backé par
+      `useUserStore` local (pas encore Supabase, voir statut CONNECTED).
+- [x] Champs facultatifs date de naissance/genre — UI construite dans
+      `ProfileScreen` (`user.privateInfo`), mappe directement
+      `profile_private_info`. Reste : écrire réellement dans cette table
+      une fois Supabase déployé (actuellement état local uniquement).
+- [ ] Deep link `keep://profile/:username` + résolution web publique
+      (le `scheme: "keep"` existe dans `app.json`, mais rien n'écoute
+      encore ce lien pour ouvrir un profil précis dans l'app).
+- [x] Écran Compare nos KEEP — calcul réel via `compareMusicDNA` sur
+      `useSessionHistoryStore`, contre un profil démo tant qu'aucun second
+      utilisateur KEEP réel n'existe (voir PROJECT_STATUS.md).
 - [ ] PRENDRE SES SONS → RANGER CHEZ MOI (réutilise `SmartPlaylistRouter`
-      du destinataire, déjà prêt).
+      du destinataire, déjà prêt) — nécessite un vrai second utilisateur,
+      pas encore construit (Discover reste en profils démo).
 
 ## Priorité 4 — Super Admin + monétisation
 - [x] Dashboard, Utilisateurs (recherche + filtre par plan), Abonnements &

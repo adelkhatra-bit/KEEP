@@ -8,20 +8,37 @@
     "legalNotice": "By continuing, you agree to KEEP's Terms and Privacy Policy."
   },
   "nav": {
-    "listen": "Listen",
+    "listen": "KEEP Session",
     "discover": "Discover",
     "myMusic": "My Music",
     "profile": "Profile"
   },
   "listen": {
-    "noSongTitle": "No song playing",
-    "startListening": "Start Listening",
-    "listening": "KEEP is listening...",
-    "recognized": "Recognized",
     "pass": "PASS",
-    "keep": "KEEP",
-    "keptIn": "Filed in {{playlist}}",
-    "confidence": "{{value}}% confidence"
+    "keep": "KEEP"
+  },
+  "session": {
+    "emptyTitle": "Keep the music from your moments",
+    "emptySubtitle": "Start a session: KEEP identifies the tracks playing around you until you stop it.",
+    "start": "START A SESSION",
+    "inProgress": "SESSION IN PROGRESS",
+    "detected": "{{count}} tracks detected",
+    "kept": "{{count}} kept",
+    "waitingForMusic": "KEEP is listening… no track detected yet.",
+    "endNow": "End session",
+    "endPromptTitle": "The music seems to have stopped",
+    "endPromptBody": "No new track detected for a while. End the session?",
+    "continueListening": "Keep session going",
+    "recapNotFound": "Session not found.",
+    "recapTitle": "Your KEEP session",
+    "namePlaceholder": "Name this session (e.g. At Paul's, Ibiza…)",
+    "keepAll": "Keep all ({{count}})",
+    "chooseDestination": "Choose where to file this track",
+    "pendingCount": "{{count}} pending"
+  },
+  "history": {
+    "title": "My Sessions",
+    "empty": "No sessions yet. Start your first KEEP session to begin your history of moments."
   },
   "myMusic": {
     "title": "My Music",
@@ -39,7 +56,62 @@
     "logout": "Log out",
     "completion": "Your KEEP is {{percent}}% complete",
     "followers": "Followers",
-    "following": "Following"
+    "following": "Following",
+    "edit": "Edit",
+    "save": "Save",
+    "bio": "Bio",
+    "city": "City",
+    "country": "Country",
+    "website": "Website",
+    "favoriteGenres": "Favorite styles",
+    "favoriteArtists": "Favorite artists",
+    "addGenre": "Add a style",
+    "addArtist": "Add an artist",
+    "socialLinks": "Social links",
+    "addSocialLink": "Add a link",
+    "public": "Public",
+    "private": "Private",
+    "publicProfile": "Public profile",
+    "publicProfileHint": "Visible to other KEEP users.",
+    "locationOptIn": "Approximate location",
+    "locationOptInHint": "Used for Discover (nearby profiles/events). Never your exact position.",
+    "privateInfoTitle": "Private info (optional)",
+    "privateInfoHint": "Never shown publicly.",
+    "birthDate": "Birth date",
+    "gender": "Gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "genderOther": "Other",
+    "genderPreferNot": "Prefer not to say",
+    "kindUser": "Listener",
+    "kindCreator": "Creator",
+    "kindDj": "DJ",
+    "kindArtist": "Artist",
+    "kindProducer": "Producer",
+    "kindVenue": "Venue",
+    "qrTitle": "Profile QR",
+    "qrHint": "Scan to see my KEEP",
+    "compareKeep": "Compare our KEEP",
+    "compareResult": "Musical compatibility with {{name}}: {{percent}}%",
+    "compareNeedsData": "Keep at least one track during a session to compute your music DNA.",
+    "keepDnaTitle": "KEEP DNA — your music DNA",
+    "keepDnaHint": "Computed only from your KEEP decisions — never from Spotify/Apple Music content.",
+    "keepDnaEmpty": "Keep tracks during your sessions to see your music DNA appear.",
+    "diversity": "Musical diversity"
+  },
+  "discover": {
+    "title": "Discover",
+    "compatibleProfiles": "Compatible profiles",
+    "djsArtists": "DJs & artists",
+    "events": "Events",
+    "yourTrends": "Your KEEP trends",
+    "viewProfile": "View profile",
+    "interested": "Interested",
+    "interestedMarked": "✓ Interested",
+    "compatibility": "{{percent}}% compatible",
+    "noLocation": "Enable location in your profile to see nearby profiles/events.",
+    "emptyTrends": "Keep some tracks to see your trends appear here.",
+    "demoProfilesNote": "Demo profiles — real discovery activates once real KEEP users are connected (see docs/PROJECT_STATUS.md)."
   },
   "demo": {
     "badge": "🎭 DEMO MODE — sample data, resets on refresh"
@@ -47,6 +119,9 @@
   "common": {
     "comingSoon": "Coming soon",
     "notConnected": "Not connected yet",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "back": "Back",
+    "cancel": "Cancel",
+    "close": "Close"
   }
 }

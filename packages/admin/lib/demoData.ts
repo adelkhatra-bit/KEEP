@@ -58,6 +58,33 @@ export const DEMO_FEATURE_FLAGS: DemoFeatureFlag[] = [
   { key: 'keep_dna', description: 'KEEP DNA — ADN musical (voir docs/INNOVATIONS.md)', isEnabledGlobally: false },
 ];
 
+export interface DemoAppSetting {
+  key: string;
+  description: string;
+  value: number;
+  unit: string;
+}
+
+/**
+ * Réglages numériques (pas des on/off, donc séparés de `feature_flags`).
+ * `session_silence_timeout_minutes` pilote `useSessionStore` côté mobile
+ * (constante `DEFAULT_SESSION_SILENCE_TIMEOUT_MIN`) — corrections concept
+ * du 21/08/2026 ("cette durée doit être modifiable depuis le Super Admin").
+ * STATUT HONNÊTE : contrairement à `DEMO_FEATURE_FLAGS`, cette valeur n'a
+ * PAS encore de table `app_settings` en base (aucun projet Supabase KEEP
+ * déployé, voir docs/PROJECT_STATUS.md) — modifier ce réglage ici reste
+ * Mode Démo pur, ça ne change rien côté mobile tant que la livraison
+ * admin -> mobile n'est pas câblée. Ne pas prétendre le contraire.
+ */
+export const DEMO_APP_SETTINGS: DemoAppSetting[] = [
+  {
+    key: 'session_silence_timeout_minutes',
+    description: 'Fin de session proposée après une absence de musique de',
+    value: 10,
+    unit: 'minutes',
+  },
+];
+
 export const DEMO_USERS: DemoUser[] = [
   { id: 'u1', username: 'adel', country: 'FR', plan: 'PREMIUM', keepsThisMonth: 42, joinedAt: '2026-06-01' },
   { id: 'u2', username: 'lea_m', country: 'FR', plan: 'FREE', keepsThisMonth: 12, joinedAt: '2026-07-10' },

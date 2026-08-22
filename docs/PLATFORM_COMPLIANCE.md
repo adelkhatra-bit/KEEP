@@ -203,3 +203,54 @@ multipart + réponses simulées fidèles à la doc, y compris les deux formes
 
 **Paiements :** IAP obligatoire sur iOS et Android pour tout déblocage
 in-app ; jamais de mécanisme de contournement.
+
+## 8. Continuité de la reconnaissance en session (recherche 21/08/2026)
+
+Contexte : le concept KEEP corrigé (§ session, voir `docs/PROJECT_STATUS.md`)
+demande que l'utilisateur démarre une session puis **profite de sa soirée**
+sans avoir à rouvrir l'app à chaque morceau. Ce point structure directement
+ce que le moteur de session (`useSessionStore`) a le droit de faire.
+
+**Ce qui existe réellement et est autorisé par les plateformes :**
+- iOS : le mode d'arrière-plan `UIBackgroundModes: ["audio"]` permet à une
+  app d'utiliser le micro en arrière-plan tant qu'une `AVAudioSession`
+  active (catégorie `.record`/`.playAndRecord`) est engagée. C'est le
+  mécanisme réellement utilisé par **Auto Shazam** (Shazam, propriété
+  Apple) : "listens continuously... even when you switch to another app or
+  when your device is locked", avec un Live Activity affiché pendant
+  l'écoute (ajouté en mai 2024). C'est donc un mécanisme public, pas un
+  privilège réservé aux apps Apple.
+- Android : équivalent via un **Foreground Service** de type `microphone`
+  (obligatoire avec notification persistante depuis Android 8+, permission
+  `FOREGROUND_SERVICE_MICROPHONE` explicite depuis Android 14).
+
+**Ce qui reste un vrai risque/coût, pas juste un détail technique :**
+- App Review iOS rejette régulièrement les apps qui déclarent
+  `UIBackgroundModes: audio` sans justification d'usage manifeste et
+  continue à surveiller l'usage réel du micro en arrière-plan (retours de
+  développeurs sur les forums Apple, 2024-2026) — déclarer ce mode
+  **sans l'avoir réellement câblé et testé sur un vrai appareil** est le
+  genre d'erreur qui fait rejeter une soumission TestFlight/App Store.
+- L'écoute continue en arrière-plan consomme sensiblement plus de batterie
+  qu'une écoute au premier plan — Auto Shazam le signale explicitement à
+  l'utilisateur.
+
+**Décision produit pour cette itération (ne pas sur-promettre) :**
+Le moteur de session (`useSessionStore`) fonctionne aujourd'hui **au
+premier plan** : tant que l'app KEEP est ouverte (écran allumé ou verrouillé
+avec lecture audio de fond activée nativement par iOS/Android pour les apps
+audio, ce que KEEP n'utilise pas encore), la reconnaissance tourne à
+intervalle régulier. La continuité en arrière-plan total (app fermée,
+utilisateur sur une autre app) — `UIBackgroundModes: audio` + Foreground
+Service Android + gestion batterie — est un chantier séparé, référencé dans
+`docs/RESTE_A_FAIRE.md`, **pas encore déclaré dans `app.json`** : on ne
+déclare une capability système qu'une fois le code correspondant réellement
+écrit et vérifiable sur un vrai appareil (cf. règle "jamais dire validé sans
+test réel"). Ne jamais présenter KEEP comme "toujours à l'écoute" tant que
+ce chantier n'est pas fait.
+
+Sources : [Auto Shazam — Apple Support](https://support.apple.com/guide/shazam/aside/dev450e1498e/web) ·
+[Shazam can now run in the background with Live Activities — AppleInsider](https://appleinsider.com/articles/24/05/22/shazam-can-now-run-in-the-background-with-live-activities) ·
+[How to use continuous background music recognition on iPhone](https://www.idownloadblog.com/2025/12/10/use-auto-shazam/) ·
+[Apple Developer Forums — Background Audio capabilities not accepted](https://developer.apple.com/forums/thread/91872) ·
+[Apple Developer Forums — Cannot record audio when app is background](https://developer.apple.com/forums/thread/674632)

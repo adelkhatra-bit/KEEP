@@ -1,13 +1,92 @@
 # KEEP — Statut du projet
 
-Dernière mise à jour : 2026-08-21, session cloud (voir note environnement
-ci-dessous). Statuts honnêtes uniquement — `PRODUCTION_READY` n'est utilisé
-que pour ce qui a réellement tourné en conditions réelles.
+Dernière mise à jour : 2026-08-21, session locale (machine d'Adel — voir
+"Session locale du 21/08/2026" ci-dessous, qui lève la contrainte réseau
+décrite dans la note "session cloud" juste en dessous ; cette note cloud est
+gardée pour l'historique). Statuts honnêtes uniquement —
+`PRODUCTION_READY` n'est utilisé que pour ce qui a réellement tourné en
+conditions réelles.
 
 Légende : `PLANNED` · `CODED` · `CONNECTED` · `TESTED` · `PRODUCTION_READY` ·
 `MOCK` · `BLOCKED`
 
-## ⚠️ Contrainte d'environnement (lue avant tout le reste)
+## Session locale du 21/08/2026 — correction de concept + déblocage réseau
+
+Cette session tourne en local sur la machine d'Adel, **pas** dans le sandbox
+cloud contraint décrit ci-dessous — `npm install`/`npx expo` fonctionnent
+réellement ici. Deux volets :
+
+**1. Correction de concept (retour utilisateur direct) :** l'onglet
+"Écouter" donnait l'impression que KEEP est un lecteur de musique. Corrigé
+en un vrai moteur de **session** : `useSessionStore` (reconnaissance
+enchaînée à intervalle régulier, détection de fin de session par silence
+prolongé — durée configurable, défaut 10 min), `useSessionHistoryStore`
+(historique persistant AsyncStorage — "Mes Sessions"), nouveaux écrans
+`HomeScreen` (session live, animation `SessionPulse` en SVG/Reanimated à la
+place de l'ancienne pochette 260×260), `SessionRecapScreen` (GARDER
+TOUT/sélection/RANGER), `SessionHistoryScreen`. `ProfileScreen` et
+`DiscoverScreen` largement refaits (voir sections TESTED/CODED plus bas).
+Voir `docs/PLATFORM_COMPLIANCE.md` §8 pour la recherche sourcée sur les
+contraintes réelles micro/arrière-plan iOS/Android qui bornent ce que le
+moteur de session a le droit de faire (décision : premier plan pour cette
+itération, arrière-plan total = chantier séparé, pas déclaré dans
+`app.json` tant qu'il n'est pas câblé).
+
+**2. Le réseau n'est PAS bloqué ici** (contrairement au sandbox cloud) :
+`npm install` a réellement tourné (1425+ paquets), ce qui a révélé et permis
+de corriger plusieurs bugs bloquants jamais détectés faute d'avoir pu
+installer avant :
+- `expo-audio@~13.1.0` dans `packages/mobile/package.json` : version qui
+  n'a **jamais existé** sur npm (plus bas que la première version publiée),
+  et le paquet n'était importé nulle part dans le code — supprimé (doublon
+  mort avec `expo-av`, déjà réellement utilisé).
+- `expo-image-picker` référencé comme plugin dans `app.json` mais absent de
+  `package.json` — `npx expo install` ne pouvait même pas vérifier la
+  config. Ajouté à la bonne version SDK 51.
+- `tsconfig.json` : `resolveJsonModule: true` incompatible avec
+  `moduleResolution` implicite `classic` (faute de `moduleResolution`
+  explicite) — `tsc --noEmit` n'avait **jamais pu tourner jusqu'au bout**
+  avant cette session. Corrigé (`moduleResolution: "bundler"`) : le
+  type-check tourne maintenant réellement et est **propre (0 erreur)** sur
+  tout `packages/mobile`, y compris tout le code ajouté cette session.
+- `package.json` racine `"main": "node_modules/expo/AppEntry.js"` : chemin
+  littéral qui ne résout plus une fois `expo` hissé à la racine du monorepo
+  par npm workspaces (`ConfigError: Cannot resolve entry file`) — bloquait
+  `expo start`/`expo export` avant même Metro. Remplacé par le point
+  d'entrée standard moderne (`index.js` + `registerRootComponent`),
+  recommandé par Expo pour les monorepos.
+- Ajout d'`expo-location` (SDK 51, via `npx expo install`) pour la
+  localisation approximative opt-in (profil + Découvrir), et
+  `react-native-svg`/`react-native-qrcode-svg`/`@react-navigation/native-stack`
+  pour l'animation de session, le QR profil et la navigation vers le récap.
+
+**Vérifications réelles effectuées cette session (pas des affirmations) :**
+- `npx tsc --noEmit` sur `packages/mobile` : **0 erreur** (jamais exécutable
+  avant, voir bug tsconfig ci-dessus).
+- `npx jest` sur `packages/mobile` : **2/2 tests passés**, y compris la
+  parité i18n FR/EN après ajout de toutes les nouvelles clés
+  (session/history/profile/discover) — jamais exécutable avant (Jest non
+  installable dans le sandbox cloud).
+- `npx tsc --noEmit` sur `packages/admin` : **0 erreur** après l'ajout du
+  panneau "Réglages session" (durée de fin de session configurable).
+- `npx tsx packages/admin/scripts/verify.ts` : **16/16** (inchangé, la
+  cohérence des feature flags avec le seed SQL n'a pas été touchée).
+- `npx tsx packages/music/scripts/verify.ts` : **15/15** (moteur musical
+  non modifié, ré-exécuté par précaution).
+- **`npx expo export --platform ios` : bundle Metro réel réussi — 1278
+  modules, tout le code (nouveaux écrans/stores/composants inclus) compile
+  et se bundle de bout en bout pour iOS.** C'est la première fois que le
+  code mobile de KEEP est réellement bundlé/exécutable par Metro — avant
+  cette session, `PROJECT_STATUS.md` disait explicitement "impossible de
+  garantir qu'il compile sans erreur tant qu'un `npm install` n'a pas eu
+  lieu quelque part". Fait, ici.
+
+**Ce que ça change pour le Milestone 1** ("KEEP visible sur ton iPhone") :
+le blocage réseau qui l'empêchait est levé sur cette machine. Reste
+seulement `npx expo start --tunnel` + scanner le QR avec Expo Go — voir en
+bas de ce document pour le lien lancé pendant cette session.
+
+## ⚠️ Contrainte d'environnement — session cloud précédente (historique)
 
 Cette session de développement tourne dans un environnement cloud dont
 l'accès réseau sortant est restreint aux domaines déjà autorisés
@@ -104,12 +183,28 @@ commandes, ~2 minutes).
 
 ## CONNECTED (câblé de bout en bout, non vérifié en exécution)
 
-- Pipeline GARDER mobile : `HomeScreen` → `usePlayerStore` →
+- Moteur de session mobile : `HomeScreen` → `useSessionStore` (tick de
+  reconnaissance répété, détection de silence) →
   `musicEngine.recognitionProvider` → `TrackResolver` →
-  `SmartPlaylistRouter` → `musicEngine.musicProvider.addTrackToPlaylist`
-  → `usePlaylistStore.refresh()`. Le code existe et s'enchaîne
-  logiquement (mêmes classes que celles testées ci-dessus), mais n'a
-  jamais tourné dans un vrai Metro/Expo.
+  `SmartPlaylistRouter` → `keepTrackAction.commitKeep` →
+  `musicEngine.musicProvider.addTrackToPlaylist` →
+  `usePlaylistStore.refresh()` ; fin de session → `useSessionHistoryStore`
+  (persistance AsyncStorage) → `SessionRecapScreen`/`SessionHistoryScreen`.
+  Remplace l'ancien pipeline GARDER mono-morceau (`usePlayerStore`,
+  supprimé de la navigation). Le code s'enchaîne logiquement et **bundle
+  réellement avec Metro** (voir "Session locale du 21/08/2026" plus haut),
+  mais n'a pas encore tourné sur un vrai appareil/Expo Go — statut
+  CONNECTED, pas encore TESTED en conditions réelles.
+- `ProfileScreen`/`DiscoverScreen` : profil complet (kind, ville/pays, site,
+  styles/artistes favoris, réseaux sociaux avec visibilité publique/privée,
+  infos privées séparées, QR profil réel via `react-native-qrcode-svg`,
+  "Comparer nos KEEP" et KEEP DNA calculés pour de vrai via
+  `computeMusicDNA`/`compareMusicDNA` sur les GARDER réels de
+  `useSessionHistoryStore` — pas des pourcentages inventés) et Découvrir
+  (profils/DJ/événements DÉMO explicitement labellisés, tendances
+  personnelles calculées pour de vrai depuis l'historique local). Tous les
+  boutons visibles déclenchent une action réelle (calcul, navigation,
+  Alert, Share, permission) — aucun bouton décoratif.
 - `MyMusicScreen` → "Ranger ma musique" → `analyzeLibrary` (testé isolément,
   non vérifié depuis l'écran).
 - Base de données : migrations SQL complètes et cohérentes (RLS incluse)
@@ -202,6 +297,23 @@ commandes, ~2 minutes).
   rétroactivement). Aucun vrai secret n'était présent (valeurs Mode Démo
   uniquement) — retirés du suivi git par précaution avant qu'un vrai secret
   n'y soit un jour ajouté par erreur. Commit local `81af63a`.
+- **22/08/2026 — route `/api/music/apple/developer-token` protégée.**
+  C'était l'avertissement de sécurité permanent listé dans `routes/music.ts`
+  ("NE PAS déployer sans middleware d'auth") : n'importe qui aurait pu
+  distribuer des developer tokens Apple Music au nom du compte développeur
+  KEEP. Corrigé : `src/lib/keepAuth.ts` (middleware, `TokenVerifier` injecté)
+  + `src/lib/supabaseTokenVerifier.ts` (implémentation réelle via
+  `supabase.auth.getUser()`, Supabase reste seul juge de la validité d'un
+  token). Tant que `SUPABASE_URL`/`SUPABASE_ANON_KEY` ne sont pas définies,
+  la route répond honnêtement `503 auth_not_configured` plutôt que d'être
+  servie sans contrôle d'accès. **9/9 vérifications réelles** via
+  `npx tsx packages/backend/scripts/verify-keep-auth.ts` (faux req/res, pas
+  un mock du framework Express). `packages/backend/.env.example` était
+  aussi périmé (variables `AUDID_API_KEY`/`SHAZAM_API_KEY` inutilisées,
+  `APPLE_MUSICKIT_*` réellement lues par le code mais absentes du fichier)
+  — corrigé pour refléter les vraies variables consommées par le code.
+  `@types/cors` manquant empêchait aussi `tsc --noEmit` de tourner
+  proprement sur `packages/backend` — ajouté.
 
 ## ACTION UTILISATEUR REQUISE
 
