@@ -29,7 +29,12 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0a"
       },
-      "package": "com.adelkhatra.keep"
+      "package": "com.adelkhatra.keep",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -63,6 +68,12 @@
       "eas": {
         "projectId": "f9598ced-2480-4fa6-8d6e-885dd4e489e8"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f9598ced-2480-4fa6-8d6e-885dd4e489e8"
     }
   }
 }
