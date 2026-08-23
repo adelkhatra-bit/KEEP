@@ -8,7 +8,7 @@ import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { colors } from './src/theme/colors';
-import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
+import { supabase, isSupabaseConfigured, ensureGuestSession } from './src/services/supabaseClient';
 import { createAuthService } from './src/services/authService';
 import { WebAlertHost } from './src/utils/AppAlert';
 
@@ -30,7 +30,17 @@ export default function App() {
     const authService = createAuthService(supabase);
     const syncFromAuthSession = useUserStore.getState().syncFromAuthSession;
 
-    authService.getCurrentSession().then(syncFromAuthSession);
+    authService.getCurrentSession().then((session) => {
+      syncFromAuthSession(session);
+      // Invité automatique et silencieux (cf. demande explicite du
+      // 23/08/2026 : "KEEP doit être testable immédiatement sans
+      // inscription"). Une session Mode Démo déjà active reste prioritaire
+      // (voir syncFromAuthSession) -- ensureGuestSession() ne fait rien si
+      // une session (réelle ou déjà invitée) existe déjà.
+      if (!session && !useUserStore.getState().isDemoMode) {
+        ensureGuestSession();
+      }
+    });
     const unsubscribe = authService.onSessionChange(syncFromAuthSession);
     return unsubscribe;
   }, []);

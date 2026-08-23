@@ -11,3 +11,24 @@ build/
 .next/
 next-env.d.ts
 *.tsbuildinfo
+
+# packages/recognition-engine -- environnement Python de prototypage
+# (Dejavu/audfprint) : .venv régénérable via requirements.txt, audfprint/
+# récupéré via git clone (voir packages/recognition-engine/README.md) --
+# jamais commité tel quel, ni les données de test (voir règle "ne jamais
+# stocker de musique protégée" -- même en local, on ne les garde pas).
+packages/recognition-engine/.venv/
+packages/recognition-engine/audfprint/
+packages/recognition-engine/dejavu/
+packages/recognition-engine/*.pklz
+packages/recognition-engine/test-data/
+packages/recognition-engine/__pycache__/
+packages/recognition-engine/.corpus-work/
+packages/recognition-engine/.benchmark-work/
+packages/recognition-engine/qa-corpus-jamendo/
+packages/recognition-engine/pg-portable/
+
+# KEEP Local Index runtime data -- base d'empreintes générée localement,
+# jamais commitée (grossit avec l'usage, propre à chaque environnement).
+# Inclut data/diagnostic-captures/ (échantillons micro de diagnostic, jamais gardés en repo).
+packages/backend/data/

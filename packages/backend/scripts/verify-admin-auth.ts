@@ -28,7 +28,7 @@ function fakeRes() {
   return res;
 }
 
-const validTokenVerifier: TokenVerifier = { async verify(token) { return token === 'valid' ? { userId: 'user-1' } : null; } };
+const validTokenVerifier: TokenVerifier = { async verify(token) { return token === 'valid' ? { userId: 'user-1', isAnonymous: false } : null; } };
 
 function roleCheckerReturning(role: AdminRole | null) {
   return { async checkAdminRole() { return role; } };

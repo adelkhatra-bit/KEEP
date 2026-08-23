@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { computeMusicDNA, compareMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -8,7 +9,7 @@ import { shareEvent } from '../services/sharingService';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { ProfileKind } from '../types';
-import { AppAlert as Alert } from '../utils/AppAlert';
+import LockedText from '../components/LockedText';
 
 interface DemoProfile {
   id: string;
@@ -66,9 +67,20 @@ const DEMO_EVENTS: DemoEvent[] = [
 
 export default function DiscoverScreen() {
   const { t } = useTranslation();
+  const navigation = useNavigation<any>();
   const user = useUserStore((s) => s.user);
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const [interestedEventIds, setInterestedEventIds] = useState<Set<string>>(new Set());
+  const [openedProfile, setOpenedProfile] = useState<DemoProfile | null>(null);
+  // OFF par défaut -- ces profils/événements sont fictifs (aucun backend
+  // Supabase KEEP déployé). Avant ce correctif ils s'affichaient toujours,
+  // mêlés aux vraies sections comme s'ils étaient réels (cf. demande
+  // explicite du 23/08/2026 : "aucun faux profil... clairement séparées").
+  const [showDemoExamples, setShowDemoExamples] = useState(false);
+  // Plan FREE = visibilité limitée sur le profil des autres, incitation à
+  // l'abonnement (cf. demande explicite du 22/08/2026). Aucune limite pour
+  // un compte payant, quel que soit le palier.
+  const isFreeViewer = (user?.plan ?? 'FREE') === 'FREE';
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((s) =>
@@ -96,10 +108,11 @@ export default function DiscoverScreen() {
     return Math.round(compareMusicDNA(myDna, theirDna) * 100);
   };
 
-  const openProfile = (profile: DemoProfile) => {
-    const compat = compatibilityFor(profile);
-    const compatLine = compat !== null ? `\n\n${t('discover.compatibility', { percent: compat })}` : '';
-    Alert.alert(`@${profile.username}`, `${profile.bio}${compatLine}`);
+  const openProfile = (profile: DemoProfile) => setOpenedProfile(profile);
+  const closeProfile = () => setOpenedProfile(null);
+  const goUpgrade = () => {
+    closeProfile();
+    navigation.navigate('Profile');
   };
 
   const toggleInterested = (eventId: string) => {
@@ -133,20 +146,30 @@ export default function DiscoverScreen() {
         </Section>
 
         <Section title={t('discover.compatibleProfiles')}>
-          {DEMO_PROFILES.filter((p) => p.kind === 'USER').map((profile) => (
-            <ProfileCard key={profile.id} profile={profile} compat={compatibilityFor(profile)} onPress={() => openProfile(profile)} t={t} />
-          ))}
+          {!showDemoExamples ? (
+            <Text style={styles.mutedHint}>{t('discover.notConnectedYet')}</Text>
+          ) : (
+            DEMO_PROFILES.filter((p) => p.kind === 'USER').map((profile) => (
+              <ProfileCard key={profile.id} profile={profile} compat={compatibilityFor(profile)} onPress={() => openProfile(profile)} t={t} />
+            ))
+          )}
         </Section>
 
         <Section title={t('discover.djsArtists')}>
-          {DEMO_PROFILES.filter((p) => p.kind !== 'USER').map((profile) => (
-            <ProfileCard key={profile.id} profile={profile} compat={compatibilityFor(profile)} onPress={() => openProfile(profile)} t={t} />
-          ))}
+          {!showDemoExamples ? (
+            <Text style={styles.mutedHint}>{t('discover.notConnectedYet')}</Text>
+          ) : (
+            DEMO_PROFILES.filter((p) => p.kind !== 'USER').map((profile) => (
+              <ProfileCard key={profile.id} profile={profile} compat={compatibilityFor(profile)} onPress={() => openProfile(profile)} t={t} />
+            ))
+          )}
         </Section>
 
         <Section title={t('discover.events')}>
           {!locationEnabled && <Text style={styles.mutedHint}>{t('discover.noLocation')}</Text>}
-          {DEMO_EVENTS.map((event) => {
+          {!showDemoExamples ? (
+            <Text style={styles.mutedHint}>{t('discover.notConnectedYet')}</Text>
+          ) : DEMO_EVENTS.map((event) => {
             const interested = interestedEventIds.has(event.id);
             const date = new Date(event.startsAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
             return (
@@ -176,8 +199,53 @@ export default function DiscoverScreen() {
           })}
         </Section>
 
-        <Text style={styles.footerNote}>{t('discover.demoProfilesNote')}</Text>
+        <TouchableOpacity onPress={() => setShowDemoExamples((v) => !v)} style={styles.demoToggle}>
+          <Text style={styles.footerNote}>
+            {showDemoExamples ? t('discover.hideDemoExamples') : t('discover.showDemoExamples')}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={!!openedProfile} transparent animationType="fade" onRequestClose={closeProfile}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            {openedProfile && (
+              <>
+                <Text style={styles.modalUsername}>@{openedProfile.username}</Text>
+                <Text style={styles.modalBio}>{openedProfile.bio}</Text>
+                {(() => {
+                  const compat = compatibilityFor(openedProfile);
+                  return compat !== null ? (
+                    <Text style={styles.modalCompat}>{t('discover.compatibility', { percent: compat })}</Text>
+                  ) : null;
+                })()}
+
+                <Text style={styles.modalSectionTitle}>{t('discover.topArtists')}</Text>
+                <View style={styles.chipsWrap}>
+                  {Array.from(new Set(openedProfile.decisions.map((d) => d.artist))).map((artist) => (
+                    <View key={artist} style={styles.lockedChip}>
+                      <LockedText text={artist} locked={isFreeViewer} />
+                    </View>
+                  ))}
+                </View>
+
+                {isFreeViewer && (
+                  <>
+                    <Text style={styles.upgradeHint}>{t('discover.upgradeToSeeArtists')}</Text>
+                    <TouchableOpacity style={styles.upgradeBtn} onPress={goUpgrade}>
+                      <Text style={styles.upgradeBtnText}>{t('discover.upgradeCta')}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={closeProfile}>
+                  <Text style={styles.modalCloseBtnText}>{t('common.close')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -243,5 +311,22 @@ const styles = StyleSheet.create({
   interestedBtnText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   interestedBtnTextActive: { color: colors.black },
 
-  footerNote: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: spacing.md },
+  demoToggle: { marginTop: spacing.md, paddingVertical: spacing.sm },
+  footerNote: { color: colors.primaryLight, fontSize: 12, fontWeight: '600', textAlign: 'center' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: spacing.xl },
+  modalCard: {
+    backgroundColor: colors.backgroundElevated, borderRadius: radius.xl, padding: spacing.xl,
+    borderWidth: 1, borderColor: colors.border, maxWidth: 380, width: '100%', alignSelf: 'center',
+  },
+  modalUsername: { ...typography.h3, color: colors.textPrimary, textAlign: 'center' },
+  modalBio: { color: colors.textSecondary, fontSize: 13, textAlign: 'center', marginTop: spacing.sm },
+  modalCompat: { color: colors.keep, fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: spacing.sm },
+  modalSectionTitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: spacing.sm },
+  lockedChip: { backgroundColor: colors.backgroundCard, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: 1, borderColor: colors.border },
+  upgradeHint: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: spacing.lg },
+  upgradeBtn: { backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
+  upgradeBtnText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+  modalCloseBtn: { paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
+  modalCloseBtnText: { color: colors.primaryLight, fontWeight: '700' },
 });

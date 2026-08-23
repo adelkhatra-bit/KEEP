@@ -189,6 +189,42 @@ export class SpotifyProvider implements MusicProviderAdapter {
     );
   }
 
+  /**
+   * GET /v1/me/player/recently-played (scope `user-read-recently-played`,
+   * voir spotifyAuth.ts) -- section "Écoutés récemment" du profil (cf.
+   * demande explicite du 23/08/2026). Spotify ne conserve qu'une fenêtre
+   * glissante d'environ 50 écoutes côté serveur (pas un historique complet
+   * exposé par cette API) -- `afterMs` permet de ne récupérer que les
+   * écoutes plus récentes qu'une synchronisation précédente (voir
+   * useRecentlyPlayedStore.ts pour la logique de sync incrémentale
+   * sans doublons), `undefined` récupère les plus récentes disponibles.
+   * Pagination auto via `next` avec garde-fou `maxPages` (Spotify renvoie les
+   * écoutes en ordre anté-chronologique quel que soit le curseur utilisé).
+   */
+  async getRecentlyPlayed(
+    session: ProviderSession,
+    options: { afterMs?: number; maxPages?: number } = {}
+  ): Promise<SpotifyRecentlyPlayedTrack[]> {
+    const results: SpotifyRecentlyPlayedTrack[] = [];
+    let path: string | undefined = options.afterMs
+      ? `/me/player/recently-played?limit=50&after=${options.afterMs}`
+      : '/me/player/recently-played?limit=50';
+    const maxPages = options.maxPages ?? 10;
+    let pages = 0;
+    while (path && pages < maxPages) {
+      const res: SpotifyPagedResponse<{ track: SpotifyTrackResource | null; played_at: string }> | null = await this.request(
+        session,
+        path
+      );
+      for (const item of res?.items ?? []) {
+        if (item.track) results.push({ track: this.toCanonicalTrack(item.track), playedAt: item.played_at });
+      }
+      path = res?.next ? res.next.replace(this.baseUrl, '') : undefined;
+      pages++;
+    }
+    return results;
+  }
+
   private toCanonicalTrack(t: SpotifyTrackResource): CanonicalTrack {
     return {
       id: `spotify:${t.id}`,
@@ -223,6 +259,12 @@ interface SpotifyTrackResource {
   artists?: { name: string }[];
   album?: { name?: string; images?: { url: string }[] };
   external_ids?: { isrc?: string };
+}
+
+/** Une écoute réelle -- `playedAt` (ISO 8601, fourni par Spotify) distingue deux écoutes du même morceau, voir getRecentlyPlayed. */
+export interface SpotifyRecentlyPlayedTrack {
+  track: CanonicalTrack;
+  playedAt: string;
 }
 
 function getSpotifyClientId(): string {

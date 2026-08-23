@@ -30,6 +30,16 @@ export interface ProfilePrivateInfo {
   gender?: GenderOption;
 }
 
+/**
+ * Miroir de `plan_code` (supabase/migrations/0003_commerce.sql). Détermine
+ * le badge de certification affiché à côté du pseudo (voir
+ * components/VerifiedBadge.tsx) -- reflète un abonnement PAYÉ, jamais
+ * attribué manuellement côté client (le paiement réel reste à brancher,
+ * voir docs/PRICING_STRATEGY.md ; en Mode Démo, changeable depuis Profil
+ * pour prévisualiser chaque palier).
+ */
+export type PlanCode = 'FREE' | 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
+
 export interface User {
   id: string;
   username: string;
@@ -40,6 +50,7 @@ export interface User {
   followerCount: number;
   followingCount: number;
   kind: ProfileKind;
+  plan: PlanCode;
   city?: string;
   countryCode?: string;
   website?: string;
@@ -71,6 +82,23 @@ export interface SessionTrackEntry {
   detectedAt: string;
   keptPlaylistId?: string;
   syncState?: TrackSyncState;
+  /** Nom personnalisé donné par l'utilisateur pour CE morceau dans CETTE session -- jamais imposé, l'utilisateur garde le titre détecté par défaut (cf. demande explicite du 23/08/2026 : "je puisse renommer un fichier musical"). */
+  customTitle?: string;
+  /**
+   * D'où KEEP a appris l'existence de ce morceau -- à ne JAMAIS confondre
+   * avec l'identité du morceau (CanonicalTrack) ni ses destinations
+   * disponibles (UniversalTrackResolver.resolveAvailability) -- trois
+   * notions distinctes (cf. demande explicite du 23/08/2026 : "Ne mélange
+   * surtout pas les trois").
+   */
+  discoverySource: 'mic' | 'recently_played';
+  /**
+   * Résultat réel de UniversalTrackResolver.resolveAvailability -- une
+   * entrée par plateforme CONNECTÉE au moment de la détection (found /
+   * not_found / unknown). Absent = pas encore résolu ou aucune plateforme
+   * connectée à ce moment-là ; jamais une liste inventée.
+   */
+  availability?: import('@keep/music').AvailabilityEntry[];
 }
 
 /**

@@ -1,11 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 
 export interface TokenVerifier {
-  verify(accessToken: string): Promise<{ userId: string } | null>;
+  verify(accessToken: string): Promise<{ userId: string; isAnonymous: boolean } | null>;
 }
 
 export interface KeepAuthedRequest extends Request {
   keepUserId?: string;
+  /** true pour une session Supabase anonyme (invité) -- pilote les limites invité (voir routes/recognition.ts). */
+  keepIsAnonymous?: boolean;
+  /** Jeton KEEP brut de la requête -- réutilisé pour parler à PostgREST AVEC les droits de l'utilisateur (respecte RLS), sans jamais passer par service_role. */
+  keepAccessToken?: string;
 }
 
 /**
@@ -32,6 +36,8 @@ export function requireKeepAuth(verifier: TokenVerifier) {
     }
 
     req.keepUserId = identity.userId;
+    req.keepIsAnonymous = identity.isAnonymous;
+    req.keepAccessToken = token;
     next();
   };
 }

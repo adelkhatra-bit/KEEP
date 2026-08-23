@@ -71,7 +71,15 @@ export class TrackResolver {
   }
 
   /** Résout une correspondance existante sans en créer une nouvelle. Utilisé par le Compare. */
-  findExisting(query: { isrc?: string; provider?: string; providerId?: string; title?: string; artist?: string }): CanonicalTrack | null {
+  findExisting(query: {
+    isrc?: string;
+    provider?: string;
+    providerId?: string;
+    title?: string;
+    artist?: string;
+    /** Filtre supplémentaire (cf. demande explicite du 23/08/2026 : "à défaut, une correspondance robuste titre/artiste/durée") -- distingue deux versions du même titre/artiste (live, remix...) quand les deux durées sont connues. */
+    durationSec?: number;
+  }): CanonicalTrack | null {
     if (query.isrc && this.byIsrc.has(query.isrc)) return this.byIsrc.get(query.isrc)!;
     if (query.provider && query.providerId) {
       const hit = this.byProviderId.get(`${query.provider}:${query.providerId}`);
@@ -79,8 +87,16 @@ export class TrackResolver {
     }
     if (query.title && query.artist) {
       const FUZZY_THRESHOLD = 0.85;
+      const DURATION_TOLERANCE_SEC = 5;
       let best: { track: CanonicalTrack; score: number } | null = null;
       for (const t of this.all) {
+        if (
+          query.durationSec !== undefined &&
+          t.durationSec !== undefined &&
+          Math.abs(t.durationSec - query.durationSec) > DURATION_TOLERANCE_SEC
+        ) {
+          continue; // même titre/artiste mais durée trop différente -- probablement une autre version, pas un doublon.
+        }
         const titleSim = similarity(t.title, query.title);
         const artistSim = similarity(t.artist, query.artist);
         const score = titleSim * 0.6 + artistSim * 0.4;
@@ -95,7 +111,12 @@ export class TrackResolver {
 
   /** Résout à partir d'un résultat de reconnaissance, en créant un morceau canonique si besoin. */
   resolveFromRecognition(result: RecognitionResult, idFactory: () => string = () => cryptoRandomId()): CanonicalTrack {
-    const existing = this.findExisting({ isrc: result.isrc, title: result.title, artist: result.artist });
+    const existing = this.findExisting({
+      isrc: result.isrc,
+      title: result.title,
+      artist: result.artist,
+      durationSec: result.durationSec,
+    });
     if (existing) return existing;
 
     const track: CanonicalTrack = {
@@ -104,8 +125,10 @@ export class TrackResolver {
       title: result.title,
       artist: result.artist,
       album: result.album,
+      durationSec: result.durationSec,
       artworkUrl: result.artworkUrl,
       providerIds: {},
+      songLink: result.songLink,
     };
     this.index(track);
     return track;

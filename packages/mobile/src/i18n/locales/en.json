@@ -16,10 +16,11 @@
   },
   "listen": {
     "pass": "PASS",
-    "keep": "KEEP"
+    "keep": "KEEP",
+    "findOnPlatforms": "▸ Find on platforms"
   },
   "session": {
-    "emptySubtitle": "KEEP remembers the music playing around you.",
+    "emptySubtitle": "KEEP finds your music, files it, then takes you to listen.",
     "start": "Capture this moment",
     "inProgress": "KEEP is capturing this moment",
     "detected": "{{count}} tracks detected",
@@ -39,7 +40,13 @@
     "connectPromptTitle": "Connect your music service?",
     "connectPromptBody": "KEEP will automatically save kept tracks to it. You can do this later from Profile.",
     "later": "Later",
-    "waitingSync": "Waiting to sync"
+    "waitingSync": "Waiting to sync",
+    "recognitionUnavailable": "Recognition temporarily unavailable — KEEP keeps listening.",
+    "recognitionNeedsLogin": "Sign in (Profile → Continue with email) to activate free recognition.",
+    "micPermissionDenied": "Allow microphone access so KEEP can recognize music (browser or phone settings).",
+    "micSilence": "KEEP isn't picking up enough sound — move the phone closer to the music or turn up the volume.",
+    "guestLimitReached": "You've seen KEEP in action! Create your free profile to keep your finds and continue.",
+    "createProfile": "Create my profile"
   },
   "history": {
     "title": "My Sessions",
@@ -52,7 +59,23 @@
     "songsAnalyzed": "{{count}} tracks analyzed",
     "suggestions": "{{count}} filing suggestions",
     "duplicates": "{{count}} potential duplicates",
-    "viewSuggestions": "View suggestions"
+    "viewSuggestions": "View suggestions",
+    "newPlaylist": "New playlist",
+    "playlistNamePlaceholder": "Playlist name",
+    "create": "Create",
+    "groupByStyle": "Group by style",
+    "createPlaylistFor": "Create a playlist →",
+    "renameTrack": "Rename this track",
+    "myKeeps": "My KEEPs",
+    "myKeepsEmpty": "No track kept yet -- start a session and KEEP a track, it will show up here immediately.",
+    "playlistsEmptyNoService": "No service connected -- connect Spotify or Apple Music from Profile to see your real playlists here.",
+    "playlistsEmpty": "No playlist found on the connected service.",
+    "albums": "Albums",
+    "albumsEmpty": "No album yet -- appears once a kept track has a known album.",
+    "connectedServices": "Connected services",
+    "noServiceConnected": "No service connected",
+    "manage": "Manage",
+    "requiresConnection": "Connect a music service (Profile) to create a real playlist."
   },
   "profile": {
     "title": "Profile",
@@ -83,6 +106,8 @@
     "previewAsVisitor": "View my profile as a visitor",
     "previewHint": "Exactly what someone sees when opening your link or QR code.",
     "previewPrivate": "Your profile is set to Private — a visitor would see nothing here. Turn on \"Public profile\" above to make it visible.",
+    "trackCount": "{{count}} tracks",
+    "listenOn": "▸ Listen on {{platform}}",
     "privateInfoTitle": "Private info (optional)",
     "privateInfoHint": "Never shown publicly.",
     "birthDate": "Birth date",
@@ -107,7 +132,11 @@
     "shareCompareInvite": "Share to compare",
     "photoPermissionDenied": "Allow photo access in iPhone Settings to change your profile picture.",
     "connectAppleMusic": "Connect Apple Music",
+    "username": "Username",
+    "usernameInvalid": "Name can't be empty (50 characters max).",
+    "previewPlan": "Badge preview:",
     "musicServices": "Music services",
+    "musicServicesHint": "Connect several services at once -- KEEP searches across all of them.",
     "connected": "Connected",
     "connect": "Connect",
     "compareResult": "Musical compatibility with {{name}}: {{percent}}%",
@@ -115,7 +144,12 @@
     "keepDnaTitle": "KEEP DNA — your music DNA",
     "keepDnaHint": "Computed only from your KEEP decisions — never from Spotify/Apple Music content.",
     "keepDnaEmpty": "Keep tracks during your sessions to see your music DNA appear.",
-    "diversity": "Musical diversity"
+    "diversity": "Musical diversity",
+    "recentlyPlayed": "Recently played",
+    "recentlyPlayedEmpty": "Connect Spotify to show your recent listens.",
+    "recentlyPlayedNone": "No recent listens found on Spotify.",
+    "recentlyPlayedListen": "Listen",
+    "recentlyPlayedKept": "✓ Kept"
   },
   "discover": {
     "title": "Discover",
@@ -129,7 +163,13 @@
     "compatibility": "{{percent}}% compatible",
     "noLocation": "Enable location in your profile to see nearby profiles/events.",
     "emptyTrends": "Keep some tracks to see your trends appear here.",
-    "demoProfilesNote": "Demo profiles — real discovery activates once real KEEP users are connected (see docs/PROJECT_STATUS.md)."
+    "demoProfilesNote": "Demo profiles — real discovery activates once real KEEP users are connected (see docs/PROJECT_STATUS.md).",
+    "notConnectedYet": "No real users connected yet -- Discover activates once the KEEP backend is wired up.",
+    "showDemoExamples": "🎭 See demo examples",
+    "hideDemoExamples": "Hide demo examples",
+    "topArtists": "Favorite artists",
+    "upgradeToSeeArtists": "🔒 Upgrade to Premium to see other profiles' favorite artists.",
+    "upgradeCta": "See plans"
   },
   "demo": {
     "badge": "🎭 DEMO MODE — sample data, resets on refresh"

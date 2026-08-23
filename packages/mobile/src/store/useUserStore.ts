@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, SocialLink, ProfilePrivateInfo } from '../types';
 import { KeepAuthSession } from '../services/authService';
 
@@ -10,9 +12,13 @@ import { KeepAuthSession } from '../services/authService';
  * inventées, juste une identité réelle minimale.
  */
 function userFromAuthSession(session: KeepAuthSession): User {
+  // Session invitée (Supabase Auth anonyme, cf. demande explicite du
+  // 23/08/2026) : email vide, pas juste absent -- ?? ne suffit pas
+  // ('' n'est pas nullish), d'où le || explicite ci-dessous.
+  const emailPrefix = session.email?.split('@')[0];
   return {
     id: session.userId,
-    username: session.email?.split('@')[0] ?? session.userId.slice(0, 8),
+    username: (emailPrefix || `invité-${session.userId.slice(0, 6)}`),
     email: session.email ?? '',
     avatar: '',
     bio: '',
@@ -20,6 +26,7 @@ function userFromAuthSession(session: KeepAuthSession): User {
     followerCount: 0,
     followingCount: 0,
     kind: 'USER',
+    plan: 'FREE', // Un vrai compte démarre toujours FREE -- aucun palier payant n'est jamais attribué sans paiement réel (pas encore branché, voir docs/PRICING_STRATEGY.md).
     favoriteGenres: [],
     favoriteArtists: [],
     socialLinks: [],
@@ -40,6 +47,7 @@ const DEMO_USER: User = {
   followerCount: 342,
   followingCount: 128,
   kind: 'USER',
+  plan: 'PREMIUM', // Mode Démo uniquement -- illustre le badge de certification, changeable depuis Profil.
   favoriteGenres: [],
   favoriteArtists: [],
   socialLinks: [],
@@ -70,7 +78,19 @@ interface UserStore {
   setPrivateInfo: (patch: Partial<ProfilePrivateInfo>) => void;
 }
 
-export const useUserStore = create<UserStore>((set, get) => ({
+/**
+ * Persisté en local (AsyncStorage) -- cf. demande explicite du 23/08/2026 :
+ * "si j'ai fait mon profil... arrête d'effacer des choses qui ont déjà été
+ * faites". Avant ce correctif, useUserStore n'avait AUCUNE persistance : un
+ * profil rempli (nom, bio, genres favoris...) disparaissait à chaque
+ * rechargement de page -- un vrai bug, pas une impression. Même statut
+ * honnête que useSessionHistoryStore : persistance locale tant qu'aucun
+ * projet Supabase KEEP n'est déployé (voir docs/PROJECT_STATUS.md) --
+ * survit à la fermeture de l'app, pas encore synchronisé entre appareils.
+ */
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set, get) => ({
   user: null,
   isDemoMode: false,
   setUser: (user) => set({ user, isDemoMode: false }),
@@ -81,7 +101,25 @@ export const useUserStore = create<UserStore>((set, get) => ({
       // Une session Mode Démo active reste prioritaire (ne pas l'écraser
       // par un état "déconnecté" venant du client Supabase inutilisé).
       if (s.isDemoMode) return s;
-      return { user: session ? userFromAuthSession(session) : null, isDemoMode: false };
+      if (!session) return { user: null, isDemoMode: false };
+
+      // BUG RÉEL diagnostiqué le 23/08/2026 ("ça fait 10 fois que je fais
+      // mon profil, ça s'efface") : cette fonction est appelée à CHAQUE
+      // événement Supabase Auth, pas seulement à la connexion -- y compris
+      // TOKEN_REFRESHED (rafraîchissement silencieux automatique en tâche de
+      // fond, toutes les ~heures) et un refocus d'onglet. Reconstruire un
+      // User vierge à chaque fois écrasait bio/genres/artistes/avatar/liens
+      // sociaux même en pleine session continue, sans que l'utilisateur n'ait
+      // rien fait de mal. Un User minimal n'est reconstruit QUE pour une
+      // identité réellement nouvelle (id différent, ou d'abord null) --
+      // même id = même personne qui se reconfirme, son profil ne bouge pas.
+      // Profite aussi à la conversion invité -> compte réel (même auth.uid()
+      // conservé par Supabase) : le profil rempli en tant qu'invité survit
+      // désormais à l'inscription au lieu d'être remplacé par un profil vide.
+      if (s.user && s.user.id === session.userId) {
+        return s.user.email === (session.email ?? '') ? s : { user: { ...s.user, email: session.email ?? '' } };
+      }
+      return { user: userFromAuthSession(session), isDemoMode: false };
     }),
   profileCompletion: () => {
     const user = get().user;
@@ -144,4 +182,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
 
   setPrivateInfo: (patch) =>
     set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
-}));
+    }),
+    { name: 'keep-user', storage: createJSONStorage(() => AsyncStorage) }
+  )
+);

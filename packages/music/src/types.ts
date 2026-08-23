@@ -26,6 +26,14 @@ export interface CanonicalTrack {
   /** Genres/tags disponibles légalement (métadonnées provider), utilisés par le SmartPlaylistRouter. */
   genres?: string[];
   providerIds: ProviderTrackIds;
+  /**
+   * Lien universel (ex. AudD "song_link", lis.tn) qui redirige vers les
+   * plateformes où le morceau est disponible -- KEEP est un miroir, jamais
+   * un hébergeur (cf. demande explicite du 22/08/2026) : ce lien PERMET
+   * d'ouvrir la vraie plateforme sans que KEEP ait besoin de résoudre un ID
+   * par provider un par un.
+   */
+  songLink?: string;
 }
 
 export interface RecognitionResult {
@@ -36,8 +44,31 @@ export interface RecognitionResult {
   album?: string;
   isrc?: string;
   artworkUrl?: string;
+  /** Durée en secondes, quand le provider de reconnaissance la fournit -- utilisée par TrackResolver pour distinguer deux versions du même titre/artiste (cf. TrackResolver.findExisting). */
+  durationSec?: number;
   /** Identifiant du morceau chez le provider de reconnaissance (pas encore résolu en CanonicalTrack). */
   recognitionProviderTrackId?: string;
+  /** Lien universel vers les plateformes (voir CanonicalTrack.songLink). */
+  songLink?: string;
+  /**
+   * Moteur RÉEL ayant produit ce résultat côté backend (ex. 'keep_local' |
+   * 'acoustid') -- distinct de `RecognitionAttempt.providerId` (l'étape du
+   * RecognitionRouter côté mobile, ex. "acoustid" pointe toujours vers le
+   * MÊME endpoint backend qui essaie lui-même plusieurs moteurs en interne,
+   * voir routes/recognition.ts). Sans ce champ, impossible de prouver depuis
+   * l'UI si l'index local a réellement répondu ou si on est retombé sur
+   * AcoustID -- gap diagnostiqué le 23/08/2026 ("PROVIDER: acoustid" affiché
+   * alors que le backend avait en fait répondu keep_local).
+   */
+  engine?: string;
+  /**
+   * Identifiant unique de la requête backend (cf. demande explicite du
+   * 23/08/2026 -- traçage E2E iPhone bout en bout). Permet de confirmer
+   * "résultat réellement affiché" après coup (voir useSessionStore.ts,
+   * appel à /api/dev/trace/:id/confirm-display) -- absent si le provider
+   * ne fournit pas de traçage (ex. AudD).
+   */
+  requestId?: string;
 }
 
 export interface ProviderSession {

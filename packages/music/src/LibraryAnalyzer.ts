@@ -1,10 +1,23 @@
 import { CanonicalTrack, ProviderPlaylist } from './types';
 
+export interface GenreGroup {
+  genre: string;
+  tracks: CanonicalTrack[];
+}
+
 export interface LibraryAnalysis {
   totalTracks: number;
   unclassifiedCount: number;
   duplicateGroups: CanonicalTrack[][];
   duplicateCount: number;
+  /**
+   * Morceaux groupés par genre principal (premier genre connu) -- base pour
+   * "Ranger par style" (cf. demande explicite du 22/08/2026 : "que notre
+   * système soit capable de les trier par style de musique"). Triés du
+   * groupe le plus fourni au moins fourni ; les morceaux sans genre restent
+   * dans `unclassifiedCount`, jamais forcés dans un groupe inventé.
+   */
+  byGenre: GenreGroup[];
 }
 
 /**
@@ -33,10 +46,23 @@ export function analyzeLibrary(playlistsWithTracks: { playlist: ProviderPlaylist
   const duplicateGroups = Array.from(groups.values()).filter((g) => g.length > 1);
   const unclassifiedCount = allTracks.filter((t) => !t.genres || t.genres.length === 0).length;
 
+  const genreMap = new Map<string, CanonicalTrack[]>();
+  for (const track of allTracks) {
+    const genre = track.genres?.[0];
+    if (!genre) continue;
+    const list = genreMap.get(genre) ?? [];
+    list.push(track);
+    genreMap.set(genre, list);
+  }
+  const byGenre = Array.from(genreMap.entries())
+    .map(([genre, tracks]) => ({ genre, tracks }))
+    .sort((a, b) => b.tracks.length - a.tracks.length);
+
   return {
     totalTracks: allTracks.length,
     unclassifiedCount,
     duplicateGroups,
     duplicateCount: duplicateGroups.reduce((sum, g) => sum + g.length - 1, 0),
+    byGenre,
   };
 }

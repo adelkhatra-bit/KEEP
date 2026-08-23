@@ -42,7 +42,7 @@ function fakeRes() {
 }
 
 async function main() {
-  const acceptingVerifier: TokenVerifier = { async verify(token) { return token === 'valid-token' ? { userId: 'user-1' } : null; } };
+  const acceptingVerifier: TokenVerifier = { async verify(token) { return token === 'valid-token' ? { userId: 'user-1', isAnonymous: false } : null; } };
   const alwaysRejectingVerifier: TokenVerifier = { async verify() { return null; } };
 
   // 1. Pas d'en-tête Authorization -> 401, next() jamais appelé.

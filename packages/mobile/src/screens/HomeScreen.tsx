@@ -30,10 +30,10 @@ function formatElapsed(startedAt: string | null): string {
 export default function HomeScreen({ navigation }: any) {
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, micLevel,
+    isActive, tracks, showEndPrompt, startedAt, error, micLevel, guestLimitReached,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack,
   } = useSessionStore();
-  const { connectedService, hasShownConnectPrompt, markConnectPromptShown, connectDemo } = useMusicServiceStore();
+  const { connectedServices, hasShownConnectPrompt, markConnectPromptShown, connectDemo } = useMusicServiceStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function HomeScreen({ navigation }: any) {
   const handleConfirmEndFromPrompt = () => finishSession();
 
   const maybeShowConnectPrompt = () => {
-    if (connectedService || hasShownConnectPrompt) return;
+    if (connectedServices.length > 0 || hasShownConnectPrompt) return;
     markConnectPromptShown();
     const demoSuffix = musicEngine.isDemoMode ? ' (démo)' : '';
     Alert.alert(t('session.connectPromptTitle'), t('session.connectPromptBody'), [
@@ -111,7 +111,7 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.liveHeader}>
-        <SessionPulse active level={musicEngine.isRealRecognition ? micLevel : undefined} />
+        <SessionPulse active size={84} level={musicEngine.isRealRecognition ? micLevel : undefined} />
         <Text style={styles.liveTitle}>{t('session.inProgress')}</Text>
         <View style={styles.liveHeaderRow}>
           <Text style={styles.timer}>{elapsed}</Text>
@@ -127,10 +127,20 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       )}
 
+      {guestLimitReached && (
+        <View style={styles.guestPromptBanner}>
+          <Text style={styles.guestPromptText}>{t('session.guestLimitReached')}</Text>
+          <TouchableOpacity style={styles.guestPromptBtn} onPress={() => navigation.navigate('Profile')}>
+            <Text style={styles.guestPromptBtnText}>{t('session.createProfile')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {pendingTracks.length === 0 ? (
         <Text style={styles.waitingText}>{t('session.waitingForMusic')}</Text>
       ) : (
         <FlatList
+          style={styles.listGrow}
           data={pendingTracks}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
@@ -184,6 +194,12 @@ const styles = StyleSheet.create({
     fontSize: 13, color: colors.textSecondary, textAlign: 'center',
     marginTop: spacing.md, paddingHorizontal: spacing.lg,
   },
+  linkEntryBtn: { marginTop: spacing.md, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  linkEntryText: { color: colors.primaryLight, fontSize: 13, fontWeight: '600' },
+  linkInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, color: colors.textPrimary,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: 15, marginTop: spacing.sm,
+  },
   errorText: { fontSize: 13, color: colors.danger, marginBottom: spacing.md, textAlign: 'center' },
   startButton: {
     backgroundColor: colors.primary, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl,
@@ -202,8 +218,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
   },
   liveErrorText: { color: colors.danger, fontSize: 12, textAlign: 'center' },
+  guestPromptBanner: {
+    marginHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.xs,
+    backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary,
+    borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md,
+    alignItems: 'center', gap: spacing.sm,
+  },
+  guestPromptText: { color: colors.textPrimary, fontSize: 13, textAlign: 'center', fontWeight: '600' },
+  guestPromptBtn: { backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  guestPromptBtnText: { color: colors.white, fontWeight: '700', fontSize: 13 },
 
   waitingText: { color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: spacing.xxl },
+  listGrow: { flex: 1 },
   list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
   decidedSummary: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginBottom: spacing.xs },
 

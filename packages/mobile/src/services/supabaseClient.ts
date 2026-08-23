@@ -38,3 +38,27 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }
+
+/**
+ * Session invité (cf. demande explicite du 23/08/2026 -- "KEEP doit être
+ * testable immédiatement sans inscription, sans e-mail et sans compte").
+ * Utilise le mode `signInAnonymously()` OFFICIEL de Supabase Auth -- pas un
+ * hack maison : le même user_id auth.uid() reste valable si l'invité crée
+ * ensuite un vrai compte (voir `linkGuestToRealAccount`), donc rien n'est
+ * jamais perdu à la conversion, sans code de migration manuel.
+ *
+ * N'écrase JAMAIS une session déjà active (réelle OU déjà invitée) --
+ * appelé uniquement quand `getSupabaseAccessToken()` renvoie `null`.
+ */
+export async function ensureGuestSession(): Promise<string | null> {
+  if (!supabase) return null;
+  const existing = await getSupabaseAccessToken();
+  if (existing) return existing;
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error || !data.session) {
+    console.warn('[KEEP][guest-session]', error?.message);
+    return null;
+  }
+  return data.session.access_token;
+}

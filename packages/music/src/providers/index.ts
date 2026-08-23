@@ -4,4 +4,6 @@ export * from './DemoMusicProvider';
 export * from './DemoRecognitionProvider';
 export * from './AppleMusicProvider';
 export * from './SpotifyProvider';
+export * from './YouTubeProvider';
 export * from './AudDRecognitionProvider';
+export * from './AcoustIdRecognitionProvider';

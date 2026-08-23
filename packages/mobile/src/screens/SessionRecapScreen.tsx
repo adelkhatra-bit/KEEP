@@ -22,7 +22,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const session = useSessionHistoryStore((s) => s.sessions.find((x) => x.id === sessionId));
   const { keepTrackInSession, passTrackInSession, keepAllPendingInSession, renameSession } = useSessionHistoryStore();
   const { playlists } = usePlaylistStore();
-  const connectedService = useMusicServiceStore((s) => s.connectedService);
+  const hasConnectedService = useMusicServiceStore((s) => s.connectedServices.length > 0);
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
 
@@ -105,7 +105,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <View>
             <TrackRow
               entry={item}
-              playlists={connectedService ? playlists : undefined}
+              playlists={hasConnectedService ? playlists : undefined}
               onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId)}
               onPass={(entryId) => passTrackInSession(sessionId, entryId)}
             />

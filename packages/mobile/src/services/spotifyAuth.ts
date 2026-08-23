@@ -29,6 +29,9 @@ const SCOPES = [
   'playlist-read-collaborative',
   'playlist-modify-private',
   'playlist-modify-public',
+  // Section "Écoutés récemment" du profil (cf. demande explicite du
+  // 23/08/2026) -- GET /v1/me/player/recently-played, voir SpotifyProvider.getRecentlyPlayed.
+  'user-read-recently-played',
 ];
 
 const ACCESS_TOKEN_KEY = 'keep.spotify.accessToken';

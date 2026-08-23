@@ -14,18 +14,23 @@
  * résultat").
  */
 import {
+  AcoustIdRecognitionProvider,
   AppleMusicProvider,
   AudDRecognitionProvider,
+  ConnectedProvider,
   DemoMusicProvider,
   DemoRecognitionProvider,
   DeveloperTokenProvider,
   InMemoryRoutingWeightsStore,
   MusicProviderAdapter,
-  MusicRecognitionProvider,
   ProviderPlaylist,
+  ProviderSession,
+  RecognitionRouter,
   SmartPlaylistRouter,
   SpotifyProvider,
   TrackResolver,
+  UniversalTrackResolver,
+  YouTubeProvider,
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
 import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
@@ -95,7 +100,25 @@ export async function getAppleMusicDeveloperToken(): Promise<string> {
  * testables sans backend Supabase) -- cf. demande explicite du 22/08/2026 :
  * "je veux que le micro soit réel" sans devoir aussi monter tout le backend.
  */
-const HAS_REAL_AUDD_KEY = !isPlaceholder(AUDD_API_KEY);
+// AudD = fallback_optional, jamais core_dependency (cf. demande explicite du
+// 23/08/2026 : "si quota AudD = 0, KEEP doit continuer normalement avec ses
+// autres moteurs"). C'était déjà vrai en pratique (RecognitionRouter essaie
+// AcoustID/index local EN PREMIER, AudD ne bloque jamais la session -- prouvé
+// en conditions réelles le 23/08/2026 : quota AudD épuisé, KEEP a continué à
+// écouter normalement) -- ce flag le rend EXPLICITE et désactivable, plutôt
+// que seulement implicite dans l'ordre des providers.
+const AUDD_EXPLICITLY_DISABLED = process.env.EXPO_PUBLIC_AUDD_ENABLED === 'false';
+const HAS_REAL_AUDD_KEY = !isPlaceholder(AUDD_API_KEY) && !AUDD_EXPLICITLY_DISABLED;
+/**
+ * AcoustID/Chromaprint -- GRATUIT, placé EN PREMIER dans la chaîne dès que
+ * le backend KEEP est joignable (cf. recherche technique du 23/08/2026 :
+ * "AudD devient un fallback, pas le moteur principal obligatoire"). Le
+ * calcul d'empreinte se fait côté backend (voir routes/recognition.ts) --
+ * ce provider mobile ne fait qu'y poster l'échantillon audio, d'où la seule
+ * dépendance réelle ici : EXPO_PUBLIC_API_URL. La clé ACOUSTID_API_KEY et le
+ * binaire `fpcalc` sont vérifiés côté serveur, pas ici.
+ */
+const HAS_BACKEND_URL = !isPlaceholder(API_URL);
 
 function createBackendDeveloperTokenProviderIfConfigured(): DeveloperTokenProvider | null {
   if (isPlaceholder(API_URL)) return null;
@@ -104,43 +127,78 @@ function createBackendDeveloperTokenProviderIfConfigured(): DeveloperTokenProvid
 
 class MusicEngine {
   readonly isDemoMode = IS_DEMO_MODE;
-  /** true dès qu'une vraie clé AudD est configurée -- pilote la capture micro réelle (voir useSessionStore.ts). */
-  readonly isRealRecognition = HAS_REAL_AUDD_KEY;
-  readonly recognitionProvider: MusicRecognitionProvider;
+  /** true dès qu'un vrai provider de reconnaissance (AcoustID et/ou AudD) est configuré -- pilote la capture micro réelle (voir useSessionStore.ts). */
+  readonly isRealRecognition = HAS_REAL_AUDD_KEY || HAS_BACKEND_URL;
+  /**
+   * Chaîne de reconnaissance, dans l'ordre d'essai réel -- voir
+   * RecognitionRouter.ts. AcoustID (gratuit) d'abord si le backend KEEP est
+   * joignable, AudD en repli. En Mode Démo, DemoRecognitionProvider seul.
+   */
+  readonly recognitionRouter: RecognitionRouter;
+  /** Statut réel d'AudD dans la chaîne -- jamais 'core_dependency' par design, voir audit du 23/08/2026. */
+  readonly auddMode: 'fallback_optional' | 'disabled' = HAS_REAL_AUDD_KEY ? 'fallback_optional' : 'disabled';
   readonly trackResolver: TrackResolver;
+  /**
+   * Moteur central "où ce morceau existe-t-il ailleurs" (cf. demande
+   * explicite du 23/08/2026 -- architecture Micro/URL -> TrackIdentity ->
+   * UniversalTrackResolver -> plateformes -> KEEP). N'interroge que les
+   * plateformes pour lesquelles une session réelle existe -- voir
+   * UniversalTrackResolver.ts pour la limite honnête assumée.
+   */
+  readonly universalResolver: UniversalTrackResolver;
   readonly router: SmartPlaylistRouter;
 
   private readonly demoMusicProvider = new DemoMusicProvider(SEED_PLAYLISTS);
   private readonly realProviders = new Map<MusicServiceId, MusicProviderAdapter>();
-  private session: { provider: string; userId: string; accessToken: string; refreshToken?: string; expiresAt?: number } | null = null;
+  private readonly sessions = new Map<MusicServiceId, ProviderSession>();
 
   constructor() {
-    this.recognitionProvider = HAS_REAL_AUDD_KEY
-      ? new AudDRecognitionProvider({ apiToken: AUDD_API_KEY! })
-      : new DemoRecognitionProvider();
+    const stages = [];
+    if (HAS_BACKEND_URL) {
+      stages.push(
+        new AcoustIdRecognitionProvider({
+          apiUrl: API_URL!,
+          getAccessToken: getSupabaseAccessToken,
+          // Cf. demande explicite du 23/08/2026 -- traçage E2E, voir requestTraces.ts.
+          buildId: process.env.EXPO_PUBLIC_BUILD_ID,
+        })
+      );
+    }
+    if (HAS_REAL_AUDD_KEY) {
+      stages.push(new AudDRecognitionProvider({ apiToken: AUDD_API_KEY! }));
+    }
+    this.recognitionRouter = new RecognitionRouter(stages.length > 0 ? stages : [new DemoRecognitionProvider()]);
     this.trackResolver = new TrackResolver();
+    this.universalResolver = new UniversalTrackResolver(this.trackResolver);
     this.router = new SmartPlaylistRouter(new InMemoryRoutingWeightsStore());
   }
 
   /**
-   * Provider musical actif -- source unique des playlists (cf. règle "une
-   * donnée créée une seule fois puis réutilisée partout"). En Mode Démo,
-   * toujours DemoMusicProvider. En Mode Réel, résolu depuis le service
-   * connecté via useMusicServiceStore (Apple Music / Spotify) -- jette une
-   * erreur explicite si aucun service n'est connecté plutôt que de deviner.
+   * Provider musical PRIMAIRE -- en Mode Démo, toujours DemoMusicProvider.
+   * En Mode Réel MULTI-SERVICE (cf. demande explicite du 23/08/2026 -- "KEEP
+   * ne doit plus être mono-service"), c'est le PREMIER service connecté
+   * (ordre de connexion), utilisé par les flux qui n'ont besoin que d'UNE
+   * destination par défaut (créer une playlist, "Ranger par style"). Pour
+   * interroger TOUTES les plateformes connectées, voir getConnectedProviders().
+   * Jette une erreur explicite si aucun service n'est connecté plutôt que de deviner.
    */
   get musicProvider(): MusicProviderAdapter {
     if (IS_DEMO_MODE) return this.demoMusicProvider;
 
-    const connected = useMusicServiceStore.getState().connectedService;
-    if (!connected) {
+    const [primary] = useMusicServiceStore.getState().connectedServices;
+    if (!primary) {
       throw new Error('Aucun service musical connecté -- va dans Profil pour en connecter un.');
     }
-    const cached = this.realProviders.get(connected);
-    if (cached) return cached;
+    return this.getProvider(primary);
+  }
 
-    const provider = this.buildRealProvider(connected);
-    this.realProviders.set(connected, provider);
+  /** Résout (et met en cache) l'adapter pour UN service précis -- indépendant de l'ordre de connexion. En Mode Démo, toujours le catalogue démo unique (voir musicProvider). */
+  getProvider(service: MusicServiceId): MusicProviderAdapter {
+    if (IS_DEMO_MODE) return this.demoMusicProvider;
+    const cached = this.realProviders.get(service);
+    if (cached) return cached;
+    const provider = this.buildRealProvider(service);
+    this.realProviders.set(service, provider);
     return provider;
   }
 
@@ -155,21 +213,39 @@ class MusicEngine {
     if (service === 'spotify') {
       return new SpotifyProvider();
     }
+    if (service === 'youtube') {
+      return new YouTubeProvider({ apiKey: process.env.EXPO_PUBLIC_YOUTUBE_API_KEY });
+    }
     throw new Error(`"${service}" n'a pas encore d'intégration réelle côté KEEP.`);
   }
 
-  async getSession(): Promise<{ provider: string; userId: string; accessToken: string; refreshToken?: string; expiresAt?: number }> {
-    if (this.session) return this.session;
+  private demoSession: ProviderSession | null = null;
 
+  /** Session pour le service PRIMAIRE (voir musicProvider) -- inchangé pour les appelants existants (créer une playlist, etc.). */
+  async getSession(): Promise<ProviderSession> {
     if (IS_DEMO_MODE) {
-      const session = await this.musicProvider.connect('demo-auth-code');
-      this.session = session;
-      return session;
+      if (this.demoSession) return this.demoSession;
+      this.demoSession = await this.demoMusicProvider.connect();
+      return this.demoSession;
     }
+    const [primary] = useMusicServiceStore.getState().connectedServices;
+    if (!primary) throw new Error('Aucun service musical connecté -- va dans Profil pour en connecter un.');
+    return this.getSessionFor(primary);
+  }
 
-    const connected = useMusicServiceStore.getState().connectedService;
-    let session: { provider: string; userId: string; accessToken: string; refreshToken?: string; expiresAt?: number };
-    if (connected === 'apple_music') {
+  /**
+   * Session pour UN service précis, quel que soit son rang de connexion --
+   * base de UniversalTrackResolver.resolveAvailability, qui doit pouvoir
+   * interroger TOUS les services connectés, pas seulement le premier.
+   */
+  async getSessionFor(service: MusicServiceId): Promise<ProviderSession> {
+    if (IS_DEMO_MODE) return this.getSession();
+
+    const cached = this.sessions.get(service);
+    if (cached) return cached;
+
+    let session: ProviderSession;
+    if (service === 'apple_music') {
       // Mode Réel : le Music User Token vient du flux WebView MusicKit JS
       // (voir screens/auth/AppleMusicAuthScreen.tsx), stocké via
       // expo-secure-store -- jamais un "auth-code" inventé.
@@ -178,26 +254,67 @@ class MusicEngine {
       if (!musicUserToken) {
         throw new Error('Apple Music non connecté -- va dans Profil pour lancer la connexion Apple Music.');
       }
-      session = await this.musicProvider.connect(musicUserToken);
-    } else if (connected === 'spotify') {
+      session = await this.getProvider('apple_music').connect(musicUserToken);
+    } else if (service === 'spotify') {
       // Mode Réel : jeton obtenu via le flux PKCE (voir services/spotifyAuth.ts).
-      const { getSavedSpotifyTokens } = await import('./spotifyAuth');
-      const tokens = await getSavedSpotifyTokens();
+      const { getSavedSpotifyTokens, saveSpotifyTokens } = await import('./spotifyAuth');
+      let tokens = await getSavedSpotifyTokens();
       if (!tokens) {
         throw new Error('Spotify non connecté -- va dans Profil pour lancer la connexion Spotify.');
       }
-      const base = await this.musicProvider.connect(tokens.accessToken);
+      // Rafraîchissement proactif -- un access_token Spotify expire après 1h ;
+      // sans ce correctif, `connect()` ci-dessous (qui appelle GET /me) échoue
+      // simplement avec un 401 dès que le jeton stocké est périmé, alors que
+      // `refreshAuthorization()` existe déjà côté SpotifyProvider mais n'était
+      // JAMAIS appelé nulle part -- bug réel trouvé le 23/08/2026, corrigé ici.
+      const EXPIRY_BUFFER_MS = 60_000;
+      if (tokens.expiresAt <= Date.now() + EXPIRY_BUFFER_MS) {
+        if (!tokens.refreshToken) {
+          throw new Error('Spotify : jeton expiré et aucun refresh_token disponible -- reconnexion complète nécessaire depuis Profil.');
+        }
+        const refreshed = await this.getProvider('spotify').refreshAuthorization({
+          provider: 'spotify', userId: 'spotify-pending', accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken, expiresAt: tokens.expiresAt,
+        });
+        tokens = { accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken ?? tokens.refreshToken, expiresAt: refreshed.expiresAt ?? Date.now() + 3600_000 };
+        await saveSpotifyTokens(tokens);
+      }
+      const base = await this.getProvider('spotify').connect(tokens.accessToken);
       session = { ...base, refreshToken: tokens.refreshToken, expiresAt: tokens.expiresAt };
+    } else if (service === 'youtube') {
+      // Recherche publique -- pas d'OAuth utilisateur nécessaire pour
+      // chercher/retrouver une vidéo, seulement une clé API (Google Cloud
+      // Console). Écrire dans une playlist YouTube PERSONNELLE nécessiterait
+      // un vrai flux OAuth séparé, non construit ici (voir YouTubeProvider.ts).
+      session = await this.getProvider('youtube').connect(process.env.EXPO_PUBLIC_YOUTUBE_API_KEY ?? '');
     } else {
-      throw new Error('Aucun service musical connecté -- va dans Profil pour en connecter un.');
+      throw new Error(`"${service}" non connecté -- va dans Profil pour en connecter un.`);
     }
-    this.session = session;
+    this.sessions.set(service, session);
     return session;
   }
 
-  /** Réinitialise la session en cache -- utilisé après (re)connexion à un service musical. */
+  /**
+   * TOUTES les plateformes réellement connectées, prêtes pour
+   * UniversalTrackResolver.resolveAvailability. Une connexion cassée
+   * (jeton expiré, etc.) n'empêche jamais les autres de répondre -- voir
+   * Promise.allSettled ici et dans UniversalTrackResolver lui-même.
+   */
+  async getConnectedProviders(): Promise<ConnectedProvider[]> {
+    const services = useMusicServiceStore.getState().connectedServices;
+    const settled = await Promise.allSettled(
+      services.map(async (service) => ({
+        adapter: this.getProvider(service),
+        session: await this.getSessionFor(service),
+      }))
+    );
+    return settled.filter((r): r is PromiseFulfilledResult<ConnectedProvider> => r.status === 'fulfilled').map((r) => r.value);
+  }
+
+  /** Réinitialise les sessions en cache -- utilisé après (re)connexion à un service musical. */
   resetSession() {
-    this.session = null;
+    this.sessions.clear();
+    this.demoSession = null;
   }
 }
 

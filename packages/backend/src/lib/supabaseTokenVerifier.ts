@@ -22,7 +22,7 @@ export function createSupabaseTokenVerifier(): TokenVerifier | null {
     async verify(accessToken) {
       const { data, error } = await client.auth.getUser(accessToken);
       if (error || !data.user) return null;
-      return { userId: data.user.id };
+      return { userId: data.user.id, isAnonymous: !!data.user.is_anonymous };
     },
   };
 }

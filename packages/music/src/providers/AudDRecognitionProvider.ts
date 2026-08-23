@@ -42,6 +42,7 @@ interface AudDSpotifyMatch {
   external_ids?: { isrc?: string };
   album?: { images?: { url: string }[] };
   id?: string;
+  duration_ms?: number;
 }
 interface AudDResultItem {
   artist: string;
@@ -104,19 +105,43 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
   ) {}
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample]);
+    const form = this.baseForm();
+    form.append('file', blob, fileNameForBlob(blob));
+    return this.submit(form, `fichier envoyé = ${blob.size} octets, type "${blob.type || 'vide'}"`);
+  }
+
+  /**
+   * Reconnaissance à partir d'un lien partagé -- AudD accepte un champ `url`
+   * à la place de `file` et sait parser TikTok/Instagram/X/Facebook ainsi que
+   * l'OpenGraph/JSON-LD/<audio>/<video> d'une page web quelconque (doc AudD,
+   * vérifiée le 23/08/2026). Aucune supposition sur la plateforme d'origine :
+   * on envoie le lien tel quel, AudD dit ce qu'il en tire ou renvoie une
+   * erreur -- jamais de plateforme devinée depuis l'URL côté KEEP.
+   */
+  async recognizeFromUrl(url: string): Promise<RecognitionResult | null> {
+    if (!url.trim()) {
+      throw new AudDRecognitionError('AudD : lien vide.');
+    }
+    const form = this.baseForm();
+    form.append('url', url.trim());
+    return this.submit(form, `lien envoyé = "${url.trim()}"`);
+  }
+
+  private baseForm(): FormData {
     if (!this.config.apiToken) {
       throw new AudDRecognitionError(
         'AudD : api_token manquant. Créer un compte sur audd.io (free tier 300 requêtes) et fournir la clé via une méthode sécurisée -- jamais en dur dans le code.'
       );
     }
-
-    const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample]);
     const form = new FormData();
     form.append('api_token', this.config.apiToken);
-    form.append('file', blob, fileNameForBlob(blob));
     form.append('return', 'apple_music,spotify');
     if (this.config.market) form.append('market', this.config.market);
+    return form;
+  }
 
+  private async submit(form: FormData, diagnostic: string): Promise<RecognitionResult | null> {
     // `body: form as any` -- `typeof fetch` résout ici vers les types globaux
     // React Native (via node_modules), dont le `FormData` diffère du DOM
     // standard utilisé pour construire `form` juste au-dessus -- un simple
@@ -130,7 +155,8 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
     const json = (await res.json()) as AudDResponse;
     if (json.status !== 'success') {
       throw new AudDRecognitionError(
-        `AudD API erreur ${json.error?.error_code ?? '?'} : ${json.error?.error_message ?? 'réponse inattendue'}`
+        `AudD API erreur ${json.error?.error_code ?? '?'} : ${json.error?.error_message ?? 'réponse inattendue'} ` +
+          `[diagnostic : ${diagnostic}]`
       );
     }
 
@@ -155,7 +181,9 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
       album: match.album,
       isrc,
       artworkUrl,
+      durationSec: match.spotify?.duration_ms ? Math.round(match.spotify.duration_ms / 1000) : undefined,
       recognitionProviderTrackId,
+      songLink: match.song_link,
     };
   }
 }

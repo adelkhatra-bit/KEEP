@@ -282,6 +282,45 @@ if (!CONFIGURED) {
       },
     });
   });
+
+  // ---- RECOGNITION MONITORING (cf. demande explicite du 23/08/2026 -- schéma voir
+  // supabase/migrations/0002_recognition_events.sql) : le mobile n'écrit pas encore dans
+  // recognition_events (journal réel encore local, voir useRecognitionTelemetryStore.ts côté
+  // mobile) -- cet endpoint renvoie donc honnêtement des agrégats à zéro tant que ce pont
+  // n'est pas branché, jamais des chiffres inventés.
+  router.get('/recognition-stats', anyAdmin(), async (_req, res) => {
+    const { data, error } = await adminClient!
+      .from('recognition_events')
+      .select('provider_id, source, outcome, latency_ms')
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    if (error) return void res.status(500).json({ error: 'query_failed', message: error.message });
+
+    const rows = data ?? [];
+    const byOutcome: Record<string, number> = {};
+    const byProvider: Record<string, number> = {};
+    let latencySum = 0;
+    let latencyCount = 0;
+    for (const r of rows) {
+      byOutcome[r.outcome] = (byOutcome[r.outcome] ?? 0) + 1;
+      byProvider[r.provider_id] = (byProvider[r.provider_id] ?? 0) + 1;
+      if (r.latency_ms > 0) {
+        latencySum += r.latency_ms;
+        latencyCount += 1;
+      }
+    }
+    const total = rows.length;
+    res.json({
+      data: {
+        totalCalls: total,
+        byOutcome,
+        byProvider,
+        avgLatencyMs: latencyCount > 0 ? Math.round(latencySum / latencyCount) : 0,
+        successRate: total > 0 ? Math.round(((byOutcome.success ?? 0) / total) * 100) : 0,
+        quotaErrors: byOutcome.quota_error ?? 0,
+      },
+    });
+  });
 }
 
 function pick<T extends Record<string, unknown>>(body: unknown, keys: string[]): Partial<T> {

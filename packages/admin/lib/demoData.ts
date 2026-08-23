@@ -83,6 +83,28 @@ export const DEMO_APP_SETTINGS: DemoAppSetting[] = [
     value: 10,
     unit: 'minutes',
   },
+  {
+    // Pilote DEFAULT_RECOGNITION_SETTINGS.tickIntervalMs côté mobile (voir
+    // config/recognitionSettings.ts) -- cf. demande explicite du 23/08/2026 :
+    // "une soirée de plusieurs heures ne doit pas consommer des centaines de
+    // requêtes inutiles".
+    key: 'recognition_tick_interval_seconds',
+    description: 'Intervalle entre deux tentatives de reconnaissance',
+    value: 8,
+    unit: 'secondes',
+  },
+  {
+    key: 'recognition_cooldown_after_success_seconds',
+    description: 'Pause après un morceau reconnu (probablement encore en train de jouer)',
+    value: 45,
+    unit: 'secondes',
+  },
+  {
+    key: 'recognition_backoff_base_seconds',
+    description: 'Backoff de base après une erreur (double à chaque échec, plafonné)',
+    value: 15,
+    unit: 'secondes',
+  },
 ];
 
 export const DEMO_USERS: DemoUser[] = [

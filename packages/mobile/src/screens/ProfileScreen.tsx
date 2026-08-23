@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Switch, Modal, Image,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Switch, Modal, Image, Linking,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
@@ -19,8 +19,11 @@ import { ProfileKind, SocialLink, GenderOption } from '../types';
 import { AppAlert as Alert } from '../utils/AppAlert';
 import BirthDatePicker from '../components/BirthDatePicker';
 import PublicProfilePreview from '../components/PublicProfilePreview';
+import { usePlaylistStore } from '../store/usePlaylistStore';
+import VerifiedBadge from '../components/VerifiedBadge';
 import { LANGUAGES, setAppLanguage } from '../i18n';
 import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
+import { useRecentlyPlayedStore } from '../store/useRecentlyPlayedStore';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
 const PLATFORM_OPTIONS: SocialLink['platform'][] = ['instagram', 'tiktok', 'facebook', 'snapchat', 'youtube', 'x', 'website', 'other'];
@@ -48,10 +51,23 @@ export default function ProfileScreen({ navigation }: any) {
     addSocialLink, removeSocialLink, toggleSocialLinkVisibility, setPrivateInfo,
   } = useUserStore();
   const sessions = useSessionHistoryStore((s) => s.sessions);
-  const { connectedService, connectDemo, disconnect: disconnectService } = useMusicServiceStore();
+  const playlists = usePlaylistStore((s) => s.playlists);
+  const { connectedServices, connectDemo, connectReal, disconnect: disconnectService } = useMusicServiceStore();
+  const { items: recentlyPlayed, syncing: syncingRecentlyPlayed, sync: syncRecentlyPlayed, keepTrack: keepRecentlyPlayedTrack } =
+    useRecentlyPlayedStore();
+  const [keepingKey, setKeepingKey] = useState<string | null>(null);
+
+  // Se resynchronise dès que Spotify (re)devient connecté (connexion faite
+  // pendant que Profil est déjà ouvert, ou premier montage avec Spotify déjà
+  // connecté) -- jamais de saisie manuelle, uniquement l'API réelle (cf.
+  // demande explicite du 23/08/2026).
+  useEffect(() => {
+    if (connectedServices.includes('spotify')) syncRecentlyPlayed();
+  }, [connectedServices.includes('spotify')]);
 
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ bio: '', city: '', countryCode: '', website: '' });
+  const [draft, setDraft] = useState({ username: '', bio: '', city: '', countryCode: '', website: '' });
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [genreInput, setGenreInput] = useState('');
   const [artistInput, setArtistInput] = useState('');
   const [newLinkPlatform, setNewLinkPlatform] = useState<SocialLink['platform']>('instagram');
@@ -97,17 +113,29 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const startEditing = () => {
-    setDraft({ bio: user.bio, city: user.city ?? '', countryCode: user.countryCode ?? '', website: user.website ?? '' });
+    setDraft({ username: user.username, bio: user.bio, city: user.city ?? '', countryCode: user.countryCode ?? '', website: user.website ?? '' });
+    setUsernameError(null);
     setEditing(true);
   };
 
   const saveEditing = () => {
+    // Aucune règle de format ni de longueur minimale -- c'est son profil, il
+    // met ce qu'il veut (cf. demande explicite du 22/08/2026). Seule
+    // contrainte réelle : pas complètement vide, et une limite haute large
+    // pour éviter un pseudo qui casse visuellement l'interface.
+    const trimmedUsername = draft.username.trim().replace(/\s+/g, ' ');
+    if (trimmedUsername.length === 0 || trimmedUsername.length > 50) {
+      setUsernameError(t('profile.usernameInvalid'));
+      return;
+    }
     updateUser({
+      username: trimmedUsername,
       bio: draft.bio,
       city: draft.city.trim() || undefined,
       countryCode: draft.countryCode.trim().toUpperCase().slice(0, 2) || undefined,
       website: draft.website.trim() || undefined,
     });
+    setUsernameError(null);
     setEditing(false);
   };
 
@@ -213,11 +241,42 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
             )}
           </TouchableOpacity>
-          <Text style={styles.username}>{user.username}</Text>
+          {editing ? (
+            <View style={styles.usernameEditRow}>
+              <TextInput
+                style={styles.usernameInput}
+                value={draft.username}
+                onChangeText={(v) => { setDraft((d) => ({ ...d, username: v })); setUsernameError(null); }}
+                placeholder={t('profile.username')}
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={30}
+              />
+            </View>
+          ) : (
+            <View style={styles.usernameRow}>
+              <Text style={styles.username}>{user.username}</Text>
+              <VerifiedBadge plan={user.plan} />
+            </View>
+          )}
+          {!!usernameError && <Text style={styles.errorText}>{usernameError}</Text>}
           <TouchableOpacity style={styles.kindChip} onPress={cycleKind}>
             <Text style={styles.kindChipText}>{kindLabel(user.kind)}</Text>
           </TouchableOpacity>
           <Text style={styles.email}>{user.email}</Text>
+
+          {isDemoMode && (
+            <View style={styles.planPreviewRow}>
+              <Text style={styles.planPreviewLabel}>{t('profile.previewPlan')}</Text>
+              {(['FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const).map((p) => (
+                <TouchableOpacity key={p} style={[styles.planChip, user.plan === p && styles.platformChipActive]} onPress={() => updateUser({ plan: p })}>
+                  <VerifiedBadge plan={p} size="sm" />
+                  <Text style={[styles.planChipText, user.plan === p && styles.platformChipTextActive]}>{p}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {editing ? (
             <TextInput
@@ -421,22 +480,93 @@ export default function ProfileScreen({ navigation }: any) {
           </ScrollView>
         </Section>
 
-        <Section title={t('profile.musicServices')}>
+        <Section title={t('profile.musicServices')} hint={t('profile.musicServicesHint')}>
           <MusicServiceRow
-            id="apple_music" label="Apple Music" connectedService={connectedService} isDemoMode={isDemoMode}
+            id="apple_music" label="Apple Music" connectedServices={connectedServices} isDemoMode={isDemoMode}
             onConnect={() => (isDemoMode ? connectDemo('apple_music') : navigation.navigate('AppleMusicConnect'))}
-            onDisconnect={disconnectService} t={t}
+            onDisconnect={() => disconnectService('apple_music')} t={t}
           />
           <MusicServiceRow
-            id="spotify" label="Spotify" connectedService={connectedService} isDemoMode={isDemoMode}
+            id="spotify" label="Spotify" connectedServices={connectedServices} isDemoMode={isDemoMode}
             onConnect={() => (isDemoMode ? connectDemo('spotify') : navigation.navigate('SpotifyConnect'))}
-            onDisconnect={disconnectService} t={t}
+            onDisconnect={() => disconnectService('spotify')} t={t}
           />
           <MusicServiceRow
-            id="youtube_music" label="YouTube Music" connectedService={connectedService} isDemoMode={isDemoMode}
-            onConnect={() => (isDemoMode ? connectDemo('youtube_music') : Alert.alert(t('common.notConnected'), 'YouTube Music n’est pas encore branché.'))}
-            onDisconnect={disconnectService} t={t}
+            id="youtube" label="YouTube" connectedServices={connectedServices} isDemoMode={isDemoMode}
+            onConnect={() => {
+              if (isDemoMode) return connectDemo('youtube');
+              // Recherche seule (clé API) -- pas d'OAuth utilisateur construit, voir YouTubeProvider.ts.
+              if (!process.env.EXPO_PUBLIC_YOUTUBE_API_KEY) {
+                Alert.alert('YouTube', 'EXPO_PUBLIC_YOUTUBE_API_KEY manquant -- crée une clé API gratuite sur console.cloud.google.com (YouTube Data API v3).');
+                return;
+              }
+              connectReal('youtube');
+            }}
+            onDisconnect={() => disconnectService('youtube')} t={t}
           />
+          <MusicServiceRow
+            id="youtube_music" label="YouTube Music" connectedServices={connectedServices} isDemoMode={isDemoMode}
+            onConnect={() => (isDemoMode ? connectDemo('youtube_music') : Alert.alert('YouTube Music', 'Aucune API officielle YouTube Music n’existe pour ce type d’intégration -- KEEP n’utilise jamais de solution non officielle.'))}
+            onDisconnect={() => disconnectService('youtube_music')} t={t}
+          />
+        </Section>
+
+        <Section title={t('profile.recentlyPlayed')}>
+          {!connectedServices.includes('spotify') ? (
+            <Text style={styles.emptyHint}>{t('profile.recentlyPlayedEmpty')}</Text>
+          ) : syncingRecentlyPlayed && recentlyPlayed.length === 0 ? (
+            <Text style={styles.emptyHint}>…</Text>
+          ) : recentlyPlayed.length === 0 ? (
+            <Text style={styles.emptyHint}>{t('profile.recentlyPlayedNone')}</Text>
+          ) : (
+            <View style={styles.waitingList}>
+              {recentlyPlayed.map((entry) => {
+                const spotifyId = entry.track.providerIds.spotify;
+                const listenUrl = spotifyId ? `https://open.spotify.com/track/${spotifyId}` : undefined;
+                return (
+                  <View key={entry.key} style={styles.rpRow}>
+                    {entry.track.artworkUrl ? (
+                      <Image source={{ uri: entry.track.artworkUrl }} style={styles.waitingArtwork} />
+                    ) : (
+                      <View style={[styles.waitingArtwork, styles.waitingArtworkPlaceholder]}>
+                        <Text style={styles.waitingArtworkGlyph}>♪</Text>
+                      </View>
+                    )}
+                    <View style={styles.waitingInfo}>
+                      <Text style={styles.waitingTitle} numberOfLines={1}>{entry.track.title}</Text>
+                      <Text style={styles.waitingArtist} numberOfLines={1}>{entry.track.artist}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.rpActionBtn}
+                      disabled={!listenUrl}
+                      onPress={() => listenUrl && Linking.openURL(listenUrl).catch(() => {})}
+                    >
+                      <Text style={styles.rpActionBtnText}>{t('profile.recentlyPlayedListen')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rpActionBtn, styles.rpKeepBtn, entry.kept && styles.rpKeepBtnDone]}
+                      disabled={entry.kept || keepingKey === entry.key}
+                      onPress={async () => {
+                        setKeepingKey(entry.key);
+                        try {
+                          await keepRecentlyPlayedTrack(entry.key);
+                        } catch (e: any) {
+                          console.warn('[KEEP][recently-played-keep]', e?.message);
+                          Alert.alert('KEEP', t('session.recognitionUnavailable'));
+                        } finally {
+                          setKeepingKey(null);
+                        }
+                      }}
+                    >
+                      <Text style={styles.rpKeepBtnText}>
+                        {entry.kept ? t('profile.recentlyPlayedKept') : keepingKey === entry.key ? '…' : t('listen.keep')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </Section>
 
         <View style={styles.actionsContainer}>
@@ -491,7 +621,7 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.qrTitle}>{t('profile.previewAsVisitor')}</Text>
             <Text style={styles.previewHint}>{t('profile.previewHint')}</Text>
             <View style={styles.previewFrame}>
-              <PublicProfilePreview user={user} sessions={sessions} />
+              <PublicProfilePreview user={user} sessions={sessions} playlists={playlists} />
             </View>
             <TouchableOpacity style={styles.qrCloseBtn} onPress={() => setPreviewVisible(false)}>
               <Text style={styles.qrCloseBtnText}>{t('common.close')}</Text>
@@ -504,12 +634,12 @@ export default function ProfileScreen({ navigation }: any) {
 }
 
 function MusicServiceRow({
-  id, label, connectedService, isDemoMode, onConnect, onDisconnect, t,
+  id, label, connectedServices, isDemoMode, onConnect, onDisconnect, t,
 }: {
-  id: MusicServiceId; label: string; connectedService: MusicServiceId | null; isDemoMode: boolean;
+  id: MusicServiceId; label: string; connectedServices: MusicServiceId[]; isDemoMode: boolean;
   onConnect: () => void; onDisconnect: () => void; t: (k: string, o?: any) => string;
 }) {
-  const connected = connectedService === id;
+  const connected = connectedServices.includes(id);
   return (
     <View style={styles.serviceRow}>
       <Text style={styles.serviceLabel}>{label}</Text>
@@ -582,7 +712,21 @@ const styles = StyleSheet.create({
   avatar: { width: 110, height: 110, borderRadius: 55, backgroundColor: colors.backgroundCard, marginBottom: spacing.lg },
   avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   avatarGlyph: { color: colors.textMuted, fontSize: 32, fontWeight: '300' },
+  usernameRow: { flexDirection: 'row', alignItems: 'center' },
   username: { ...typography.h2, color: colors.textPrimary },
+  usernameEditRow: { width: '100%', maxWidth: 240 },
+  usernameInput: {
+    color: colors.textPrimary, fontSize: 20, fontWeight: '700', textAlign: 'center',
+    borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.xs,
+  },
+  errorText: { color: colors.danger, fontSize: 12, marginTop: spacing.xs },
+  planPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap', justifyContent: 'center' },
+  planPreviewLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+  planChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3,
+  },
+  planChipText: { color: colors.textSecondary, fontSize: 10, fontWeight: '700' },
   kindChip: { backgroundColor: colors.smartBadgeBg, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4, marginTop: spacing.sm },
   kindChipText: { color: colors.smartBadgeText, fontSize: 12, fontWeight: '700' },
   email: { fontSize: 14, color: colors.textMuted, marginTop: spacing.xs },
@@ -681,4 +825,22 @@ const styles = StyleSheet.create({
   },
   previewHint: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: spacing.xs, marginBottom: spacing.md },
   previewFrame: { width: '100%', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.background },
+
+  emptyHint: { color: colors.textMuted, fontSize: 13 },
+  waitingList: { gap: spacing.xs },
+  waitingArtwork: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.backgroundElevated },
+  waitingArtworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  waitingArtworkGlyph: { color: colors.textMuted, fontSize: 16 },
+  waitingInfo: { flex: 1, minWidth: 0 },
+  waitingTitle: { color: colors.textPrimary, fontWeight: '700', fontSize: 14 },
+  waitingArtist: { color: colors.textSecondary, fontSize: 12, marginTop: 1 },
+  rpRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.backgroundCard, borderRadius: radius.md, padding: spacing.sm,
+  },
+  rpActionBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  rpActionBtnText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  rpKeepBtn: { borderColor: colors.keep },
+  rpKeepBtnDone: { borderColor: colors.border, opacity: 0.6 },
+  rpKeepBtnText: { color: colors.keep, fontSize: 11, fontWeight: '700' },
 });

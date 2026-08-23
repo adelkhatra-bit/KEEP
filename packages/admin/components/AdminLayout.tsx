@@ -8,6 +8,7 @@ const NAV = [
   { href: '/plans', label: 'Abonnements & Prix' },
   { href: '/costs', label: 'Coûts & Rentabilité' },
   { href: '/feature-flags', label: 'Feature Flags' },
+  { href: '/recognition', label: 'Reconnaissance' },
 ];
 
 /**
