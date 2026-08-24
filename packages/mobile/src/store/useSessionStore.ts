@@ -3,11 +3,13 @@ import { CanonicalTrack, RecognitionRouterResult } from '@keep/music';
 import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { captureAudioSample, MicPermissionDeniedError, CaptureDiagnostics } from '../services/micCapture';
+import { captureAudioSample, MicPermissionDeniedError, CaptureDiagnostics, releaseCaptureResources } from '../services/micCapture';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 import { useMusicServiceStore } from './useMusicServiceStore';
 import { useUserStore } from './useUserStore';
 import { useRecognitionTelemetryStore, RecognitionOutcome } from './useRecognitionTelemetryStore';
+import { fetchRecognitionConfig, fetchMySubscription } from '../services/billingApi';
+import { pushKeepDecision } from '../services/profileApi';
 import { DEFAULT_RECOGNITION_SETTINGS } from '../config/recognitionSettings';
 import i18n from '../i18n';
 
@@ -147,6 +149,35 @@ function sendDevDiagnostic(
   }
 }
 
+type TraceStepName = 'USER_TAP' | 'MIC_STARTED' | 'AUDIO_CAPTURED' | 'AUDIO_LEVEL' | 'AUTH_TOKEN' | 'UI_RESULT';
+
+/**
+ * Cf. demande explicite du 23/08/2026 -- "trace une tentative réelle avec un
+ * REQUEST_ID unique depuis mon clic jusqu'au résultat : USER_TAP ->
+ * MIC_STARTED -> AUDIO_CAPTURED -> AUDIO_LEVEL -> LOCAL_INDEX_CALLED ->
+ * AUDFPRINT_RESULT -> FALLBACK_RESULT -> UI_RESULT, PASS/FAIL + durée". Les 3 étapes serveur
+ * sont ajoutées par routes/recognition.ts (même requestId, voir
+ * requestTraces.ts) -- ceci ne couvre que les étapes qui se produisent
+ * AVANT tout appel backend (donc pas protégeables par le jeton de session
+ * qu'on est justement en train d'établir). DEV uniquement, fire-and-forget --
+ * ne doit jamais ralentir/faire échouer une reconnaissance réelle.
+ */
+function sendTraceStep(requestId: string, step: TraceStepName, status: 'ok' | 'fail', detail?: string): void {
+  if (!__DEV__) return;
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!apiUrl) return;
+  console.log(`[KEEP][TRACE][${requestId}] STEP=${step} STATUS=${status}${detail ? ` DETAIL=${detail}` : ''}`);
+  fetch(`${apiUrl}/api/dev/trace-step`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, step, status, detail }),
+  }).catch(() => {});
+}
+
+function newRequestId(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function isQuotaOrAuthError(message: string): boolean {
   return /limit was reached|authorization failed|erreur 90[0-3]/i.test(message);
 }
@@ -170,6 +201,11 @@ function isNotLoggedInError(message: string): boolean {
  */
 function isGuestLimitReached(message: string): boolean {
   return /guest_limit_reached/i.test(message);
+}
+
+/** Limite Free atteinte (compte inscrit, 6 au total) -- distinct de guest_limit_reached (invité) : jamais "Créer mon profil" ici, message Premium à la place -- cf. demande explicite du 24/08/2026. */
+function isFreeTierLimitReached(message: string): boolean {
+  return /free_tier_limit_reached/i.test(message);
 }
 
 /**
@@ -217,6 +253,8 @@ interface SessionStore {
   quotaExceeded: boolean;
   /** true dès que la limite invité (2 essais gratuits) est atteinte -- déclenche la proposition de créer un profil, pas une erreur (voir HomeScreen). */
   guestLimitReached: boolean;
+  /** true dès que la limite Free (compte inscrit, 6 au total) est atteinte -- déclenche l'offre Premium, jamais "Créer mon profil" (déjà inscrit) -- cf. demande explicite du 24/08/2026 "le message doit dépendre du contexte". */
+  freeLimitReached: boolean;
   locationLabel?: string;
   lat?: number;
   lng?: number;
@@ -250,6 +288,15 @@ let tickHandle: ReturnType<typeof setTimeout> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let lastDetectionAt = 0;
 let consecutiveErrors = 0;
+/**
+ * Palier réel de l'utilisateur (FREE/PREMIUM/CREATOR_PRO/VENUE_PRO) --
+ * `null` tant que non résolu (backend injoignable/pas encore répondu),
+ * traité comme FREE par prudence (jamais d'accès illimité supposé par
+ * défaut). Revérifié une fois par session (voir startSession()), pas à
+ * chaque tick -- /me/subscription ne doit pas être martelé toutes les
+ * ~8-10s pendant qu'une session tourne.
+ */
+let cachedPlanCodeForSession: string | null = null;
 
 function clearTimers() {
   if (tickHandle) {
@@ -275,6 +322,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   error: null,
   quotaExceeded: false,
   guestLimitReached: false,
+  freeLimitReached: false,
   locationLabel: undefined,
   lat: undefined,
   lng: undefined,
@@ -282,6 +330,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startSession: () => {
     clearTimers();
     lastDetectionAt = Date.now();
+    // Fire-and-forget -- ne bloque jamais le démarrage de session. Voir
+    // cachedPlanCodeForSession plus haut : Premium/CREATOR_PRO/VENUE_PRO
+    // passent le quota de révélation en illimité (cf. spec explicite du
+    // 24/08/2026 "Puis limite atteinte → Premium").
+    cachedPlanCodeForSession = null;
+    fetchMySubscription().then((sub) => {
+      cachedPlanCodeForSession = sub?.plans?.code ?? null;
+    });
     set({
       isActive: true,
       sessionId: newId(),
@@ -291,6 +347,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       error: null,
       quotaExceeded: false,
       guestLimitReached: false,
+  freeLimitReached: false,
       micLevel: 0,
       locationLabel: undefined,
       lat: undefined,
@@ -304,8 +361,25 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       tickHandle = setTimeout(tick, delayMs);
     };
 
-    const tick = async () => {
-      if (!get().isActive || get().quotaExceeded) return;
+    const tick = async (trigger: 'USER_TAP' | 'AUTO' = 'AUTO') => {
+      if (!get().isActive || get().quotaExceeded) {
+        // Cf. demande explicite du 23/08/2026 -- si ce cas se produit un
+        // jour, on veut le SAVOIR (console), pas le deviner : un tick
+        // arrivé alors que la session n'est déjà plus active serait une
+        // vraie boucle résiduelle.
+        if (__DEV__) console.warn('[KEEP][CAPTURE_TRIGGER] RESIDUAL_LOOP -- tick ignoré, session déjà inactive');
+        return;
+      }
+      // Cf. demande explicite du 23/08/2026 -- un onglet caché (écran
+      // verrouillé, changement d'app) ne doit JAMAIS rouvrir le micro tout
+      // seul. On ne capture pas tant que l'onglet n'est pas revenu au
+      // premier plan -- la boucle se réarme normalement au prochain tick une
+      // fois visible, sans perdre la session en cours.
+      if (typeof document !== 'undefined' && document.hidden) {
+        scheduleNext(settings.tickIntervalMs);
+        return;
+      }
+      if (__DEV__) console.log('[KEEP][CAPTURE_TRIGGER]', trigger);
       // Ne jamais proposer un nouveau morceau tant que l'utilisateur n'a pas
       // décidé GARDER/PASSER sur celui en attente -- l'ancienne cadence fixe
       // remplaçait un morceau avant que l'utilisateur ait eu le temps de
@@ -315,6 +389,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         lastDetectionAt = Date.now(); // en attente d'une décision, pas de silence réel -- ne pas déclencher la fin de session pendant que l'utilisateur réfléchit.
         scheduleNext(settings.tickIntervalMs);
         return;
+      }
+      // Quota MARKETING (succès RÉELS, pas des tentatives) -- BUG RÉEL
+      // corrigé le 24/08/2026 : "la session affiche 0 morceaux détectés mais
+      // KEEP affiche déjà Crée ton profil -- l'UI doit être pilotée par le
+      // nombre RÉEL de morceaux reconnus, jamais par le fait qu'une session
+      // tourne". Vérifié AVANT toute capture -- ne gaspille jamais un appel
+      // AudD payant une fois le quota de révélation déjà atteint. Distinct
+      // du plafond anti-abus backend (RecognitionRouter, migration 0020).
+      const isPremiumTier = cachedPlanCodeForSession !== null && cachedPlanCodeForSession !== 'FREE';
+      if (!isPremiumTier) {
+        const userState = useUserStore.getState();
+        const isGuest = !userState.user || userState.isAnonymous;
+        const { guestSuccessLimit, signupBonusSuccesses } = await fetchRecognitionConfig();
+        // Invité = guestSuccessLimit seul ; compte réel FREE =
+        // guestSuccessLimit + signupBonusSuccesses (jamais additionné deux
+        // fois -- successCount est le MÊME compteur depuis l'invité, seul le
+        // palier change à l'inscription, voir migration 0020).
+        const limit = isGuest ? guestSuccessLimit : guestSuccessLimit + signupBonusSuccesses;
+        if (userState.successCount >= limit) {
+          set({ recognizing: false, error: null, guestLimitReached: isGuest, freeLimitReached: !isGuest });
+          return;
+        }
       }
       set({ recognizing: true });
       const startedAtMs = Date.now();
@@ -326,7 +422,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       // du 23/08/2026 -- "ne suppose rien, mesure-le", même pour un échec).
       let captureDiag: CaptureDiagnostics | null = null;
       let capturedBlob: Blob | ArrayBuffer | null = null;
-      const logRecognition = (outcome: RecognitionOutcome, detail?: string) =>
+      const requestId = newRequestId();
+      sendTraceStep(requestId, 'USER_TAP', 'ok', trigger);
+      const logRecognition = (outcome: RecognitionOutcome, detail?: string) => {
         useRecognitionTelemetryStore.getState().log({
           providerId: lastAttemptedProviderId,
           source: 'mic',
@@ -334,37 +432,81 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           latencyMs: Date.now() - startedAtMs,
           detail,
         });
+        sendTraceStep(requestId, 'UI_RESULT', outcome === 'success' ? 'ok' : 'fail', detail ?? outcome);
+      };
       try {
         // BUG RÉEL diagnostiqué le 23/08/2026 ("Connecte-toi pour activer la
         // reconnaissance gratuite" vu en vrai alors qu'une session invité
-        // existe) : depuis le correctif de persistance de useUserStore.ts,
-        // `user` (persisté) rend l'écran Session KEEP IMMÉDIATEMENT au
-        // démarrage, avant que le SDK Supabase ait fini de restaurer sa
-        // propre session depuis AsyncStorage (opération asynchrone) --
-        // fenêtre réelle où getSupabaseAccessToken() répond encore `null`
-        // alors qu'une session existe déjà en storage. `ensureGuestSession()`
-        // est idempotent (retourne le jeton existant quasi instantanément
-        // s'il y en a un) -- appelé ici en garde-fou, avant CHAQUE capture,
-        // ça élimine la course sans jamais recréer de session invité en trop.
-        if (musicEngine.isRealRecognition && !useUserStore.getState().isDemoMode) {
+        // existe malgré ensureGuestSession() appelé en garde-fou) : un SEUL
+        // essai fire-and-forget masquait un vrai échec transitoire (réseau,
+        // SDK Supabase pas encore prêt) sans jamais le prouver -- l'appelant
+        // ne voyait qu'un `null` silencieux. On retente réellement 3 fois
+        // (backoff court) et on TRACE chaque tentative -- cf. demande
+        // explicite du 24/08/2026 : "vérifie pourquoi le message de
+        // connexion existe encore alors que ensureGuestSession() était censé
+        // avoir supprimé ce mur", "trouve exactement pourquoi".
+        //
+        // BUG RÉEL trouvé le 24/08/2026 (régression, diagnostiquée par
+        // comparaison git) : ce garde-fou vérifiait EN PLUS
+        // `!useUserStore.getState().isDemoMode`, une condition ABSENTE du
+        // test juste en dessous qui décide si une vraie capture a lieu
+        // (`musicEngine.isRealRecognition` seul, voir plus bas). Si
+        // `isDemoMode` reste bloqué à `true` dans le stockage persisté (ex.
+        // un tap passé sur l'ancien bouton "Mode Démo", avant le correctif
+        // du 24/08/2026 sur OnboardingScreen -- la persistance Zustand
+        // survit à un rechargement complet, ce n'est PAS un cache navigateur)
+        // alors que `isRealRecognition` reste vrai (déterminé au build, pas
+        // par ce flag), une VRAIE capture se déclenchait quand même mais ce
+        // bloc était sauté silencieusement -- aucune session garantie,
+        // échec direct à l'appel AcoustID. Les deux conditions doivent
+        // rester identiques : seul `isRealRecognition` détermine si une
+        // vraie session est nécessaire.
+        if (musicEngine.isRealRecognition) {
           const { ensureGuestSession } = await import('../services/supabaseClient');
-          await ensureGuestSession();
+          let token: string | null = null;
+          let lastError: string | undefined;
+          for (let attempt = 1; attempt <= 3 && !token; attempt++) {
+            try {
+              token = await ensureGuestSession();
+              if (!token) lastError = `tentative ${attempt}/3 : ensureGuestSession() a renvoyé null (aucune exception -- voir console [KEEP][guest-session])`;
+            } catch (e: any) {
+              lastError = `tentative ${attempt}/3 : ${e?.message ?? String(e)}`;
+            }
+            if (!token && attempt < 3) await new Promise((r) => setTimeout(r, 400 * attempt));
+          }
+          sendTraceStep(requestId, 'AUTH_TOKEN', token ? 'ok' : 'fail', token ? undefined : lastError);
         }
         // Reconnaissance factice (pas de vraie clé AudD/AcoustID) : buffer
         // vide, DemoRecognitionProvider l'ignore. Reconnaissance réelle : vrai
         // échantillon micro, indépendamment du reste de l'app (Mode Démo ou
         // non) -- cf. demande explicite du 22/08/2026.
+        if (musicEngine.isRealRecognition) sendTraceStep(requestId, 'MIC_STARTED', 'ok');
         const audioSample = musicEngine.isRealRecognition
           ? await captureAudioSample(
               (level) => set({ micLevel: level }),
               settings.sampleDurationMs,
               settings.silencePeakThreshold,
               (d) => {
+                d.captureTrigger = trigger;
                 captureDiag = d;
+                // Cf. demande explicite du 24/08/2026 -- niveau RÉEL capté
+                // (pas juste "un fichier a été produit") : distingue "le
+                // micro n'a rien entendu" de "le micro a entendu quelque
+                // chose qui ne correspond pas à l'index".
+                sendTraceStep(
+                  requestId,
+                  'AUDIO_LEVEL',
+                  d.peakLevel !== undefined && d.peakLevel >= settings.silencePeakThreshold ? 'ok' : 'fail',
+                  `peak=${d.peakLevel?.toFixed(4) ?? 'n/a'} rms=${d.rmsLevel?.toFixed(4) ?? 'n/a'} chunks=${d.actualChunksReceived ?? 'n/a'}`
+                );
               }
             ).then((blob) => {
               capturedBlob = blob;
+              sendTraceStep(requestId, 'AUDIO_CAPTURED', 'ok', `${(blob as Blob).size ?? 'n/a'} octets`);
               return blob;
+            }).catch((e) => {
+              sendTraceStep(requestId, 'AUDIO_CAPTURED', 'fail', e?.message);
+              throw e;
             })
           : new ArrayBuffer(0);
         // Marque la FIN de capture -- cf. demande explicite du 23/08/2026 :
@@ -375,7 +517,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const captureEndedAtMs = Date.now();
         // RecognitionRouter essaie chaque provider dans l'ordre (AcoustID
         // gratuit d'abord, AudD en repli) -- voir RecognitionRouter.ts.
-        const routed = await musicEngine.recognitionRouter.recognize(audioSample);
+        const routed = await musicEngine.recognitionRouter.recognize(audioSample, requestId);
         if (__DEV__ && captureDiag) sendDevDiagnostic(captureDiag, routed, capturedBlob, Date.now() - captureEndedAtMs);
         lastAttemptedProviderId = routed.matchedProviderId ?? routed.attempts[routed.attempts.length - 1]?.providerId ?? 'unknown';
         const recognition = routed.result;
@@ -404,6 +546,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           if (errorAttempts.some((a) => isGuestLimitReached(a.detail ?? ''))) {
             logRecognition('quota_error', technicalMessage);
             set({ recognizing: false, error: null, guestLimitReached: true });
+            return;
+          }
+
+          // Limite Free (compte déjà inscrit) -- jamais "Créer mon profil"
+          // (il a déjà un compte), offre Premium à la place (cf. demande
+          // explicite du 24/08/2026).
+          if (errorAttempts.some((a) => isFreeTierLimitReached(a.detail ?? ''))) {
+            logRecognition('quota_error', technicalMessage);
+            set({ recognizing: false, error: null, freeLimitReached: true });
             return;
           }
 
@@ -458,6 +609,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           scheduleNext(settings.cooldownAfterSuccessMs);
           return;
         }
+
+        // Nouveau morceau RÉELLEMENT distinct -- compte pour le quota
+        // MARKETING (voir useUserStore.successCount), jamais un doublon déjà
+        // vu ni une simple tentative/no_match (c'est exactement la
+        // distinction manquante qui causait le bug du 24/08/2026).
+        useUserStore.getState().incrementSuccessCount();
 
         // Aucun service connecté = aucune recommandation "où ranger" possible
         // (rien à recommander) -- ne doit JAMAIS empêcher le morceau
@@ -579,7 +736,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
     };
 
-    tick();
+    tick('USER_TAP');
     silenceCheckHandle = setInterval(() => {
       const { isActive, silenceTimeoutMin, showEndPrompt } = get();
       if (!isActive || showEndPrompt) return;
@@ -596,6 +753,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   requestEndSession: (title) => {
     clearTimers();
+    releaseCaptureResources();
     const s = get();
     if (!s.sessionId || !s.startedAt) return null;
 
@@ -623,6 +781,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       locationLabel: undefined,
       lat: undefined,
       lng: undefined,
+      // BUG RÉEL diagnostiqué le 23/08/2026 : ces champs n'étaient jamais
+      // remis à zéro ici -- le dernier message d'erreur (ex. "signal quasi
+      // silencieux") restait affiché indéfiniment sur l'écran idle, AVANT
+      // tout nouveau tap, laissant croire à tort qu'une reconnaissance
+      // venait de se déclencher toute seule.
+      error: null,
+      guestLimitReached: false,
+  freeLimitReached: false,
+      recognizing: false,
+      micLevel: 0,
     });
 
     return session.tracks.length > 0 ? session.id : null;
@@ -638,6 +806,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, syncState } : t
         ),
       }));
+      // Cf. commentaire de pushKeepDecision (profileApi.ts) -- GARDER
+      // n'écrivait jusqu'ici QUE localement, jamais côté serveur.
+      pushKeepDecision(entry.track);
     } catch (e: any) {
       set({ error: e?.message ?? 'Erreur lors du rangement' });
     }
