@@ -46,10 +46,13 @@ export default function MyMusicScreen() {
   const connectedServices = useMusicServiceStore((s) => s.connectedServices);
   const historySessions = useSessionHistoryStore((s) => s.sessions);
   const renameTrackInSession = useSessionHistoryStore((s) => s.renameTrackInSession);
+  const setTrackVisibilityInSession = useSessionHistoryStore((s) => s.setTrackVisibilityInSession);
   const syncAllWaitingTracks = useSessionHistoryStore((s) => s.syncAllWaitingTracks);
   const activeSessionId = useSessionStore((s) => s.sessionId);
   const activeTracks = useSessionStore((s) => s.tracks);
   const renameTrack = useSessionStore((s) => s.renameTrack);
+  const setTrackVisibility = useSessionStore((s) => s.setTrackVisibility);
+  const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null);
   const syncWaitingTracksLive = useSessionStore((s) => s.syncWaitingTracks);
 
   /**
@@ -88,6 +91,28 @@ export default function MyMusicScreen() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  /**
+   * Partager (PUBLIC) / masquer (PRIVATE) un KEEP du profil (cf. demande
+   * explicite du 24/08/2026). Ne retire JAMAIS le morceau de "Mes musiques"
+   * -- change seulement ce qu'un visiteur voit (même garantie que la
+   * visibilité existante côté backend, voir social.ts). Sans `keepId`
+   * (pas encore synchronisé serveur, voir types/index.ts), le toggle
+   * est désactivé -- jamais un état local qui prétend avoir agi côté serveur.
+   */
+  const toggleKeepVisibility = async (row: KeptRow) => {
+    if (!row.entry.keepId) {
+      Alert.alert(t('myMusic.title'), t('myMusic.visibilityNotSynced'));
+      return;
+    }
+    const next = (row.entry.visibility ?? 'PUBLIC') === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+    setVisibilityBusyId(row.entry.id);
+    const ok = row.live
+      ? await setTrackVisibility(row.entry.id, next)
+      : await setTrackVisibilityInSession(row.sessionId, row.entry.id, next);
+    setVisibilityBusyId(null);
+    if (!ok) Alert.alert(t('myMusic.title'), t('myMusic.visibilityFailed'));
+  };
 
   const handleSyncNow = async () => {
     setSyncing(true);
@@ -209,6 +234,16 @@ export default function MyMusicScreen() {
         <Text style={styles.waitingTitle} numberOfLines={1}>{row.entry.customTitle ?? row.entry.track.title}</Text>
         <Text style={styles.waitingArtist} numberOfLines={1}>{row.entry.track.artist}</Text>
       </View>
+      <TouchableOpacity
+        style={styles.renameBtn}
+        hitSlop={8}
+        disabled={visibilityBusyId === row.entry.id}
+        onPress={() => toggleKeepVisibility(row)}
+      >
+        <Text style={styles.renameBtnText}>
+          {visibilityBusyId === row.entry.id ? '…' : (row.entry.visibility ?? 'PUBLIC') === 'PUBLIC' ? '👁' : '🔒'}
+        </Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.renameBtn} hitSlop={8} onPress={() => openRenameTrack(row)}>
         <Text style={styles.renameBtnText}>✎</Text>
       </TouchableOpacity>

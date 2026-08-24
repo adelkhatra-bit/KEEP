@@ -9,7 +9,7 @@ import { useMusicServiceStore } from './useMusicServiceStore';
 import { useUserStore } from './useUserStore';
 import { useRecognitionTelemetryStore, RecognitionOutcome } from './useRecognitionTelemetryStore';
 import { fetchRecognitionConfig, fetchMySubscription } from '../services/billingApi';
-import { pushKeepDecision } from '../services/profileApi';
+import { pushKeepDecision, patchKeepVisibility } from '../services/profileApi';
 import { DEFAULT_RECOGNITION_SETTINGS } from '../config/recognitionSettings';
 import i18n from '../i18n';
 
@@ -268,6 +268,8 @@ interface SessionStore {
   keepAllPending: () => Promise<void>;
   /** Renomme un morceau de la session EN COURS (pas encore archivée) -- voir useSessionHistoryStore.renameTrackInSession pour les sessions déjà terminées. */
   renameTrack: (entryId: string, customTitle: string) => void;
+  /** Partager/masquer un KEEP sur le profil (cf. demande explicite du 24/08/2026) -- `false` si le keep n'a pas encore de `keepId` (pas encore synchronisé serveur) ou si le PATCH échoue, jamais un état local qui ment sur le vrai état serveur. */
+  setTrackVisibility: (entryId: string, visibility: 'PUBLIC' | 'PRIVATE') => Promise<boolean>;
   /** Retente commitKeep() pour les morceaux "waiting_sync" de la session EN COURS -- appelé après connexion d'un service pendant qu'une session tourne encore. */
   syncWaitingTracks: () => Promise<void>;
   setSilenceTimeoutMin: (minutes: number) => void;
@@ -807,8 +809,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
       // Cf. commentaire de pushKeepDecision (profileApi.ts) -- GARDER
-      // n'écrivait jusqu'ici QUE localement, jamais côté serveur.
-      pushKeepDecision(entry.track);
+      // n'écrivait jusqu'ici QUE localement, jamais côté serveur. `keepId`
+      // stocké dès réception -- indispensable pour toute action serveur
+      // ultérieure sur CE keep précis (visibilité, etc.), voir types/index.ts.
+      pushKeepDecision(entry.track).then((keepId) => {
+        if (keepId) set((s) => ({ tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, keepId, visibility: 'PUBLIC' } : t)) }));
+      });
     } catch (e: any) {
       set({ error: e?.message ?? 'Erreur lors du rangement' });
     }
@@ -829,6 +835,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   renameTrack: (entryId, customTitle) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, customTitle } : t)) })),
+
+  setTrackVisibility: async (entryId, visibility) => {
+    const entry = get().tracks.find((t) => t.id === entryId);
+    if (!entry?.keepId) return false;
+    const ok = await patchKeepVisibility(entry.keepId, visibility);
+    if (ok) set((s) => ({ tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, visibility } : t)) }));
+    return ok;
+  },
 
   syncWaitingTracks: async () => {
     const waiting = get().tracks.filter((t) => t.status === 'kept' && t.syncState === 'waiting_sync');

@@ -142,17 +142,47 @@ export function pushSocialLinks(links: { platform: string; url: string; visibili
  * convention que le reste de ce fichier -- ne bloque jamais GARDER sur le
  * réseau, l'état local reste la source de vérité immédiate.
  */
-export function pushKeepDecision(track: {
+/**
+ * Retourne l'`id` réel `keep_decisions` créé côté serveur -- `null` si
+ * hors-ligne/échec (jamais bloquant pour l'UI, voir logIfFailed), mais
+ * DOIT être awaited et le résultat stocké (`SessionTrackEntry.keepId`) par
+ * l'appelant : sans lui, aucune action serveur ultérieure sur ce KEEP
+ * précis (visibilité partagé/masqué, etc.) n'est possible (cf. audit du
+ * 24/08/2026 -- identifiant local et serveur ne se correspondaient jamais).
+ */
+export async function pushKeepDecision(track: {
   title: string; artist: string; album?: string; isrc?: string; artworkUrl?: string;
-}): void {
-  logIfFailed(
-    'POST /me/keeps',
-    authedFetch('/api/social/me/keeps', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: track.title, artist: track.artist, album: track.album,
-        isrc: track.isrc, artworkUrl: track.artworkUrl, decision: 'KEPT',
-      }),
-    })
-  );
+}): Promise<string | null> {
+  const resPromise = authedFetch('/api/social/me/keeps', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: track.title, artist: track.artist, album: track.album,
+      isrc: track.isrc, artworkUrl: track.artworkUrl, decision: 'KEPT',
+    }),
+  });
+  try {
+    const res = await resPromise;
+    if (!res || !res.ok) {
+      if (res) console.warn(`[KEEP][profile-sync] POST /me/keeps échoué (état local conservé): HTTP ${res.status}`);
+      return null;
+    }
+    const json = (await res.json()) as { data?: { id?: string } };
+    return json.data?.id ?? null;
+  } catch (e: any) {
+    console.warn('[KEEP][profile-sync] POST /me/keeps échoué (état local conservé):', e?.message);
+    return null;
+  }
+}
+
+/** Partager (PUBLIC) ou masquer (PRIVATE) un KEEP sur le profil -- ne retire jamais le morceau de "Mes musiques" (voir PATCH /me/keeps/:id/visibility, social.ts). */
+export async function patchKeepVisibility(keepId: string, visibility: 'PUBLIC' | 'PRIVATE'): Promise<boolean> {
+  const res = await authedFetch(`/api/social/me/keeps/${keepId}/visibility`, {
+    method: 'PATCH',
+    body: JSON.stringify({ visibility }),
+  });
+  if (!res || !res.ok) {
+    if (res) console.warn(`[KEEP][profile-sync] PATCH /me/keeps/${keepId}/visibility échoué: HTTP ${res.status}`);
+    return false;
+  }
+  return true;
 }

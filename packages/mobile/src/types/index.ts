@@ -82,6 +82,18 @@ export interface SessionTrackEntry {
   detectedAt: string;
   keptPlaylistId?: string;
   syncState?: TrackSyncState;
+  /**
+   * `keep_decisions.id` réel côté serveur (jamais le même que `id`
+   * ci-dessus, qui reste un identifiant LOCAL pour les listes React -- cf.
+   * audit du 24/08/2026 : `hydrateFromServer` lisait déjà cet id serveur
+   * puis le jetait). Absent tant que le GARDER n'a pas encore été confirmé
+   * poussé au serveur -- toute action qui modifie l'état serveur (visibilité
+   * partagé/masqué, etc.) DOIT vérifier sa présence avant d'agir, jamais
+   * agir sur `id` à sa place.
+   */
+  keepId?: string;
+  /** Visibilité SUR LE PROFIL de ce KEEP précis (voir keep_decisions.visibility) -- absent = pas encore synchronisé, traité comme PUBLIC (défaut serveur, voir POST /me/keeps). FOLLOWERS existe côté serveur mais n'a pas d'UI ici (hors scope, cf. social.ts). */
+  visibility?: 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE';
   /** Nom personnalisé donné par l'utilisateur pour CE morceau dans CETTE session -- jamais imposé, l'utilisateur garde le titre détecté par défaut (cf. demande explicite du 23/08/2026 : "je puisse renommer un fichier musical"). */
   customTitle?: string;
   /**
@@ -91,7 +103,7 @@ export interface SessionTrackEntry {
    * notions distinctes (cf. demande explicite du 23/08/2026 : "Ne mélange
    * surtout pas les trois").
    */
-  discoverySource: 'mic' | 'recently_played';
+  discoverySource: 'mic' | 'recently_played' | 'server_sync';
   /**
    * Résultat réel de UniversalTrackResolver.resolveAvailability -- une
    * entrée par plateforme CONNECTÉE au moment de la détection (found /
