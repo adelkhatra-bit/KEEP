@@ -1,9 +1,9 @@
 {
   "credits": {
-    "remaining": "{{count}} of {{total}} left",
-    "zero": "No free credit left",
-    "unlimited": "Unlimited",
-    "syncError": "Credits unavailable"
+    "remaining": "{{count}} free download(s) left",
+    "zero": "Free downloads used up",
+    "unlimited": "Unlimited downloads",
+    "syncError": "Downloads unavailable"
   },
   "onboarding": {
     "welcomeTitle": "KEEP",
@@ -29,8 +29,11 @@
     "findOnPlatforms": "▸ Find on platforms"
   },
   "session": {
+    "tagline": "Listen. Find. Keep.",
+    "freeOfferBadge": "🎁 {{count}} free downloads",
+    "freeOfferNoSignup": "No sign-up needed",
     "emptySubtitle": "KEEP finds your music, files it, then takes you to listen.",
-    "start": "Capture this moment",
+    "start": "Start listening",
     "inProgress": "KEEP is capturing this moment",
     "limitReachedTitle": "Limit reached",
     "detected": "{{count}} tracks detected",
@@ -57,12 +60,12 @@
     "recognitionNeedsLogin": "Sign in (Profile → Continue with email) to activate free recognition.",
     "micPermissionDenied": "Allow microphone access so KEEP can recognize music (browser or phone settings).",
     "micSilence": "KEEP isn't picking up enough sound — move the phone closer to the music or turn up the volume.",
-    "guestLimitTitle": "Your music deserves its own profile.",
-    "guestLimitBody": "Share your finds across every platform, gain visibility, and build your musical community.",
-    "freeLimitTitle": "You've identified all your free tracks.",
-    "freeLimitBody": "Go Premium to keep identifying without limits.",
-    "seePremium": "See Premium",
-    "createProfile": "Create my profile"
+    "guestLimitTitle": "Your {{limit}} free downloads are used up.",
+    "guestLimitBody": "Create a free account and get {{bonus}} more downloads.",
+    "freeLimitTitle": "Your free downloads are all used up.",
+    "freeLimitBody": "Go Premium to keep downloading without limits.",
+    "seePremium": "Go Premium — {{price}}",
+    "createProfile": "Create my account · +{{bonus}} free"
   },
   "history": {
     "title": "My Sessions",

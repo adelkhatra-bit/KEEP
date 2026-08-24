@@ -10,6 +10,8 @@ import SessionPulse from '../components/SessionPulse';
 import CreditCounter from '../components/CreditCounter';
 import TrackRow from '../components/TrackRow';
 import { AppAlert as Alert } from '../utils/AppAlert';
+import { fetchRecognitionConfig, fetchPlans, formatMonthlyPrice } from '../services/billingApi';
+import { useUserStore } from '../store/useUserStore';
 
 function formatElapsed(startedAt: string | null): string {
   if (!startedAt) return '00:00:00';
@@ -36,6 +38,26 @@ export default function HomeScreen({ navigation }: any) {
   } = useSessionStore();
   const { connectedServices, hasShownConnectPrompt, markConnectPromptShown, connectDemo } = useMusicServiceStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
+  const successCount = useUserStore((s) => s.successCount);
+  const user = useUserStore((s) => s.user);
+  const isAnonymous = useUserStore((s) => s.isAnonymous);
+
+  /**
+   * Tunnel gratuit (cf. demande explicite du 24/08/2026, refonte complète du
+   * parcours) : "3 téléchargements offerts, +4 à l'inscription, puis
+   * Premium". Valeurs réelles depuis remote_config -- jamais en dur, un
+   * changement Super Admin doit se refléter ici sans nouveau déploiement
+   * (même contrainte déjà appliquée à CreditCounter.tsx).
+   */
+  const [funnelConfig, setFunnelConfig] = useState<{ guestSuccessLimit: number; signupBonusSuccesses: number } | null>(null);
+  const [premiumPriceLabel, setPremiumPriceLabel] = useState<string>('');
+  useEffect(() => {
+    fetchRecognitionConfig().then(setFunnelConfig);
+    fetchPlans().then((plans) => {
+      const premium = plans?.find((p) => p.code === 'PREMIUM');
+      if (premium) setPremiumPriceLabel(formatMonthlyPrice(premium));
+    });
+  }, []);
 
   // Révisé le 24/08/2026 -- règle produit définitive : "Détecter/écouter =
   // 0 crédit". guestLimitReached/freeLimitReached ne bloque plus JAMAIS la
@@ -97,6 +119,14 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   if (!isActive) {
+    // Cf. demande explicite du 24/08/2026 -- refonte complète du parcours
+    // gratuit. Le badge cadeau "3 téléchargements offerts" est le PITCH
+    // initial -- affiché seulement avant toute utilisation (successCount=0)
+    // pour un invité pas encore inscrit ; au-delà, le compteur courant
+    // (CreditCounter) suffit, jamais les deux en même temps.
+    const isGuest = !user || isAnonymous;
+    const showFreeOfferPitch = isGuest && successCount === 0 && funnelConfig !== null;
+
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.idleHeader}>
@@ -108,15 +138,26 @@ export default function HomeScreen({ navigation }: any) {
 
         <View style={styles.idleBody}>
           <SessionPulse active={false} />
+          <Text style={styles.tagline}>{t('session.tagline')}</Text>
 
-          {/* Cf. demande explicite du 24/08/2026 -- "affiche les crédits
-              disponibles AVANT une reconnaissance". Idle = le seul moment où
-              taper GARDER n'a encore rien consommé. */}
-          <CreditCounter />
+          {showFreeOfferPitch && (
+            <View style={styles.freeOfferBadge}>
+              <Text style={styles.freeOfferBadgeText}>
+                {t('session.freeOfferBadge', { count: funnelConfig!.guestSuccessLimit })}
+              </Text>
+              <Text style={styles.freeOfferNoSignup}>{t('session.freeOfferNoSignup')}</Text>
+            </View>
+          )}
 
           <TouchableOpacity style={styles.startButton} onPress={startSession}>
             <Text style={styles.startButtonText}>{t('session.start')}</Text>
           </TouchableOpacity>
+
+          {/* Cf. demande explicite du 24/08/2026 -- "affiche les crédits
+              disponibles AVANT une reconnaissance". Idle = le seul moment où
+              taper GARDER n'a encore rien consommé. Masqué pendant le pitch
+              initial pour ne jamais répéter le même chiffre deux fois. */}
+          {!showFreeOfferPitch && <CreditCounter />}
           <Text style={styles.idleSubtitle}>{t('session.emptySubtitle')}</Text>
         </View>
       </SafeAreaView>
@@ -148,12 +189,12 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       )}
 
-      {guestLimitReached && (
+      {guestLimitReached && funnelConfig && (
         <View style={styles.guestPromptBanner}>
-          <Text style={styles.guestPromptTitle}>{t('session.guestLimitTitle')}</Text>
-          <Text style={styles.guestPromptText}>{t('session.guestLimitBody')}</Text>
+          <Text style={styles.guestPromptTitle}>{t('session.guestLimitTitle', { limit: funnelConfig.guestSuccessLimit })}</Text>
+          <Text style={styles.guestPromptText}>{t('session.guestLimitBody', { bonus: funnelConfig.signupBonusSuccesses })}</Text>
           <TouchableOpacity style={styles.guestPromptBtn} onPress={() => navigation.navigate('CreateAccount')}>
-            <Text style={styles.guestPromptBtnText}>{t('session.createProfile')}</Text>
+            <Text style={styles.guestPromptBtnText}>{t('session.createProfile', { bonus: funnelConfig.signupBonusSuccesses })}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -164,15 +205,18 @@ export default function HomeScreen({ navigation }: any) {
           <Text style={styles.guestPromptTitle}>{t('session.freeLimitTitle')}</Text>
           <Text style={styles.guestPromptText}>{t('session.freeLimitBody')}</Text>
           <TouchableOpacity style={styles.guestPromptBtn} onPress={() => navigation.navigate('Profile')}>
-            <Text style={styles.guestPromptBtnText}>{t('session.seePremium')}</Text>
+            <Text style={styles.guestPromptBtnText}>
+              {t('session.seePremium', { price: premiumPriceLabel || '2,99 €/mois' })}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Limite atteinte (invité ou Free) = KEEP n'écoute plus vraiment tant
-          que rien ne change -- "aucun morceau détecté pour l'instant" serait
-          trompeur ici, ça laisse croire que la recherche continue (bug réel
-          signalé le 24/08/2026 : les deux messages s'affichaient ensemble). */}
+      {/* Limite de TÉLÉCHARGEMENT atteinte (invité ou Free) -- n'affecte
+          jamais l'écoute/détection elle-même (voir "détecter = 0 crédit"
+          plus haut) ; juste "aucun morceau détecté pour l'instant" serait
+          incohérent à côté de la bannière qui parle du blocage de
+          téléchargement -- un seul message affiché à la fois. */}
       {pendingTracks.length === 0 && !guestLimitReached && !freeLimitReached ? (
         <Text style={styles.waitingText}>{t('session.waitingForMusic')}</Text>
       ) : pendingTracks.length > 0 ? (
@@ -230,6 +274,14 @@ const styles = StyleSheet.create({
   brand: { ...typography.h2, color: colors.textPrimary, letterSpacing: 1 },
   historyLink: { color: colors.primaryLight, fontSize: 13, fontWeight: '600' },
   idleBody: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
+  tagline: { fontSize: 14, color: colors.textSecondary, marginTop: spacing.sm, fontWeight: '600' },
+  freeOfferBadge: {
+    alignItems: 'center', backgroundColor: colors.backgroundCard, borderRadius: radius.lg,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.xl, marginTop: spacing.xl,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  freeOfferBadgeText: { ...typography.bodyBold, color: colors.textPrimary },
+  freeOfferNoSignup: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   idleSubtitle: {
     fontSize: 13, color: colors.textSecondary, textAlign: 'center',
     marginTop: spacing.md, paddingHorizontal: spacing.lg,

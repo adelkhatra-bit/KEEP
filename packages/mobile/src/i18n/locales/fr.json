@@ -1,9 +1,9 @@
 {
   "credits": {
-    "remaining": "{{count}} sur {{total}} restant(s)",
-    "zero": "Plus de crédit gratuit",
-    "unlimited": "Illimité",
-    "syncError": "Crédits indisponibles"
+    "remaining": "{{count}} téléchargement(s) gratuit(s) restant(s)",
+    "zero": "Téléchargements gratuits épuisés",
+    "unlimited": "Téléchargements illimités",
+    "syncError": "Téléchargements indisponibles"
   },
   "onboarding": {
     "welcomeTitle": "KEEP",
@@ -29,8 +29,11 @@
     "findOnPlatforms": "▸ Trouver sur les plateformes"
   },
   "session": {
+    "tagline": "Écoute. Retrouve. Garde.",
+    "freeOfferBadge": "🎁 {{count}} téléchargements offerts",
+    "freeOfferNoSignup": "Aucune inscription nécessaire",
     "emptySubtitle": "KEEP retrouve tes musiques, les range, puis t'emmène les écouter.",
-    "start": "Capturer ce moment",
+    "start": "Démarrer l'écoute",
     "inProgress": "KEEP capture ce moment",
     "limitReachedTitle": "Limite atteinte",
     "detected": "{{count}} morceaux détectés",
@@ -57,12 +60,12 @@
     "recognitionNeedsLogin": "Connecte-toi (Profil → Continuer avec e-mail) pour activer la reconnaissance gratuite.",
     "micPermissionDenied": "Autorise l'accès au micro pour que KEEP puisse reconnaître la musique (réglages du navigateur ou du téléphone).",
     "micSilence": "KEEP n'entend pas assez de son — rapproche le téléphone de la musique ou monte le volume.",
-    "guestLimitTitle": "Ta musique mérite son profil.",
-    "guestLimitBody": "Partage tes découvertes sur toutes tes plateformes, gagne en visibilité et construis ta communauté musicale.",
-    "freeLimitTitle": "Tu as identifié toute ta musique gratuite.",
-    "freeLimitBody": "Passe Premium pour continuer à identifier sans limite.",
-    "seePremium": "Voir Premium",
-    "createProfile": "Créer mon profil"
+    "guestLimitTitle": "Tes {{limit}} téléchargements offerts sont utilisés.",
+    "guestLimitBody": "Crée ton compte gratuitement et reçois {{bonus}} téléchargements supplémentaires.",
+    "freeLimitTitle": "Tes téléchargements offerts sont terminés.",
+    "freeLimitBody": "Passe à Premium pour continuer à télécharger sans limite.",
+    "seePremium": "Passer à Premium — {{price}}",
+    "createProfile": "Créer mon compte · +{{bonus}} gratuits"
   },
   "history": {
     "title": "Mes Sessions",
