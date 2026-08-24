@@ -32,6 +32,7 @@
     "emptySubtitle": "KEEP retrouve tes musiques, les range, puis t'emmène les écouter.",
     "start": "Capturer ce moment",
     "inProgress": "KEEP capture ce moment",
+    "limitReachedTitle": "Limite atteinte",
     "detected": "{{count}} morceaux détectés",
     "kept": "{{count}} gardés",
     "waitingForMusic": "KEEP écoute… aucun morceau détecté pour l'instant.",

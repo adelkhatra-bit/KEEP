@@ -32,6 +32,7 @@
     "emptySubtitle": "KEEP finds your music, files it, then takes you to listen.",
     "start": "Capture this moment",
     "inProgress": "KEEP is capturing this moment",
+    "limitReachedTitle": "Limit reached",
     "detected": "{{count}} tracks detected",
     "kept": "{{count}} kept",
     "waitingForMusic": "KEEP is listening… no track detected yet.",

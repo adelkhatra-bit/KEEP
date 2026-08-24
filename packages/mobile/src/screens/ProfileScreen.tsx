@@ -904,14 +904,21 @@ const styles = StyleSheet.create({
   switchLabel: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
   switchHint: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
 
+  // BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "les boutons sont même
+  // pas alignés correctement de haut en bas") : `flexDirection: 'row',
+  // flexWrap: 'wrap'` avec des libellés de longueurs très différentes
+  // ("QR Profil" vs "Voir mon profil comme un visiteur") -- chaque bouton se
+  // dimensionne à son propre texte, l'enchaînement wrap tombe différemment
+  // selon la largeur d'écran, jamais des bords alignés. Sur mobile étroit
+  // (confirmé par capture réelle) tout finissait un par ligne de toute façon
+  // -- autant assumer une vraie pile verticale à largeur cohérente plutôt
+  // que de laisser le wrap simuler une colonne par accident.
   actionsContainer: {
-    paddingHorizontal: spacing.xl, marginTop: spacing.md,
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
+    paddingHorizontal: spacing.xl, marginTop: spacing.md, gap: spacing.sm,
   },
   // Fond teinté (pas juste une bordure sur fond neutre identique aux cartes
-  // d'info) + largeur au contenu (pas pleine largeur) -- cf. demande
-  // explicite du 24/08/2026 : "il faut vraiment que ça soit montré qu'on
-  // peut cliquer dessus" + "les formats des boutons sont sûrement trop gros".
+  // d'info) -- cf. demande explicite du 24/08/2026 : "il faut vraiment que
+  // ça soit montré qu'on peut cliquer dessus".
   actionButton: {
     backgroundColor: colors.smartBadgeBg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
     borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', minHeight: 40,

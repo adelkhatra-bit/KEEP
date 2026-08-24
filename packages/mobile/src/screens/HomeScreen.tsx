@@ -37,12 +37,21 @@ export default function HomeScreen({ navigation }: any) {
   const { connectedServices, hasShownConnectPrompt, markConnectPromptShown, connectDemo } = useMusicServiceStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
 
+  // BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "le compteur il tourne
+  // ... pourquoi tu fais croire quelque chose à un utilisateur") -- le
+  // chrono continuait de défiler ET le titre restait "KEEP capture ce
+  // moment" même après guestLimitReached/freeLimitReached, alors que KEEP a
+  // réellement arrêté d'écouter (voir tick() dans useSessionStore.ts, plus
+  // aucun scheduleNext appelé). Deux signaux "encore actif" forts (chrono +
+  // titre) contre un seul petit indice "plus de crédit" -- message
+  // contradictoire. Le chrono se fige à la seconde exacte de la limite,
+  // jamais un mensonge sur le temps réel écoulé.
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || guestLimitReached || freeLimitReached) return;
     setElapsed(formatElapsed(startedAt));
     const timer = setInterval(() => setElapsed(formatElapsed(startedAt)), 1000);
     return () => clearInterval(timer);
-  }, [isActive, startedAt]);
+  }, [isActive, startedAt, guestLimitReached, freeLimitReached]);
 
   const detectedCount = tracks.length;
   const keptCount = tracks.filter((tr) => tr.status === 'kept').length;
@@ -134,7 +143,9 @@ export default function HomeScreen({ navigation }: any) {
           size={84}
           level={!guestLimitReached && !freeLimitReached && musicEngine.isRealRecognition ? micLevel : undefined}
         />
-        <Text style={styles.liveTitle}>{t('session.inProgress')}</Text>
+        <Text style={styles.liveTitle}>
+          {guestLimitReached || freeLimitReached ? t('session.limitReachedTitle') : t('session.inProgress')}
+        </Text>
         <View style={styles.liveHeaderRow}>
           <Text style={styles.timer}>{elapsed}</Text>
           <Text style={styles.liveStats}>
