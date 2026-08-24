@@ -1,9 +1,12 @@
 node_modules/
 *.log
+.*.err
+.*.out
 .DS_Store
 .env
 .env.local
 .env.*.local
+.tokenra.env
 dist/
 build/
 .expo/
@@ -32,3 +35,15 @@ packages/recognition-engine/pg-portable/
 # jamais commitée (grossit avec l'usage, propre à chaque environnement).
 # Inclut data/diagnostic-captures/ (échantillons micro de diagnostic, jamais gardés en repo).
 packages/backend/data/
+.nvidia.env
+
+# Artefacts de run Playwright (packages/mobile/e2e) -- régénérables, jamais commités.
+packages/mobile/test-results/
+packages/mobile/playwright-report/
+packages/mobile/blob-report/
+
+# Skills NVIDIA installés le 24/08/2026 (npx skills add) -- sans rapport avec
+# KEEP (GPU dataframes/optimisation logistique/RAG), l'un flaggé Snyk
+# Critical Risk -- jamais commités tels quels, voir CLAUDE.md.
+.claude/skills/
+skills-lock.json
