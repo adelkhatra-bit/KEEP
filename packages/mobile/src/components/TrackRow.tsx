@@ -106,7 +106,9 @@ export default function TrackRow({ entry, onKeep, onPass, playlists }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, gap: spacing.md },
-  artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
+  // 52 -> 48 (audit Design System du 24/08/2026, docs/KEEP_DESIGN_SYSTEM.md)
+  // -- taille unifiée "jaquette en ligne de liste" avec MyMusicScreen/ProfileScreen.
+  artwork: { width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   artworkGlyph: { color: colors.textMuted, fontSize: 20 },
   info: { flex: 1, minWidth: 0 },
