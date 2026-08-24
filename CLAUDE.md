@@ -66,6 +66,10 @@ régression via `git diff`/`git log` (comparer avec la dernière version où ça
 marchait, jamais deviner). Corriger. Relancer les tests. Seulement après un
 retour PASS réel, continuer.
 
+## Outils/clés connectés (mis à jour au fur et à mesure, jamais la valeur des secrets ici)
+
+- **NVIDIA Build API** (connecté le 24/08/2026, clé dans `.nvidia.env`, gitignored) — accès à des modèles hébergés (DeepSeek, Llama 3.1, etc.) via `https://integrate.api.nvidia.com/v1/chat/completions` (compatible OpenAI). Vérifié réellement fonctionnel avec `meta/llama-3.1-8b-instruct` (HTTP 200). Certains IDs de modèles listés par `/v1/models` renvoient 404/410 sur cet compte (entitlement/fin de vie) -- toujours vérifier par un vrai appel avant de compter sur un modèle précis, jamais suivre `/v1/models` aveuglément. Pas encore branché à un pipeline précis -- clé confirmée valide, intégration concrète à faire au cas par cas, jamais avant que le P0 recognition soit réellement PASS (règle du 24/08/2026).
+
 ## Organisation multi-agents (demande explicite du 24/08/2026 — "CTO / Lead Developer / orchestrateur")
 
 Claude Code (superviseur) peut déléguer à des sous-agents spécialisés
