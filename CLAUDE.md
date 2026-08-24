@@ -68,8 +68,9 @@ retour PASS réel, continuer.
 
 ## Outils/clés connectés (mis à jour au fur et à mesure, jamais la valeur des secrets ici)
 
-- **NVIDIA Build API** (connecté le 24/08/2026, clé dans `.nvidia.env`, gitignored -- 2e clé fournie par Adel a remplacé la 1ère, relation entre les deux non clarifiée) — accès à des modèles hébergés via `https://integrate.api.nvidia.com/v1/chat/completions` (compatible OpenAI). Vérifié réellement fonctionnel avec `meta/llama-3.1-8b-instruct` ET `nvidia/nemotron-3.5-lightning-30b-a3b` (modèle "raisonnement", champ `reasoning_content` séparé de `content`, voir `chat_template_kwargs.enable_thinking`). Certains IDs listés par `/v1/models` renvoient 404/410 sur ce compte (entitlement/fin de vie) -- toujours vérifier par un vrai appel avant de compter sur un modèle précis. Pas encore branché à un pipeline précis -- clé confirmée valide, intégration concrète à faire au cas par cas, jamais avant que le P0 recognition soit réellement PASS (règle du 24/08/2026).
+- **NVIDIA Build API** (connecté le 24/08/2026, clé dans `.nvidia.env`, gitignored -- 3e clé fournie par Adel est l'actuelle) — modèle `nvidia/nemotron-3.5-lightning-30b-a3b` via `https://integrate.api.nvidia.com/v1/chat/completions` (compatible OpenAI, function-calling supporté). **Branché** via `.claude/tools/nemotron-bridge.js` (voir section "Délégation Nemotron" ci-dessous) -- ce n'est plus un simple test, c'est l'agent de délégation réel du projet.
 - **NVIDIA/skills** (installés le 24/08/2026 via `npx skills add NVIDIA/skills --skill <nom> --agent claude-code`, catalogue officiel `github.com/nvidia/skills`) -- `aiq-research` (Snyk Med Risk), `accelerated-computing-cudf` (1 alerte Socket), `cuopt-developer` (**Snyk Critical Risk**, non vetted, ne pas utiliser sans audit du contenu du skill d'abord). Aucun rapport identifié avec les besoins réels de KEEP (GPU dataframes, solveur d'optimisation logistique, RAG) -- installés sur demande explicite d'Adel, jamais utilisés, à ne pas invoquer sans raison concrète liée à KEEP.
+- **Supabase Management API** (découvert le 24/08/2026 en corrigeant le bug RLS `social_links` -- `SUPABASE_MANAGEMENT_ACCESS_TOKEN`+`SUPABASE_PROJECT_REF` déjà présents dans `packages/backend/.env`, jamais documentés avant cette entrée) — `POST https://api.supabase.com/v1/projects/{ref}/database/query` (`{query: "<sql>"}`, header `Authorization: Bearer <token>`) exécute du SQL arbitraire, y compris DDL (CREATE POLICY, etc.), directement sur la vraie base KEEP. **Corrige une hypothèse fausse répétée dans plusieurs entrées de `KEEP_REGRESSION_TESTS.md`/`KEEP_MASTER_CHECKLIST.md`** ("service_role toujours un placeholder" -- vrai, mais ça ne veut plus dire qu'aucune écriture DB directe n'est possible) : les migrations `supabase/migrations/*.sql` n'ont plus besoin d'être collées à la main par Adel dans le SQL Editor, un agent (Claude ou Nemotron en LECTURE seule pour vérifier l'état -- jamais pour exécuter, cf. règles multi-agents) peut appliquer une migration directement, à condition que ce soit une action précise et autorisée explicitement par Adel à chaque fois (jamais une action de fond). Toujours vérifier l'état AVANT (ex. `select ... from pg_policies`) et APRÈS, jamais supposer qu'une requête a réussi sans relecture réelle.
 
 ## Organisation multi-agents (demande explicite du 24/08/2026 — "CTO / Lead Developer / orchestrateur")
 
@@ -95,6 +96,52 @@ comme n'importe quel agent sur ce repo. Règles de dispatch :
   correction ou rollback avant toute nouvelle fonctionnalité (voir section
   "Si une modification casse un test précédemment PASS" ci-dessus — ceci
   n'est pas une nouvelle règle, juste rendu non-contournable pour tout agent).
+
+## Délégation Nemotron (demande explicite du 24/08/2026 -- "économiser mon crédit Claude")
+
+**Rôles fixes** : Claude Code = orchestrateur/superviseur. NVIDIA Nemotron
+(`nvidia/nemotron-3.5-lightning-30b-a3b`, via `.claude/tools/nemotron-bridge.js`)
+= agent de travail pour tout ce qui est LECTURE/RECHERCHE/AUDIT à volume --
+jamais l'inverse.
+
+**Ce qui va à Nemotron** (délègue automatiquement dès que pertinent, sans
+redemander) : lecture massive de fichiers, recherche dans le repo, audits
+(Design System, Auth/Brevo, profil/social, billing, Super Admin,
+performance, sécurité), recherche de bugs/régressions, analyse de logs/
+traces, revue de code, préparation de tests, analyse d'architecture.
+
+**Ce qui reste à Claude, toujours** : décider quoi faire des conclusions,
+appliquer/écrire les modifications, exécuter les tests finaux, créer les
+checkpoints Git, arbitrer architecture/sécurité, bloquer une régression
+immédiatement. Nemotron ne modifie jamais un fichier lui-même -- le bridge
+n'expose AUCUN outil d'écriture, seulement lecture/recherche/tests fixes.
+
+**Le bridge** (`.claude/tools/nemotron-bridge.js`, réutiliser jamais
+reconstruire) : `node .claude/tools/nemotron-bridge.js <nom-de-tache>` avec
+une tâche définie dans le fichier, ou `require('./.claude/tools/nemotron-bridge.js').runAgentTask(prompt, maxTurns)`
+directement. Outils réels exposés : `list_directory`, `search_repo` (git
+grep -- jamais `rg`, absent de cet environnement), `read_file_chunk`
+(paginé offset/longueur, `has_more`/`next_offset` pour continuer), `git_status`,
+`git_diff`, `git_log`, `run_typecheck`, `run_smoke_test`,
+`read_recognition_traces`. Injecte automatiquement `CLAUDE.md` en préambule
+-- Nemotron connaît le protocole avant de commencer, comme tout agent.
+
+**Protection anti-boucle déjà intégrée** (testée en vrai le 24/08/2026,
+confirmée PASS sur un vrai fichier de 40K caractères) : un appel identique
+(même outil + mêmes arguments) au-delà de 2 répétitions est refusé avec un
+message forçant un changement de stratégie ; plafond dur de 40 appels
+d'outils par tâche. Si Nemotron boucle quand même ou n'aboutit pas, Claude
+reprend la main -- jamais laisser tourner indéfiniment.
+
+**Règles absolues** :
+- Jamais recréer une fonction qui existe déjà sans l'avoir fait auditer
+  d'abord (par Nemotron ou directement).
+- Jamais déclarer PASS sur la seule lecture de code par Nemotron -- un
+  élément testable doit être réellement testé (`run_typecheck`/
+  `run_smoke_test`/navigateur), même conclusion que le reste de ce fichier.
+- Ne jamais refaire intégralement à la main (Claude) une analyse que
+  Nemotron peut faire -- mais Claude reste celui qui VALIDE la conclusion,
+  jamais un relais aveugle.
 
 ## Checkpoints Git
 
