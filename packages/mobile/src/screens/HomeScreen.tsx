@@ -37,21 +37,19 @@ export default function HomeScreen({ navigation }: any) {
   const { connectedServices, hasShownConnectPrompt, markConnectPromptShown, connectDemo } = useMusicServiceStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
 
-  // BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "le compteur il tourne
-  // ... pourquoi tu fais croire quelque chose à un utilisateur") -- le
-  // chrono continuait de défiler ET le titre restait "KEEP capture ce
-  // moment" même après guestLimitReached/freeLimitReached, alors que KEEP a
-  // réellement arrêté d'écouter (voir tick() dans useSessionStore.ts, plus
-  // aucun scheduleNext appelé). Deux signaux "encore actif" forts (chrono +
-  // titre) contre un seul petit indice "plus de crédit" -- message
-  // contradictoire. Le chrono se fige à la seconde exacte de la limite,
-  // jamais un mensonge sur le temps réel écoulé.
+  // Révisé le 24/08/2026 -- règle produit définitive : "Détecter/écouter =
+  // 0 crédit". guestLimitReached/freeLimitReached ne bloque plus JAMAIS la
+  // détection (voir useSessionStore.tick, aucun gate), seulement le GARDER
+  // (téléchargement) lui-même -- KEEP continue réellement d'écouter et de
+  // détecter après la limite, donc le chrono/l'animation restent live sans
+  // condition. Un essai précédent figeait le chrono ici en supposant que la
+  // détection s'arrêtait -- ce n'est plus le cas, retiré.
   useEffect(() => {
-    if (!isActive || guestLimitReached || freeLimitReached) return;
+    if (!isActive) return;
     setElapsed(formatElapsed(startedAt));
     const timer = setInterval(() => setElapsed(formatElapsed(startedAt)), 1000);
     return () => clearInterval(timer);
-  }, [isActive, startedAt, guestLimitReached, freeLimitReached]);
+  }, [isActive, startedAt]);
 
   const detectedCount = tracks.length;
   const keptCount = tracks.filter((tr) => tr.status === 'kept').length;
@@ -128,24 +126,13 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.liveHeader}>
-        {/* BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "l'animation est
-            bloquée. Pourtant le micro est bien activé") : dès que
-            guestLimitReached/freeLimitReached passe à vrai, useSessionStore
-            arrête la boucle de tick pour de bon (plus jamais de scheduleNext,
-            voir tick()) -- mais SessionPulse continuait de recevoir `active`
-            + le dernier `micLevel` reçu, gelé indéfiniment à sa dernière
-            valeur réelle. Ça RESSEMBLE à un micro mort alors que KEEP a
-            simplement arrêté d'écouter, ce qui est le comportement voulu.
-            `active={false}` dès la limite atteinte -- jamais une lecture live
-            qui ment sur l'état réel. */}
-        <SessionPulse
-          active={!guestLimitReached && !freeLimitReached}
-          size={84}
-          level={!guestLimitReached && !freeLimitReached && musicEngine.isRealRecognition ? micLevel : undefined}
-        />
-        <Text style={styles.liveTitle}>
-          {guestLimitReached || freeLimitReached ? t('session.limitReachedTitle') : t('session.inProgress')}
-        </Text>
+        {/* Révisé le 24/08/2026 -- "détecter = 0 crédit" : la détection ne
+            s'arrête JAMAIS à la limite, donc l'animation/le titre restent
+            toujours live pendant une session active, sans condition sur
+            guestLimitReached/freeLimitReached (qui ne concerne plus que le
+            GARDER, voir plus haut). */}
+        <SessionPulse active size={84} level={musicEngine.isRealRecognition ? micLevel : undefined} />
+        <Text style={styles.liveTitle}>{t('session.inProgress')}</Text>
         <View style={styles.liveHeaderRow}>
           <Text style={styles.timer}>{elapsed}</Text>
           <Text style={styles.liveStats}>

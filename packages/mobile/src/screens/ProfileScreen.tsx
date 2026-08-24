@@ -627,7 +627,8 @@ export default function ProfileScreen({ navigation }: any) {
                       onPress={async () => {
                         setKeepingKey(entry.key);
                         try {
-                          await keepRecentlyPlayedTrack(entry.key);
+                          const kept = await keepRecentlyPlayedTrack(entry.key);
+                          if (!kept) Alert.alert(t('myMusic.title'), t('credits.zero'));
                         } catch (e: any) {
                           console.warn('[KEEP][recently-played-keep]', e?.message);
                           Alert.alert('KEEP', t('session.recognitionUnavailable'));

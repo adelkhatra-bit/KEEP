@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { persist } from 'zustand/middleware';
+import { createSafeStorage } from './safeStorage';
 import { CanonicalTrack, SpotifyProvider } from '@keep/music';
 import { musicEngine } from '../services/musicEngine';
 import { useMusicServiceStore } from './useMusicServiceStore';
@@ -35,7 +35,8 @@ interface RecentlyPlayedStore {
   syncing: boolean;
   error: string | null;
   sync: () => Promise<void>;
-  keepTrack: (key: string) => Promise<void>;
+  /** `false` = crédit épuisé, morceau NON gardé (voir checkRecognitionCredit) -- l'appelant doit alors proposer inscription/upgrade. */
+  keepTrack: (key: string) => Promise<boolean>;
 }
 
 const MAX_STORED_ITEMS = 100;
@@ -85,16 +86,22 @@ export const useRecentlyPlayedStore = create<RecentlyPlayedStore>()(
 
       keepTrack: async (key) => {
         const entry = get().items.find((e) => e.key === key);
-        if (!entry || entry.kept) return;
+        if (!entry || entry.kept) return true;
         // Réutilise EXACTEMENT le même chemin GARDER que la session live
         // (voir useSessionHistoryStore.addExternalKeep) -- une seule
         // implémentation de "où range-t-on un morceau", jamais un second
         // système parallèle pour "Écoutés récemment" (cf. règle anti-doublon
         // établie pour commitKeep).
-        await useSessionHistoryStore.getState().addExternalKeep(entry.track, 'recently_played');
+        const result = await useSessionHistoryStore.getState().addExternalKeep(entry.track, 'recently_played');
+        // BUG RÉEL trouvé le 24/08/2026 (en ajoutant le contrôle de quota au
+        // vrai GARDER) : ce store marquait TOUJOURS `kept: true`, même si
+        // addExternalKeep n'avait rien gardé du tout (crédit épuisé) --
+        // mentait à l'utilisateur sur l'état réel.
+        if (result.blocked) return false;
         set((s) => ({ items: s.items.map((e) => (e.key === key ? { ...e, kept: true } : e)) }));
+        return true;
       },
     }),
-    { name: 'keep-recently-played', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'keep-recently-played', storage: createSafeStorage() }
   )
 );

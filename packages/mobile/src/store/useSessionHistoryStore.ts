@@ -5,8 +5,10 @@ import { CanonicalTrack } from '@keep/music';
 import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { commitKeep, CommitKeepResult } from '../services/keepTrackAction';
 import { fetchMyKeeps, pushKeepDecision, patchKeepVisibility } from '../services/profileApi';
+import { checkRecognitionCredit } from '../services/billingApi';
 import { musicEngine } from '../services/musicEngine';
 import { useMusicServiceStore } from './useMusicServiceStore';
+import { useUserStore } from './useUserStore';
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -42,7 +44,8 @@ interface SessionHistoryStore {
   sessions: KeepSession[];
   addSession: (session: KeepSession) => void;
   renameSession: (sessionId: string, title: string) => void;
-  keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string) => Promise<void>;
+  /** `false` = crédit épuisé, morceau NON gardé (voir checkRecognitionCredit) -- l'appelant doit alors proposer inscription/upgrade. */
+  keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string) => Promise<boolean>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
   keepAllPendingInSession: (sessionId: string) => Promise<void>;
   getSession: (sessionId: string) => KeepSession | undefined;
@@ -72,7 +75,8 @@ interface SessionHistoryStore {
    * n'est jamais ajouté une seconde fois (cf. demande explicite du
    * 23/08/2026 : "pagination/synchronisation sans doublons").
    */
-  addExternalKeep: (track: CanonicalTrack, discoverySource: 'recently_played') => Promise<CommitKeepResult>;
+  /** `blocked: true` = crédit épuisé, morceau NON gardé (voir checkRecognitionCredit) -- l'appelant doit alors proposer inscription/upgrade. */
+  addExternalKeep: (track: CanonicalTrack, discoverySource: 'recently_played') => Promise<CommitKeepResult & { blocked?: boolean; isGuest?: boolean }>;
   /**
    * BUG RÉEL corrigé le 24/08/2026 (Adel : "que son album reste
    * préenregistré, chaque mise à jour ne doit pas impacter les
@@ -125,13 +129,20 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       keepTrackInSession: async (sessionId, entryId, playlistId) => {
         const session = get().sessions.find((s) => s.id === sessionId);
         const entry = session?.tracks.find((t) => t.id === entryId);
-        if (!session || !entry) return;
+        if (!session || !entry) return false;
+
+        // Cf. useSessionStore.keepTrack -- même règle partagée, même endroit
+        // unique de vérité (checkRecognitionCredit, billingApi.ts).
+        const { allowed } = await checkRecognitionCredit();
+        if (!allowed) return false;
 
         const { targetPlaylistId, syncState } = await commitKeep(entry.track, entry.recommendations, playlistId);
         set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, syncState) }));
+        useUserStore.getState().incrementSuccessCount();
         // Cf. useSessionStore.keepTrack -- même correctif, même besoin de keepId.
         const keepId = await pushKeepDecision(entry.track);
         if (keepId) set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, syncState, keepId) }));
+        return true;
       },
 
       passTrackInSession: (sessionId, entryId) => {
@@ -208,6 +219,14 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           return { syncState: already.syncState ?? 'synced', targetService: undefined, targetPlaylistId: already.keptPlaylistId };
         }
 
+        // Cf. useSessionStore.keepTrack -- même règle partagée. "Écoutés
+        // récemment" est un vrai GARDER (téléchargement), donc soumis au
+        // même quota, jamais un raccourci gratuit parallèle.
+        const { allowed, isGuest } = await checkRecognitionCredit();
+        if (!allowed) {
+          return { syncState: 'waiting_sync', targetService: undefined, targetPlaylistId: undefined, blocked: true, isGuest };
+        }
+
         // Mêmes recommandations "où ranger" que la session live (voir
         // useSessionStore.ts) -- aucun service connecté = liste vide,
         // commitKeep() gère déjà honnêtement ce cas (syncState 'waiting_sync').
@@ -227,6 +246,10 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           .then((connected) => musicEngine.universalResolver.resolveAvailability(track, connected))
           .then((r) => r.perProvider)
           .catch(() => undefined);
+
+        // Consommé UNIQUEMENT après le passage du gate ci-dessus -- même
+        // règle que useSessionStore.keepTrack.
+        useUserStore.getState().incrementSuccessCount();
 
         // Cf. useSessionStore.keepTrack -- même correctif : "Écoutés récemment"
         // n'écrivait, lui non plus, jamais côté serveur.

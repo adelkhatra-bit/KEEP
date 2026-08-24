@@ -8,7 +8,7 @@ import { useSessionHistoryStore } from './useSessionHistoryStore';
 import { useMusicServiceStore } from './useMusicServiceStore';
 import { useUserStore } from './useUserStore';
 import { useRecognitionTelemetryStore, RecognitionOutcome } from './useRecognitionTelemetryStore';
-import { fetchRecognitionConfig, fetchMySubscription } from '../services/billingApi';
+import { checkRecognitionCredit } from '../services/billingApi';
 import { pushKeepDecision, patchKeepVisibility } from '../services/profileApi';
 import { DEFAULT_RECOGNITION_SETTINGS } from '../config/recognitionSettings';
 import i18n from '../i18n';
@@ -290,16 +290,6 @@ let tickHandle: ReturnType<typeof setTimeout> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let lastDetectionAt = 0;
 let consecutiveErrors = 0;
-/**
- * Palier réel de l'utilisateur (FREE/PREMIUM/CREATOR_PRO/VENUE_PRO) --
- * `null` tant que non résolu (backend injoignable/pas encore répondu),
- * traité comme FREE par prudence (jamais d'accès illimité supposé par
- * défaut). Revérifié une fois par session (voir startSession()), pas à
- * chaque tick -- /me/subscription ne doit pas être martelé toutes les
- * ~8-10s pendant qu'une session tourne.
- */
-let cachedPlanCodeForSession: string | null = null;
-
 function clearTimers() {
   if (tickHandle) {
     clearTimeout(tickHandle);
@@ -332,14 +322,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startSession: () => {
     clearTimers();
     lastDetectionAt = Date.now();
-    // Fire-and-forget -- ne bloque jamais le démarrage de session. Voir
-    // cachedPlanCodeForSession plus haut : Premium/CREATOR_PRO/VENUE_PRO
-    // passent le quota de révélation en illimité (cf. spec explicite du
-    // 24/08/2026 "Puis limite atteinte → Premium").
-    cachedPlanCodeForSession = null;
-    fetchMySubscription().then((sub) => {
-      cachedPlanCodeForSession = sub?.plans?.code ?? null;
-    });
     set({
       isActive: true,
       sessionId: newId(),
@@ -392,28 +374,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         scheduleNext(settings.tickIntervalMs);
         return;
       }
-      // Quota MARKETING (succès RÉELS, pas des tentatives) -- BUG RÉEL
-      // corrigé le 24/08/2026 : "la session affiche 0 morceaux détectés mais
-      // KEEP affiche déjà Crée ton profil -- l'UI doit être pilotée par le
-      // nombre RÉEL de morceaux reconnus, jamais par le fait qu'une session
-      // tourne". Vérifié AVANT toute capture -- ne gaspille jamais un appel
-      // AudD payant une fois le quota de révélation déjà atteint. Distinct
-      // du plafond anti-abus backend (RecognitionRouter, migration 0020).
-      const isPremiumTier = cachedPlanCodeForSession !== null && cachedPlanCodeForSession !== 'FREE';
-      if (!isPremiumTier) {
-        const userState = useUserStore.getState();
-        const isGuest = !userState.user || userState.isAnonymous;
-        const { guestSuccessLimit, signupBonusSuccesses } = await fetchRecognitionConfig();
-        // Invité = guestSuccessLimit seul ; compte réel FREE =
-        // guestSuccessLimit + signupBonusSuccesses (jamais additionné deux
-        // fois -- successCount est le MÊME compteur depuis l'invité, seul le
-        // palier change à l'inscription, voir migration 0020).
-        const limit = isGuest ? guestSuccessLimit : guestSuccessLimit + signupBonusSuccesses;
-        if (userState.successCount >= limit) {
-          set({ recognizing: false, error: null, guestLimitReached: isGuest, freeLimitReached: !isGuest });
-          return;
-        }
-      }
+      // BUG RÉEL trouvé le 24/08/2026 (Adel, depuis son propre historique de
+      // sessions : "3 sessions, 1 morceau détecté chacune, un seul GARDÉ...
+      // pourtant Plus de crédit gratuit") : le quota se consommait ICI, à
+      // chaque DÉTECTION réussie, jamais au vrai GARDER. Règle produit
+      // explicite et définitive : "Détecter/écouter = 0 crédit. Un
+      // téléchargement réellement effectué = 1 crédit." La détection reste
+      // donc TOUJOURS gratuite et illimitée -- le contrôle de quota et
+      // l'incrémentation ont été déplacés dans keepTrack() ci-dessous, seul
+      // endroit où un morceau est réellement GARDÉ. Plus aucun blocage ici.
       set({ recognizing: true });
       const startedAtMs = Date.now();
       let lastAttemptedProviderId = 'unknown';
@@ -639,11 +608,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           return;
         }
 
-        // Nouveau morceau RÉELLEMENT distinct -- compte pour le quota
-        // MARKETING (voir useUserStore.successCount), jamais un doublon déjà
-        // vu ni une simple tentative/no_match (c'est exactement la
-        // distinction manquante qui causait le bug du 24/08/2026).
-        useUserStore.getState().incrementSuccessCount();
+        // Nouveau morceau RÉELLEMENT distinct -- reste 'pending', ne
+        // consomme RIEN tant que l'utilisateur n'a pas tapé GARDER (voir
+        // keepTrack ci-dessous -- règle "détecter = 0 crédit").
 
         // Aucun service connecté = aucune recommandation "où ranger" possible
         // (rien à recommander) -- ne doit JAMAIS empêcher le morceau
@@ -828,6 +795,22 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   keepTrack: async (entryId, playlistId) => {
     const entry = get().tracks.find((t) => t.id === entryId);
     if (!entry) return;
+
+    // Règle produit explicite et définitive du 24/08/2026 : "Détecter/écouter
+    // = 0 crédit. Un téléchargement réellement effectué = 1 crédit." Le
+    // contrôle de quota vit ICI (déplacé depuis tick(), voir commentaire plus
+    // haut), au vrai moment où l'utilisateur GARDE -- centralisé dans
+    // checkRecognitionCredit() (billingApi.ts), partagé avec
+    // useSessionHistoryStore pour ne jamais diverger.
+    const { allowed, isGuest } = await checkRecognitionCredit();
+    if (!allowed) {
+      // Le morceau reste 'pending' -- jamais perdu, jamais marqué comme gardé
+      // sans l'avoir été réellement. L'utilisateur peut toujours le voir,
+      // PASSER, ou revenir dessus une fois inscrit/abonné.
+      set({ guestLimitReached: isGuest, freeLimitReached: !isGuest });
+      return;
+    }
+
     try {
       const { targetPlaylistId, syncState } = await commitKeep(entry.track, entry.recommendations, playlistId);
       set((s) => ({
@@ -835,6 +818,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, syncState } : t
         ),
       }));
+      // Consommé UNIQUEMENT après un GARDER réellement réussi -- jamais avant.
+      useUserStore.getState().incrementSuccessCount();
       // Cf. commentaire de pushKeepDecision (profileApi.ts) -- GARDER
       // n'écrivait jusqu'ici QUE localement, jamais côté serveur. `keepId`
       // stocké dès réception -- indispensable pour toute action serveur

@@ -6,6 +6,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useMusicServiceStore } from '../store/useMusicServiceStore';
 import { shareSession } from '../services/sharingService';
 import TrackRow from '../components/TrackRow';
+import { AppAlert as Alert } from '../utils/AppAlert';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
@@ -106,7 +107,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
             <TrackRow
               entry={item}
               playlists={hasConnectedService ? playlists : undefined}
-              onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId)}
+              onKeep={(entryId, playlistId) =>
+                keepTrackInSession(sessionId, entryId, playlistId).then((kept) => {
+                  if (!kept) Alert.alert(t('myMusic.title'), t('credits.zero'));
+                })
+              }
               onPass={(entryId) => passTrackInSession(sessionId, entryId)}
             />
             {item.status === 'kept' && item.syncState === 'waiting_sync' && (
