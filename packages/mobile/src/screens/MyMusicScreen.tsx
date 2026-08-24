@@ -455,7 +455,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     backgroundColor: colors.backgroundCard, borderRadius: radius.md, padding: spacing.sm,
   },
-  waitingArtwork: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.backgroundElevated },
+  // 44 -> 48 (audit Design System du 24/08/2026) -- même taille que TrackRow.
+  waitingArtwork: { width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.backgroundElevated },
   waitingArtworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   waitingArtworkGlyph: { color: colors.textMuted, fontSize: 16 },
   waitingInfo: { flex: 1, minWidth: 0 },

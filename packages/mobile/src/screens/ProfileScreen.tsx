@@ -24,6 +24,7 @@ import VerifiedBadge from '../components/VerifiedBadge';
 import { LANGUAGES, setAppLanguage } from '../i18n';
 import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
 import { useRecentlyPlayedStore } from '../store/useRecentlyPlayedStore';
+import { fetchMySubscription } from '../services/billingApi';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
 const PLATFORM_OPTIONS: SocialLink['platform'][] = ['instagram', 'tiktok', 'facebook', 'snapchat', 'youtube', 'x', 'website', 'other'];
@@ -46,7 +47,7 @@ const ACTIVE_LANGUAGES = LANGUAGES.filter((l) => l.status === 'ACTIVE');
 export default function ProfileScreen({ navigation }: any) {
   const { t, i18n } = useTranslation();
   const {
-    user, isDemoMode, logout, profileCompletion, updateUser,
+    user, isDemoMode, isAnonymous, logout, profileCompletion, updateUser,
     addFavoriteGenre, removeFavoriteGenre, addFavoriteArtist, removeFavoriteArtist,
     addSocialLink, removeSocialLink, toggleSocialLinkVisibility, setPrivateInfo,
   } = useUserStore();
@@ -56,6 +57,24 @@ export default function ProfileScreen({ navigation }: any) {
   const { items: recentlyPlayed, syncing: syncingRecentlyPlayed, sync: syncRecentlyPlayed, keepTrack: keepRecentlyPlayedTrack } =
     useRecentlyPlayedStore();
   const [keepingKey, setKeepingKey] = useState<string | null>(null);
+
+  /**
+   * Plan RÉELLEMENT actif (cf. demande explicite du 24/08/2026 -- "je ne
+   * vois pas clairement mon plan actif... ce sont encore des badges
+   * décoratifs"). `user.plan` reste un champ local jamais synchronisé avec
+   * un vrai abonnement -- source de vérité réelle = `/api/billing/me/
+   * subscription` (packages/backend/src/routes/billing.ts, lit `subscriptions`
+   * réel). Défaut FREE si hors-ligne/pas encore de ligne -- jamais une
+   * erreur bloquante pour un simple badge.
+   */
+  const [realPlan, setRealPlan] = useState<{ code: string; name: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMySubscription().then((sub) => {
+      if (!cancelled && sub?.plans) setRealPlan(sub.plans);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Se resynchronise dès que Spotify (re)devient connecté (connexion faite
   // pendant que Profil est déjà ouvert, ou premier montage avec Spotify déjà
@@ -67,6 +86,46 @@ export default function ProfileScreen({ navigation }: any) {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ username: '', bio: '', city: '', countryCode: '', website: '' });
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  /**
+   * Cf. demande explicite du 24/08/2026 -- "intègre un module pour avoir un
+   * système quand je localise automatiquement, ça me change l'adresse sur
+   * le profil et j'ai plus qu'à sélectionner ce que je veux". Remplit
+   * ville/pays automatiquement, MAIS reste dans `draft` -- l'utilisateur
+   * voit le résultat et peut encore le corriger/écraser avant Enregistrer,
+   * jamais imposé silencieusement. Nominatim (OpenStreetMap) : service de
+   * géocodage inverse gratuit, sans clé API -- cohérent avec la contrainte
+   * "le moins de dépenses possible" du même message.
+   */
+  const detectLocation = async () => {
+    setDetectingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('profile.locationOptIn'), t('discover.noLocation'));
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&zoom=10`,
+        { headers: { 'Accept-Language': 'fr' } }
+      );
+      const json = await res.json();
+      const addr = json?.address ?? {};
+      const city: string | undefined = addr.city || addr.town || addr.village || addr.municipality;
+      const countryCode: string | undefined = addr.country_code?.toUpperCase();
+      if (!city && !countryCode) {
+        Alert.alert(t('profile.useMyLocation'), t('discover.noLocation'));
+        return;
+      }
+      setDraft((d) => ({ ...d, city: city ?? d.city, countryCode: countryCode ?? d.countryCode }));
+    } catch {
+      Alert.alert(t('profile.useMyLocation'), t('discover.noLocation'));
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [genreInput, setGenreInput] = useState('');
   const [artistInput, setArtistInput] = useState('');
@@ -217,6 +276,15 @@ export default function ProfileScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
+        {isAnonymous && (
+          <View style={styles.createAccountBanner}>
+            <Text style={styles.createAccountText}>{t('profile.createAccountPrompt')}</Text>
+            <TouchableOpacity style={styles.createAccountBtn} onPress={() => navigation.navigate('CreateAccount')}>
+              <Text style={styles.createAccountBtnText}>{t('profile.createAccountCta')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.languageRow}>
           {ACTIVE_LANGUAGES.map((lang) => (
             <TouchableOpacity
@@ -257,7 +325,7 @@ export default function ProfileScreen({ navigation }: any) {
           ) : (
             <View style={styles.usernameRow}>
               <Text style={styles.username}>{user.username}</Text>
-              <VerifiedBadge plan={user.plan} />
+              <VerifiedBadge plan={(realPlan?.code as any) ?? 'FREE'} />
             </View>
           )}
           {!!usernameError && <Text style={styles.errorText}>{usernameError}</Text>}
@@ -265,6 +333,11 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.kindChipText}>{kindLabel(user.kind)}</Text>
           </TouchableOpacity>
           <Text style={styles.email}>{user.email}</Text>
+
+          <TouchableOpacity style={styles.planRow} onPress={() => navigation.navigate('Offers')}>
+            <Text style={styles.planRowLabel}>{realPlan?.name ?? 'Free'}</Text>
+            <Text style={styles.planRowCta}>{t('profile.viewOffers')} →</Text>
+          </TouchableOpacity>
 
           {isDemoMode && (
             <View style={styles.planPreviewRow}>
@@ -292,24 +365,29 @@ export default function ProfileScreen({ navigation }: any) {
           )}
 
           {editing ? (
-            <View style={styles.editRow}>
-              <TextInput
-                style={styles.smallInput}
-                value={draft.city}
-                onChangeText={(v) => setDraft((d) => ({ ...d, city: v }))}
-                placeholder={t('profile.city')}
-                placeholderTextColor={colors.textMuted}
-              />
-              <TextInput
-                style={styles.smallInput}
-                value={draft.countryCode}
-                onChangeText={(v) => setDraft((d) => ({ ...d, countryCode: v }))}
-                placeholder={t('profile.country')}
-                placeholderTextColor={colors.textMuted}
-                maxLength={2}
-                autoCapitalize="characters"
-              />
-            </View>
+            <>
+              <View style={styles.editRow}>
+                <TextInput
+                  style={styles.smallInput}
+                  value={draft.city}
+                  onChangeText={(v) => setDraft((d) => ({ ...d, city: v }))}
+                  placeholder={t('profile.city')}
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TextInput
+                  style={styles.smallInput}
+                  value={draft.countryCode}
+                  onChangeText={(v) => setDraft((d) => ({ ...d, countryCode: v }))}
+                  placeholder={t('profile.country')}
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={2}
+                  autoCapitalize="characters"
+                />
+              </View>
+              <TouchableOpacity style={styles.locateBtn} onPress={detectLocation} disabled={detectingLocation}>
+                <Text style={styles.locateBtnText}>📍 {detectingLocation ? t('profile.locating') : t('profile.useMyLocation')}</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             (user.city || user.countryCode) && (
               <Text style={styles.locationText}>{[user.city, user.countryCode].filter(Boolean).join(' · ')}</Text>
@@ -591,7 +669,7 @@ export default function ProfileScreen({ navigation }: any) {
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>🚪 {t('profile.logout')}</Text>
+            <Text style={styles.logoutButtonText}>🚪 {isAnonymous ? t('profile.exitGuestSession') : t('profile.logout')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -708,6 +786,20 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.h1, color: colors.textPrimary },
   editLink: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
+  createAccountBanner: {
+    marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md,
+    borderRadius: radius.md, backgroundColor: colors.backgroundCard,
+    borderWidth: 1, borderColor: colors.primary, gap: spacing.sm,
+  },
+  createAccountText: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+  planRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  planRowLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  planRowCta: { color: colors.primaryLight, fontSize: 12, fontWeight: '700' },
+  createAccountBtn: { backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: spacing.sm, alignItems: 'center' },
+  createAccountBtnText: { color: colors.white, fontWeight: '700', fontSize: 14 },
   avatarSection: { alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
   avatar: { width: 110, height: 110, borderRadius: 55, backgroundColor: colors.backgroundCard, marginBottom: spacing.lg },
   avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
@@ -741,6 +833,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm,
   },
   locationText: { fontSize: 13, color: colors.textMuted, marginTop: spacing.sm },
+  locateBtn: {
+    marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.smartBadgeBg,
+    borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+  },
+  locateBtnText: { color: colors.smartBadgeText, fontSize: 12, fontWeight: '700' },
   websiteText: { fontSize: 13, color: colors.primaryLight, marginTop: spacing.sm },
   completionCard: { marginHorizontal: spacing.xl, marginTop: spacing.lg },
   completionText: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm },
@@ -801,14 +898,21 @@ const styles = StyleSheet.create({
   switchLabel: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
   switchHint: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
 
-  actionsContainer: { paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.md },
-  actionButton: {
-    backgroundColor: colors.backgroundCard, paddingVertical: spacing.lg, borderRadius: radius.md,
-    alignItems: 'center', borderWidth: 1, borderColor: colors.border, minHeight: 48, justifyContent: 'center',
+  actionsContainer: {
+    paddingHorizontal: spacing.xl, marginTop: spacing.md,
+    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
   },
-  actionButtonText: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
-  logoutButton: { backgroundColor: colors.danger, borderColor: colors.danger },
-  logoutButtonText: { color: colors.white, fontSize: 15, fontWeight: '600' },
+  // Fond teinté (pas juste une bordure sur fond neutre identique aux cartes
+  // d'info) + largeur au contenu (pas pleine largeur) -- cf. demande
+  // explicite du 24/08/2026 : "il faut vraiment que ça soit montré qu'on
+  // peut cliquer dessus" + "les formats des boutons sont sûrement trop gros".
+  actionButton: {
+    backgroundColor: colors.smartBadgeBg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', minHeight: 40,
+  },
+  actionButtonText: { color: colors.smartBadgeText, fontSize: 13, fontWeight: '700' },
+  logoutButton: { backgroundColor: colors.danger },
+  logoutButtonText: { color: colors.white, fontSize: 13, fontWeight: '700' },
 
   demoFootnote: { color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.xl },
 
@@ -828,7 +932,8 @@ const styles = StyleSheet.create({
 
   emptyHint: { color: colors.textMuted, fontSize: 13 },
   waitingList: { gap: spacing.xs },
-  waitingArtwork: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.backgroundElevated },
+  // 44 -> 48 (audit Design System du 24/08/2026) -- même taille que TrackRow.
+  waitingArtwork: { width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.backgroundElevated },
   waitingArtworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   waitingArtworkGlyph: { color: colors.textMuted, fontSize: 16 },
   waitingInfo: { flex: 1, minWidth: 0 },
