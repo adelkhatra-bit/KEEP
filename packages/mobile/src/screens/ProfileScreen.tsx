@@ -19,12 +19,13 @@ import { ProfileKind, SocialLink, GenderOption } from '../types';
 import { AppAlert as Alert } from '../utils/AppAlert';
 import BirthDatePicker from '../components/BirthDatePicker';
 import PublicProfilePreview from '../components/PublicProfilePreview';
+import CreditCounter from '../components/CreditCounter';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import VerifiedBadge from '../components/VerifiedBadge';
 import { LANGUAGES, setAppLanguage } from '../i18n';
 import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
 import { useRecentlyPlayedStore } from '../store/useRecentlyPlayedStore';
-import { fetchMySubscription } from '../services/billingApi';
+import { fetchMySubscription, fetchRecognitionConfig } from '../services/billingApi';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
 const PLATFORM_OPTIONS: SocialLink['platform'][] = ['instagram', 'tiktok', 'facebook', 'snapchat', 'youtube', 'x', 'website', 'other'];
@@ -68,10 +69,14 @@ export default function ProfileScreen({ navigation }: any) {
    * erreur bloquante pour un simple badge.
    */
   const [realPlan, setRealPlan] = useState<{ code: string; name: string } | null>(null);
+  const [signupBonusSuccesses, setSignupBonusSuccesses] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetchMySubscription().then((sub) => {
       if (!cancelled && sub?.plans) setRealPlan(sub.plans);
+    });
+    fetchRecognitionConfig().then((cfg) => {
+      if (!cancelled) setSignupBonusSuccesses(cfg.signupBonusSuccesses);
     });
     return () => { cancelled = true; };
   }, []);
@@ -276,29 +281,36 @@ export default function ProfileScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {isAnonymous && (
-          <View style={styles.createAccountBanner}>
-            <Text style={styles.createAccountText}>{t('profile.createAccountPrompt')}</Text>
+        {/* BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "une énorme zone
+            vide, un énorme cercle +, Invité-f32625 qui ressemble à un
+            identifiant informatique, trois gros compteurs à zéro, un énorme
+            encart d'inscription -- ça dilue complètement l'action
+            importante"). Pour un invité, remplace TOUT le formulaire
+            d'édition (avatar/bio/genres/réseaux/DNA/services...) -- vide de
+            sens avant inscription -- par la hiérarchie simple demandée :
+            statut clair, crédits, UN SEUL bouton principal, connexion pour
+            ceux déjà inscrits. Le formulaire complet reste inchangé pour un
+            compte réel (voir {!isAnonymous && (...)} plus bas). */}
+        {isAnonymous ? (
+          <View style={styles.guestHero}>
+            <Text style={styles.guestHeroLabel}>{t('profile.guestLabel')}</Text>
+            <CreditCounter />
             <TouchableOpacity style={styles.createAccountBtn} onPress={() => navigation.navigate('CreateAccount')}>
-              <Text style={styles.createAccountBtnText}>{t('profile.createAccountCta')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.languageRow}>
-          {ACTIVE_LANGUAGES.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              style={[styles.languageChip, i18n.language === lang.code && styles.platformChipActive]}
-              onPress={() => setAppLanguage(lang.code)}
-            >
-              <Text style={[styles.platformChipText, i18n.language === lang.code && styles.platformChipTextActive]}>
-                {lang.label}
+              <Text style={styles.createAccountBtnText}>
+                {signupBonusSuccesses !== null ? t('profile.createAccountCtaBonus', { bonus: signupBonusSuccesses }) : t('profile.createAccountCta')}
               </Text>
             </TouchableOpacity>
-          ))}
-        </View>
+            <TouchableOpacity onPress={() => navigation.navigate('CreateAccount')} hitSlop={8}>
+              <Text style={styles.alreadyRegisteredLink}>{t('profile.alreadyRegistered')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
+        {/* Formulaire complet (avatar, bio, genres, réseaux, DNA, services,
+            écoutés récemment) -- réservé aux VRAIS comptes, remplacé pour un
+            invité par le hero simplifié ci-dessus. */}
+        {!isAnonymous && (
+        <>
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={handlePickPhoto}>
             {user.avatar ? (
@@ -647,6 +659,31 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           )}
         </Section>
+        </>
+        )}
+
+        {/* Version simplifiée "Mon offre" / "Mes statistiques" demandée pour
+            l'invité -- même info que le formulaire complet ci-dessus, juste
+            réduite à l'essentiel (cf. demande explicite du 24/08/2026). */}
+        {isAnonymous && (
+          <>
+            <Section title={t('profile.myOffer')}>
+              <TouchableOpacity style={styles.planRow} onPress={() => navigation.navigate('Offers')}>
+                <Text style={styles.planRowLabel}>{realPlan?.name ?? 'Free'}</Text>
+                <Text style={styles.planRowCta}>{t('profile.viewOffers3')} →</Text>
+              </TouchableOpacity>
+            </Section>
+            <Section title={t('profile.myStats')}>
+              <View style={styles.simpleStatsList}>
+                <Text style={styles.simpleStatItem}>
+                  • {t('profile.statKept', { count: sessions.flatMap((s) => s.tracks).filter((tr) => tr.status === 'kept').length })}
+                </Text>
+                <Text style={styles.simpleStatItem}>• {t('profile.statSessions', { count: sessions.length })}</Text>
+                <Text style={styles.simpleStatItem}>• {t('profile.statPlaylists', { count: playlists.length })}</Text>
+              </View>
+            </Section>
+          </>
+        )}
 
         <View style={styles.actionsContainer}>
           <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
@@ -672,6 +709,25 @@ export default function ProfileScreen({ navigation }: any) {
           <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>🚪 {isAnonymous ? t('profile.exitGuestSession') : t('profile.logout')}</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Déplacé tout en bas (cf. demande explicite du 24/08/2026 -- "le
+            français/anglais ne doit certainement pas être collé directement
+            sous le bouton d'inscription"). Langue/réglages = la dernière
+            chose sur l'écran, jamais en concurrence avec l'action
+            principale. */}
+        <View style={styles.languageRow}>
+          {ACTIVE_LANGUAGES.map((lang) => (
+            <TouchableOpacity
+              key={lang.code}
+              style={[styles.languageChip, i18n.language === lang.code && styles.platformChipActive]}
+              onPress={() => setAppLanguage(lang.code)}
+            >
+              <Text style={[styles.platformChipText, i18n.language === lang.code && styles.platformChipTextActive]}>
+                {lang.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {isDemoMode && musicEngine.isDemoMode && (
@@ -787,12 +843,17 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.h1, color: colors.textPrimary },
   editLink: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
-  createAccountBanner: {
-    marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md,
-    borderRadius: radius.md, backgroundColor: colors.backgroundCard,
-    borderWidth: 1, borderColor: colors.primary, gap: spacing.sm,
+  // Hero invité simplifié (cf. demande explicite du 24/08/2026) -- remplace
+  // createAccountBanner + l'énorme formulaire d'édition vide de sens avant
+  // inscription.
+  guestHero: {
+    alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl,
+    borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm,
   },
-  createAccountText: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+  guestHeroLabel: { ...typography.h2, color: colors.textPrimary },
+  alreadyRegisteredLink: { color: colors.primaryLight, fontSize: 13, fontWeight: '600', marginTop: spacing.sm },
+  simpleStatsList: { gap: spacing.xs },
+  simpleStatItem: { color: colors.textSecondary, fontSize: 14 },
   planRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs,
     marginTop: spacing.xs,
