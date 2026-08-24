@@ -49,7 +49,10 @@ export default function HomeScreen({ navigation }: any) {
   // la liste active -- aucun défilement requis pour voir la suite (cf.
   // demande explicite du 22/08/2026). Le détail complet reste consultable au
   // récapitulatif de fin de session.
-  const pendingTracks = tracks.filter((tr) => tr.status === 'pending');
+  // already_owned reste visible (cf. demande explicite du 24/08/2026 --
+  // "dit juste qu'il l'a trouvé") mais ne compte jamais comme une VRAIE
+  // décision en attente -- TrackRow l'affiche sans boutons GARDER/PASSER.
+  const pendingTracks = tracks.filter((tr) => tr.status === 'pending' || tr.status === 'already_owned');
   const decidedCount = tracks.length - pendingTracks.length;
 
   const finishSession = () => {

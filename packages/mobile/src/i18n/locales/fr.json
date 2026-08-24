@@ -29,6 +29,8 @@
     "detected": "{{count}} morceaux détectés",
     "kept": "{{count}} gardés",
     "waitingForMusic": "KEEP écoute… aucun morceau détecté pour l'instant.",
+    "alreadyOwned": "Déjà dans ta bibliothèque",
+    "alreadyOwnedIn": "Déjà dans {{album}}",
     "endNow": "Terminer",
     "endPromptTitle": "La musique semble terminée",
     "endPromptBody": "Aucun nouveau morceau détecté depuis un moment. Terminer la session ?",

@@ -612,6 +612,33 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           return;
         }
 
+        // Cf. demande explicite du 24/08/2026 -- "si il l'a déjà, c'est pas la
+        // peine de lui proposer si il la veut ou pas, qui dit juste qu'il l'a
+        // trouvé et que je l'ai déjà dans mon album". Distinct du check
+        // `alreadySeen` ci-dessus (anti-répétition DANS cette session live,
+        // le même morceau qui joue encore) : ici on cherche dans TOUT
+        // l'historique déjà GARDÉ (sessions archivées), potentiellement des
+        // jours plus tôt. Toujours affiché (jamais silencieusement ignoré,
+        // contrairement à alreadySeen) -- juste sans les actions GARDER/PASSER.
+        const alreadyOwned = useSessionHistoryStore
+          .getState()
+          .sessions.some((s) => s.tracks.some((t) => t.status === 'kept' && sameTrack(t.track, track)));
+        if (alreadyOwned) {
+          logRecognition('already_owned');
+          lastDetectionAt = Date.now();
+          const ownedEntry: SessionTrackEntry = {
+            id: newId(),
+            track,
+            recommendations: [],
+            status: 'already_owned',
+            detectedAt: new Date().toISOString(),
+            discoverySource: 'mic',
+          };
+          set((s) => ({ tracks: [ownedEntry, ...s.tracks], recognizing: false, showEndPrompt: false, error: null }));
+          scheduleNext(settings.cooldownAfterSuccessMs);
+          return;
+        }
+
         // Nouveau morceau RÉELLEMENT distinct -- compte pour le quota
         // MARKETING (voir useUserStore.successCount), jamais un doublon déjà
         // vu ni une simple tentative/no_match (c'est exactement la

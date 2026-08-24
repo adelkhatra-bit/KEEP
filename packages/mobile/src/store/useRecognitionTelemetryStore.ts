@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { persist } from 'zustand/middleware';
+import { createSafeStorage } from './safeStorage';
 
 /**
  * Journal réel des appels au provider de reconnaissance -- pas une
@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * l'AsyncStorage du mobile). CODÉ, pas CONNECTED tant que ce flux ne
  * transite pas par un vrai backend -- ne pas annoncer plus que ça.
  */
-export type RecognitionOutcome = 'success' | 'no_match' | 'already_seen' | 'quota_error' | 'error';
+export type RecognitionOutcome = 'success' | 'no_match' | 'already_seen' | 'already_owned' | 'quota_error' | 'error';
 
 export interface RecognitionEvent {
   id: string;
@@ -48,6 +48,6 @@ export const useRecognitionTelemetryStore = create<RecognitionTelemetryStore>()(
         })),
       clear: () => set({ events: [] }),
     }),
-    { name: 'keep-recognition-telemetry', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'keep-recognition-telemetry', storage: createSafeStorage() }
   )
 );

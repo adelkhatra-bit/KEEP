@@ -63,7 +63,8 @@ export interface User {
   privateInfo: ProfilePrivateInfo;
 }
 
-export type SessionTrackStatus = 'pending' | 'kept' | 'passed';
+/** `already_owned` = détecté mais déjà présent dans une session ARCHIVÉE (pas juste celle-ci, voir SESSION_ANTI_REPEAT dans useSessionStore.ts) -- cf. demande explicite du 24/08/2026 : "dit juste qu'il l'a trouvé et que je l'ai déjà", jamais reproposer GARDER/PASSER pour un morceau déjà rangé. */
+export type SessionTrackStatus = 'pending' | 'kept' | 'passed' | 'already_owned';
 
 /**
  * `synced` = réellement ajouté à un service musical connecté.

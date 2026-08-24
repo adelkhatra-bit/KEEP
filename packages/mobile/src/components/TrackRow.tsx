@@ -97,6 +97,11 @@ export default function TrackRow({ entry, onKeep, onPass, playlists }: Props) {
           {status === 'kept' && entry.syncState === 'waiting_sync' && <Text style={styles.keptText}>✓ {t('listen.keep')}</Text>}
           {status === 'kept' && entry.syncState !== 'waiting_sync' && <Text style={styles.keptText}>✓ {topPlaylistName ?? t('listen.keep')}</Text>}
           {status === 'passed' && <Text style={styles.passedText}>{t('listen.pass')}</Text>}
+          {status === 'already_owned' && (
+            <Text style={styles.alreadyOwnedText} numberOfLines={2}>
+              {track.album ? t('session.alreadyOwnedIn', { album: track.album }) : t('session.alreadyOwned')}
+            </Text>
+          )}
           {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
         </View>
       )}
@@ -137,5 +142,6 @@ const styles = StyleSheet.create({
   statusBadge: { minWidth: 60, alignItems: 'flex-end' },
   keptText: { color: colors.keep, fontSize: 12, fontWeight: '700' },
   passedText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  alreadyOwnedText: { color: colors.textMuted, fontSize: 11, fontWeight: '600', textAlign: 'right', maxWidth: 120 },
   pendingText: { color: colors.textMuted, fontSize: 16 },
 });

@@ -29,6 +29,8 @@
     "detected": "{{count}} tracks detected",
     "kept": "{{count}} kept",
     "waitingForMusic": "KEEP is listening… no track detected yet.",
+    "alreadyOwned": "Already in your library",
+    "alreadyOwnedIn": "Already in {{album}}",
     "endNow": "End",
     "endPromptTitle": "The music seems to have stopped",
     "endPromptBody": "No new track detected for a while. End the session?",
