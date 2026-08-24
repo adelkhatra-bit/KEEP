@@ -47,8 +47,19 @@ export async function commitKeep(
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
   const targetPlaylistId = chosenPlaylistId ?? topRecommendation;
+  // BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "il m'a bloqué sur une
+  // musique, il ne me donne pas la suite") : un service connecté mais sans
+  // AUCUNE recommandation de playlist (SmartPlaylistRouter n'a pas encore
+  // assez d'historique pour ce morceau/genre) faisait THROW ici -- l'appelant
+  // (useSessionStore.keepTrack) capture l'erreur mais ne met JAMAIS le
+  // morceau à jour vers 'kept', donc il reste bloqué en 'pending' en haut de
+  // la liste indéfiniment, avec juste un message technique en petit texte
+  // rouge. Même repli que "aucun service connecté" (ligne 43 ci-dessus) --
+  // le morceau est réellement GARDÉ (jamais perdu), juste pas encore rangé
+  // dans une playlist précise ; `syncWaitingTracks()` (déjà construit pour
+  // ce cas) le retentera dès qu'une vraie recommandation existera.
   if (!targetPlaylistId) {
-    throw new Error('Aucune playlist disponible pour ranger ce morceau.');
+    return { syncState: 'waiting_sync' };
   }
 
   const provider = musicEngine.getProvider(service);
