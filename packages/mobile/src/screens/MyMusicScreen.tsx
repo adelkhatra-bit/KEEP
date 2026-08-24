@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Linking, Modal, TextInput, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Linking, Modal, TextInput, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { analyzeLibrary, LibraryAnalysis, ProviderPlaylist, CanonicalTrack } from '@keep/music';
@@ -347,8 +347,13 @@ export default function MyMusicScreen() {
         </Section>
       </ScrollView>
 
+      {/* KeyboardAvoidingView ajouté le 24/08/2026 (audit docs/KEEP_MODALS_AUDIT.md,
+          priorité 1) -- ces 2 modales contiennent un TextInput avec autoFocus
+          (le clavier s'ouvre automatiquement) mais rien ne repoussait la carte
+          quand il apparaissait ; sur un vrai téléphone le clavier pouvait
+          couvrir le champ ou les boutons. Même pattern que OnboardingScreen.tsx. */}
       <Modal visible={createModalOpen} transparent animationType="fade" onRequestClose={() => setCreateModalOpen(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('myMusic.newPlaylist')}</Text>
             <TextInput
@@ -368,11 +373,11 @@ export default function MyMusicScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={!!renameTarget} transparent animationType="fade" onRequestClose={() => setRenameTarget(null)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('myMusic.renameTrack')}</Text>
             <TextInput
@@ -390,7 +395,7 @@ export default function MyMusicScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

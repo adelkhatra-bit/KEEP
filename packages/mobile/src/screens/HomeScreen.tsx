@@ -30,7 +30,7 @@ function formatElapsed(startedAt: string | null): string {
 export default function HomeScreen({ navigation }: any) {
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, micLevel, guestLimitReached,
+    isActive, tracks, showEndPrompt, startedAt, error, micLevel, guestLimitReached, freeLimitReached,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack,
   } = useSessionStore();
   const { connectedServices, hasShownConnectPrompt, markConnectPromptShown, connectDemo } = useMusicServiceStore();
@@ -97,7 +97,6 @@ export default function HomeScreen({ navigation }: any) {
 
         <View style={styles.idleBody}>
           <SessionPulse active={false} />
-          {error && <Text style={styles.errorText}>{error}</Text>}
 
           <TouchableOpacity style={styles.startButton} onPress={startSession}>
             <Text style={styles.startButtonText}>{t('session.start')}</Text>
@@ -129,16 +128,32 @@ export default function HomeScreen({ navigation }: any) {
 
       {guestLimitReached && (
         <View style={styles.guestPromptBanner}>
-          <Text style={styles.guestPromptText}>{t('session.guestLimitReached')}</Text>
-          <TouchableOpacity style={styles.guestPromptBtn} onPress={() => navigation.navigate('Profile')}>
+          <Text style={styles.guestPromptTitle}>{t('session.guestLimitTitle')}</Text>
+          <Text style={styles.guestPromptText}>{t('session.guestLimitBody')}</Text>
+          <TouchableOpacity style={styles.guestPromptBtn} onPress={() => navigation.navigate('CreateAccount')}>
             <Text style={styles.guestPromptBtnText}>{t('session.createProfile')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {pendingTracks.length === 0 ? (
+      {/* Compte déjà inscrit -- jamais "Créer mon profil", offre Premium à la place (cf. demande explicite du 24/08/2026). */}
+      {freeLimitReached && (
+        <View style={styles.guestPromptBanner}>
+          <Text style={styles.guestPromptTitle}>{t('session.freeLimitTitle')}</Text>
+          <Text style={styles.guestPromptText}>{t('session.freeLimitBody')}</Text>
+          <TouchableOpacity style={styles.guestPromptBtn} onPress={() => navigation.navigate('Profile')}>
+            <Text style={styles.guestPromptBtnText}>{t('session.seePremium')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Limite atteinte (invité ou Free) = KEEP n'écoute plus vraiment tant
+          que rien ne change -- "aucun morceau détecté pour l'instant" serait
+          trompeur ici, ça laisse croire que la recherche continue (bug réel
+          signalé le 24/08/2026 : les deux messages s'affichaient ensemble). */}
+      {pendingTracks.length === 0 && !guestLimitReached && !freeLimitReached ? (
         <Text style={styles.waitingText}>{t('session.waitingForMusic')}</Text>
-      ) : (
+      ) : pendingTracks.length > 0 ? (
         <FlatList
           style={styles.listGrow}
           data={pendingTracks}
@@ -146,7 +161,7 @@ export default function HomeScreen({ navigation }: any) {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => <TrackRow entry={item} onKeep={handleKeepPress} onPass={passTrack} />}
         />
-      )}
+      ) : null}
 
       {decidedCount > 0 && (
         <Text style={styles.decidedSummary}>
@@ -160,7 +175,10 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={showEndPrompt} transparent animationType="fade">
+      {/* onRequestClose ajouté le 24/08/2026 (audit docs/KEEP_MODALS_AUDIT.md,
+          priorité 3) -- seule des 6 modales de l'app sans ce handler, le
+          bouton retour Android ne la fermait pas correctement. */}
+      <Modal visible={showEndPrompt} transparent animationType="fade" onRequestClose={dismissEndPrompt}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('session.endPromptTitle')}</Text>
@@ -224,7 +242,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md,
     alignItems: 'center', gap: spacing.sm,
   },
-  guestPromptText: { color: colors.textPrimary, fontSize: 13, textAlign: 'center', fontWeight: '600' },
+  guestPromptTitle: { color: colors.textPrimary, fontSize: 16, textAlign: 'center', fontWeight: '800' },
+  guestPromptText: { color: colors.textSecondary, fontSize: 13, textAlign: 'center', fontWeight: '500' },
   guestPromptBtn: { backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   guestPromptBtnText: { color: colors.white, fontWeight: '700', fontSize: 13 },
 
