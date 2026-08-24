@@ -57,6 +57,8 @@ export interface CaptureDiagnostics {
   wavSizeBytes?: number;
   wavDurationSec?: number;
   error?: string;
+  /** Cf. demande explicite du 23/08/2026 -- prouver, pas supposer, quelle capture a été déclenchée par quoi. */
+  captureTrigger?: 'USER_TAP' | 'AUTO' | 'RESIDUAL_LOOP';
 }
 
 let permissionGranted = false;
@@ -164,10 +166,49 @@ function getWebAudioCtx(): AudioContext {
   return webAudioCtx;
 }
 
+/**
+ * BUG RÉEL diagnostiqué le 23/08/2026 (capture réelle iPhone, point orange
+ * micro allumé alors qu'aucune session n'était active, à l'écran idle) :
+ * `webStream` est délibérément réutilisé entre chaque tick (voir commentaire
+ * ci-dessus sur l'AudioContext), mais ses tracks n'étaient JAMAIS arrêtées --
+ * même à la fin d'une session. Résultat : dès la toute première vraie
+ * capture de l'appareil, l'indicateur micro de l'OS reste allumé en
+ * permanence pour toute la durée de vie de l'onglet, y compris à l'écran
+ * idle. Appelé depuis useSessionStore.ts à la fin d'une session ET quand
+ * l'onglet passe en arrière-plan (voir listener visibilitychange plus bas)
+ * -- `ensureWebStream()`/`getWebAudioCtx()` recréent proprement au tick
+ * suivant si besoin, aucune perte de fonctionnalité.
+ */
+export function releaseCaptureResources(): void {
+  if (webStream) {
+    webStream.getTracks().forEach((t) => t.stop());
+    webStream = null;
+  }
+  if (webAudioCtx && webAudioCtx.state !== 'closed') {
+    webAudioCtx.close().catch(() => {});
+    webAudioCtx = null;
+  }
+}
+
+// BUG RÉEL diagnostiqué le 23/08/2026 : aucun listener de visibilité n'existait
+// -- un onglet mis en arrière-plan (écran verrouillé, changement d'app) sur un
+// vrai iPhone laisse le `setTimeout` du tick suivant armé ; iOS Safari suspend
+// puis reprend l'exécution JS à la remise au premier plan, ce qui peut relancer
+// une capture sans nouveau tap explicite. On coupe le micro et on ne laisse
+// jamais un tick se déclencher pendant que l'onglet est caché -- le tick suivant
+// (programmé par useSessionStore.ts tant que la session reste active) rouvrira
+// le micro proprement à la prochaine capture réelle au premier plan.
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseCaptureResources();
+  });
+}
+
 async function captureAudioSampleWeb(
   sampleDurationMs: number,
   silencePeakThreshold: number,
-  diag: CaptureDiagnostics
+  diag: CaptureDiagnostics,
+  onLevel?: (level: number) => void
 ): Promise<Blob> {
   const stream = await ensureWebStream();
   diag.micPermission = 'granted';
@@ -195,7 +236,22 @@ async function captureAudioSampleWeb(
   muteGain.gain.value = 0;
 
   processor.onaudioprocess = (e) => {
-    chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    const chunk = new Float32Array(e.inputBuffer.getChannelData(0));
+    chunks.push(chunk);
+    // Réactivé le 24/08/2026 (cf. demande explicite -- "l'animation ne
+    // bouge pas, le micro a l'air mort") : la fiabilité de la reconnaissance
+    // (motif du gel initial, voir doc de cette fonction) est maintenant
+    // acquise (AudD confirmé fonctionnel en direct) -- niveau réel calculé
+    // par chunk (~93ms à 44.1kHz/4096) pour un retour visuel vraiment vivant,
+    // jamais un chiffre inventé.
+    if (onLevel) {
+      let chunkPeak = 0;
+      for (let i = 0; i < chunk.length; i++) {
+        const v = Math.abs(chunk[i]);
+        if (v > chunkPeak) chunkPeak = v;
+      }
+      onLevel(Math.min(1, chunkPeak));
+    }
   };
 
   source.connect(processor);
@@ -257,10 +313,23 @@ async function captureAudioSampleWeb(
   return blob;
 }
 
-async function captureAudioSampleNative(sampleDurationMs: number, diag: CaptureDiagnostics): Promise<Blob> {
+/** dBFS (expo-av metering, ~-160 à 0) -> 0-1 pour le même contrat que le niveau web (amplitude crête). */
+function meteringToLevel(dbfs: number): number {
+  return Math.max(0, Math.min(1, (dbfs + 60) / 60));
+}
+
+async function captureAudioSampleNative(
+  sampleDurationMs: number,
+  diag: CaptureDiagnostics,
+  onLevel?: (level: number) => void
+): Promise<Blob> {
   await ensureNativePermission();
   diag.micPermission = 'granted';
-  const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+  const { recording } = await Audio.Recording.createAsync(
+    { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },
+    onLevel ? (status) => { if (typeof status.metering === 'number') onLevel(meteringToLevel(status.metering)); } : undefined,
+    100
+  );
   await new Promise((resolve) => setTimeout(resolve, sampleDurationMs));
   await recording.stopAndUnloadAsync();
 
@@ -281,9 +350,9 @@ async function captureAudioSampleNative(sampleDurationMs: number, diag: CaptureD
  * pilotables depuis useSessionStore.ts (config Super Admin, voir
  * config/recognitionSettings.ts) -- valeurs par défaut si non précisés.
  *
- * `onLevel` (0-1) : réservé pour une future réactivation de l'animation
- * réactive au son réel -- désactivé pour l'instant, la fiabilité de la
- * reconnaissance prime (voir historique dans le commentaire d'en-tête).
+ * `onLevel` (0-1) : niveau micro RÉEL en direct pendant la capture --
+ * réactivé le 24/08/2026 (cf. demande explicite -- "l'animation ne bouge
+ * pas"), voir onaudioprocess (web) / metering expo-av (natif) ci-dessous.
  *
  * `onDiagnostic` (cf. demande explicite du 23/08/2026 -- "ne suppose rien,
  * mesure-le") : reçoit TOUJOURS le diagnostic rempli au maximum, même en
@@ -297,7 +366,6 @@ export async function captureAudioSample(
   silencePeakThreshold: number = DEFAULT_RECOGNITION_SETTINGS.silencePeakThreshold,
   onDiagnostic?: (diag: CaptureDiagnostics) => void
 ): Promise<Blob> {
-  void onLevel;
   const diag: CaptureDiagnostics = {
     platform: Platform.OS === 'web' ? 'web' : 'native',
     micPermission: 'unknown',
@@ -306,7 +374,9 @@ export async function captureAudioSample(
   };
   try {
     const blob =
-      Platform.OS === 'web' ? await captureAudioSampleWeb(sampleDurationMs, silencePeakThreshold, diag) : await captureAudioSampleNative(sampleDurationMs, diag);
+      Platform.OS === 'web'
+        ? await captureAudioSampleWeb(sampleDurationMs, silencePeakThreshold, diag, onLevel)
+        : await captureAudioSampleNative(sampleDurationMs, diag, onLevel);
     onDiagnostic?.(diag);
     return blob;
   } catch (e: any) {

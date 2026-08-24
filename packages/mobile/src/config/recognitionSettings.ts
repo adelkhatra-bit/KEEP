@@ -34,7 +34,18 @@ export const DEFAULT_RECOGNITION_SETTINGS: RecognitionSettings = {
   // reste dans la plage "2-12s" recommandée par AudD -- ne dégrade rien
   // pour ce provider quand son quota redevient disponible.
   sampleDurationMs: 10000,
-  silencePeakThreshold: 0.01,
+  // 0.01 -> 0.004 (cf. plainte réelle d'Adel du 24/08/2026, "la musique est
+  // juste à côté" malgré le message "pas assez de son") : traces serveur
+  // réelles de ses propres tentatives montrent des pics entre 0.0066 et
+  // 0.1993 sur la même courte session -- 0.01 rejetait à tort les captures
+  // à 0.0066/0.0092, qui sont du VRAI signal capté (musique plus calme à cet
+  // instant précis), pas du silence. 0.004 laisse passer ces cas réels tout
+  // en filtrant toujours un vrai silence numérique (bruit de fond typique
+  // largement en dessous). Coût d'un faux positif ici = un aller-retour
+  // provider de plus (AcoustID gratuit, AudD 300/500 déjà traités comme
+  // no_match) -- largement préférable à décourager l'utilisateur avec un
+  // message "pas assez de son" alors que le son EST là.
+  silencePeakThreshold: 0.004,
   cooldownAfterSuccessMs: 45000,
   backoffBaseMs: 15000,
   backoffMaxMs: 120000,

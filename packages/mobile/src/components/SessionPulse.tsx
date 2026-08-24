@@ -80,13 +80,34 @@ export default function SessionPulse({ active = true, level, size = DEFAULT_SIZE
     return () => loops.forEach((l) => l.stop());
   }, [active, isLive, waveBars]);
 
-  // Vague pilotée par le niveau micro réel.
+  // Vague pilotée par le niveau micro réel. Courbe racine carrée (pas
+  // linéaire) -- BUG RÉEL trouvé le 24/08/2026 : les niveaux micro réels
+  // observés en direct tournent autour de 0.03-0.06 (musique captée à
+  // distance normale, pas collée au micro) ; un mapping linéaire ne
+  // produisait qu'un mouvement de quelques % (0.15 -> ~0.18), invisible à
+  // l'œil -- l'animation SEMBLAIT morte alors que le niveau était bien reçu
+  // en direct. sqrt() amplifie fortement les niveaux faibles/réalistes tout
+  // en restant borné à 1 pour un son fort, sans jamais inventer d'activité :
+  // niveau 0 reste visuellement au repos.
   useEffect(() => {
     if (!isLive) return;
-    const target = Math.max(0, Math.min(1, level as number));
+    const raw = Math.max(0, Math.min(1, level as number));
+    // BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "le micro a l'air
+    // mort" pendant le silence) : sous SILENCE_FLOOR, `target` retombait à un
+    // 0 exact -- les barres se figeaient à une position plate (0.15), chaque
+    // nouvel appel onLevel(~0) (toutes les ~93-150ms, voir micCapture.ts)
+    // retimant vers CETTE MÊME valeur ne produisait donc plus aucun
+    // mouvement visible, indiscernable d'un micro mort à l'œil. Respiration
+    // sinusoïdale légère (amplitude ~0.05, jamais assez pour ressembler à du
+    // son réel) tant que le niveau reste sous le seuil -- confirme "j'écoute"
+    // sans jamais inventer une activité sonore qui n'existe pas ; dès qu'un
+    // vrai niveau dépasse SILENCE_FLOOR, la courbe sqrt() réactive reprend
+    // la main immédiatement (comportement inchangé).
+    const SILENCE_FLOOR = 0.02;
+    const target = raw < SILENCE_FLOOR ? 0.06 + 0.05 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.sqrt(raw);
     const animations = waveBars.map((bar, i) => {
       const weight = i === 2 ? 1 : i === 1 || i === 3 ? 0.75 : 0.5;
-      return Animated.timing(bar, { toValue: 0.15 + target * weight * 0.85, duration: 140, easing: Easing.out(Easing.ease), useNativeDriver: false });
+      return Animated.timing(bar, { toValue: 0.15 + target * weight * 0.85, duration: 110, easing: Easing.out(Easing.ease), useNativeDriver: false });
     });
     Animated.parallel(animations).start();
   }, [level, isLive, waveBars]);
