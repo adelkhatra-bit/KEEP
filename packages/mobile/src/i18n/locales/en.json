@@ -1,4 +1,10 @@
 {
+  "credits": {
+    "remaining": "{{count}} of {{total}} left",
+    "zero": "No free credit left",
+    "unlimited": "Unlimited",
+    "syncError": "Credits unavailable"
+  },
   "onboarding": {
     "welcomeTitle": "KEEP",
     "welcomeSubtitle": "Hear it. Keep it. Find it.",

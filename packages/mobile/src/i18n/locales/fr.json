@@ -1,4 +1,10 @@
 {
+  "credits": {
+    "remaining": "{{count}} sur {{total}} restant(s)",
+    "zero": "Plus de crédit gratuit",
+    "unlimited": "Illimité",
+    "syncError": "Crédits indisponibles"
+  },
   "onboarding": {
     "welcomeTitle": "KEEP",
     "welcomeSubtitle": "Entends. Garde. Retrouve.",

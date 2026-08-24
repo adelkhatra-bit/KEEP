@@ -880,7 +880,13 @@ const styles = StyleSheet.create({
   serviceConnected: { color: colors.keep, fontSize: 12, fontWeight: '700' },
   serviceConnectBtn: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   serviceConnectBtnText: { color: colors.primaryLight, fontSize: 12, fontWeight: '700' },
-  languageChip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  // BUG RÉEL trouvé le 24/08/2026 (photo réelle d'Adel -- "Français"/"English"
+  // visiblement de largeurs différentes) : sans largeur minimale, chaque
+  // chip se dimensionne sur son propre texte -- "Français" (plus long) est
+  // mécaniquement plus large qu'"English". minWidth + centrage du texte pour
+  // que les deux options de langue paraissent symétriques quel que soit le
+  // libellé, jamais une histoire de longueur de mot.
+  languageChip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6, minWidth: 92, alignItems: 'center' },
   fieldLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: spacing.xs },
   genderRow: { flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.xl },
   genderChip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },

@@ -7,6 +7,7 @@ import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
+import CreditCounter from '../components/CreditCounter';
 import TrackRow from '../components/TrackRow';
 import { AppAlert as Alert } from '../utils/AppAlert';
 
@@ -101,6 +102,11 @@ export default function HomeScreen({ navigation }: any) {
         <View style={styles.idleBody}>
           <SessionPulse active={false} />
 
+          {/* Cf. demande explicite du 24/08/2026 -- "affiche les crédits
+              disponibles AVANT une reconnaissance". Idle = le seul moment où
+              taper GARDER n'a encore rien consommé. */}
+          <CreditCounter />
+
           <TouchableOpacity style={styles.startButton} onPress={startSession}>
             <Text style={styles.startButtonText}>{t('session.start')}</Text>
           </TouchableOpacity>
@@ -113,7 +119,21 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.liveHeader}>
-        <SessionPulse active size={84} level={musicEngine.isRealRecognition ? micLevel : undefined} />
+        {/* BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "l'animation est
+            bloquée. Pourtant le micro est bien activé") : dès que
+            guestLimitReached/freeLimitReached passe à vrai, useSessionStore
+            arrête la boucle de tick pour de bon (plus jamais de scheduleNext,
+            voir tick()) -- mais SessionPulse continuait de recevoir `active`
+            + le dernier `micLevel` reçu, gelé indéfiniment à sa dernière
+            valeur réelle. Ça RESSEMBLE à un micro mort alors que KEEP a
+            simplement arrêté d'écouter, ce qui est le comportement voulu.
+            `active={false}` dès la limite atteinte -- jamais une lecture live
+            qui ment sur l'état réel. */}
+        <SessionPulse
+          active={!guestLimitReached && !freeLimitReached}
+          size={84}
+          level={!guestLimitReached && !freeLimitReached && musicEngine.isRealRecognition ? micLevel : undefined}
+        />
         <Text style={styles.liveTitle}>{t('session.inProgress')}</Text>
         <View style={styles.liveHeaderRow}>
           <Text style={styles.timer}>{elapsed}</Text>
@@ -121,6 +141,7 @@ export default function HomeScreen({ navigation }: any) {
             {t('session.detected', { count: detectedCount })} · {t('session.kept', { count: keptCount })}
           </Text>
         </View>
+        <CreditCounter />
       </View>
 
       {error && (
