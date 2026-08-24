@@ -114,6 +114,43 @@ export default function MyMusicScreen() {
     if (!ok) Alert.alert(t('myMusic.title'), t('myMusic.visibilityFailed'));
   };
 
+  /**
+   * "Ajouter à une playlist" depuis Mes musiques (cf. demande explicite du
+   * 24/08/2026) -- réutilise EXACTEMENT le même appel provider que GARDER
+   * (musicEngine.musicProvider.addTrackToPlaylist) et le même mécanisme de
+   * choix (Alert avec un bouton par playlist) déjà utilisé par TrackRow.tsx
+   * pendant une session -- jamais une deuxième implémentation.
+   */
+  const [addToPlaylistBusyId, setAddToPlaylistBusyId] = useState<string | null>(null);
+  const handleAddToPlaylist = (row: KeptRow) => {
+    if (!requireConnectedService()) return;
+    if (playlists.length === 0) {
+      Alert.alert(t('myMusic.title'), t('myMusic.playlistsEmpty'));
+      return;
+    }
+    Alert.alert(
+      t('session.chooseDestination'),
+      undefined,
+      playlists
+        .map((p) => ({
+          text: p.name,
+          onPress: async () => {
+            setAddToPlaylistBusyId(row.entry.id);
+            try {
+              const session = await musicEngine.getSession();
+              await musicEngine.musicProvider.addTrackToPlaylist(session, p.id, row.entry.track);
+              await refresh();
+            } catch (e: any) {
+              Alert.alert(t('myMusic.title'), e?.message ?? t('myMusic.visibilityFailed'));
+            } finally {
+              setAddToPlaylistBusyId(null);
+            }
+          },
+        }))
+        .concat([{ text: t('common.cancel'), onPress: async () => {} }])
+    );
+  };
+
   const handleSyncNow = async () => {
     setSyncing(true);
     await Promise.all([syncAllWaitingTracks(), syncWaitingTracksLive()]);
@@ -243,6 +280,14 @@ export default function MyMusicScreen() {
         <Text style={styles.renameBtnText}>
           {visibilityBusyId === row.entry.id ? '…' : (row.entry.visibility ?? 'PUBLIC') === 'PUBLIC' ? '👁' : '🔒'}
         </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.renameBtn}
+        hitSlop={8}
+        disabled={addToPlaylistBusyId === row.entry.id}
+        onPress={() => handleAddToPlaylist(row)}
+      >
+        <Text style={styles.renameBtnText}>{addToPlaylistBusyId === row.entry.id ? '…' : '➕'}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.renameBtn} hitSlop={8} onPress={() => openRenameTrack(row)}>
         <Text style={styles.renameBtnText}>✎</Text>
