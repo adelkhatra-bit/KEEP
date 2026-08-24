@@ -54,10 +54,22 @@ tous corrigés et type-checkés :
 - `useSessionHistoryStore.ts` (regroupement des sessions passées en
   "albums") reste 100% local (AsyncStorage), aucune synchro serveur --
   survit à un redémarrage d'app mais PAS à un changement d'appareil ni à un
-  vidage de stockage navigateur. Les KEEP individuels, eux, sont bien
-  poussés au serveur (`/api/social/me/keeps`). Distinction importante pour
-  la demande d'Adel "l'album reste préenregistré" -- vrai pour les morceaux
-  eux-mêmes, PAS encore vrai pour le regroupement par session/soirée.
+  vidage de stockage navigateur.
+
+**CORRECTIF au point ci-dessus (24/08/2026, plus tard la même session)** :
+la phrase "les KEEP individuels, eux, sont bien poussés au serveur" ci-dessus
+était **FAUSSE** -- jamais vérifiée par un test réel, juste supposée parce
+que la route backend et la LECTURE (`hydrateFromServer`) existaient déjà.
+Recherche directe du code (`grep` sur tout `packages/mobile/src` pour un
+appelant de `POST /api/social/me/keeps`) : AUCUN appelant n'existait.
+GARDER un morceau écrivait UNIQUEMENT en local (AsyncStorage), jamais côté
+serveur -- explique plusieurs symptômes réels signalés par Adel (profil
+visité n'affichait jamais de vrais morceaux découverts, aucune ligne
+serveur à activer pour un toggle partage/masquage). Corrigé :
+`pushKeepDecision()` (`profileApi.ts`) appelé depuis
+`useSessionStore.keepTrack()`. Preuve : tsc clean + e2e-smoke-test.ts 5/5 PASS
+(pas encore un vrai KEEP via micro réel + relecture serveur confirmée --
+prochaine vérification recommandée).
 - Aucun écran/paramètre "Notifications" n'existe (vérifié par recherche
   complète du code) -- à construire de zéro si demandé.
 - Grant Super Admin (Premium/Creator Pro/Venue Pro, durée ou illimité)
