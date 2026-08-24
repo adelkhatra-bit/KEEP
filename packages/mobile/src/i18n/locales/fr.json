@@ -121,6 +121,8 @@
     "city": "Ville",
     "country": "Pays",
     "website": "Site internet",
+    "discoveries": "Découvertes",
+    "discoveriesEmpty": "Aucune découverte partagée pour l'instant.",
     "favoriteGenres": "Styles favoris",
     "favoriteArtists": "Artistes favoris",
     "addGenre": "Ajouter un style",

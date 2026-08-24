@@ -117,6 +117,44 @@ export async function fetchMyKeeps(): Promise<RemoteKeep[] | null> {
   }
 }
 
+export interface ProfileKeepRow {
+  id: string;
+  createdAt: string;
+  track: { id: string; title: string; artist: string; album: string | null; artworkUrl: string | null };
+}
+
+/**
+ * BUG RÉEL trouvé le 24/08/2026 (audit visuel réel demandé par Adel --
+ * "vérifie que les morceaux découverts et autorisés en partage apparaissent
+ * réellement sur le profil public") : `GET /api/social/profiles/:username/keeps`
+ * fonctionne et est testé côté backend depuis le début de cette session
+ * (voir keep-visibility-test.ts), mais AUCUN écran mobile ne l'appelait --
+ * PublicProfilePreview.tsx affichait uniquement des données LOCALES
+ * (sessions de CET appareil), jamais les vrais morceaux PUBLIC du serveur.
+ * Testé en vrai dans le navigateur : "Voir mon profil comme un visiteur"
+ * n'affichait ZÉRO morceau malgré 4 vrais morceaux PUBLIC créés côté
+ * serveur pour ce compte. Cette route filtre déjà TOUJOURS sur
+ * visibility=PUBLIC côté serveur (jamais d'exception propriétaire) --
+ * l'appeler avec son propre token donne donc exactement ce qu'un vrai
+ * visiteur verrait, sans logique supplémentaire nécessaire ici.
+ */
+export async function fetchProfileKeeps(username: string): Promise<ProfileKeepRow[] | null> {
+  try {
+    const res = await authedFetch(`/api/social/profiles/${encodeURIComponent(username)}/keeps`, { method: 'GET' });
+    if (!res || !res.ok) return null;
+    const json = (await res.json()) as {
+      data: { id: string; created_at: string; tracks: { id: string; title: string; artist: string; album: string | null; artwork_url: string | null } }[];
+    };
+    return json.data.map((k) => ({
+      id: k.id,
+      createdAt: k.created_at,
+      track: { id: k.tracks.id, title: k.tracks.title, artist: k.tracks.artist, album: k.tracks.album, artworkUrl: k.tracks.artwork_url },
+    }));
+  } catch {
+    return null;
+  }
+}
+
 export function pushProfilePatch(patch: Record<string, unknown>): void {
   logIfFailed('PATCH /me', authedFetch('/api/social/me', { method: 'PATCH', body: JSON.stringify(patch) }));
 }
