@@ -54,6 +54,20 @@ Si ça existe : réutiliser/réparer/brancher. Si ça n'existe pas : construire.
 
 **Ne jamais déclarer PASS parce que le code compile.** PASS = test réel exécuté et observé (curl, navigateur, trace serveur réelle).
 
+**Règle permanente (demande explicite du 24/08/2026, après un audit Nemotron
+limité aux tokens de design jugé insuffisant par Adel) : le design VU par
+l'utilisateur prime sur la seule conformité aux tokens du Design System.**
+Un audit qui vérifie uniquement `spacing.*`/`radius.*`/`typography.*` dans le
+code peut PASS alors que le rendu réel est mal aligné, trop collé, ou
+incohérent (composants parents, flex/grid, largeur de carte, responsive,
+safe areas, états conditionnels -- rien de tout ça n'est capturé par un
+grep de tokens). **Une UI ne devient PASS qu'après vérification visuelle
+réelle (navigateur/Playwright/capture) ou un test E2E pertinent qui observe
+le rendu, jamais sur la seule lecture du code source.** Si la vérification
+visuelle n'est pas possible dans l'environnement (ex. pas de capture
+d'écran disponible), le dire explicitement (`REAL VISUAL CHECK: PENDING`),
+jamais déclarer PASS par défaut.
+
 Pour toute modification UI/frontend mobile ou admin : démarrer le serveur et
 utiliser la fonctionnalité dans un navigateur avant de la déclarer terminée
 (voir Browser tool). Si ce n'est pas testable en pratique, le dire
