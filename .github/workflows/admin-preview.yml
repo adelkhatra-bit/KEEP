@@ -27,10 +27,11 @@ jobs:
       - run: npm ci
       - run: npm --workspace packages/admin run type-check
       - run: npm --workspace packages/admin run build
-      - name: Publish preview branch
+      - name: Publish Super Admin inside the public KEEP preview
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: admin-preview
+          publish_branch: web-preview
           publish_dir: packages/admin/out
-          force_orphan: true
+          destination_dir: admin-preview
+          keep_files: true
