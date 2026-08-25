@@ -150,14 +150,15 @@ export default function App({ Component, pageProps }: AppProps) {
   const [state, setState] = useState<AuthState>('checking');
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       setState('signed_out');
       return;
     }
 
     let active = true;
     const resolveSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await client.auth.getSession();
       if (!active) return;
       const user = data.session?.user;
       if (!user) {
@@ -168,7 +169,7 @@ export default function App({ Component, pageProps }: AppProps) {
       const allowed = await hasActiveAdminRole(user.id);
       if (!active) return;
       if (!allowed) {
-        await supabase.auth.signOut();
+        await client.auth.signOut();
         setState('forbidden');
         return;
       }
@@ -176,7 +177,7 @@ export default function App({ Component, pageProps }: AppProps) {
     };
 
     void resolveSession();
-    const { data: subscription } = supabase.auth.onAuthStateChange(() => {
+    const { data: subscription } = client.auth.onAuthStateChange(() => {
       void resolveSession();
     });
 
