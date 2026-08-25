@@ -3,7 +3,7 @@ import { CanonicalTrack } from '@keep/music';
 import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { captureAudioSample } from '../services/micCapture';
+import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
@@ -111,6 +111,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   startSession: () => {
     clearTimers();
+    void cancelAudioCapture();
     lastDetectionAt = Date.now();
     set({
       isActive: true,
@@ -118,6 +119,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       startedAt: new Date().toISOString(),
       tracks: [],
       showEndPrompt: false,
+      recognizing: false,
       error: null,
       locationLabel: undefined,
       lat: undefined,
@@ -129,7 +131,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set({ recognizing: true });
       try {
         const audioSample = musicEngine.isDemoMode ? new ArrayBuffer(0) : await captureAudioSample();
+        if (!get().isActive) {
+          set({ recognizing: false, error: null });
+          return;
+        }
+
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
+        if (!get().isActive) {
+          set({ recognizing: false, error: null });
+          return;
+        }
         if (!recognition) {
           set({ recognizing: false, error: null });
           return;
@@ -144,6 +155,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }
 
         const { session, playlists, match } = await findExistingTrack(track);
+        if (!get().isActive) {
+          set({ recognizing: false, error: null });
+          return;
+        }
         const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
 
         const entry: SessionTrackEntry = {
@@ -157,6 +172,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         lastDetectionAt = Date.now();
         set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, showEndPrompt: false, error: null }));
       } catch (e: any) {
+        if (e instanceof MicCaptureCancelledError || !get().isActive) {
+          set({ recognizing: false, error: null });
+          return;
+        }
         set({ recognizing: false, error: e?.message ?? 'Erreur de reconnaissance' });
       }
     };
@@ -179,6 +198,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   requestEndSession: (title) => {
     clearTimers();
+    void cancelAudioCapture();
     const s = get();
     if (!s.sessionId || !s.startedAt) return null;
 
@@ -201,6 +221,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       startedAt: null,
       tracks: [],
       showEndPrompt: false,
+      recognizing: false,
+      error: null,
       locationLabel: undefined,
       lat: undefined,
       lng: undefined,
