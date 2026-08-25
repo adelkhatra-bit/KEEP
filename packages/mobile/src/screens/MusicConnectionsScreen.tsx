@@ -74,7 +74,8 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     setWebAuth({ provider, url: `${apiUrl}/api/music/connections/start/${provider}`, token });
   };
 
-  const disconnect = async (provider: 'spotify' | 'deezer') => {
+  const disconnect = async (provider: ProviderKey) => {
+    if (provider !== 'spotify' && provider !== 'deezer') return;
     if (!apiUrl) return;
     const token = await getSupabaseAccessToken();
     if (!token) return;
