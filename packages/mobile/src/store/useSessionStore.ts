@@ -67,6 +67,9 @@ interface SessionStore {
   silenceTimeoutMin: number;
   showEndPrompt: boolean;
   recognizing: boolean;
+  /** Niveau micro réel 0-1 en direct pendant une capture (cf. demande explicite
+   * du 26/08/2026 -- "l'animation doit suivre le micro"). 0 hors capture. */
+  micLevel: number;
   error: string | null;
   locationLabel?: string;
   lat?: number;
@@ -104,6 +107,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   silenceTimeoutMin: DEFAULT_SESSION_SILENCE_TIMEOUT_MIN,
   showEndPrompt: false,
   recognizing: false,
+  micLevel: 0,
   error: null,
   locationLabel: undefined,
   lat: undefined,
@@ -120,6 +124,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       tracks: [],
       showEndPrompt: false,
       recognizing: false,
+      micLevel: 0,
       error: null,
       locationLabel: undefined,
       lat: undefined,
@@ -130,19 +135,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (!get().isActive || get().recognizing) return;
       set({ recognizing: true });
       try {
-        const audioSample = musicEngine.isDemoMode ? new ArrayBuffer(0) : await captureAudioSample();
+        const audioSample = musicEngine.isDemoMode
+          ? new ArrayBuffer(0)
+          : await captureAudioSample((level) => { if (get().isActive) set({ micLevel: level }); });
         if (!get().isActive) {
-          set({ recognizing: false, error: null });
+          set({ recognizing: false, micLevel: 0, error: null });
           return;
         }
 
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) {
-          set({ recognizing: false, error: null });
+          set({ recognizing: false, micLevel: 0, error: null });
           return;
         }
         if (!recognition) {
-          set({ recognizing: false, error: null });
+          set({ recognizing: false, micLevel: 0, error: null });
           return;
         }
 
@@ -150,13 +157,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const last = get().tracks[0];
         if (last && sameTrack(last.track, track)) {
           lastDetectionAt = Date.now();
-          set({ recognizing: false, showEndPrompt: false, error: null });
+          set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null });
           return;
         }
 
         const { session, playlists, match } = await findExistingTrack(track);
         if (!get().isActive) {
-          set({ recognizing: false, error: null });
+          set({ recognizing: false, micLevel: 0, error: null });
           return;
         }
         const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
@@ -170,13 +177,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           existingMatch: match,
         };
         lastDetectionAt = Date.now();
-        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, showEndPrompt: false, error: null }));
+        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null }));
       } catch (e: any) {
         if (e instanceof MicCaptureCancelledError || !get().isActive) {
-          set({ recognizing: false, error: null });
+          set({ recognizing: false, micLevel: 0, error: null });
           return;
         }
-        set({ recognizing: false, error: e?.message ?? 'Erreur de reconnaissance' });
+        set({ recognizing: false, micLevel: 0, error: e?.message ?? 'Erreur de reconnaissance' });
       }
     };
 

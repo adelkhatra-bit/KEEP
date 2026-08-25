@@ -21,7 +21,7 @@ function formatElapsed(startedAt: string | null) {
 
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
-  const { isActive, tracks, showEndPrompt, startedAt, error, recognizing, startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack } = useSessionStore();
+  const { isActive, tracks, showEndPrompt, startedAt, error, recognizing, micLevel, startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const micPulse = useRef(new Animated.Value(0)).current;
@@ -34,11 +34,32 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => clearInterval(timer);
   }, [isActive, startedAt]);
 
+  // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "l'animation qui suit le
+  // micro" toujours pas branchée) : ce composant (HomeScreenCompact, celui
+  // réellement affiché sur cette branche -- l'ancien HomeScreen.tsx n'est plus
+  // utilisé) avait sa propre boucle décorative à durée fixe (620ms), jamais
+  // reliée à `micLevel` (le niveau micro réel déjà calculé en continu par
+  // useSessionStore/micCapture.ts, voir le fix précédent). Remplacé par une
+  // réaction RÉELLE au niveau micro -- jamais une activité inventée : sqrt()
+  // amplifie les niveaux réalistes faibles (0.03-0.06) en mouvement visible,
+  // une respiration légère (jamais plate) reste en dessous du seuil de
+  // silence pour qu'on sache que KEEP écoute, sans jamais prétendre détecter
+  // un son qui n'existe pas.
+  const isLiveMic = !musicEngine.isDemoMode;
   useEffect(() => {
+    if (!isLiveMic) return undefined; // Mode Démo -- pas de vrai niveau micro, voir boucle décorative ci-dessous.
+    const raw = Math.max(0, Math.min(1, micLevel));
+    const SILENCE_FLOOR = 0.02;
+    const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.sqrt(raw);
+    Animated.timing(micPulse, { toValue: target, duration: 90, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
+  }, [micPulse, isLiveMic, micLevel]);
+
+  useEffect(() => {
+    if (isLiveMic) return undefined; // Niveau réel géré ci-dessus -- jamais les deux logiques en même temps.
     micPulse.stopAnimation();
     if (!recognizing) {
       micPulse.setValue(0);
-      return;
+      return undefined;
     }
     const loop = Animated.loop(
       Animated.sequence([
@@ -48,7 +69,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
     loop.start();
     return () => loop.stop();
-  }, [micPulse, recognizing]);
+  }, [micPulse, recognizing, isLiveMic]);
 
   const current = tracks[0];
   const detected = tracks.length;
