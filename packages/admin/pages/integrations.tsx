@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import { getSupabaseAccessToken } from '../lib/supabaseClient';
 
 type SecretField = {
   key: string;
@@ -37,6 +38,7 @@ export default function IntegrationsPage() {
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState<Record<string, string>>({});
+  const [loadError, setLoadError] = useState('');
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const groups = useMemo(() => ['E-mails', 'Musique', 'Reconnaissance'].map((category) => ({
@@ -45,21 +47,29 @@ export default function IntegrationsPage() {
   })), []);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
-      const token = typeof window !== 'undefined' ? sessionStorage.getItem('keep-admin-access-token') : null;
-      if (!apiUrl || !token) return;
+      const token = await getSupabaseAccessToken();
+      if (!apiUrl || !token) {
+        if (!cancelled) setLoadError('Backend ou session Super Admin non connecté.');
+        return;
+      }
       try {
         const res = await fetch(`${apiUrl}/api/admin/integrations`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = await res.json();
         const indexed: Record<string, IntegrationStatus> = {};
         for (const item of payload.data || []) indexed[item.key] = item;
-        setStatus(indexed);
+        if (!cancelled) {
+          setStatus(indexed);
+          setLoadError('');
+        }
       } catch {
-        // L'écran reste consultable, mais aucune fausse sauvegarde n'est simulée.
+        if (!cancelled) setLoadError('Impossible de charger l’état réel des intégrations.');
       }
     };
     void load();
+    return () => { cancelled = true; };
   }, [apiUrl]);
 
   const saveField = async (field: SecretField) => {
@@ -69,17 +79,15 @@ export default function IntegrationsPage() {
     setMessage((s) => ({ ...s, [field.key]: '' }));
 
     try {
-      const token = typeof window !== 'undefined' ? sessionStorage.getItem('keep-admin-access-token') : null;
-      if (!apiUrl || !token) {
-        throw new Error('Backend sécurisé non connecté : la clé n’a PAS été enregistrée.');
-      }
+      const token = await getSupabaseAccessToken();
+      if (!apiUrl || !token) throw new Error('Backend sécurisé non connecté : la clé n’a PAS été enregistrée.');
       const res = await fetch(`${apiUrl}/api/admin/integrations/${field.key}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ value }),
       });
-      if (!res.ok) throw new Error(`Échec enregistrement ${field.label}`);
       const payload = await res.json();
+      if (!res.ok) throw new Error(typeof payload.error === 'string' ? payload.error : `Échec enregistrement ${field.label}`);
       setStatus((s) => ({ ...s, [field.key]: payload.data }));
       setValues((s) => ({ ...s, [field.key]: '' }));
       setVisible((s) => ({ ...s, [field.key]: false }));
@@ -96,8 +104,9 @@ export default function IntegrationsPage() {
       <div className="page-title">Clés & intégrations</div>
       <div className="page-subtitle">Coffre centralisé — e-mails, plateformes musicales et reconnaissance</div>
       <div className="demo-banner" style={{ marginBottom: 24 }}>
-        🔐 Les secrets enregistrés ne sont jamais affichés en clair. {apiUrl ? 'Backend détecté.' : 'Mode aperçu : le backend doit être connecté avant toute sauvegarde réelle.'}
+        🔐 Les secrets enregistrés ne sont jamais affichés en clair. {apiUrl ? 'Backend détecté.' : 'Le backend doit être connecté avant toute sauvegarde réelle.'}
       </div>
+      {loadError && <div style={{ marginBottom: 18, color: '#fb7185', fontSize: 12 }}>{loadError}</div>}
 
       {groups.map((group) => (
         <section key={group.category} style={{ marginBottom: 28 }}>
