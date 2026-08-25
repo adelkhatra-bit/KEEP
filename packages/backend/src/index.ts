@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import musicRoutes from './routes/music';
+import musicConnectionsRoutes from './routes/musicConnections';
 import adminRoutes from './routes/admin';
 import emailRoutes from './routes/email';
 
@@ -18,6 +19,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/music', musicRoutes);
+app.use('/api/music', musicConnectionsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/email', emailRoutes);
 
