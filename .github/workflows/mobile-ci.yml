@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -37,8 +37,14 @@ jobs:
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
 
+      - name: Typecheck music engine
+        run: npm --workspace packages/music run type-check
+
       - name: Mobile tests
         run: npm --workspace packages/mobile test -- --runInBand
+
+      - name: Music tests
+        run: npm --workspace packages/music test -- --runInBand
 
       - name: Export web bundle
         working-directory: packages/mobile
