@@ -37,31 +37,26 @@ export default function IntegrationsPage() {
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState<Record<string, string>>({});
-
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  const groups = useMemo(() => {
-    return ['E-mails', 'Musique', 'Reconnaissance'].map((category) => ({
-      category,
-      fields: FIELDS.filter((f) => f.category === category),
-    }));
-  }, []);
+  const groups = useMemo(() => ['E-mails', 'Musique', 'Reconnaissance'].map((category) => ({
+    category,
+    fields: FIELDS.filter((f) => f.category === category),
+  })), []);
 
   useEffect(() => {
     const load = async () => {
       const token = typeof window !== 'undefined' ? sessionStorage.getItem('keep-admin-access-token') : null;
       if (!apiUrl || !token) return;
       try {
-        const res = await fetch(`${apiUrl}/api/admin/integrations`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${apiUrl}/api/admin/integrations`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) return;
         const payload = await res.json();
         const indexed: Record<string, IntegrationStatus> = {};
         for (const item of payload.data || []) indexed[item.key] = item;
         setStatus(indexed);
       } catch {
-        // Le preview statique reste utilisable sans backend.
+        // L'écran reste consultable, mais aucune fausse sauvegarde n'est simulée.
       }
     };
     void load();
@@ -70,19 +65,14 @@ export default function IntegrationsPage() {
   const saveField = async (field: SecretField) => {
     const value = values[field.key]?.trim();
     if (!value) return;
-
     setBusy((s) => ({ ...s, [field.key]: true }));
     setMessage((s) => ({ ...s, [field.key]: '' }));
 
     try {
       const token = typeof window !== 'undefined' ? sessionStorage.getItem('keep-admin-access-token') : null;
       if (!apiUrl || !token) {
-        setStatus((s) => ({ ...s, [field.key]: { key: field.key, configured: true } }));
-        setValues((s) => ({ ...s, [field.key]: '' }));
-        setMessage((s) => ({ ...s, [field.key]: 'Prévisualisation : champ prêt. En production, la valeur sera chiffrée côté backend.' }));
-        return;
+        throw new Error('Backend sécurisé non connecté : la clé n’a PAS été enregistrée.');
       }
-
       const res = await fetch(`${apiUrl}/api/admin/integrations/${field.key}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
@@ -93,7 +83,7 @@ export default function IntegrationsPage() {
       setStatus((s) => ({ ...s, [field.key]: payload.data }));
       setValues((s) => ({ ...s, [field.key]: '' }));
       setVisible((s) => ({ ...s, [field.key]: false }));
-      setMessage((s) => ({ ...s, [field.key]: 'Enregistré et chiffré.' }));
+      setMessage((s) => ({ ...s, [field.key]: 'Enregistré et chiffré côté serveur.' }));
     } catch (error: any) {
       setMessage((s) => ({ ...s, [field.key]: error?.message || 'Erreur pendant l’enregistrement.' }));
     } finally {
@@ -105,9 +95,8 @@ export default function IntegrationsPage() {
     <AdminLayout>
       <div className="page-title">Clés & intégrations</div>
       <div className="page-subtitle">Coffre centralisé — e-mails, plateformes musicales et reconnaissance</div>
-
       <div className="demo-banner" style={{ marginBottom: 24 }}>
-        🔐 Les secrets enregistrés ne sont jamais affichés en clair. Pour changer une clé, saisis simplement la nouvelle valeur puis clique sur Remplacer.
+        🔐 Les secrets enregistrés ne sont jamais affichés en clair. {apiUrl ? 'Backend détecté.' : 'Mode aperçu : le backend doit être connecté avant toute sauvegarde réelle.'}
       </div>
 
       {groups.map((group) => (
@@ -126,7 +115,6 @@ export default function IntegrationsPage() {
                       {configured ? `● Configuré${hint ? ` — ${hint}` : ''}` : '○ Non configuré'}
                     </div>
                   </div>
-
                   <div>
                     <div style={{ position: 'relative' }}>
                       <input
@@ -137,23 +125,13 @@ export default function IntegrationsPage() {
                         autoComplete="new-password"
                         style={{ width: '100%', boxSizing: 'border-box', padding: '12px 76px 12px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
                       />
-                      <button
-                        type="button"
-                        onClick={() => setVisible((s) => ({ ...s, [field.key]: !s[field.key] }))}
-                        style={{ position: 'absolute', right: 8, top: 7, border: 0, background: 'transparent', color: 'var(--muted)', cursor: 'pointer', padding: 6 }}
-                      >
+                      <button type="button" onClick={() => setVisible((s) => ({ ...s, [field.key]: !s[field.key] }))} style={{ position: 'absolute', right: 8, top: 7, border: 0, background: 'transparent', color: 'var(--muted)', cursor: 'pointer', padding: 6 }}>
                         {visible[field.key] ? 'Masquer' : 'Voir'}
                       </button>
                     </div>
-                    {message[field.key] && <div style={{ fontSize: 11, marginTop: 6, color: 'var(--muted)' }}>{message[field.key]}</div>}
+                    {message[field.key] && <div style={{ fontSize: 11, marginTop: 6, color: message[field.key].includes('PAS') ? '#fb7185' : 'var(--muted)' }}>{message[field.key]}</div>}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => saveField(field)}
-                    disabled={!values[field.key]?.trim() || busy[field.key]}
-                    style={{ minWidth: 110, padding: '11px 14px', borderRadius: 999, border: 0, cursor: values[field.key]?.trim() && !busy[field.key] ? 'pointer' : 'not-allowed', background: values[field.key]?.trim() && !busy[field.key] ? 'var(--primary)' : 'var(--border)', color: '#fff', fontWeight: 800 }}
-                  >
+                  <button type="button" onClick={() => saveField(field)} disabled={!values[field.key]?.trim() || busy[field.key]} style={{ minWidth: 110, padding: '11px 14px', borderRadius: 999, border: 0, cursor: values[field.key]?.trim() && !busy[field.key] ? 'pointer' : 'not-allowed', background: values[field.key]?.trim() && !busy[field.key] ? 'var(--primary)' : 'var(--border)', color: '#fff', fontWeight: 800 }}>
                     {busy[field.key] ? 'Enregistrement…' : configured ? 'Remplacer' : 'Enregistrer'}
                   </button>
                 </div>
