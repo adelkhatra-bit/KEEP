@@ -21,6 +21,10 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,15 +43,15 @@ jobs:
 
       - name: Export KEEP web
         working-directory: packages/mobile
-        env:
-          EXPO_PUBLIC_KEEP_PREVIEW: '1'
         run: npx expo export --platform web --output-dir dist-web
 
-      - name: Make exported asset paths portable
+      - name: Apply verified browser bootstrap + portable assets
+        working-directory: packages/mobile
         run: |
+          node scripts/fix-web-export.cjs dist-web
           python - <<'PY'
           from pathlib import Path
-          p = Path('packages/mobile/dist-web/index.html')
+          p = Path('dist-web/index.html')
           s = p.read_text(encoding='utf-8')
           s = s.replace('src="/_expo/', 'src="./_expo/')
           s = s.replace('href="/_expo/', 'href="./_expo/')
