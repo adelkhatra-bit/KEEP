@@ -70,20 +70,20 @@ jobs:
             for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await page.getByText(label, { exact: true }).last().waitFor({ timeout: 15000 });
             await shot('01-listen-idle');
 
-            const start = page.getByRole('button').filter({ hasText: /démarrer|commencer|start/i }).first();
-            if (await start.count()) {
-              await assertInViewport(start, 'Démarrer session');
-              await start.click();
-              await page.waitForTimeout(1200);
-              await page.getByText('EN ÉCOUTE', { exact: true }).waitFor({ timeout: 10000 });
-              await assertInViewport(page.getByText('EN ÉCOUTE', { exact: true }), 'Radar écoute');
-              const share = page.getByText('↗ Partager', { exact: true });
-              await share.waitFor();
-              await assertInViewport(share, 'Partager');
-              const end = page.getByRole('button').filter({ hasText: /terminer|arrêter|end/i }).last();
-              if (await end.count()) await assertInViewport(end, 'Arrêter session');
-              await shot('02-listen-active-no-swipe');
-            }
+            const start = page.getByText(/START A SESSION|DÉMARRER|COMMENCER/i).first();
+            await start.waitFor({ timeout: 10000 });
+            await assertInViewport(start, 'Démarrer session');
+            await start.click();
+            await page.waitForTimeout(1200);
+            const listening = page.getByText('EN ÉCOUTE', { exact: true });
+            await listening.waitFor({ timeout: 10000 });
+            await assertInViewport(listening, 'Radar écoute');
+            const share = page.getByText('↗ Partager', { exact: true });
+            await share.waitFor();
+            await assertInViewport(share, 'Partager');
+            const end = page.getByText(/terminer|arrêter|end session/i).last();
+            if (await end.count()) await assertInViewport(end, 'Arrêter session');
+            await shot('02-listen-active-no-swipe');
 
             await page.getByText('Profil', { exact: true }).last().click();
             await page.waitForTimeout(500);
@@ -95,7 +95,10 @@ jobs:
             await page.getByText('Modifier le profil', { exact: true }).waitFor();
             await page.getByPlaceholder('tonpseudo').fill('keepmobiletest');
             await page.getByText('Choisir une date', { exact: true }).click();
-            await page.getByText('Valider la date', { exact: true }).click();
+            const validateDate = page.getByText('Valider la date', { exact: true });
+            await validateDate.waitFor();
+            await assertInViewport(validateDate, 'Valider date');
+            await validateDate.click();
             await shot('04-profile-edit-selectors');
 
             await page.getByText('Réglages avancés du profil', { exact: true }).click();
@@ -117,11 +120,12 @@ jobs:
             fs.writeFileSync('artifacts/mobile-loop/report.txt', [
               'KEEP MOBILE LOOP AUDIT: PASS',
               'Viewport: 390x844',
+              'Listen active state: PASS',
               'Listen essential actions without swipe: PASS',
               'Notification bell: PASS',
               'Social icons: PASS',
               'Pseudo field: PASS',
-              'Birth date selector: PASS',
+              'Birth date selector visible without swipe: PASS',
               'Advanced settings back: PASS',
               'Advanced settings -> Playlists: PASS',
               'Console/page errors: 0'
