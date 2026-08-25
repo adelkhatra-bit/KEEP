@@ -39,6 +39,8 @@ jobs:
 
       - name: Export KEEP web
         working-directory: packages/mobile
+        env:
+          EXPO_PUBLIC_KEEP_PREVIEW: '1'
         run: npx expo export --platform web --output-dir dist-web
 
       - name: Make exported asset paths portable
