@@ -118,7 +118,6 @@ export default function OnboardingScreen() {
           testID="onboarding-demo-button"
         >
           <Text style={styles.demoButtonText}>ENTRER EN MODE DÉMO</Text>
-          <Text style={styles.demoButtonHint}>Accéder immédiatement à KEEP sans créer de compte</Text>
         </TouchableOpacity>
 
         {showEmailForm && emailStep === 'idle' && (
@@ -227,27 +226,15 @@ const styles = StyleSheet.create({
     color: colors.primaryLight,
   },
   demoButton: {
-    minHeight: 64,
+    minHeight: 52,
     backgroundColor: colors.primary,
     borderWidth: 1,
     borderColor: colors.primaryLight,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
   },
   demoButtonText: {
     ...typography.button,
     color: colors.white,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-  demoButtonHint: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.white,
-    opacity: 0.82,
+    fontWeight: '800',
   },
   emailForm: {
     gap: spacing.sm,
