@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import HomeScreen from '../screens/HomeScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MyMusicScreen from '../screens/MyMusicScreen';
+import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
@@ -18,9 +19,9 @@ const RootStack = createNativeStackNavigator();
 
 /**
  * Navigation principale — 4 sections (cahier des charges §32) :
- * SESSION KEEP / DÉCOUVRIR / MES MUSIQUES / PROFIL. Le récapitulatif de
- * session et l'historique des sessions sont poussés au-dessus des onglets
- * (pas une 5e destination de tab bar), depuis l'onglet Session KEEP.
+ * SESSION KEEP / DÉCOUVRIR / MES MUSIQUES / PROFIL. Le profil public est
+ * l'écran principal. L'ancien ProfileScreen reste accessible comme écran
+ * de réglages afin de ne perdre aucune fonction déjà construite.
  */
 function MainTabs() {
   const { t } = useTranslation();
@@ -58,7 +59,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfilePublicScreen}
         options={{ tabBarLabel: t('nav.profile'), tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} /> }}
       />
     </Tab.Navigator>
@@ -72,6 +73,7 @@ export default function Navigation() {
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
+        <RootStack.Screen name="ProfileSettings" component={ProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
