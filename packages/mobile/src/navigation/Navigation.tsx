@@ -3,12 +3,13 @@ import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import HomeScreen from '../screens/HomeScreen';
+import HomeScreenCompact from '../screens/HomeScreenCompact';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MyMusicScreen from '../screens/MyMusicScreen';
 import PartiesScreen from '../screens/PartiesScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
+import ProfileSettingsMobileScreen from '../screens/ProfileSettingsMobileScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
@@ -43,6 +44,7 @@ function MainTabs() {
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: TAB.bg,
           borderTopColor: TAB.border,
@@ -55,7 +57,7 @@ function MainTabs() {
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Listen" component={HomeScreen} options={{ tabBarLabel: 'Écouter', tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} /> }} />
+      <Tab.Screen name="Listen" component={HomeScreenCompact} options={{ tabBarLabel: 'Écouter', tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} /> }} />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
       <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }} />
       <Tab.Screen name="Parties" component={PartiesScreen} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
@@ -71,7 +73,8 @@ export default function Navigation() {
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
-        <RootStack.Screen name="ProfileSettings" component={ProfileScreen} />
+        <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
+        <RootStack.Screen name="AdvancedProfileSettings" component={ProfileScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
