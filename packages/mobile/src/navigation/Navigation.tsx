@@ -8,6 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MyMusicScreen from '../screens/MyMusicScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
+import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
@@ -16,6 +17,15 @@ import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
+
+const linking = {
+  prefixes: ['keep://'],
+  config: {
+    screens: {
+      PublicProfile: 'profile/:username',
+    },
+  },
+};
 
 /**
  * Navigation principale — 4 sections (cahier des charges §32) :
@@ -68,12 +78,13 @@ function MainTabs() {
 
 export default function Navigation() {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
         <RootStack.Screen name="ProfileSettings" component={ProfileScreen} />
+        <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
