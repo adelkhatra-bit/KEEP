@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci --include=dev",
-  "buildCommand": "cd packages/mobile && npx expo export --platform web",
+  "buildCommand": "cd packages/mobile && npx expo export --platform web && node scripts/fix-web-export.cjs dist",
   "outputDirectory": "packages/mobile/dist",
   "cleanUrls": true,
   "env": {
