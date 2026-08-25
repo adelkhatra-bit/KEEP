@@ -16,6 +16,7 @@ import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
+import OffersScreen from '../screens/OffersScreen';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -27,6 +28,7 @@ const linking = {
       PublicProfile: 'profile/:username',
       MusicConnections: 'music-connections',
       Notifications: 'notifications',
+      Offers: 'offers',
     },
   },
 };
@@ -76,6 +78,7 @@ export default function Navigation() {
         <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
         <RootStack.Screen name="AdvancedProfileSettings" component={AdvancedProfileSettingsScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+        <RootStack.Screen name="Offers" component={OffersScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />
