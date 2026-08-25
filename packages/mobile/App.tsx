@@ -17,13 +17,18 @@ if (__DEV__) {
   (globalThis as any).__keepStores = { useUserStore, useSessionStore, useSessionHistoryStore };
 }
 
+// La preview/showroom doit être utilisable dès le PREMIER rendu. L'ancienne
+// activation dans useEffect laissait brièvement l'onboarding à l'écran et
+// rendait les tests navigateur non déterministes. Cette variable n'est jamais
+// activée dans les builds natifs réels/TestFlight.
+if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' && !useUserStore.getState().user) {
+  useUserStore.getState().enterDemoMode();
+}
+
 export default function App() {
   const user = useUserStore((s) => s.user);
 
-  // La preview web publique sert de showroom/test humain du nouveau design.
-  // Elle entre automatiquement en Mode Démo afin que l'URL ouvre directement
-  // l'application. Cette variable n'est PAS activée dans les builds natifs,
-  // TestFlight ou production : l'authentification normale y reste inchangée.
+  // Garde-fou si le store est réinitialisé pendant une preview web.
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
     const state = useUserStore.getState();
