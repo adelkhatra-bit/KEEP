@@ -16,7 +16,6 @@ permissions:
 
 env:
   CI: true
-  NODE_ENV: production
 
 jobs:
   build-android-preview:
@@ -40,7 +39,7 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
@@ -56,17 +55,17 @@ jobs:
           org.gradle.workers.max=2
           EOF
 
-      - name: Build standalone release APK
+      - name: Build installable preview APK
         working-directory: packages/mobile/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Verify APK
-        run: test -f packages/mobile/android/app/build/outputs/apk/release/app-release.apk
+        run: test -f packages/mobile/android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Publish KEEP preview APK
         uses: actions/upload-artifact@v4
         with:
           name: KEEP-Android-Preview
-          path: packages/mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: packages/mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
