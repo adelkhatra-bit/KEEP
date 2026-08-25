@@ -60,3 +60,18 @@ snapshot.
 
 `main` et `claude-local-backup-20260825` — ne jamais push, merge, ni rebase dessus
 depuis cet agent.
+
+## Pour Claude Design (session de chat sans accès machine)
+
+Claude Design n'a ni terminal ni accès fichiers à ce dépôt — il ne peut pas exécuter
+`agent-lock.cjs` ni voir l'état réel du code. Ce qu'il a produit plus tôt dans cette
+session (noms de tables `user_profiles`/`session_tracks`, chemins
+`/mnt/user-data/outputs/...`) était basé sur un ancien snapshot, pas sur ce dépôt.
+
+Règle pour toute proposition venant de Claude Design, relayée par Adel : avant
+d'être exécutée par Claude Code ou Codex, elle doit être vérifiée contre ce fichier
+et le vrai code — jamais appliquée telle quelle. Claude Design reste utile pour le
+design UX/UI (structure d'écran, hiérarchie visuelle, copy) ; jamais comme source de
+vérité sur le schéma DB, les chemins de fichiers, ou l'état du dépôt. Si Adel colle
+ce fichier à Claude Design en début de session, ses propositions seront mieux
+ancrées dans la réalité du projet.
