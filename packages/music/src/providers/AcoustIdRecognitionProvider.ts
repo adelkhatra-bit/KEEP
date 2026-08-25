@@ -35,7 +35,7 @@ export class AcoustIdRecognitionProvider implements MusicRecognitionProvider {
     private readonly fetchImpl: typeof fetch = fetch.bind(globalThis)
   ) {}
 
-  async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+  async recognize(audioSample: ArrayBuffer | Blob, requestId?: string): Promise<RecognitionResult | null> {
     const accessToken = await this.config.getAccessToken();
     if (!accessToken) {
       throw new Error('AcoustID : aucune session KEEP active -- connecte-toi pour activer la reconnaissance gratuite.');
@@ -49,6 +49,10 @@ export class AcoustIdRecognitionProvider implements MusicRecognitionProvider {
         Authorization: `Bearer ${accessToken}`,
         ...(this.config.buildId ? { 'X-Keep-Build-Id': this.config.buildId } : {}),
         ...(this.config.sessionId ? { 'X-Keep-Session-Id': this.config.sessionId } : {}),
+        // Cf. demande explicite du 23/08/2026 -- continue la même trace E2E
+        // commencée côté client (USER_TAP/MICRO_STARTED/AUDIO_CAPTURED),
+        // voir requestTraces.ts startTrace().
+        ...(requestId ? { 'X-Keep-Request-Id': requestId } : {}),
       },
       body: blob as any,
     });

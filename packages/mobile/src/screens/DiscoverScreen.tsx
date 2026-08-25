@@ -191,7 +191,7 @@ export default function DiscoverScreen() {
                     hitSlop={8}
                     onPress={() => shareEvent(event.id, event.name).catch(() => {})}
                   >
-                    <Text style={styles.eventShareBtnText}>🔗</Text>
+                    <Text style={styles.eventShareBtnText}>🔗 {t('discover.share')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -263,6 +263,9 @@ function ProfileCard({ profile, compat, onPress, t }: { profile: DemoProfile; co
           <Text style={styles.compatBadgeText}>{t('discover.compatibility', { percent: compat })}</Text>
         </View>
       )}
+      <View style={styles.profileCardCta}>
+        <Text style={styles.profileCardCtaText}>{t('discover.viewProfile')} ›</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -299,16 +302,18 @@ const styles = StyleSheet.create({
   profileBio: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   compatBadge: { backgroundColor: colors.demoBadgeBg, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4 },
   compatBadgeText: { color: colors.keep, fontSize: 11, fontWeight: '700' },
+  profileCardCta: { marginLeft: spacing.xs },
+  profileCardCtaText: { color: colors.primaryLight, fontSize: 12, fontWeight: '700' },
 
   eventCard: { backgroundColor: colors.backgroundCard, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
   eventName: { color: colors.textPrimary, fontWeight: '700', fontSize: 14 },
   eventMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   eventActionsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
-  eventShareBtn: { padding: spacing.xs },
-  eventShareBtnText: { fontSize: 16 },
-  interestedBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  interestedBtnActive: { backgroundColor: colors.keep, borderColor: colors.keep },
-  interestedBtnText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  eventShareBtn: { backgroundColor: colors.backgroundElevated, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  eventShareBtnText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+  interestedBtn: { backgroundColor: colors.smartBadgeBg, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  interestedBtnActive: { backgroundColor: colors.keep },
+  interestedBtnText: { color: colors.smartBadgeText, fontSize: 12, fontWeight: '700' },
   interestedBtnTextActive: { color: colors.black },
 
   demoToggle: { marginTop: spacing.md, paddingVertical: spacing.sm },

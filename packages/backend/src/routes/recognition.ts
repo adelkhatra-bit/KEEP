@@ -5,7 +5,8 @@ import { resolveByFingerprintKey, findOrCreateTrack, recordFingerprintKey, isKee
 import { resolveQaCorpusTrack } from '../lib/qaCorpusMetadata';
 import { requireKeepAuth, KeepAuthedRequest } from '../lib/keepAuth';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
-import { startTrace } from '../lib/requestTraces';
+import { startTrace, addStep } from '../lib/requestTraces';
+import { getNumericConfig } from '../lib/remoteConfig';
 
 /**
  * Reconnaissance GRATUITE (Chromaprint/AcoustID/MusicBrainz), en amont
@@ -41,8 +42,33 @@ const tokenVerifier = createSupabaseTokenVerifier();
  * (actuellement écriture seule), à ajouter si ce niveau de protection ne
  * suffit plus.
  */
-const GUEST_RECOGNITION_LIMIT = 2;
-const guestAttemptCounts = new Map<string, number>();
+/**
+ * Paliers gratuits (cf. demande explicite du 24/08/2026, précisée deux fois --
+ * "bloque à trois... une fois inscrit, trois musiques supplémentaires...
+ * ensuite il faudra qu'il paye"). UN SEUL compteur, pas deux : la conversion
+ * invité -> compte réel CONSERVE le même auth.uid() (voir ensureGuestSession
+ * côté mobile, ce comportement Supabase Auth officiel est déjà utilisé pour
+ * ne jamais perdre l'historique d'un invité qui s'inscrit) -- donc le même
+ * `req.keepUserId` traverse les deux paliers naturellement. 3 tentatives en
+ * invité, PUIS jusqu'à 6 au total une fois inscrit (donc 3 de plus après
+ * inscription, jamais 3+6=9) -- un seul Map, seul le PLAFOND appliqué change
+ * selon req.keepIsAnonymous.
+ *
+ * STATUT HONNÊTE : logique de quota/palier uniquement -- aucun paiement réel
+ * collecté ici (Stripe/IAP explicitement remis à plus tard, cf. demande
+ * explicite du 24/08/2026 "NE TRAVAILLE PAS ENCORE SUR... paiements"). En
+ * mémoire process, remis à zéro à chaque redémarrage -- suffisant à ce
+ * stade, pas encore une protection anti-abus robuste.
+ *
+ * Ces deux constantes ne sont plus que des REPLIS (cf. demande explicite du
+ * 24/08/2026 -- "configurables depuis Super Admin, jamais hardcodés") : la
+ * vraie valeur vient de `remote_config` via getNumericConfig() ci-dessous
+ * (clés `guest_recognition_limit`/`signup_bonus_recognitions`, migration
+ * 0012) -- utilisées seulement si cette table est injoignable.
+ */
+const GUEST_RECOGNITION_LIMIT = 3;
+const FREE_REGISTERED_RECOGNITION_LIMIT = 6;
+const recognitionAttemptCounts = new Map<string, number>();
 
 function extensionFromContentType(contentType: string | undefined): string {
   const map: Record<string, string> = {
@@ -56,6 +82,7 @@ function extensionFromContentType(contentType: string | undefined): string {
 
 async function identifyHandler(req: KeepAuthedRequest, res: Response) {
   const trace = startTrace({
+    requestId: (req.headers['x-keep-request-id'] as string) || undefined,
     userAgent: req.headers['user-agent'],
     buildId: (req.headers['x-keep-build-id'] as string) ?? null,
     sessionId: (req.headers['x-keep-session-id'] as string) ?? null,
@@ -76,23 +103,32 @@ async function identifyHandler(req: KeepAuthedRequest, res: Response) {
     return;
   }
 
-  if (req.keepIsAnonymous) {
-    const used = guestAttemptCounts.get(req.keepUserId!) ?? 0;
-    if (used >= GUEST_RECOGNITION_LIMIT) {
+  {
+    const used = recognitionAttemptCounts.get(req.keepUserId!) ?? 0;
+    // Cf. demande explicite du 24/08/2026 -- lus depuis remote_config
+    // (Super Admin), jamais hardcodés ; repli sur les constantes ci-dessus
+    // uniquement si la table est injoignable (jamais un plantage pour un réglage).
+    const guestLimit = await getNumericConfig('guest_recognition_limit', GUEST_RECOGNITION_LIMIT);
+    const bonusAfterSignup = await getNumericConfig('signup_bonus_recognitions', FREE_REGISTERED_RECOGNITION_LIMIT - GUEST_RECOGNITION_LIMIT);
+    const limit = req.keepIsAnonymous ? guestLimit : guestLimit + bonusAfterSignup;
+    if (used >= limit) {
       // Pas une erreur technique -- un état normal, attendu (cf. demande
       // explicite du 23/08/2026 : "l'inscription doit devenir la
       // conséquence de la valeur qu'elle vient de découvrir").
+      const errorCode = req.keepIsAnonymous ? 'guest_limit_reached' : 'free_tier_limit_reached';
       trace.result = 'error';
-      trace.resultDetail = 'guest_limit_reached';
-      console.log(`[KEEP][TRACE][${trace.requestId}] RESULT=guest_limit_reached`);
+      trace.resultDetail = errorCode;
+      console.log(`[KEEP][TRACE][${trace.requestId}] RESULT=${errorCode}`);
       res.status(403).json({
-        error: 'guest_limit_reached',
+        error: errorCode,
         requestId: trace.requestId,
-        message: `Limite invité atteinte (${GUEST_RECOGNITION_LIMIT} essais) -- crée un profil gratuit pour continuer.`,
+        message: req.keepIsAnonymous
+          ? `Limite invité atteinte (${guestLimit} essais) -- crée un profil gratuit (c'est gratuit) pour continuer à identifier de la musique et préparer tes playlists.`
+          : `Limite gratuite atteinte (${limit} reconnaissances au total) -- passe Premium pour continuer à identifier de la musique sans limite.`,
       });
       return;
     }
-    guestAttemptCounts.set(req.keepUserId!, used + 1);
+    recognitionAttemptCounts.set(req.keepUserId!, used + 1);
   }
 
   const audio = req.body as Buffer;
@@ -115,8 +151,10 @@ async function identifyHandler(req: KeepAuthedRequest, res: Response) {
   // une erreur bloquante pour l'utilisateur.
   try {
     trace.audfprintCalled = true;
+    addStep(trace.requestId, 'LOCAL_INDEX_CALLED', 'ok');
     trace.indexVersion = await fetchIndexVersion();
     const local = await matchLocal(audio, ext);
+    addStep(trace.requestId, 'AUDFPRINT_RESULT', local ? 'ok' : 'fail', local ? `score=${local.commonHashes}/${local.totalHashes}` : 'no_candidate');
     if (local) {
       trace.matchScore = local.totalHashes > 0 ? Math.min(1, local.commonHashes / local.totalHashes) : 0;
       // Corpus QA (voir qaCorpusMetadata.ts) essayé EN PREMIER -- résolution
@@ -154,6 +192,7 @@ async function identifyHandler(req: KeepAuthedRequest, res: Response) {
       trace.noMatchReason = 'not_in_local_index';
     }
   } catch (e) {
+    addStep(trace.requestId, 'AUDFPRINT_RESULT', 'fail', (e as Error).message);
     if (!(e instanceof AudfprintNotConfiguredError)) {
       console.warn('[KEEP][local-index] recherche locale échouée, repli sur AcoustID:', (e as Error).message);
       trace.noMatchReason = `local_index_error: ${(e as Error).message}`;
@@ -168,6 +207,7 @@ async function identifyHandler(req: KeepAuthedRequest, res: Response) {
     const fingerprint = await computeFingerprint(audio, ext);
     const match = await lookupAcoustId(fingerprint, apiKey);
     if (!match) {
+      addStep(trace.requestId, 'FALLBACK_RESULT', 'fail', 'acoustid_no_match');
       trace.result = 'no_match';
       trace.uiResultSent = true;
       console.log(`[KEEP][TRACE][${trace.requestId}] RESULT=no_match reason=${trace.noMatchReason ?? 'acoustid_no_match'}`);
@@ -175,6 +215,7 @@ async function identifyHandler(req: KeepAuthedRequest, res: Response) {
       return;
     }
     const isrc = await fetchIsrcFromMusicBrainz(match.musicbrainzRecordingId).catch(() => undefined);
+    addStep(trace.requestId, 'FALLBACK_RESULT', 'ok', `${match.title} — ${match.artist} score=${match.score}`);
     trace.result = 'success';
     trace.resultDetail = `${match.title} — ${match.artist} [acoustid]`;
     trace.matchScore = match.score;
@@ -205,6 +246,7 @@ async function identifyHandler(req: KeepAuthedRequest, res: Response) {
       });
     }
   } catch (e) {
+    addStep(trace.requestId, 'FALLBACK_RESULT', 'fail', (e as Error).message);
     trace.result = 'error';
     if (e instanceof FpcalcNotFoundError) {
       trace.resultDetail = 'fpcalc_not_installed';

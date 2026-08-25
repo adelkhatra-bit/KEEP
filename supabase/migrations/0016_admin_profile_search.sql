@@ -1,0 +1,16 @@
+-- KEEP — 0016: recherche utilisateur pour Super Admin (cf. demande explicite
+-- du 24/08/2026 -- "je dois pouvoir rechercher un utilisateur et lui donner
+-- un accès").
+--
+-- STATUT HONNÊTE trouvé en auditant ce tour-ci : SUPABASE_SERVICE_ROLE_KEY
+-- (packages/backend/.env) est toujours un placeholder, donc `adminClient`
+-- (routes/admin.ts) échoue silencieusement sur de VRAIES requêtes Supabase
+-- avec une clé invalide -- pas un 503 propre, un vrai échec réseau que le
+-- frontend admin absorbe en retombant sur les données de démo (d'où "Connexion
+-- au backend KEEP…" qui ne se résout jamais, constaté en testant la page
+-- Utilisateurs). Pas un bug introduit ce tour-ci -- une dépendance jamais
+-- configurée. Cette migration ne le corrige pas entièrement (routes/admin.ts
+-- existantes restent à réécrire en RLS+jeton comme social.ts, tâche séparée
+-- de taille réelle) mais débloque la recherche utilisateur pour le NOUVEAU
+-- flux d'accès offert sans attendre ce chantier plus large.
+create policy profiles_admin_select on profiles for select using (is_admin(auth.uid()));

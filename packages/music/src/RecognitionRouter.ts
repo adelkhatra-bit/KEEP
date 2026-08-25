@@ -36,11 +36,11 @@ export interface RecognitionRouterResult {
 export class RecognitionRouter {
   constructor(private readonly providers: MusicRecognitionProvider[]) {}
 
-  async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionRouterResult> {
+  async recognize(audioSample: ArrayBuffer | Blob, requestId?: string): Promise<RecognitionRouterResult> {
     const attempts: RecognitionAttempt[] = [];
     for (const provider of this.providers) {
       try {
-        const result = await provider.recognize(audioSample);
+        const result = await provider.recognize(audioSample, requestId);
         if (result) {
           attempts.push({ providerId: provider.providerId, outcome: 'success' });
           return { result, matchedProviderId: provider.providerId, attempts };

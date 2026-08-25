@@ -86,6 +86,46 @@ let cachedRecognitionConfig: RecognitionConfig | null = null;
  * migration) si le backend est injoignable, ne bloque jamais une session
  * pour un problème réseau.
  */
+export type CreditState = 'sync_error' | 'unlimited' | 'available' | 'zero';
+
+export interface CreditStatus {
+  state: CreditState;
+  /** Restant réel, jamais négatif -- 0 dès que `successCount` atteint `limit`. */
+  remaining: number;
+  /** Plafond total actuel (invité: guestSuccessLimit seul ; inscrit: guestSuccessLimit + signupBonusSuccesses). */
+  limit: number;
+  isGuest: boolean;
+  guestSuccessLimit: number;
+  signupBonusSuccesses: number;
+}
+
+/**
+ * SEUL endroit qui calcule "combien il reste" -- cf. demande explicite du
+ * 24/08/2026 (Adel, test réel : "je ne veux jamais avoir 2 téléchargements
+ * restants sur un écran et épuisés sur un autre"). `checkRecognitionCredit`
+ * (le GATE, appelé au vrai moment du GARDER) et `fetchCreditStatus` (l'AFFICHAGE,
+ * appelé par CreditCounter/ProfileScreen/HomeScreen via useCreditStatus)
+ * appellent tous les deux CETTE fonction -- aucune deuxième formule de calcul
+ * du restant ne doit jamais exister ailleurs dans le code.
+ */
+function computeCreditStatus(
+  successCount: number,
+  isGuest: boolean,
+  config: RecognitionConfig,
+  isPremiumTier: boolean
+): CreditStatus {
+  const limit = isGuest ? config.guestSuccessLimit : config.guestSuccessLimit + config.signupBonusSuccesses;
+  const remaining = Math.max(0, limit - successCount);
+  return {
+    state: isPremiumTier ? 'unlimited' : remaining === 0 ? 'zero' : 'available',
+    remaining,
+    limit,
+    isGuest,
+    guestSuccessLimit: config.guestSuccessLimit,
+    signupBonusSuccesses: config.signupBonusSuccesses,
+  };
+}
+
 /**
  * Règle produit explicite et définitive du 24/08/2026 : "Détecter/écouter =
  * 0 crédit. Un téléchargement réellement effectué = 1 crédit." -- ce
@@ -100,12 +140,28 @@ let cachedRecognitionConfig: RecognitionConfig | null = null;
 export async function checkRecognitionCredit(): Promise<{ allowed: boolean; isGuest: boolean }> {
   const userState = useUserStore.getState();
   const isGuest = !userState.user || userState.isAnonymous;
-  const sub = await fetchMySubscription();
+  const [sub, config] = await Promise.all([fetchMySubscription(), fetchRecognitionConfig()]);
   const isPremiumTier = sub?.plans?.code != null && sub.plans.code !== 'FREE';
-  if (isPremiumTier) return { allowed: true, isGuest };
-  const { guestSuccessLimit, signupBonusSuccesses } = await fetchRecognitionConfig();
-  const limit = isGuest ? guestSuccessLimit : guestSuccessLimit + signupBonusSuccesses;
-  return { allowed: userState.successCount < limit, isGuest };
+  const status = computeCreditStatus(userState.successCount, isGuest, config, isPremiumTier);
+  return { allowed: status.state !== 'zero', isGuest };
+}
+
+/**
+ * Version AFFICHAGE de la même règle (voir computeCreditStatus) -- utilisée
+ * par useCreditStatus.ts (hook partagé CreditCounter/ProfileScreen/HomeScreen).
+ * `null` = hors-ligne, l'appelant garde le dernier état connu plutôt que
+ * d'afficher un chiffre inventé.
+ */
+export async function fetchCreditStatus(): Promise<CreditStatus | null> {
+  const userState = useUserStore.getState();
+  const isGuest = !userState.user || userState.isAnonymous;
+  try {
+    const [config, sub] = await Promise.all([fetchRecognitionConfig(), fetchMySubscription()]);
+    const isPremiumTier = sub?.plans?.code != null && sub.plans.code !== 'FREE';
+    return computeCreditStatus(userState.successCount, isGuest, config, isPremiumTier);
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchRecognitionConfig(): Promise<RecognitionConfig> {

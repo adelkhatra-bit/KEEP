@@ -3,7 +3,7 @@ import { CanonicalTrack, RecognitionRouterResult } from '@keep/music';
 import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { captureAudioSample, MicPermissionDeniedError, CaptureDiagnostics, releaseCaptureResources } from '../services/micCapture';
+import { captureAudioSample, MicPermissionDeniedError, CaptureDiagnostics, releaseCaptureResources, startLiveLevelMeter } from '../services/micCapture';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 import { useMusicServiceStore } from './useMusicServiceStore';
 import { useUserStore } from './useUserStore';
@@ -290,6 +290,9 @@ let tickHandle: ReturnType<typeof setTimeout> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let lastDetectionAt = 0;
 let consecutiveErrors = 0;
+/** Arrête le metering micro CONTINU (voir startLiveLevelMeter) -- indépendant
+ * du cycle de capture d'empreinte, vit pour toute la durée d'une session. */
+let stopLiveLevelMeter: (() => void) | null = null;
 function clearTimers() {
   if (tickHandle) {
     clearTimeout(tickHandle);
@@ -339,6 +342,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
 
     const settings = DEFAULT_RECOGNITION_SETTINGS;
+
+    // Metering micro CONTINU pour toute la durée de la session (cf. demande
+    // explicite du 24/08/2026 -- "le visuel doit réagir en temps réel au
+    // son"), complètement séparé du cycle de capture d'empreinte ci-dessous
+    // (tick/scheduleNext) -- voir micCapture.ts pour le root cause du gel
+    // précédent. Uniquement en reconnaissance réelle -- Mode Démo simule déjà
+    // sa propre respiration décorative (voir SessionPulse.tsx).
+    stopLiveLevelMeter?.();
+    stopLiveLevelMeter = musicEngine.isRealRecognition
+      ? startLiveLevelMeter((level) => {
+          if (get().isActive) set({ micLevel: level });
+        })
+      : null;
 
     const scheduleNext = (delayMs: number) => {
       if (!get().isActive) return;
@@ -749,6 +765,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   requestEndSession: (title) => {
     clearTimers();
+    stopLiveLevelMeter?.();
+    stopLiveLevelMeter = null;
     releaseCaptureResources();
     const s = get();
     if (!s.sessionId || !s.startedAt) return null;

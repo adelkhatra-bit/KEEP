@@ -10,9 +10,13 @@ export interface MusicRecognitionProvider {
 
   /**
    * @param audioSample Échantillon audio (PCM/WAV/AAC selon provider), quelques secondes.
+   * @param requestId Cf. demande explicite du 23/08/2026 -- id de traçage E2E généré côté
+   * client (USER_TAP), transmis tel quel si le provider fait un appel réseau traçable côté
+   * backend KEEP (voir AcoustIdRecognitionProvider). Optionnel : ignoré par les providers
+   * qui n'appellent pas notre propre backend (AudD, Demo).
    * @returns null si aucune correspondance suffisamment confiante.
    */
-  recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null>;
+  recognize(audioSample: ArrayBuffer | Blob, requestId?: string): Promise<RecognitionResult | null>;
 
   /**
    * Reconnaissance à partir d'un lien partagé (TikTok/Instagram/X/Facebook/

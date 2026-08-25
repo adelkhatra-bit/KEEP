@@ -1,5 +1,10 @@
 # KEEP — Reste à faire (par priorité, cf. cahier des charges §93)
 
+> ⚠️ 24/08/2026 : le suivi actif est maintenant **docs/KEEP_MASTER_CHECKLIST.md**
+> (statuts TODO/IN PROGRESS/PARTIAL/PASS E2E/BLOCKED EXTERNAL, réconcilié
+> avec le vrai code testé). Ce fichier-ci reste comme historique, ne plus
+> y ajouter de nouvelles tâches.
+
 ## Priorité 1-2 — Cœur musical (EN COURS)
 - [x] Débloquer npm/Expo — fait en session locale le 21/08/2026 (voir
       PROJECT_STATUS.md "Session locale du 21/08/2026") : `npm install`

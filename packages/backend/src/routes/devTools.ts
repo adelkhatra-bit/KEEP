@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { getTrace, listTraces, confirmDisplay } from '../lib/requestTraces';
+import { getTrace, listTraces, confirmDisplay, addStep, TraceStep } from '../lib/requestTraces';
 
 /**
  * Outils DEV uniquement (cf. demande explicite du 23/08/2026 -- "bouton
@@ -107,6 +107,23 @@ router.get('/trace/:id', (req, res) => {
   const trace = getTrace(req.params.id);
   if (!trace) return void res.status(404).json({ error: 'not_found' });
   res.json(trace);
+});
+
+/**
+ * Étape client d'une trace (cf. demande explicite du 23/08/2026 -- "trace
+ * une tentative réelle avec un REQUEST_ID unique depuis mon clic jusqu'au
+ * résultat : USER_TAP -> MICRO_STARTED -> AUDIO_CAPTURED -> ... -> UI_RESULT,
+ * PASS/FAIL + durée pour chaque étape"). SANS auth -- appelé AVANT même que
+ * le mobile ait un jeton de session (c'est justement l'étape qu'on cherche à
+ * observer), donc ce endpoint ne peut pas dépendre de requireKeepAuth.
+ */
+router.post('/trace-step', express.json(), (req, res) => {
+  if (IS_PROD) return void res.status(404).end();
+  const body = req.body as { requestId?: string; step?: TraceStep['name']; status?: TraceStep['status']; detail?: string };
+  if (!body.requestId || !body.step || !body.status) return void res.status(400).json({ error: 'missing_fields' });
+  addStep(body.requestId, body.step, body.status, body.detail);
+  console.log(`[KEEP][TRACE][${body.requestId}] STEP=${body.step} STATUS=${body.status}${body.detail ? ` DETAIL=${body.detail}` : ''}`);
+  res.status(204).end();
 });
 
 /** Appelé par le mobile juste après avoir rendu le résultat à l'écran -- distingue "réponse envoyée" (uiResultSent, déjà vrai côté serveur) de "réellement affiché" (confirmé par le client). */

@@ -1,40 +1,96 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import DataModeBanner from '../components/DataModeBanner';
+import { useLiveOrDemo } from '../lib/useLiveOrDemo';
+import { adminApi, AdminApiError } from '../lib/apiClient';
 
-interface PlanRow {
+interface RemotePlan {
+  id: string;
   code: string;
-  monthly: number;
-  yearly: number;
-  trialDays: number;
+  name: string;
+  description: string | null;
+  trial_days: number;
+  is_active: boolean;
+  plan_prices: { id: string; period: string; amount: number; is_active: boolean; currency_code: string }[];
 }
 
-const INITIAL_PLANS: PlanRow[] = [
-  { code: 'FREE', monthly: 0, yearly: 0, trialDays: 0 },
-  { code: 'PREMIUM', monthly: 4.99, yearly: 39.99, trialDays: 7 },
-  { code: 'CREATOR_PRO', monthly: 9.99, yearly: 79, trialDays: 14 },
-  { code: 'VENUE_PRO', monthly: 29, yearly: 279, trialDays: 14 },
+interface PlanRow {
+  id: string;
+  code: string;
+  name: string;
+  monthlyPriceId: string | null;
+  monthly: number;
+  trialDays: number;
+  isActive: boolean;
+}
+
+// Repli Mode Démo honnête uniquement -- jamais la source de vérité (voir
+// docs/KEEP_DECISIONS.md : "aucune information marquée dans le dur, surtout
+// la tarification"). Utilisé UNIQUEMENT si le backend réel est injoignable.
+const DEMO_PLANS: PlanRow[] = [
+  { id: 'demo-free', code: 'FREE', name: 'Free', monthlyPriceId: null, monthly: 0, trialDays: 0, isActive: true },
+  { id: 'demo-premium', code: 'PREMIUM', name: 'Premium', monthlyPriceId: null, monthly: 2.99, trialDays: 0, isActive: true },
+  { id: 'demo-creator', code: 'CREATOR_PRO', name: 'Creator Pro', monthlyPriceId: null, monthly: 9.99, trialDays: 0, isActive: true },
+  { id: 'demo-venue', code: 'VENUE_PRO', name: 'Venue Pro', monthlyPriceId: null, monthly: 29.99, trialDays: 0, isActive: true },
 ];
 
+function mapPlans(raw: RemotePlan[]): PlanRow[] {
+  return raw.map((p) => {
+    const monthlyPrice = p.plan_prices.find((price) => price.period === 'MONTHLY' && price.is_active);
+    return {
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      monthlyPriceId: monthlyPrice?.id ?? null,
+      monthly: monthlyPrice?.amount ?? 0,
+      trialDays: p.trial_days,
+      isActive: p.is_active,
+    };
+  });
+}
+
 /**
- * Édition des plans/prix — cf. règle "aucun prix codé en dur dans l'app".
- * En Mode Démo, l'édition modifie un state local uniquement (aucune
- * écriture réelle). En Mode Réel, ce formulaire écrira dans
- * `plans`/`plan_prices` (supabase/migrations/0003_commerce.sql) via le
- * backend, avec audit_log de chaque changement (§48-49).
+ * Édition des plans/prix — RÉELLE (cf. demande explicite du 24/08/2026 --
+ * "je veux aucune information marquée dans le dur, surtout la
+ * tarification... test complet, audit complet"). AUDIT FAIT AVANT DE
+ * RÉÉCRIRE : `packages/backend/src/routes/admin.ts` avait déjà tout le CRUD
+ * nécessaire (GET/PATCH /plans, PATCH /plan-prices/:id) mais 100% gated par
+ * `service_role` (placeholder cassé, même cause déjà trouvée pour
+ * Utilisateurs) -- réparé en RLS+is_admin() (migration 0019), pas une
+ * deuxième version. Repli Mode Démo honnête (DataModeBanner) tant qu'aucun
+ * `admin_users` réel n'existe -- jamais un faux "connecté".
  */
 export default function Plans() {
-  const [plans, setPlans] = useState(INITIAL_PLANS);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const plansResult = useLiveOrDemo<RemotePlan[], PlanRow[]>('/plans', mapPlans, DEMO_PLANS);
+  const [rows, setRows] = useState<PlanRow[]>(DEMO_PLANS);
+  const [dirty, setDirty] = useState<Record<string, boolean>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
 
-  const updatePlan = (code: string, field: keyof PlanRow, value: number) => {
-    setPlans((prev) => prev.map((p) => (p.code === code ? { ...p, [field]: value } : p)));
-    setSavedAt(null);
+  useEffect(() => setRows(plansResult.data), [plansResult.data]);
+
+  const updateRow = (id: string, field: 'monthly' | 'trialDays', value: number) => {
+    setRows((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+    setDirty((d) => ({ ...d, [id]: true }));
   };
 
-  const handleSave = () => {
-    // MODE DÉMO : pas d'écriture réelle. En Mode Réel, appel au backend
-    // (PATCH /admin/plans) qui écrit dans plan_prices + audit_logs.
-    setSavedAt(new Date().toLocaleTimeString('fr-FR'));
+  const handleSave = async (row: PlanRow) => {
+    if (plansResult.mode !== 'live') return; // Mode Démo : rien à écrire, pas de faux succès.
+    setSavingId(row.id);
+    setError(null);
+    try {
+      if (row.monthlyPriceId) {
+        await adminApi.patch(`/plan-prices/${row.monthlyPriceId}`, { amount: row.monthly });
+      }
+      await adminApi.patch(`/plans/${row.id}`, { trial_days: row.trialDays });
+      setDirty((d) => ({ ...d, [row.id]: false }));
+      setSavedAt((s) => ({ ...s, [row.id]: new Date().toLocaleTimeString('fr-FR') }));
+    } catch (e) {
+      setError(e instanceof AdminApiError ? `${e.message} (HTTP ${e.status})` : 'Échec de sauvegarde.');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
@@ -42,64 +98,60 @@ export default function Plans() {
       <div className="page-title">Abonnements & Prix</div>
       <div className="page-subtitle">FREE / PREMIUM / CREATOR PRO / VENUE PRO — France (EUR)</div>
 
-      <div className="demo-banner">
-        🎭 MODE DÉMO — modification en mémoire uniquement (perdue au
-        rafraîchissement). Voir docs/PRICING_STRATEGY.md pour la
-        méthodologie de ces valeurs de départ.
-      </div>
+      <DataModeBanner
+        mode={plansResult.mode}
+        loading={plansResult.loading}
+        reason={plansResult.reason}
+        demoNote="4 plans d'exemple, valeurs de démarrage (voir docs/PRICING_STRATEGY.md)."
+      />
+      {error && <p style={{ color: 'var(--danger, #ff5c5c)', marginTop: 8 }}>{error}</p>}
 
       <table>
         <thead>
-          <tr><th>Plan</th><th>Prix mensuel</th><th>Prix annuel</th><th>Essai (jours)</th></tr>
+          <tr><th>Plan</th><th>Prix mensuel</th><th>Essai (jours)</th><th /></tr>
         </thead>
         <tbody>
-          {plans.map((p) => (
-            <tr key={p.code}>
-              <td>{p.code}</td>
+          {rows.map((p) => (
+            <tr key={p.id}>
+              <td>{p.name} <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>({p.code})</span></td>
               <td>
                 <input
                   type="number"
                   step="0.01"
                   value={p.monthly}
-                  onChange={(e) => updatePlan(p.code, 'monthly', parseFloat(e.target.value) || 0)}
-                /> €
-              </td>
-              <td>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={p.yearly}
-                  onChange={(e) => updatePlan(p.code, 'yearly', parseFloat(e.target.value) || 0)}
+                  disabled={p.code === 'FREE' || plansResult.mode !== 'live'}
+                  onChange={(e) => updateRow(p.id, 'monthly', parseFloat(e.target.value) || 0)}
                 /> €
               </td>
               <td>
                 <input
                   type="number"
                   value={p.trialDays}
-                  onChange={(e) => updatePlan(p.code, 'trialDays', parseInt(e.target.value, 10) || 0)}
+                  disabled={plansResult.mode !== 'live'}
+                  onChange={(e) => updateRow(p.id, 'trialDays', parseInt(e.target.value, 10) || 0)}
                 />
+              </td>
+              <td>
+                {plansResult.mode === 'live' && (
+                  <button
+                    onClick={() => handleSave(p)}
+                    disabled={!dirty[p.id] || savingId === p.id}
+                    style={{
+                      background: dirty[p.id] ? 'var(--primary)' : 'var(--bg-card)',
+                      color: dirty[p.id] ? '#fff' : 'var(--text-muted)',
+                      border: '1px solid var(--border)', borderRadius: 8, padding: '6px 14px',
+                      fontWeight: 700, cursor: dirty[p.id] ? 'pointer' : 'default', fontSize: 12,
+                    }}
+                  >
+                    {savingId === p.id ? '…' : 'Enregistrer'}
+                  </button>
+                )}
+                {savedAt[p.id] && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Enregistré à {savedAt[p.id]}</div>}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <button
-        onClick={handleSave}
-        style={{
-          marginTop: 20,
-          background: 'var(--primary)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 8,
-          padding: '10px 20px',
-          fontWeight: 700,
-          cursor: 'pointer',
-        }}
-      >
-        Enregistrer
-      </button>
-      {savedAt && <p className="save-hint">Enregistré (Mode Démo) à {savedAt} — non persisté, aucun backend connecté.</p>}
     </AdminLayout>
   );
 }

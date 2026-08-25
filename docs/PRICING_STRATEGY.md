@@ -1,8 +1,13 @@
 # Stratégie tarifaire KEEP
 
-Étude réalisée le 2026-08-21. Objectif du cahier des charges : **prix bas +
-volume mondial + viralité + coûts maîtrisés**. Toutes les valeurs ci-dessous
-sont des **valeurs de démarrage**, saisies dans
+Étude initiale réalisée le 2026-08-21. **Grille RÉVISÉE le 24/08/2026** (cf.
+`docs/KEEP_DECISIONS.md`) après test réel du Super Admin/badges profil :
+plans renommés pour RÉUTILISER les codes déjà seedés en base
+(`FREE`/`PREMIUM`/`CREATOR_PRO`/`VENUE_PRO`) plutôt que d'en inventer de
+nouveaux, et prix ajustés. La grille ci-dessous reflète cette révision — la
+grille "4,99 €/9,99 €/29 €" plus bas dans l'historique de ce fichier avant
+cette date est OBSOLÈTE, gardée nulle part ailleurs que git blame. Toutes les
+valeurs restent des **valeurs de démarrage**, saisies dans
 `supabase/migrations/0007_seed_defaults.sql`, et **100% modifiables depuis le
 Super Admin** une fois construit (§48) — rien n'est codé en dur côté app.
 
@@ -21,12 +26,19 @@ légèrement au-dessus de Soundiiz tout en restant très accessible.
 
 ## Grille proposée (marché de lancement : France, EUR)
 
-| Plan | Mensuel | Annuel | Pour qui |
-|---|---|---|---|
-| **FREE** | 0 € | 0 € | Découverte + viralité — 150 GARDER/mois, 1 provider, 3 comparaisons/mois, 100 follows |
-| **PREMIUM** | 4,99 € | 39,99 € (≈3,33 €/mois) | Usage illimité, historique complet, jusqu'à 3 providers, essai 7 jours |
-| **CREATOR PRO** | 9,99 € | 79 € | DJ/artistes/créateurs — analytics, événements (jusqu'à 10/mois), essai 14 jours |
-| **VENUE PRO** | 29 € | 279 € | Clubs/bars/hôtels — événements illimités, QR, analytics de fréquentation, essai 14 jours |
+| Plan (code réel) | Mensuel | Pour qui |
+|---|---|---|
+| **FREE** | 0 € | Guest 3 reconnaissances, +3 après inscription (6 au total), puis palier limité |
+| **PREMIUM** | 2,99 €/mois | Usage illimité, historique complet |
+| **CREATOR_PRO** | 9,99 €/mois | DJ/artistes/créateurs — analytics, propagation |
+| **VENUE_PRO** | 29,99 €/mois | Clubs/bars/hôtels — analytics de fréquentation |
+
+Codes plans RÉELS (base + Super Admin) : `FREE`, `PREMIUM`, `CREATOR_PRO`,
+`VENUE_PRO` — jamais renommés, réutilisés tels quels (cf. décision du
+24/08/2026 : ne pas créer de nouveaux codes alors que ceux-ci existaient déjà
+seedés). Annuel/essais/paliers détaillés restent À DÉFINIR (non
+re-confirmés depuis la révision) — ne pas supposer les anciens chiffres
+annuels/essais ci-dessus toujours valables sans revalidation.
 
 ### Logique de conversion Free → payant
 

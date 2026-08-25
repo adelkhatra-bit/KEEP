@@ -1,6 +1,7 @@
 {
   "credits": {
-    "remaining": "{{count}} téléchargement(s) gratuit(s) restant(s)",
+    "remaining": "{{count}} téléchargement gratuit restant",
+    "remaining_plural": "{{count}} téléchargements gratuits restants",
     "zero": "Téléchargements gratuits épuisés",
     "unlimited": "Téléchargements illimités",
     "syncError": "Téléchargements indisponibles"
@@ -124,9 +125,13 @@
     "exitGuestSession": "Quitter (invité)",
     "createAccountPrompt": "Tu utilises KEEP en invité. Crée ton compte gratuit pour garder tes musiques sur tous tes appareils.",
     "createAccountCta": "Créer mon compte gratuit",
-    "createAccountCtaBonus": "Créer mon compte · obtenir +{{bonus}} gratuits",
+    "createAccountCtaBonus": "Créer mon compte · +{{bonus}} gratuits",
     "guestLabel": "Invité",
     "alreadyRegistered": "Déjà inscrit ? Se connecter",
+    "guestExhaustedTitle": "Tes {{limit}} téléchargements offerts sont utilisés",
+    "guestExhaustedBody": "Crée ton compte et reçois {{bonus}} téléchargements supplémentaires",
+    "registeredExhaustedTitle": "Tes téléchargements gratuits sont terminés",
+    "registeredExhaustedBody": "Passe à une formule KEEP",
     "myOffer": "Mon offre",
     "viewOffers3": "Voir les 3 offres",
     "myStats": "Mes statistiques",

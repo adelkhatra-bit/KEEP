@@ -14,6 +14,21 @@
  */
 import { randomUUID } from 'node:crypto';
 
+/**
+ * Étape nommée d'une tentative (cf. demande explicite du 23/08/2026 --
+ * "USER_TAP -> MICRO_STARTED -> AUDIO_CAPTURED -> LOCAL_INDEX_CALLED ->
+ * AUDFPRINT_RESULT -> FALLBACK_RESULT -> UI_RESULT", PASS/FAIL + durée
+ * pour chacune). `AUTH_TOKEN` ajouté en plus de sa liste -- c'est
+ * exactement l'étape qui a échoué en silence jusqu'ici (mur "connecte-toi"
+ * malgré ensureGuestSession()), elle doit être visible comme les autres.
+ */
+export interface TraceStep {
+  name: 'USER_TAP' | 'MIC_STARTED' | 'AUDIO_CAPTURED' | 'AUDIO_LEVEL' | 'AUTH_TOKEN' | 'LOCAL_INDEX_CALLED' | 'AUDFPRINT_RESULT' | 'FALLBACK_RESULT' | 'UI_RESULT';
+  status: 'ok' | 'fail';
+  atMs: number;
+  detail?: string;
+}
+
 export interface RequestTrace {
   requestId: string;
   timestamp: string;
@@ -32,10 +47,13 @@ export interface RequestTrace {
   noMatchReason: string | null;
   uiResultSent: boolean;
   uiResultDisplayedConfirmedAt: string | null;
+  /** Cf. demande explicite du 23/08/2026 -- trace pas à pas, PASS/FAIL + durée entre chaque étape. */
+  steps: TraceStep[];
 }
 
 const MAX_TRACES = 50;
 const traces = new Map<string, RequestTrace>();
+const traceStartedAtMs = new Map<string, number>();
 
 function parseDevice(userAgent: string | undefined): string {
   if (!userAgent) return 'unknown';
@@ -45,9 +63,32 @@ function parseDevice(userAgent: string | undefined): string {
   return 'unknown';
 }
 
-export function startTrace(opts: { userAgent?: string; buildId?: string; sessionId?: string; guestUserId?: string }): RequestTrace {
+/**
+ * `requestId` optionnel (cf. demande explicite du 23/08/2026) : si le mobile
+ * a déjà commencé une trace côté client (USER_TAP/MICRO_STARTED/AUDIO_CAPTURED
+ * envoyés via POST /api/dev/trace-step AVANT même que ce handler ne soit
+ * atteint), on CONTINUE cette même trace au lieu d'en générer une nouvelle --
+ * sinon les étapes client et serveur d'une même tentative réelle finiraient
+ * dans deux enregistrements différents, impossible à recoller.
+ */
+export function startTrace(opts: {
+  requestId?: string;
+  userAgent?: string;
+  buildId?: string;
+  sessionId?: string;
+  guestUserId?: string;
+}): RequestTrace {
+  const existing = opts.requestId ? traces.get(opts.requestId) : undefined;
+  if (existing) {
+    // Complète les champs connus seulement une fois le vrai appel backend atteint.
+    if (opts.buildId) existing.buildId = opts.buildId;
+    if (opts.sessionId) existing.sessionId = opts.sessionId;
+    if (opts.guestUserId) existing.guestUserId = opts.guestUserId;
+    existing.routerCalled = true;
+    return existing;
+  }
   const trace: RequestTrace = {
-    requestId: randomUUID(),
+    requestId: opts.requestId ?? randomUUID(),
     timestamp: new Date().toISOString(),
     device: parseDevice(opts.userAgent),
     buildId: opts.buildId ?? null,
@@ -64,13 +105,34 @@ export function startTrace(opts: { userAgent?: string; buildId?: string; session
     noMatchReason: null,
     uiResultSent: false,
     uiResultDisplayedConfirmedAt: null,
+    steps: [],
   };
   traces.set(trace.requestId, trace);
+  traceStartedAtMs.set(trace.requestId, Date.now());
   if (traces.size > MAX_TRACES) {
     const oldest = traces.keys().next().value;
-    if (oldest) traces.delete(oldest);
+    if (oldest) {
+      traces.delete(oldest);
+      traceStartedAtMs.delete(oldest);
+    }
   }
   return trace;
+}
+
+/**
+ * Ajoute une étape nommée à une trace, en la créant si elle n'existe pas
+ * encore (cf. demande explicite du 23/08/2026) -- appelé côté client AVANT
+ * tout appel backend réel (USER_TAP/MICRO_STARTED/AUDIO_CAPTURED/AUTH_TOKEN),
+ * donc la trace n'existe pas forcément déjà quand la première étape arrive.
+ */
+export function addStep(requestId: string, name: TraceStep['name'], status: TraceStep['status'], detail?: string): void {
+  let trace = traces.get(requestId);
+  if (!trace) {
+    trace = startTrace({ requestId });
+    trace.routerCalled = false; // recréée depuis une étape client -- pas encore prouvé que le backend /identify a été appelé.
+  }
+  const startedAt = traceStartedAtMs.get(requestId) ?? Date.now();
+  trace.steps.push({ name, status, atMs: Date.now() - startedAt, detail });
 }
 
 export function getTrace(id: string): RequestTrace | undefined {

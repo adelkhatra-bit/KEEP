@@ -1,6 +1,7 @@
 {
   "credits": {
-    "remaining": "{{count}} free download(s) left",
+    "remaining": "{{count}} free download left",
+    "remaining_plural": "{{count}} free downloads left",
     "zero": "Free downloads used up",
     "unlimited": "Unlimited downloads",
     "syncError": "Downloads unavailable"
@@ -124,9 +125,13 @@
     "exitGuestSession": "Exit (guest)",
     "createAccountPrompt": "You're using KEEP as a guest. Create your free account to keep your music across all your devices.",
     "createAccountCta": "Create my free account",
-    "createAccountCtaBonus": "Create my account · get +{{bonus}} free",
+    "createAccountCtaBonus": "Create my account · +{{bonus}} free",
     "guestLabel": "Guest",
     "alreadyRegistered": "Already have an account? Sign in",
+    "guestExhaustedTitle": "Your {{limit}} free downloads are used up",
+    "guestExhaustedBody": "Create your account and get {{bonus}} more downloads",
+    "registeredExhaustedTitle": "Your free downloads are all used up",
+    "registeredExhaustedBody": "Go to a KEEP plan",
     "myOffer": "My plan",
     "viewOffers3": "See all 3 plans",
     "myStats": "My stats",

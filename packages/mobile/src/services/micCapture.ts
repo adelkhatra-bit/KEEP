@@ -180,6 +180,7 @@ function getWebAudioCtx(): AudioContext {
  * suivant si besoin, aucune perte de fonctionnalité.
  */
 export function releaseCaptureResources(): void {
+  detachLiveLevelMeter();
   if (webStream) {
     webStream.getTracks().forEach((t) => t.stop());
     webStream = null;
@@ -188,6 +189,101 @@ export function releaseCaptureResources(): void {
     webAudioCtx.close().catch(() => {});
     webAudioCtx = null;
   }
+}
+
+let meterSource: MediaStreamAudioSourceNode | null = null;
+let meterProcessor: ScriptProcessorNode | null = null;
+let meterGain: GainNode | null = null;
+
+function detachLiveLevelMeter(): void {
+  if (meterProcessor) {
+    meterProcessor.onaudioprocess = null;
+    meterProcessor.disconnect();
+    meterProcessor = null;
+  }
+  if (meterSource) {
+    meterSource.disconnect();
+    meterSource = null;
+  }
+  if (meterGain) {
+    meterGain.disconnect();
+    meterGain = null;
+  }
+}
+
+/**
+ * Retour visuel micro RÉELLEMENT en direct pendant toute la session (cf.
+ * demande explicite du 24/08/2026 -- "si le micro écoute réellement, je veux
+ * que le visuel réagisse en temps réel au son... quand je parle ou qu'il y a
+ * de la musique, les barres doivent bouger immédiatement"). Root cause du gel
+ * observé : le niveau n'était jusqu'ici mis à jour QUE pendant les ~10s
+ * d'une capture d'empreinte (voir captureAudioSampleWeb), avec un silence
+ * total de 8 à 53s entre deux captures (recognitionSettings.ts) -- pendant ce
+ * silence, `micLevel` restait figé à sa dernière valeur, indiscernable d'un
+ * micro mort. Ce graphe audio est COMPLÈTEMENT séparé de celui de la capture
+ * d'empreinte (jamais touché, jamais réutilisé) -- juste un deuxième noeud
+ * source sur le MÊME flux partagé (ensureWebStream), tournant en continu
+ * pendant toute la durée de la session, indépendamment du cycle de capture.
+ * Web uniquement -- voir captureAudioSampleNative pour le natif (metering
+ * limité aux fenêtres de capture, pas encore de solution continue vérifiable
+ * sans appareil réel, honnêtement non traité ici).
+ */
+export function startLiveLevelMeter(onLevel: (level: number) => void): () => void {
+  if (Platform.OS !== 'web') return () => {};
+  let stopped = false;
+
+  const attach = async () => {
+    if (stopped || (typeof document !== 'undefined' && document.hidden)) return;
+    try {
+      const stream = await ensureWebStream();
+      if (stopped) return;
+      const ctx = getWebAudioCtx();
+      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+      if (stopped) return;
+      detachLiveLevelMeter(); // au cas où un ancien graphe traînerait (reconnexion après onglet caché).
+      meterSource = ctx.createMediaStreamSource(stream);
+      // Buffer plus petit que celui de la capture d'empreinte (2048 vs 4096)
+      // -- réactivité visuelle prioritaire ici (~46ms/mise à jour à 44.1kHz),
+      // jamais utilisé pour fingerprinter quoi que ce soit.
+      meterProcessor = ctx.createScriptProcessor(2048, 1, 1);
+      meterGain = ctx.createGain();
+      meterGain.gain.value = 0; // jamais renvoyé vers les haut-parleurs (effet Larsen), même raison que captureAudioSampleWeb.
+      meterProcessor.onaudioprocess = (e) => {
+        const data = e.inputBuffer.getChannelData(0);
+        let peak = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = Math.abs(data[i]);
+          if (v > peak) peak = v;
+        }
+        onLevel(Math.min(1, peak));
+      };
+      meterSource.connect(meterProcessor);
+      meterProcessor.connect(meterGain);
+      meterGain.connect(ctx.destination);
+    } catch {
+      // Permission refusée/erreur -- silencieux ici, le prochain tick de
+      // reconnaissance produira sa propre erreur explicite (micPermissionDenied).
+    }
+  };
+
+  const onVisibility = () => {
+    if (typeof document === 'undefined') return;
+    if (document.hidden) {
+      detachLiveLevelMeter();
+      onLevel(0);
+    } else {
+      attach();
+    }
+  };
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+
+  attach();
+
+  return () => {
+    stopped = true;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+    detachLiveLevelMeter();
+  };
 }
 
 // BUG RÉEL diagnostiqué le 23/08/2026 : aucun listener de visibilité n'existait
@@ -271,7 +367,17 @@ async function captureAudioSampleWeb(
   const sampleRate = audioCtx.sampleRate;
   diag.inputSampleRate = sampleRate;
   diag.requestedCaptureDurationMs = Date.now() - captureStartedAt;
-  await audioCtx.close().catch(() => {});
+  // BUG RÉEL trouvé le 24/08/2026 (Adel, test réel : "l'animation reste
+  // quasiment fixe" malgré une session active) : cette ligne fermait le
+  // AudioContext partagé à la fin de CHAQUE capture d'empreinte (~10s toutes
+  // les 8-53s selon recognitionSettings.ts), alors que le commentaire de
+  // `webAudioCtx` plus haut affirme explicitement "un seul AudioContext créé
+  // UNE FOIS, jamais fermé entre les ticks" -- contradiction directe. Cette
+  // fermeture périodique est aussi ce qui empêchait tout metering CONTINU
+  // (voir startLiveLevelMeter ci-dessous) : le contexte partagé ne survivait
+  // jamais assez longtemps entre deux fenêtres de capture. Seul
+  // releaseCaptureResources() (fin de session / onglet caché) doit fermer le
+  // contexte partagé désormais -- jamais ce point-ci.
 
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
   const merged = new Float32Array(totalLength);

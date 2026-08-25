@@ -12,7 +12,20 @@ import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import SpotifyConnectScreen from '../screens/SpotifyConnectScreen';
+import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
+import OffersScreen from '../screens/OffersScreen';
 import { colors } from '../theme/colors';
+
+/**
+ * Destination UNIQUE de conversion invité -> compte réel (cf. bug réel du
+ * 24/08/2026 -- "Créer mon profil" envoyait vers Profil, où un invité ne
+ * voyait qu'un bouton Déconnexion, aucun moyen direct de créer un compte).
+ * Route accessible depuis n'importe quel écran (HomeScreen, ProfileScreen)
+ * -- un seul écran de conversion, jamais une deuxième copie du flux e-mail.
+ */
+function CreateAccountScreen({ navigation }: any) {
+  return <OnboardingScreen initialStep="email" embedded onDone={() => navigation.goBack()} />;
+}
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -75,6 +88,8 @@ export default function Navigation() {
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="SpotifyConnect" component={SpotifyConnectScreen} />
+        <RootStack.Screen name="CreateAccount" component={CreateAccountScreen} options={{ presentation: 'modal' }} />
+        <RootStack.Screen name="Offers" component={OffersScreen} options={{ presentation: 'modal' }} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

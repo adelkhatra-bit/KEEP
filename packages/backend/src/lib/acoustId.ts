@@ -46,7 +46,15 @@ export async function computeFingerprint(audioBuffer: Buffer, fileExtension: str
   const tmpFile = join(tmpdir(), `keep-fp-${randomUUID()}.${fileExtension}`);
   await writeFile(tmpFile, audioBuffer);
   try {
-    const { stdout } = await execFileAsync('fpcalc', ['-json', tmpFile]);
+    // BUG RÉEL diagnostiqué le 24/08/2026 : `fpcalc` (sans chemin) dépendait
+    // du PATH du process -- réglé une fois dans une session PowerShell
+    // interactive qui a fini par disparaître (redémarrage du backend), donc
+    // ENOENT silencieux dès le premier redémarrage propre suivant, alors que
+    // le binaire n'avait jamais bougé. FPCALC_PATH (chemin absolu) élimine
+    // cette dépendance fragile -- 'fpcalc' reste le repli si non renseigné
+    // (machines où le binaire est un vrai paquet système sur le PATH).
+    const fpcalcBin = process.env.FPCALC_PATH || 'fpcalc';
+    const { stdout } = await execFileAsync(fpcalcBin, ['-json', tmpFile]);
     const parsed = JSON.parse(stdout) as { fingerprint: string; duration: number };
     return { fingerprint: parsed.fingerprint, durationSec: parsed.duration };
   } catch (e: any) {

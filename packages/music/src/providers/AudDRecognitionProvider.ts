@@ -154,6 +154,22 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
 
     const json = (await res.json()) as AudDResponse;
     if (json.status !== 'success') {
+      // BUG RÉEL diagnostiqué le 24/08/2026 (Adel, en direct : "au bout de
+      // 10 secondes ça me met la reconnaissance est indisponible" alors que
+      // le compte AudD est valide et actif) : les codes 300/500 ("problème
+      // de création d'empreinte" / "fichier invalide", voir doc AudD --
+      // pas 900-905 qui restent de vraies pannes auth/quota) signifient
+      // juste que CE clip précis n'était pas exploitable (trop court/trop
+      // faible pour une empreinte) -- fonctionnellement identique à un
+      // no_match, PAS une panne de service. Les traiter comme une erreur
+      // dure déclenchait à tort le message "reconnaissance indisponible"
+      // (+ backoff) pour un simple "rien entendu cette fois", alors que
+      // AcoustID avait déjà correctement renvoyé un no_match propre sur le
+      // même essai -- KEEP doit continuer à écouter normalement.
+      const code = json.error?.error_code;
+      if (code === 300 || code === 500) {
+        return null;
+      }
       throw new AudDRecognitionError(
         `AudD API erreur ${json.error?.error_code ?? '?'} : ${json.error?.error_message ?? 'réponse inattendue'} ` +
           `[diagnostic : ${diagnostic}]`

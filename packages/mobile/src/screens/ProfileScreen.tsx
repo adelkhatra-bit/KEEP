@@ -25,7 +25,8 @@ import VerifiedBadge from '../components/VerifiedBadge';
 import { LANGUAGES, setAppLanguage } from '../i18n';
 import { useMusicServiceStore, MusicServiceId } from '../store/useMusicServiceStore';
 import { useRecentlyPlayedStore } from '../store/useRecentlyPlayedStore';
-import { fetchMySubscription, fetchRecognitionConfig } from '../services/billingApi';
+import { fetchMySubscription, fetchPlans, formatMonthlyPrice, RemotePlan } from '../services/billingApi';
+import { useCreditStatus } from '../hooks/useCreditStatus';
 
 const KIND_OPTIONS: ProfileKind[] = ['USER', 'CREATOR', 'DJ', 'ARTIST', 'PRODUCER', 'VENUE'];
 const PLATFORM_OPTIONS: SocialLink['platform'][] = ['instagram', 'tiktok', 'facebook', 'snapchat', 'youtube', 'x', 'website', 'other'];
@@ -69,17 +70,28 @@ export default function ProfileScreen({ navigation }: any) {
    * erreur bloquante pour un simple badge.
    */
   const [realPlan, setRealPlan] = useState<{ code: string; name: string } | null>(null);
-  const [signupBonusSuccesses, setSignupBonusSuccesses] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetchMySubscription().then((sub) => {
       if (!cancelled && sub?.plans) setRealPlan(sub.plans);
     });
-    fetchRecognitionConfig().then((cfg) => {
-      if (!cancelled) setSignupBonusSuccesses(cfg.signupBonusSuccesses);
-    });
     return () => { cancelled = true; };
   }, []);
+
+  /**
+   * Source de vérité UNIQUE du quota (cf. demande explicite du 24/08/2026 --
+   * "je ne veux jamais avoir 2 téléchargements restants sur un écran et
+   * épuisés sur un autre") -- même hook que CreditCounter/HomeScreen, jamais
+   * un calcul dupliqué ici. Pilote directement quel bloc de funnel afficher
+   * ci-dessous : un SEUL état actif à la fois, jamais deux CTA concurrents.
+   */
+  const creditStatus = useCreditStatus();
+  const isGuestExhausted = isAnonymous && creditStatus?.state === 'zero';
+  const isRegisteredExhausted = !isAnonymous && creditStatus?.state === 'zero';
+  const [upgradePlans, setUpgradePlans] = useState<RemotePlan[] | null>(null);
+  useEffect(() => {
+    if (isRegisteredExhausted && !upgradePlans) fetchPlans().then(setUpgradePlans);
+  }, [isRegisteredExhausted, upgradePlans]);
 
   // Se resynchronise dès que Spotify (re)devient connecté (connexion faite
   // pendant que Profil est déjà ouvert, ou premier montage avec Spotify déjà
@@ -291,13 +303,31 @@ export default function ProfileScreen({ navigation }: any) {
             statut clair, crédits, UN SEUL bouton principal, connexion pour
             ceux déjà inscrits. Le formulaire complet reste inchangé pour un
             compte réel (voir {!isAnonymous && (...)} plus bas). */}
-        {isAnonymous ? (
+        {/* Cf. demande explicite du 24/08/2026 (Adel, test réel : "plusieurs
+            liens/actions sont empilés alors qu'ils mènent pratiquement au
+            même tunnel... je veux un seul CTA principal correspondant à
+            l'état réel de l'utilisateur"). UN SEUL bloc, deux textes
+            possibles selon `creditStatus.state` (piloté par le même hook
+            partout, voir useCreditStatus) -- jamais deux messages concurrents
+            affichés en même temps. */}
+        {isAnonymous && creditStatus ? (
           <View style={styles.guestHero}>
             <Text style={styles.guestHeroLabel}>{t('profile.guestLabel')}</Text>
-            <CreditCounter />
+            {isGuestExhausted ? (
+              <>
+                <Text style={styles.guestExhaustedTitle}>
+                  {t('profile.guestExhaustedTitle', { limit: creditStatus.guestSuccessLimit })}
+                </Text>
+                <Text style={styles.guestExhaustedBody}>
+                  {t('profile.guestExhaustedBody', { bonus: creditStatus.signupBonusSuccesses })}
+                </Text>
+              </>
+            ) : (
+              <CreditCounter />
+            )}
             <TouchableOpacity style={styles.createAccountBtn} onPress={() => navigation.navigate('CreateAccount')}>
               <Text style={styles.createAccountBtnText}>
-                {signupBonusSuccesses !== null ? t('profile.createAccountCtaBonus', { bonus: signupBonusSuccesses }) : t('profile.createAccountCta')}
+                {t('profile.createAccountCtaBonus', { bonus: creditStatus.signupBonusSuccesses })}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('CreateAccount')} hitSlop={8}>
@@ -311,6 +341,25 @@ export default function ProfileScreen({ navigation }: any) {
             invité par le hero simplifié ci-dessus. */}
         {!isAnonymous && (
         <>
+        {/* État 3 (cf. demande explicite du 24/08/2026) : compte réel dont les
+            téléchargements gratuits (invité + bonus inscription) sont
+            réellement épuisés -- offre les 3 formules directement ici, seul
+            CTA affiché dans ce cas (jamais en plus du reste du formulaire de
+            profil, qui reste utile même une fois épuisé). */}
+        {isRegisteredExhausted && (
+          <View style={styles.upgradeBanner}>
+            <Text style={styles.upgradeBannerTitle}>{t('profile.registeredExhaustedTitle')}</Text>
+            <Text style={styles.upgradeBannerBody}>{t('profile.registeredExhaustedBody')}</Text>
+            <View style={styles.upgradePlansRow}>
+              {(upgradePlans ?? []).filter((p) => p.code !== 'FREE').map((p) => (
+                <TouchableOpacity key={p.code} style={styles.upgradePlanCard} onPress={() => navigation.navigate('Offers')}>
+                  <Text style={styles.upgradePlanName}>{p.name}</Text>
+                  <Text style={styles.upgradePlanPrice}>{formatMonthlyPrice(p)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={handlePickPhoto}>
             {user.avatar ? (
@@ -350,6 +399,10 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.planRowLabel}>{realPlan?.name ?? 'Free'}</Text>
             <Text style={styles.planRowCta}>{t('profile.viewOffers')} →</Text>
           </TouchableOpacity>
+          {/* Même source de vérité que Session KEEP (cf. demande explicite du
+              24/08/2026) -- toujours visible ici pour un compte réel, jamais
+              une deuxième formule de comptage. */}
+          <CreditCounter />
 
           {isDemoMode && (
             <View style={styles.planPreviewRow}>
@@ -662,17 +715,14 @@ export default function ProfileScreen({ navigation }: any) {
         </>
         )}
 
-        {/* Version simplifiée "Mon offre" / "Mes statistiques" demandée pour
-            l'invité -- même info que le formulaire complet ci-dessus, juste
-            réduite à l'essentiel (cf. demande explicite du 24/08/2026). */}
+        {/* "Mes statistiques" pour l'invité -- même info que le formulaire
+            complet ci-dessus, réduite à l'essentiel (cf. demande explicite du
+            24/08/2026). Le bloc "Mon offre" a été retiré d'ici (cf. demande
+            explicite du 24/08/2026, test réel : "Free — Voir les 3 offres"
+            empilé sous le CTA d'inscription -- redondant, un seul CTA
+            principal suffit, déjà dans guestHero ci-dessus). */}
         {isAnonymous && (
           <>
-            <Section title={t('profile.myOffer')}>
-              <TouchableOpacity style={styles.planRow} onPress={() => navigation.navigate('Offers')}>
-                <Text style={styles.planRowLabel}>{realPlan?.name ?? 'Free'}</Text>
-                <Text style={styles.planRowCta}>{t('profile.viewOffers3')} →</Text>
-              </TouchableOpacity>
-            </Section>
             <Section title={t('profile.myStats')}>
               <View style={styles.simpleStatsList}>
                 <Text style={styles.simpleStatItem}>
@@ -851,9 +901,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm,
   },
   guestHeroLabel: { ...typography.h2, color: colors.textPrimary },
+  guestExhaustedTitle: { ...typography.bodyBold, color: colors.textPrimary, textAlign: 'center' },
+  guestExhaustedBody: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing.lg },
   alreadyRegisteredLink: { color: colors.primaryLight, fontSize: 13, fontWeight: '600', marginTop: spacing.sm },
   simpleStatsList: { gap: spacing.xs },
   simpleStatItem: { color: colors.textSecondary, fontSize: 14 },
+  // État 3 -- compte réel épuisé (cf. demande explicite du 24/08/2026) : seul
+  // bloc affiché dans ce cas, un CTA (les 3 formules), jamais empilé avec un
+  // autre message de funnel concurrent.
+  upgradeBanner: {
+    alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.xl,
+    borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.xs, backgroundColor: colors.backgroundCard,
+  },
+  upgradeBannerTitle: { ...typography.h3, color: colors.textPrimary, textAlign: 'center' },
+  upgradeBannerBody: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.sm },
+  upgradePlansRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
+  upgradePlanCard: {
+    flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', gap: 2,
+  },
+  upgradePlanName: { color: colors.textPrimary, fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  upgradePlanPrice: { color: colors.primaryLight, fontSize: 12, fontWeight: '700' },
   planRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs,
     marginTop: spacing.xs,
