@@ -6,42 +6,43 @@ import { commitKeep } from '../services/keepTrackAction';
 import { captureAudioSample } from '../services/micCapture';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
-/**
- * Moteur de session KEEP (cahier des charges — concept corrigé du 21/08/2026) :
- * KEEP n'est pas un lecteur ("Écouter"), c'est la mémoire musicale d'un
- * moment vécu. DÉMARRER UNE SESSION -> KEEP identifie successivement les
- * morceaux entendus -> GARDER/PASSER au fil de l'eau ou plus tard depuis le
- * récapitulatif -> fin automatique après une période sans musique.
- *
- * DÉMO : la cadence de reconnaissance simule un DJ qui enchaîne les
- * morceaux, en interrogeant recognitionProvider.recognize() à intervalle
- * régulier — pas de vrai buffer micro (voir docs/PROJECT_STATUS.md).
- * MODE RÉEL : chaque tick capture un vrai échantillon micro (voir
- * services/micCapture.ts) tant que KEEP est au premier plan. La continuité
- * en arrière-plan (écran verrouillé) est un chantier séparé, contraint par
- * l'OS — voir docs/PLATFORM_COMPLIANCE.md section "Continuité de la
- * reconnaissance en session" : ne jamais prétendre écouter en permanence
- * tant que ce n'est pas réellement câblé et vérifié sur un vrai appareil.
- */
 const RECOGNITION_TICK_MS = 8000;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
-
-/**
- * Valeur par défaut si le Super Admin n'a rien changé. Modifiable depuis
- * Super Admin -> Feature Flags -> Réglages session (packages/admin) ;
- * PAS ENCORE persistée côté Supabase (aucun projet KEEP déployé — voir
- * docs/PROJECT_STATUS.md), donc la valeur choisie en admin ne voyage pas
- * encore jusqu'ici. CODED, pas CONNECTED : ne pas annoncer plus que ça.
- */
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function normalize(value: string | undefined): string {
+  return (value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+}
+
 function sameTrack(a: CanonicalTrack, b: CanonicalTrack): boolean {
   if (a.isrc && b.isrc) return a.isrc === b.isrc;
-  return a.title === b.title && a.artist === b.artist;
+  return normalize(a.title) === normalize(b.title) && normalize(a.artist) === normalize(b.artist);
+}
+
+async function findExistingTrack(track: CanonicalTrack) {
+  const session = await musicEngine.getSession();
+  const playlists = await musicEngine.musicProvider.getPlaylists(session);
+
+  for (const playlist of playlists) {
+    const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
+    if (tracks.some((candidate) => sameTrack(candidate, track))) {
+      return {
+        session,
+        playlists,
+        match: {
+          playlistId: playlist.id,
+          playlistName: playlist.name,
+          provider: session.provider,
+        },
+      };
+    }
+  }
+
+  return { session, playlists, match: undefined };
 }
 
 interface SessionStore {
@@ -56,9 +57,7 @@ interface SessionStore {
   locationLabel?: string;
   lat?: number;
   lng?: number;
-
   startSession: () => void;
-  /** Déclenchée par le bouton manuel "Terminer" ou par la confirmation du prompt de fin. Archive et renvoie l'id pour naviguer vers le récap. */
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
   keepTrack: (entryId: string, playlistId?: string) => Promise<void>;
@@ -115,13 +114,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (!get().isActive || get().recognizing) return;
       set({ recognizing: true });
       try {
-        // DÉMO : buffer vide, DemoRecognitionProvider l'ignore (voir
-        // docs/PROJECT_STATUS.md). Mode Réel : vrai échantillon micro.
         const audioSample = musicEngine.isDemoMode ? new ArrayBuffer(0) : await captureAudioSample();
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!recognition) {
-          // Rien entendu ce tick -- normal (silence, morceau non reconnu),
-          // pas une erreur : on efface une éventuelle erreur précédente.
           set({ recognizing: false, error: null });
           return;
         }
@@ -129,23 +124,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
         const last = get().tracks[0];
         if (last && sameTrack(last.track, track)) {
-          // Même morceau toujours en cours, pas une nouvelle détection —
-          // mais la musique continue : repousse la détection de fin.
           lastDetectionAt = Date.now();
           set({ recognizing: false, showEndPrompt: false, error: null });
           return;
         }
 
-        const session = await musicEngine.getSession();
-        const playlists = await musicEngine.musicProvider.getPlaylists(session);
-        const recommendations = await musicEngine.router.recommend(session.userId, track, playlists);
+        const { session, playlists, match } = await findExistingTrack(track);
+        const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
 
         const entry: SessionTrackEntry = {
           id: newId(),
           track,
           recommendations,
-          status: 'pending',
+          status: match ? 'already_saved' : 'pending',
           detectedAt: new Date().toISOString(),
+          existingMatch: match,
         };
         lastDetectionAt = Date.now();
         set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, showEndPrompt: false, error: null }));
@@ -186,9 +179,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       tracks: s.tracks,
     };
 
-    if (session.tracks.length > 0) {
-      useSessionHistoryStore.getState().addSession(session);
-    }
+    if (session.tracks.length > 0) useSessionHistoryStore.getState().addSession(session);
 
     set({
       isActive: false,
@@ -206,7 +197,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   keepTrack: async (entryId, playlistId) => {
     const entry = get().tracks.find((t) => t.id === entryId);
-    if (!entry) return;
+    if (!entry || entry.status === 'already_saved') return;
     try {
       const { targetPlaylistId } = await commitKeep(entry.track, entry.recommendations, playlistId);
       set((s) => ({
@@ -227,12 +218,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   keepAllPending: async () => {
     const pending = get().tracks.filter((t) => t.status === 'pending');
-    for (const entry of pending) {
-      await get().keepTrack(entry.id);
-    }
+    for (const entry of pending) await get().keepTrack(entry.id);
   },
 
   setSilenceTimeoutMin: (minutes) => set({ silenceTimeoutMin: minutes }),
-
   attachLocation: (label, lat, lng) => set({ locationLabel: label, lat, lng }),
 }));
