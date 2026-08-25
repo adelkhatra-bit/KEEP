@@ -6,28 +6,9 @@ import { RecognitionResult } from '../types';
  *
  * Sources vérifiées le 21/08/2026 (recherche + lecture de la doc officielle
  * AudD, pas une supposition) : docs.audd.io.
- *
- * Contraintes réelles qui façonnent ce fichier :
- * - Endpoint unique `https://api.audd.io/`, POST multipart/form-data,
- *   champs `api_token`, `file` (l'échantillon audio), `return` (métadonnées
- *   étendues : on demande `apple_music,spotify` pour récupérer l'ISRC, qui
- *   n'est PAS présent dans la réponse de base).
- * - **AudD ne fournit aucun score de confiance continu** (contrairement à
- *   d'autres providers) — la correspondance est binaire (trouvé / pas
- *   trouvé). On ne fabrique donc jamais un score type "0.87" : `confidence`
- *   vaut 1.0 sur un match (documenté comme tel, pas une vraie probabilité),
- *   et `recognize()` renvoie `null` sur l'absence de correspondance.
- * - Réponse de succès : `{status:"success", result: {...} | null | []}` —
- *   attention, `result` peut être `null` OU un tableau vide selon les cas,
- *   les deux doivent être traités comme "pas de correspondance".
- * - Limite : 10 Mo par fichier sur l'endpoint standard (suffisant pour un
- *   échantillon de quelques secondes ; l'endpoint "enterprise" existe pour
- *   des fichiers plus gros, non nécessaire pour KEEP).
  */
-
 export interface AudDConfig {
   apiToken: string;
-  /** Code pays pour des résultats régionaux (par défaut "us" côté AudD). */
   market?: string;
 }
 
@@ -85,7 +66,12 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
     form.append('return', 'apple_music,spotify');
     if (this.config.market) form.append('market', this.config.market);
 
-    const res = await this.fetchImpl(this.baseUrl, { method: 'POST', body: form });
+    // React Native fournit sa propre déclaration de fetch/FormData alors que
+    // le package musique est aussi compilé pour le Web. Les objets sont
+    // compatibles à l'exécution, mais leurs types DOM/RN se chevauchent.
+    // Le cast reste volontairement local au body multipart pour ne masquer
+    // aucune autre erreur de type dans le provider.
+    const res = await this.fetchImpl(this.baseUrl, { method: 'POST', body: form as any });
     if (!res.ok) {
       throw new AudDRecognitionError(`AudD API -> HTTP ${res.status}`);
     }
@@ -99,7 +85,7 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
 
     const result = json.result;
     if (!result || (Array.isArray(result) && result.length === 0)) {
-      return null; // Aucune correspondance -- jamais un faux résultat inventé.
+      return null;
     }
     const match = Array.isArray(result) ? result[0] : result;
     return this.toRecognitionResult(match);
@@ -111,7 +97,6 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
     const recognitionProviderTrackId = match.apple_music?.playParams?.id ?? match.spotify?.id ?? match.song_link;
 
     return {
-      // AudD ne renvoie pas de score continu -- voir commentaire en tête de fichier.
       confidence: 1.0,
       title: match.title,
       artist: match.artist,
