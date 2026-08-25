@@ -1,4 +1,4 @@
-name: KEEP — Web Preview (GitHub Pages)
+name: KEEP — Web Preview Public (gratuit)
 
 on:
   push:
@@ -12,16 +12,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: keep-web-preview
   cancel-in-progress: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,7 +28,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -41,27 +39,33 @@ jobs:
 
       - name: Export KEEP web
         working-directory: packages/mobile
-        env:
-          EXPO_PUBLIC_BASE_URL: /KEEP
         run: npx expo export --platform web --output-dir dist-web
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      - name: Make exported asset paths portable
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('packages/mobile/dist-web/index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('src="/_expo/', 'src="./_expo/')
+          s = s.replace('href="/_expo/', 'href="./_expo/')
+          s = s.replace('href="/favicon.ico"', 'href="./favicon.ico"')
+          p.write_text(s, encoding='utf-8')
+          PY
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: packages/mobile/dist-web
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish web-preview branch
+        run: |
+          rm -rf /tmp/keep-web-preview
+          mkdir -p /tmp/keep-web-preview
+          cp -R packages/mobile/dist-web/. /tmp/keep-web-preview/
+          cd /tmp/keep-web-preview
+          git init
+          git checkout -b web-preview
+          git config user.name "KEEP Preview Bot"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "publish: KEEP web preview $GITHUB_SHA"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin web-preview
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
