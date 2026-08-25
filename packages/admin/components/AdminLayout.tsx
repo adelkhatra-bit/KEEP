@@ -9,6 +9,7 @@ const NAV = [
   { href: '/costs', label: 'Coûts & Rentabilité' },
   { href: '/feature-flags', label: 'Feature Flags' },
   { href: '/integrations', label: 'Clés & intégrations' },
+  { href: '/email-test', label: 'Tester les e-mails' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
