@@ -1,0 +1,53 @@
+name: Mobile Web import.meta diagnostic
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+  workflow_dispatch:
+
+jobs:
+  diagnose-web-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export Expo web bundle
+        working-directory: packages/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+          EXPO_PUBLIC_DEMO_MODE: "false"
+          EXPO_PUBLIC_API_URL: http://localhost:3010
+        run: npx expo export --platform web --output-dir web-diagnostic-dist --clear
+
+      - name: Fail if import.meta remains in emitted JavaScript
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Scanning emitted JS for import.meta..."
+          matches=$(grep -RIn --include='*.js' --include='*.mjs' 'import\.meta' web-diagnostic-dist || true)
+          if [ -n "$matches" ]; then
+            echo "FOUND import.meta in emitted bundle:"
+            echo "$matches" | head -100
+            exit 1
+          fi
+          echo "No import.meta remains in emitted JavaScript."
+
+      - name: Upload web export
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-web-diagnostic-${{ github.sha }}
+          path: packages/mobile/web-diagnostic-dist
+          if-no-files-found: ignore
