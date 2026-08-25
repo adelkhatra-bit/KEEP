@@ -9,16 +9,6 @@ import { createAuthService } from '../../services/authService';
 
 type EmailStep = 'idle' | 'codeSent';
 
-/**
- * Écran d'onboarding — premier écran vu par un nouvel utilisateur.
- *
- * "Continuer avec e-mail" est le seul flux réellement branché (Supabase
- * Auth, code à 6 chiffres -- pas de deep link à gérer) dès que
- * EXPO_PUBLIC_SUPABASE_URL/ANON_KEY sont configurées. Apple/Google restent
- * honnêtement "pas encore connecté" (Sign in with Apple et l'OAuth Google
- * demandent chacun une configuration native séparée, voir
- * docs/RESTE_A_FAIRE.md) -- jamais de simulation de connexion réussie.
- */
 export default function OnboardingScreen() {
   const { t } = useTranslation();
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
@@ -91,10 +81,7 @@ export default function OnboardingScreen() {
     setBusy(false);
     if (error) {
       setErrorMsg(error);
-      return;
     }
-    // Succès : App.tsx écoute onSessionChange et bascule automatiquement
-    // vers <Navigation /> -- rien d'autre à faire ici.
   };
 
   const showEmailForm = isSupabaseConfigured && emailFormVisible;
@@ -109,9 +96,10 @@ export default function OnboardingScreen() {
       <View style={styles.actions}>
         {Platform.OS === 'ios' && (
           <TouchableOpacity style={[styles.button, styles.appleButton]} onPress={() => handleAuthPress('apple')}>
-            <Text style={styles.appleButtonText}> {t('onboarding.continueApple')}</Text>
+            <Text style={styles.appleButtonText}>{t('onboarding.continueApple')}</Text>
           </TouchableOpacity>
         )}
+
         <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={() => handleAuthPress('google')}>
           <Text style={styles.googleButtonText}>{t('onboarding.continueGoogle')}</Text>
         </TouchableOpacity>
@@ -119,6 +107,18 @@ export default function OnboardingScreen() {
         {!showEmailForm && (
           <TouchableOpacity style={styles.emailButton} onPress={handleEmailPress}>
             <Text style={styles.emailButtonText}>{t('onboarding.continueEmail')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {!showEmailForm && (
+          <TouchableOpacity
+            style={[styles.button, styles.demoButton]}
+            onPress={() => enterDemoMode()}
+            accessibilityRole="button"
+            accessibilityLabel="Continuer en mode démo"
+          >
+            <Text style={styles.demoButtonText}>Continuer en mode démo</Text>
+            <Text style={styles.demoButtonHint}>Entrer sans créer de compte</Text>
           </TouchableOpacity>
         )}
 
@@ -226,6 +226,21 @@ const styles = StyleSheet.create({
   emailButtonText: {
     ...typography.bodyBold,
     color: colors.primaryLight,
+  },
+  demoButton: {
+    minHeight: 58,
+    backgroundColor: colors.backgroundCard,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  demoButtonText: {
+    ...typography.button,
+    color: colors.primaryLight,
+  },
+  demoButtonHint: {
+    marginTop: 2,
+    fontSize: 11,
+    color: colors.textMuted,
   },
   emailForm: {
     gap: spacing.sm,
