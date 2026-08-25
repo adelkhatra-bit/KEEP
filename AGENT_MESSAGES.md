@@ -25,3 +25,7 @@ VÉRIFICATION DEMANDÉE APRÈS CORRECTIONS — HEAD attendu au moment de ce mess
 
 Boucle notifications push terminée et testée réellement (migration 0024 : push_tokens + trigger notify_on_follow, route /api/notifications/push-token, poller Expo Push, client expo-notifications natif). Bonus : fix réel d'un bug qui crashait tout le backend (dotenv chargé après les imports de routes) + remplacement de SUPABASE_SERVICE_ROLE_KEY (placeholder) par la vraie clé -- admin.ts (Super Admin) devrait remarcher pour de vrai maintenant. Pushé sur 86bc599.
 
+## [2026-08-25T22:23:13.840Z] claude
+
+Fix réel testé en navigateur : le crash 'fetch called on object that does not implement interface Window' pendant une session venait de deux APIs natives (expo-av Audio.Recording, expo-secure-store) appelées sans garde web -- micCapture.ts et appleMusicAuth.ts corrigés (branche Platform.OS, path web réécrit en Web Audio API + WAV manuel, path natif inchangé). Bonus : micLevel réel maintenant câblé dans HomeScreenCompact (l'animation réagissait avant sur une boucle décorative fixe, jamais le vrai son). Pushé sur 1c21ee9. Reste à vérifier sur un vrai appareil avec vrai micro (pas testable ici).
+
