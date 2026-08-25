@@ -8,7 +8,7 @@ import { radius, spacing, typography } from '../theme/spacing';
 import { SocialLink } from '../types';
 import { shareProfile } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
-import SocialPlatformIcon from '../components/SocialPlatformIcon';
+import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 
 type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
@@ -99,7 +99,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.socialHeader}><Text style={s.socialTitle}>Mes réseaux</Text><TouchableOpacity onPress={() => navigation.navigate('MusicConnections')}><Text style={s.musicLink}>♫ Services musicaux</Text></TouchableOpacity></View>
         <View style={s.socialRow}>{SOCIALS.map((item) => {
           const configured = !!publicLinks.find((link) => link.platform === item.platform && link.url.trim());
-          return <TouchableOpacity key={item.platform} style={[s.socialButton, configured && s.socialButtonOn]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? '#FFFFFF' : '#AFA6BD'}/></TouchableOpacity>;
+          return <TouchableOpacity key={item.platform} style={[s.socialButton, configured && s.socialButtonOn]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#AFA6BD'}/></TouchableOpacity>;
         })}</View>
       </View>
 

@@ -4,7 +4,7 @@ import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { SocialLink } from '../types';
-import SocialPlatformIcon from '../components/SocialPlatformIcon';
+import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' },
@@ -73,7 +73,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
             const value = drafts[platform] ?? existing?.url ?? '';
             return (
               <View key={platform} style={s.networkBlock}>
-                <View style={s.networkTitle}><View style={s.logo}><SocialPlatformIcon platform={platform} size={20} color="#FFFFFF" /></View><Text style={s.label}>{label}</Text></View>
+                <View style={s.networkTitle}><View style={[s.logo, { backgroundColor: `${SOCIAL_BRAND_COLORS[platform]}26`, borderWidth: 1, borderColor: SOCIAL_BRAND_COLORS[platform] }]}><SocialPlatformIcon platform={platform} size={20} color={SOCIAL_BRAND_COLORS[platform] ?? '#FFFFFF'} /></View><Text style={s.label}>{label}</Text></View>
                 <TextInput style={s.input} value={value} onChangeText={(text) => setDrafts((prev) => ({ ...prev, [platform]: text }))} placeholder={`Lien ${label}`} placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} />
                 <View style={s.row}>
                   <TouchableOpacity style={s.primaryButton} onPress={() => saveNetwork(platform)}><Text style={s.primaryText}>Enregistrer</Text></TouchableOpacity>

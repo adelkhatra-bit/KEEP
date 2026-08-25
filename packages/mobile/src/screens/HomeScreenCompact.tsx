@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Modal, SafeAreaView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Easing, Image, Modal, SafeAreaView, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
+import { loadSessionScreenCopy } from '../services/planService';
 
 const C = {
   bg: '#090610', card: '#151020', line: '#312348', purple: '#8B5CF6', purpleLight: '#B79CFF',
@@ -25,8 +26,10 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { playlists, refresh } = usePlaylistStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const micPulse = useRef(new Animated.Value(0)).current;
+  const [screenCopy, setScreenCopy] = useState<{ emptyTitle: string | null; emptySubtitle: string | null }>({ emptyTitle: null, emptySubtitle: null });
 
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { loadSessionScreenCopy().then(setScreenCopy).catch(() => {}); }, []);
   useEffect(() => {
     if (!isActive) return;
     setElapsed(formatElapsed(startedAt));
@@ -101,8 +104,8 @@ export default function HomeScreenCompact({ navigation }: any) {
         <TopBar navigation={navigation} />
         <View style={s.idle}>
           <SessionPulse active={false} />
-          <Text style={s.idleTitle}>{t('session.emptyTitle')}</Text>
-          <Text style={s.idleSubtitle}>{t('session.emptySubtitle')}</Text>
+          <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
+          <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
           {error ? <Text style={s.error}>{error}</Text> : null}
           <TouchableOpacity style={s.start} onPress={startSession}><Text style={s.startText}>♪  {t('session.start')}</Text></TouchableOpacity>
           {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
@@ -118,7 +121,16 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}>
       <TopBar navigation={navigation} />
 
-      <View style={s.main}>
+      {/* BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "quand je suis sur
+          l'écoute, on ne voit pas les boutons du bas") : tout le contenu
+          (radar, stats, morceau détecté) vivait dans un seul <View flex:1>
+          sans ScrollView -- sur un écran réel plus petit que le simulateur,
+          "Partager"/"Terminer la session" se retrouvaient poussés hors de
+          l'écran, sans aucun moyen de les atteindre. Fix : le contenu
+          variable scrolle, les actions restent fixées en bas, TOUJOURS
+          visibles -- "Terminer la session" est une action critique, jamais
+          quelque chose à devoir chercher en scrollant. */}
+      <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
         <View style={s.radarWrap}>
           <View style={s.radarOuter}>
             <Animated.View pointerEvents="none" style={[s.micPulse, { transform: [{ scale: pulseScale }], opacity: pulseOpacity }]} />
@@ -159,11 +171,11 @@ export default function HomeScreenCompact({ navigation }: any) {
         ) : (
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
+      </ScrollView>
 
-        <View style={s.footerActions}>
-          <TouchableOpacity style={s.secondary} onPress={share} disabled={!current}><Text style={s.secondaryText}>↗ Partager</Text></TouchableOpacity>
-          <TouchableOpacity style={s.secondary} onPress={finishSession}><Text style={s.secondaryText}>{t('session.endNow')}</Text></TouchableOpacity>
-        </View>
+      <View style={s.footerActions}>
+        <TouchableOpacity style={s.secondary} onPress={share} disabled={!current}><Text style={s.secondaryText}>↗ Partager</Text></TouchableOpacity>
+        <TouchableOpacity style={s.secondary} onPress={finishSession}><Text style={s.secondaryText}>{t('session.endNow')}</Text></TouchableOpacity>
       </View>
 
       <Modal visible={showEndPrompt} transparent animationType="fade">
@@ -200,14 +212,20 @@ const s = StyleSheet.create({
   brand: { color: C.text, fontSize: 24, fontWeight: '900', letterSpacing: 5 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#382559', backgroundColor: '#171023' },
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  idle: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 20 },
+  // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "cette phrase remonte un
+  // peu plus haut") -- justifyContent:'center' centrait tout le bloc au
+  // milieu de l'espace disponible, ce qui pousse visuellement le titre/sous-
+  // titre trop bas sur un écran haut. flex-start + paddingTop remonte le
+  // contenu sans le coller au TopBar.
+  idle: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 20 },
   idleTitle: { color: C.text, fontSize: 25, fontWeight: '800', textAlign: 'center', marginTop: 18 },
   idleSubtitle: { color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 7, marginBottom: 20 },
   start: { minWidth: 220, minHeight: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   startText: { color: '#fff', fontWeight: '900', fontSize: 15 },
   demo: { marginTop: 10, color: C.purpleLight, fontSize: 10, fontWeight: '800' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
-  main: { flex: 1, paddingHorizontal: 14, paddingBottom: 8 },
+  main: { flex: 1 },
+  mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
   radarWrap: { alignItems: 'center', marginTop: 2 },
   radarOuter: { width: 138, height: 138, borderRadius: 69, borderWidth: 1, borderColor: '#6339A6', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(139,92,246,0.10)' },
   micPulse: { ...StyleSheet.absoluteFillObject, borderRadius: 69, borderWidth: 2, borderColor: C.purpleLight },
@@ -244,7 +262,7 @@ const s = StyleSheet.create({
   savedText: { color: C.green, fontWeight: '800', fontSize: 12 },
   waiting: { minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   waitingText: { color: C.muted, fontSize: 12, textAlign: 'center' },
-  footerActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  footerActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
   secondary: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },

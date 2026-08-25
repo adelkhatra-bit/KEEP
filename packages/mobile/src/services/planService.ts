@@ -49,6 +49,29 @@ export async function loadCreditFunnel(): Promise<CreditFunnel> {
   };
 }
 
+export interface SessionScreenCopy {
+  emptyTitle: string | null;
+  emptySubtitle: string | null;
+}
+
+/**
+ * Texte de l'écran Écouter au repos, éditable depuis le Super Admin (demande
+ * explicite du 26/08/2026 -- "je veux pouvoir la changer dans le super
+ * admin"). Même table/pattern que loadCreditFunnel ci-dessus -- jamais une
+ * deuxième source de config. `null` = pas encore configuré en base, le
+ * composant appelant garde alors sa valeur i18n par défaut.
+ */
+export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
+  if (!supabase) return { emptyTitle: null, emptySubtitle: null };
+  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['session_empty_title', 'session_empty_subtitle']);
+  if (error) return { emptyTitle: null, emptySubtitle: null };
+  const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, row.value]));
+  return {
+    emptyTitle: typeof map.session_empty_title === 'string' ? map.session_empty_title : null,
+    emptySubtitle: typeof map.session_empty_subtitle === 'string' ? map.session_empty_subtitle : null,
+  };
+}
+
 export async function loadCurrentPlanCode(profileId: string): Promise<string> {
   if (!supabase) return 'FREE';
   const { data, error } = await supabase

@@ -2,6 +2,30 @@ import React from 'react';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SocialLink } from '../types';
 
+/**
+ * Couleurs de marque réelles (demande explicite du 26/08/2026 -- "utilise les
+ * couleurs des différents réseaux/plateformes"). Une seule source pour tous
+ * les écrans (Profil, Services musicaux) -- jamais une palette générique
+ * blanche/grise réinventée ailleurs. Couleur officielle unique par marque
+ * (pas de dégradé Instagram complet -- complexité inutile pour une icône de
+ * cette taille, mais couleur reconnaissable réelle).
+ */
+export const SOCIAL_BRAND_COLORS: Record<string, string> = {
+  instagram: '#E4405F',
+  youtube: '#FF0000',
+  x: '#000000',
+  facebook: '#1877F2',
+  snapchat: '#FFFC00',
+  tiktok: '#25F4EE',
+  spotify: '#1DB954',
+  apple_music: '#FA243C',
+  deezer: '#A238FF',
+  youtube_music: '#FF0000',
+  soundcloud: '#FF5500',
+  tidal: '#000000',
+  website: '#B4A9C2',
+};
+
 export default function SocialPlatformIcon({ platform, size = 22, color = '#FFFFFF' }: { platform: SocialLink['platform']; size?: number; color?: string }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24' } as const;
   switch (platform) {

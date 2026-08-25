@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import { getSupabaseAccessToken } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
+import { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 
 type ProviderKey = 'apple_music' | 'spotify' | 'deezer' | 'youtube_music' | 'soundcloud' | 'tidal';
 
@@ -13,6 +14,10 @@ type ProviderStatus = {
   connection?: { provider_user_id?: string; connected_at?: string } | null;
 };
 
+// Couleurs de marque réelles (demande explicite du 26/08/2026 -- "Services
+// musicaux... mets bien les couleurs des différentes plateformes"). Même
+// source que SocialPlatformIcon.tsx (SOCIAL_BRAND_COLORS), jamais une
+// deuxième palette inventée ici.
 const PROVIDERS: { key: ProviderKey; name: string; glyph: string; description: string }[] = [
   { key: 'apple_music', name: 'Apple Music', glyph: '♪', description: 'Bibliothèque et playlists Apple Music' },
   { key: 'spotify', name: 'Spotify', glyph: '●', description: 'Playlists privées, collaboratives et morceaux sauvegardés' },
@@ -129,7 +134,9 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           const configured = provider.key === 'apple_music' ? true : Boolean(status?.configured);
           return (
             <View key={provider.key} style={styles.card}>
-              <View style={styles.logo}><Text style={styles.logoText}>{provider.glyph}</Text></View>
+              <View style={[styles.logo, { backgroundColor: `${SOCIAL_BRAND_COLORS[provider.key]}26`, borderColor: SOCIAL_BRAND_COLORS[provider.key] }]}>
+                <Text style={[styles.logoText, { color: SOCIAL_BRAND_COLORS[provider.key] }]}>{provider.glyph}</Text>
+              </View>
               <View style={styles.info}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name}>{provider.name}</Text>
@@ -170,7 +177,7 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
   list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.md },
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, gap: spacing.md },
-  logo: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   logoText: { color: colors.textPrimary, fontSize: 22, fontWeight: '800' },
   info: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
