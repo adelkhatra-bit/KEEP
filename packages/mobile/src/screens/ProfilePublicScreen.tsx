@@ -40,6 +40,7 @@ const SOCIAL_GLYPHS: Record<SocialLink['platform'], string> = {
 
 export default function ProfilePublicScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
+  const enterDemoMode = useUserStore((s) => s.enterDemoMode);
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
 
@@ -77,7 +78,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <Text style={styles.muted}>Not logged in</Text>
+          <Text style={styles.demoTitle}>Profil KEEP</Text>
+          <Text style={styles.demoSubtitle}>Aucun compte actif. Tu peux entrer immédiatement pour tester l’application.</Text>
+          <TouchableOpacity
+            style={styles.demoButton}
+            onPress={() => enterDemoMode()}
+            accessibilityRole="button"
+            accessibilityLabel="Entrer en mode démo"
+          >
+            <Text style={styles.demoButtonText}>ENTRER EN MODE DÉMO</Text>
+            <Text style={styles.demoButtonHint}>Accéder à KEEP sans créer de compte</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -256,7 +267,12 @@ function EmptyState({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  demoTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: spacing.sm },
+  demoSubtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: spacing.xl },
+  demoButton: { width: '100%', minHeight: 64, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  demoButtonText: { ...typography.button, color: colors.white, fontWeight: '900' },
+  demoButtonHint: { color: colors.white, opacity: 0.78, fontSize: 11, marginTop: 3 },
   scrollContent: { paddingBottom: spacing.xxl },
   topBar: {
     paddingHorizontal: spacing.xl,
