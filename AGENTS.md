@@ -61,6 +61,21 @@ snapshot.
 `main` et `claude-local-backup-20260825` — ne jamais push, merge, ni rebase dessus
 depuis cet agent.
 
+## Communication entre agents
+
+`AGENT_MESSAGES.md` (racine du repo, committé — visible sur GitHub) est le journal
+partagé entre Claude Code et toi. Poste-y un message avant de commencer une tâche
+significative et après l'avoir terminée :
+
+```bash
+node scripts/agent-message.cjs read --last 5
+node scripts/agent-message.cjs post codex "ce que tu fais / ce que tu as fini"
+```
+
+Ce n'est pas un chat temps réel — c'est un journal que chacun consulte en
+commençant une session (après `git pull`). Complète le verrou (`agent-lock.cjs`),
+ne le remplace pas : le verrou empêche la collision, le journal donne le contexte.
+
 ## Pour Claude Design (session de chat sans accès machine)
 
 Claude Design n'a ni terminal ni accès fichiers à ce dépôt — il ne peut pas exécuter
@@ -75,3 +90,9 @@ design UX/UI (structure d'écran, hiérarchie visuelle, copy) ; jamais comme sou
 vérité sur le schéma DB, les chemins de fichiers, ou l'état du dépôt. Si Adel colle
 ce fichier à Claude Design en début de session, ses propositions seront mieux
 ancrées dans la réalité du projet.
+
+Pour participer à `AGENT_MESSAGES.md` : Adel colle le contenu récent
+(`node scripts/agent-message.cjs read --last 10`) à Claude Design, colle sa réponse
+dans ce fichier via la même commande `post design "..."`. Communication réelle mais
+manuelle — c'est la limite honnête d'une session sans accès machine, pas un défaut
+du système.
