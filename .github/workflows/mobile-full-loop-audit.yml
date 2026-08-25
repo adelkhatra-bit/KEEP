@@ -100,10 +100,11 @@ jobs:
 
             await page.getByText('Réglages avancés du profil', { exact: true }).click();
             await page.getByText('Réglages avancés', { exact: true }).waitFor();
-            await page.getByText('‹ Retour', { exact: true }).waitFor();
+            const advancedBack = page.getByLabel('Retour au profil');
+            await advancedBack.waitFor();
             await page.getByText('Playlists', { exact: true }).first().waitFor();
             await shot('05-advanced-settings-return');
-            await page.getByText('‹ Retour', { exact: true }).click();
+            await advancedBack.click();
             await page.getByText('Modifier le profil', { exact: true }).waitFor();
 
             await page.getByText('Réglages avancés du profil', { exact: true }).click();
