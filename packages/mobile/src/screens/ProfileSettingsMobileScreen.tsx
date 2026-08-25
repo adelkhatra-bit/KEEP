@@ -85,6 +85,12 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
           </View>
         </Section>
 
+        <Section title="KEEP" subtitle="Les réglages essentiels restent accessibles sans chercher dans plusieurs écrans.">
+          <QuickLink icon="🔔" label="Notifications" onPress={() => navigation.navigate('Notifications')} />
+          <QuickLink icon="♫" label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
+          <QuickLink icon="♛" label="Offre & crédits" onPress={() => navigation.navigate('Offers')} />
+        </Section>
+
         {error ? <Text style={s.error}>{error}</Text> : null}
 
         <TouchableOpacity style={s.primary} onPress={save}><Text style={s.primaryText}>Enregistrer les modifications</Text></TouchableOpacity>
@@ -107,6 +113,16 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 
 function Field({ label, ...props }: any) {
   return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput style={[s.input, props.multiline && s.multiline]} placeholderTextColor={colors.textMuted} {...props} /></View>;
+}
+
+function QuickLink({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={s.quickLink} onPress={onPress} accessibilityRole="button">
+      <View style={s.quickIcon}><Text style={s.quickIconText}>{icon}</Text></View>
+      <Text style={s.quickLabel}>{label}</Text>
+      <Text style={s.quickChevron}>›</Text>
+    </TouchableOpacity>
+  );
 }
 
 const s = StyleSheet.create({
@@ -135,6 +151,11 @@ const s = StyleSheet.create({
   genderChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   genderText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   genderTextActive: { color: colors.white },
+  quickLink: { minHeight: 52, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  quickIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center' },
+  quickIconText: { fontSize: 16 },
+  quickLabel: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800', marginLeft: 10 },
+  quickChevron: { color: colors.primaryLight, fontSize: 24, fontWeight: '700' },
   error: { color: colors.danger, textAlign: 'center', marginBottom: 12, fontSize: 12, fontWeight: '700' },
   primary: { minHeight: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: colors.white, fontSize: 14, fontWeight: '900' },
