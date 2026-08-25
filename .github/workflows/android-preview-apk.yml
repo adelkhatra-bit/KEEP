@@ -1,0 +1,65 @@
+name: KEEP — Android Preview APK (gratuit)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-preview-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  build-android-preview:
+    name: Build APK autonome de test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+
+      - name: Generate Android native project
+        working-directory: packages/mobile
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build standalone release APK
+        working-directory: packages/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK
+        run: test -f packages/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Publish KEEP preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KEEP-Android-Preview
+          path: packages/mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
