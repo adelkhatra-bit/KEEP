@@ -10,7 +10,7 @@ import PartiesScreen from '../screens/PartiesScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
 import ProfileSettingsMobileScreen from '../screens/ProfileSettingsMobileScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import AdvancedProfileSettingsScreen from '../screens/AdvancedProfileSettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
@@ -74,7 +74,7 @@ export default function Navigation() {
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
         <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
-        <RootStack.Screen name="AdvancedProfileSettings" component={ProfileScreen} />
+        <RootStack.Screen name="AdvancedProfileSettings" component={AdvancedProfileSettingsScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
