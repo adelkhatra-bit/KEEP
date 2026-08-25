@@ -52,6 +52,11 @@ create or replace function auth.uid() returns uuid
 language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
+-- Rôles Supabase simulés : certaines migrations accordent explicitement
+-- des droits à `authenticated`. Le conteneur PostgreSQL CI ne crée pas ce
+-- rôle automatiquement, contrairement à Supabase managé.
+drop role if exists authenticated;
+create role authenticated nosuperuser nobypassrls;
 -- Rôle applicatif non-superuser : sans ça, RLS est silencieusement
 -- contournée par le propriétaire des tables (postgres), et le test ne
 -- prouverait rien. Les rôles sont globaux au cluster (pas à la base) --
