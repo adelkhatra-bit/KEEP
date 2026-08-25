@@ -20,6 +20,16 @@ if (__DEV__) {
 export default function App() {
   const user = useUserStore((s) => s.user);
 
+  // La preview web publique sert de showroom/test humain du nouveau design.
+  // Elle entre automatiquement en Mode Démo afin que l'URL ouvre directement
+  // l'application. Cette variable n'est PAS activée dans les builds natifs,
+  // TestFlight ou production : l'authentification normale y reste inchangée.
+  useEffect(() => {
+    if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
+    const state = useUserStore.getState();
+    if (!state.user) state.enterDemoMode();
+  }, []);
+
   // Une session Supabase réelle charge maintenant le vrai profil KEEP
   // (profiles + social_links + profile_private_info + compteurs follows).
   // Les changements du store sont ensuite persistés avec un petit debounce :
@@ -36,6 +46,13 @@ export default function App() {
     const handleSession = async (session: KeepAuthSession | null) => {
       if (!session) {
         profileLoadedFor = null;
+        // Dans la preview publique on conserve le Mode Démo au lieu de
+        // retourner à l'onboarding quand aucune session Supabase n'existe.
+        if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1') {
+          const state = useUserStore.getState();
+          if (!state.user) state.enterDemoMode();
+          return;
+        }
         useUserStore.getState().syncFromAuthSession(null);
         return;
       }
