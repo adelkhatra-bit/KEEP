@@ -31,3 +31,17 @@ jobs:
 
       - name: Mobile tests
         run: npm --workspace packages/mobile test -- --runInBand
+
+      - name: Export web bundle
+        working-directory: packages/mobile
+        run: npx expo export --platform web --output-dir dist-web
+
+      - name: Verify web entrypoint
+        run: test -f packages/mobile/dist-web/index.html
+
+      - name: Export iOS bundle
+        working-directory: packages/mobile
+        run: npx expo export --platform ios --output-dir dist-ios
+
+      - name: Verify iOS export
+        run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
