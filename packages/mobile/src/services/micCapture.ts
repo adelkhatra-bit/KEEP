@@ -4,13 +4,6 @@
  * useSessionStore.ts). Premier plan uniquement pour cette itération : voir
  * docs/PLATFORM_COMPLIANCE.md section 8 pour les contraintes iOS/Android
  * qui bornent la continuité en arrière-plan.
- *
- * STATUT HONNÊTE : écrit et cohérent avec l'API documentée d'expo-av, mais
- * jamais exécuté sur un vrai appareil (nécessite une vraie clé AudD pour
- * être testé de bout en bout -- voir docs/PROJECT_STATUS.md). Le format de
- * sortie (.m4a, préréglage HIGH_QUALITY) est celui accepté par l'API AudD
- * (voir packages/music/src/providers/AudDRecognitionProvider.ts, champ
- * "file" en multipart -- AudD accepte les formats audio courants, m4a inclus).
  */
 import { Audio } from 'expo-av';
 
@@ -24,7 +17,16 @@ export class MicPermissionDeniedError extends Error {
   }
 }
 
+export class MicCaptureCancelledError extends Error {
+  constructor() {
+    super('Capture micro interrompue.');
+    this.name = 'MicCaptureCancelledError';
+  }
+}
+
 let permissionGranted = false;
+let activeRecording: Audio.Recording | null = null;
+let cancellationVersion = 0;
 
 async function ensurePermission(): Promise<void> {
   if (permissionGranted) return;
@@ -35,16 +37,41 @@ async function ensurePermission(): Promise<void> {
 }
 
 /**
+ * Interrompt immédiatement l'échantillon en cours, si présent.
+ * Utilisé lorsqu'une session KEEP est arrêtée afin que le micro ne continue
+ * jamais à enregistrer pendant les secondes restantes de l'échantillon.
+ */
+export async function cancelAudioCapture(): Promise<void> {
+  cancellationVersion += 1;
+  const recording = activeRecording;
+  activeRecording = null;
+  if (!recording) return;
+  try {
+    await recording.stopAndUnloadAsync();
+  } catch {
+    // L'enregistrement peut déjà être arrêté/déchargé : dans ce cas l'objectif
+    // d'interruption est déjà atteint.
+  }
+}
+
+/**
  * Enregistre un échantillon micro de SAMPLE_DURATION_MS et le renvoie sous
  * forme de Blob (format attendu par AudDRecognitionProvider.recognize).
- * Chaque appel crée et détruit son propre enregistrement -- pas d'état
- * partagé entre deux échantillons successifs.
  */
 export async function captureAudioSample(): Promise<Blob> {
   await ensurePermission();
 
+  const versionAtStart = cancellationVersion;
   const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+  activeRecording = recording;
+
   await new Promise((resolve) => setTimeout(resolve, SAMPLE_DURATION_MS));
+
+  if (versionAtStart !== cancellationVersion || activeRecording !== recording) {
+    throw new MicCaptureCancelledError();
+  }
+
+  activeRecording = null;
   await recording.stopAndUnloadAsync();
 
   const uri = recording.getURI();
@@ -52,8 +79,6 @@ export async function captureAudioSample(): Promise<Blob> {
     throw new Error('Capture micro : aucun fichier produit par expo-av.');
   }
 
-  // Astuce RN standard : fetch() sait lire une URI de fichier local et la
-  // convertir en Blob -- pas besoin d'expo-file-system pour ce cas précis.
   const response = await fetch(uri);
   return response.blob();
 }
