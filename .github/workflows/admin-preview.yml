@@ -16,6 +16,8 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      KEEP_ADMIN_BASE_PATH: /adelkhatra-bit/KEEP/admin-preview
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,17 +27,6 @@ jobs:
       - run: npm ci
       - run: npm --workspace packages/admin run type-check
       - run: npm --workspace packages/admin run build
-      - name: Rewrite paths for portable preview
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          root = Path('packages/admin/out')
-          for p in root.rglob('*.html'):
-              s = p.read_text(encoding='utf-8')
-              s = s.replace('href="/_next/', 'href="./_next/')
-              s = s.replace('src="/_next/', 'src="./_next/')
-              p.write_text(s, encoding='utf-8')
-          PY
       - name: Publish preview branch
         uses: peaceiris/actions-gh-pages@v4
         with:
