@@ -1,53 +1,150 @@
-name: Mobile Web import.meta diagnostic
+name: KEEP — Real Browser Web Runtime Audit
 
 on:
   push:
     branches:
       - reconcile/claude-main-20260825
+    paths:
+      - 'packages/mobile/**'
+      - '.github/workflows/mobile-web-importmeta-diagnostic.yml'
   workflow_dispatch:
 
-jobs:
-  diagnose-web-bundle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
+permissions:
+  contents: read
 
-      - uses: actions/setup-node@v4
+jobs:
+  real-browser-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Install dependencies
+      - name: Install KEEP dependencies
         run: npm ci
 
-      - name: Export Expo web bundle
-        working-directory: packages/mobile
-        env:
-          EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
-          EXPO_PUBLIC_DEMO_MODE: "false"
-          EXPO_PUBLIC_API_URL: http://localhost:3010
-        run: npx expo export --platform web --output-dir web-diagnostic-dist --clear
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium --with-deps
 
-      - name: Fail if import.meta remains in emitted JavaScript
+      - name: Start exact KEEP web runtime
         working-directory: packages/mobile
         shell: bash
         run: |
           set -euo pipefail
-          echo "Scanning emitted JS for import.meta..."
-          matches=$(grep -RIn --include='*.js' --include='*.mjs' 'import\.meta' web-diagnostic-dist || true)
-          if [ -n "$matches" ]; then
-            echo "FOUND import.meta in emitted bundle:"
-            echo "$matches" | head -100
-            exit 1
-          fi
-          echo "No import.meta remains in emitted JavaScript."
+          rm -rf dist-web
+          node scripts/start-web.cjs --port 8081 --clear > /tmp/keep-real-runtime.log 2>&1 &
+          echo $! > /tmp/keep-real-runtime.pid
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              echo "KEEP runtime ready on 8081"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "KEEP runtime failed to start"
+          cat /tmp/keep-real-runtime.log
+          exit 1
 
-      - name: Upload web export
+      - name: Real Chromium visual/runtime audit
+        shell: bash
+        run: |
+          mkdir -p artifacts/real-browser
+          cat > real-browser-audit.cjs <<'JS'
+          const { chromium } = require('@playwright/test');
+          const fs = require('fs');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const errors = [];
+
+            page.on('pageerror', error => errors.push(`PAGE ERROR: ${error.message}`));
+            page.on('console', msg => {
+              if (msg.type() === 'error') errors.push(`CONSOLE ERROR: ${msg.text()}`);
+            });
+
+            const response = await page.goto('http://127.0.0.1:8081', {
+              waitUntil: 'networkidle',
+              timeout: 60000,
+            });
+
+            if (!response || !response.ok()) {
+              throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
+            }
+
+            await page.waitForTimeout(1500);
+
+            const bodyText = (await page.locator('body').innerText()).trim();
+            const bodyBox = await page.locator('body').boundingBox();
+            const rootHtml = await page.locator('#root').innerHTML().catch(() => '');
+
+            await page.screenshot({
+              path: 'artifacts/real-browser/keep-mobile-runtime.png',
+              fullPage: true,
+            });
+
+            const report = [
+              `URL: ${page.url()}`,
+              `TITLE: ${await page.title()}`,
+              `BODY_LENGTH: ${bodyText.length}`,
+              `ROOT_HTML_LENGTH: ${rootHtml.length}`,
+              `BODY_BOX: ${JSON.stringify(bodyBox)}`,
+              `ERROR_COUNT: ${errors.length}`,
+              '',
+              'VISIBLE_TEXT:',
+              bodyText.slice(0, 12000),
+              '',
+              'ERRORS:',
+              ...errors,
+            ].join('\n');
+            fs.writeFileSync('artifacts/real-browser/report.txt', report);
+
+            if (!bodyText || bodyText.length < 10) {
+              throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
+            }
+            if (!rootHtml || rootHtml.trim().length < 20) {
+              throw new Error('Visual audit failed: #root is empty or effectively blank');
+            }
+            if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) {
+              throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
+            }
+            if (errors.length > 0) {
+              throw new Error(`Browser console/page errors detected:\n${errors.join('\n')}`);
+            }
+
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          JS
+          node real-browser-audit.cjs
+
+      - name: Show runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-real-runtime.log || true
+
+      - name: Upload real browser screenshot and report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: keep-web-diagnostic-${{ github.sha }}
-          path: packages/mobile/web-diagnostic-dist
-          if-no-files-found: ignore
+          name: KEEP-Real-Browser-${{ github.sha }}
+          path: artifacts/real-browser
+          retention-days: 14
+          if-no-files-found: warn
