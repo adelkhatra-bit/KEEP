@@ -44,6 +44,15 @@ export async function loadNotifications(profileId: string): Promise<KeepNotifica
   }));
 }
 
+export async function requestSocialLink(targetProfileId: string, platform: string): Promise<void> {
+  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  const { error } = await supabase.rpc('request_social_link', {
+    target_profile_id: targetProfileId,
+    requested_platform: platform,
+  });
+  if (error) throw error;
+}
+
 export async function markNotificationRead(profileId: string, notificationId: string): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase
