@@ -11,3 +11,6 @@ build/
 
 # Bridge de synchronisation local ChatGPT -> PC (état runtime machine-spécifique, jamais partagé)
 CHATGPT_RUNTIME_STATUS.json
+
+# Verrou de coordination local entre agents (Claude Code / Codex) -- état machine-spécifique
+.agent-lock.json
