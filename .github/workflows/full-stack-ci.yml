@@ -1,0 +1,44 @@
+name: KEEP — CI complète
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/full-stack-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck all workspaces
+        run: npm run type-check
+      - name: Unit tests
+        run: npm test -- --runInBand
+      - name: Build backend
+        run: npm --workspace packages/backend run build
+      - name: Build Super Admin
+        run: npm --workspace packages/admin run build
+      - name: Export web preview
+        env:
+          EXPO_PUBLIC_DEMO_MODE: 'true'
+          EXPO_PUBLIC_KEEP_PREVIEW: '1'
+        working-directory: packages/mobile
+        run: npx expo export --platform web --output-dir dist-ci
+      - name: Assert web build
+        run: test -f packages/mobile/dist-ci/index.html
