@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
+      - 'packages/admin/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/web-preview-pages.yml'
@@ -24,6 +25,7 @@ jobs:
     env:
       EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
 
     steps:
       - name: Checkout
@@ -40,6 +42,9 @@ jobs:
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
+
+      - name: Typecheck admin
+        run: npm --workspace packages/admin run type-check
 
       - name: Export KEEP web
         working-directory: packages/mobile
@@ -59,18 +64,26 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
 
-      - name: Publish web-preview branch
+      - name: Build Super Admin
+        run: npm --workspace packages/admin run build
+
+      - name: Assemble one public tree
         run: |
           rm -rf /tmp/keep-web-preview
-          mkdir -p /tmp/keep-web-preview
+          mkdir -p /tmp/keep-web-preview/admin-preview
           cp -R packages/mobile/dist-web/. /tmp/keep-web-preview/
+          cp -R packages/admin/out/. /tmp/keep-web-preview/admin-preview/
+          touch /tmp/keep-web-preview/.nojekyll
+
+      - name: Publish web-preview branch
+        run: |
           cd /tmp/keep-web-preview
           git init
           git checkout -b web-preview
           git config user.name "KEEP Preview Bot"
           git config user.email "actions@github.com"
           git add .
-          git commit -m "publish: KEEP web preview $GITHUB_SHA"
+          git commit -m "publish: KEEP mobile + admin $GITHUB_SHA"
           git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push --force origin web-preview
         env:
