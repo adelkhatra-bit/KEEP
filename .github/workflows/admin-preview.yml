@@ -17,7 +17,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     env:
-      KEEP_ADMIN_BASE_PATH: /adelkhatra-bit/KEEP/admin-preview
+      KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
