@@ -6,6 +6,14 @@ const DEMO_EMAIL = 'adel.khatra@live.fr';
 const DEMO_PASSWORD = '1234';
 const DEMO_SESSION_KEY = 'keep-super-admin-demo';
 
+function LiveMarker() {
+  return (
+    <div style={{ position: 'fixed', top: 10, right: 10, zIndex: 99999, background: '#22c55e', color: '#07110a', borderRadius: 999, padding: '7px 11px', fontSize: 11, fontWeight: 900, letterSpacing: 0.7, boxShadow: '0 4px 18px rgba(34,197,94,.28)' }}>
+      KEEP LIVE · MAIN · 25/08/2026
+    </div>
+  );
+}
+
 function DemoAdminLogin({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [email, setEmail] = useState(DEMO_EMAIL);
   const [password, setPassword] = useState('');
@@ -24,6 +32,7 @@ function DemoAdminLogin({ onAuthenticated }: { onAuthenticated: () => void }) {
 
   return (
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#09070f', color: '#fff', padding: 24 }}>
+      <LiveMarker />
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 420, background: '#151021', border: '1px solid #2c2340', borderRadius: 24, padding: 28 }}>
         <div style={{ fontSize: 13, color: '#a78bfa', fontWeight: 700, letterSpacing: 1.2 }}>KEEP</div>
         <h1 style={{ margin: '8px 0 4px', fontSize: 30 }}>Super Admin</h1>
@@ -53,5 +62,5 @@ export default function App({ Component, pageProps }: AppProps) {
 
   if (!ready) return null;
   if (!authenticated) return <DemoAdminLogin onAuthenticated={() => setAuthenticated(true)} />;
-  return <Component {...pageProps} />;
+  return <><LiveMarker /><Component {...pageProps} /></>;
 }
