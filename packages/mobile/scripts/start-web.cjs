@@ -25,15 +25,33 @@ const exportArgs = [expoCli, 'export', '--platform', 'web', '--output-dir', outD
 if (shouldClear) exportArgs.push('--clear');
 
 console.log(`[KEEP WEB] Exporting production-compatible web bundle to ${outDir}...`);
-const result = spawnSync(process.execPath, exportArgs, {
+const exportResult = spawnSync(process.execPath, exportArgs, {
   cwd: projectRoot,
   env: process.env,
   stdio: 'inherit',
 });
 
-if (result.status !== 0) {
-  console.error(`[KEEP WEB] Expo export failed with code ${result.status}`);
-  process.exit(result.status || 1);
+if (exportResult.status !== 0) {
+  console.error(`[KEEP WEB] Expo export failed with code ${exportResult.status}`);
+  process.exit(exportResult.status || 1);
+}
+
+console.log('[KEEP WEB] Applying ES-module bootstrap fix...');
+const bootstrapFix = spawnSync(
+  process.execPath,
+  [path.join(projectRoot, 'scripts', 'fix-web-export.cjs'), path.basename(outDir)],
+  { cwd: projectRoot, env: process.env, stdio: 'inherit' }
+);
+if (bootstrapFix.status !== 0) {
+  console.error(`[KEEP WEB] Bootstrap fix failed with code ${bootstrapFix.status}`);
+  process.exit(bootstrapFix.status || 1);
+}
+
+const indexPath = path.join(outDir, 'index.html');
+const html = fs.readFileSync(indexPath, 'utf8');
+if (!html.includes('<script type="module" src=')) {
+  console.error('[KEEP WEB] Refusing to serve: index.html is not using an ES-module bootstrap.');
+  process.exit(1);
 }
 
 const mime = {
@@ -81,5 +99,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`[KEEP WEB] READY http://localhost:${port}`);
-  console.log('[KEEP WEB] Runtime source: Expo static export (no dev Hermes bundle)');
+  console.log('[KEEP WEB] Runtime source: Expo static export + ES-module bootstrap');
 });
