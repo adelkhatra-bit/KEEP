@@ -1,10 +1,15 @@
 import { Router } from 'express';
-import { isBrevoConfigured, sendBrevoEmail } from '../lib/brevo';
+import { getBrevoStatus, sendBrevoEmail } from '../lib/brevo';
 
 const router = Router();
 
-router.get('/status', (_req, res) => {
-  res.json({ provider: 'brevo', configured: isBrevoConfigured() });
+router.get('/status', async (_req, res) => {
+  try {
+    const status = await getBrevoStatus();
+    res.json({ provider: 'brevo', ...status });
+  } catch (error: any) {
+    res.status(500).json({ provider: 'brevo', configured: false, mode: 'none', error: error?.message });
+  }
 });
 
 router.post('/test', async (req, res) => {
