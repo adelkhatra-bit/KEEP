@@ -4,6 +4,7 @@ import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
 import { captureAudioSample } from '../services/micCapture';
+import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 const RECOGNITION_TICK_MS = 8000;
@@ -15,17 +16,30 @@ function newId(): string {
 }
 
 function normalize(value: string | undefined): string {
-  return (value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  return (value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ');
 }
 
 function sameTrack(a: CanonicalTrack, b: CanonicalTrack): boolean {
-  if (a.isrc && b.isrc) return a.isrc === b.isrc;
+  if (a.isrc && b.isrc) return a.isrc.toUpperCase() === b.isrc.toUpperCase();
   return normalize(a.title) === normalize(b.title) && normalize(a.artist) === normalize(b.artist);
 }
 
 async function findExistingTrack(track: CanonicalTrack) {
+  const connected = await checkConnectedLibraries(track);
   const session = await musicEngine.getSession();
   const playlists = await musicEngine.musicProvider.getPlaylists(session);
+
+  if (connected?.exists && connected.match) {
+    return {
+      session,
+      playlists,
+      match: {
+        playlistId: connected.match.playlistId,
+        playlistName: connected.match.playlistName,
+        provider: connected.match.provider,
+      },
+    };
+  }
 
   for (const playlist of playlists) {
     const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
