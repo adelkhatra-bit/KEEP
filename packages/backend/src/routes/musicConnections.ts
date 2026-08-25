@@ -4,6 +4,7 @@ import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 import { requireKeepAuth, KeepAuthedRequest } from '../lib/keepAuth';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
+import { getIntegrationSecret } from '../lib/integrationSecrets';
 
 const router = Router();
 const verifier = createSupabaseTokenVerifier();
@@ -47,9 +48,19 @@ function backendBaseUrl(req: KeepAuthedRequest): string {
   return process.env.PUBLIC_BACKEND_URL || `${req.protocol}://${req.get('host')}`;
 }
 
-function providerConfigured(provider: Provider): boolean {
-  if (provider === 'spotify') return Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET);
-  return Boolean(process.env.DEEZER_APP_ID && process.env.DEEZER_APP_SECRET);
+async function credentials(provider: Provider) {
+  if (provider === 'spotify') {
+    const [id, secret] = await Promise.all([
+      getIntegrationSecret('SPOTIFY_CLIENT_ID'),
+      getIntegrationSecret('SPOTIFY_CLIENT_SECRET'),
+    ]);
+    return { id, secret };
+  }
+  const [id, secret] = await Promise.all([
+    getIntegrationSecret('DEEZER_APP_ID'),
+    getIntegrationSecret('DEEZER_APP_SECRET'),
+  ]);
+  return { id, secret };
 }
 
 async function upsertConnection(args: {
@@ -62,10 +73,10 @@ async function upsertConnection(args: {
   scope?: string;
   expiresIn?: number;
 }) {
-  const db = serviceClient();
-  if (!db) throw new Error('Supabase service role non configuré');
+  const database = serviceClient();
+  if (!database) throw new Error('Supabase service role non configuré');
   const expiresAt = args.expiresIn ? new Date(Date.now() + args.expiresIn * 1000).toISOString() : null;
-  const { error } = await db.from('music_provider_connections').upsert({
+  const { error } = await database.from('music_provider_connections').upsert({
     profile_id: args.userId,
     provider: args.provider,
     provider_user_id: args.providerUserId || null,
@@ -79,18 +90,22 @@ async function upsertConnection(args: {
 }
 
 async function statusHandler(req: KeepAuthedRequest, res: Response) {
-  const db = serviceClient();
-  if (!db) return res.status(503).json({ error: 'supabase_service_not_configured' });
-  const { data, error } = await db
+  const database = serviceClient();
+  if (!database) return res.status(503).json({ error: 'supabase_service_not_configured' });
+  const [{ id: spotifyId, secret: spotifySecret }, { id: deezerId, secret: deezerSecret }] = await Promise.all([
+    credentials('spotify'),
+    credentials('deezer'),
+  ]);
+  const { data, error } = await database
     .from('music_provider_connections')
     .select('provider,provider_user_id,connected_at,expires_at')
     .eq('profile_id', req.keepUserId!);
   if (error) return res.status(500).json({ error: error.message });
   return res.json({
     providers: {
-      apple_music: { configured: Boolean(process.env.APPLE_MUSICKIT_TEAM_ID), connected: false, connection: null },
-      spotify: { configured: providerConfigured('spotify'), connected: data?.some((x) => x.provider === 'spotify') ?? false, connection: data?.find((x) => x.provider === 'spotify') ?? null },
-      deezer: { configured: providerConfigured('deezer'), connected: data?.some((x) => x.provider === 'deezer') ?? false, connection: data?.find((x) => x.provider === 'deezer') ?? null },
+      apple_music: { configured: Boolean(await getIntegrationSecret('APPLE_MUSICKIT_TEAM_ID')), connected: false, connection: null },
+      spotify: { configured: Boolean(spotifyId && spotifySecret), connected: data?.some((x) => x.provider === 'spotify') ?? false, connection: data?.find((x) => x.provider === 'spotify') ?? null },
+      deezer: { configured: Boolean(deezerId && deezerSecret), connected: data?.some((x) => x.provider === 'deezer') ?? false, connection: data?.find((x) => x.provider === 'deezer') ?? null },
       youtube_music: { configured: false, connected: false, connection: null },
       soundcloud: { configured: false, connected: false, connection: null },
       tidal: { configured: false, connected: false, connection: null },
@@ -101,25 +116,26 @@ async function statusHandler(req: KeepAuthedRequest, res: Response) {
 async function startHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
   if (!['spotify', 'deezer'].includes(provider)) return res.status(404).json({ error: 'provider_not_supported' });
-  if (!providerConfigured(provider)) return res.status(501).json({ error: `${provider}_not_configured` });
+  const { id, secret } = await credentials(provider);
+  if (!id || !secret) return res.status(501).json({ error: `${provider}_not_configured` });
 
   const state = signState({ userId: req.keepUserId, provider, exp: Date.now() + 10 * 60 * 1000 });
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;
 
   if (provider === 'spotify') {
     const query = new URLSearchParams({
-      client_id: process.env.SPOTIFY_CLIENT_ID!,
+      client_id: id,
       response_type: 'code',
       redirect_uri: callback,
       state,
-      scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read',
+      scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read user-library-modify',
       show_dialog: 'false',
     });
     return res.redirect(`https://accounts.spotify.com/authorize?${query.toString()}`);
   }
 
   const query = new URLSearchParams({
-    app_id: process.env.DEEZER_APP_ID!,
+    app_id: id,
     redirect_uri: callback,
     perms: 'basic_access,email,manage_library,delete_library,listening_history',
     state,
@@ -136,14 +152,19 @@ async function callbackHandler(req: KeepAuthedRequest, res: Response) {
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;
 
   try {
+    const { id, secret } = await credentials(provider);
+    if (!id || !secret) throw new Error(`${provider} non configuré`);
+
     if (provider === 'spotify') {
       const body = new URLSearchParams({ code, redirect_uri: callback, grant_type: 'authorization_code' });
-      const auth = Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString('base64');
+      const auth = Buffer.from(`${id}:${secret}`).toString('base64');
       const tokenRes = await axios.post('https://accounts.spotify.com/api/token', body.toString(), {
         headers: { 'content-type': 'application/x-www-form-urlencoded', Authorization: `Basic ${auth}` },
+        timeout: 15000,
       });
       const profileRes = await axios.get('https://api.spotify.com/v1/me', {
         headers: { Authorization: `Bearer ${tokenRes.data.access_token}` },
+        timeout: 15000,
       });
       await upsertConnection({
         userId: state.userId,
@@ -156,17 +177,12 @@ async function callbackHandler(req: KeepAuthedRequest, res: Response) {
         expiresIn: tokenRes.data.expires_in,
       });
     } else {
-      const tokenUrl = 'https://connect.deezer.com/oauth/access_token.php';
-      const tokenRes = await axios.get(tokenUrl, {
-        params: {
-          app_id: process.env.DEEZER_APP_ID,
-          secret: process.env.DEEZER_APP_SECRET,
-          code,
-          output: 'json',
-        },
+      const tokenRes = await axios.get('https://connect.deezer.com/oauth/access_token.php', {
+        params: { app_id: id, secret, code, output: 'json' },
+        timeout: 15000,
       });
       const token = tokenRes.data.access_token;
-      const profileRes = await axios.get('https://api.deezer.com/user/me', { params: { access_token: token } });
+      const profileRes = await axios.get('https://api.deezer.com/user/me', { params: { access_token: token }, timeout: 15000 });
       await upsertConnection({
         userId: state.userId,
         provider,
@@ -184,9 +200,9 @@ async function callbackHandler(req: KeepAuthedRequest, res: Response) {
 
 async function disconnectHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
-  const db = serviceClient();
-  if (!db) return res.status(503).json({ error: 'supabase_service_not_configured' });
-  const { error } = await db.from('music_provider_connections').delete().eq('profile_id', req.keepUserId!).eq('provider', provider);
+  const database = serviceClient();
+  if (!database) return res.status(503).json({ error: 'supabase_service_not_configured' });
+  const { error } = await database.from('music_provider_connections').delete().eq('profile_id', req.keepUserId!).eq('provider', provider);
   if (error) return res.status(500).json({ error: error.message });
   return res.json({ ok: true });
 }
