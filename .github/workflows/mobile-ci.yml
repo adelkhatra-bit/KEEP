@@ -1,6 +1,14 @@
 name: Mobile CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mobile-ci.yml'
   pull_request:
     paths:
       - 'packages/mobile/**'
