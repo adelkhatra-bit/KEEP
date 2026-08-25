@@ -8,13 +8,9 @@ const NAV = [
   { href: '/plans', label: 'Abonnements & Prix' },
   { href: '/costs', label: 'Coûts & Rentabilité' },
   { href: '/feature-flags', label: 'Feature Flags' },
+  { href: '/integrations', label: 'Clés & intégrations' },
 ];
 
-/**
- * Coquille du Super Admin. Auth/RBAC réel PLANNED (voir docs/PROJECT_STATUS.md)
- * — cette version démontre la structure et le pilotage des données, pas
- * encore protégée par une authentification admin réelle.
- */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   return (
@@ -34,16 +30,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             marginTop: 24,
             padding: '10px 12px',
             borderRadius: 8,
-            background: 'rgba(255,92,114,0.1)',
-            border: '1px solid var(--pass)',
-            color: 'var(--pass)',
+            background: 'rgba(167,139,250,0.08)',
+            border: '1px solid #5b4a78',
+            color: '#b9a7d6',
             fontSize: 11,
             lineHeight: 1.4,
           }}
         >
-          🔓 Authentification Super Admin non branchée (voir
-          docs/RESTE_A_FAIRE.md Priorité 4). Ne jamais déployer cette
-          interface sur une URL publique avant ça.
+          Mode preview : accès démo isolé. En production, les mutations sensibles passent par la session KEEP + rôle Super Admin et sont journalisées.
         </div>
       </aside>
       <main className="main">{children}</main>
