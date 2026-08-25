@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { requireAdminRole, AdminAuthedRequest } from '../lib/adminAuth';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
 import { getSupabaseAdminClient, createSupabaseAdminRoleChecker } from '../lib/supabaseAdmin';
+import { sendBrevoEmail } from '../lib/brevo';
 import {
   deleteIntegrationSecret,
   listIntegrationSecrets,
@@ -63,6 +64,27 @@ if (!verifier || !adminClient || !roleChecker) {
       });
     } catch (error: any) {
       res.status(500).json({ error: 'integration_secret_list_failed', message: error?.message });
+    }
+  });
+
+  router.post('/email/test', guard, async (req: AdminAuthedRequest, res: Response) => {
+    const email = String(req.body?.email || '').trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return void res.status(400).json({ error: 'invalid_email' });
+    }
+    try {
+      const result = await sendBrevoEmail({
+        to: [{ email }],
+        subject: 'KEEP — test Brevo réussi',
+        htmlContent: '<div style="font-family:Arial,sans-serif"><h2>KEEP</h2><p>Votre configuration Brevo fonctionne correctement.</p></div>',
+        textContent: 'KEEP — votre configuration Brevo fonctionne correctement.',
+      });
+      await audit(req, 'integration_email.tested', 'brevo', { recipient: email, ok: true });
+      res.json({ ok: true, provider: 'brevo', ...result });
+    } catch (error: any) {
+      const detail = error?.response?.data || error?.message || 'unknown_error';
+      await audit(req, 'integration_email.tested', 'brevo', { recipient: email, ok: false });
+      res.status(error?.response?.status || 500).json({ ok: false, provider: 'brevo', error: detail });
     }
   });
 
