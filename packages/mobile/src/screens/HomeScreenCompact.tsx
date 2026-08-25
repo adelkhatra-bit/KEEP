@@ -3,9 +3,10 @@ import { Alert, Animated, Easing, Image, Modal, SafeAreaView, ScrollView, Share,
 import { useTranslation } from 'react-i18next';
 import { useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
-import { loadSessionScreenCopy } from '../services/planService';
+import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 
 const C = {
   bg: '#090610', card: '#151020', line: '#312348', purple: '#8B5CF6', purpleLight: '#B79CFF',
@@ -24,12 +25,25 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const { isActive, tracks, showEndPrompt, startedAt, error, recognizing, micLevel, startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
+  const user = useUserStore((s) => s.user);
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const micPulse = useRef(new Animated.Value(0)).current;
   const [screenCopy, setScreenCopy] = useState<{ emptyTitle: string | null; emptySubtitle: string | null }>({ emptyTitle: null, emptySubtitle: null });
+  // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "comment ça se fait
+  // quand je suis en premium ? tout à l'heure j'étais en free") : ce badge
+  // affichait "♛ Premium" en dur, sans jamais lire le vrai plan -- alors que
+  // packages/mobile/src/screens/ProfilePublicScreen.tsx charge déjà le VRAI
+  // plan via loadCurrentPlanCode (table subscriptions/plans réelle). Même
+  // pattern réutilisé ici, jamais une deuxième logique de plan.
+  const [planCode, setPlanCode] = useState('FREE');
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { loadSessionScreenCopy().then(setScreenCopy).catch(() => {}); }, []);
+  useEffect(() => {
+    let live = true;
+    if (user && !musicEngine.isDemoMode) loadCurrentPlanCode(user.id).then((code) => live && setPlanCode(code || 'FREE')).catch(() => live && setPlanCode('FREE'));
+    return () => { live = false; };
+  }, [user?.id]);
   useEffect(() => {
     if (!isActive) return;
     setElapsed(formatElapsed(startedAt));
@@ -111,7 +125,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}>
-        <TopBar navigation={navigation} />
+        <TopBar navigation={navigation} planCode={planCode} />
         <View style={s.idle}>
           <SessionPulse active={false} />
           <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
@@ -134,7 +148,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.container}>
-      <TopBar navigation={navigation} />
+      <TopBar navigation={navigation} planCode={planCode} />
 
       {/* BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "quand je suis sur
           l'écoute, on ne voit pas les boutons du bas") : tout le contenu
@@ -207,11 +221,12 @@ export default function HomeScreenCompact({ navigation }: any) {
   );
 }
 
-function TopBar({ navigation }: any) {
+function TopBar({ navigation, planCode }: any) {
+  const isPaidPlan = planCode && planCode !== 'FREE';
   return <View style={s.topBar}>
     <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')}><Text style={s.roundText}>☰</Text></TouchableOpacity>
     <Text style={s.brand}>KEEP</Text>
-    <View style={s.premium}><Text style={s.premiumText}>♛ Premium</Text></View>
+    <View style={s.premium}><Text style={s.premiumText}>{isPaidPlan ? '♛ Premium' : 'Free'}</Text></View>
   </View>;
 }
 
