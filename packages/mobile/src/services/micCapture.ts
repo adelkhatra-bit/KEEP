@@ -162,6 +162,19 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void): Promise
   const stream = await ensureWebStream();
   const audioCtx = getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
+  // BUG RÉEL PLAUSIBLE identifié le 26/08/2026 (compte AudD actif, 166
+  // requêtes reçues ce mois d'après le vrai tableau de bord d'Adel, mais
+  // aucune reconnaissance ne remonte jamais) : la plupart des navigateurs
+  // créent un AudioContext à l'état "suspended" tant qu'il n'est pas repris
+  // dans le MÊME tick de user-gesture. Le .resume() ci-dessus peut échouer
+  // silencieusement (.catch(()=>{})) selon le navigateur/le moment exact de
+  // l'appel -- si le contexte reste suspendu, onaudioprocess ne capte aucune
+  // donnée réelle et un WAV vide/silencieux part quand même vers AudD à
+  // chaque tick, consommant le quota sans jamais pouvoir matcher. On
+  // n'envoie plus vers AudD tant que le contexte n'est pas réellement actif.
+  if (audioCtx.state !== 'running') {
+    throw new Error("Micro indisponible (contexte audio suspendu par le navigateur) -- réessaie d'écouter.");
+  }
 
   const source = audioCtx.createMediaStreamSource(stream);
   const processor = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -196,6 +209,16 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void): Promise
   const merged = new Float32Array(totalLength);
   let offset = 0;
   for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+
+  let peak = 0;
+  for (let i = 0; i < merged.length; i++) { const v = Math.abs(merged[i]); if (v > peak) peak = v; }
+  // Même logique que le SILENCE_FLOOR de l'animation (HomeScreenCompact.tsx) :
+  // en dessous, il n'y a rien d'exploitable à envoyer -- mieux vaut un échec
+  // visible ("aucun son détecté") qu'un WAV silencieux de plus consommé sur
+  // le quota AudD pour un "no match" qui ne dit rien à personne.
+  if (totalLength === 0 || peak < 0.008) {
+    throw new Error('Aucun son détecté -- vérifie que le micro capte bien la musique (volume, autorisation navigateur).');
+  }
 
   return encodeWav(merged, sampleRate);
 }

@@ -48,7 +48,23 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
 
   constructor(
     private readonly config: AudDConfig,
-    private readonly fetchImpl: typeof fetch = fetch,
+    // BUG RÉEL trouvé le 26/08/2026, reproduit en direct dans un vrai
+    // navigateur (session Playwright réelle, pas une supposition) : erreur
+    // "Failed to execute 'fetch' on 'Window': Illegal invocation" -- EXACTEMENT
+    // l'erreur rapportée par Adel depuis le début sur l'écoute en Mode Réel.
+    // Cause : la valeur par défaut `= fetch` capture une référence détachée
+    // de `window.fetch`. Chrome/V8 exige que fetch() soit appelé avec le bon
+    // récepteur (`this === window`) -- un appel via `this.fetchImpl(...)`
+    // perd ce contexte et plante systématiquement. musicEngine.ts (mobile)
+    // instancie ce provider SANS fournir de fetchImpl personnalisé, donc
+    // TOUTE tentative de reconnaissance réelle sur Chrome/web passait par ce
+    // chemin cassé -- ce qui explique qu'AudD ait reçu 166 requêtes réelles
+    // ce mois-ci (probablement via Safari/natif, moins strict sur ce point)
+    // alors que la reconnaissance ne fonctionnait jamais dans le navigateur
+    // réellement testé cette session. `.bind(globalThis)` fonctionne aussi
+    // bien en navigateur (web) qu'avec le polyfill fetch de React Native
+    // (natif) -- jamais une référence nue.
+    private readonly fetchImpl: typeof fetch = fetch.bind(globalThis),
     private readonly baseUrl = 'https://api.audd.io/'
   ) {}
 
@@ -60,9 +76,20 @@ export class AudDRecognitionProvider implements MusicRecognitionProvider {
     }
 
     const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample]);
+    // BUG RÉEL trouvé le 26/08/2026 (compte AudD actif, 166 requêtes reçues ce
+    // mois d'après le tableau de bord réel d'Adel, mais aucune reconnaissance
+    // ne remonte jamais) : le fichier envoyé était TOUJOURS nommé
+    // "sample.m4a", quel que soit son contenu réel. Or micCapture.ts (web)
+    // produit un vrai WAV (encodeWav(), type MIME "audio/wav") depuis la
+    // correction du 26/08/2026 sur la capture web -- AudD recevait donc du
+    // contenu WAV étiqueté .m4a, une extension trompeuse qui peut faire
+    // échouer le décodage côté serveur AudD sans jamais renvoyer d'erreur
+    // HTTP explicite (juste un "no match" silencieux -- exactement le
+    // symptôme observé). Nom de fichier dérivé du VRAI type MIME du blob.
+    const extension = blob.type.includes('wav') ? 'wav' : blob.type.includes('mp4') || blob.type.includes('m4a') ? 'm4a' : 'm4a';
     const form = new FormData();
     form.append('api_token', this.config.apiToken);
-    form.append('file', blob, 'sample.m4a');
+    form.append('file', blob, `sample.${extension}`);
     form.append('return', 'apple_music,spotify');
     if (this.config.market) form.append('market', this.config.market);
 

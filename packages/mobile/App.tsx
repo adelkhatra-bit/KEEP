@@ -151,6 +151,15 @@ export default function App() {
     };
   }, []);
 
+  // REVERT le 26/08/2026 : un essai de colonne centrée largeur-téléphone pour
+  // le web (maxWidth 480) a été ajouté ici puis retiré dans la même session --
+  // vérifié à 1440x840 AVANT cet essai, le rendu plein largeur était déjà
+  // correct (barre du bas, boutons, proportions -- capture d'écran réelle à
+  // l'appui). La fenêtre réelle d'Adel étant déjà réduite à la moitié de son
+  // écran, ajouter un deuxième rétrécissement par-dessus produisait un rendu
+  // encore plus étroit ("coupures en deux, je vois la moitié") -- pire, pas
+  // mieux. Jamais de changement de layout web non demandé et non vérifié en
+  // conditions réelles.
   return (
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
