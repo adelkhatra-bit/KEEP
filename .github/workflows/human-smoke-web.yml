@@ -37,6 +37,16 @@ jobs:
       - name: Export web réel
         working-directory: packages/mobile
         run: npx expo export --platform web --output-dir dist-human-test
+      - name: Corriger bootstrap module web
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('packages/mobile/dist-human-test/index.html')
+          html = p.read_text()
+          html = html.replace('<script src=', '<script type="module" src=')
+          p.write_text(html)
+          print(html)
+          PY
       - name: Install Chromium test runner
         run: |
           npm install --no-save playwright@1.55.0
@@ -108,7 +118,7 @@ jobs:
               ...failures.slice(0, 30),
             ].join('\n'));
             await browser.close();
-          })().catch(async err => { console.error(err); process.exit(1); });
+          })().catch(err => { console.error(err); process.exit(1); });
           JS
           node keep-human-smoke.cjs
       - name: Upload preuves visuelles
