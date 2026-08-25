@@ -1,10 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
-import { GenderOption } from '../types';
+import { GenderOption, User } from '../types';
+import { supabase } from '../services/supabaseClient';
+import { createProfileService } from '../services/profileService';
+import { pickAndUploadAvatar } from '../services/avatarService';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
   { key: 'MALE', label: 'Homme' }, { key: 'FEMALE', label: 'Femme' }, { key: 'OTHER', label: 'Autre' }, { key: 'PREFER_NOT_TO_SAY', label: 'Ne pas préciser' },
@@ -14,16 +17,22 @@ const COUNTRIES = [
 ] as const;
 
 export default function ProfileSettingsMobileScreen({ navigation }: any) {
-  const { user, updateUser, setPrivateInfo } = useUserStore();
+  const user = useUserStore((state) => state.user);
+  const isDemoMode = useUserStore((state) => state.isDemoMode);
+  const setUser = useUserStore((state) => state.setUser);
   const [username, setUsername] = useState(user?.username ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
   const [city, setCity] = useState(user?.city ?? '');
   const [countryCode, setCountryCode] = useState(user?.countryCode ?? '');
   const [website, setWebsite] = useState(user?.website ?? '');
+  const [avatar, setAvatar] = useState(user?.avatar ?? '');
   const [birthDate, setBirthDate] = useState(user?.privateInfo.birthDate ?? '');
   const [gender, setGender] = useState<GenderOption | undefined>(user?.privateInfo.gender);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [citySearching, setCitySearching] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
 
@@ -36,30 +45,78 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
 
-  const save = () => {
+  const goToTab = (screen: 'Listen' | 'Discover' | 'MyMusic' | 'Parties' | 'Profile') => {
+    navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
+  };
+
+  const buildUser = (): User => {
     const cleanUsername = username.trim().replace(/^@+/, '').replace(/\s+/g, '');
-    if (cleanUsername.length < 3) return setError('Le pseudo doit contenir au moins 3 caractères.');
-    setError('');
-    updateUser({ username: cleanUsername, bio: bio.trim(), city: city.trim() || undefined, countryCode: countryCode || undefined, website: website.trim() || undefined });
-    setPrivateInfo({ birthDate: birthDate || undefined, gender });
-    navigation.goBack();
+    return {
+      ...user,
+      username: cleanUsername,
+      avatar,
+      bio: bio.trim(),
+      city: city.trim() || undefined,
+      countryCode: countryCode || undefined,
+      website: website.trim() || undefined,
+      privateInfo: { ...user.privateInfo, birthDate: birthDate || undefined, gender },
+    };
+  };
+
+  const save = async () => {
+    const cleanUsername = username.trim().replace(/^@+/, '').replace(/\s+/g, '');
+    if (cleanUsername.length < 3) { setError('Le pseudo doit contenir au moins 3 caractères.'); return; }
+    setError(''); setSaving(true);
+    try {
+      const nextUser = buildUser();
+      setUser(nextUser);
+      if (supabase && !isDemoMode) await createProfileService(supabase).saveOwnProfile(nextUser);
+      Alert.alert('Profil enregistré', 'Tes informations sont sauvegardées dans KEEP.');
+      goToTab('Profile');
+    } catch (e: any) {
+      setError(e?.message || 'Impossible de sauvegarder le profil.');
+    } finally { setSaving(false); }
+  };
+
+  const changeAvatar = async () => {
+    if (isDemoMode) return void Alert.alert('Mode démo', 'Connecte-toi à un vrai compte pour enregistrer une photo.');
+    setAvatarBusy(true);
+    try {
+      const url = await pickAndUploadAvatar(user.id);
+      if (url) setAvatar(url);
+    } catch (e: any) { Alert.alert('Photo de profil', e?.message || 'Impossible de mettre à jour la photo.'); }
+    finally { setAvatarBusy(false); }
+  };
+
+  const applyPlace = (place: Location.LocationGeocodedAddress | undefined) => {
+    if (!place) return;
+    setCity(place.city || place.subregion || place.region || city);
+    if (place.isoCountryCode) setCountryCode(place.isoCountryCode.toUpperCase());
   };
 
   const useCurrentLocation = async () => {
     setLocating(true);
     try {
-      const perm = await Location.requestForegroundPermissionsAsync();
-      if (perm.status !== 'granted') return void Alert.alert('Localisation', 'Autorise la localisation pour remplir automatiquement la ville et le pays.');
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const places = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      const place = places[0];
-      if (place) {
-        setCity(place.city || place.subregion || place.region || '');
-        if (place.isoCountryCode) setCountryCode(place.isoCountryCode.toUpperCase());
-      }
-    } catch {
-      Alert.alert('Localisation', 'Impossible de récupérer la position pour le moment.');
-    } finally { setLocating(false); }
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') return void Alert.alert('Localisation', 'Autorise la localisation pour préremplir la ville et le pays.');
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const places = await Location.reverseGeocodeAsync({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      applyPlace(places[0]);
+    } catch { Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment.'); }
+    finally { setLocating(false); }
+  };
+
+  const searchCity = async () => {
+    const query = city.trim();
+    if (query.length < 2) return void Alert.alert('Ville', 'Saisis au moins 2 caractères.');
+    setCitySearching(true);
+    try {
+      const matches = await Location.geocodeAsync(query);
+      if (!matches.length) return void Alert.alert('Ville', 'Aucune localisation trouvée.');
+      const places = await Location.reverseGeocodeAsync(matches[0]);
+      applyPlace(places[0]);
+    } catch { Alert.alert('Ville', 'Impossible de rechercher cette localisation.'); }
+    finally { setCitySearching(false); }
   };
 
   const confirmDate = () => {
@@ -71,69 +128,64 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   return <SafeAreaView style={s.container}>
     <View style={s.header}>
-      <TouchableOpacity style={s.headerBtn} onPress={() => navigation.goBack()}><Text style={s.headerBtnText}>‹ Retour</Text></TouchableOpacity>
+      <TouchableOpacity style={s.headerBtn} onPress={() => goToTab('Profile')} accessibilityLabel="Retour au profil"><Text style={s.headerBtnText}>‹ Retour</Text></TouchableOpacity>
       <Text style={s.title}>Modifier le profil</Text>
-      <TouchableOpacity style={s.headerBtn} onPress={save}><Text style={s.saveText}>Enregistrer</Text></TouchableOpacity>
+      <TouchableOpacity style={s.headerBtn} onPress={save} disabled={saving}><Text style={s.saveText}>{saving ? '...' : 'Enregistrer'}</Text></TouchableOpacity>
     </View>
+
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <Section title="Photo">
+        <View style={s.avatarRow}>
+          {avatar ? <Image source={{ uri: avatar }} style={s.avatar} /> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarK}>K</Text></View>}
+          <TouchableOpacity style={s.locationButton} onPress={changeAvatar} disabled={avatarBusy}>{avatarBusy ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>Changer la photo</Text>}</TouchableOpacity>
+        </View>
+      </Section>
+
       <Section title="Identité">
         <Field label="Pseudo" value={username} onChangeText={setUsername} placeholder="tonpseudo" autoCapitalize="none" />
         <Text style={s.hint}>Visible publiquement sous la forme @{username.trim().replace(/^@+/, '') || 'pseudo'}.</Text>
         <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur toi" multiline />
       </Section>
 
-      <Section title="Localisation" subtitle="Tu peux remplir manuellement ou utiliser ta position.">
-        <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>
-          {locating ? <ActivityIndicator color={colors.primaryLight} /> : <Text style={s.locationButtonText}>⌖ Utiliser ma position</Text>}
-        </TouchableOpacity>
-        <Field label="Ville" value={city} onChangeText={setCity} placeholder="Lyon" />
+      <Section title="Localisation" subtitle="KEEP peut préremplir automatiquement la ville et le pays.">
+        <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>⌖ Utiliser ma position</Text>}</TouchableOpacity>
+        <Field label="Ville" value={city} onChangeText={setCity} placeholder="Commence à saisir une ville" />
+        <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>Rechercher et préremplir</Text>}</TouchableOpacity>
         <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => setCountryOpen(true)} />
         <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" />
       </Section>
 
-      <Section title="Informations privées" subtitle="Ces informations ne sont jamais affichées sur ton profil public.">
+      <Section title="Informations privées" subtitle="Jamais affichées publiquement.">
         <Selector label="Date de naissance" value={birthDate || 'Choisir une date'} onPress={() => { setDateDraft({ year: parsed.year, month: parsed.month, day: parsed.day }); setDateOpen(true); }} />
-        <Text style={s.hint}>Utilisée pour les filtres d’âge et les événements 18+.</Text>
+        <Text style={s.hint}>Utilisée pour les filtres d’âge et événements 18+.</Text>
         <Text style={[s.label,{marginTop:18}]}>Genre</Text>
-        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender === item.key && s.genderChipActive]} onPress={() => setGender(item.key)}><Text style={[s.genderText, gender === item.key && s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive]} onPress={()=>setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
       </Section>
 
       <Section title="KEEP">
-        <QuickLink label="Notifications" onPress={() => navigation.navigate('Notifications')} />
-        <QuickLink label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
-        <QuickLink label="Offre & crédits" onPress={() => navigation.navigate('Offers')} />
+        <QuickLink label="Notifications" onPress={()=>navigation.navigate('Notifications')} />
+        <QuickLink label="Services musicaux" onPress={()=>navigation.navigate('MusicConnections')} />
+        <QuickLink label="Offre & crédits" onPress={()=>navigation.navigate('Offers')} />
       </Section>
 
       {error ? <Text style={s.error}>{error}</Text> : null}
-      <TouchableOpacity style={s.primary} onPress={save}><Text style={s.primaryText}>Enregistrer les modifications</Text></TouchableOpacity>
-      <TouchableOpacity style={s.playlists} onPress={() => navigation.navigate('Main', { screen: 'MyMusic' })}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
-      <TouchableOpacity style={s.advanced} onPress={() => navigation.navigate('AdvancedProfileSettings')}><Text style={s.advancedText}>Réglages avancés du profil</Text></TouchableOpacity>
+      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>Enregistrer les modifications</Text>}</TouchableOpacity>
+      <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
+      <TouchableOpacity style={s.advanced} onPress={()=>navigation.navigate('AdvancedProfileSettings')}><Text style={s.advancedText}>Réglages avancés du profil</Text></TouchableOpacity>
     </ScrollView>
 
-    <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={() => setCountryOpen(false)}>
-      <View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={() => setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label]) => <TouchableOpacity key={code} style={s.option} onPress={() => { setCountryCode(code); setCountryOpen(false); }}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View>
-    </Modal>
+    <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>{setCountryCode(code);setCountryOpen(false);}}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></Modal>
 
-    <Modal visible={dateOpen} transparent animationType="slide" onRequestClose={() => setDateOpen(false)}>
-      <View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={() => setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View>
-        <View style={s.dateColumns}>
-          <DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))} />
-          <DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))} />
-          <DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))} />
-        </View>
-        <TouchableOpacity style={s.primary} onPress={confirmDate}><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity>
-      </View></View>
-    </Modal>
+    <Modal visible={dateOpen} transparent animationType="slide" onRequestClose={()=>setDateOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={()=>setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View><View style={s.dateColumns}><DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))}/><DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))}/><DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))}/></View><TouchableOpacity style={s.primary} onPress={confirmDate}><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity></View></View></Modal>
   </SafeAreaView>;
 }
 
-function Section({ title, subtitle, children }: { title:string; subtitle?:string; children:React.ReactNode }) { return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text>{subtitle ? <Text style={s.sectionSubtitle}>{subtitle}</Text> : null}{children}</View>; }
-function Field({ label, ...props }: any) { return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput style={[s.input, props.multiline && s.multiline]} placeholderTextColor={colors.textMuted} {...props} /></View>; }
+function Section({ title, subtitle, children }: { title:string; subtitle?:string; children:React.ReactNode }) { return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text>{subtitle?<Text style={s.sectionSubtitle}>{subtitle}</Text>:null}{children}</View>; }
+function Field({ label, ...props }: any) { return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput style={[s.input,props.multiline&&s.multiline]} placeholderTextColor={colors.textMuted} {...props}/></View>; }
 function Selector({ label, value, onPress }: { label:string; value:string; onPress:()=>void }) { return <View style={s.field}><Text style={s.label}>{label}</Text><TouchableOpacity style={s.selector} onPress={onPress}><Text style={s.selectorText}>{value}</Text><Text style={s.chevron}>›</Text></TouchableOpacity></View>; }
 function QuickLink({ label, onPress }: { label:string; onPress:()=>void }) { return <TouchableOpacity style={s.quickLink} onPress={onPress}><Text style={s.quickLabel}>{label}</Text><Text style={s.chevron}>›</Text></TouchableOpacity>; }
-function DateColumn({ title, values, selected, onSelect }: { title:string; values:number[]; selected:number; onSelect:(v:number)=>void }) { return <View style={s.dateCol}><Text style={s.dateTitle}>{title}</Text><ScrollView style={s.dateScroll}>{values.map(v => <TouchableOpacity key={v} style={[s.dateOption,selected===v&&s.dateOptionActive]} onPress={()=>onSelect(v)}><Text style={[s.dateText,selected===v&&s.dateTextActive]}>{String(v).padStart(title==='Année'?4:2,'0')}</Text></TouchableOpacity>)}</ScrollView></View>; }
+function DateColumn({ title, values, selected, onSelect }: { title:string; values:number[]; selected:number; onSelect:(v:number)=>void }) { return <View style={s.dateCol}><Text style={s.dateTitle}>{title}</Text><ScrollView style={s.dateScroll}>{values.map(v=><TouchableOpacity key={v} style={[s.dateOption,selected===v&&s.dateOptionActive]} onPress={()=>onSelect(v)}><Text style={[s.dateText,selected===v&&s.dateTextActive]}>{String(v).padStart(title==='Année'?4:2,'0')}</Text></TouchableOpacity>)}</ScrollView></View>; }
 
-const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background}, center:{flex:1,alignItems:'center',justifyContent:'center'}, muted:{color:colors.textMuted}, header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border}, headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'}, headerBtnText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'}, saveText:{color:colors.primaryLight,fontSize:13,fontWeight:'800',textAlign:'right'}, title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'}, content:{padding:18,paddingBottom:38}, section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16}, sectionTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4}, sectionSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:10}, field:{marginTop:14}, label:{color:colors.textSecondary,fontSize:12,fontWeight:'700',marginBottom:7}, input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:14,backgroundColor:colors.background}, multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'}, hint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7}, selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'}, selectorText:{flex:1,color:colors.textPrimary,fontSize:14}, chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'}, locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:12,backgroundColor:colors.backgroundElevated}, locationButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'}, genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8}, genderChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,justifyContent:'center'}, genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary}, genderText:{color:colors.textSecondary,fontSize:12,fontWeight:'700'}, genderTextActive:{color:colors.white}, quickLink:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border}, quickLabel:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'800'}, error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:12,fontWeight:'700'}, primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'}, primaryText:{color:colors.white,fontSize:14,fontWeight:'900'}, playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'}, playlistsText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'}, advanced:{minHeight:44,marginTop:8,alignItems:'center',justifyContent:'center'}, advancedText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'}, modalCard:{maxHeight:'78%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border}, modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}, modalTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'}, close:{color:colors.primaryLight,fontSize:13,fontWeight:'800'}, option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border}, optionText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'700'}, optionCode:{color:colors.textMuted,fontSize:12,fontWeight:'800'}, dateColumns:{height:280,flexDirection:'row',gap:8,marginVertical:12}, dateCol:{flex:1}, dateTitle:{color:colors.textMuted,fontSize:11,fontWeight:'800',textAlign:'center',marginBottom:6}, dateScroll:{flex:1}, dateOption:{minHeight:42,alignItems:'center',justifyContent:'center',borderRadius:12}, dateOptionActive:{backgroundColor:colors.primary}, dateText:{color:colors.textSecondary,fontSize:14,fontWeight:'700'}, dateTextActive:{color:colors.white,fontWeight:'900'},
+const s=StyleSheet.create({
+  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted},header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},saveText:{color:colors.primaryLight,fontSize:13,fontWeight:'800',textAlign:'right'},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},content:{padding:18,paddingBottom:38},section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16},sectionTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:12,fontWeight:'700',marginBottom:7},input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:14,backgroundColor:colors.background},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:14},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:colors.backgroundElevated},locationButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},lookupButton:{minHeight:40,marginTop:8,borderRadius:20,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.background},lookupText:{color:colors.textSecondary,fontSize:12,fontWeight:'800'},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderText:{color:colors.textSecondary,fontSize:12,fontWeight:'700'},genderTextActive:{color:colors.white},quickLink:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},quickLabel:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'800'},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:12,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:14,fontWeight:'900'},playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},playlistsText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},advanced:{minHeight:44,marginTop:8,alignItems:'center',justifyContent:'center'},advancedText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'78%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:12},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:11,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:42,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},dateTextActive:{color:'#fff',fontWeight:'900'}
 });
