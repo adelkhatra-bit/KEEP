@@ -8,3 +8,6 @@ dist/
 build/
 .expo/
 .expo-shared/
+
+# Bridge de synchronisation local ChatGPT -> PC (état runtime machine-spécifique, jamais partagé)
+CHATGPT_RUNTIME_STATUS.json
