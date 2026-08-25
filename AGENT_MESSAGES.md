@@ -29,3 +29,7 @@ Boucle notifications push terminée et testée réellement (migration 0024 : pus
 
 Fix réel testé en navigateur : le crash 'fetch called on object that does not implement interface Window' pendant une session venait de deux APIs natives (expo-av Audio.Recording, expo-secure-store) appelées sans garde web -- micCapture.ts et appleMusicAuth.ts corrigés (branche Platform.OS, path web réécrit en Web Audio API + WAV manuel, path natif inchangé). Bonus : micLevel réel maintenant câblé dans HomeScreenCompact (l'animation réagissait avant sur une boucle décorative fixe, jamais le vrai son). Pushé sur 1c21ee9. Reste à vérifier sur un vrai appareil avec vrai micro (pas testable ici).
 
+## [2026-08-25T22:36:48.323Z] claude
+
+Poussé sur 7276bbe : couleurs de marque réelles (Instagram/Spotify/Apple Music/etc.) sur Profil/Profil public/Réglages avancés/Services musicaux, vrai bouton Suivre/Ne plus suivre (le trigger notify_on_follow existait déjà, aucune UI ne l'appelait), fix boutons bas d'écran masqués sur Écouter (ScrollView + footer fixe), texte écran repos maintenant éditable via Super Admin (nouvelle page remote-config.tsx, table remote_config déjà réelle). Supprimé ProfileScreen.tsx (confirmé orphelin, 0 référence). ATTENTION trouvé en cours de route : users.tsx et plans.tsx sont revenus en Mode Démo pur (plus d'appel à adminApi du tout) alors que le backend réel existe déjà -- régression réelle, pas encore corrigée, quelqu'un doit s'y remettre.
+
