@@ -37,3 +37,64 @@ Poussé sur 7276bbe : couleurs de marque réelles (Instagram/Spotify/Apple Music
 
 BUG RÉEL CORRIGÉ (reconnaissance AudD) : trouvé + reproduit en direct dans un vrai navigateur (Playwright) l'erreur exacte qu'Adel remonte depuis le début -- 'Failed to execute fetch on Window: Illegal invocation'. Cause : packages/music/src/providers/AudDRecognitionProvider.ts passait `fetch` nu comme valeur par défaut de fetchImpl (référence détachée de window), et musicEngine.ts (mobile) ne fournit jamais de fetchImpl custom -- donc TOUTE tentative réelle plantait avant même d'atteindre AudD. Fix : fetch.bind(globalThis). Vérifié en direct : avant fix, erreur reproduite dans le navigateur (banniere visible) ; apres rebuild propre (dist-web régénéré, nouveau hash de bundle), 4 requetes POST reelles vers https://api.audd.io/ toutes 200 OK, session tourne 45s sans aucune erreur. Egalement : filename WAV/M4A corrigé (mineur, l'extension ne semblait pas affecter AudD en test A/B réel) + micCapture.ts durci (refuse d'envoyer un WAV vide/silencieux si l'AudioContext reste suspendu par le navigateur, au lieu de gaspiller une requete AudD silencieusement). Fichiers touchés : packages/music/src/providers/AudDRecognitionProvider.ts, packages/mobile/src/services/micCapture.ts. Aucun fichier design/UI touché.
 
+## [2026-08-26T00:05:00.000Z] codex
+
+OK, diagnostic validé.
+NE TOUCHE PLUS :
+- packages/mobile/App.tsx pour le responsive
+- Navigation.tsx
+- barre des 5 onglets
+- design actuel
+1. Corrige maintenant uniquement le texte corrompu dans Supabase remote_config :
+- Démarre
+- jusqu’à ce que tu l’arrêtes
+- tous les accents UTF-8 incorrects
+2. Ensuite continue sur la VERSION UNIQUE :
+reconcile/claude-main-20260825
+PRIORITÉ IMMÉDIATE :
+- Profil : toutes les données doivent être réellement persistées dans Supabase
+- pseudo
+- bio
+- photo/avatar dans Supabase Storage
+- ville
+- pays
+- date de naissance
+- genre
+- réseaux sociaux
+- site web
+3. LOCALISATION :
+- bouton “Utiliser ma position”
+- récupération GPS
+- préremplissage automatique de la ville
+- préremplissage automatique du pays
+- possibilité de modifier manuellement ensuite
+4. RÉGLAGES AVANCÉS :
+- Retour doit fonctionner
+- bouton Playlists doit revenir réellement sur l’onglet Playlists
+- aucune obligation de se déconnecter pour sortir de l’écran
+5. ÉCOUTER :
+- démarrer le micro
+- animation visible pendant le micro actif
+- bouton Arrêter doit réellement stopper Audio.Recording immédiatement
+- vérifier que le micro est libéré
+- revenir à l’état inactif après arrêt
+- aucun swipe obligatoire pour morceau + PASSER + GARDER + ARRÊTER
+6. PROFIL :
+- vrais logos Instagram / TikTok / Snapchat / YouTube / X / Facebook sous KEEP DNA
+- lien présent → ouverture directe
+- lien absent → popup “Cette personne ne partage pas ce réseau”
+- si visiteur connecté → notification automatique au propriétaire
+7. TEST OBLIGATOIRE EN 390×844 :
+Écouter → arrêter → Découvertes → Playlists → Soirées → Profil → Modifier → localisation → date → enregistrer → Réglages avancés → Playlists.
+Vérifie aussi après rechargement complet que pseudo/photo/ville/pays/date/réseaux sont toujours présents.
+Ne me réponds pas avec une proposition.
+FAIS les corrections, teste-les, pousse-les, puis donne seulement :
+SHA :
+CI :
+TEST MOBILE :
+PROFIL PERSISTANT :
+LOCALISATION :
+ARRÊT MICRO :
+RETOUR PLAYLISTS :
+RÉSEAUX SOCIAUX :
+ERREURS RESTANTES :
