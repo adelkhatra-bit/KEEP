@@ -110,17 +110,16 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         )}
 
-        {!showEmailForm && (
-          <TouchableOpacity
-            style={[styles.button, styles.demoButton]}
-            onPress={() => enterDemoMode()}
-            accessibilityRole="button"
-            accessibilityLabel="Continuer en mode démo"
-          >
-            <Text style={styles.demoButtonText}>Continuer en mode démo</Text>
-            <Text style={styles.demoButtonHint}>Entrer sans créer de compte</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.button, styles.demoButton]}
+          onPress={() => enterDemoMode()}
+          accessibilityRole="button"
+          accessibilityLabel="Entrer en mode démo"
+          testID="onboarding-demo-button"
+        >
+          <Text style={styles.demoButtonText}>ENTRER EN MODE DÉMO</Text>
+          <Text style={styles.demoButtonHint}>Accéder immédiatement à KEEP sans créer de compte</Text>
+        </TouchableOpacity>
 
         {showEmailForm && emailStep === 'idle' && (
           <View style={styles.emailForm}>
@@ -228,19 +227,27 @@ const styles = StyleSheet.create({
     color: colors.primaryLight,
   },
   demoButton: {
-    minHeight: 58,
-    backgroundColor: colors.backgroundCard,
+    minHeight: 64,
+    backgroundColor: colors.primary,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryLight,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
   demoButtonText: {
     ...typography.button,
-    color: colors.primaryLight,
+    color: colors.white,
+    fontWeight: '900',
+    letterSpacing: 0.6,
   },
   demoButtonHint: {
-    marginTop: 2,
+    marginTop: 3,
     fontSize: 11,
-    color: colors.textMuted,
+    color: colors.white,
+    opacity: 0.82,
   },
   emailForm: {
     gap: spacing.sm,
