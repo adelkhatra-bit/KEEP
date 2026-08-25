@@ -3,10 +3,10 @@ import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useTranslation } from 'react-i18next';
 import HomeScreen from '../screens/HomeScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MyMusicScreen from '../screens/MyMusicScreen';
+import PartiesScreen from '../screens/PartiesScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -14,7 +14,6 @@ import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
-import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -29,29 +28,36 @@ const linking = {
   },
 };
 
-function MainTabs() {
-  const { t } = useTranslation();
+const TAB = {
+  bg: '#0E0A14',
+  border: '#2B2038',
+  active: '#A884FA',
+  inactive: '#756B84',
+};
 
+function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: colors.primaryLight,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: TAB.active,
+        tabBarInactiveTintColor: TAB.inactive,
         tabBarStyle: {
-          backgroundColor: colors.backgroundElevated,
-          borderTopColor: colors.border,
+          backgroundColor: TAB.bg,
+          borderTopColor: TAB.border,
           borderTopWidth: 1,
-          height: 60,
+          height: 68,
           paddingBottom: 8,
-          paddingTop: 6,
+          paddingTop: 7,
         },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Listen" component={HomeScreen} options={{ tabBarLabel: t('nav.listen'), tabBarIcon: ({ color }) => <TabIcon icon="🎙️" color={color} /> }} />
-      <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: t('nav.discover'), tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} /> }} />
-      <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: t('nav.myMusic'), tabBarIcon: ({ color }) => <TabIcon icon="📋" color={color} /> }} />
-      <Tab.Screen name="Profile" component={ProfilePublicScreen} options={{ tabBarLabel: t('nav.profile'), tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} /> }} />
+      <Tab.Screen name="Listen" component={HomeScreen} options={{ tabBarLabel: 'Écouter', tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} /> }} />
+      <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
+      <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }} />
+      <Tab.Screen name="Parties" component={PartiesScreen} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
+      <Tab.Screen name="Profile" component={ProfilePublicScreen} options={{ tabBarLabel: 'Profil', tabBarIcon: ({ color }) => <TabIcon icon="◯" color={color} /> }} />
     </Tab.Navigator>
   );
 }
