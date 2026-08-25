@@ -11,6 +11,7 @@ import { colors } from './src/theme/colors';
 import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
+import { registerForPushNotifications } from './src/services/pushNotificationService';
 
 // __DEV__ uniquement, jamais en build production/TestFlight -- pratique pour
 // débugger (console/web) sans dépendre de flux UI natifs.
@@ -111,6 +112,12 @@ export default function App() {
         const profile = await profileService.loadOrCreateOwnProfile(session);
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
+        // Fire-and-forget -- un compte réel (jamais un invité, "suivre" un
+        // invité n'a pas de sens) enregistre son token push si l'OS l'autorise.
+        // Ne bloque jamais le chargement du profil, ne relance jamais si ça échoue.
+        if (!session.isAnonymous) {
+          registerForPushNotifications().catch(() => {});
+        }
       } catch (error) {
         // L'auth reste utilisable même si la lecture du profil échoue : on
         // conserve l'identité minimale et on rend l'erreur visible en dev.
