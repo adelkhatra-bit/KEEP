@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
@@ -27,6 +28,8 @@ if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' && !useUserStore.getState().use
 
 export default function App() {
   const user = useUserStore((s) => s.user);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const updateUser = useUserStore((s) => s.updateUser);
 
   // Garde-fou si le store est réinitialisé pendant une preview web.
   useEffect(() => {
@@ -34,6 +37,45 @@ export default function App() {
     const state = useUserStore.getState();
     if (!state.user) state.enterDemoMode();
   }, []);
+
+  // Si le profil réel n'a pas encore de ville/pays, KEEP utilise la
+  // localisation du téléphone pour les préremplir automatiquement. La mise à
+  // jour passe par le store puis par saveOwnProfile ci-dessous : elle est donc
+  // persistée dans Supabase et ne disparaît pas lors d'une mise à jour.
+  useEffect(() => {
+    if (!user || isDemoMode || (user.city && user.countryCode)) return;
+    let cancelled = false;
+
+    const autoFillLocation = async () => {
+      try {
+        let permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== 'granted' && permission.canAskAgain) {
+          permission = await Location.requestForegroundPermissionsAsync();
+        }
+        if (cancelled || permission.status !== 'granted') return;
+
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (cancelled) return;
+        const places = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (cancelled || !places[0]) return;
+
+        const place = places[0];
+        const city = place.city || place.subregion || place.region || user.city;
+        const countryCode = place.isoCountryCode?.toUpperCase() || user.countryCode;
+        if (city !== user.city || countryCode !== user.countryCode) {
+          updateUser({ city: city || undefined, countryCode: countryCode || undefined, locationOptIn: true });
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('[KEEP] automatic location unavailable', error);
+      }
+    };
+
+    void autoFillLocation();
+    return () => { cancelled = true; };
+  }, [isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
 
   // Une session Supabase réelle charge maintenant le vrai profil KEEP
   // (profiles + social_links + profile_private_info + compteurs follows).
