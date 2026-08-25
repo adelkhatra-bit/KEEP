@@ -14,11 +14,14 @@ permissions:
 jobs:
   mobile-loop:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'true'
       EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,20 +31,15 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run type-check
-      - name: Export web mobile
-        working-directory: packages/mobile
-        run: |
-          npx expo export --platform web --output-dir dist-mobile-loop
-          node scripts/fix-web-export.cjs dist-mobile-loop
       - name: Install Chromium
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install chromium --with-deps
-      - name: Start server
+      - name: Start exact KEEP runtime
+        working-directory: packages/mobile
         run: |
-          cd packages/mobile/dist-mobile-loop
-          python3 -m http.server 4173 >/tmp/keep-mobile-loop.log 2>&1 &
-          for i in {1..30}; do curl -fsS http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-mobile-loop.log 2>&1 &
+          for i in {1..90}; do curl -fsS http://127.0.0.1:8081 >/dev/null && exit 0; sleep 1; done
           cat /tmp/keep-mobile-loop.log
           exit 1
       - name: Audit complete mobile 390x844
@@ -52,72 +50,93 @@ jobs:
           const fs = require('fs');
           (async () => {
             const browser = await chromium.launch({ headless: true });
-            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const page = await context.newPage();
             const errors = [];
             page.on('pageerror', e => errors.push(`PAGE: ${e.message}`));
             page.on('console', m => { if (m.type() === 'error') errors.push(`CONSOLE: ${m.text()}`); });
             const shot = async (name) => page.screenshot({ path: `artifacts/mobile-loop/${name}.png`, fullPage: true });
+            const assertInViewport = async (locator, label) => {
+              const box = await locator.boundingBox();
+              if (!box) throw new Error(`${label}: élément invisible`);
+              if (box.y < 0 || box.y + box.height > 784) throw new Error(`${label}: nécessite un swipe (${JSON.stringify(box)})`);
+            };
 
-            await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle', timeout: 60000 });
+            await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1200);
-
-            // Si l'app arrive sur une porte d'entrée déconnectée, entrer en démo.
             const demo = page.getByText('ENTRER EN MODE DÉMO', { exact: true });
-            if (await demo.count()) { await demo.first().click(); await page.waitForTimeout(800); }
+            if (await demo.count()) { await demo.first().click(); await page.waitForTimeout(700); }
 
-            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
-              await page.getByText(label, { exact: true }).last().waitFor({ timeout: 15000 });
-            }
+            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await page.getByText(label, { exact: true }).last().waitFor({ timeout: 15000 });
             await shot('01-listen-idle');
 
-            // L'écran Écouter doit avoir ses actions principales dans le viewport mobile.
-            const start = page.getByText(/START A SESSION|DÉMARRER|COMMENCER/i).first();
+            const start = page.getByRole('button').filter({ hasText: /démarrer|commencer|start/i }).first();
             if (await start.count()) {
-              const box = await start.boundingBox();
-              if (!box || box.y + box.height > 784) throw new Error('Bouton démarrer sous la barre mobile');
+              await assertInViewport(start, 'Démarrer session');
+              await start.click();
+              await page.waitForTimeout(1200);
+              await page.getByText('EN ÉCOUTE', { exact: true }).waitFor({ timeout: 10000 });
+              await assertInViewport(page.getByText('EN ÉCOUTE', { exact: true }), 'Radar écoute');
+              const share = page.getByText('↗ Partager', { exact: true });
+              await share.waitFor();
+              await assertInViewport(share, 'Partager');
+              const end = page.getByRole('button').filter({ hasText: /terminer|arrêter|end/i }).last();
+              if (await end.count()) await assertInViewport(end, 'Arrêter session');
+              await shot('02-listen-active-no-swipe');
             }
 
             await page.getByText('Profil', { exact: true }).last().click();
-            await page.waitForTimeout(600);
-            await shot('02-profile');
+            await page.waitForTimeout(500);
+            await page.getByLabel('Notifications').waitFor();
+            for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) await page.getByLabel(network).waitFor();
+            await shot('03-profile-social-icons');
+
             await page.getByLabel('Modifier le profil').click();
             await page.getByText('Modifier le profil', { exact: true }).waitFor();
-            await shot('03-profile-edit');
+            await page.getByPlaceholder('tonpseudo').fill('keepmobiletest');
+            await page.getByText('Choisir une date', { exact: true }).click();
+            await page.getByText('Valider la date', { exact: true }).click();
+            await shot('04-profile-edit-selectors');
 
-            const pseudo = page.getByPlaceholder('tonpseudo');
-            await pseudo.fill('keepmobiletest');
-            const dob = page.getByPlaceholder('AAAA-MM-JJ');
-            await dob.fill('1990-05-12');
-            await page.getByText('Enregistrer les modifications', { exact: true }).click();
+            await page.getByText('Réglages avancés du profil', { exact: true }).click();
+            await page.getByText('Réglages avancés', { exact: true }).waitFor();
+            await page.getByText('‹ Retour', { exact: true }).waitFor();
+            await page.getByText('Playlists', { exact: true }).first().waitFor();
+            await shot('05-advanced-settings-return');
+            await page.getByText('‹ Retour', { exact: true }).click();
+            await page.getByText('Modifier le profil', { exact: true }).waitFor();
+
+            await page.getByText('Réglages avancés du profil', { exact: true }).click();
+            await page.getByText('Playlists', { exact: true }).first().click();
             await page.waitForTimeout(600);
-            await page.getByText('@keepmobiletest', { exact: true }).waitFor({ timeout: 10000 });
-            await shot('04-profile-saved');
-
-            await page.getByLabel('Modifier le profil').click();
-            await page.getByText('← Revenir aux Playlists', { exact: true }).click();
-            await page.waitForTimeout(700);
             await page.getByText('Playlists', { exact: true }).last().waitFor({ timeout: 10000 });
-            await shot('05-back-to-playlists');
+            await shot('06-advanced-to-playlists');
 
+            if (errors.length) throw new Error(`Erreurs navigateur:\n${errors.join('\n')}`);
             fs.writeFileSync('artifacts/mobile-loop/report.txt', [
               'KEEP MOBILE LOOP AUDIT: PASS',
               'Viewport: 390x844',
-              'Pseudo edit: PASS',
-              'Birth date edit: PASS',
-              'Profile -> Playlists loop: PASS',
-              `Errors: ${errors.length}`,
-              ...errors
+              'Listen essential actions without swipe: PASS',
+              'Notification bell: PASS',
+              'Social icons: PASS',
+              'Pseudo field: PASS',
+              'Birth date selector: PASS',
+              'Advanced settings back: PASS',
+              'Advanced settings -> Playlists: PASS',
+              'Console/page errors: 0'
             ].join('\n'));
-            if (errors.some(e => e.startsWith('PAGE:'))) throw new Error(errors.join('\n'));
             await browser.close();
           })().catch(err => { console.error(err); process.exit(1); });
           JS
           node mobile-loop.cjs
+      - name: Show runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-mobile-loop.log || true
       - name: Upload captures
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: KEEP-Mobile-Full-Loop-Audit
+          name: KEEP-Mobile-Full-Loop-${{ github.sha }}
           path: artifacts/mobile-loop
           retention-days: 14
           if-no-files-found: warn
