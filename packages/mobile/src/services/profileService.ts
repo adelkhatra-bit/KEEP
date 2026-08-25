@@ -22,6 +22,29 @@ function fallbackUser(session: KeepAuthSession): User {
   };
 }
 
+function publicUserFromProfile(profile: any, socialLinks: SocialLink[], followerCount: number, followingCount: number): User {
+  return {
+    id: profile.id,
+    username: profile.username,
+    email: '',
+    avatar: profile.avatar_url ?? '',
+    bio: profile.bio ?? '',
+    playlistCount: 0,
+    followerCount,
+    followingCount,
+    kind: profile.kind,
+    city: profile.city ?? undefined,
+    countryCode: profile.country_code ?? undefined,
+    website: profile.website ?? undefined,
+    favoriteGenres: profile.favorite_genres ?? [],
+    favoriteArtists: profile.favorite_artists ?? [],
+    socialLinks,
+    isPublic: profile.is_public,
+    locationOptIn: false,
+    privateInfo: {},
+  };
+}
+
 export function createProfileService(client: SupabaseClient) {
   return {
     async loadOrCreateOwnProfile(session: KeepAuthSession): Promise<User> {
@@ -69,28 +92,52 @@ export function createProfileService(client: SupabaseClient) {
       if (followingResult.error) throw followingResult.error;
 
       return {
-        id: session.userId,
-        username: profile.username,
+        ...publicUserFromProfile(
+          profile,
+          (socialLinks ?? []) as SocialLink[],
+          followersResult.count ?? 0,
+          followingResult.count ?? 0
+        ),
         email: session.email ?? '',
-        avatar: profile.avatar_url ?? '',
-        bio: profile.bio ?? '',
-        playlistCount: 0,
-        followerCount: followersResult.count ?? 0,
-        followingCount: followingResult.count ?? 0,
-        kind: profile.kind,
-        city: profile.city ?? undefined,
-        countryCode: profile.country_code ?? undefined,
-        website: profile.website ?? undefined,
-        favoriteGenres: profile.favorite_genres ?? [],
-        favoriteArtists: profile.favorite_artists ?? [],
-        socialLinks: (socialLinks ?? []) as SocialLink[],
-        isPublic: profile.is_public,
         locationOptIn: profile.location_opt_in,
         privateInfo: {
           birthDate: privateInfo?.birth_date ?? undefined,
           gender: privateInfo?.gender ?? undefined,
         },
       };
+    },
+
+    async loadPublicProfileByUsername(username: string): Promise<User | null> {
+      const { data: profile, error: profileError } = await client
+        .from('profiles')
+        .select('*')
+        .eq('username', username)
+        .eq('is_public', true)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+      if (!profile) return null;
+
+      const [{ data: socialLinks, error: socialError }, followersResult, followingResult] = await Promise.all([
+        client
+          .from('social_links')
+          .select('platform, url, visibility')
+          .eq('profile_id', profile.id)
+          .eq('visibility', 'PUBLIC'),
+        client.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', profile.id),
+        client.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
+      ]);
+
+      if (socialError) throw socialError;
+      if (followersResult.error) throw followersResult.error;
+      if (followingResult.error) throw followingResult.error;
+
+      return publicUserFromProfile(
+        profile,
+        (socialLinks ?? []) as SocialLink[],
+        followersResult.count ?? 0,
+        followingResult.count ?? 0
+      );
     },
 
     async saveOwnProfile(user: User): Promise<void> {
