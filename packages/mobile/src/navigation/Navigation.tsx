@@ -13,6 +13,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
+import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
@@ -23,16 +24,11 @@ const linking = {
   config: {
     screens: {
       PublicProfile: 'profile/:username',
+      MusicConnections: 'music-connections',
     },
   },
 };
 
-/**
- * Navigation principale — 4 sections (cahier des charges §32) :
- * SESSION KEEP / DÉCOUVRIR / MES MUSIQUES / PROFIL. Le profil public est
- * l'écran principal. L'ancien ProfileScreen reste accessible comme écran
- * de réglages afin de ne perdre aucune fonction déjà construite.
- */
 function MainTabs() {
   const { t } = useTranslation();
 
@@ -52,26 +48,10 @@ function MainTabs() {
         headerShown: false,
       }}
     >
-      <Tab.Screen
-        name="Listen"
-        component={HomeScreen}
-        options={{ tabBarLabel: t('nav.listen'), tabBarIcon: ({ color }) => <TabIcon icon="🎙️" color={color} /> }}
-      />
-      <Tab.Screen
-        name="Discover"
-        component={DiscoverScreen}
-        options={{ tabBarLabel: t('nav.discover'), tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} /> }}
-      />
-      <Tab.Screen
-        name="MyMusic"
-        component={MyMusicScreen}
-        options={{ tabBarLabel: t('nav.myMusic'), tabBarIcon: ({ color }) => <TabIcon icon="📋" color={color} /> }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfilePublicScreen}
-        options={{ tabBarLabel: t('nav.profile'), tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} /> }}
-      />
+      <Tab.Screen name="Listen" component={HomeScreen} options={{ tabBarLabel: t('nav.listen'), tabBarIcon: ({ color }) => <TabIcon icon="🎙️" color={color} /> }} />
+      <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: t('nav.discover'), tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} /> }} />
+      <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: t('nav.myMusic'), tabBarIcon: ({ color }) => <TabIcon icon="📋" color={color} /> }} />
+      <Tab.Screen name="Profile" component={ProfilePublicScreen} options={{ tabBarLabel: t('nav.profile'), tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} /> }} />
     </Tab.Navigator>
   );
 }
@@ -86,6 +66,7 @@ export default function Navigation() {
         <RootStack.Screen name="ProfileSettings" component={ProfileScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
+        <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );
