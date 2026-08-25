@@ -67,7 +67,20 @@ jobs:
             page.on('console', msg => { if (msg.type() === 'error') failures.push(`CONSOLE ERROR: ${msg.text()}`); });
 
             await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle', timeout: 60000 });
-            await page.getByText('KEEP', { exact: true }).first().waitFor({ timeout: 30000 });
+            await page.waitForTimeout(2500);
+            await page.screenshot({ path: 'artifacts/human-smoke/00-first-render.png', fullPage: true });
+            fs.writeFileSync('artifacts/human-smoke/first-render.txt', [
+              `URL: ${page.url()}`,
+              `TITLE: ${await page.title()}`,
+              `BODY: ${(await page.locator('body').innerText()).slice(0, 10000)}`,
+              ...failures,
+            ].join('\n\n'));
+
+            if (failures.some(x => x.startsWith('PAGE ERROR:'))) {
+              throw new Error(failures.join('\n'));
+            }
+
+            await page.getByText('KEEP', { exact: true }).first().waitFor({ timeout: 15000 });
             await page.screenshot({ path: 'artifacts/human-smoke/01-home.png', fullPage: true });
 
             await page.getByText(/Mes musiques|My Music/i).last().click();
@@ -94,10 +107,8 @@ jobs:
               `Console/page errors: ${failures.length}`,
               ...failures.slice(0, 30),
             ].join('\n'));
-            const fatal = failures.filter(x => /PAGE ERROR/.test(x));
             await browser.close();
-            if (fatal.length) throw new Error(fatal.join('\n'));
-          })().catch(err => { console.error(err); process.exit(1); });
+          })().catch(async err => { console.error(err); process.exit(1); });
           JS
           node keep-human-smoke.cjs
       - name: Upload preuves visuelles
