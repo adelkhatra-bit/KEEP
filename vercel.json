@@ -5,6 +5,10 @@
   "buildCommand": "cd packages/mobile && npx expo export --platform web",
   "outputDirectory": "packages/mobile/dist",
   "cleanUrls": true,
+  "env": {
+    "EXPO_PUBLIC_DEMO_MODE": "true",
+    "EXPO_PUBLIC_KEEP_PREVIEW": "1"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
