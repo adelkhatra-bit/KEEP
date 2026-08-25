@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, SafeAreaView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Image, Modal, SafeAreaView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -21,9 +21,10 @@ function formatElapsed(startedAt: string | null) {
 
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
-  const { isActive, tracks, showEndPrompt, startedAt, error, startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack } = useSessionStore();
+  const { isActive, tracks, showEndPrompt, startedAt, error, recognizing, startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
+  const micPulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
@@ -32,6 +33,22 @@ export default function HomeScreenCompact({ navigation }: any) {
     const timer = setInterval(() => setElapsed(formatElapsed(startedAt)), 1000);
     return () => clearInterval(timer);
   }, [isActive, startedAt]);
+
+  useEffect(() => {
+    micPulse.stopAnimation();
+    if (!recognizing) {
+      micPulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(micPulse, { toValue: 1, duration: 620, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(micPulse, { toValue: 0, duration: 620, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [micPulse, recognizing]);
 
   const current = tracks[0];
   const detected = tracks.length;
@@ -73,14 +90,20 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
   }
 
+  const pulseScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
+  const pulseOpacity = micPulse.interpolate({ inputRange: [0, 1], outputRange: [0.72, 0.05] });
+
   return (
     <SafeAreaView style={s.container}>
       <TopBar navigation={navigation} />
 
       <View style={s.main}>
         <View style={s.radarWrap}>
-          <View style={s.radarOuter}><View style={s.radarInner}><Text style={s.note}>♫</Text><Text style={s.radarTitle}>EN ÉCOUTE</Text></View></View>
-          <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveText}>Session active</Text></View>
+          <View style={s.radarOuter}>
+            <Animated.View pointerEvents="none" style={[s.micPulse, { transform: [{ scale: pulseScale }], opacity: pulseOpacity }]} />
+            <View style={s.radarInner}><Text style={s.note}>♫</Text><Text style={s.radarTitle}>EN ÉCOUTE</Text></View>
+          </View>
+          <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveText}>{recognizing ? 'Micro actif · analyse en cours' : 'Session active'}</Text></View>
         </View>
 
         <View style={s.stats}>
@@ -166,6 +189,7 @@ const s = StyleSheet.create({
   main: { flex: 1, paddingHorizontal: 14, paddingBottom: 8 },
   radarWrap: { alignItems: 'center', marginTop: 2 },
   radarOuter: { width: 138, height: 138, borderRadius: 69, borderWidth: 1, borderColor: '#6339A6', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(139,92,246,0.10)' },
+  micPulse: { ...StyleSheet.absoluteFillObject, borderRadius: 69, borderWidth: 2, borderColor: C.purpleLight },
   radarInner: { width: 104, height: 104, borderRadius: 52, borderWidth: 2, borderColor: '#A884FA', backgroundColor: '#6D35CF', alignItems: 'center', justifyContent: 'center' },
   note: { color: '#fff', fontSize: 26 },
   radarTitle: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 1.2, marginTop: 2 },
