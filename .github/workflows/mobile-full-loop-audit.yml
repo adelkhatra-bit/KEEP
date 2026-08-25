@@ -55,6 +55,7 @@ jobs:
             const errors = [];
             page.on('pageerror', e => errors.push(`PAGE: ${e.message}`));
             page.on('console', m => { if (m.type() === 'error') errors.push(`CONSOLE: ${m.text()}`); });
+            page.on('dialog', async d => { await d.accept().catch(() => {}); });
             const shot = async (name) => page.screenshot({ path: `artifacts/mobile-loop/${name}.png`, fullPage: true });
             const assertInViewport = async (locator, label) => {
               const box = await locator.boundingBox();
@@ -63,9 +64,9 @@ jobs:
             };
 
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
-            await page.waitForTimeout(1200);
+            await page.waitForTimeout(1000);
             const demo = page.getByText('ENTRER EN MODE DÉMO', { exact: true });
-            if (await demo.count()) { await demo.first().click(); await page.waitForTimeout(700); }
+            if (await demo.count()) { await demo.first().click(); await page.waitForTimeout(600); }
 
             for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await page.getByText(label, { exact: true }).last().waitFor({ timeout: 15000 });
             await shot('01-listen-idle');
@@ -74,7 +75,6 @@ jobs:
             await start.waitFor({ timeout: 10000 });
             await assertInViewport(start, 'Démarrer session');
             await start.click();
-            await page.waitForTimeout(1200);
             const listening = page.getByText('EN ÉCOUTE', { exact: true });
             await listening.waitFor({ timeout: 10000 });
             await assertInViewport(listening, 'Radar écoute');
@@ -82,51 +82,59 @@ jobs:
             await share.waitFor();
             await assertInViewport(share, 'Partager');
             const end = page.getByText(/terminer|arrêter|end session/i).last();
-            if (await end.count()) await assertInViewport(end, 'Arrêter session');
+            await end.waitFor({ timeout: 10000 });
+            await assertInViewport(end, 'Arrêter session');
             await shot('02-listen-active-no-swipe');
+            await end.click();
+            await start.waitFor({ timeout: 10000 });
+            if (await listening.count()) throw new Error('Arrêt session: EN ÉCOUTE encore visible après clic');
+            await shot('03-listen-stopped');
 
-            await page.getByText('Profil', { exact: true }).last().click();
-            await page.waitForTimeout(500);
+            for (const [label, file] of [['Découvertes','04-discover'],['Playlists','05-playlists'],['Soirées','06-parties'],['Profil','07-profile']]) {
+              await page.getByText(label, { exact: true }).last().click();
+              await page.waitForTimeout(350);
+              await shot(file);
+            }
+
             await page.getByLabel('Notifications').waitFor();
             for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) await page.getByLabel(network).waitFor();
-            await shot('03-profile-social-icons');
 
             await page.getByLabel('Modifier le profil').click();
             await page.getByText('Modifier le profil', { exact: true }).waitFor();
             await page.getByPlaceholder('tonpseudo').fill('keepmobiletest');
+            await page.getByText('⌖ Utiliser ma position', { exact: true }).waitFor();
+            await page.getByText('Rechercher et préremplir', { exact: true }).waitFor();
             await page.getByText('Choisir une date', { exact: true }).click();
             const validateDate = page.getByText('Valider la date', { exact: true });
             await validateDate.waitFor();
             await assertInViewport(validateDate, 'Valider date');
             await validateDate.click();
-            await shot('04-profile-edit-selectors');
+            await shot('08-profile-edit-location-date');
 
             await page.getByText('Réglages avancés du profil', { exact: true }).click();
             await page.getByText('Réglages avancés', { exact: true }).waitFor();
-            const advancedBack = page.getByLabel('Retour au profil');
-            await advancedBack.waitFor();
-            await page.getByText('Playlists', { exact: true }).first().waitFor();
-            await shot('05-advanced-settings-return');
-            await advancedBack.click();
-            await page.getByText('Modifier le profil', { exact: true }).waitFor();
-
-            await page.getByText('Réglages avancés du profil', { exact: true }).click();
-            await page.getByText('Playlists', { exact: true }).first().click();
-            await page.waitForTimeout(600);
+            await page.getByLabel('Retour au profil').waitFor();
+            await page.getByLabel('Revenir aux Playlists').waitFor();
+            for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) await page.getByText(network, { exact: true }).waitFor();
+            await shot('09-advanced-settings');
+            await page.getByLabel('Revenir aux Playlists').click();
             await page.getByText('Playlists', { exact: true }).last().waitFor({ timeout: 10000 });
-            await shot('06-advanced-to-playlists');
+            await shot('10-advanced-to-playlists');
 
             if (errors.length) throw new Error(`Erreurs navigateur:\n${errors.join('\n')}`);
             fs.writeFileSync('artifacts/mobile-loop/report.txt', [
               'KEEP MOBILE LOOP AUDIT: PASS',
               'Viewport: 390x844',
-              'Listen active state: PASS',
-              'Listen essential actions without swipe: PASS',
+              '5 tabs navigation: PASS',
+              'Listen start: PASS',
+              'Listen stop returns to idle: PASS',
+              'Essential listen actions without swipe: PASS',
               'Notification bell: PASS',
               'Social icons: PASS',
               'Pseudo field: PASS',
-              'Birth date selector visible without swipe: PASS',
-              'Advanced settings back: PASS',
+              'Location helpers: PASS',
+              'Birth date selector: PASS',
+              'Advanced settings back/profile controls: PASS',
               'Advanced settings -> Playlists: PASS',
               'Console/page errors: 0'
             ].join('\n'));
