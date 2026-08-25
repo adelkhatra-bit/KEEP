@@ -25,28 +25,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install KEEP
         run: npm ci
-
       - name: Typecheck complet
         run: npm run type-check
-
       - name: Export web réel
         working-directory: packages/mobile
         run: npx expo export --platform web --output-dir dist-human-test
-
       - name: Install Chromium test runner
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install chromium --with-deps
-
       - name: Start preview server
         run: |
           cd packages/mobile/dist-human-test
@@ -58,11 +52,10 @@ jobs:
           done
           cat /tmp/keep-preview.log
           exit 1
-
       - name: Parcours comme un utilisateur + captures
         run: |
           mkdir -p artifacts/human-smoke
-          cat > /tmp/keep-human-smoke.cjs <<'JS'
+          cat > keep-human-smoke.cjs <<'JS'
           const { chromium } = require('playwright');
           const fs = require('fs');
 
@@ -70,18 +63,14 @@ jobs:
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
             const failures = [];
-
             page.on('pageerror', err => failures.push(`PAGE ERROR: ${err.message}`));
-            page.on('console', msg => {
-              if (msg.type() === 'error') failures.push(`CONSOLE ERROR: ${msg.text()}`);
-            });
+            page.on('console', msg => { if (msg.type() === 'error') failures.push(`CONSOLE ERROR: ${msg.text()}`); });
 
             await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle', timeout: 60000 });
             await page.getByText('KEEP', { exact: true }).first().waitFor({ timeout: 30000 });
             await page.screenshot({ path: 'artifacts/human-smoke/01-home.png', fullPage: true });
 
-            const musicTab = page.getByText(/Mes musiques|My Music/i).last();
-            await musicTab.click();
+            await page.getByText(/Mes musiques|My Music/i).last().click();
             await page.getByText(/Tes playlists|playlists/i).first().waitFor({ timeout: 15000 });
             await page.screenshot({ path: 'artifacts/human-smoke/02-my-music.png', fullPage: true });
 
@@ -92,10 +81,9 @@ jobs:
             }
             await page.screenshot({ path: 'artifacts/human-smoke/03-services-musicaux.png', fullPage: true });
 
-            await page.goBack();
+            await page.getByText(/Retour/i).first().click();
             await page.waitForTimeout(500);
-            const profileTab = page.getByText(/Profil|Profile/i).last();
-            await profileTab.click();
+            await page.getByText(/Profil|Profile/i).last().click();
             await page.getByText(/KEEP DNA/i).waitFor({ timeout: 15000 });
             await page.getByText(/Playlists/i).first().waitFor({ timeout: 10000 });
             await page.screenshot({ path: 'artifacts/human-smoke/04-profile-new-design.png', fullPage: true });
@@ -106,22 +94,12 @@ jobs:
               `Console/page errors: ${failures.length}`,
               ...failures.slice(0, 30),
             ].join('\n'));
-
-            // Certaines erreurs réseau sont normales en preview démo (pas de backend réel),
-            // mais une exception JS non gérée dans le rendu principal doit échouer.
             const fatal = failures.filter(x => /PAGE ERROR/.test(x));
             await browser.close();
-            if (fatal.length) {
-              console.error(fatal.join('\n'));
-              process.exit(1);
-            }
-          })().catch(err => {
-            console.error(err);
-            process.exit(1);
-          });
+            if (fatal.length) throw new Error(fatal.join('\n'));
+          })().catch(err => { console.error(err); process.exit(1); });
           JS
-          node /tmp/keep-human-smoke.cjs
-
+          node keep-human-smoke.cjs
       - name: Upload preuves visuelles
         if: always()
         uses: actions/upload-artifact@v4
