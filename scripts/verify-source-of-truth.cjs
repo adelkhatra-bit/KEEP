@@ -37,6 +37,7 @@ const mustExist = [
   'supabase/functions/keep-public/index.ts',
   'supabase/functions/keep-preview/index.ts',
   'supabase/functions/keep-admin-preview/index.ts',
+  'render.yaml',
   'START_KEEP_LIVE_CLEAN.bat',
 ];
 
@@ -120,6 +121,14 @@ for (const [rel, canonical] of legacyRedirects) {
   if (/raw\.githubusercontent\.com|\/web-preview\//i.test(source)) failures.push(`LEGACY STALE BUNDLE SOURCE REINTRODUCED: ${rel}`);
   if (/SUPABASE_SERVICE_ROLE_KEY|PASS\s*=\s*['"]1234['"]/i.test(source)) failures.push(`LEGACY ENDPOINT EXPOSES PRIVILEGED LOGIC: ${rel}`);
 }
+
+const render = fs.readFileSync(path.join(root, 'render.yaml'), 'utf8');
+const renderBranches = [...render.matchAll(/^\s*branch:\s*(.+)\s*$/gm)].map((match) => match[1].trim().replace(/^['"]|['"]$/g, ''));
+if (!renderBranches.length) failures.push('RENDER BRANCH MISSING');
+for (const branch of renderBranches) {
+  if (branch !== expectedBranch) failures.push(`RENDER WRONG BRANCH: ${branch}`);
+}
+if (/^\s*branch:\s*main\s*$/m.test(render)) failures.push('RENDER MAIN BRANCH REINTRODUCED');
 
 const pagesWorkflow = fs.readFileSync(path.join(root, '.github/workflows/web-preview-pages.yml'), 'utf8');
 for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, '__keep_route', 'Live browser matrix']) {
