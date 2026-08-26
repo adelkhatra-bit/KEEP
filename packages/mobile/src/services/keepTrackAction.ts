@@ -1,7 +1,7 @@
 /**
  * Action GARDER partagée — chemin unique de téléchargement/rangement.
  * Règle produit : écouter/reconnaître/PASS = 0 crédit. Seul un ajout réel
- * réussi dans une plateforme musicale consomme 1 crédit.
+ * réussi dans une plateforme musicale externe consomme 1 crédit.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import { musicEngine } from './musicEngine';
@@ -21,10 +21,12 @@ export async function commitKeep(
   chosenPlaylistId?: string
 ): Promise<CommitKeepResult> {
   const session = await musicEngine.getSession();
+  const externalWrite = !musicEngine.usesDemoMusicProvider;
 
-  // Vérifie le quota AVANT toute écriture externe. Aucun crédit n'est encore
-  // consommé à ce stade.
-  await ensureDownloadCreditAvailable();
+  // L'essai/public peut ranger localement un morceau reconnu sans consommer
+  // un crédit. Le quota n'est vérifié que lorsqu'un vrai service musical
+  // externe va effectivement recevoir le morceau.
+  if (externalWrite) await ensureDownloadCreditAvailable();
 
   let targetPlaylistId = chosenPlaylistId ?? recommendations[0]?.playlistId ?? null;
   let playlistName = recommendations.find((r) => r.playlistId === targetPlaylistId)?.playlistName ?? '';
@@ -51,9 +53,8 @@ export async function commitKeep(
 
   if (!alreadyThere) {
     await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId!, track));
-    downloaded = true;
-    // Consommation seulement APRÈS ajout externe réussi.
-    await consumeDownloadCredit();
+    downloaded = externalWrite;
+    if (externalWrite) await consumeDownloadCredit();
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
