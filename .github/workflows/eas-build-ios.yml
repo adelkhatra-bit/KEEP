@@ -1,12 +1,12 @@
 name: KEEP — Build iOS (EAS) + TestFlight
 
-# Objectif : à chaque changement du code mobile sur main, produire un build
-# iOS via EAS Build et le soumettre automatiquement à TestFlight.
+# Objectif : à chaque changement du code mobile sur la branche KEEP unique,
+# produire un build iOS via EAS Build et le soumettre automatiquement à TestFlight.
 # Aucun secret en clair : tout passe par les Repository secrets GitHub.
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - "packages/mobile/**"
       - "packages/music/**"
