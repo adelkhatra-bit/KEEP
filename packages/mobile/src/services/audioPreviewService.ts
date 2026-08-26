@@ -46,18 +46,20 @@ export async function toggleTrackPreview(
       shouldDuckAndroid: true,
     });
 
-    const { sound } = await Audio.Sound.createAsync(
+    let createdSound: Audio.Sound | null = null;
+    const created = await Audio.Sound.createAsync(
       { uri: previewUrl },
       { shouldPlay: true, progressUpdateIntervalMillis: 250 },
       (status: AVPlaybackStatus) => {
-        if (!status.isLoaded) return;
-        if (status.didJustFinish && activeSound === sound) {
+        if (!status.isLoaded || !status.didJustFinish || !createdSound) return;
+        if (activeSound === createdSound) {
           void serialize(async () => { await unloadActive(); });
         }
       },
     );
+    createdSound = created.sound;
 
-    activeSound = sound;
+    activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange;
     onStateChange(true);
