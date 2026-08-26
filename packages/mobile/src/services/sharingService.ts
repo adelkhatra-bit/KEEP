@@ -4,7 +4,7 @@
  * Cela évite de consommer un quota d'e-mails KEEP et sépare strictement :
  * 1) e-mail d'authentification ; 2) partage public du profil.
  */
-import { Linking, Share } from 'react-native';
+import { Linking, Platform, Share } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
@@ -62,11 +62,22 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   );
   const mailto = `mailto:?subject=${subject}&body=${body}`;
 
+  // Sur Safari/Chrome mobile en version web, Linking peut considérer mailto:
+  // comme "ouvert" sans déclencher l'application Mail. Un clic DOM issu du
+  // geste utilisateur est beaucoup plus fiable et ne consomme aucun e-mail KEEP.
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    const anchor = document.createElement('a');
+    anchor.href = mailto;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    return;
+  }
+
   try {
     await Linking.openURL(mailto);
   } catch (error) {
-    // Secours explicite sur navigateur desktop/mobile : certains moteurs Web
-    // refusent Linking alors que le protocole mailto est bien disponible.
     if (typeof window !== 'undefined') {
       window.location.href = mailto;
       return;
