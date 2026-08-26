@@ -29,10 +29,25 @@ export function buildPublicProfileLink(username: string): string {
  */
 export async function shareProfile(username: string): Promise<void> {
   const link = buildPublicProfileLink(username);
+  const message = 'Découvre mon univers musical sur KEEP 🎵';
+
+  // iOS concatène souvent `message` et `url` dans la feuille de partage.
+  // Le lien ne doit donc jamais être présent dans les deux champs, sinon il
+  // apparaît deux fois dans WhatsApp/Messages/Mail.
+  if (Platform.OS === 'ios') {
+    await Share.share({
+      title: 'Mon profil KEEP',
+      message,
+      url: link,
+    });
+    return;
+  }
+
+  // Android et le web sont plus fiables avec un message autonome contenant
+  // directement l'URL, sans renseigner simultanément `url`.
   await Share.share({
     title: 'Mon profil KEEP',
-    message: `Découvre mon univers musical sur KEEP 🎵 ${link}`,
-    url: link,
+    message: `${message} ${link}`,
   });
 }
 
