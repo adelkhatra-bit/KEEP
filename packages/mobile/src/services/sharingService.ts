@@ -4,8 +4,10 @@
  * Cela évite de consommer un quota d'e-mails KEEP et sépare strictement :
  * 1) e-mail d'authentification ; 2) partage public du profil.
  */
-import { Linking, Platform, Share } from 'react-native';
+import { Alert, Linking, Platform, Share } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
+import { loadCurrentPlanCode } from './planService';
+import { hasFeature } from './entitlementService';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
 
@@ -117,6 +119,24 @@ export async function shareSession(sessionId: string, title: string, keptCount: 
 }
 
 export async function sharePlaylist(playlistId: string, playlistName: string): Promise<void> {
+  const state = useUserStore.getState();
+  if (!state.user || state.isLocalGuest || state.isDemoMode) {
+    Alert.alert(
+      'Compte KEEP requis',
+      'Crée ton compte KEEP pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.',
+    );
+    return;
+  }
+
+  const planCode = await loadCurrentPlanCode(state.user.id).catch(() => 'FREE');
+  if (!hasFeature(planCode, 'PUBLIC_PLAYLISTS')) {
+    Alert.alert(
+      'Premium requis',
+      'Le partage de playlists est inclus à partir de KEEP Premium (2,99 €/mois). Tu peux arrêter à tout moment.',
+    );
+    return;
+  }
+
   await Share.share({ message: `Ma playlist "${playlistName}" sur KEEP 🎵 ${buildLink(`/s/playlist/${playlistId}`)}` });
 }
 
