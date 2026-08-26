@@ -22,16 +22,19 @@ type StagedGuestProfile = Pick<
 >;
 
 /**
- * Conserve uniquement le profil préparé par l'utilisateur avant la création
- * du compte. L'historique des sessions KEEP est déjà persisté séparément dans
+ * Conserve le profil préparé par l'utilisateur avant la création du compte.
+ * La photo peut être une URL distante OU une URI locale/blob temporaire :
+ * profileService la convertit en vraie image Supabase Storage dès que le
+ * nouveau compte authentifié existe. Cela évite de perdre la photo au passage
+ * essai local -> compte KEEP.
+ *
+ * L'historique des sessions KEEP est déjà persisté séparément dans
  * AsyncStorage et n'est donc ni dupliqué ni envoyé ici.
  */
 export async function stageGuestProfileForUpgrade(user: User): Promise<void> {
   const staged: StagedGuestProfile = {
     username: user.username,
-    // Une URL https déjà distante peut être conservée. Un file:// ou blob:
-    // appartient à l'appareil et ne doit jamais devenir un avatar public cassé.
-    avatar: /^https:\/\//i.test(user.avatar || '') ? user.avatar : '',
+    avatar: user.avatar || '',
     bio: user.bio,
     kind: user.kind,
     city: user.city,
