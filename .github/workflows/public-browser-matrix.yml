@@ -1,0 +1,162 @@
+name: KEEP — Public browser matrix
+
+on:
+  workflow_run:
+    workflows: ['KEEP — Web public officiel']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-browser-matrix:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'reconcile/claude-main-20260825')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout official KEEP branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install public browser engines
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium firefox webkit --with-deps
+
+      - name: Wait for official deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP/'
+          for i in {1..30}; do
+            code="$(curl -L -sS -o /tmp/keep-home.html -w '%{http_code}' "$base" || true)"
+            if [ "$code" = '200' ] && grep -q 'root' /tmp/keep-home.html; then
+              echo "Official KEEP is reachable"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo 'Official KEEP deployment did not become reachable in time'
+          exit 1
+
+      - name: Test desktop + Android + iPhone + Firefox refresh matrix
+        shell: bash
+        run: |
+          mkdir -p artifacts/public-browser-matrix
+          cat > public-browser-matrix.cjs <<'JS'
+          const { chromium, firefox, webkit, devices } = require('@playwright/test');
+          const fs = require('fs');
+
+          const BASE = 'https://adelkhatra-bit.github.io/KEEP';
+          const routes = [
+            '/',
+            '/Main/',
+            '/Main/Listen/',
+            '/Main/Discover/',
+            '/Main/MyMusic/',
+            '/Main/Parties/',
+            '/Main/Profile/',
+            '/profile-settings/',
+            '/notifications/',
+            '/offers/',
+            '/share-profile/?u=__keep_public_smoke__',
+            '/admin-preview/',
+            '/superadmin/',
+          ];
+
+          const scenarios = [
+            { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 900 } } },
+            { name: 'android-pixel7', engine: chromium, context: { ...devices['Pixel 7'] } },
+            { name: 'iphone-safari', engine: webkit, context: { ...devices['iPhone 15'] } },
+            { name: 'desktop-firefox', engine: firefox, context: { viewport: { width: 1366, height: 768 } } },
+          ];
+
+          function isBlank(text, html) {
+            return !text || text.trim().length < 4 || !html || html.trim().length < 20;
+          }
+
+          (async () => {
+            const report = [];
+            for (const scenario of scenarios) {
+              const browser = await scenario.engine.launch({ headless: true });
+              const context = await browser.newContext(scenario.context);
+              const page = await context.newPage();
+              const runtimeErrors = [];
+              page.on('pageerror', error => runtimeErrors.push(`PAGE ERROR: ${error.message}`));
+              page.on('console', msg => {
+                if (msg.type() === 'error' && !/favicon|Failed to load resource.*404/i.test(msg.text())) {
+                  runtimeErrors.push(`CONSOLE ERROR: ${msg.text()}`);
+                }
+              });
+
+              for (const route of routes) {
+                const target = BASE + route;
+                const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                await page.waitForTimeout(900);
+                const status = response ? response.status() : 0;
+                const text = (await page.locator('body').innerText().catch(() => '')).trim();
+                const html = await page.locator('body').innerHTML().catch(() => '');
+                const urlAfterLoad = page.url();
+
+                if (status >= 400 || /File not found|404 There isn't a GitHub Pages site here/i.test(text) || isBlank(text, html)) {
+                  await page.screenshot({ path: `artifacts/public-browser-matrix/${scenario.name}-${route.replace(/[^a-z0-9]+/gi, '_') || 'root'}-load.png`, fullPage: true }).catch(() => {});
+                  throw new Error(`${scenario.name} load failed ${target}: status=${status}, url=${urlAfterLoad}, text=${text.slice(0, 300)}`);
+                }
+
+                const refreshResponse = await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+                await page.waitForTimeout(900);
+                const refreshStatus = refreshResponse ? refreshResponse.status() : 0;
+                const refreshText = (await page.locator('body').innerText().catch(() => '')).trim();
+                const refreshHtml = await page.locator('body').innerHTML().catch(() => '');
+                const urlAfterRefresh = page.url();
+
+                report.push(`${scenario.name} | ${route} | load=${status} | refresh=${refreshStatus} | ${urlAfterRefresh}`);
+
+                if (refreshStatus >= 400 || /File not found|404 There isn't a GitHub Pages site here/i.test(refreshText) || isBlank(refreshText, refreshHtml)) {
+                  await page.screenshot({ path: `artifacts/public-browser-matrix/${scenario.name}-${route.replace(/[^a-z0-9]+/gi, '_') || 'root'}-refresh.png`, fullPage: true }).catch(() => {});
+                  throw new Error(`${scenario.name} refresh failed ${target}: status=${refreshStatus}, url=${urlAfterRefresh}, text=${refreshText.slice(0, 300)}`);
+                }
+              }
+
+              if (runtimeErrors.length) {
+                fs.writeFileSync(`artifacts/public-browser-matrix/${scenario.name}-runtime-errors.txt`, runtimeErrors.join('\n'));
+                throw new Error(`${scenario.name} browser runtime errors:\n${runtimeErrors.join('\n')}`);
+              }
+
+              await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.screenshot({ path: `artifacts/public-browser-matrix/${scenario.name}-home.png`, fullPage: true });
+              await browser.close();
+            }
+
+            fs.writeFileSync('artifacts/public-browser-matrix/report.txt', report.join('\n') + '\n');
+            console.log(report.join('\n'));
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          JS
+          node public-browser-matrix.cjs
+
+      - name: Upload public browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KEEP-Public-Browser-Matrix-${{ github.run_id }}
+          path: artifacts/public-browser-matrix
+          retention-days: 14
+          if-no-files-found: warn
