@@ -46,6 +46,17 @@ function baseHeaders(accessToken?: string | null): Record<string, string> {
   };
 }
 
+function audioExtension(blob: Blob): string {
+  const type = String(blob.type || '').toLowerCase();
+  if (type.includes('wav')) return 'wav';
+  if (type.includes('webm')) return 'webm';
+  if (type.includes('ogg')) return 'ogg';
+  if (type.includes('mpeg') || type.includes('mp3')) return 'mp3';
+  if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'm4a';
+  // expo-av HIGH_QUALITY produit généralement un conteneur m4a sur iOS/Android.
+  return 'm4a';
+}
+
 /**
  * Enregistre le KEEP dans le profil réel quand un compte est connecté.
  * Un invité reste 100 % local : aucune auth Supabase artificielle n'est créée.
@@ -109,9 +120,7 @@ export async function updateKeepDecisionVisibility(decisionId: string, visibilit
 
 /**
  * Reconnaissance musicale via la fonction Supabase `keep-music-core`.
- * La clé AudD reste exclusivement dans Supabase Vault : aucune clé fournisseur
- * n'est exposée dans le bundle web/iOS/Android. Les invités sont protégés par
- * le rate-limit serveur IP + identifiant local, les comptes par leur auth.uid().
+ * La clé fournisseur reste exclusivement dans Supabase Vault.
  */
 export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvider {
   readonly providerId = 'keep-music-core';
@@ -125,7 +134,8 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     if (!blob.size) return null;
 
     const form = new FormData();
-    form.append('audio', blob, 'keep-sample.wav');
+    const extension = audioExtension(blob);
+    form.append('audio', blob, `keep-sample.${extension}`);
 
     const accessToken = await getSupabaseAccessToken();
     const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-core`, {
