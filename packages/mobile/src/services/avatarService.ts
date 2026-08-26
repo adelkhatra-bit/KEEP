@@ -1,9 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 
-export async function pickAndUploadAvatar(profileId: string): Promise<string | null> {
-  if (!supabase) throw new Error('Supabase indisponible.');
-
+async function pickAvatarAsset() {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) throw new Error('Autorise l’accès aux photos pour choisir une image de profil.');
 
@@ -14,11 +12,24 @@ export async function pickAndUploadAvatar(profileId: string): Promise<string | n
     quality: 0.82,
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
+  return result.assets[0];
+}
 
-  const asset = result.assets[0];
+export async function pickAndUploadAvatar(profileId: string): Promise<string | null> {
+  if (!supabase) throw new Error('Supabase indisponible.');
+
+  const asset = await pickAvatarAsset();
+  if (!asset) return null;
+
+  // En essai gratuit il n'y a volontairement aucune session Supabase.
+  // On conserve donc l'URI locale sur l'appareil. Lors de la création du vrai
+  // compte, guestUpgradeService + profileService la transfèrent dans Storage.
+  const { data: authState } = await supabase.auth.getSession();
+  if (!authState.session?.user || authState.session.user.id !== profileId) return asset.uri;
+
   const response = await fetch(asset.uri);
   const blob = await response.blob();
-  const mime = asset.mimeType || 'image/jpeg';
+  const mime = asset.mimeType || blob.type || 'image/jpeg';
   const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
   const path = `${profileId}/avatar.${extension}`;
 
