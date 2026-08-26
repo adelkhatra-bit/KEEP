@@ -189,11 +189,9 @@ export default function Integrations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Connexion e-mail KEEP</h3>
+        <h3 style={{ marginTop: 0 }}>E-mails KEEP</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          KEEP utilise désormais un <strong>lien de connexion Supabase</strong> : un seul e-mail de vérification est nécessaire sur un nouvel appareil, puis la session est conservée localement. Aucun code à recopier.
-          Le partage d’un profil est séparé : il ouvre l’application Mail de l’utilisateur et <strong>ne consomme aucun e-mail KEEP</strong>.
-          Le modèle visuel KEEP de référence est versionné dans <code>supabase/templates/keep_magic_link.html</code>.
+          Les comptes utilisateurs KEEP utilisent maintenant <strong>identifiant KEEP + mot de passe</strong> : aucun e-mail n’est obligatoire pour créer ou utiliser un compte. Les e-mails restent optionnels pour les invitations, messages système et récupération future. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi KEEP.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
@@ -201,13 +199,13 @@ export default function Integrations() {
           rel="noreferrer"
           style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}
         >
-          Ouvrir les modèles e-mail Supabase
+          Modèles e-mail d’administration
         </a>
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Tester l’envoi Brevo</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant du lien de connexion Supabase.</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant de la connexion utilisateur KEEP.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             type="email"
