@@ -11,6 +11,7 @@ import { colors } from './src/theme/colors';
 import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
+import { importStagedGuestCreditsForAuthenticatedAccount } from './src/services/creditService';
 import { registerForPushNotifications } from './src/services/pushNotificationService';
 import {
   clearLocalGuestMarker,
@@ -38,17 +39,12 @@ export default function App() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const updateUser = useUserStore((s) => s.updateUser);
 
-  // Garde-fou si le store est réinitialisé pendant une preview web.
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
     const state = useUserStore.getState();
     if (!state.user) state.enterDemoMode();
   }, []);
 
-  // Si le profil réel n'a pas encore de ville/pays, KEEP utilise la
-  // localisation du téléphone pour les préremplir automatiquement. La mise à
-  // jour passe par le store puis par saveOwnProfile ci-dessous : elle est donc
-  // persistée dans Supabase et ne disparaît pas lors d'une mise à jour.
   useEffect(() => {
     if (!user || isDemoMode || (user.city && user.countryCode)) return;
     let cancelled = false;
@@ -84,11 +80,6 @@ export default function App() {
     return () => { cancelled = true; };
   }, [isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
 
-  // Une session Supabase réelle charge maintenant le vrai profil KEEP
-  // (profiles + social_links + profile_private_info + compteurs follows).
-  // Les changements du store sont ensuite persistés avec un petit debounce :
-  // l'ancien ProfileScreen peut donc rester l'écran de réglages sans perdre
-  // les fonctions déjà construites, tout en écrivant réellement en base.
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
@@ -100,8 +91,6 @@ export default function App() {
     const handleSession = async (session: KeepAuthSession | null) => {
       if (!session) {
         profileLoadedFor = null;
-        // Dans la preview publique on conserve le Mode Démo au lieu de
-        // retourner à l'onboarding quand aucune session Supabase n'existe.
         if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1') {
           const state = useUserStore.getState();
           if (!state.user) state.enterDemoMode();
@@ -111,17 +100,11 @@ export default function App() {
         return;
       }
 
-      // Donne immédiatement une identité minimale pendant le chargement.
       useUserStore.getState().syncFromAuthSession(session);
 
       try {
         let profile = await profileService.loadOrCreateOwnProfile(session);
 
-        // Si l'utilisateur vient d'un essai local, son profil préparé reste sur
-        // l'appareil jusqu'à ce qu'une vraie session e-mail soit vérifiée. On le
-        // rattache alors au nouvel auth.uid(), sans toucher à l'historique local
-        // des sessions musicales. Le compte devient ainsi partageable sans
-        // fabriquer un deuxième profil fantôme.
         if (!session.isAnonymous) {
           const staged = await loadStagedGuestProfile();
           if (staged) {
@@ -131,9 +114,6 @@ export default function App() {
               profile = merged;
               await clearStagedGuestProfile();
             } catch (upgradeError) {
-              // Un pseudo peut avoir été pris entre l'essai et la validation de
-              // l'e-mail. Dans ce cas on conserve toutes les autres données et
-              // le pseudo serveur unique, au lieu de perdre le profil entier.
               if (merged.username !== profile.username) {
                 const withoutConflictingUsername = { ...merged, username: profile.username };
                 await profileService.saveOwnProfile(withoutConflictingUsername);
@@ -144,20 +124,24 @@ export default function App() {
               }
             }
           }
+
+          // Même si le lien de confirmation e-mail ouvre directement KEEP et
+          // crée la session sans repasser par le formulaire, on conserve le
+          // compteur de l'essai local. Exemple : 3 essais consommés + 20 bonus
+          // = 20 crédits restants, et les cadenas des morceaux en attente sont
+          // retirés automatiquement sans les valider à la place de l'utilisateur.
+          await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
+          await useSessionHistoryStore.getState().syncUnsyncedKeeps();
+          await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
           await clearLocalGuestMarker();
         }
 
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
-        // Fire-and-forget -- un compte réel (jamais un invité, "suivre" un
-        // invité n'a pas de sens) enregistre son token push si l'OS l'autorise.
-        // Ne bloque jamais le chargement du profil, ne relance jamais si ça échoue.
         if (!session.isAnonymous) {
           registerForPushNotifications().catch(() => {});
         }
       } catch (error) {
-        // L'auth reste utilisable même si la lecture du profil échoue : on
-        // conserve l'identité minimale et on rend l'erreur visible en dev.
         if (__DEV__) console.error('[KEEP] profile load failed', error);
       }
     };
