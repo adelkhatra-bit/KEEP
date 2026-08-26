@@ -108,10 +108,14 @@ export function createProfileService(client: SupabaseClient) {
     },
 
     async loadPublicProfileByUsername(username: string): Promise<User | null> {
+      // Les pseudos KEEP sont uniques sans tenir compte des majuscules/minuscules
+      // (index profiles_username_lower_key). Un lien partagé reste donc valide
+      // même si Mail/WhatsApp ou l'utilisateur change la casse du pseudo.
+      const cleanUsername = username.trim().replace(/^@/, '');
       const { data: profile, error: profileError } = await client
         .from('profiles')
         .select('*')
-        .eq('username', username)
+        .ilike('username', cleanUsername)
         .eq('is_public', true)
         .maybeSingle();
 
