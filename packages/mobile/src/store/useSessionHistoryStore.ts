@@ -1,10 +1,21 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { KeepSession, KeepVisibility, SessionTrackStatus } from '../types';
+import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { commitKeep } from '../services/keepTrackAction';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { recordKeepDecision, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import {
+  loadOwnPersistedKeeps,
+  PersistedKeepDecision,
+  recordKeepDecision,
+  updateKeepDecisionVisibility,
+} from '../services/keepMusicCoreRecognition';
+
+export const CLOUD_PROFILE_RECOVERY_SESSION_ID = '__keep-cloud-profile-recovery__';
+
+export function isCloudProfileRecoverySession(session: KeepSession): boolean {
+  return session.id === CLOUD_PROFILE_RECOVERY_SESSION_ID;
+}
 
 interface SessionHistoryStore {
   sessions: KeepSession[];
@@ -78,6 +89,126 @@ function orphanedSessionEndAt(session: KeepSession): string {
   }, Number.isFinite(startedAt) ? startedAt : 0);
   const safeEnd = latestDetection > 0 ? latestDetection : Date.now();
   return new Date(safeEnd).toISOString();
+}
+
+function safeTime(value: string | null | undefined): number {
+  const parsed = value ? new Date(value).getTime() : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mergeCanonicalTrack(local: SessionTrackEntry['track'], remote: PersistedKeepDecision['track']): SessionTrackEntry['track'] {
+  return {
+    ...local,
+    id: remote.id || local.id,
+    isrc: remote.isrc || local.isrc,
+    title: remote.title || local.title,
+    artist: remote.artist || local.artist,
+    album: remote.album || local.album,
+    durationSec: remote.durationSec ?? local.durationSec,
+    artworkUrl: remote.artworkUrl || local.artworkUrl,
+    genres: remote.genres?.length ? remote.genres : (local.genres ?? []),
+    providerIds: { ...(local.providerIds ?? {}), ...(remote.providerIds ?? {}) },
+    previewUrl: remote.previewUrl || local.previewUrl,
+    externalUrls: { ...(local.externalUrls ?? {}), ...(remote.externalUrls ?? {}) },
+    availableOn: remote.availableOn?.length ? remote.availableOn : (local.availableOn ?? []),
+  };
+}
+
+function remoteEntry(remote: PersistedKeepDecision): SessionTrackEntry {
+  return {
+    id: `cloud-${remote.decisionId}`,
+    track: remote.track,
+    recommendations: [],
+    status: 'kept',
+    detectedAt: remote.detectedAt,
+    visibility: remote.visibility,
+    keepDecisionId: remote.decisionId,
+    creditLocked: false,
+  };
+}
+
+/**
+ * Le serveur est la sauvegarde durable du profil musical, mais l'historique de
+ * session complet (PASS, pending, ordre local, titre, lieu) reste sur l'appareil.
+ * On fusionne donc les KEEP serveur SANS remplacer ni supprimer l'historique
+ * local. Les morceaux serveur qui n'ont plus de session locale sont rangés dans
+ * une session technique cachée : le KEEP DNA est restauré sur un nouvel appareil
+ * sans inventer une fausse « session d'écoute » dans Mes Sessions.
+ */
+function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
+  if (!remoteKeeps.length) return sessions;
+
+  const remoteByDecision = new Map(remoteKeeps.map((item) => [item.decisionId, item]));
+
+  let next = sessions.map((session) => ({
+    ...session,
+    tracks: session.tracks.map((entry) => {
+      if (!entry.keepDecisionId) return entry;
+      const remote = remoteByDecision.get(entry.keepDecisionId);
+      if (!remote) return entry;
+      return {
+        ...entry,
+        track: mergeCanonicalTrack(entry.track, remote.track),
+        status: 'kept' as SessionTrackStatus,
+        visibility: remote.visibility,
+        creditLocked: false,
+      };
+    }),
+  }));
+
+  // Si la même décision existe dans une vraie session locale ET dans l'ancienne
+  // session de récupération, la vraie session gagne. On ne supprime jamais une
+  // entrée utilisateur ; on retire uniquement le duplicata technique caché.
+  const visibleDecisionIds = new Set<string>();
+  for (const session of next) {
+    if (isCloudProfileRecoverySession(session)) continue;
+    for (const entry of session.tracks) if (entry.keepDecisionId) visibleDecisionIds.add(entry.keepDecisionId);
+  }
+  next = next.map((session) => isCloudProfileRecoverySession(session)
+    ? { ...session, tracks: session.tracks.filter((entry) => !entry.keepDecisionId || !visibleDecisionIds.has(entry.keepDecisionId)) }
+    : session);
+
+  const represented = new Set<string>();
+  for (const session of next) {
+    for (const entry of session.tracks) if (entry.keepDecisionId) represented.add(entry.keepDecisionId);
+  }
+  const missing = remoteKeeps.filter((item) => !represented.has(item.decisionId));
+
+  const existingCloud = next.find(isCloudProfileRecoverySession);
+  if (!missing.length) {
+    return next.filter((session) => !isCloudProfileRecoverySession(session) || session.tracks.length > 0);
+  }
+
+  const cloudTracks = [
+    ...(existingCloud?.tracks ?? []),
+    ...missing.map(remoteEntry),
+  ].sort((a, b) => safeTime(b.detectedAt) - safeTime(a.detectedAt));
+
+  const earliest = cloudTracks.reduce((min, entry) => {
+    const value = safeTime(entry.detectedAt);
+    return value > 0 && (min === 0 || value < min) ? value : min;
+  }, 0);
+  const latest = cloudTracks.reduce((max, entry) => Math.max(max, safeTime(entry.detectedAt)), 0);
+  const fallbackNow = Date.now();
+  const cloudSession: KeepSession = {
+    id: CLOUD_PROFILE_RECOVERY_SESSION_ID,
+    startedAt: new Date(earliest || latest || fallbackNow).toISOString(),
+    endedAt: new Date(latest || earliest || fallbackNow).toISOString(),
+    title: 'KEEP sauvegardés',
+    tracks: cloudTracks,
+  };
+
+  next = existingCloud
+    ? next.map((session) => isCloudProfileRecoverySession(session) ? cloudSession : session)
+    : [...next, cloudSession];
+
+  // On conserve l'ordre normal des vraies sessions. La session technique est
+  // repoussée à la fin et reste invisible dans l'écran Mes Sessions.
+  return next.sort((a, b) => {
+    if (isCloudProfileRecoverySession(a)) return 1;
+    if (isCloudProfileRecoverySession(b)) return -1;
+    return safeTime(b.startedAt) - safeTime(a.startedAt);
+  });
 }
 
 export const useSessionHistoryStore = create<SessionHistoryStore>()(
@@ -154,6 +285,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       syncUnsyncedKeeps: async () => {
         const snapshot = get().sessions;
         for (const session of snapshot) {
+          if (isCloudProfileRecoverySession(session)) continue;
           for (const entry of session.tracks) {
             if (entry.status !== 'kept' || entry.keepDecisionId) continue;
             try {
@@ -164,6 +296,16 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
               // Une synchro interrompue n'efface jamais l'historique local.
             }
           }
+        }
+
+        // Le sens retour est aussi indispensable : après mise à jour, réinstallation
+        // ou nouvel appareil, le profil musical se reconstruit depuis les décisions
+        // KEEP durables de Supabase. Un échec réseau ne modifie rien localement.
+        try {
+          const remoteKeeps = await loadOwnPersistedKeeps();
+          if (remoteKeeps.length) set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
+        } catch {
+          // Offline / serveur indisponible : conserver exactement les données locales.
         }
       },
 
