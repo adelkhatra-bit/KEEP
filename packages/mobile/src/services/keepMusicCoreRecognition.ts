@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { MusicRecognitionProvider, RecognitionResult } from '@keep/music';
+import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
+import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken } from './supabaseClient';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -37,6 +38,75 @@ async function parseResponse(response: Response) {
   return payload;
 }
 
+function baseHeaders(accessToken?: string | null) {
+  if (!configured(SUPABASE_ANON_KEY)) return {};
+  return {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
+  };
+}
+
+/**
+ * Enregistre le KEEP dans le profil réel quand un compte est connecté.
+ * Un invité reste 100 % local : aucune auth Supabase artificielle n'est créée.
+ */
+export async function recordKeepDecision(
+  track: CanonicalTrack,
+  visibility: KeepVisibility,
+  context: Record<string, unknown> = {},
+): Promise<{ decisionId: string; trackId: string } | null> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
+  const accessToken = await getSupabaseAccessToken();
+  if (!accessToken) return null;
+
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-core`, {
+    method: 'POST',
+    headers: {
+      ...baseHeaders(accessToken),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'decision',
+      decision: 'KEPT',
+      visibility,
+      track: {
+        id: track.id,
+        isrc: track.isrc,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        durationSec: track.durationSec,
+        artworkUrl: track.artworkUrl,
+        genres: track.genres ?? [],
+        providerIds: track.providerIds ?? {},
+      },
+      context,
+    }),
+  });
+  const payload = await parseResponse(response);
+  return payload?.decisionId && payload?.trackId
+    ? { decisionId: String(payload.decisionId), trackId: String(payload.trackId) }
+    : null;
+}
+
+/** Met à jour uniquement la visibilité d'un KEEP appartenant au compte actif. */
+export async function updateKeepDecisionVisibility(decisionId: string, visibility: KeepVisibility): Promise<boolean> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return false;
+  const accessToken = await getSupabaseAccessToken();
+  if (!accessToken) return false;
+
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-core`, {
+    method: 'POST',
+    headers: {
+      ...baseHeaders(accessToken),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'decision.visibility', decisionId, visibility }),
+  });
+  await parseResponse(response);
+  return true;
+}
+
 /**
  * Reconnaissance musicale via la fonction Supabase `keep-music-core`.
  * La clé AudD reste exclusivement dans Supabase Vault : aucune clé fournisseur
@@ -61,8 +131,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-core`, {
       method: 'POST',
       headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
+        ...baseHeaders(accessToken),
         'x-keep-device-id': await getDeviceId(),
       },
       body: form,
