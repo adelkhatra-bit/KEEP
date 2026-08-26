@@ -1,0 +1,104 @@
+name: KEEP — Web public depuis reconcile
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - '.github/workflows/web-public-from-reconcile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: keep-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
+
+    steps:
+      - name: Checkout source unique reconcile
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 1
+
+      - name: Prove source SHA
+        run: |
+          echo "KEEP_SOURCE_BRANCH=reconcile/claude-main-20260825"
+          echo "KEEP_SOURCE_SHA=$(git rev-parse HEAD)"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify single source of truth
+        run: node scripts/verify-source-of-truth.cjs
+
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+
+      - name: Typecheck admin
+        run: npm --workspace packages/admin run type-check
+
+      - name: Export KEEP web
+        working-directory: packages/mobile
+        run: npx expo export --platform web --output-dir dist-web
+
+      - name: Apply verified browser bootstrap + Pages paths
+        working-directory: packages/mobile
+        run: |
+          node scripts/fix-web-export.cjs dist-web
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('dist-web/index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('src="/_expo/', 'src="./_expo/')
+          s = s.replace('href="/_expo/', 'href="./_expo/')
+          s = s.replace('href="/favicon.ico"', 'href="./favicon.ico"')
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Build Super Admin
+        run: npm --workspace packages/admin run build
+
+      - name: Assemble public site
+        run: |
+          rm -rf _site
+          mkdir -p _site/admin-preview
+          cp -R packages/mobile/dist-web/. _site/
+          cp -R packages/admin/out/. _site/admin-preview/
+          touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Show public URLs
+        run: |
+          echo "KEEP APP: ${{ steps.deployment.outputs.page_url }}"
+          echo "KEEP ADMIN: ${{ steps.deployment.outputs.page_url }}admin-preview/"
