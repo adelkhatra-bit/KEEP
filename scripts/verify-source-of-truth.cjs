@@ -34,6 +34,9 @@ const mustExist = [
   'packages/admin/pages/remote-config.tsx',
   'supabase/functions/keep-admin-control/index.ts',
   'supabase/functions/keep-music-core/index.ts',
+  'supabase/functions/keep-public/index.ts',
+  'supabase/functions/keep-preview/index.ts',
+  'supabase/functions/keep-admin-preview/index.ts',
   'START_KEEP_LIVE_CLEAN.bat',
 ];
 
@@ -104,6 +107,19 @@ for (const marker of ['keep-music-core', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABA
   if (!recognition.includes(marker)) failures.push(`SECURE RECOGNITION MARKER MISSING: ${marker}`);
 }
 if (recognition.includes('EXPO_PUBLIC_AUDD_API_KEY')) failures.push('AUDD SECRET REINTRODUCED IN MOBILE');
+
+const legacyRedirects = [
+  ['supabase/functions/keep-public/index.ts', `${expectedPublicRoot}`],
+  ['supabase/functions/keep-preview/index.ts', `${expectedPublicRoot}`],
+  ['supabase/functions/keep-admin-preview/index.ts', `${expectedPublicRoot}/admin-preview/`],
+];
+for (const [rel, canonical] of legacyRedirects) {
+  const source = fs.readFileSync(path.join(root, rel), 'utf8');
+  if (!source.includes(canonical)) failures.push(`LEGACY REDIRECT NOT CANONICAL: ${rel}`);
+  if (!source.includes('status: 308')) failures.push(`LEGACY REDIRECT MUST BE PERMANENT: ${rel}`);
+  if (/raw\.githubusercontent\.com|\/web-preview\//i.test(source)) failures.push(`LEGACY STALE BUNDLE SOURCE REINTRODUCED: ${rel}`);
+  if (/SUPABASE_SERVICE_ROLE_KEY|PASS\s*=\s*['"]1234['"]/i.test(source)) failures.push(`LEGACY ENDPOINT EXPOSES PRIVILEGED LOGIC: ${rel}`);
+}
 
 const pagesWorkflow = fs.readFileSync(path.join(root, '.github/workflows/web-preview-pages.yml'), 'utf8');
 for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, '__keep_route', 'Live browser matrix']) {
