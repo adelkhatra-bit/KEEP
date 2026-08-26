@@ -9,8 +9,7 @@ export interface KeepAuthSession {
 
 export interface AuthService {
   signInAsGuest(): Promise<{ error: string | null }>;
-  requestEmailCode(email: string): Promise<{ error: string | null }>;
-  verifyEmailCode(email: string, code: string): Promise<{ error: string | null }>;
+  requestEmailMagicLink(email: string): Promise<{ error: string | null }>;
   requestEmailLink(email: string): Promise<{ error: string | null }>;
   verifyEmailLink(email: string, code: string): Promise<{ error: string | null }>;
   getCurrentSession(): Promise<KeepAuthSession | null>;
@@ -27,13 +26,17 @@ export function createAuthService(client: SupabaseAuthClient): AuthService {
       return { error: error?.message ?? null };
     },
 
-    async requestEmailCode(email) {
-      const { error } = await client.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-      return { error: error?.message ?? null };
-    },
-
-    async verifyEmailCode(email, code) {
-      const { error } = await client.auth.verifyOtp({ email, token: code, type: 'email' });
+    // Connexion e-mail KEEP : Magic Link Supabase, sans code à recopier.
+    // `signInWithOtp` est le nom historique du SDK Supabase, mais lorsque le
+    // template contient ConfirmationURL il envoie bien un lien cliquable.
+    async requestEmailMagicLink(email) {
+      const { error } = await client.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: 'https://adelkhatra-bit.github.io/KEEP/',
+        },
+      });
       return { error: error?.message ?? null };
     },
 
