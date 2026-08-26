@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -9,12 +9,6 @@ import TrackRow from '../components/TrackRow';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
-/**
- * "TA SESSION KEEP" — récapitulatif de fin de session. Les morceaux déjà
- * gardés/passés au fil de l'eau restent tels quels ; les morceaux encore
- * `pending` peuvent être traités ici. Un KEEP gardé peut ensuite rester privé
- * ou être rendu public sur le profil, sans changer la playlist musicale.
- */
 export default function SessionRecapScreen({ route, navigation }: any) {
   const { t } = useTranslation();
   const sessionId: string = route.params?.sessionId;
@@ -26,11 +20,20 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     renameSession,
     deleteSession,
     setTrackVisibilityInSession,
+    refreshCreditLocks,
   } = useSessionHistoryStore();
   const { playlists } = usePlaylistStore();
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
   const [titleSaved, setTitleSaved] = useState(false);
+
+  useEffect(() => {
+    void refreshCreditLocks().catch(() => {});
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      void refreshCreditLocks().catch(() => {});
+    });
+    return () => unsubscribe?.();
+  }, [navigation, refreshCreditLocks]);
 
   if (!session) {
     return (
@@ -52,6 +55,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
   const handleKeepAll = async () => {
     setProcessing(true);
+    await refreshCreditLocks().catch(() => {});
     await keepAllPendingInSession(sessionId);
     setProcessing(false);
   };
@@ -97,7 +101,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     ]);
   };
 
-  const openUnlock = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' });
+  const openUnlock = async () => {
+    await refreshCreditLocks().catch(() => {});
+    const refreshed = useSessionHistoryStore.getState().sessions.find((x) => x.id === sessionId);
+    const stillLocked = refreshed?.tracks.some((tr) => tr.status === 'pending' && tr.creditLocked);
+    if (!stillLocked) return;
+    navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -136,9 +146,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       </View>
 
       {lockedCount > 0 ? (
-        <TouchableOpacity style={styles.lockedBanner} onPress={openUnlock}>
+        <TouchableOpacity style={styles.lockedBanner} onPress={() => { void openUnlock(); }}>
           <Text style={styles.lockedBannerTitle}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente</Text>
-          <Text style={styles.lockedBannerText}>Tes extraits restent disponibles. Appuie ici pour voir la formule qui débloque les fonctions payantes.</Text>
+          <Text style={styles.lockedBannerText}>KEEP vérifie d’abord ton solde. S’il reste des crédits, le cadenas disparaît automatiquement ; sinon appuie ici pour voir Premium.</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -163,7 +173,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
             onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId, 'PRIVATE')}
             onPass={(entryId) => passTrackInSession(sessionId, entryId)}
             onVisibilityChange={(entryId, visibility) => { void setTrackVisibilityInSession(sessionId, entryId, visibility); }}
-            onUnlock={openUnlock}
+            onUnlock={() => { void openUnlock(); }}
           />
         )}
       />
