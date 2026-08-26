@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, Platform, TextInput, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { spacing, radius, typography } from '../../theme/spacing';
@@ -11,16 +12,41 @@ import { consumeWebAuthAndOpenNative, subscribeToNativeAuthLinks } from '../../s
 type EmailStep = 'idle' | 'linkSent';
 type AuthStep = 'landing' | 'chooser' | 'email';
 
+const LOCAL_GUEST_ID_KEY = '@keep/local-guest-id-v1';
+
+function createLocalGuestId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    const nibble = char === 'x' ? value : (value & 0x3) | 0x8;
+    return nibble.toString(16);
+  });
+}
+
 export default function OnboardingScreen() {
   const { t } = useTranslation();
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
-  const syncFromAuthSession = useUserStore((s) => s.syncFromAuthSession);
+  const enterGuestMode = useUserStore((s) => s.enterGuestMode);
   const [authStep, setAuthStep] = useState<AuthStep>('landing');
   const [emailStep, setEmailStep] = useState<EmailStep>('idle');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const authService = supabase ? createAuthService(supabase) : null;
+
+  // L'essai gratuit est un vrai mode invité LOCAL, stable sur l'appareil.
+  // Il ne crée plus un auth.users Supabase à chaque navigateur/téléphone :
+  // cela supprime la source du 429 "Too many requests" et rend le bouton
+  // ESSAYER GRATUITEMENT instantané même si le réseau ou l'e-mail est en panne.
+  useEffect(() => {
+    let active = true;
+    void AsyncStorage.getItem(LOCAL_GUEST_ID_KEY)
+      .then((guestId) => {
+        if (!active || !guestId || useUserStore.getState().user) return;
+        enterGuestMode(guestId);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [enterGuestMode]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -49,28 +75,21 @@ export default function OnboardingScreen() {
   };
 
   const handleGuestPress = async () => {
-    if (!isSupabaseConfigured || !authService) {
-      Alert.alert('KEEP indisponible', 'La connexion au serveur KEEP est nécessaire pour activer les crédits gratuits.');
-      return;
-    }
-
     setBusy(true);
     setErrorMsg(null);
-    const { error } = await authService.signInAsGuest();
 
-    if (!error) {
-      const session = await authService.getCurrentSession();
-      if (session) syncFromAuthSession(session);
-      setBusy(false);
-      return;
+    let guestId = createLocalGuestId();
+    try {
+      const existing = await AsyncStorage.getItem(LOCAL_GUEST_ID_KEY);
+      guestId = existing || guestId;
+      if (!existing) await AsyncStorage.setItem(LOCAL_GUEST_ID_KEY, guestId);
+    } catch {
+      // Même si le stockage local est momentanément indisponible, l'utilisateur
+      // entre dans KEEP au lieu de rester bloqué sur une page blanche/429.
     }
 
     setBusy(false);
-    if (/rate limit|too many|429/i.test(error)) {
-      setErrorMsg('Trop de tentatives de test ont été lancées. Attends environ 60 secondes puis réessaie : KEEP réutilisera ensuite la même session.');
-      return;
-    }
-    setErrorMsg('Impossible de démarrer l’essai gratuit pour le moment. Réessaie dans un instant.');
+    enterGuestMode(guestId);
   };
 
   const openAccountChooser = () => {
