@@ -27,6 +27,10 @@ interface SessionHistoryStore {
   getSession: (sessionId: string) => KeepSession | undefined;
 }
 
+function isCreditsExhausted(error: unknown): boolean {
+  return error instanceof Error && error.message === 'CREDITS_EXHAUSTED';
+}
+
 function updateEntryStatus(
   sessions: KeepSession[],
   sessionId: string,
@@ -35,6 +39,7 @@ function updateEntryStatus(
   keptPlaylistId?: string,
   visibility?: KeepVisibility,
   keepDecisionId?: string,
+  creditLocked?: boolean,
 ): KeepSession[] {
   return sessions.map((s) =>
     s.id !== sessionId
@@ -42,7 +47,22 @@ function updateEntryStatus(
       : {
           ...s,
           tracks: s.tracks.map((t) =>
-            t.id === entryId ? { ...t, status, keptPlaylistId, visibility, keepDecisionId } : t
+            t.id === entryId ? { ...t, status, keptPlaylistId, visibility, keepDecisionId, creditLocked } : t
+          ),
+        }
+  );
+}
+
+function lockPendingFrom(sessions: KeepSession[], sessionId: string, entryId?: string): KeepSession[] {
+  return sessions.map((session) =>
+    session.id !== sessionId
+      ? session
+      : {
+          ...session,
+          tracks: session.tracks.map((track) =>
+            track.status === 'pending' && (!entryId || track.id === entryId)
+              ? { ...track, creditLocked: true, visibility: 'PRIVATE' as KeepVisibility }
+              : track,
           ),
         }
   );
@@ -68,22 +88,30 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const entry = session?.tracks.find((t) => t.id === entryId);
         if (!session || !entry || entry.status !== 'pending') return;
 
-        const { targetPlaylistId, keepDecisionId } = await commitKeep(
-          entry.track,
-          entry.recommendations,
-          playlistId,
-          {
-            visibility,
-            context: { sessionId, detectedAt: entry.detectedAt, source: 'session_history' },
-          },
-        );
-        set((s) => ({
-          sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, visibility, keepDecisionId),
-        }));
+        try {
+          const { targetPlaylistId, keepDecisionId } = await commitKeep(
+            entry.track,
+            entry.recommendations,
+            playlistId,
+            {
+              visibility,
+              context: { sessionId, detectedAt: entry.detectedAt, source: 'session_history' },
+            },
+          );
+          set((s) => ({
+            sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, visibility, keepDecisionId, false),
+          }));
+        } catch (error) {
+          if (isCreditsExhausted(error)) {
+            set((s) => ({ sessions: lockPendingFrom(s.sessions, sessionId, entryId) }));
+            return;
+          }
+          throw error;
+        }
       },
 
       passTrackInSession: (sessionId, entryId) => {
-        set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed') }));
+        set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed', undefined, undefined, undefined, false) }));
       },
 
       setTrackVisibilityInSession: async (sessionId, entryId, visibility) => {
@@ -106,6 +134,11 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const pending = session.tracks.filter((t) => t.status === 'pending');
         for (const entry of pending) {
           await get().keepTrackInSession(sessionId, entry.id, undefined, 'PRIVATE');
+          const refreshed = get().sessions.find((s) => s.id === sessionId)?.tracks.find((t) => t.id === entry.id);
+          if (refreshed?.creditLocked) {
+            set((s) => ({ sessions: lockPendingFrom(s.sessions, sessionId) }));
+            break;
+          }
         }
       },
 
