@@ -5,17 +5,10 @@ import { KeepSession, KeepVisibility, SessionTrackStatus } from '../types';
 import { commitKeep } from '../services/keepTrackAction';
 import { recordKeepDecision, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 
-/**
- * "Mes Sessions" — mémoire des moments de vie où KEEP a écouté.
- *
- * Persisté en local (AsyncStorage) : l'utilisateur garde la main sur cet
- * historique et peut supprimer une session devenue inutile. Les morceaux déjà
- * envoyés dans Spotify/Apple Music ne sont jamais supprimés de ces services par
- * cette action : seule la session KEEP locale est retirée.
- */
 interface SessionHistoryStore {
   sessions: KeepSession[];
   addSession: (session: KeepSession) => void;
+  upsertSession: (session: KeepSession) => void;
   deleteSession: (sessionId: string) => void;
   clearSessions: () => void;
   renameSession: (sessionId: string, title: string) => void;
@@ -44,12 +37,7 @@ function updateEntryStatus(
   return sessions.map((s) =>
     s.id !== sessionId
       ? s
-      : {
-          ...s,
-          tracks: s.tracks.map((t) =>
-            t.id === entryId ? { ...t, status, keptPlaylistId, visibility, keepDecisionId, creditLocked } : t
-          ),
-        }
+      : { ...s, tracks: s.tracks.map((t) => t.id === entryId ? { ...t, status, keptPlaylistId, visibility, keepDecisionId, creditLocked } : t) }
   );
 }
 
@@ -74,33 +62,24 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       sessions: [],
 
       addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
-
-      deleteSession: (sessionId) =>
-        set((s) => ({ sessions: s.sessions.filter((session) => session.id !== sessionId) })),
-
+      upsertSession: (session) => set((s) => {
+        const exists = s.sessions.some((item) => item.id === session.id);
+        return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
+      }),
+      deleteSession: (sessionId) => set((s) => ({ sessions: s.sessions.filter((session) => session.id !== sessionId) })),
       clearSessions: () => set({ sessions: [] }),
-
-      renameSession: (sessionId, title) =>
-        set((s) => ({ sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, title } : sess)) })),
+      renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
 
       keepTrackInSession: async (sessionId, entryId, playlistId, visibility = 'PRIVATE') => {
         const session = get().sessions.find((s) => s.id === sessionId);
         const entry = session?.tracks.find((t) => t.id === entryId);
         if (!session || !entry || entry.status !== 'pending') return;
-
         try {
-          const { targetPlaylistId, keepDecisionId } = await commitKeep(
-            entry.track,
-            entry.recommendations,
-            playlistId,
-            {
-              visibility,
-              context: { sessionId, detectedAt: entry.detectedAt, source: 'session_history' },
-            },
-          );
-          set((s) => ({
-            sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, visibility, keepDecisionId, false),
-          }));
+          const { targetPlaylistId, keepDecisionId } = await commitKeep(entry.track, entry.recommendations, playlistId, {
+            visibility,
+            context: { sessionId, detectedAt: entry.detectedAt, source: 'session_history' },
+          });
+          set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, visibility, keepDecisionId, false) }));
         } catch (error) {
           if (isCreditsExhausted(error)) {
             set((s) => ({ sessions: lockPendingFrom(s.sessions, sessionId, entryId) }));
@@ -110,22 +89,14 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         }
       },
 
-      passTrackInSession: (sessionId, entryId) => {
-        set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed', undefined, undefined, undefined, false) }));
-      },
+      passTrackInSession: (sessionId, entryId) => set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed', undefined, undefined, undefined, false) })),
 
       setTrackVisibilityInSession: async (sessionId, entryId, visibility) => {
         const session = get().sessions.find((s) => s.id === sessionId);
         const entry = session?.tracks.find((t) => t.id === entryId);
         if (!entry || entry.status !== 'kept') return;
         if (entry.keepDecisionId) await updateKeepDecisionVisibility(entry.keepDecisionId, visibility);
-        set((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id !== sessionId
-              ? sess
-              : { ...sess, tracks: sess.tracks.map((track) => (track.id === entryId ? { ...track, visibility } : track)) }
-          ),
-        }));
+        set((s) => ({ sessions: s.sessions.map((sess) => sess.id !== sessionId ? sess : { ...sess, tracks: sess.tracks.map((track) => track.id === entryId ? { ...track, visibility } : track) }) }));
       },
 
       keepAllPendingInSession: async (sessionId) => {
@@ -148,24 +119,9 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           for (const entry of session.tracks) {
             if (entry.status !== 'kept' || entry.keepDecisionId) continue;
             try {
-              const recorded = await recordKeepDecision(
-                entry.track,
-                entry.visibility ?? 'PRIVATE',
-                { sessionId: session.id, detectedAt: entry.detectedAt, source: 'guest_upgrade' },
-              );
+              const recorded = await recordKeepDecision(entry.track, entry.visibility ?? 'PRIVATE', { sessionId: session.id, detectedAt: entry.detectedAt, source: 'guest_upgrade' });
               if (!recorded?.decisionId) continue;
-              set((state) => ({
-                sessions: state.sessions.map((sess) =>
-                  sess.id !== session.id
-                    ? sess
-                    : {
-                        ...sess,
-                        tracks: sess.tracks.map((track) =>
-                          track.id === entry.id ? { ...track, keepDecisionId: recorded.decisionId } : track
-                        ),
-                      }
-                ),
-              }));
+              set((state) => ({ sessions: state.sessions.map((sess) => sess.id !== session.id ? sess : { ...sess, tracks: sess.tracks.map((track) => track.id === entry.id ? { ...track, keepDecisionId: recorded.decisionId } : track) }) }));
             } catch {
               // Une synchro interrompue n'efface jamais l'historique local.
             }
@@ -175,9 +131,6 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),
     }),
-    {
-      name: 'keep-session-history',
-      storage: createJSONStorage(() => AsyncStorage),
-    }
+    { name: 'keep-session-history', storage: createJSONStorage(() => AsyncStorage) }
   )
 );
