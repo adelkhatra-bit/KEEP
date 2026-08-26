@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { createAuthService } from '../services/authService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
@@ -124,6 +125,11 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         );
         return;
       }
+
+      // Dès qu'une vraie session existe, les KEEP réalisés avant l'inscription
+      // sont rattachés au même compte. La visibilité choisie (Public/Privé)
+      // est conservée ; aucune musique n'est dupliquée dans le stockage local.
+      await useSessionHistoryStore.getState().syncUnsyncedKeeps();
 
       const followed = await applyFollowIntent();
       if (followUsername) {
