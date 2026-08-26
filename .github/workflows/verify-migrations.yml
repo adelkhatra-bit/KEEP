@@ -1,22 +1,23 @@
 name: KEEP — Vérification migrations SQL (PostgreSQL réel)
 
-# Aucun secret nécessaire (contrairement à eas-build-ios.yml) : ce workflow
-# utilise un vrai service PostgreSQL fourni par GitHub Actions, applique les
-# 7 migrations, et exécute les assertions métier réelles (triggers,
-# cohérence devise, RLS) via supabase/scripts/verify-migrations.sh.
-# Tourne sur toute PR qui touche supabase/migrations -- aucune régression
-# de schéma/RLS ne doit jamais atteindre main sans que ce job passe.
+# Aucun secret nécessaire : ce workflow utilise un vrai service PostgreSQL 16,
+# applique toutes les migrations présentes dans supabase/migrations, puis
+# exécute les assertions métier réelles (triggers, cohérence devise, RLS).
+# La branche de travail unique KEEP est vérifiée directement ; main reste
+# couvert pour le jour où la réconciliation sera fusionnée.
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'reconcile/claude-main-20260825']
     paths:
       - "supabase/migrations/**"
       - "supabase/scripts/verify-migrations.sh"
+      - ".github/workflows/verify-migrations.yml"
   pull_request:
     paths:
       - "supabase/migrations/**"
       - "supabase/scripts/verify-migrations.sh"
+      - ".github/workflows/verify-migrations.yml"
   workflow_dispatch:
 
 jobs:
