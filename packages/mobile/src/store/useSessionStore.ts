@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { CanonicalTrack } from '@keep/music';
-import { KeepSession, SessionTrackEntry, SessionTrackStatus } from '../types';
+import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
+import { updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
@@ -67,8 +68,6 @@ interface SessionStore {
   silenceTimeoutMin: number;
   showEndPrompt: boolean;
   recognizing: boolean;
-  /** Niveau micro réel 0-1 en direct pendant une capture (cf. demande explicite
-   * du 26/08/2026 -- "l'animation doit suivre le micro"). 0 hors capture. */
   micLevel: number;
   error: string | null;
   locationLabel?: string;
@@ -77,8 +76,9 @@ interface SessionStore {
   startSession: () => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
-  keepTrack: (entryId: string, playlistId?: string) => Promise<void>;
+  keepTrack: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
   passTrack: (entryId: string) => void;
+  setTrackVisibility: (entryId: string, visibility: KeepVisibility) => Promise<void>;
   keepAllPending: () => Promise<void>;
   setSilenceTimeoutMin: (minutes: number) => void;
   attachLocation: (label: string, lat?: number, lng?: number) => void;
@@ -229,6 +229,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       tracks: [],
       showEndPrompt: false,
       recognizing: false,
+      micLevel: 0,
       error: null,
       locationLabel: undefined,
       lat: undefined,
@@ -238,15 +239,30 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     return session.tracks.length > 0 ? session.id : null;
   },
 
-  keepTrack: async (entryId, playlistId) => {
+  keepTrack: async (entryId, playlistId, visibility = 'PRIVATE') => {
     const entry = get().tracks.find((t) => t.id === entryId);
-    if (!entry || entry.status === 'already_saved') return;
+    if (!entry || entry.status === 'already_saved' || entry.status !== 'pending') return;
     try {
-      const { targetPlaylistId } = await commitKeep(entry.track, entry.recommendations, playlistId);
+      const { targetPlaylistId, keepDecisionId, profileSyncFailed } = await commitKeep(
+        entry.track,
+        entry.recommendations,
+        playlistId,
+        {
+          visibility,
+          context: {
+            sessionId: get().sessionId,
+            detectedAt: entry.detectedAt,
+            source: 'listen',
+          },
+        },
+      );
       set((s) => ({
         tracks: s.tracks.map((t) =>
-          t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId } : t
+          t.id === entryId
+            ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, visibility, keepDecisionId }
+            : t
         ),
+        error: profileSyncFailed ? 'Morceau gardé. La visibilité du profil sera resynchronisée à la prochaine connexion.' : null,
       }));
     } catch (e: any) {
       set({ error: e?.message ?? 'Erreur lors du rangement' });
@@ -256,12 +272,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   passTrack: (entryId) => {
     set((s) => ({
       tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, status: 'passed' as SessionTrackStatus } : t)),
+      error: null,
     }));
+  },
+
+  setTrackVisibility: async (entryId, visibility) => {
+    const entry = get().tracks.find((t) => t.id === entryId);
+    if (!entry || entry.status !== 'kept') return;
+    try {
+      if (entry.keepDecisionId) await updateKeepDecisionVisibility(entry.keepDecisionId, visibility);
+      set((s) => ({
+        tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, visibility } : t)),
+        error: null,
+      }));
+    } catch (e: any) {
+      set({ error: e?.message ?? 'Impossible de modifier la visibilité de ce KEEP.' });
+    }
   },
 
   keepAllPending: async () => {
     const pending = get().tracks.filter((t) => t.status === 'pending');
-    for (const entry of pending) await get().keepTrack(entry.id);
+    for (const entry of pending) await get().keepTrack(entry.id, undefined, 'PRIVATE');
   },
 
   setSilenceTimeoutMin: (minutes) => set({ silenceTimeoutMin: minutes }),
