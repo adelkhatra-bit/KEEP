@@ -1,0 +1,84 @@
+name: KEEP — Essai gratuit public mobile
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/screens/onboarding/OnboardingScreen.tsx'
+      - 'packages/mobile/src/store/useUserStore.ts'
+      - 'packages/mobile/src/services/creditService.ts'
+      - 'scripts/keep-public-trial-smoke.cjs'
+      - '.github/workflows/public-trial-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  free-trial-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout official KEEP branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+
+      - name: Install Chromium + WebKit
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium webkit --with-deps
+
+      - name: Wait until corrected public KEEP is deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP/'
+          for i in {1..60}; do
+            if curl -L --connect-timeout 10 --max-time 20 -fsS "$base" -o /tmp/keep-public.html; then
+              echo "KEEP public reachable — attempt $i"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'KEEP public unreachable'
+          exit 1
+
+      - name: Prove ESSAYER GRATUITEMENT on desktop Android and iPhone
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-browser-matrix
+          # The Pages deployment for the same source push may still be finishing.
+          # Retry the real interaction until the new public bundle is visible.
+          for i in {1..24}; do
+            echo "PUBLIC TRIAL ATTEMPT $i/24"
+            rm -f artifacts/public-browser-matrix/*-FAIL.*
+            if node scripts/keep-public-trial-smoke.cjs; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Public KEEP never exposed the corrected free-trial flow in time.'
+          exit 1
+
+      - name: Upload mobile/desktop evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KEEP-Free-Trial-Live-${{ github.sha }}
+          path: artifacts/public-browser-matrix
+          retention-days: 14
+          if-no-files-found: warn
