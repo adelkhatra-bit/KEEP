@@ -29,9 +29,9 @@ begin
   return query
   select
     p.id,
-    u.email,
-    p.username,
-    p.display_name,
+    u.email::text,
+    p.username::text,
+    p.display_name::text,
     p.country_code,
     p.kind::text,
     p.created_at,
@@ -58,5 +58,5 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_user_directory() from public;
+revoke all on function public.admin_user_directory() from public, anon;
 grant execute on function public.admin_user_directory() to authenticated;
