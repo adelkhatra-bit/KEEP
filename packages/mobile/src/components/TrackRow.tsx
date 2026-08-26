@@ -12,15 +12,11 @@ interface Props {
   onKeep?: (entryId: string, playlistId?: string) => void;
   onPass?: (entryId: string) => void;
   onVisibilityChange?: (entryId: string, visibility: KeepVisibility) => void;
-  /** Playlists disponibles pour "choisir où les ranger" — sans elles, GARDER utilise la recommandation SmartPlaylistRouter n°1. */
+  onUnlock?: () => void;
   playlists?: ProviderPlaylist[];
 }
 
-/**
- * Ligne compacte "esprit Spotify/Apple Music".
- * Les extraits sont des previews promotionnelles distantes : KEEP ne stocke aucun fichier audio.
- */
-export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, playlists }: Props) {
+export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, onUnlock, playlists }: Props) {
   const { t } = useTranslation();
   const { track, status } = entry;
   const topPlaylistName = entry.recommendations[0]?.playlistName;
@@ -35,29 +31,17 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
   }, []);
 
   const handleKeepPress = () => {
-    if (!playlists || playlists.length <= 1 || !onKeep) {
-      onKeep?.(entry.id);
-      return;
-    }
-    Alert.alert(
-      t('session.chooseDestination'),
-      undefined,
-      playlists.map((p) => ({ text: p.name, onPress: () => onKeep(entry.id, p.id) }))
-    );
+    if (entry.creditLocked) { onUnlock?.(); return; }
+    if (!playlists || playlists.length <= 1 || !onKeep) { onKeep?.(entry.id); return; }
+    Alert.alert(t('session.chooseDestination'), undefined, playlists.map((p) => ({ text: p.name, onPress: () => onKeep(entry.id, p.id) })));
   };
 
   const playSnippet = async (positionMillis: number) => {
     if (!track.previewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync().catch(() => {});
-        soundRef.current = null;
-      }
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: track.previewUrl },
-        { shouldPlay: true, positionMillis },
-      );
+      if (soundRef.current) { await soundRef.current.unloadAsync().catch(() => {}); soundRef.current = null; }
+      const { sound } = await Audio.Sound.createAsync({ uri: track.previewUrl }, { shouldPlay: true, positionMillis });
       soundRef.current = sound;
       setTimeout(() => {
         if (soundRef.current !== sound) return;
@@ -65,11 +49,8 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
         void sound.unloadAsync().catch(() => {});
         soundRef.current = null;
       }, 7000);
-    } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
-    } finally {
-      setPreviewBusy(false);
-    }
+    } catch { Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.'); }
+    finally { setPreviewBusy(false); }
   };
 
   const openYoutubeSearch = async () => {
@@ -81,59 +62,33 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
   const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
 
   return (
-    <View style={styles.row}>
-      {track.artworkUrl ? (
-        <Image source={{ uri: track.artworkUrl }} style={styles.artwork} />
-      ) : (
-        <View style={[styles.artwork, styles.artworkPlaceholder]}>
-          <Text style={styles.artworkGlyph}>♪</Text>
-        </View>
-      )}
-
+    <View style={[styles.row, entry.creditLocked && styles.rowLocked]}>
+      {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.artwork} /> : <View style={[styles.artwork, styles.artworkPlaceholder]}><Text style={styles.artworkGlyph}>♪</Text></View>}
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
         <Text style={styles.artist} numberOfLines={1}>{track.artist}</Text>
         {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
         {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
-        {(track.previewUrl || track.externalUrls?.youtubeSearch) ? (
-          <View style={styles.previewRow}>
-            {track.previewUrl ? <>
-              <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
-            </> : null}
-            {track.externalUrls?.youtubeSearch ? <TouchableOpacity style={styles.youtubePill} onPress={() => void openYoutubeSearch()}><Text style={styles.youtubeText}>YouTube</Text></TouchableOpacity> : null}
-          </View>
-        ) : null}
+        {(track.previewUrl || track.externalUrls?.youtubeSearch) ? <View style={styles.previewRow}>
+          {track.previewUrl ? <>
+            <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
+          </> : null}
+          {track.externalUrls?.youtubeSearch ? <TouchableOpacity style={styles.youtubePill} onPress={() => void openYoutubeSearch()}><Text style={styles.youtubeText}>YouTube</Text></TouchableOpacity> : null}
+        </View> : null}
+        {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
       </View>
 
       {status === 'pending' && (onKeep || onPass) ? (
         <View style={styles.actions}>
-          {onPass && (
-            <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8}>
-              <Text style={styles.passBtnText}>✕</Text>
-            </TouchableOpacity>
-          )}
-          {onKeep && (
-            <TouchableOpacity style={styles.keepBtn} onPress={handleKeepPress} hitSlop={8}>
-              <Text style={styles.keepBtnText}>✓</Text>
-            </TouchableOpacity>
-          )}
+          {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8}><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
+          {onKeep && <TouchableOpacity style={[styles.keepBtn, entry.creditLocked && styles.unlockBtn]} onPress={handleKeepPress} hitSlop={8}><Text style={[styles.keepBtnText, entry.creditLocked && styles.unlockBtnText]}>{entry.creditLocked ? '🔒' : '✓'}</Text></TouchableOpacity>}
         </View>
       ) : (
         <View style={styles.statusBadge}>
           {status === 'kept' && <Text style={styles.keptText}>✓ {topPlaylistName ?? t('listen.keep')}</Text>}
-          {status === 'kept' && onVisibilityChange && (
-            <TouchableOpacity
-              style={[styles.visibilityPill, visibility === 'PUBLIC' ? styles.visibilityPublic : styles.visibilityPrivate]}
-              onPress={() => onVisibilityChange(entry.id, visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC')}
-              accessibilityLabel={visibility === 'PUBLIC' ? 'Masquer ce morceau du profil' : 'Afficher ce morceau sur le profil'}
-            >
-              <Text style={visibility === 'PUBLIC' ? styles.visibilityPublicText : styles.visibilityPrivateText}>
-                {visibility === 'PUBLIC' ? 'Public' : 'Privé'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {status === 'kept' && onVisibilityChange && <TouchableOpacity style={[styles.visibilityPill, visibility === 'PUBLIC' ? styles.visibilityPublic : styles.visibilityPrivate]} onPress={() => onVisibilityChange(entry.id, visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC')} accessibilityLabel={visibility === 'PUBLIC' ? 'Masquer ce morceau du profil' : 'Afficher ce morceau sur le profil'}><Text style={visibility === 'PUBLIC' ? styles.visibilityPublicText : styles.visibilityPrivateText}>{visibility === 'PUBLIC' ? 'Public' : 'Privé'}</Text></TouchableOpacity>}
           {status === 'passed' && <Text style={styles.passedText}>✕ {t('listen.pass')}</Text>}
           {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
         </View>
@@ -144,6 +99,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: spacing.sm, gap: spacing.md },
+  rowLocked: { backgroundColor: 'rgba(139,92,246,.06)', borderRadius: radius.md, paddingHorizontal: 6 },
   artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   artworkGlyph: { color: colors.textMuted, fontSize: 20 },
@@ -157,17 +113,14 @@ const styles = StyleSheet.create({
   previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
   youtubePill: { minHeight: 24, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
   youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
+  lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
-  passBtn: {
-    width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
   passBtnText: { color: colors.white, fontWeight: '700', fontSize: 15 },
-  keepBtn: {
-    width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.keep,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  keepBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
   keepBtnText: { color: colors.black, fontWeight: '700', fontSize: 15 },
+  unlockBtn: { backgroundColor: '#2B2038', borderWidth: 1, borderColor: colors.primaryLight },
+  unlockBtnText: { color: colors.primaryLight, fontSize: 13 },
   statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5, paddingTop: 8 },
   keptText: { color: colors.keep, fontSize: 12, fontWeight: '700' },
   passedText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
