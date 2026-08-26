@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
+import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
 import { useUserStore } from '../../store/useUserStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
@@ -46,16 +47,25 @@ export default function OnboardingScreen() {
   const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || 'create');
   const [busy, setBusy] = useState(false);
 
+  const restoreGuest = async (guestId: string) => {
+    enterGuestMode(guestId);
+    const staged = await loadStagedGuestProfile();
+    const current = useUserStore.getState().user;
+    if (staged && current) useUserStore.getState().setUser(mergeStagedGuestProfile(current, staged));
+  };
+
   // L'essai est local et ne crée aucun utilisateur Supabase. Une intention
   // explicite de création/connexion (ex. + Suivre depuis un profil partagé)
   // doit avoir priorité et ne peut pas être écrasée par un ancien essai local.
+  // Le profil préparé pendant l'essai est rechargé sur le même appareil : un
+  // refresh navigateur ne doit jamais effacer pseudo, bio, ville ou réseaux.
   useEffect(() => {
     if (accountOpen || intent.followUsername) return;
     let active = true;
     void AsyncStorage.getItem(LOCAL_GUEST_ID_KEY)
-      .then((guestId) => {
+      .then(async (guestId) => {
         if (!active || !guestId || useUserStore.getState().user) return;
-        enterGuestMode(guestId);
+        await restoreGuest(guestId);
       })
       .catch(() => {});
     return () => { active = false; };
@@ -71,8 +81,11 @@ export default function OnboardingScreen() {
     } catch {
       // L'essai gratuit reste utilisable même si le stockage local échoue.
     }
-    setBusy(false);
-    enterGuestMode(guestId);
+    try {
+      await restoreGuest(guestId);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const closeAccount = () => {
