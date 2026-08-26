@@ -233,7 +233,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts/public-browser-matrix
-          cat > /tmp/keep-public-browser-matrix.cjs <<'JS'
+          cat > keep-public-browser-matrix.cjs <<'JS'
           const { chromium, firefox, webkit, devices } = require('@playwright/test');
           const fs = require('fs');
           const BASE = 'https://adelkhatra-bit.github.io/KEEP';
@@ -297,7 +297,7 @@ jobs:
             console.log(report.join('\n'));
           })().catch(error => { console.error(error); process.exit(1); });
           JS
-          node /tmp/keep-public-browser-matrix.cjs
+          node keep-public-browser-matrix.cjs
 
       - name: Upload live browser evidence
         if: always()
