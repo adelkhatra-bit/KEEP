@@ -7,6 +7,7 @@ on:
       - 'packages/mobile/**'
       - 'packages/music/**'
       - 'packages/admin/**'
+      - 'scripts/verify-source-of-truth.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/web-preview-pages.yml'
@@ -18,23 +19,32 @@ permissions:
   id-token: write
 
 concurrency:
-  group: keep-pages
+  group: keep-pages-reconcile-claude-main-20260825
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     env:
+      KEEP_PROJECT_REPOSITORY: 'adelkhatra-bit/KEEP'
+      KEEP_PROJECT_BRANCH: 'reconcile/claude-main-20260825'
       EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
       EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+      NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
 
     steps:
+      - name: Lock repository + branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$KEEP_PROJECT_REPOSITORY"
+          test "$GITHUB_REF_NAME" = "$KEEP_PROJECT_BRANCH"
+          echo "KEEP PROJECT LOCK OK: $GITHUB_REPOSITORY @ $GITHUB_REF_NAME"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -63,7 +73,7 @@ jobs:
         working-directory: packages/mobile
         run: npx expo export --platform web --output-dir dist-web
 
-      - name: Apply verified browser bootstrap + Pages paths
+      - name: Apply browser bootstrap + project-safe asset paths
         working-directory: packages/mobile
         run: |
           node scripts/fix-web-export.cjs dist-web
@@ -71,31 +81,79 @@ jobs:
           from pathlib import Path
           p = Path('dist-web/index.html')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('src="/_expo/', 'src="./_expo/')
-          s = s.replace('href="/_expo/', 'href="./_expo/')
-          s = s.replace('href="/favicon.ico"', 'href="./favicon.ico"')
+          s = s.replace('src="/_expo/', 'src="/KEEP/_expo/')
+          s = s.replace('href="/_expo/', 'href="/KEEP/_expo/')
+          s = s.replace('src="./_expo/', 'src="/KEEP/_expo/')
+          s = s.replace('href="./_expo/', 'href="/KEEP/_expo/')
+          s = s.replace('href="/favicon.ico"', 'href="/KEEP/favicon.ico"')
+          s = s.replace('href="./favicon.ico"', 'href="/KEEP/favicon.ico"')
+          restore = """<script>(function(){try{var u=new URL(location.href),r=u.searchParams.get('__keep_route');if(r){history.replaceState(null,'','/KEEP'+decodeURIComponent(r));}}catch(e){}})();</script>"""
+          if '<head>' in s and '__keep_route' not in s:
+              s = s.replace('<head>', '<head>'+restore, 1)
           p.write_text(s, encoding='utf-8')
           PY
 
       - name: Build Super Admin
         run: npm --workspace packages/admin run build
 
-      - name: Assemble public site
+      - name: Assemble public site + no-404 route shells
+        shell: bash
         run: |
+          set -euo pipefail
           rm -rf _site
           mkdir -p _site/admin-preview _site/share-profile _site/superadmin
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
+
+          # Alias stable du Super Admin.
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir KEEP Super Admin</a>
           HTML
+
+          # Les routes React Navigation connues reçoivent un vrai index.html.
+          # Un refresh desktop/mobile ne dépend donc plus d'un fallback serveur.
+          for route in \
+            Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
+            session-recap session-history profile-settings profile-settings/advanced \
+            music-connections notifications offers apple-music-connect; do
+            mkdir -p "_site/$route"
+            cp _site/index.html "_site/$route/index.html"
+          done
+
+          # Fallback universel pour les routes dynamiques (ex. profile/:username).
+          # La route est transportée vers l'index KEEP puis restaurée AVANT le bundle Expo.
           cat > _site/404.html <<'HTML'
-          <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP</title><script>
-          (function(){var p=location.pathname,q=location.search,h=location.hash,t='/KEEP/';if(p.indexOf('/KEEP/admin-preview')===0||p.indexOf('/KEEP/superadmin')===0)t='/KEEP/admin-preview/';else if(p.indexOf('/KEEP/share-profile')===0)t='/KEEP/share-profile/';location.replace(t+q+h)})();
-          </script><a href="/KEEP/">Ouvrir KEEP</a>
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP</title></head><body style="margin:0;background:#0E0A14"><script>
+          (function(){
+            var p=location.pathname,q=location.search,h=location.hash;
+            if(p.indexOf('/KEEP/admin-preview')===0){
+              if(!p.endsWith('/')) return location.replace(p+'/'+q+h);
+              return location.replace('/KEEP/admin-preview/'+q+h);
+            }
+            if(p.indexOf('/KEEP/superadmin')===0) return location.replace('/KEEP/admin-preview/'+q+h);
+            if(p.indexOf('/KEEP/share-profile')===0) return location.replace('/KEEP/share-profile/'+q+h);
+            var route=p.replace(/^\/KEEP/,'')+q+h;
+            location.replace('/KEEP/?__keep_route='+encodeURIComponent(route));
+          })();
+          </script><noscript><a href="/KEEP/">Ouvrir KEEP</a></noscript></body></html>
           HTML
+
           touch _site/.nojekyll
+
+      - name: Verify generated route shells
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f _site/index.html
+          test -f _site/404.html
+          test -f _site/Main/Listen/index.html
+          test -f _site/Main/Profile/index.html
+          test -f _site/admin-preview/index.html
+          test -f _site/superadmin/index.html
+          grep -q '/KEEP/_expo/' _site/index.html
+          grep -q '__keep_route' _site/404.html
+          grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -108,7 +166,7 @@ jobs:
 
       - name: Show public URLs
         run: |
-          echo "KEEP APP: ${{ steps.deployment.outputs.page_url }}"
-          echo "KEEP ADMIN: ${{ steps.deployment.outputs.page_url }}admin-preview/"
-          echo "KEEP ADMIN ALIAS: ${{ steps.deployment.outputs.page_url }}superadmin/"
-          echo "KEEP SHARE: ${{ steps.deployment.outputs.page_url }}share-profile/"
+          echo "KEEP APP: https://adelkhatra-bit.github.io/KEEP/"
+          echo "KEEP ADMIN: https://adelkhatra-bit.github.io/KEEP/admin-preview/"
+          echo "KEEP ADMIN ALIAS: https://adelkhatra-bit.github.io/KEEP/superadmin/"
+          echo "KEEP SHARE: https://adelkhatra-bit.github.io/KEEP/share-profile/"
