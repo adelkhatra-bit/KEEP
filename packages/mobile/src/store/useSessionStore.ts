@@ -25,6 +25,10 @@ function sameTrack(a: CanonicalTrack, b: CanonicalTrack): boolean {
   return normalize(a.title) === normalize(b.title) && normalize(a.artist) === normalize(b.artist);
 }
 
+function isCreditsExhausted(error: unknown): boolean {
+  return error instanceof Error && error.message === 'CREDITS_EXHAUSTED';
+}
+
 async function withSoftTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
   return Promise.race([
     promise.catch(() => null),
@@ -280,19 +284,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set((s) => ({
         tracks: s.tracks.map((t) =>
           t.id === entryId
-            ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, visibility, keepDecisionId }
+            ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, visibility, keepDecisionId, creditLocked: false }
             : t
         ),
         error: profileSyncFailed ? 'Morceau gardé. La visibilité du profil sera resynchronisée à la prochaine connexion.' : null,
       }));
     } catch (e: any) {
+      if (isCreditsExhausted(e)) {
+        set((s) => ({
+          tracks: s.tracks.map((t) =>
+            t.id === entryId ? { ...t, status: 'pending' as SessionTrackStatus, visibility: 'PRIVATE' as KeepVisibility, creditLocked: true } : t
+          ),
+          error: 'Crédits gratuits utilisés : ce morceau reste en attente dans Mes Sessions. Tu peux continuer à écouter et le débloquer plus tard.',
+        }));
+        return;
+      }
       set({ error: e?.message ?? 'Erreur lors du rangement' });
     }
   },
 
   passTrack: (entryId) => {
     set((s) => ({
-      tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, status: 'passed' as SessionTrackStatus } : t)),
+      tracks: s.tracks.map((t) => (t.id === entryId ? { ...t, status: 'passed' as SessionTrackStatus, creditLocked: false } : t)),
       error: null,
     }));
   },
@@ -313,7 +326,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   keepAllPending: async () => {
     const pending = get().tracks.filter((t) => t.status === 'pending');
-    for (const entry of pending) await get().keepTrack(entry.id, undefined, 'PRIVATE');
+    for (const entry of pending) {
+      await get().keepTrack(entry.id, undefined, 'PRIVATE');
+      const refreshed = get().tracks.find((t) => t.id === entry.id);
+      if (refreshed?.creditLocked) {
+        set((s) => ({
+          tracks: s.tracks.map((t) => t.status === 'pending' ? { ...t, creditLocked: true, visibility: 'PRIVATE' as KeepVisibility } : t),
+        }));
+        break;
+      }
+    }
   },
 
   setSilenceTimeoutMin: (minutes) => set({ silenceTimeoutMin: minutes }),
