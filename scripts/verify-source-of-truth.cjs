@@ -26,11 +26,14 @@ const mustExist = [
   'packages/mobile/src/screens/PublicUserProfileScreen.tsx',
   'packages/mobile/src/services/sharingService.ts',
   'packages/mobile/src/services/authService.ts',
+  'packages/mobile/src/services/keepMusicCoreRecognition.ts',
   'packages/admin/pages/_app.tsx',
   'packages/admin/pages/users.tsx',
   'packages/admin/pages/plans.tsx',
   'packages/admin/pages/integrations.tsx',
+  'packages/admin/pages/remote-config.tsx',
   'supabase/functions/keep-admin-control/index.ts',
+  'supabase/functions/keep-music-core/index.ts',
   'START_KEEP_LIVE_CLEAN.bat',
 ];
 
@@ -68,9 +71,9 @@ const admin = fs.readFileSync(path.join(root, 'packages/admin/pages/_app.tsx'), 
 for (const expected of [
   'KEEP LIVE · RECONCILE',
   'admin_users',
+  'signInWithPassword',
   'signInWithOtp',
-  'emailRedirectTo',
-  'Lien de connexion',
+  'Recevoir un lien de secours',
 ]) {
   if (!admin.includes(expected)) failures.push(`ADMIN LOGIN MARKER MISSING: ${expected}`);
 }
@@ -95,6 +98,12 @@ const viewedProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/scree
 for (const marker of ['+ Suivre', "from('follows')", 'toggleFollow']) {
   if (!viewedProfile.includes(marker)) failures.push(`FOLLOW MARKER MISSING: ${marker}`);
 }
+
+const recognition = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepMusicCoreRecognition.ts'), 'utf8');
+for (const marker of ['keep-music-core', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABASE_ANON_KEY']) {
+  if (!recognition.includes(marker)) failures.push(`SECURE RECOGNITION MARKER MISSING: ${marker}`);
+}
+if (recognition.includes('EXPO_PUBLIC_AUDD_API_KEY')) failures.push('AUDD SECRET REINTRODUCED IN MOBILE');
 
 const pagesWorkflow = fs.readFileSync(path.join(root, '.github/workflows/web-preview-pages.yml'), 'utf8');
 for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, '__keep_route', 'Live browser matrix']) {
