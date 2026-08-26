@@ -1,10 +1,8 @@
 /**
  * Action GARDER partagée — chemin unique de téléchargement/rangement.
- * Règle produit : écouter/reconnaître/PASS = 0 crédit. Seul un ajout réel
- * réussi dans une plateforme musicale externe consomme 1 crédit.
- * En essai gratuit local, l'ajout simulé consomme aussi le quota de test afin
- * que le compteur FREE se comporte exactement comme il se comportera une fois
- * un service musical connecté.
+ * Règle produit : écouter/reconnaître/PASS = 0 crédit. Seul GARDER consomme
+ * un crédit gratuit. Quand les crédits sont épuisés, les stores conservent le
+ * morceau en attente dans Mes Sessions au lieu de bloquer l'écoute.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import type { KeepVisibility } from '../types';
@@ -32,9 +30,12 @@ export async function commitKeep(
   options?: { visibility?: KeepVisibility; context?: Record<string, unknown> }
 ): Promise<CommitKeepResult> {
   const session = await musicEngine.getSession();
-  const externalWrite = !musicEngine.usesDemoMusicProvider;
-  const localTrialWrite = musicEngine.usesDemoMusicProvider && useUserStore.getState().isLocalGuest;
-  const consumesCredit = externalWrite || localTrialWrite;
+  const userState = useUserStore.getState();
+  // Mode démo développeur = illimité pour les tests visuels. Tous les autres
+  // usages réels (invité local ou compte KEEP) suivent le compteur de crédits,
+  // même si la bibliothèque musicale de test est locale. Ainsi le tunnel
+  // 3 crédits invité + 4 après inscription est testable sans fournisseur payant.
+  const consumesCredit = !userState.isDemoMode;
   const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
