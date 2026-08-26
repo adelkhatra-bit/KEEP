@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
-import { SessionTrackEntry } from '../types';
+import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
@@ -10,6 +10,7 @@ interface Props {
   entry: SessionTrackEntry;
   onKeep?: (entryId: string, playlistId?: string) => void;
   onPass?: (entryId: string) => void;
+  onVisibilityChange?: (entryId: string, visibility: KeepVisibility) => void;
   /** Playlists disponibles pour "choisir où les ranger" — sans elles, GARDER utilise la recommandation SmartPlaylistRouter n°1. */
   playlists?: ProviderPlaylist[];
 }
@@ -19,10 +20,11 @@ interface Props {
  * pochette 260x260. Une jaquette ~56x56, titre/artiste/album, statut ou
  * actions GARDER/PASSER.
  */
-export default function TrackRow({ entry, onKeep, onPass, playlists }: Props) {
+export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, playlists }: Props) {
   const { t } = useTranslation();
   const { track, status } = entry;
   const topPlaylistName = entry.recommendations[0]?.playlistName;
+  const visibility: KeepVisibility = entry.visibility ?? 'PRIVATE';
 
   const handleKeepPress = () => {
     if (!playlists || playlists.length <= 1 || !onKeep) {
@@ -68,7 +70,18 @@ export default function TrackRow({ entry, onKeep, onPass, playlists }: Props) {
       ) : (
         <View style={styles.statusBadge}>
           {status === 'kept' && <Text style={styles.keptText}>✓ {topPlaylistName ?? t('listen.keep')}</Text>}
-          {status === 'passed' && <Text style={styles.passedText}>{t('listen.pass')}</Text>}
+          {status === 'kept' && onVisibilityChange && (
+            <TouchableOpacity
+              style={[styles.visibilityPill, visibility === 'PUBLIC' ? styles.visibilityPublic : styles.visibilityPrivate]}
+              onPress={() => onVisibilityChange(entry.id, visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC')}
+              accessibilityLabel={visibility === 'PUBLIC' ? 'Masquer ce morceau du profil' : 'Afficher ce morceau sur le profil'}
+            >
+              <Text style={visibility === 'PUBLIC' ? styles.visibilityPublicText : styles.visibilityPrivateText}>
+                {visibility === 'PUBLIC' ? 'Public' : 'Privé'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {status === 'passed' && <Text style={styles.passedText}>✕ {t('listen.pass')}</Text>}
           {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
         </View>
       )}
@@ -96,8 +109,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   keepBtnText: { color: colors.black, fontWeight: '700', fontSize: 15 },
-  statusBadge: { minWidth: 60, alignItems: 'flex-end' },
+  statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5 },
   keptText: { color: colors.keep, fontSize: 12, fontWeight: '700' },
-  passedText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  passedText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   pendingText: { color: colors.textMuted, fontSize: 16 },
+  visibilityPill: { minHeight: 24, paddingHorizontal: 9, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  visibilityPublic: { backgroundColor: 'rgba(104,242,177,0.12)', borderColor: '#68F2B1' },
+  visibilityPrivate: { backgroundColor: colors.backgroundCard, borderColor: colors.border },
+  visibilityPublicText: { color: '#68F2B1', fontSize: 10, fontWeight: '800' },
+  visibilityPrivateText: { color: colors.textMuted, fontSize: 10, fontWeight: '800' },
 });
