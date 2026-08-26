@@ -13,6 +13,7 @@ interface SessionHistoryStore {
   deleteSession: (sessionId: string) => void;
   clearSessions: () => void;
   renameSession: (sessionId: string, title: string) => void;
+  reconcileOrphanedLiveSessions: (activeSessionId?: string | null) => void;
   keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
@@ -69,6 +70,16 @@ function unlockPending(sessions: KeepSession[]): KeepSession[] {
   }));
 }
 
+function orphanedSessionEndAt(session: KeepSession): string {
+  const startedAt = new Date(session.startedAt).getTime();
+  const latestDetection = session.tracks.reduce((latest, track) => {
+    const detectedAt = new Date(track.detectedAt).getTime();
+    return Number.isFinite(detectedAt) ? Math.max(latest, detectedAt) : latest;
+  }, Number.isFinite(startedAt) ? startedAt : 0);
+  const safeEnd = latestDetection > 0 ? latestDetection : Date.now();
+  return new Date(safeEnd).toISOString();
+}
+
 export const useSessionHistoryStore = create<SessionHistoryStore>()(
   persist(
     (set, get) => ({
@@ -82,6 +93,20 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       deleteSession: (sessionId) => set((s) => ({ sessions: s.sessions.filter((session) => session.id !== sessionId) })),
       clearSessions: () => set({ sessions: [] }),
       renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
+
+      // Une session en cours n'existe réellement que dans useSessionStore.
+      // L'historique, lui, est persistant. Si l'app/le navigateur est fermé ou
+      // rechargé brutalement, une ancienne session pouvait rester avec
+      // endedAt=null pendant des jours et afficher à tort « Écoute en cours ».
+      // On ferme uniquement les sessions qui ne correspondent pas à la session
+      // actuellement active et on conserve intégralement leurs morceaux.
+      reconcileOrphanedLiveSessions: (activeSessionId = null) => set((state) => ({
+        sessions: state.sessions.map((session) =>
+          session.endedAt == null && session.id !== activeSessionId
+            ? { ...session, endedAt: orphanedSessionEndAt(session) }
+            : session
+        ),
+      })),
 
       keepTrackInSession: async (sessionId, entryId, playlistId, visibility = 'PRIVATE') => {
         const session = get().sessions.find((s) => s.id === sessionId);
