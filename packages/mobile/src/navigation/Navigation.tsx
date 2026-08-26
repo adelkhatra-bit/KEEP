@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Text } from 'react-native';
+import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -22,13 +22,11 @@ const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 
 const linking = {
-  prefixes: ['keep://'],
+  // Le sous-chemin GitHub Pages appartient au prefix, pas a `config.path`.
+  // React Navigation v6 refuse `path` a la racine de config et plantait le
+  // runtime avant le premier rendu (page blanche). Aucun rendu/onglet ne change.
+  prefixes: ['keep://', 'https://adelkhatra-bit.github.io/KEEP'],
   config: {
-    // KEEP est publié sur GitHub Pages sous /KEEP. Sans ce préfixe, React
-    // Navigation écrivait /Main/Listen à la racine du domaine : la navigation
-    // semblait marcher, puis un refresh sortait du projet et renvoyait 404.
-    // Le préfixe ne s'applique qu'au Web et ne change aucun deep-link natif.
-    path: Platform.OS === 'web' ? 'KEEP' : undefined,
     screens: {
       Main: {
         path: 'Main',
