@@ -26,6 +26,8 @@ jobs:
     env:
       EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
 
     steps:
@@ -88,6 +90,7 @@ jobs:
           mkdir -p _site/admin-preview
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
+          cp _site/index.html _site/404.html
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
@@ -98,6 +101,34 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Cross-browser public smoke
+        env:
+          KEEP_PUBLIC_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          node <<'NODE'
+          const { chromium, firefox, webkit } = require('playwright');
+          const engines = { chromium, firefox, webkit };
+          const appUrl = process.env.KEEP_PUBLIC_URL;
+          const adminUrl = appUrl + 'admin-preview/';
+          (async () => {
+            for (const [name, engine] of Object.entries(engines)) {
+              const browser = await engine.launch({ headless: true });
+              const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+              await page.goto(appUrl, { waitUntil: 'networkidle', timeout: 60000 });
+              await page.getByText('KEEP', { exact: true }).first().waitFor({ timeout: 30000 });
+              await page.goto(adminUrl, { waitUntil: 'networkidle', timeout: 60000 });
+              await page.getByText('E-mail Super Admin', { exact: true }).waitFor({ timeout: 30000 });
+              const misconfigured = await page.getByText(/Supabase n.est pas configuré/i).count();
+              if (misconfigured) throw new Error(`${name}: Super Admin Supabase non configuré`);
+              console.log(`${name}: KEEP + Super Admin OK`);
+              await browser.close();
+            }
+          })().catch((error) => { console.error(error); process.exit(1); });
+          NODE
 
       - name: Show public URLs
         run: |
