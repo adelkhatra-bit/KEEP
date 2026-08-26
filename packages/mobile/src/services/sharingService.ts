@@ -25,40 +25,33 @@ export function buildPublicProfileLink(username: string): string {
   return `${WEB_URL}/share-profile/?u=${encodeURIComponent(username.trim().replace(/^@/, ''))}`;
 }
 
-/**
- * Partage natif : WhatsApp, Mail, Messages, AirDrop, etc. L'utilisateur choisit
- * l'application d'envoi. Aucun e-mail n'est expédié par KEEP.
- */
 export async function shareProfile(username: string): Promise<void> {
   const link = buildPublicProfileLink(username);
   const message = 'Découvre mon univers musical sur KEEP 🎵';
 
-  // iOS concatène souvent `message` et `url` dans la feuille de partage.
-  // Le lien ne doit donc jamais être présent dans les deux champs, sinon il
-  // apparaît deux fois dans WhatsApp/Messages/Mail.
   if (Platform.OS === 'ios') {
-    await Share.share({
-      title: 'Mon profil KEEP',
-      message,
-      url: link,
-    });
+    await Share.share({ title: 'Mon profil KEEP', message, url: link });
     return;
   }
 
-  // Android et le web sont plus fiables avec un message autonome contenant
-  // directement l'URL, sans renseigner simultanément `url`.
-  await Share.share({
-    title: 'Mon profil KEEP',
-    message: `${message} ${link}`,
-  });
+  await Share.share({ title: 'Mon profil KEEP', message: `${message} ${link}` });
 }
 
 /**
- * Partage directement via la boîte e-mail de l'utilisateur. KEEP ouvre un
- * brouillon local prérempli mais ne connaît pas les destinataires et n'expédie
- * rien via Brevo/Supabase. Le lien HTTPS reste écrit en clair pour être reconnu
- * comme cliquable par Mail, Gmail, Outlook et les webmails.
+ * Partage un morceau sans héberger ni recopier l'audio : le destinataire arrive
+ * sur le profil public qui porte ce KEEP. Le lien reste donc stable même si le
+ * catalogue musical change de fournisseur.
  */
+export async function shareProfileTrack(username: string, title: string, artist: string): Promise<void> {
+  const link = buildPublicProfileLink(username);
+  const message = `Découvre « ${title} » — ${artist} dans mon univers KEEP 🎵`;
+  if (Platform.OS === 'ios') {
+    await Share.share({ title: `${title} sur KEEP`, message, url: link });
+    return;
+  }
+  await Share.share({ title: `${title} sur KEEP`, message: `${message} ${link}` });
+}
+
 export async function shareProfileByEmail(username: string): Promise<void> {
   const cleanUsername = username.trim().replace(/^@/, '');
   const link = buildPublicProfileLink(cleanUsername);
@@ -79,10 +72,6 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   );
   const mailto = `mailto:?subject=${subject}&body=${body}`;
 
-  // Sur une PWA / Expo Web mobile, `Linking.openURL(mailto:)` peut résoudre la
-  // promesse sans réellement lancer Mail. Une navigation `mailto:` exécutée
-  // directement pendant le geste utilisateur est la voie la plus fiable sur
-  // Safari iOS, Chrome Android et les navigateurs desktop avec handler e-mail.
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     try {
       window.location.assign(mailto);
@@ -113,27 +102,19 @@ export async function shareProfileByEmail(username: string): Promise<void> {
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
-  await Share.share({
-    message: `${title} — ${keptCount} morceaux gardés sur KEEP 🎵 ${buildLink(`/s/session/${sessionId}`)}`,
-  });
+  await Share.share({ message: `${title} — ${keptCount} morceaux gardés sur KEEP 🎵 ${buildLink(`/s/session/${sessionId}`)}` });
 }
 
 export async function sharePlaylist(playlistId: string, playlistName: string): Promise<void> {
   const state = useUserStore.getState();
   if (!state.user || state.isLocalGuest || state.isDemoMode) {
-    Alert.alert(
-      'Compte KEEP requis',
-      'Crée ton compte KEEP pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.',
-    );
+    Alert.alert('Compte KEEP requis', 'Crée ton compte KEEP pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.');
     return;
   }
 
   const planCode = await loadCurrentPlanCode(state.user.id).catch(() => 'FREE');
   if (!hasFeature(planCode, 'PUBLIC_PLAYLISTS')) {
-    Alert.alert(
-      'Premium requis',
-      'Le partage de playlists est inclus à partir de KEEP Premium (2,99 €/mois). Tu peux arrêter à tout moment.',
-    );
+    Alert.alert('Premium requis', 'Le partage de playlists est inclus à partir de KEEP Premium (2,99 €/mois). Tu peux arrêter à tout moment.');
     return;
   }
 
