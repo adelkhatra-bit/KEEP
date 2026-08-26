@@ -7,6 +7,8 @@ on:
       - 'packages/mobile/**'
       - 'packages/music/**'
       - 'packages/admin/**'
+      - 'supabase/functions/keep-admin-control/**'
+      - 'supabase/templates/**'
       - 'scripts/verify-source-of-truth.cjs'
       - 'package.json'
       - 'package-lock.json'
@@ -106,13 +108,10 @@ jobs:
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
 
-          # Alias stable du Super Admin.
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir KEEP Super Admin</a>
           HTML
 
-          # Les routes React Navigation connues reçoivent un vrai index.html.
-          # Un refresh desktop/mobile ne dépend donc plus d'un fallback serveur.
           for route in \
             Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
             session-recap session-history profile-settings profile-settings/advanced \
@@ -121,8 +120,6 @@ jobs:
             cp _site/index.html "_site/$route/index.html"
           done
 
-          # Fallback universel pour les routes dynamiques (ex. profile/:username).
-          # La route est transportée vers l'index KEEP puis restaurée AVANT le bundle Expo.
           cat > _site/404.html <<'HTML'
           <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP</title></head><body style="margin:0;background:#0E0A14"><script>
           (function(){
