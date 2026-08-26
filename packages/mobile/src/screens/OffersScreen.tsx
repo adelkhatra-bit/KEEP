@@ -7,15 +7,15 @@ import { radius, spacing, typography } from '../theme/spacing';
 
 const BENEFITS: Record<string, string[]> = {
   FREE: [
-    'Découvrir KEEP, identifier les morceaux autour de toi et construire ton KEEP DNA',
-    '3 téléchargements avant inscription',
-    '+4 téléchargements offerts après création du compte',
-    'Visibilité limitée : partage public, QR KEEP et playlists publiques restent verrouillés',
+    'Écoute et reconnaissance sans limite de durée : les morceaux détectés restent dans Mes Sessions',
+    '3 KEEP avant inscription, puis +4 KEEP offerts après création du compte',
+    'Profil public limité aux morceaux réellement acquis avec tes crédits gratuits',
+    'Extraits et tri de session disponibles même lorsque tes crédits sont épuisés',
   ],
   PREMIUM: [
-    'Débloque le partage public du profil et le QR KEEP',
-    'Rend tes playlists et les morceaux que tu gardes visibles à ta communauté',
-    'KEEP, abonnements et comparaisons sans quota mensuel prévu',
+    'Débloque tes playlists publiques et une visibilité musicale étendue',
+    'KEEP et fonctions de communauté sans quota mensuel prévu pendant l’abonnement',
+    'Partage plus complet de ton univers musical et de tes playlists',
     'Jusqu’à 3 services musicaux connectés',
   ],
   CREATOR_PRO: [
@@ -45,7 +45,8 @@ function planLabel(code: string) {
 }
 
 function requiredReason(feature: string, plan: string) {
-  if (feature === 'PROFILE_SHARE') return 'Cette formule débloque le partage public, le QR KEEP et la visibilité de tes playlists.';
+  if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. En Free, seuls tes KEEP acquis sont visibles ; Premium étend la visibilité de tes playlists.';
+  if (feature === 'PUBLIC_PLAYLISTS') return 'Premium débloque les playlists publiques et la visibilité musicale étendue.';
   if (feature === 'CREATOR_KIND') return 'Cette formule débloque les profils DJ, Artiste, Créateur et Producteur.';
   if (feature === 'CREATE_EVENT') return 'Cette formule débloque la création d’événements et les notifications à tes abonnés.';
   if (feature === 'VENUE_KIND') return 'Cette formule débloque le profil Lieu / établissement et ses outils professionnels.';
@@ -107,14 +108,14 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
             <Text style={s.promiseTitle}>Partage tes goûts musicaux. Crée ta communauté.</Text>
-            <Text style={s.promiseBody}>KEEP identifie les morceaux entendus autour de toi et construit ton identité musicale. Ce n’est pas une plateforme de streaming : les fonctions de visibilité et de communauté se débloquent avec les formules adaptées.</Text>
+            <Text style={s.promiseBody}>Tu peux laisser KEEP écouter et construire tes sessions sans limite de durée. Les crédits servent au moment où tu choisis réellement de GARDER un morceau. Le compte Free reste utilisable ; les formules payantes débloquent davantage de visibilité et d’outils.</Text>
           </View>
 
           <View style={s.creditCard}>
             <Text style={s.sectionTitle}>Essai gratuit</Text>
             <Text style={s.creditBig}>{funnel.guestSuccessLimit} + {funnel.signupBonusSuccesses} = {freeTotal}</Text>
-            <Text style={s.creditText}>{funnel.guestSuccessLimit} téléchargements avant inscription, puis {funnel.signupBonusSuccesses} supplémentaires offerts après création du compte.</Text>
-            <Text style={s.creditRule}>Détecter, reconnaître un morceau et PASSER ne consomment aucun crédit. Seul GARDER/télécharger réellement un morceau consomme un crédit.</Text>
+            <Text style={s.creditText}>{funnel.guestSuccessLimit} KEEP avant inscription, puis {funnel.signupBonusSuccesses} supplémentaires offerts après création du compte.</Text>
+            <Text style={s.creditRule}>Détecter, reconnaître, écouter un extrait et PASSER ne consomment aucun crédit. Si le quota est épuisé, le morceau reste en attente dans Mes Sessions. Seul GARDER réellement un morceau consomme un crédit.</Text>
           </View>
         </>}
 
@@ -145,7 +146,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Sans engagement</Text>
-          <Text style={s.subscriptionText}>Abonnement mensuel. Tu peux arrêter à tout moment. Les avantages restent actifs jusqu’à la fin de la période déjà payée, puis les fonctions payantes se reverrouillent automatiquement. Ton compte, ton profil et tes données restent conservés.</Text>
+          <Text style={s.subscriptionText}>Abonnement mensuel. Tu peux arrêter à tout moment. Les avantages restent actifs jusqu’à la fin de la période déjà payée, puis les fonctions payantes se reverrouillent automatiquement. Ton compte, ton profil, tes sessions et tes données restent conservés.</Text>
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
