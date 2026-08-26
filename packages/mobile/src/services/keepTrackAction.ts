@@ -2,11 +2,15 @@
  * Action GARDER partagée — chemin unique de téléchargement/rangement.
  * Règle produit : écouter/reconnaître/PASS = 0 crédit. Seul un ajout réel
  * réussi dans une plateforme musicale externe consomme 1 crédit.
+ * En essai gratuit local, l'ajout simulé consomme aussi le quota de test afin
+ * que le compteur FREE se comporte exactement comme il se comportera une fois
+ * un service musical connecté.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import type { KeepVisibility } from '../types';
 import { musicEngine } from './musicEngine';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useUserStore } from '../store/useUserStore';
 import { withRetry } from './retry';
 import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
 import { recordKeepDecision } from './keepMusicCoreRecognition';
@@ -28,12 +32,14 @@ export async function commitKeep(
 ): Promise<CommitKeepResult> {
   const session = await musicEngine.getSession();
   const externalWrite = !musicEngine.usesDemoMusicProvider;
+  const localTrialWrite = musicEngine.usesDemoMusicProvider && useUserStore.getState().isLocalGuest;
+  const consumesCredit = externalWrite || localTrialWrite;
   const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
-  // L'essai/public peut ranger localement un morceau reconnu sans consommer
-  // un crédit. Le quota n'est vérifié que lorsqu'un vrai service musical
-  // externe va effectivement recevoir le morceau.
-  if (externalWrite) await ensureDownloadCreditAvailable();
+  // En production : seul l'ajout externe consomme. En essai local : l'ajout
+  // simulé consomme le quota de test, sinon l'utilisateur verrait toujours 3/3
+  // et on ne pourrait jamais valider le parcours FREE avant mise en production.
+  if (consumesCredit) await ensureDownloadCreditAvailable();
 
   let targetPlaylistId = chosenPlaylistId ?? recommendations[0]?.playlistId ?? null;
   let playlistName = recommendations.find((r) => r.playlistId === targetPlaylistId)?.playlistName ?? '';
@@ -60,8 +66,8 @@ export async function commitKeep(
 
   if (!alreadyThere) {
     await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId!, track));
-    downloaded = externalWrite;
-    if (externalWrite) await consumeDownloadCredit();
+    downloaded = consumesCredit;
+    if (consumesCredit) await consumeDownloadCredit();
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
