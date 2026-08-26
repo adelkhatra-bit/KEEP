@@ -58,5 +58,8 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_user_directory() from public, anon;
+-- PostgreSQL accorde EXECUTE aux rôles via PUBLIC par défaut. Le retirer de
+-- PUBLIC bloque donc aussi le rôle Supabase anon, tout en restant testable sur
+-- PostgreSQL standard où le rôle anon n'existe pas.
+revoke all on function public.admin_user_directory() from public;
 grant execute on function public.admin_user_directory() to authenticated;
