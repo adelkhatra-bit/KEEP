@@ -4,13 +4,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-const publicAuth = createClient(SUPABASE_URL, ANON_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
+const publicAuth = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,33 +14,13 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
-function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: corsHeaders });
-}
-
-function normalizeUsername(value: unknown) {
-  return String(value ?? "").trim().replace(/^@+/, "").normalize("NFKC");
-}
-
-function normalizeEmail(value: unknown) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function validUsername(value: string) {
-  return value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
-}
-
-function validEmail(value: string) {
-  return value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function validPassword(value: string) {
-  return value.length >= 8 && value.length <= 128;
-}
-
-function syntheticEmail(userId: string) {
-  return `${userId}@keep.local`;
-}
+const json = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { status, headers: corsHeaders });
+const normalizeUsername = (value: unknown) => String(value ?? "").trim().replace(/^@+/, "").normalize("NFKC");
+const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();
+const validUsername = (value: string) => value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
+const validEmail = (value: string) => value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const validPassword = (value: string) => value.length >= 8 && value.length <= 128;
+const syntheticEmail = (userId: string) => `${userId}@keep.local`;
 
 function looksLikeDuplicateEmail(error: unknown) {
   const message = String((error as any)?.message ?? error ?? "").toLowerCase();
@@ -79,11 +54,7 @@ async function findAuthUserByEmail(email: string) {
 }
 
 async function profileByUsername(username: string) {
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id,username,is_public")
-    .ilike("username", username)
-    .limit(2);
+  const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", username).limit(2);
   if (error) throw error;
   return data ?? [];
 }
@@ -94,7 +65,7 @@ async function profileById(id: string) {
 }
 
 async function createProfile(userId: string, username: string) {
-  const { error } = await admin.from("profiles").insert({
+  const payload = {
     id: userId,
     username,
     display_name: username,
@@ -109,25 +80,23 @@ async function createProfile(userId: string, username: string) {
     website: null,
     favorite_genres: [],
     favorite_artists: [],
-  });
+  };
+  // auth.users déclenche déjà keep_create_profile_from_auth_user. L'upsert
+  // rend ce chemin idempotent et évite le double INSERT qui cassait toutes
+  // les nouvelles inscriptions avec profiles_pkey.
+  const { error } = await admin.from("profiles").upsert(payload, { onConflict: "id" });
   if (error) throw error;
 }
 
 async function bearerUserId(req: Request): Promise<string | null> {
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!token || token === ANON_KEY) return null;
+  // Les nouvelles clés publishable Supabase ne sont pas des JWT utilisateur.
+  if (!token || token === ANON_KEY || token.startsWith("sb_")) return null;
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return null;
   return data.user.id;
 }
 
-/**
- * Parcours principal KEEP : pseudo + mot de passe uniquement.
- * Une adresse interne @keep.local est un détail technique privé de Supabase :
- * aucun e-mail n'est envoyé et l'utilisateur n'a pas à la connaître.
- * Une vraie adresse de récupération pourra être rattachée plus tard sans
- * recréer le profil ni changer l'auth.uid().
- */
 async function usernameFlow(req: Request, action: string, username: string, password: string) {
   if (!validUsername(username)) return json({ ok: false, error: "invalid_username" });
   if (!validPassword(password)) return json({ ok: false, error: "invalid_password" });
@@ -139,9 +108,7 @@ async function usernameFlow(req: Request, action: string, username: string, pass
   if (action === "login") {
     if (!existingProfile) return json({ ok: false, error: "invalid_credentials" });
     const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
-    if (userError || !userData.user?.email || userData.user.is_anonymous) {
-      return json({ ok: false, error: "account_not_created" });
-    }
+    if (userError || !userData.user?.email || userData.user.is_anonymous) return json({ ok: false, error: "account_not_created" });
     const signed = await sessionFor(userData.user.email, password);
     if (!signed.ok) return json({ ok: false, error: signed.error });
     return json({ ok: true, username: existingProfile.username, ...signed.session });
@@ -152,14 +119,9 @@ async function usernameFlow(req: Request, action: string, username: string, pass
   if (existingProfile) {
     const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
     if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
-
-    // Ancien profil anonyme : seul l'appareil qui possède encore la session
-    // originale peut le convertir, sinon quelqu'un pourrait voler un pseudo.
     if (userData.user.is_anonymous) {
       const callerId = await bearerUserId(req);
-      if (!callerId || callerId !== existingProfile.id) {
-        return json({ ok: false, error: "legacy_profile_requires_original_device" });
-      }
+      if (!callerId || callerId !== existingProfile.id) return json({ ok: false, error: "legacy_profile_requires_original_device" });
       const email = syntheticEmail(existingProfile.id);
       const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfile.id, {
         email,
@@ -172,7 +134,6 @@ async function usernameFlow(req: Request, action: string, username: string, pass
       if (!signed.ok) return json({ ok: false, error: signed.error });
       return json({ ok: true, username, ...signed.session });
     }
-
     return json({ ok: false, error: "username_taken" });
   }
 
@@ -186,14 +147,12 @@ async function usernameFlow(req: Request, action: string, username: string, pass
     user_metadata: { keep_username: username, keep_username_only: true },
   });
   if (createError || !created.user) throw createError ?? new Error("create_user_failed");
-
   try {
     await createProfile(userId, username);
   } catch (error) {
     await admin.auth.admin.deleteUser(userId).catch(() => {});
     throw error;
   }
-
   const signed = await sessionFor(email, password);
   if (!signed.ok) return json({ ok: false, error: signed.error });
   return json({ ok: true, username, ...signed.session, username_only: true });
@@ -216,37 +175,24 @@ async function emailFlow(req: Request, action: string, username: string, email: 
   const matches = await profileByUsername(username);
   if (matches.length > 1) return json({ ok: false, error: "username_conflict" });
   const existingProfileForUsername = matches[0] ?? null;
-
-  // Une adresse existante n'est jamais dupliquée : le mot de passe ou la
-  // session authentifiée courante doit prouver que l'identité appartient bien
-  // à la personne qui demande le rattachement.
   const existingEmailUser = await findAuthUserByEmail(email);
+
   if (existingEmailUser) {
     let proof = await sessionFor(email, password);
     if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
       const callerId = await bearerUserId(req);
-      if (!callerId || callerId !== existingEmailUser.id) {
-        return json({ ok: false, error: "email_taken" });
-      }
+      if (!callerId || callerId !== existingEmailUser.id) return json({ ok: false, error: "email_taken" });
       const { error: passwordError } = await admin.auth.admin.updateUserById(existingEmailUser.id, { password });
       if (passwordError) throw passwordError;
       proof = await sessionFor(email, password);
-      if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
-        return json({ ok: false, error: "invalid_credentials" });
-      }
+      if (!proof.ok || proof.session.user_id !== existingEmailUser.id) return json({ ok: false, error: "invalid_credentials" });
     }
 
-    if (existingProfileForUsername && existingProfileForUsername.id !== existingEmailUser.id) {
-      return json({ ok: false, error: "username_taken" });
-    }
-
+    if (existingProfileForUsername && existingProfileForUsername.id !== existingEmailUser.id) return json({ ok: false, error: "username_taken" });
     const existingOwnProfile = await profileById(existingEmailUser.id);
     if (existingOwnProfile) {
       if (existingOwnProfile.username !== username) {
-        const { error: updateProfileError } = await admin
-          .from("profiles")
-          .update({ username, updated_at: new Date().toISOString() })
-          .eq("id", existingEmailUser.id);
+        const { error: updateProfileError } = await admin.from("profiles").update({ username, updated_at: new Date().toISOString() }).eq("id", existingEmailUser.id);
         if (updateProfileError) throw updateProfileError;
       }
     } else {
@@ -267,9 +213,7 @@ async function emailFlow(req: Request, action: string, username: string, email: 
 
     if (userData.user.is_anonymous) {
       const callerId = await bearerUserId(req);
-      if (!callerId || callerId !== existingProfileForUsername.id) {
-        return json({ ok: false, error: "legacy_profile_requires_original_device" });
-      }
+      if (!callerId || callerId !== existingProfileForUsername.id) return json({ ok: false, error: "legacy_profile_requires_original_device" });
       const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
         email,
         password,
@@ -326,17 +270,13 @@ async function emailFlow(req: Request, action: string, username: string, email: 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
-
   try {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     const username = normalizeUsername(body?.username);
     const email = normalizeEmail(body?.email);
     const password = String(body?.password ?? "");
-
-    if (body?.username_only === "1" || body?.legacy_username === "1" || !email) {
-      return await usernameFlow(req, action, username, password);
-    }
+    if (body?.username_only === "1" || body?.legacy_username === "1" || !email) return await usernameFlow(req, action, username, password);
     return await emailFlow(req, action, username, email, password);
   } catch (error) {
     console.error("[keep-username-auth]", error);
