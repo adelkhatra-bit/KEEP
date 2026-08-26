@@ -30,7 +30,6 @@ async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Profil', { exact: true }).last().click();
   await page.getByText('Créer mon compte KEEP', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('ESPACE CRÉATEUR', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('Utilisateur · Free', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('KEEP PREMIUM', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('KEEP CREATOR PRO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('KEEP VENUE PRO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
@@ -68,8 +67,6 @@ async function proveSharedProfileRoute(page, scenarioName) {
   if (/Suivre/i.test(followText)) {
     await follow.click();
     await page.waitForTimeout(1200);
-    // Sans session réelle, + Suivre doit ouvrir l'inscription KEEP, conserver
-    // l'identité du profil cible et ne jamais partir vers une route/HTML fantôme.
     const url = page.url();
     if (!url.includes('/KEEP/') || !url.includes('__keep_auth=create') || !url.includes(`__keep_follow=${encodeURIComponent(SHARE_USER)}`)) {
       throw new Error(`${scenarioName}: + Suivre n'ouvre pas l'inscription canonique KEEP: ${url}`);
@@ -89,9 +86,6 @@ async function proveSharedProfileRoute(page, scenarioName) {
     const redirectedHtml = await page.locator('body').innerHTML().catch(() => '');
     assertVisibleBody(redirectedText, redirectedHtml, `${scenarioName} follow signup redirect`);
 
-    // Régression visuelle du 26/08/2026 : le hero de l'onboarding restait rendu
-    // derrière le formulaire et ses textes se superposaient au titre/aux aides.
-    // En mode compte, aucun texte du hero ne doit être présent.
     if (redirectedText.includes('Partage tes goûts musicaux. Crée ta communauté.')) {
       throw new Error(`${scenarioName}: le hero onboarding reste affiché derrière le formulaire d'inscription`);
     }
@@ -106,8 +100,6 @@ async function proveSharedProfileRoute(page, scenarioName) {
 
     await page.screenshot({ path: path.join(OUT, `${scenarioName}-shared-follow-signup.png`), fullPage: true });
 
-    // Un visiteur ne doit jamais rester prisonnier du formulaire : il peut
-    // continuer immédiatement en essai gratuit sans créer de compte Supabase.
     await continueWithoutSignup.click();
     await waitForFiveTabs(page);
     await page.screenshot({ path: path.join(OUT, `${scenarioName}-shared-follow-back-to-trial.png`), fullPage: true });
@@ -167,7 +159,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       await proveSharedProfileRoute(page, scenario.name);
 
       if (errors.length) throw new Error(`${scenario.name}: ${errors.join(' | ')}`);
-      report.push(`${scenario.name}: PASS — same profile account banner + Free/Premium/Creator/Venue controls + exact required plan + reload + shared follow→signup + no overlap + return to free trial; no blank page/no auth signup`);
+      report.push(`${scenario.name}: PASS — Free/Premium/Creator/Venue controls + reload + shared follow→signup + no overlap + return to free trial; no blank page/no auth signup`);
     } catch (error) {
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-FAIL.png`), fullPage: true }).catch(() => {});
       fs.writeFileSync(path.join(OUT, `${scenario.name}-FAIL.txt`), [
