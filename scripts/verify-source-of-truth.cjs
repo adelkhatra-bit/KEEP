@@ -90,8 +90,16 @@ if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
-if (!authService.includes(`${expectedPublicRoot}/`)) failures.push('AUTH REDIRECT IS NOT CANONICAL KEEP URL');
+// L'auth utilisateur KEEP est désormais volontairement SANS redirection :
+// username/e-mail + mot de passe -> fonction keep-username-auth -> session
+// Supabase posée directement. C'est précisément ce qui évite les anciens
+// Site URL / localhost / ancien projet. Le garde-fou CI doit donc vérifier ce
+// contrat et non réintroduire artificiellement une URL de redirection.
+for (const expected of ['keep-username-auth', 'setSession', 'email_flow_disabled']) {
+  if (!authService.includes(expected)) failures.push(`DIRECT AUTH MARKER MISSING: ${expected}`);
+}
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
+if (/emailRedirectTo|redirectTo\s*:/i.test(authService)) failures.push('USER AUTH REDIRECT REINTRODUCED');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 for (const marker of ['QRCode', 'Mon QR KEEP', 'Partager par e-mail']) {
@@ -159,6 +167,7 @@ console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
+console.log('auth user: direct keep-username-auth session (no redirect)');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
 console.log('backend: packages/backend');
