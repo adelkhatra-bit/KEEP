@@ -7,16 +7,15 @@ import { commitKeep } from '../services/keepTrackAction';
 /**
  * "Mes Sessions" — mémoire des moments de vie où KEEP a écouté.
  *
- * Persisté en local (AsyncStorage) : aucun projet Supabase KEEP n'existe
- * encore (voir docs/PROJECT_STATUS.md, table `sessions` PLANNED), donc
- * l'historique doit survivre au moins à la fermeture de l'app plutôt que de
- * dépendre d'un backend qui n'existe pas. Le type `KeepSession` mappe déjà
- * la forme prévue côté base pour que la bascule vers Supabase soit un
- * simple remplacement de la couche persistance, pas une refonte.
+ * Persisté en local (AsyncStorage) : l'utilisateur garde la main sur cet
+ * historique et peut supprimer une session devenue inutile. Les morceaux déjà
+ * envoyés dans Spotify/Apple Music ne sont jamais supprimés de ces services par
+ * cette action : seule la session KEEP locale est retirée.
  */
 interface SessionHistoryStore {
   sessions: KeepSession[];
   addSession: (session: KeepSession) => void;
+  deleteSession: (sessionId: string) => void;
   renameSession: (sessionId: string, title: string) => void;
   keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string) => Promise<void>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
@@ -44,6 +43,9 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       sessions: [],
 
       addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
+
+      deleteSession: (sessionId) =>
+        set((s) => ({ sessions: s.sessions.filter((session) => session.id !== sessionId) })),
 
       renameSession: (sessionId, title) =>
         set((s) => ({ sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, title } : sess)) })),
