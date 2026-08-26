@@ -1,9 +1,20 @@
 -- Supabase advisor hardening: les fonctions trigger ne sont pas des RPC publics,
 -- les fonctions utilisateur exigent une session et la limitation reconnaissance
 -- reste réservée au service backend.
+--
+-- handle_follow_insert/delete existent seulement sur certains projets KEEP
+-- historiques. Une base neuve ne doit pas échouer si ces anciens helpers ne
+-- font pas partie de sa chaîne de migrations.
+do $$
+begin
+  if to_regprocedure('public.handle_follow_delete()') is not null then
+    execute 'revoke execute on function public.handle_follow_delete() from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.handle_follow_insert()') is not null then
+    execute 'revoke execute on function public.handle_follow_insert() from public, anon, authenticated';
+  end if;
+end $$;
 
-revoke execute on function public.handle_follow_delete() from public, anon, authenticated;
-revoke execute on function public.handle_follow_insert() from public, anon, authenticated;
 revoke execute on function public.notify_on_follow() from public, anon, authenticated;
 revoke execute on function public.keep_create_profile_from_auth_user() from public, anon, authenticated;
 
