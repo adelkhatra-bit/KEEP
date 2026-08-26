@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { SocialLink } from '../types';
-import { shareProfile } from '../services/sharingService';
+import { buildPublicProfileLink, shareProfile, shareProfileByEmail } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 
@@ -26,6 +27,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
   const [planCode, setPlanCode] = useState('FREE');
+  const [shareOpen, setShareOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -45,6 +48,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil KEEP</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
+  const publicProfileLink = buildPublicProfileLink(user.username);
+  const identityGenres = user.favoriteGenres.length ? user.favoriteGenres.slice(0, 4) : dna.topGenres.slice(0, 4).map((g) => g.genre);
 
   const openSocial = async (platform: SocialPlatform) => {
     const link = publicLinks.find((item) => item.platform === platform && item.url.trim());
@@ -57,6 +62,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
     let url = link.url.trim();
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce réseau pour le moment.'); }
+  };
+
+  const shareNative = async () => {
+    setShareOpen(false);
+    try { await shareProfile(user.username); }
+    catch { Alert.alert('Partage', 'Impossible d’ouvrir le partage pour le moment.'); }
+  };
+
+  const shareEmail = async () => {
+    setShareOpen(false);
+    try { await shareProfileByEmail(user.username); }
+    catch { Alert.alert('E-mail', 'Aucune application e-mail n’est disponible sur cet appareil.'); }
+  };
+
+  const showQr = () => {
+    setShareOpen(false);
+    setQrOpen(true);
   };
 
   const tabContent = () => {
@@ -76,7 +98,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.actions}>
           <TouchableOpacity style={s.plan} onPress={() => navigation.navigate('Offers')} accessibilityLabel="Offre et crédits"><Text style={s.planText}>{planCode}</Text></TouchableOpacity>
           <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel="Notifications"><Text style={s.bell}>🔔</Text></TouchableOpacity>
-          <TouchableOpacity style={s.iconButton} onPress={() => shareProfile(user.username)} accessibilityLabel="Partager le profil"><Text style={s.iconText}>↗</Text></TouchableOpacity>
+          <TouchableOpacity style={s.iconButton} onPress={() => setShareOpen(true)} accessibilityLabel="Partager le profil"><Text style={s.iconText}>↗</Text></TouchableOpacity>
           <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Modifier le profil"><Text style={s.iconText}>⚙</Text></TouchableOpacity>
         </View>
       </View>
@@ -106,6 +128,43 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>setActiveTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
       {tabContent()}
     </ScrollView>
+
+    <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
+      <View style={s.modalBackdrop}>
+        <View style={s.shareSheet}>
+          <View style={s.sheetHandle} />
+          <Text style={s.shareTitle}>Partager mon profil KEEP</Text>
+          <Text style={s.shareSubtitle}>Le lien ouvre directement ton profil public. KEEP n’envoie aucun e-mail à ta place.</Text>
+          <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>PARTAGER LE LIEN</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={shareEmail}><Text style={s.shareActionText}>✉  Partager par e-mail</Text><Text style={s.shareActionHint}>Ton application Mail s’ouvre, tu choisis les destinataires</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR KEEP</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
+          <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
+    <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
+      <View style={s.modalBackdrop}>
+        <View style={s.qrShell}>
+          <View style={s.qrCard}>
+            <View style={s.qrBrandRow}><Text style={s.qrLogo}>KEEP</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
+            <View style={s.qrIdentityRow}>
+              {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>K</Text></View>}
+              <View style={s.qrIdentityText}><Text style={s.qrUsername}>@{user.username}</Text><Text style={s.qrKind}>{user.kind}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
+            </View>
+            {user.bio ? <Text style={s.qrBio} numberOfLines={3}>{user.bio}</Text> : <Text style={s.qrBio}>Mon univers musical, en un scan.</Text>}
+            {identityGenres.length ? <View style={s.qrGenres}>{identityGenres.map((genre) => <View key={genre} style={s.qrGenre}><Text style={s.qrGenreText}>{genre}</Text></View>)}</View> : null}
+            <View style={s.qrBox}><QRCode value={publicProfileLink} size={164} color="#0E0A14" backgroundColor="#FFFFFF" /></View>
+            <Text style={s.qrScan}>SCAN POUR DÉCOUVRIR MON PROFIL</Text>
+            <Text style={s.qrTagline}>Tes goûts te ressemblent.</Text>
+          </View>
+          <Text style={s.screenshotHint}>Fais une capture d’écran : la carte est pensée pour être partagée en story, message ou affichage.</Text>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
+          <TouchableOpacity style={s.cancelShare} onPress={() => setQrOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   </SafeAreaView>;
 }
 
@@ -120,4 +179,6 @@ const s=StyleSheet.create({
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   grid:{flexDirection:'row',flexWrap:'wrap',padding:8},tile:{width:'33.333%',padding:4},cover:{width:'100%',aspectRatio:1,borderRadius:radius.sm,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},coverK:{color:colors.primaryLight,fontSize:28,fontWeight:'900'},tileTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'700',marginTop:6},tileSub:{color:colors.textMuted,fontSize:10,marginTop:2},list:{marginHorizontal:18,marginTop:10},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:12,borderBottomWidth:1,borderBottomColor:colors.border},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},listText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'600',marginLeft:12},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:11,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.5},shareAction:{marginTop:10,padding:13,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:11,marginTop:4},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:6},cancelShareText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
+  qrShell:{width:'100%',maxWidth:430},qrCard:{backgroundColor:'#100B17',borderRadius:28,borderWidth:1,borderColor:'#6E4BA5',padding:22,shadowColor:'#000',shadowOpacity:.35,shadowRadius:20,shadowOffset:{width:0,height:12}},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFF',fontSize:25,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#A884FA',fontSize:9,fontWeight:'900',letterSpacing:1.4},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241936'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#A884FA',fontSize:27,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:14},qrUsername:{color:'#FFF',fontSize:21,fontWeight:'900'},qrKind:{color:'#A884FA',fontSize:10,fontWeight:'900',marginTop:4},qrLocation:{color:'#968BA4',fontSize:11,marginTop:4},qrBio:{color:'#D7CDDF',fontSize:12,lineHeight:18,marginTop:16},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:12},qrGenre:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#231833',borderWidth:1,borderColor:'#46325F'},qrGenreText:{color:'#CBB5FF',fontSize:10,fontWeight:'800'},qrBox:{alignSelf:'center',padding:12,borderRadius:18,backgroundColor:'#FFF',marginTop:20},qrScan:{color:'#FFF',fontSize:10,fontWeight:'900',letterSpacing:1.1,textAlign:'center',marginTop:14},qrTagline:{color:'#A884FA',fontSize:12,fontWeight:'900',textAlign:'center',marginTop:7},screenshotHint:{color:'#C9BFD9',fontSize:11,lineHeight:16,textAlign:'center',paddingHorizontal:14,marginTop:12},
 });
