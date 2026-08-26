@@ -6,6 +6,7 @@ const AUTH_REDIRECT_URL = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL || 'https://
 export interface KeepAuthSession {
   userId: string;
   email: string | null;
+  username: string | null;
   isAnonymous: boolean;
 }
 
@@ -39,6 +40,13 @@ function normalizeUsername(username: string) {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function usernameFromMetadata(user: any): string | null {
+  const value = user?.user_metadata?.keep_username;
+  if (typeof value !== 'string') return null;
+  const clean = normalizeUsername(value);
+  return clean || null;
 }
 
 export function createAuthService(client: SupabaseClient): AuthService {
@@ -87,9 +95,9 @@ export function createAuthService(client: SupabaseClient): AuthService {
       const cleanEmail = normalizeEmail(email);
       const cleanUsername = normalizeUsername(username);
 
-      // Le pseudo reste public/modifiable, mais n'est plus un identifiant de
-      // connexion. On réserve simplement son unicité avant de lancer Supabase
-      // Auth afin d'éviter deux profils publics identiques.
+      // Le pseudo est choisi explicitement par l'utilisateur. KEEP ne dérive
+      // jamais le pseudo à partir de l'adresse e-mail. On réserve son unicité
+      // avant de lancer Supabase Auth afin d'éviter deux profils publics identiques.
       const { data: existingProfiles, error: usernameError } = await client
         .from('profiles')
         .select('id')
@@ -140,7 +148,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
       return {
         error: null,
-        username: profile?.username ? String(profile.username) : undefined,
+        username: profile?.username ? String(profile.username) : usernameFromMetadata(data.session.user) ?? undefined,
         userId: data.session.user.id,
       };
     },
@@ -192,7 +200,12 @@ export function createAuthService(client: SupabaseClient): AuthService {
     async getCurrentSession() {
       const { data } = await client.auth.getSession();
       const user = data.session?.user;
-      return user ? { userId: user.id, email: user.email ?? null, isAnonymous: Boolean(user.is_anonymous) } : null;
+      return user ? {
+        userId: user.id,
+        email: user.email ?? null,
+        username: usernameFromMetadata(user),
+        isAnonymous: Boolean(user.is_anonymous),
+      } : null;
     },
 
     async signOut() {
@@ -202,7 +215,12 @@ export function createAuthService(client: SupabaseClient): AuthService {
     onSessionChange(callback) {
       const { data } = client.auth.onAuthStateChange((_event, session) => {
         const user = session?.user;
-        callback(user ? { userId: user.id, email: user.email ?? null, isAnonymous: Boolean(user.is_anonymous) } : null);
+        callback(user ? {
+          userId: user.id,
+          email: user.email ?? null,
+          username: usernameFromMetadata(user),
+          isAnonymous: Boolean(user.is_anonymous),
+        } : null);
       });
       return () => data.subscription.unsubscribe();
     },
