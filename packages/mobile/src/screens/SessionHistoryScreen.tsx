@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
+import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { KeepSession } from '../types';
@@ -15,13 +15,29 @@ function autoTitle(session: KeepSession): string {
 
 /**
  * "Mes Sessions" — l'utilisateur retrouve non seulement ses morceaux mais
- * le moment où il les a découverts (cahier des charges, corrections du
- * 21/08/2026). Une session encore `pending` reste modifiable ici en
- * rouvrant son récapitulatif — pas besoin d'avoir tout décidé le soir même.
+ * le moment où il les a découverts. Une session encore `pending` reste
+ * modifiable en rouvrant son récapitulatif. Chaque session peut aussi être
+ * supprimée pour éviter d'encombrer l'historique local.
  */
 export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
   const sessions = useSessionHistoryStore((s) => s.sessions);
+  const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
+
+  const requestDelete = (session: KeepSession) => {
+    const title = autoTitle(session);
+    const message = `Supprimer « ${title} » de Mes Sessions ? Les morceaux déjà ajoutés à une playlist musicale ne seront pas supprimés de Spotify ou Apple Music.`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(message)) deleteSession(session.id);
+      return;
+    }
+
+    Alert.alert('Supprimer cette session ?', message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: () => deleteSession(session.id) },
+    ]);
+  };
 
   const renderItem = ({ item }: { item: KeepSession }) => {
     const keptCount = item.tracks.filter((tr) => tr.status === 'kept').length;
@@ -29,16 +45,26 @@ export default function SessionHistoryScreen({ navigation }: any) {
     const time = new Date(item.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     return (
-      <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id })}>
-        <View style={styles.cardTop}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
-          <Text style={styles.cardTime}>{time}</Text>
-        </View>
-        <Text style={styles.cardStats}>
-          {t('session.detected', { count: item.tracks.length })} · {t('session.kept', { count: keptCount })}
-          {pendingCount > 0 ? ` · ${t('session.pendingCount', { count: pendingCount })}` : ''}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.card}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id })}>
+          <View style={styles.cardTop}>
+            <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
+            <Text style={styles.cardTime}>{time}</Text>
+          </View>
+          <Text style={styles.cardStats}>
+            {t('session.detected', { count: item.tracks.length })} · {t('session.kept', { count: keptCount })}
+            {pendingCount > 0 ? ` · ${t('session.pendingCount', { count: pendingCount })}` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => requestDelete(item)}
+          accessibilityRole="button"
+          accessibilityLabel={`Supprimer ${autoTitle(item)}`}
+        >
+          <Text style={styles.deleteText}>Supprimer</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -83,10 +109,13 @@ const styles = StyleSheet.create({
   list: { padding: spacing.xl, gap: spacing.md },
   card: {
     backgroundColor: colors.backgroundCard, borderRadius: radius.lg,
-    padding: spacing.lg, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border,
+    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
   },
+  cardMain: { padding: spacing.lg },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { ...typography.bodyBold, color: colors.textPrimary, flex: 1, marginRight: spacing.sm, textTransform: 'capitalize' },
   cardTime: { color: colors.textMuted, fontSize: 12 },
   cardStats: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
+  deleteButton: { minHeight: 38, borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  deleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
 });
