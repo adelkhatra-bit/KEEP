@@ -8,7 +8,7 @@ import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
-const RECOGNITION_TICK_MS = 8000;
+const RECOGNITION_TICK_MS = 6500;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
 
@@ -25,10 +25,23 @@ function sameTrack(a: CanonicalTrack, b: CanonicalTrack): boolean {
   return normalize(a.title) === normalize(b.title) && normalize(a.artist) === normalize(b.artist);
 }
 
+async function withSoftTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return Promise.race([
+    promise.catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+}
+
 async function findExistingTrack(track: CanonicalTrack) {
-  const connected = await checkConnectedLibraries(track);
-  const session = await musicEngine.getSession();
-  const playlists = await musicEngine.musicProvider.getPlaylists(session);
+  // Les vérifications de bibliothèques externes sont utiles mais ne doivent
+  // jamais retarder de plusieurs secondes/minutes l'affichage d'un morceau
+  // que KEEP vient déjà de reconnaître.
+  const [connected, session] = await Promise.all([
+    withSoftTimeout(checkConnectedLibraries(track), 900),
+    musicEngine.getSession(),
+  ]);
+
+  const playlists = await withSoftTimeout(musicEngine.musicProvider.getPlaylists(session), 1000) ?? [];
 
   if (connected?.exists && connected.match) {
     return {
@@ -42,6 +55,14 @@ async function findExistingTrack(track: CanonicalTrack) {
     };
   }
 
+  // En mode réel, scanner chaque morceau de chaque playlist avant d'afficher
+  // le résultat pouvait rendre l'écoute extrêmement lente. Le doublon final
+  // reste contrôlé au moment du KEEP dans la playlist réellement choisie.
+  if (!musicEngine.usesDemoMusicProvider) {
+    return { session, playlists, match: undefined };
+  }
+
+  // En mode démo les playlists sont locales et petites : ce contrôle reste instantané.
   for (const playlist of playlists) {
     const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
     if (tracks.some((candidate) => sameTrack(candidate, track))) {
