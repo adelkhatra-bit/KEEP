@@ -89,9 +89,39 @@ jobs:
           s = s.replace('href="./_expo/', 'href="/KEEP/_expo/')
           s = s.replace('href="/favicon.ico"', 'href="/KEEP/favicon.ico"')
           s = s.replace('href="./favicon.ico"', 'href="/KEEP/favicon.ico"')
+
+          # GitHub Pages publie le projet sous /KEEP. Ce garde-fou intercepte
+          # history.pushState/replaceState AVANT React Navigation : même si une
+          # route essaie d'écrire /Main/Listen, le navigateur conserve
+          # /KEEP/Main/Listen. Un refresh ne peut donc plus sortir du projet.
+          history_guard = r'''<script>(function(){
+          try{
+            var base='/KEEP';
+            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect'];
+            function normalize(raw){
+              if(raw==null)return raw;
+              var u=new URL(String(raw),location.href);
+              u.pathname=u.pathname.replace(/^\/KEEP\/KEEP(?=\/|$)/,'/KEEP');
+              if(u.pathname.indexOf('/KEEP')!==0 && appRoots.some(function(r){return u.pathname.indexOf(r)===0;})){
+                u.pathname=base+u.pathname;
+              }
+              return u.pathname+u.search+u.hash;
+            }
+            var push=history.pushState.bind(history), repl=history.replaceState.bind(history);
+            history.pushState=function(state,title,url){return push(state,title,normalize(url));};
+            history.replaceState=function(state,title,url){return repl(state,title,normalize(url));};
+            if(location.pathname.indexOf('/KEEP/KEEP')===0){
+              repl(null,'',location.pathname.replace('/KEEP/KEEP','/KEEP')+location.search+location.hash);
+            }
+          }catch(e){}
+          })();</script>'''
+
           restore = """<script>(function(){try{var u=new URL(location.href),r=u.searchParams.get('__keep_route');if(r){history.replaceState(null,'','/KEEP'+decodeURIComponent(r));}}catch(e){}})();</script>"""
-          if '<head>' in s and '__keep_route' not in s:
-              s = s.replace('<head>', '<head>'+restore, 1)
+          if '<head>' in s:
+              if 'history.pushState=function' not in s:
+                  s = s.replace('<head>', '<head>'+history_guard, 1)
+              if '__keep_route' not in s:
+                  s = s.replace('<head>', '<head>'+restore, 1)
           p.write_text(s, encoding='utf-8')
           PY
 
@@ -113,7 +143,7 @@ jobs:
           HTML
 
           for route in \
-            Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
+            Main Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
             session-recap session-history profile-settings profile-settings/advanced \
             music-connections notifications offers apple-music-connect; do
             mkdir -p "_site/$route"
@@ -144,12 +174,14 @@ jobs:
           set -euo pipefail
           test -f _site/index.html
           test -f _site/404.html
+          test -f _site/Main/index.html
           test -f _site/Main/Listen/index.html
           test -f _site/Main/Profile/index.html
           test -f _site/admin-preview/index.html
           test -f _site/superadmin/index.html
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
+          grep -q 'history.pushState=function' _site/index.html
           grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
       - name: Upload Pages artifact
@@ -169,6 +201,7 @@ jobs:
           sleep 5
           urls=(
             "$base/"
+            "$base/Main/"
             "$base/Main/Listen/"
             "$base/Main/Listen"
             "$base/Main/Discover/"
