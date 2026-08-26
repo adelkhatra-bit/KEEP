@@ -61,6 +61,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
   const [confirmationPending, setConfirmationPending] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
   const applyFollowIntent = async () => {
     if (!supabase || !followUsername) return true;
@@ -95,6 +97,15 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setError('');
   };
 
+  const resendConfirmation = async () => {
+    if (!supabase || !validEmail(email.trim())) return;
+    setResending(true);
+    setResendMessage('');
+    const result = await createAuthService(supabase).resendSignupConfirmation(email);
+    setResending(false);
+    setResendMessage(result.error ? 'Envoi impossible pour le moment. Attends une minute puis réessaie.' : 'Nouveau lien de validation envoyé. Vérifie aussi les courriers indésirables.');
+  };
+
   const submit = async () => {
     if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
     const cleanEmail = email.trim().toLowerCase();
@@ -124,6 +135,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
       if (result.requiresEmailConfirmation) {
         setConfirmationPending(true);
+        setResendMessage('');
         return;
       }
 
@@ -156,6 +168,10 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       <Text style={s.title}>Vérifie ton adresse e-mail</Text>
       <Text style={s.confirmText}>Un lien KEEP vient d’être envoyé à {email.trim().toLowerCase()}. Clique dessus pour activer ton compte. Tant que l’adresse n’est pas validée, le compte reste bloqué.</Text>
       <Text style={s.confirmBonus}>Tes 3 essais sont conservés. Après validation, KEEP ajoute 20 crédits gratuits.</Text>
+      <TouchableOpacity style={s.resendButton} onPress={resendConfirmation} disabled={resending} accessibilityRole="button" accessibilityLabel="Renvoyer l’e-mail de validation">
+        {resending ? <ActivityIndicator color={colors.primaryLight} /> : <Text style={s.resendText}>RENVOYER L’E-MAIL DE VALIDATION</Text>}
+      </TouchableOpacity>
+      {resendMessage ? <Text style={s.resendMessage}>{resendMessage}</Text> : null}
       <TouchableOpacity style={s.switchMode} onPress={() => { setConfirmationPending(false); setMode('login'); }}>
         <Text style={s.switchText}>J’AI VALIDÉ MON E-MAIL · ME CONNECTER</Text>
       </TouchableOpacity>
@@ -250,5 +266,5 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:2},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},confirmCard:{gap:spacing.sm,paddingVertical:spacing.md},confirmIcon:{color:colors.keep,fontSize:30,fontWeight:'900',textAlign:'center'},confirmText:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center'},confirmBonus:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},
+  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:2},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},confirmCard:{gap:spacing.sm,paddingVertical:spacing.md},confirmIcon:{color:colors.keep,fontSize:30,fontWeight:'900',textAlign:'center'},confirmText:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center'},confirmBonus:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},resendButton:{minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:12},resendText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',textAlign:'center'},resendMessage:{color:colors.textSecondary,fontSize:10,lineHeight:15,textAlign:'center'},
 });
