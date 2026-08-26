@@ -2,9 +2,8 @@
 -- les fonctions utilisateur exigent une session et la limitation reconnaissance
 -- reste réservée au service backend.
 --
--- handle_follow_insert/delete existent seulement sur certains projets KEEP
--- historiques. Une base neuve ne doit pas échouer si ces anciens helpers ne
--- font pas partie de sa chaîne de migrations.
+-- Quelques helpers existent seulement sur certains projets KEEP historiques.
+-- Une base neuve ne doit jamais échouer si ces objets pré-versionnés sont absents.
 do $$
 begin
   if to_regprocedure('public.handle_follow_delete()') is not null then
@@ -13,13 +12,14 @@ begin
   if to_regprocedure('public.handle_follow_insert()') is not null then
     execute 'revoke execute on function public.handle_follow_insert() from public, anon, authenticated';
   end if;
+  if to_regprocedure('public.is_admin(uuid)') is not null then
+    execute 'revoke execute on function public.is_admin(uuid) from public, anon';
+    execute 'grant execute on function public.is_admin(uuid) to authenticated, service_role';
+  end if;
 end $$;
 
 revoke execute on function public.notify_on_follow() from public, anon, authenticated;
 revoke execute on function public.keep_create_profile_from_auth_user() from public, anon, authenticated;
-
-revoke execute on function public.is_admin(uuid) from public, anon;
-grant execute on function public.is_admin(uuid) to authenticated, service_role;
 
 revoke execute on function public.keep_download_credit_status() from public, anon;
 revoke execute on function public.keep_consume_download_credit() from public, anon;
