@@ -75,7 +75,7 @@ jobs:
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1000);
 
-            const demo = textLast('ENTRER EN MODE DÉMO', { exact: true });
+            const demo = textLast('Mode démo', { exact: true });
             if (await demo.isVisible().catch(() => false)) {
               await demo.click();
               await page.waitForTimeout(600);
@@ -90,7 +90,11 @@ jobs:
             await assertInViewport(start, 'Démarrer session');
             await start.click();
 
-            const listening = textLast('EN ÉCOUTE', { exact: true });
+            // Le libellé vivant varie volontairement entre « Session active »
+            // et « Micro actif · analyse en cours » pendant une reconnaissance.
+            // L'ancien test attendait « EN ÉCOUTE », texte qui n'existe plus dans
+            // le design validé et créait un faux échec alors que la session était active.
+            const listening = textLast(/Micro actif · analyse en cours|Session active/i);
             await assertInViewport(listening, 'Radar écoute');
             const share = textLast(/Partager/i);
             await assertInViewport(share, 'Partager');
@@ -102,7 +106,7 @@ jobs:
 
             await end.click();
             await start.waitFor({ state: 'visible', timeout: 10000 });
-            if (await listening.isVisible().catch(() => false)) throw new Error('Arrêt session: EN ÉCOUTE encore visible après clic');
+            if (await listening.isVisible().catch(() => false)) throw new Error('Arrêt session: état actif encore visible après clic');
             await shot('03-listen-stopped');
 
             for (const [label, file] of [['Découvertes','04-discover'],['Playlists','05-playlists'],['Soirées','06-parties'],['Profil','07-profile']]) {
