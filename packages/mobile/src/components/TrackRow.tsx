@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Linking } from 'react-native';
+import { Audio } from 'expo-av';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
@@ -16,15 +17,22 @@ interface Props {
 }
 
 /**
- * Ligne compacte "esprit Spotify/Apple Music" — remplace l'ancienne
- * pochette 260x260. Une jaquette ~56x56, titre/artiste/album, statut ou
- * actions GARDER/PASSER.
+ * Ligne compacte "esprit Spotify/Apple Music".
+ * Les extraits sont des previews promotionnelles distantes : KEEP ne stocke aucun fichier audio.
  */
 export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, playlists }: Props) {
   const { t } = useTranslation();
   const { track, status } = entry;
   const topPlaylistName = entry.recommendations[0]?.playlistName;
   const visibility: KeepVisibility = entry.visibility ?? 'PRIVATE';
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  useEffect(() => () => {
+    const sound = soundRef.current;
+    soundRef.current = null;
+    if (sound) void sound.unloadAsync().catch(() => {});
+  }, []);
 
   const handleKeepPress = () => {
     if (!playlists || playlists.length <= 1 || !onKeep) {
@@ -37,6 +45,40 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
       playlists.map((p) => ({ text: p.name, onPress: () => onKeep(entry.id, p.id) }))
     );
   };
+
+  const playSnippet = async (positionMillis: number) => {
+    if (!track.previewUrl || previewBusy) return;
+    setPreviewBusy(true);
+    try {
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.previewUrl },
+        { shouldPlay: true, positionMillis },
+      );
+      soundRef.current = sound;
+      setTimeout(() => {
+        if (soundRef.current !== sound) return;
+        void sound.stopAsync().catch(() => {});
+        void sound.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }, 7000);
+    } catch {
+      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
+  const openYoutubeSearch = async () => {
+    const url = track.externalUrls?.youtubeSearch;
+    if (!url) return;
+    try { await Linking.openURL(url); } catch { Alert.alert('YouTube indisponible', 'Impossible d’ouvrir la recherche YouTube.'); }
+  };
+
+  const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
 
   return (
     <View style={styles.row}>
@@ -52,6 +94,17 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
         <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
         <Text style={styles.artist} numberOfLines={1}>{track.artist}</Text>
         {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
+        {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
+        {(track.previewUrl || track.externalUrls?.youtubeSearch) ? (
+          <View style={styles.previewRow}>
+            {track.previewUrl ? <>
+              <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
+            </> : null}
+            {track.externalUrls?.youtubeSearch ? <TouchableOpacity style={styles.youtubePill} onPress={() => void openYoutubeSearch()}><Text style={styles.youtubeText}>YouTube</Text></TouchableOpacity> : null}
+          </View>
+        ) : null}
       </View>
 
       {status === 'pending' && (onKeep || onPass) ? (
@@ -90,7 +143,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, pl
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, gap: spacing.md },
+  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: spacing.sm, gap: spacing.md },
   artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   artworkGlyph: { color: colors.textMuted, fontSize: 20 },
@@ -98,7 +151,13 @@ const styles = StyleSheet.create({
   title: { ...typography.bodyBold, color: colors.textPrimary },
   artist: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   album: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontStyle: 'italic' },
-  actions: { flexDirection: 'row', gap: spacing.sm },
+  platforms: { fontSize: 10, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
+  previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
+  previewPill: { minHeight: 24, paddingHorizontal: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
+  youtubePill: { minHeight: 24, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
+  youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
+  actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
   passBtn: {
     width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass,
     alignItems: 'center', justifyContent: 'center',
@@ -109,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   keepBtnText: { color: colors.black, fontWeight: '700', fontSize: 15 },
-  statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5 },
+  statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5, paddingTop: 8 },
   keptText: { color: colors.keep, fontSize: 12, fontWeight: '700' },
   passedText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   pendingText: { color: colors.textMuted, fontSize: 16 },
