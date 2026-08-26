@@ -2,11 +2,10 @@
  * Client Supabase unique côté mobile (source unique -- pas de deuxième
  * `createClient` ailleurs dans l'app, cf. règle anti-doublon).
  *
- * STATUT HONNÊTE : aucun projet Supabase KEEP n'existe encore (voir
- * docs/PROJECT_STATUS.md). Tant que EXPO_PUBLIC_SUPABASE_URL/ANON_KEY ne
- * sont pas renseignées, `supabase` vaut `null` et tout appelant doit gérer
- * ce cas explicitement (voir useUserStore/OnboardingScreen) -- jamais un
- * client construit avec une URL factice qui échouerait de façon opaque.
+ * Le même client sert Expo natif et Expo Web. Sur le web uniquement,
+ * `detectSessionInUrl` est activé afin qu'un clic sur l'e-mail de confirmation
+ * Supabase revienne sur KEEP et récupère automatiquement la session. Sur iOS /
+ * Android natifs, le comportement historique AsyncStorage reste inchangé.
  */
 import 'react-native-url-polyfill/auto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -14,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const isWebRuntime = Boolean((globalThis as any)?.location?.href);
 
 function isPlaceholder(value: string | undefined): boolean {
   return !value || value.startsWith('your_') || value === 'undefined';
@@ -27,7 +27,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: isWebRuntime,
       },
     })
   : null;
