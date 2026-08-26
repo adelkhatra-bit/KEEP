@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { CanonicalTrack } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { requestSocialLink } from '../services/notificationService';
@@ -8,8 +9,25 @@ import { SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
+import TrackPreviewButton from '../components/TrackPreviewButton';
+import { commitKeep } from '../services/keepTrackAction';
+import { shareProfileTrack } from '../services/sharingService';
 
-type PublicKeepTrack = { id: string; trackId: string; title: string; artist: string; album?: string | null; artworkUrl?: string | null };
+type PublicKeepTrack = {
+  id: string;
+  trackId: string;
+  title: string;
+  artist: string;
+  album?: string | null;
+  artworkUrl?: string | null;
+  previewUrl?: string;
+  availableOn?: string[];
+  externalUrls?: Record<string, string>;
+  isrc?: string;
+  durationSec?: number;
+  genres?: string[];
+  providerIds?: Record<string, string | undefined>;
+};
 type SocialPlatform = SocialLink['platform'];
 
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
@@ -24,18 +42,15 @@ const SOCIALS: { platform: SocialPlatform; label: string }[] = [
 export default function PublicUserProfileScreen({ route, navigation }: any) {
   const username = route?.params?.username as string | undefined;
   const viewer = useUserStore((s) => s.user);
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [profile, setProfile] = useState<User | null>(null);
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
+  const [addingTrackIds, setAddingTrackIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Suivre/Ne plus suivre (demande explicite du 26/08/2026 -- "abonné style
-  // Insta"). `follows` était déjà utilisé pour COMPTER les abonnés (voir
-  // profileService.ts) mais aucune action réelle n'existait nulle part pour
-  // suivre quelqu'un -- le vrai trigger notify_on_follow (migration 0024)
-  // n'avait donc jamais été déclenché par personne. Même pattern que
-  // toggleLike ci-dessous (déjà réel, déjà testé), pas une nouvelle logique.
   const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
@@ -51,24 +66,36 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         setProfile(result);
         setFollowerCount(result.followerCount);
         if (viewer?.id && viewer.id !== result.id) {
-          const { data: existing } = await supabase
-            .from('follows')
-            .select('follower_id')
-            .eq('follower_id', viewer.id)
-            .eq('followee_id', result.id)
-            .maybeSingle();
+          const { data: existing } = await supabase.from('follows').select('follower_id').eq('follower_id', viewer.id).eq('followee_id', result.id).maybeSingle();
           if (!cancelled) setIsFollowing(!!existing);
         }
         const { data, error: keepError } = await supabase
           .from('keep_decisions')
-          .select('id, created_at, tracks!inner(id,title,artist,album,artwork_url)')
+          .select('id, created_at, context, tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids)')
           .eq('profile_id', result.id)
           .eq('decision', 'KEPT')
           .eq('visibility', 'PUBLIC')
           .order('created_at', { ascending: false })
           .limit(60);
         if (!keepError && !cancelled) {
-          const normalized = (data ?? []).map((row: any) => ({ id: row.id, trackId: String(row.tracks?.id ?? row.id), title: row.tracks?.title ?? 'Titre inconnu', artist: row.tracks?.artist ?? 'Artiste inconnu', album: row.tracks?.album ?? null, artworkUrl: row.tracks?.artwork_url ?? null }));
+          const normalized = (data ?? []).map((row: any) => {
+            const playback = row.context?.playback ?? {};
+            return {
+              id: row.id,
+              trackId: String(row.tracks?.id ?? row.id),
+              title: row.tracks?.title ?? 'Titre inconnu',
+              artist: row.tracks?.artist ?? 'Artiste inconnu',
+              album: row.tracks?.album ?? null,
+              artworkUrl: row.tracks?.artwork_url ?? null,
+              previewUrl: playback.previewUrl || undefined,
+              availableOn: Array.isArray(playback.availableOn) ? playback.availableOn : [],
+              externalUrls: playback.externalUrls && typeof playback.externalUrls === 'object' ? playback.externalUrls : {},
+              isrc: row.tracks?.isrc || undefined,
+              durationSec: row.tracks?.duration_sec || undefined,
+              genres: Array.isArray(row.tracks?.genres) ? row.tracks.genres : [],
+              providerIds: row.tracks?.provider_ids && typeof row.tracks.provider_ids === 'object' ? row.tracks.provider_ids : {},
+            } as PublicKeepTrack;
+          });
           setTracks(normalized);
           const ids = normalized.map((track: PublicKeepTrack) => track.trackId);
           if (ids.length > 0) {
@@ -76,8 +103,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             if (!cancelled) {
               const counts: Record<string, number> = {};
               const mine = new Set<string>();
-              for (const row of likes ?? []) { counts[row.track_id] = (counts[row.track_id] || 0) + 1; if (viewer?.id && row.profile_id === viewer.id) mine.add(row.track_id); }
-              setLikeCounts(counts); setLikedTrackIds(mine);
+              for (const row of likes ?? []) {
+                counts[row.track_id] = (counts[row.track_id] || 0) + 1;
+                if (viewer?.id && row.profile_id === viewer.id) mine.add(row.track_id);
+              }
+              setLikeCounts(counts);
+              setLikedTrackIds(mine);
             }
           }
         }
@@ -89,6 +120,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   }, [username, viewer?.id]);
 
   const albums = useMemo(() => Array.from(new Set(tracks.map((track) => track.album).filter(Boolean) as string[])), [tracks]);
+
+  const goToOwnProfile = () => navigation.navigate('Main', { screen: 'Profile' });
 
   const openSocial = async (platform: SocialPlatform) => {
     if (!profile) return;
@@ -107,7 +140,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const toggleFollow = async () => {
-    if (!supabase || !viewer) { Alert.alert('Connexion requise', 'Connecte-toi à KEEP pour suivre ce profil.'); return; }
+    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour suivre ce profil.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return;
+    }
     if (!profile || viewer.id === profile.id || followBusy) return;
     setFollowBusy(true);
     if (isFollowing) {
@@ -121,19 +160,67 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const toggleLike = async (trackId: string) => {
-    if (!supabase || !viewer) { Alert.alert('Connexion requise', 'Connecte-toi à KEEP pour liker ce morceau.'); return; }
+    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour liker ce morceau.', [
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return;
+    }
     const alreadyLiked = likedTrackIds.has(trackId);
     const next = new Set(likedTrackIds);
     if (alreadyLiked) {
       const { error: deleteError } = await supabase.from('track_likes').delete().eq('profile_id', viewer.id).eq('track_id', trackId);
       if (deleteError) return;
-      next.delete(trackId); setLikeCounts((current) => ({ ...current, [trackId]: Math.max(0, (current[trackId] || 0) - 1) }));
+      next.delete(trackId);
+      setLikeCounts((current) => ({ ...current, [trackId]: Math.max(0, (current[trackId] || 0) - 1) }));
     } else {
       const { error: insertError } = await supabase.from('track_likes').insert({ profile_id: viewer.id, track_id: trackId });
       if (insertError) return;
-      next.add(trackId); setLikeCounts((current) => ({ ...current, [trackId]: (current[trackId] || 0) + 1 }));
+      next.add(trackId);
+      setLikeCounts((current) => ({ ...current, [trackId]: (current[trackId] || 0) + 1 }));
     }
     setLikedTrackIds(next);
+  };
+
+  const addToMyKeep = async (track: PublicKeepTrack) => {
+    if (!viewer || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte pour ajouter cette musique à ton KEEP.', [
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return;
+    }
+    if (profile && viewer.id === profile.id) return;
+    if (addingTrackIds.has(track.trackId)) return;
+    const canonical: CanonicalTrack = {
+      id: track.trackId,
+      isrc: track.isrc,
+      title: track.title,
+      artist: track.artist,
+      album: track.album || undefined,
+      durationSec: track.durationSec,
+      artworkUrl: track.artworkUrl || undefined,
+      previewUrl: track.previewUrl,
+      availableOn: track.availableOn,
+      externalUrls: track.externalUrls,
+      genres: track.genres,
+      providerIds: track.providerIds || {},
+    };
+    setAddingTrackIds((current) => new Set(current).add(track.trackId));
+    try {
+      await commitKeep(canonical, [], undefined, { visibility: 'PRIVATE', context: { source: 'public_profile', sourceProfileId: profile?.id } });
+      Alert.alert('Ajouté à ton KEEP', `« ${track.title} » est maintenant dans tes musiques.`);
+    } catch (e: any) {
+      if (e?.message === 'CREDITS_EXHAUSTED') {
+        Alert.alert('Crédits gratuits utilisés', 'Tu peux toujours écouter les extraits et continuer tes sessions. Passe à Premium pour débloquer les fonctions payantes.', [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
+        ]);
+      } else {
+        Alert.alert('KEEP', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
+      }
+    } finally {
+      setAddingTrackIds((current) => { const next = new Set(current); next.delete(track.trackId); return next; });
+    }
   };
 
   if (loading) return <SafeAreaView style={styles.container}><View style={styles.center}><ActivityIndicator color={colors.primaryLight} /></View></SafeAreaView>;
@@ -150,13 +237,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>K</Text></View>}
           <View style={styles.usernameRow}>
             <Text style={styles.username}>@{profile.username}</Text>
-            {viewer && viewer.id !== profile.id && (
-              <TouchableOpacity
-                style={[styles.followButton, isFollowing && styles.followButtonActive]}
-                onPress={toggleFollow}
-                disabled={followBusy}
-                accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}
-              >
+            {viewer?.id !== profile.id && (
+              <TouchableOpacity style={[styles.followButton, isFollowing && styles.followButtonActive]} onPress={toggleFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}>
                 <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>{isFollowing ? 'Abonné(e)' : '+ Suivre'}</Text>
               </TouchableOpacity>
             )}
@@ -174,9 +256,29 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0) && <View style={styles.musicIdentity}><Text style={styles.sectionTitle}>KEEP DNA</Text><View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View></View>}
           {albums.length > 0 ? <View style={styles.albumSummary}><Text style={styles.albumSummaryTitle}>Albums partagés</Text><Text style={styles.albumSummaryText} numberOfLines={2}>{albums.slice(0,5).join(' · ')}</Text></View> : null}
         </View>
+
         <View style={styles.publicMusicSection}>
           <View style={styles.musicSectionHeader}><Text style={styles.sectionTitle}>KEEP publics</Text><Text style={styles.publicCount}>{tracks.length}</Text></View>
-          {tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : <View style={styles.musicGrid}>{tracks.map((track) => { const liked = likedTrackIds.has(track.trackId); return <View key={track.id} style={styles.musicTile}>{track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.avatarText}>K</Text></View>}<Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>{!!track.album && <Text style={styles.trackAlbum} numberOfLines={1}>{track.album}</Text>}<TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive]} onPress={() => toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{likeCounts[track.trackId] || 0}</Text></TouchableOpacity></View>; })}</View>}
+          {tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : (
+            <View style={styles.musicList}>{tracks.map((track) => {
+              const liked = likedTrackIds.has(track.trackId);
+              const adding = addingTrackIds.has(track.trackId);
+              return <View key={track.id} style={styles.musicRow}>
+                {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>K</Text></View>}
+                <View style={styles.trackInfo}>
+                  <View style={styles.trackTitleRow}>
+                    <View style={styles.trackTitleBlock}><Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text></View>
+                    <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact />
+                  </View>
+                  <View style={styles.trackActions}>
+                    {viewer?.id !== profile.id ? <TouchableOpacity style={styles.keepButton} onPress={() => void addToMyKeep(track)} disabled={adding}><Text style={styles.keepButtonText}>{adding ? '…' : '+ KEEP'}</Text></TouchableOpacity> : null}
+                    <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{likeCounts[track.trackId] || 0}</Text></TouchableOpacity>
+                  </View>
+                </View>
+              </View>;
+            })}</View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -186,8 +288,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 function Stat({ value, label }: { value: number; label: string }) { return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:56,paddingHorizontal:spacing.xl,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},title:{...typography.h3,color:colors.textPrimary},placeholder:{width:28},hero:{alignItems:'center',paddingHorizontal:spacing.xl,paddingTop:spacing.md},avatar:{width:104,height:104,borderRadius:52,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:30,fontWeight:'900'},usernameRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',marginTop:spacing.md},username:{...typography.h2,color:colors.textPrimary},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},location:{color:colors.textMuted,fontSize:13,marginTop:6},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginTop:spacing.md},
+  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:56,paddingHorizontal:spacing.xl,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},title:{...typography.h3,color:colors.textPrimary},placeholder:{width:28},hero:{alignItems:'center',paddingHorizontal:spacing.xl,paddingTop:spacing.md},avatar:{width:88,height:88,borderRadius:44,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:27,fontWeight:'900'},usernameRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',marginTop:spacing.md},username:{...typography.h2,color:colors.textPrimary},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},location:{color:colors.textMuted,fontSize:13,marginTop:6},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginTop:spacing.md},
   socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:spacing.lg},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:13,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
   statsRow:{width:'100%',flexDirection:'row',marginTop:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:spacing.md},statValue:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:11,marginTop:4},
-  followButton:{minHeight:32,marginLeft:10,paddingHorizontal:13,borderRadius:radius.pill,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},followButtonTextActive:{color:colors.textSecondary},musicIdentity:{width:'100%',marginTop:spacing.lg,padding:spacing.md,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},sectionTitle:{...typography.h3,color:colors.textPrimary},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:spacing.sm},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},albumSummary:{width:'100%',marginTop:spacing.md},albumSummaryTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},albumSummaryText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:3},publicMusicSection:{paddingHorizontal:spacing.xl,marginTop:spacing.xl},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicGrid:{flexDirection:'row',flexWrap:'wrap',marginHorizontal:-spacing.xs},musicTile:{width:'33.333%',padding:spacing.xs},musicCover:{width:'100%',aspectRatio:1,borderRadius:radius.sm,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:6},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackAlbum:{color:colors.textMuted,fontSize:9,marginTop:2},likeButton:{minHeight:30,marginTop:6,borderRadius:15,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:5},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:15},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:10,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  followButton:{minHeight:32,marginLeft:10,paddingHorizontal:13,borderRadius:radius.pill,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},followButtonTextActive:{color:colors.textSecondary},musicIdentity:{width:'100%',marginTop:spacing.lg,padding:spacing.md,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},sectionTitle:{...typography.h3,color:colors.textPrimary},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:spacing.sm},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},albumSummary:{width:'100%',marginTop:spacing.md},albumSummaryTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},albumSummaryText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:3},publicMusicSection:{paddingHorizontal:spacing.xl,marginTop:spacing.xl},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'center',gap:6},trackTitleBlock:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:5,marginTop:7},keepButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
 });
