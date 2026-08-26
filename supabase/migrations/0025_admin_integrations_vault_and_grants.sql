@@ -252,13 +252,31 @@ begin
 end;
 $$;
 
-revoke all on function public.service_set_integration_secret(text,text,text,text,uuid) from public, anon, authenticated;
-revoke all on function public.service_get_integration_secret(text) from public, anon, authenticated;
-revoke all on function public.service_delete_integration_secret(text) from public, anon, authenticated;
-revoke all on function public.service_grant_plan(uuid,text,integer,uuid,text) from public, anon, authenticated;
-revoke all on function public.service_revoke_admin_grant(uuid,uuid) from public, anon, authenticated;
-grant execute on function public.service_set_integration_secret(text,text,text,text,uuid) to service_role;
-grant execute on function public.service_get_integration_secret(text) to service_role;
-grant execute on function public.service_delete_integration_secret(text) to service_role;
-grant execute on function public.service_grant_plan(uuid,text,integer,uuid,text) to service_role;
-grant execute on function public.service_revoke_admin_grant(uuid,uuid) to service_role;
+-- Supabase possède les rôles anon/authenticated/service_role. Le CI migrations
+-- utilise PostgreSQL pur et ne les possède pas tous. On applique donc les mêmes
+-- permissions uniquement aux rôles effectivement présents.
+do $$
+declare
+  fn text;
+  role_name text;
+  functions text[] := array[
+    'public.service_set_integration_secret(text,text,text,text,uuid)',
+    'public.service_get_integration_secret(text)',
+    'public.service_delete_integration_secret(text)',
+    'public.service_grant_plan(uuid,text,integer,uuid,text)',
+    'public.service_revoke_admin_grant(uuid,uuid)'
+  ];
+begin
+  foreach fn in array functions loop
+    execute format('revoke all on function %s from public', fn);
+    foreach role_name in array array['anon','authenticated'] loop
+      if exists (select 1 from pg_roles where rolname = role_name) then
+        execute format('revoke all on function %s from %I', fn, role_name);
+      end if;
+    end loop;
+    if exists (select 1 from pg_roles where rolname = 'service_role') then
+      execute format('grant execute on function %s to service_role', fn);
+    end if;
+  end loop;
+end;
+$$;
