@@ -25,6 +25,23 @@ function friendlyAuthError(message?:string){
   return 'Connexion impossible. Vérifie les informations puis réessaie.';
 }
 
+async function signInOrBootstrap(email:string,password:string){
+  if(!supabase)return {ok:false,error:'Supabase indisponible.'};
+  const first=await supabase.auth.signInWithPassword({email,password});
+  if(!first.error)return {ok:true,error:''};
+
+  // Une seule voie de secours : le mot de passe temporaire Super Admin remis
+  // par le propriétaire. L'Edge Function vérifie un hash à usage unique, le
+  // rôle SUPER_ADMIN et l'expiration avant de définir ce même mot de passe.
+  // Aucun mot de passe n'est embarqué dans le bundle web ou le dépôt GitHub.
+  const {data:bootstrap,error:bootstrapError}=await supabase.functions.invoke('keep-admin-bootstrap',{body:{email,password}});
+  if(bootstrapError||!bootstrap?.ok)return {ok:false,error:friendlyAuthError(first.error.message)};
+
+  const retry=await supabase.auth.signInWithPassword({email,password});
+  if(retry.error)return {ok:false,error:friendlyAuthError(retry.error.message)};
+  return {ok:true,error:''};
+}
+
 function AdminLogin(){
   const [email,setEmail]=useState('');
   const [password,setPassword]=useState('');
@@ -39,9 +56,9 @@ function AdminLogin(){
     if(!/^\S+@\S+\.\S+$/.test(normalized)){setError('Saisis une adresse e-mail valide.');return;}
     if(password.length<8){setError('Saisis ton mot de passe Super Admin.');return;}
     setBusy(true);setError('');
-    const {error:signInError}=await supabase.auth.signInWithPassword({email:normalized,password});
+    const result=await signInOrBootstrap(normalized,password);
     setBusy(false);
-    if(signInError){setError(friendlyAuthError(signInError.message));return;}
+    if(!result.ok)setError(result.error);
   };
 
   if(!isSupabaseConfigured)return <main style={page}><LiveMarker/><div style={card}><div style={brand}>KEEP</div><h1 style={title}>Super Admin</h1><p style={muted}>Supabase n’est pas configuré dans cet environnement.</p></div></main>;
@@ -59,7 +76,7 @@ function AdminLogin(){
     </div>
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
     <button type="submit" disabled={busy||!email.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
-    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. Les sections visibles et les actions autorisées dépendent ensuite du rôle attribué.</p>
+    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. À la première connexion, un mot de passe temporaire valide peut être activé automatiquement une seule fois.</p>
   </form></main>;
 }
 
