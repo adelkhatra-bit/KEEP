@@ -45,4 +45,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Vérifier les migrations + triggers + RLS
-        run: bash supabase/scripts/verify-migrations.sh
+        shell: bash
+        run: |
+          set +e
+          bash supabase/scripts/verify-migrations.sh 2>&1 | tee verify-migrations.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Conserver le diagnostic SQL
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-migrations-log
+          path: verify-migrations.log
+          if-no-files-found: ignore
+          retention-days: 2
