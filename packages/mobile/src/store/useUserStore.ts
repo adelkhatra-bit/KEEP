@@ -23,6 +23,26 @@ function userFromAuthSession(session: KeepAuthSession): User {
   };
 }
 
+function localGuestUser(guestId: string): User {
+  return {
+    id: guestId,
+    username: `invite-${guestId.replace(/-/g, '').slice(0, 6)}`,
+    email: '',
+    avatar: '',
+    bio: '',
+    playlistCount: 0,
+    followerCount: 0,
+    followingCount: 0,
+    kind: 'USER',
+    favoriteGenres: [],
+    favoriteArtists: [],
+    socialLinks: [],
+    isPublic: true,
+    locationOptIn: false,
+    privateInfo: {},
+  };
+}
+
 const DEMO_USER: User = {
   id: 'demo-user-1',
   username: 'demouser',
@@ -45,8 +65,10 @@ interface UserStore {
   user: User | null;
   isDemoMode: boolean;
   isAnonymous: boolean;
+  isLocalGuest: boolean;
   setUser: (user: User) => void;
   enterDemoMode: () => void;
+  enterGuestMode: (guestId: string) => void;
   logout: () => void;
   syncFromAuthSession: (session: KeepAuthSession | null) => void;
   profileCompletion: () => number;
@@ -65,14 +87,19 @@ export const useUserStore = create<UserStore>((set, get) => ({
   user: null,
   isDemoMode: false,
   isAnonymous: false,
-  setUser: (user) => set((s) => ({ user, isDemoMode: false, isAnonymous: s.isAnonymous })),
-  enterDemoMode: () => set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false }),
-  logout: () => set({ user: null, isDemoMode: false, isAnonymous: false }),
+  isLocalGuest: false,
+  setUser: (user) => set((s) => ({ user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest })),
+  enterDemoMode: () => set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false }),
+  enterGuestMode: (guestId) => set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true }),
+  logout: () => set({ user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false }),
   syncFromAuthSession: (session) =>
     set((s) => {
       // Le mode démo reste actif seulement si aucune vraie session n'existe.
       if (s.isDemoMode && !session) return s;
-      if (!session) return { user: null, isDemoMode: false, isAnonymous: false };
+      // Un invité local est volontairement indépendant de Supabase Auth :
+      // un simple getSession() vide ne doit pas le renvoyer à l'onboarding.
+      if (s.isLocalGuest && !session) return s;
+      if (!session) return { user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
 
       // Même uid = même personne. Un refresh de token ne doit jamais écraser
       // le profil déjà chargé/modifié.
@@ -81,6 +108,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
           user: { ...s.user, email: session.email ?? s.user.email },
           isDemoMode: false,
           isAnonymous: session.isAnonymous,
+          isLocalGuest: false,
         };
       }
 
@@ -88,6 +116,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
         user: userFromAuthSession(session),
         isDemoMode: false,
         isAnonymous: session.isAnonymous,
+        isLocalGuest: false,
       };
     }),
   profileCompletion: () => {
