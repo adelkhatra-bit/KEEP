@@ -29,10 +29,11 @@ async function waitForFiveTabs(page) {
 async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Profil', { exact: true }).last().click();
   await page.getByText('ESPACE CRÉATEUR', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('🔒 DJ', { exact: true }).last().click();
+  await page.getByText('🔒 Creator Pro', { exact: true }).last().click();
   await page.getByText('Offre & crédits', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('Formule requise : Creator Pro', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('FORMULE REQUISE', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText('Cette formule débloque les profils DJ, Artiste, Créateur et Producteur.', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   const paywallText = await page.locator('body').innerText();
   const paywallHtml = await page.locator('body').innerHTML();
   assertVisibleBody(paywallText, paywallHtml, `${scenarioName} creator paywall`);
@@ -130,7 +131,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       await proveSharedProfileRoute(page, scenario.name);
 
       if (errors.length) throw new Error(`${scenario.name}: ${errors.join(' | ')}`);
-      report.push(`${scenario.name}: PASS — trial + 5 tabs + creator lock→Creator Pro + reload + shared follow→signup; no blank page/no auth signup`);
+      report.push(`${scenario.name}: PASS — trial + 5 tabs + grouped Creator Pro lock→required plan + reload + shared follow→signup; no blank page/no auth signup`);
     } catch (error) {
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-FAIL.png`), fullPage: true }).catch(() => {});
       fs.writeFileSync(path.join(OUT, `${scenario.name}-FAIL.txt`), [
