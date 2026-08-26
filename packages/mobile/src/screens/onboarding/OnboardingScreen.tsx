@@ -9,22 +9,19 @@ import { createAuthService } from '../../services/authService';
 import { consumeWebAuthAndOpenNative, subscribeToNativeAuthLinks } from '../../services/authLinkHandoff';
 
 type EmailStep = 'idle' | 'linkSent';
+type AuthStep = 'landing' | 'chooser' | 'email';
 
 export default function OnboardingScreen() {
   const { t } = useTranslation();
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
-  const [emailFormVisible, setEmailFormVisible] = useState(false);
+  const syncFromAuthSession = useUserStore((s) => s.syncFromAuthSession);
+  const [authStep, setAuthStep] = useState<AuthStep>('landing');
   const [emailStep, setEmailStep] = useState<EmailStep>('idle');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const authService = supabase ? createAuthService(supabase) : null;
 
-  // Solution e-mail gratuite pour les tests : pas de code à recopier et pas
-  // de dépendance obligatoire à Brevo. Supabase envoie un lien de connexion.
-  // Sur web, le lien établit la session. Sur téléphone, il tente ensuite de
-  // rouvrir KEEP via keep://auth/callback ; l'écran ci-dessous récupère alors
-  // la même session dans l'app native.
   useEffect(() => {
     if (!supabase) return;
 
@@ -56,19 +53,49 @@ export default function OnboardingScreen() {
       Alert.alert('KEEP indisponible', 'La connexion au serveur KEEP est nécessaire pour activer les crédits gratuits.');
       return;
     }
+
     setBusy(true);
     setErrorMsg(null);
     const { error } = await authService.signInAsGuest();
+
+    if (!error) {
+      const session = await authService.getCurrentSession();
+      if (session) syncFromAuthSession(session);
+      setBusy(false);
+      return;
+    }
+
     setBusy(false);
-    if (error) setErrorMsg('Impossible de démarrer l’essai gratuit. Réessaie dans un instant.');
+    if (/rate limit|too many|429/i.test(error)) {
+      setErrorMsg('Trop de tentatives de test ont été lancées. Attends environ 60 secondes puis réessaie : KEEP réutilisera ensuite la même session.');
+      return;
+    }
+    setErrorMsg('Impossible de démarrer l’essai gratuit pour le moment. Réessaie dans un instant.');
   };
 
-  const handleEmailPress = () => {
+  const openAccountChooser = () => {
+    setAuthStep('chooser');
+    setEmailStep('idle');
+    setErrorMsg(null);
+  };
+
+  const openEmail = () => {
     if (!isSupabaseConfigured || !authService) {
       Alert.alert(t('common.notConnected'), "L'authentification KEEP n'est pas disponible pour le moment.");
       return;
     }
-    setEmailFormVisible(true);
+    setAuthStep('email');
+    setEmailStep('idle');
+    setErrorMsg(null);
+  };
+
+  const goBack = () => {
+    if (authStep === 'email') {
+      setAuthStep('chooser');
+      setEmailStep('idle');
+    } else {
+      setAuthStep('landing');
+    }
     setErrorMsg(null);
   };
 
@@ -84,13 +111,16 @@ export default function OnboardingScreen() {
     const { error } = await authService.requestEmailMagicLink(trimmed);
     setBusy(false);
     if (error) {
-      setErrorMsg('Impossible d’envoyer le lien. Réessaie dans un instant.');
+      if (/rate limit|too many|429/i.test(error)) {
+        setErrorMsg('Un lien vient déjà d’être demandé. Attends environ 60 secondes avant de le renvoyer.');
+      } else {
+        setErrorMsg('Impossible d’envoyer le lien. Réessaie dans un instant.');
+      }
       return;
     }
     setEmailStep('linkSent');
   };
 
-  const showEmailForm = isSupabaseConfigured && emailFormVisible;
   const showDemo = __DEV__ || process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1';
 
   return (
@@ -102,54 +132,84 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
-          {busy ? <ActivityIndicator color={colors.white} /> : <>
-            <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
-            <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>
-          </>}
-        </TouchableOpacity>
+        {authStep === 'landing' && (
+          <>
+            <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
+              {busy ? <ActivityIndicator color={colors.white} /> : <>
+                <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
+                <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>
+              </>}
+            </TouchableOpacity>
 
-        {Platform.OS === 'ios' && (
-          <TouchableOpacity style={[styles.button, styles.appleButton]} onPress={() => handleAuthPress('apple')}>
-            <Text style={styles.appleButtonText}>{t('onboarding.continueApple')}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.accountButton]} onPress={openAccountChooser} disabled={busy}>
+              <Text style={styles.accountButtonText}>SE CONNECTER / CRÉER MON COMPTE</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={() => handleAuthPress('google')}>
-          <Text style={styles.googleButtonText}>{t('onboarding.continueGoogle')}</Text>
-        </TouchableOpacity>
-
-        {!showEmailForm && <TouchableOpacity style={styles.emailButton} onPress={handleEmailPress}><Text style={styles.emailButtonText}>{t('onboarding.continueEmail')}</Text></TouchableOpacity>}
-
-        {showEmailForm && emailStep === 'idle' && (
-          <View style={styles.emailForm}>
-            <Text style={styles.codeHint}>Entre ton e-mail. KEEP t’envoie un lien : tu cliques dessus et tu es connecté.</Text>
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="ton@email.com" placeholderTextColor={colors.textMuted} autoCapitalize="none" keyboardType="email-address" onSubmitEditing={handleSendLink} />
-            {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendLink} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>M’ENVOYER LE LIEN</Text>}
+        {authStep === 'chooser' && (
+          <>
+            <TouchableOpacity style={styles.backChoice} onPress={goBack}>
+              <Text style={styles.backChoiceText}>← Retour</Text>
             </TouchableOpacity>
-          </View>
+            <Text style={styles.choiceTitle}>Choisis une méthode de connexion</Text>
+
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity style={[styles.button, styles.appleButton]} onPress={() => handleAuthPress('apple')}>
+                <Text style={styles.appleButtonText}>{t('onboarding.continueApple')}</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={() => handleAuthPress('google')}>
+              <Text style={styles.googleButtonText}>{t('onboarding.continueGoogle')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.button, styles.emailChoiceButton]} onPress={openEmail}>
+              <Text style={styles.emailChoiceButtonText}>{t('onboarding.continueEmail')}</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        {showEmailForm && emailStep === 'linkSent' && (
-          <View style={[styles.emailForm, styles.linkSentCard]}>
-            <Text style={styles.linkSentTitle}>Vérifie ton e-mail</Text>
-            <Text style={styles.codeHint}>Un lien de connexion KEEP a été envoyé à {email.trim()}.</Text>
-            <Text style={styles.linkSentHelp}>Ouvre l’e-mail puis touche le lien. Aucun code à recopier.</Text>
-            {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendLink} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>RENVOYER LE LIEN</Text>}
+        {authStep === 'email' && emailStep === 'idle' && (
+          <>
+            <TouchableOpacity style={styles.backChoice} onPress={goBack}>
+              <Text style={styles.backChoiceText}>← Autres méthodes</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.emailButton} onPress={() => { setEmailStep('idle'); setErrorMsg(null); }}>
-              <Text style={styles.emailButtonText}>Changer d’adresse e-mail</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.emailForm}>
+              <Text style={styles.choiceTitle}>Continuer avec e-mail</Text>
+              <Text style={styles.codeHint}>Entre ton e-mail. KEEP t’envoie un lien sécurisé : tu cliques dessus et tu es connecté.</Text>
+              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="ton@email.com" placeholderTextColor={colors.textMuted} autoCapitalize="none" keyboardType="email-address" onSubmitEditing={handleSendLink} />
+              {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+              <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendLink} disabled={busy}>
+                {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>M’ENVOYER LE LIEN</Text>}
+              </TouchableOpacity>
+            </View>
+          </>
         )}
 
-        {errorMsg && !showEmailForm ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+        {authStep === 'email' && emailStep === 'linkSent' && (
+          <>
+            <TouchableOpacity style={styles.backChoice} onPress={goBack}>
+              <Text style={styles.backChoiceText}>← Autres méthodes</Text>
+            </TouchableOpacity>
+            <View style={[styles.emailForm, styles.linkSentCard]}>
+              <Text style={styles.linkSentTitle}>Vérifie ton e-mail</Text>
+              <Text style={styles.codeHint}>Un lien de connexion KEEP a été envoyé à {email.trim()}.</Text>
+              <Text style={styles.linkSentHelp}>Ouvre l’e-mail puis touche le lien. Aucun code à recopier.</Text>
+              {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+              <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendLink} disabled={busy}>
+                {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>RENVOYER LE LIEN</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.emailButton} onPress={() => { setEmailStep('idle'); setErrorMsg(null); }}>
+                <Text style={styles.emailButtonText}>Changer d’adresse e-mail</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
-        {showDemo && (
+        {errorMsg && authStep !== 'email' ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
+        {showDemo && authStep === 'landing' && (
           <TouchableOpacity style={styles.demoButton} onPress={() => enterDemoMode()} accessibilityRole="button" accessibilityLabel="Entrer en mode démo" testID="onboarding-demo-button">
             <Text style={styles.demoButtonText}>Mode démo</Text>
           </TouchableOpacity>
@@ -172,10 +232,17 @@ const styles = StyleSheet.create({
   trialButton: { minHeight: 58, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight },
   trialButtonText: { ...typography.button, color: colors.white, fontWeight: '900' },
   trialHint: { color: colors.white, fontSize: 10, opacity: 0.82, marginTop: 2 },
+  accountButton: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  accountButtonText: { ...typography.button, color: colors.textPrimary, fontWeight: '800' },
+  choiceTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: spacing.xs },
+  backChoice: { minHeight: 32, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: spacing.xs },
+  backChoiceText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
   appleButton: { backgroundColor: colors.white },
   appleButtonText: { ...typography.button, color: colors.black },
   googleButton: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   googleButtonText: { ...typography.button, color: colors.textPrimary },
+  emailChoiceButton: { backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight },
+  emailChoiceButtonText: { ...typography.button, color: colors.white, fontWeight: '800' },
   emailButton: { minHeight: 46, justifyContent: 'center', alignItems: 'center' },
   emailButtonText: { ...typography.bodyBold, color: colors.primaryLight },
   demoButton: { minHeight: 38, alignItems: 'center', justifyContent: 'center' },
