@@ -75,7 +75,16 @@ function MainTabs() {
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Listen" component={HomeScreenCompact} options={{ tabBarLabel: 'Écouter', tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} /> }} />
+      <Tab.Screen
+        name="Listen"
+        component={HomeScreenCompact}
+        options={{
+          tabBarLabel: 'Écouter',
+          tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
+          tabBarBadge: 'FIX',
+          tabBarBadgeStyle: { fontSize: 8, minWidth: 28, height: 16, lineHeight: 16 },
+        }}
+      />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
       <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }} />
       <Tab.Screen name="Parties" component={PartiesScreen} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
