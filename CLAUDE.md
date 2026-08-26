@@ -25,6 +25,14 @@ Ne jamais travailler dans un autre clone, un ancien dossier `apps/`, `main`, une
 
 Aucun code de production ne doit générer `localhost`, `/KEEP/KEEP`, une URL de preview temporaire ou un autre domaine pour ces fonctions.
 
+### Anciens liens : redirection uniquement, jamais une deuxième application
+
+Les anciennes fonctions Supabase `keep-public`, `keep-preview` et `keep-admin-preview` existent seulement comme **ponts de compatibilité** pour des liens déjà envoyés. Elles doivent répondre par redirection HTTP 308 vers les URLs canoniques ci-dessus. Elles ne doivent jamais servir un bundle, lire une branche `web-preview`, contenir une interface parallèle, un mot de passe de démo ou une logique Super Admin propre.
+
+Les branches `web-preview`, `admin-preview`, `chatgpt/keep-design-integration-audit`, `chatgpt/qa-human-smoke`, `claude-local-backup-20260825` et `backup/pre-codex-takeover-20260826` sont des archives/références de récupération, pas des sources de déploiement. Une IA ne doit jamais y pousser une correction destinée à l'application active.
+
+Toute nouvelle intégration, tout nouveau test et tout nouveau lien de partage doivent pointer vers `reconcile/claude-main-20260825` et vers le domaine GitHub Pages canonique. Si un ancien lien ressort, on corrige/redirige l'ancien lien ; on ne crée jamais un nouveau domaine.
+
 ## Routage web / GitHub Pages
 
 GitHub Pages n'effectue pas de rewrite SPA côté serveur. La solution officielle KEEP est donc **déjà** dans `.github/workflows/web-preview-pages.yml` :
