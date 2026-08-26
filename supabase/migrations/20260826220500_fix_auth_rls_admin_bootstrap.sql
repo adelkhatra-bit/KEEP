@@ -1,6 +1,7 @@
 -- KEEP auth hotfix — 2026-08-26
 -- 1) Les policies admin ne doivent jamais appeler is_admin() pour le rôle anon.
--- 2) pgcrypto est installé dans le schéma extensions sur Supabase hébergé.
+-- 2) pgcrypto vit dans `extensions` sur Supabase hébergé, mais peut être dans
+--    `public` dans le PostgreSQL de CI : le search_path couvre les deux.
 
 -- PROFILES : la lecture publique reste assurée par profiles_select_own_or_public.
 -- Le bypass admin ne s'évalue que pour une vraie session authentifiée.
@@ -60,7 +61,7 @@ begin
   if token_row.email is null
      or token_row.used_at is not null
      or token_row.expires_at <= now()
-     or extensions.crypt(p_password, token_row.password_hash) <> token_row.password_hash then
+     or crypt(p_password, token_row.password_hash) <> token_row.password_hash then
     return null;
   end if;
 
