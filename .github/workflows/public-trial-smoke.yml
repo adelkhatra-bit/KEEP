@@ -7,6 +7,7 @@ on:
       - 'packages/mobile/src/screens/onboarding/OnboardingScreen.tsx'
       - 'packages/mobile/src/store/useUserStore.ts'
       - 'packages/mobile/src/services/creditService.ts'
+      - 'packages/mobile/share-profile.html'
       - 'scripts/keep-public-trial-smoke.cjs'
       - '.github/workflows/public-trial-smoke.yml'
   workflow_dispatch:
@@ -71,7 +72,7 @@ jobs:
             fi
             sleep 10
           done
-          echo 'Public KEEP never exposed the corrected free-trial flow in time.'
+          echo 'Public KEEP never exposed the corrected free-trial/share flow in time.'
           exit 1
 
       - name: Upload mobile/desktop evidence
