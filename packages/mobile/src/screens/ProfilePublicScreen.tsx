@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
@@ -9,9 +9,9 @@ import { radius, spacing, typography } from '../theme/spacing';
 import { SocialLink } from '../types';
 import { buildPublicProfileLink, shareProfile, shareProfileByEmail } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
-import { supabase } from '../services/supabaseClient';
-import { createAuthService } from '../services/authService';
-import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { hasFeature } from '../services/entitlementService';
+import UsernameAccountForm from '../components/UsernameAccountForm';
+import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 
 type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
@@ -37,13 +37,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [qrOpen, setQrOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMode, setAccountMode] = useState<AccountMode>('create');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [password2, setPassword2] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showPassword2, setShowPassword2] = useState(false);
-  const [accountBusy, setAccountBusy] = useState(false);
-  const [accountError, setAccountError] = useState('');
 
   const accountRequired = isLocalGuest || isDemoMode;
 
@@ -72,54 +65,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const openAccount = (mode: AccountMode = 'create') => {
     setShareOpen(false);
     setAccountMode(mode);
-    setAccountError('');
-    setPassword('');
-    setPassword2('');
     setAccountOpen(true);
   };
 
-  const openShare = () => {
-    if (accountRequired) {
-      openAccount('create');
-      return;
-    }
-    setShareOpen(true);
+  const openPaywall = () => {
+    Alert.alert('Premium requis', 'Le partage public et le QR KEEP sont inclus à partir de Premium.', [
+      { text: 'Plus tard', style: 'cancel' },
+      { text: 'Voir les formules', onPress: () => navigation.navigate('Offers') },
+    ]);
   };
 
-  const submitAccount = async () => {
-    if (!supabase) return setAccountError('Connexion KEEP indisponible pour le moment.');
-    const cleanEmail = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return setAccountError('Entre une adresse e-mail valide.');
-    if (password.length < 8) return setAccountError('Le mot de passe doit contenir au moins 8 caractères.');
-    if (accountMode === 'create' && password !== password2) return setAccountError('Les deux mots de passe ne correspondent pas.');
-
-    setAccountBusy(true);
-    setAccountError('');
-    try {
-      const auth = createAuthService(supabase);
-      if (accountMode === 'create') {
-        if (isLocalGuest) await stageGuestProfileForUpgrade(user);
-        const result = await auth.signUpWithPassword(cleanEmail, password);
-        if (result.error) throw new Error(result.error);
-        if (!result.sessionCreated) {
-          setAccountOpen(false);
-          Alert.alert('Compte KEEP créé', 'Ton mot de passe est enregistré. Vérifie ton e-mail une seule fois pour confirmer le compte, puis tu pourras te connecter avec e-mail + mot de passe.');
-        } else {
-          setAccountOpen(false);
-        }
-      } else {
-        const result = await auth.signInWithPassword(cleanEmail, password);
-        if (result.error) throw new Error(result.error);
-        setAccountOpen(false);
-      }
-    } catch (error: any) {
-      const message = error?.message || 'Impossible de terminer la connexion.';
-      if (/already registered|already exists|user already/i.test(message)) setAccountError('Ce compte existe déjà. Choisis « J’ai déjà un compte ».');
-      else if (/invalid login|invalid credentials/i.test(message)) setAccountError('E-mail ou mot de passe incorrect.');
-      else setAccountError(message);
-    } finally {
-      setAccountBusy(false);
-    }
+  const openShare = () => {
+    if (accountRequired) return openAccount('create');
+    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
+    setShareOpen(true);
   };
 
   const openSocial = async (platform: SocialPlatform) => {
@@ -137,6 +96,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const shareNative = async () => {
     if (accountRequired) return openAccount('create');
+    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(false);
     try { await shareProfile(user.username); }
     catch { Alert.alert('Partage', 'Impossible d’ouvrir le partage pour le moment.'); }
@@ -144,6 +104,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const shareEmail = async () => {
     if (accountRequired) return openAccount('create');
+    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(false);
     try { await shareProfileByEmail(user.username); }
     catch { Alert.alert('E-mail', 'Aucune application e-mail n’est disponible sur cet appareil.'); }
@@ -151,6 +112,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const showQr = () => {
     if (accountRequired) return openAccount('create');
+    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(false);
     setQrOpen(true);
   };
@@ -189,7 +151,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
           </View>
         </View>
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Débloque le partage, le QR et le suivi sans perdre ton profil actuel.</Text></TouchableOpacity> : null}
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Conserve ton profil, choisis ton identifiant et un mot de passe. Aucun e-mail obligatoire.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <View style={s.stats}><Stat value={keptTracks.length} label="KEEP"/><Stat value={user.followerCount} label="Abonnés"/><Stat value={user.followingCount} label="Abonnements"/></View>
       </View>
@@ -202,10 +164,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.socialHub}>
         <View style={s.socialHeader}><Text style={s.socialTitle}>Mes réseaux</Text><TouchableOpacity onPress={() => navigation.navigate('MusicConnections')}><Text style={s.musicLink}>♫ Services musicaux</Text></TouchableOpacity></View>
         <View style={s.socialRow}>{SOCIALS.map((item) => {
-          const configured = !!publicLinks.find((link) => link.platform === item.platform && item.url.trim());
+          const configured = !!publicLinks.find((link) => link.platform === item.platform && link.url.trim());
           return <TouchableOpacity key={item.platform} style={[s.socialButton, configured && s.socialButtonOn]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#AFA6BD'}/></TouchableOpacity>;
         })}</View>
       </View>
+
+      {!accountRequired ? <CreatorToolsPanel navigation={navigation} /> : null}
 
       <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>setActiveTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
       {tabContent()}
@@ -215,15 +179,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
-          <Text style={s.shareTitle}>{accountMode === 'create' ? 'Créer mon compte KEEP' : 'Se connecter à KEEP'}</Text>
-          <Text style={s.shareSubtitle}>{accountMode === 'create' ? 'Ton profil actuel reste conservé. Après création, partage, QR et suivi sont débloqués.' : 'Reconnecte-toi avec ton e-mail et ton mot de passe.'}</Text>
-          <TextInput style={s.accountInput} value={email} onChangeText={setEmail} placeholder="E-mail" placeholderTextColor={colors.textMuted} autoCapitalize="none" keyboardType="email-address" />
-          <View style={s.passwordRow}><TextInput style={s.passwordInput} value={password} onChangeText={setPassword} placeholder="Mot de passe" placeholderTextColor={colors.textMuted} secureTextEntry={!showPassword} autoCapitalize="none" /><TouchableOpacity style={s.eye} onPress={() => setShowPassword((v) => !v)}><Text style={s.eyeText}>{showPassword ? '◉' : '◎'}</Text></TouchableOpacity></View>
-          {accountMode === 'create' ? <View style={s.passwordRow}><TextInput style={s.passwordInput} value={password2} onChangeText={setPassword2} placeholder="Confirmer le mot de passe" placeholderTextColor={colors.textMuted} secureTextEntry={!showPassword2} autoCapitalize="none" /><TouchableOpacity style={s.eye} onPress={() => setShowPassword2((v) => !v)}><Text style={s.eyeText}>{showPassword2 ? '◉' : '◎'}</Text></TouchableOpacity></View> : null}
-          {accountError ? <Text style={s.accountError}>{accountError}</Text> : null}
-          <TouchableOpacity style={s.shareActionPrimary} onPress={submitAccount} disabled={accountBusy}>{accountBusy ? <ActivityIndicator color="#FFF"/> : <Text style={s.shareActionPrimaryText}>{accountMode === 'create' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>}</TouchableOpacity>
-          <TouchableOpacity style={s.switchMode} onPress={() => { setAccountMode(accountMode === 'create' ? 'login' : 'create'); setAccountError(''); setPassword(''); setPassword2(''); }}><Text style={s.switchModeText}>{accountMode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text></TouchableOpacity>
-          <Text style={s.accountInfo}>KEEP utilise l’e-mail uniquement comme identifiant/récupération. Ensuite, le mot de passe suffit pour se reconnecter. L’authentification renforcée et les connexions Google/Apple/Facebook pourront être ajoutées sans changer ton profil.</Text>
+          <UsernameAccountForm initialMode={accountMode} onSuccess={() => setAccountOpen(false)} />
           <TouchableOpacity style={s.cancelShare} onPress={() => setAccountOpen(false)}><Text style={s.cancelShareText}>Plus tard</Text></TouchableOpacity>
         </View>
       </View>
