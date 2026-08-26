@@ -130,6 +130,15 @@ for (const branch of renderBranches) {
 }
 if (/^\s*branch:\s*main\s*$/m.test(render)) failures.push('RENDER MAIN BRANCH REINTRODUCED');
 
+const workflowsDir = path.join(root, '.github', 'workflows');
+for (const filename of fs.readdirSync(workflowsDir).filter((name) => /\.ya?ml$/i.test(name))) {
+  const workflow = fs.readFileSync(path.join(workflowsDir, filename), 'utf8');
+  if (/branches\s*:\s*\[[^\]]*(?:^|[,'"\s])main(?:[,'"\s]|$)[^\]]*\]/m.test(workflow)) {
+    failures.push(`WORKFLOW STILL TARGETS MAIN: ${filename}`);
+  }
+  if (/^\s*-\s*main\s*$/m.test(workflow)) failures.push(`WORKFLOW STILL TARGETS MAIN: ${filename}`);
+}
+
 const pagesWorkflow = fs.readFileSync(path.join(root, '.github/workflows/web-preview-pages.yml'), 'utf8');
 for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, '__keep_route', 'Live browser matrix']) {
   if (!pagesWorkflow.includes(expected)) failures.push(`PUBLIC DEPLOY MARKER MISSING: ${expected}`);
