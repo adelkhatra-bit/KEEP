@@ -96,7 +96,18 @@ export class TrackResolver {
   /** Résout à partir d'un résultat de reconnaissance, en créant un morceau canonique si besoin. */
   resolveFromRecognition(result: RecognitionResult, idFactory: () => string = () => cryptoRandomId()): CanonicalTrack {
     const existing = this.findExisting({ isrc: result.isrc, title: result.title, artist: result.artist });
-    if (existing) return existing;
+    if (existing) {
+      // Enrichir un morceau déjà connu sans perdre son identité canonique.
+      if (!existing.artworkUrl && result.artworkUrl) existing.artworkUrl = result.artworkUrl;
+      if (!existing.album && result.album) existing.album = result.album;
+      if (!existing.previewUrl && result.previewUrl) existing.previewUrl = result.previewUrl;
+      if (result.availableOn?.length) existing.availableOn = Array.from(new Set([...(existing.availableOn ?? []), ...result.availableOn]));
+      if (result.externalUrls) existing.externalUrls = { ...(existing.externalUrls ?? {}), ...result.externalUrls };
+      for (const [provider, id] of Object.entries(result.providerIds ?? {})) {
+        if (id) this.linkProviderId(existing, provider, id);
+      }
+      return existing;
+    }
 
     const track: CanonicalTrack = {
       id: idFactory(),
@@ -105,7 +116,10 @@ export class TrackResolver {
       artist: result.artist,
       album: result.album,
       artworkUrl: result.artworkUrl,
-      providerIds: {},
+      previewUrl: result.previewUrl,
+      availableOn: result.availableOn,
+      externalUrls: result.externalUrls,
+      providerIds: { ...(result.providerIds ?? {}) },
     };
     this.index(track);
     return track;
