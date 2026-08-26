@@ -71,7 +71,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const openPaywall = () => {
     Alert.alert('Premium requis', 'Le partage public et le QR KEEP sont inclus à partir de Premium.', [
       { text: 'Plus tard', style: 'cancel' },
-      { text: 'Voir les formules', onPress: () => navigation.navigate('Offers') },
+      { text: 'Voir la formule', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PROFILE_SHARE' }) },
     ]);
   };
 
@@ -169,7 +169,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         })}</View>
       </View>
 
-      {!accountRequired ? <CreatorToolsPanel navigation={navigation} /> : null}
+      <CreatorToolsPanel navigation={navigation} />
 
       <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>setActiveTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
       {tabContent()}
