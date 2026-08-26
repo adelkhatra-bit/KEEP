@@ -2,6 +2,26 @@
 -- 1) Les policies admin ne doivent jamais appeler is_admin() pour le rôle anon.
 -- 2) pgcrypto vit dans `extensions` sur Supabase hébergé, mais peut être dans
 --    `public` dans le PostgreSQL de CI : le search_path couvre les deux.
+-- 3) `is_admin` existait historiquement sur le projet hébergé avant d'être
+--    versionné. On le définit ici pour rendre un replay de migrations autonome.
+
+create or replace function public.is_admin(check_uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.admin_users
+    where id = check_uid
+      and is_active = true
+  );
+$$;
+
+revoke execute on function public.is_admin(uuid) from public, anon;
+grant execute on function public.is_admin(uuid) to authenticated, service_role;
 
 -- PROFILES : la lecture publique reste assurée par profiles_select_own_or_public.
 -- Le bypass admin ne s'évalue que pour une vraie session authentifiée.
