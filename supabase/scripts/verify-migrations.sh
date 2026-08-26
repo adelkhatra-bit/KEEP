@@ -47,18 +47,27 @@ echo "== Shim schéma auth (reproduit le contrat Supabase Auth) =="
 pg -d "$DB" <<'SQL'
 create extension if not exists pgcrypto;
 create schema auth;
-create table auth.users (id uuid primary key default gen_random_uuid(), email text);
+-- Colonnes utilisées réellement par les triggers/migrations KEEP. Garder ce
+-- shim minimal mais suffisamment fidèle évite qu'un trigger Auth valide en
+-- production casse artificiellement le test PostgreSQL local.
+create table auth.users (
+  id uuid primary key default gen_random_uuid(),
+  email text,
+  raw_user_meta_data jsonb not null default '{}'::jsonb
+);
 create or replace function auth.uid() returns uuid
 language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 -- Rôles Supabase simulés. Certaines migrations accordent ou révoquent
--- explicitement des droits à `anon` / `authenticated`; un PostgreSQL brut
--- ne crée pas ces rôles automatiquement, contrairement à Supabase managé.
+-- explicitement des droits à `anon` / `authenticated` / `service_role`; un
+-- PostgreSQL brut ne crée pas ces rôles automatiquement.
 drop role if exists anon;
 create role anon nosuperuser nobypassrls;
 drop role if exists authenticated;
 create role authenticated nosuperuser nobypassrls;
+drop role if exists service_role;
+create role service_role nosuperuser bypassrls;
 -- Rôle applicatif non-superuser : sans ça, RLS est silencieusement
 -- contournée par le propriétaire des tables (postgres), et le test ne
 -- prouverait rien. Les rôles sont globaux au cluster (pas à la base) --
