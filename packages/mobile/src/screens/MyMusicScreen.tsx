@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -34,7 +34,11 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => (
     <View style={styles.playlistCard}>
-      <View style={styles.playlistCover} />
+      {item.coverUrl ? (
+        <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} />
+      ) : (
+        <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>♪</Text></View>
+      )}
       <View style={styles.playlistInfo}>
         <Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>
         {item.description && <Text style={styles.playlistDesc} numberOfLines={1}>{item.description}</Text>}
@@ -119,6 +123,8 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, flexGrow: 1 },
   playlistCard: { flexDirection: 'row', backgroundColor: colors.backgroundCard, borderRadius: radius.md, marginVertical: spacing.sm, overflow: 'hidden' },
   playlistCover: { width: 90, height: 90, backgroundColor: colors.backgroundElevated },
+  playlistCoverFallback: { alignItems: 'center', justifyContent: 'center' },
+  playlistCoverText: { color: colors.primaryLight, fontSize: 26, fontWeight: '900' },
   playlistInfo: { flex: 1, padding: spacing.md, justifyContent: 'space-between' },
   playlistName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   playlistDesc: { fontSize: 12, color: colors.textMuted, marginTop: spacing.xs },
