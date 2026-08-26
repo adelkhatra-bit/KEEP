@@ -14,6 +14,7 @@ const corsHeaders = {
 };
 
 type RuntimeStatus = "UNKNOWN" | "ACTIVE" | "EXHAUSTED" | "ERROR" | "NOT_CONFIGURED";
+type KeepVisibility = "PUBLIC" | "PRIVATE";
 
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
@@ -85,14 +86,69 @@ async function allowRecognition(req: Request, userId: string | null) {
   return Boolean(data);
 }
 
-function normalizeAuddResult(result: any) {
+function normalizeText(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function upscaleArtwork(url: string): string {
+  return url
+    .replace(/100x100bb/gi, "600x600bb")
+    .replace(/100x100/gi, "600x600")
+    .replace(/\{w\}/g, "600")
+    .replace(/\{h\}/g, "600");
+}
+
+/**
+ * Fallback gratuit de métadonnées uniquement : lorsqu'AudD reconnaît bien le
+ * morceau mais ne renvoie aucune pochette Spotify/Apple, on interroge le
+ * catalogue public Apple Search afin de ne pas afficher un carré vide dans
+ * KEEP. Aucun flux audio n'est téléchargé ni stocké.
+ */
+async function findFreeArtwork(title: string, artist: string): Promise<string | null> {
+  try {
+    const term = encodeURIComponent(`${artist} ${title}`);
+    const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8&country=FR`, {
+      headers: { "User-Agent": "KEEP/1.0" },
+    });
+    if (!response.ok) return null;
+    const body = await response.json().catch(() => null);
+    const results = Array.isArray(body?.results) ? body.results : [];
+    if (!results.length) return null;
+
+    const wantedTitle = normalizeText(title);
+    const wantedArtist = normalizeText(artist);
+    const best = results.find((item: any) => {
+      const candidateTitle = normalizeText(item?.trackName);
+      const candidateArtist = normalizeText(item?.artistName);
+      return candidateTitle === wantedTitle && candidateArtist === wantedArtist;
+    }) ?? results.find((item: any) => {
+      const candidateTitle = normalizeText(item?.trackName);
+      const candidateArtist = normalizeText(item?.artistName);
+      return candidateTitle.includes(wantedTitle) && candidateArtist.includes(wantedArtist);
+    }) ?? results[0];
+
+    const artwork = String(best?.artworkUrl100 || best?.artworkUrl60 || "").trim();
+    return artwork ? upscaleArtwork(artwork) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function normalizeAuddResult(result: any) {
   if (!result || !result.title || !result.artist) return null;
   const apple = result.apple_music ?? result.appleMusic ?? null;
   const spotify = result.spotify ?? null;
-  const artworkUrl =
+  let artworkUrl =
     apple?.artwork?.url?.replace?.("{w}", "600")?.replace?.("{h}", "600") ||
     spotify?.album?.images?.[0]?.url ||
     null;
+
+  if (!artworkUrl) artworkUrl = await findFreeArtwork(String(result.title), String(result.artist));
 
   return {
     confidence: 1,
@@ -100,7 +156,7 @@ function normalizeAuddResult(result: any) {
     artist: String(result.artist),
     album: result.album ? String(result.album) : undefined,
     isrc: result.isrc ? String(result.isrc) : undefined,
-    artworkUrl: artworkUrl || undefined,
+    artworkUrl: artworkUrl ? upscaleArtwork(String(artworkUrl)) : undefined,
     recognitionProviderTrackId: result.song_link ? String(result.song_link) : undefined,
   };
 }
@@ -157,7 +213,7 @@ async function recognize(req: Request) {
   }
 
   await setRecognitionStatus("ACTIVE");
-  const recognition = normalizeAuddResult(body?.result);
+  const recognition = await normalizeAuddResult(body?.result);
   return json(200, { ok: true, recognition });
 }
 
@@ -173,6 +229,17 @@ type TrackInput = {
   providerIds?: Record<string, string | undefined>;
 };
 
+async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: string): Promise<string> {
+  const patch: Record<string, unknown> = {};
+  if (!existing.isrc && isrc) patch.isrc = isrc;
+  if (!existing.album && track.album) patch.album = track.album;
+  if (!existing.artwork_url && track.artworkUrl) patch.artwork_url = track.artworkUrl;
+  const incomingProviderIds = track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {};
+  if (Object.keys(incomingProviderIds).length) patch.provider_ids = { ...(existing.provider_ids ?? {}), ...incomingProviderIds };
+  if (Object.keys(patch).length) await admin.from("tracks").update(patch).eq("id", existing.id);
+  return String(existing.id);
+}
+
 async function findOrCreateTrack(track: TrackInput): Promise<string> {
   const title = String(track.title ?? "").trim();
   const artist = String(track.artist ?? "").trim();
@@ -180,18 +247,18 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
   if (!title || !artist) throw new Error("invalid_track");
 
   if (isrc) {
-    const { data } = await admin.from("tracks").select("id").eq("isrc", isrc).maybeSingle();
-    if (data?.id) return String(data.id);
+    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,provider_ids").eq("isrc", isrc).maybeSingle();
+    if (data?.id) return refreshTrackMetadata(data, track, isrc);
   }
 
   const { data: matches, error: matchError } = await admin
     .from("tracks")
-    .select("id")
+    .select("id,isrc,album,artwork_url,provider_ids")
     .ilike("title", title)
     .ilike("artist", artist)
     .limit(1);
   if (matchError) throw matchError;
-  if (matches?.[0]?.id) return String(matches[0].id);
+  if (matches?.[0]?.id) return refreshTrackMetadata(matches[0], track, isrc);
 
   const { data, error } = await admin.from("tracks").insert({
     isrc: isrc || null,
@@ -214,6 +281,7 @@ async function recordDecision(req: Request) {
   const body = await req.json().catch(() => ({}));
   const decision = String(body?.decision ?? "").toUpperCase();
   if (decision !== "KEPT" && decision !== "PASSED") return json(400, { error: "invalid_decision" });
+  const visibility: KeepVisibility = String(body?.visibility ?? "PRIVATE").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PRIVATE";
   const trackId = await findOrCreateTrack((body?.track ?? {}) as TrackInput);
 
   const context = body?.context && typeof body.context === "object" ? body.context : {};
@@ -221,13 +289,34 @@ async function recordDecision(req: Request) {
     profile_id: userId,
     track_id: trackId,
     decision,
+    visibility,
     recommended_playlist_id: null,
     chosen_playlist_id: null,
     was_correction: false,
     context,
-  }).select("id,created_at").single();
+  }).select("id,created_at,visibility").single();
   if (error) throw error;
-  return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at });
+  return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility });
+}
+
+async function updateDecisionVisibility(req: Request, body: any) {
+  const userId = await optionalUserId(req);
+  if (!userId) return json(401, { error: "account_required" });
+  const decisionId = String(body?.decisionId ?? "").trim();
+  const visibility: KeepVisibility = String(body?.visibility ?? "PRIVATE").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PRIVATE";
+  if (!/^[0-9a-f-]{36}$/i.test(decisionId)) return json(400, { error: "invalid_decision_id" });
+
+  const { data, error } = await admin
+    .from("keep_decisions")
+    .update({ visibility })
+    .eq("id", decisionId)
+    .eq("profile_id", userId)
+    .eq("decision", "KEPT")
+    .select("id,visibility")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return json(404, { error: "decision_not_found" });
+  return json(200, { ok: true, decisionId: data.id, visibility: data.visibility });
 }
 
 Deno.serve(async (req) => {
@@ -258,7 +347,9 @@ Deno.serve(async (req) => {
 
     const cloned = req.clone();
     const body = await cloned.json().catch(() => ({}));
-    if (String(body?.action || "") === "decision") return await recordDecision(req);
+    const action = String(body?.action || "");
+    if (action === "decision") return await recordDecision(req);
+    if (action === "decision.visibility") return await updateDecisionVisibility(req, body);
     return json(400, { error: "unknown_action" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
