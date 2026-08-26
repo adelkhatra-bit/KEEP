@@ -14,6 +14,7 @@ import { useUserStore } from '../store/useUserStore';
 import { withRetry } from './retry';
 import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
 import { recordKeepDecision } from './keepMusicCoreRecognition';
+import { syncPlaylistTrack } from './keepLibraryService';
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
@@ -36,9 +37,6 @@ export async function commitKeep(
   const consumesCredit = externalWrite || localTrialWrite;
   const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
-  // En production : seul l'ajout externe consomme. En essai local : l'ajout
-  // simulé consomme le quota de test, sinon l'utilisateur verrait toujours 3/3
-  // et on ne pourrait jamais valider le parcours FREE avant mise en production.
   if (consumesCredit) await ensureDownloadCreditAvailable();
 
   const playlistsBefore = await withRetry(() => musicEngine.musicProvider.getPlaylists(session));
@@ -46,10 +44,6 @@ export async function commitKeep(
   const requestedRecommendation = recommendations.find((r) => r.playlistId === requestedId) ?? recommendations[0];
   let target = requestedId ? playlistsBefore.find((playlist) => playlist.id === requestedId) : undefined;
 
-  // Une recommandation peut exister avant sa playlist physique. L'ancien code
-  // ajoutait alors le morceau sous un id invisible et « Ranger ma musique »
-  // pouvait afficher 0 morceau malgré un KEEP réel. On crée maintenant la
-  // destination avant l'ajout : aucun faux compteur, aucune playlist fantôme.
   if (!target && requestedId) {
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
@@ -98,9 +92,17 @@ export async function commitKeep(
   try {
     const recorded = await recordKeepDecision(track, visibility, options?.context ?? {});
     keepDecisionId = recorded?.decisionId;
+    if (recorded?.trackId) {
+      await syncPlaylistTrack({
+        provider: session.provider || 'KEEP',
+        providerPlaylistId: targetPlaylistId,
+        playlistName,
+        playlistDescription: target.description,
+        coverUrl: target.coverUrl,
+        trackId: recorded.trackId,
+      });
+    }
   } catch {
-    // Le morceau est déjà gardé dans la bibliothèque. On ne transforme jamais
-    // une panne de synchro profil en faux échec de téléchargement.
     profileSyncFailed = true;
   }
 
