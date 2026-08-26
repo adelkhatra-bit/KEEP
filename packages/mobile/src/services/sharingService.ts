@@ -27,14 +27,12 @@ export function buildPublicProfileLink(username: string): string {
 
 export async function shareProfile(username: string): Promise<void> {
   const link = buildPublicProfileLink(username);
-  const message = 'Découvre mon univers musical sur KEEP 🎵';
+  const message = `Découvre mon univers musical sur KEEP 🎵 ${link}`;
 
-  if (Platform.OS === 'ios') {
-    await Share.share({ title: 'Mon profil KEEP', message, url: link });
-    return;
-  }
-
-  await Share.share({ title: 'Mon profil KEEP', message: `${message} ${link}` });
+  // Un seul champ `message` sur toutes les plateformes. Certaines apps iOS
+  // (WhatsApp notamment) dupliquent l'URL lorsque React Native reçoit à la fois
+  // `message` et `url`. KEEP partage donc toujours exactement UNE URL canonique.
+  await Share.share({ title: 'Mon profil KEEP', message });
 }
 
 /**
@@ -44,12 +42,8 @@ export async function shareProfile(username: string): Promise<void> {
  */
 export async function shareProfileTrack(username: string, title: string, artist: string): Promise<void> {
   const link = buildPublicProfileLink(username);
-  const message = `Découvre « ${title} » — ${artist} dans mon univers KEEP 🎵`;
-  if (Platform.OS === 'ios') {
-    await Share.share({ title: `${title} sur KEEP`, message, url: link });
-    return;
-  }
-  await Share.share({ title: `${title} sur KEEP`, message: `${message} ${link}` });
+  const message = `Découvre « ${title} » — ${artist} dans mon univers KEEP 🎵 ${link}`;
+  await Share.share({ title: `${title} sur KEEP`, message });
 }
 
 export async function shareProfileByEmail(username: string): Promise<void> {
@@ -66,10 +60,10 @@ export async function shareProfileByEmail(username: string): Promise<void> {
     ? `\nMes styles : ${sameProfile.favoriteGenres.slice(0, 5).join(' · ')}\n`
     : '';
 
-  const subject = encodeURIComponent(`Découvre mon univers KEEP — @${cleanUsername}`);
-  const body = encodeURIComponent(
-    `Je partage mon profil KEEP avec toi.\n\n${identity}${bio}${genres}\nDécouvre mon KEEP DNA, mes morceaux gardés et les réseaux que j’ai choisi de rendre publics :\n\n${link}\n\nOuvre simplement le lien ci-dessus pour accéder directement à mon profil public KEEP.\n\nTes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.`,
-  );
+  const subjectText = `Découvre mon univers KEEP — @${cleanUsername}`;
+  const bodyText = `Je partage mon profil KEEP avec toi.\n\n${identity}${bio}${genres}\nDécouvre mon KEEP DNA, mes morceaux gardés et les réseaux que j’ai choisi de rendre publics :\n\n${link}\n\nOuvre simplement le lien ci-dessus pour accéder directement à mon profil public KEEP.\n\nTes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.`;
+  const subject = encodeURIComponent(subjectText);
+  const body = encodeURIComponent(bodyText);
   const mailto = `mailto:?subject=${subject}&body=${body}`;
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -90,15 +84,16 @@ export async function shareProfileByEmail(username: string): Promise<void> {
     return;
   }
 
-  try {
+  // Sur iOS/Android, ne laisse jamais l'utilisateur sur une action morte :
+  // si aucun gestionnaire mail n'est installé/configuré, on retombe sur la
+  // feuille de partage système avec le même contenu et la même URL canonique.
+  const canOpenEmail = await Linking.canOpenURL(mailto).catch(() => false);
+  if (canOpenEmail) {
     await Linking.openURL(mailto);
-  } catch (error) {
-    if (typeof window !== 'undefined') {
-      window.location.href = mailto;
-      return;
-    }
-    throw error;
+    return;
   }
+
+  await Share.share({ title: subjectText, message: bodyText });
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
