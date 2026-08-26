@@ -32,6 +32,17 @@ function visibleEmail(email: string | null) {
   return email;
 }
 
+function memberNumber(id: string) {
+  return `KEEP-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+}
+
+function durationLabel(months: number) {
+  if (months === 0) return 'Illimité';
+  if (months === 12) return '1 an';
+  if (months === 24) return '2 ans';
+  return `${months} mois`;
+}
+
 export default function Users() {
   const [query, setQuery] = useState('');
   const [planFilter, setPlanFilter] = useState<PlanFilter>('ALL');
@@ -70,7 +81,7 @@ export default function Users() {
     return users.filter((u) => {
       if (planFilter !== 'ALL' && u.plan_code !== planFilter) return false;
       if (!needle) return true;
-      return [u.username, u.display_name ?? '', visibleEmail(u.email), u.country_code ?? '', u.kind ?? '', u.plan_code]
+      return [u.username, u.display_name ?? '', visibleEmail(u.email), u.country_code ?? '', u.kind ?? '', u.plan_code, memberNumber(u.id)]
         .some((value) => value.toLowerCase().includes(needle));
     });
   }, [users, query, planFilter]);
@@ -136,7 +147,8 @@ export default function Users() {
         reason,
       });
       const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
-      setActionMessage(`${managePlan} offert à @${result?.username || identity} pour ${months} mois${endsAt ? ` — jusqu’au ${endsAt}` : ''}.`);
+      const target = `@${result?.username || identity}`;
+      setActionMessage(`${managePlan} offert à ${target} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : months === 0 ? ', sans date de fin' : ''}.`);
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Attribution impossible.');
@@ -151,7 +163,7 @@ export default function Users() {
     setActionBusy('revoke'); setError(null); setActionMessage(null);
     try {
       const result = await invokeAdmin({ action: 'users.revoke_grant', identity });
-      setActionMessage(`Abonnement offert révoqué pour ${identity} (${result?.revoked ?? 0} attribution active).`);
+      setActionMessage(`Abonnement offert révoqué pour ${identity} (${result?.revoked ?? 0} attribution active). Le compte et ses données restent intacts.`);
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Révocation impossible.');
@@ -169,7 +181,7 @@ export default function Users() {
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {actionMessage && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{actionMessage}</div>}
-      {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils, plan actif et KEEP du mois. Les comptes sans e-mail sont gérés directement par leur pseudo KEEP.</div>}
+      {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils, numéro support KEEP, plan actif et KEEP du mois. Les comptes sans e-mail sont gérés directement par leur pseudo KEEP.</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Récupérer un ancien essai KEEP</h3>
@@ -201,9 +213,9 @@ export default function Users() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter / offrir un abonnement</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.5 }}>
-          Saisis un <strong>pseudo KEEP</strong> ou une adresse e-mail existante pour offrir Premium, Creator Pro ou Venue Pro. L’e-mail n’est plus obligatoire pour les comptes KEEP.
+          Saisis un <strong>pseudo KEEP</strong> ou une adresse e-mail existante pour offrir Premium, Creator Pro ou Venue Pro. Choisis une durée fixe ou <strong>Illimité</strong>. À tout moment, « Révoquer » remet les droits payants à l’état normal sans supprimer le compte.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(150px, 1fr) 110px', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(150px, 1fr) minmax(140px, 1fr)', gap: 10, marginBottom: 10 }}>
           <input
             type="text"
             placeholder="pseudo KEEP ou utilisateur@email.fr"
@@ -216,19 +228,25 @@ export default function Users() {
             onChange={(e) => setManagePlan(e.target.value as typeof managePlan)}
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
           >
-            <option value="PREMIUM">Premium</option>
-            <option value="CREATOR_PRO">Creator Pro</option>
-            <option value="VENUE_PRO">Venue Pro</option>
+            <option value="PREMIUM">Premium · 2,99 €</option>
+            <option value="CREATOR_PRO">Creator Pro · 9,99 €</option>
+            <option value="VENUE_PRO">Venue Pro · 29,99 €</option>
           </select>
-          <input
-            type="number"
-            min={1}
-            max={60}
+          <select
             value={months}
-            onChange={(e) => setMonths(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
-            title="Durée en mois"
+            onChange={(e) => setMonths(Number(e.target.value))}
+            title="Durée du cadeau"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
-          />
+          >
+            <option value={1}>1 mois</option>
+            <option value={3}>3 mois</option>
+            <option value={6}>6 mois</option>
+            <option value={12}>1 an</option>
+            <option value={24}>2 ans</option>
+            <option value={36}>3 ans</option>
+            <option value={60}>5 ans</option>
+            <option value={0}>Illimité</option>
+          </select>
         </div>
         <input
           type="text"
@@ -239,7 +257,7 @@ export default function Users() {
         />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button onClick={() => void grant()} disabled={!manageIdentity.trim() || actionBusy !== null}>
-            {actionBusy === 'grant' ? 'Attribution…' : `Offrir ${managePlan} — ${months} mois`}
+            {actionBusy === 'grant' ? 'Attribution…' : `Offrir ${managePlan} — ${durationLabel(months)}`}
           </button>
           <button onClick={() => void revoke()} disabled={!manageIdentity.trim() || actionBusy !== null} style={{ opacity: 0.8 }}>
             {actionBusy === 'revoke' ? 'Révocation…' : 'Révoquer le cadeau actif'}
@@ -256,7 +274,7 @@ export default function Users() {
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <input
           type="text"
-          placeholder="Rechercher (pseudo, e-mail, pays, type, plan)…"
+          placeholder="Rechercher (pseudo, n° KEEP, e-mail, pays, type, plan)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 16 }}
@@ -273,14 +291,15 @@ export default function Users() {
 
       <table>
         <thead>
-          <tr><th>Utilisateur</th><th>E-mail</th><th>Pays</th><th>Type</th><th>Plan réel</th><th>KEEP ce mois</th><th>Inscrit le</th><th>Action</th></tr>
+          <tr><th>Utilisateur</th><th>N° KEEP</th><th>E-mail</th><th>Pays</th><th>Type</th><th>Plan réel</th><th>KEEP ce mois</th><th>Inscrit le</th><th>Action</th></tr>
         </thead>
         <tbody>
-          {loading && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 24 }}>Chargement de Supabase…</td></tr>}
-          {!loading && filtered.length === 0 && <tr><td colSpan={8} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Aucun utilisateur ne correspond à ces critères.</td></tr>}
+          {loading && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 24 }}>Chargement de Supabase…</td></tr>}
+          {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Aucun utilisateur ne correspond à ces critères.</td></tr>}
           {filtered.map((u) => (
             <tr key={u.id}>
               <td><strong>@{u.username}</strong>{u.display_name ? <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{u.display_name}</div> : null}</td>
+              <td><code>{memberNumber(u.id)}</code></td>
               <td>{visibleEmail(u.email)}</td>
               <td>{u.country_code ?? '—'}</td>
               <td>{u.kind ?? 'USER'}</td>
