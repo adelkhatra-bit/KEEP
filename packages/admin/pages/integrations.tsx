@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 
+type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
+
 type IntegrationRow = {
   key: string;
   category: string;
@@ -10,6 +12,16 @@ type IntegrationRow = {
   configured: boolean;
   hint: string | null;
   updatedAt: string | null;
+  runtimeStatus?: IntegrationStatus;
+  lastCheckedAt?: string | null;
+  lastError?: string | null;
+};
+
+type RuntimeStatusRow = {
+  key: string;
+  status: IntegrationStatus;
+  last_checked_at: string | null;
+  last_error: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -17,6 +29,25 @@ const CATEGORY_LABELS: Record<string, string> = {
   music: 'Musique',
   recognition: 'Reconnaissance',
   payments: 'Paiements',
+};
+
+const AUDD_DASHBOARD = 'https://dashboard.audd.io/';
+const AUDD_DOCS = 'https://docs.audd.io/';
+
+const STATUS_LABELS: Record<IntegrationStatus, string> = {
+  UNKNOWN: 'À tester',
+  ACTIVE: 'Actif',
+  EXHAUSTED: 'Quota épuisé',
+  ERROR: 'Erreur fournisseur',
+  NOT_CONFIGURED: 'Clé manquante',
+};
+
+const STATUS_COLORS: Record<IntegrationStatus, string> = {
+  UNKNOWN: '#f0b429',
+  ACTIVE: '#62c46f',
+  EXHAUSTED: '#ff9f43',
+  ERROR: '#e05252',
+  NOT_CONFIGURED: 'var(--text-muted)',
 };
 
 async function invokeAdmin(body: Record<string, unknown>) {
@@ -41,7 +72,23 @@ export default function Integrations() {
     setError(null);
     try {
       const result = await invokeAdmin({ action: 'integrations.list' });
-      setRows((result?.data ?? []) as IntegrationRow[]);
+      const baseRows = (result?.data ?? []) as IntegrationRow[];
+
+      let statusRows: RuntimeStatusRow[] = [];
+      if (supabase) {
+        const { data: runtime, error: runtimeError } = await supabase.rpc('admin_integration_runtime_status');
+        if (!runtimeError) statusRows = (runtime ?? []) as RuntimeStatusRow[];
+      }
+      const runtimeByKey = new Map(statusRows.map((item) => [item.key, item]));
+      setRows(baseRows.map((row) => {
+        const runtime = runtimeByKey.get(row.key);
+        return {
+          ...row,
+          runtimeStatus: runtime?.status ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED'),
+          lastCheckedAt: runtime?.last_checked_at ?? null,
+          lastError: runtime?.last_error ?? null,
+        };
+      }));
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les intégrations.');
     } finally {
@@ -57,6 +104,8 @@ export default function Integrations() {
     return map;
   }, [rows]);
 
+  const paidRows = useMemo(() => rows.filter((row) => row.key === 'AUDD_API_KEY'), [rows]);
+
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
     if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
@@ -64,7 +113,7 @@ export default function Integrations() {
     try {
       await invokeAdmin({ action: 'integrations.set', key: row.key, value });
       setValues((prev) => ({ ...prev, [row.key]: '' }));
-      setMessage(`${row.label} enregistré dans Supabase Vault.`);
+      setMessage(`${row.label} enregistré dans Supabase Vault. La valeur précédente est remplacée sans être affichée.`);
       await load();
     } catch (e: any) {
       setError(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
@@ -106,6 +155,38 @@ export default function Integrations() {
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Services à quota / payants</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
+          KEEP surveille l’état remonté par le fournisseur pendant les vraies utilisations. Si une clé est épuisée, le statut passe automatiquement en <strong>Quota épuisé</strong>. La clé peut ensuite être remplacée ici sans redéployer l’application.
+        </p>
+        {paidRows.map((row) => {
+          const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
+          return <div key={row.key} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div>
+                <strong>AudD — reconnaissance musicale</strong>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                  Clé de test actuelle : 10 requêtes/jour. Un compte AudD réel bénéficie d’un quota gratuit initial, puis d’une facturation fournisseur.
+                </div>
+              </div>
+              <div style={{ color: STATUS_COLORS[status], fontWeight: 800 }}>● {STATUS_LABELS[status]}</div>
+            </div>
+            {row.lastCheckedAt && <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8 }}>Dernier contrôle réel : {new Date(row.lastCheckedAt).toLocaleString('fr-FR')}</div>}
+            {row.lastError && <div style={{ color: status === 'EXHAUSTED' ? '#ff9f43' : '#e05252', fontSize: 12, marginTop: 8 }}>Dernier retour : {row.lastError}</div>}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <a href={AUDD_DASHBOARD} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '9px 13px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
+                Gérer / recharger AudD
+              </a>
+              <a href={AUDD_DOCS} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '9px 13px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+                Documentation AudD
+              </a>
+              <button onClick={() => void load()} disabled={loading}>Actualiser le statut</button>
+            </div>
+          </div>;
+        })}
+      </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Connexion e-mail KEEP</h3>
