@@ -2,7 +2,7 @@ name: KEEP — Test humain navigateur
 
 on:
   push:
-    branches: [main, 'reconcile/claude-main-20260825']
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
