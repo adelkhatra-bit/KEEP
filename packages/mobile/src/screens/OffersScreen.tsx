@@ -15,17 +15,17 @@ const BENEFITS: Record<string, string[]> = {
   PREMIUM: [
     'Débloque le partage public du profil et le QR KEEP',
     'Rend tes playlists et ta musique visibles à ta communauté',
-    'Synchronisation multi-plateformes étendue',
-    'Historique complet et usage plus confortable',
+    'KEEP, abonnements et comparaisons sans quota mensuel prévu',
+    'Jusqu’à 3 services musicaux connectés',
   ],
   CREATOR_PRO: [
-    'Inclut les fonctions Premium',
+    'Inclut toutes les fonctions Premium',
     'Profils DJ, Artiste, Créateur ou Producteur',
     'Création d’événements et notifications aux abonnés',
     'Analytics et fonctions créateur avancées',
   ],
   VENUE_PRO: [
-    'Inclut les fonctions créateur disponibles pour les lieux',
+    'Inclut les fonctions Creator Pro disponibles pour les lieux',
     'Profil Lieu / établissement',
     'Événements, communauté, QR et visibilité professionnelle',
     'Outils et analytics dédiés aux établissements',
@@ -132,6 +132,7 @@ export default function OffersScreen({ navigation, route }: any) {
               </View>
               {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
               {(BENEFITS[plan.code] || []).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}
+              {plan.code !== 'FREE' ? <Text style={s.unlimited}>Fonctions incluses disponibles pendant toute la durée de l’abonnement, sans achat à l’unité.</Text> : null}
               {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               {!active && plan.code !== 'FREE' ? (
                 <TouchableOpacity style={s.cta} onPress={() => {}} accessibilityRole="button">
@@ -141,6 +142,11 @@ export default function OffersScreen({ navigation, route }: any) {
             </View>
           );
         })}
+
+        <View style={s.subscriptionCard}>
+          <Text style={s.subscriptionTitle}>Sans engagement</Text>
+          <Text style={s.subscriptionText}>Abonnement mensuel. Tu peux arrêter à tout moment. Les avantages restent actifs jusqu’à la fin de la période déjà payée, puis les fonctions payantes se reverrouillent automatiquement. Ton compte, ton profil et tes données restent conservés.</Text>
+        </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
           <Text style={s.allPlansText}>Voir toutes les formules</Text>
@@ -184,9 +190,13 @@ const s = StyleSheet.create({
   requiredBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
   planDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 10, marginBottom: 6 },
   benefit: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  unlimited: { color: colors.keep, fontSize: 10, lineHeight: 15, fontWeight: '800', marginTop: 10 },
   trial: { color: colors.keep, fontSize: 11, fontWeight: '800', marginTop: 8 },
   cta: { minHeight: 44, borderRadius: 22, marginTop: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   ctaText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
+  subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
+  subscriptionText: { color: colors.textMuted, fontSize: 10, lineHeight: 16, marginTop: 5 },
   allPlans: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   allPlansText: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   error: { color: colors.danger, textAlign: 'center', paddingVertical: 20 },
