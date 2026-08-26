@@ -19,6 +19,7 @@ export interface AuthService {
   signInAsGuest(): Promise<{ error: string | null }>;
   signUpWithEmailIdentity(email: string, username: string, password: string): Promise<UsernameAuthResult>;
   signInWithEmailIdentity(email: string, password: string): Promise<UsernameAuthResult>;
+  resendSignupConfirmation(email: string): Promise<{ error: string | null }>;
   /** Compatibilité avec les anciens essais créés avant le passage à l'e-mail. */
   signUpWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
   signInWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
@@ -146,6 +147,17 @@ export function createAuthService(client: SupabaseClient): AuthService {
         email: normalizeEmail(email),
         password,
       });
+    },
+
+    async resendSignupConfirmation(email) {
+      const cleanEmail = normalizeEmail(email);
+      if (!cleanEmail) return { error: 'invalid_email' };
+      const { error } = await client.auth.resend({
+        type: 'signup',
+        email: cleanEmail,
+        options: { emailRedirectTo: KEEP_PUBLIC_URL },
+      });
+      return { error: error ? mapSignupError(error.message) : null };
     },
 
     async signUpWithUsername(username, password) {
