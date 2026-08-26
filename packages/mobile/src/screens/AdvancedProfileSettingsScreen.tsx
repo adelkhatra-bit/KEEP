@@ -5,6 +5,8 @@ import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { SocialLink } from '../types';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
+import { createProfileService } from '../services/profileService';
+import { supabase } from '../services/supabaseClient';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' },
@@ -17,22 +19,59 @@ const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
 
 export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
-  const addSocialLink = useUserStore((s) => s.addSocialLink);
-  const removeSocialLink = useUserStore((s) => s.removeSocialLink);
-  const toggleSocialLinkVisibility = useUserStore((s) => s.toggleSocialLinkVisibility);
+  const setUser = useUserStore((s) => s.setUser);
   const updateUser = useUserStore((s) => s.updateUser);
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
+  const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
 
   const goToTab = (screen: 'MyMusic' | 'Profile') => navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
   const linkFor = (platform: SocialLink['platform']) => user.socialLinks.find((l) => l.platform === platform);
-  const saveNetwork = (platform: SocialLink['platform']) => {
+
+  const persistSocialLinks = async (links: SocialLink[], platform: SocialLink['platform'], successMessage: string) => {
+    const nextUser = { ...user, socialLinks: links };
+    setSavingNetwork(platform);
+    try {
+      if (!supabase || isLocalGuest || isDemoMode) {
+        setUser(nextUser);
+        Alert.alert('Réseau enregistré pour l’essai', 'Crée ton compte KEEP pour conserver ce réseau après rechargement et le rendre disponible sur ton profil public.');
+        return;
+      }
+      await createProfileService(supabase).saveOwnProfile(nextUser);
+      setUser(nextUser);
+      Alert.alert('Réseau enregistré', successMessage);
+    } catch (e: any) {
+      Alert.alert('Réseau social', e?.message || 'Impossible d’enregistrer ce réseau pour le moment.');
+    } finally {
+      setSavingNetwork(null);
+    }
+  };
+
+  const saveNetwork = async (platform: SocialLink['platform']) => {
     const value = (drafts[platform] ?? linkFor(platform)?.url ?? '').trim();
     if (!value) return void Alert.alert('Lien manquant', 'Ajoute le lien de ton réseau social.');
-    addSocialLink({ platform, url: value, visibility: linkFor(platform)?.visibility ?? 'PUBLIC' });
+    const existing = linkFor(platform);
+    const links = [
+      ...user.socialLinks.filter((l) => l.platform !== platform),
+      { platform, url: value, visibility: existing?.visibility ?? 'PUBLIC' } as SocialLink,
+    ];
+    await persistSocialLinks(links, platform, 'Le logo s’allume maintenant avec la couleur du réseau sur ton profil.');
     setDrafts((prev) => ({ ...prev, [platform]: value }));
-    Alert.alert('Réseau enregistré', 'Le bouton est maintenant disponible sur ton profil.');
+  };
+
+  const toggleNetworkVisibility = async (platform: SocialLink['platform']) => {
+    const links = user.socialLinks.map((link) => link.platform === platform ? { ...link, visibility: link.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC' } as SocialLink : link);
+    const next = links.find((link) => link.platform === platform);
+    await persistSocialLinks(links, platform, next?.visibility === 'PUBLIC' ? 'Ce réseau est maintenant visible sur ton profil.' : 'Ce réseau est maintenant privé.');
+  };
+
+  const removeNetwork = async (platform: SocialLink['platform']) => {
+    const links = user.socialLinks.filter((link) => link.platform !== platform);
+    await persistSocialLinks(links, platform, 'Le réseau a été retiré de ton profil.');
+    setDrafts((prev) => ({ ...prev, [platform]: '' }));
   };
 
   return (
@@ -67,19 +106,29 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
 
         <View style={s.section}>
           <Text style={s.sectionTitle}>Réseaux sociaux</Text>
-          <Text style={s.help}>Les logos sont visibles sur ton profil. Un lien public s’ouvre directement pour les abonnés.</Text>
+          <Text style={s.help}>Un logo en couleur signifie que le réseau est renseigné. Un logo sombre signifie qu’il n’est pas encore connecté à ton profil.</Text>
           {NETWORKS.map(({ platform, label }) => {
             const existing = linkFor(platform);
+            const connected = !!existing?.url.trim();
+            const brandColor = SOCIAL_BRAND_COLORS[platform] ?? '#FFFFFF';
             const value = drafts[platform] ?? existing?.url ?? '';
             return (
               <View key={platform} style={s.networkBlock}>
-                <View style={s.networkTitle}><View style={[s.logo, { backgroundColor: `${SOCIAL_BRAND_COLORS[platform]}26`, borderWidth: 1, borderColor: SOCIAL_BRAND_COLORS[platform] }]}><SocialPlatformIcon platform={platform} size={20} color={SOCIAL_BRAND_COLORS[platform] ?? '#FFFFFF'} /></View><Text style={s.label}>{label}</Text></View>
+                <View style={s.networkTitle}>
+                  <View style={[s.logo, connected ? { backgroundColor: `${brandColor}26`, borderColor: brandColor } : s.logoOff]}>
+                    <SocialPlatformIcon platform={platform} size={20} color={connected ? brandColor : colors.textMuted} />
+                  </View>
+                  <View style={s.networkLabelWrap}>
+                    <Text style={s.label}>{label}</Text>
+                    <Text style={[s.connectionState, connected && { color: brandColor }]}>{connected ? 'Connecté au profil' : 'Non renseigné'}</Text>
+                  </View>
+                </View>
                 <TextInput style={s.input} value={value} onChangeText={(text) => setDrafts((prev) => ({ ...prev, [platform]: text }))} placeholder={`Lien ${label}`} placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} />
                 <View style={s.row}>
-                  <TouchableOpacity style={s.primaryButton} onPress={() => saveNetwork(platform)}><Text style={s.primaryText}>Enregistrer</Text></TouchableOpacity>
+                  <TouchableOpacity style={s.primaryButton} onPress={() => saveNetwork(platform)} disabled={savingNetwork === platform}><Text style={s.primaryText}>{savingNetwork === platform ? 'Enregistrement…' : 'Enregistrer'}</Text></TouchableOpacity>
                   {existing ? <>
-                    <TouchableOpacity style={s.secondaryButton} onPress={() => toggleSocialLinkVisibility(platform)}><Text style={s.secondaryText}>{existing.visibility === 'PUBLIC' ? 'Public' : 'Privé'}</Text></TouchableOpacity>
-                    <TouchableOpacity style={s.secondaryButton} onPress={() => removeSocialLink(platform)}><Text style={s.dangerText}>Supprimer</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.secondaryButton} onPress={() => toggleNetworkVisibility(platform)} disabled={savingNetwork === platform}><Text style={s.secondaryText}>{existing.visibility === 'PUBLIC' ? 'Public' : 'Privé'}</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.secondaryButton} onPress={() => removeNetwork(platform)} disabled={savingNetwork === platform}><Text style={s.dangerText}>Supprimer</Text></TouchableOpacity>
                   </> : null}
                 </View>
               </View>
@@ -101,6 +150,6 @@ const s = StyleSheet.create({
   headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
   content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
   label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
-  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, logo: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#5B3F8C', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#A884FA' }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
+  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
   primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
 });
