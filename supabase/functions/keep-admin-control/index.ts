@@ -55,6 +55,11 @@ function hint(value: string) {
   return `${clean.slice(0, 3)}••••••${clean.slice(-4)}`;
 }
 
+function existingEdgeSecret(key: string): string | null {
+  const value = Deno.env.get(key);
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function generateTemporaryPassword() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(14));
@@ -99,7 +104,12 @@ async function audit(actorId: string, action: string, targetType: string, target
 async function getSecret(key: string): Promise<string | null> {
   const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
   if (error) throw error;
-  return typeof data === "string" && data.length ? data : null;
+  if (typeof data === "string" && data.trim()) return data.trim();
+
+  // Compatibilité non destructive : les premières APIs KEEP ont été stockées
+  // dans les Secrets des Edge Functions avant l'arrivée du Vault. Elles restent
+  // utilisables côté serveur et ne sont jamais renvoyées au navigateur.
+  return existingEdgeSecret(key);
 }
 
 async function findAuthUserByEmail(email: string) {
@@ -190,13 +200,19 @@ Deno.serve(async (req) => {
       if (error) throw error;
       const indexed = new Map((data ?? []).map((row: any) => [row.key, row]));
       return json(200, {
-        data: Object.entries(CATALOG).map(([key, meta]) => ({
-          key,
-          ...meta,
-          configured: Boolean(indexed.get(key)?.is_configured),
-          hint: indexed.get(key)?.value_hint ?? null,
-          updatedAt: indexed.get(key)?.updated_at ?? null,
-        })),
+        data: Object.entries(CATALOG).map(([key, meta]) => {
+          const row: any = indexed.get(key);
+          const edgeConfigured = Boolean(existingEdgeSecret(key));
+          const vaultConfigured = Boolean(row?.is_configured);
+          return {
+            key,
+            ...meta,
+            configured: vaultConfigured || edgeConfigured,
+            hint: row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
+            updatedAt: row?.updated_at ?? null,
+            source: vaultConfigured ? "VAULT" : edgeConfigured ? "EDGE_SECRET" : null,
+          };
+        }),
       });
     }
 
@@ -224,8 +240,8 @@ Deno.serve(async (req) => {
       if (!CATALOG[key]) return json(400, { error: "integration_key_not_allowed" });
       const { error } = await admin.rpc("service_delete_integration_secret", { p_key: key });
       if (error) throw error;
-      await audit(actor.id, "integration_secret.deleted", "integration_secret", key, { key, configured: false });
-      return json(200, { ok: true });
+      await audit(actor.id, "integration_secret.deleted", "integration_secret", key, { key, configured: Boolean(existingEdgeSecret(key)) });
+      return json(200, { ok: true, configured: Boolean(existingEdgeSecret(key)), legacyEdgeSecretStillActive: Boolean(existingEdgeSecret(key)) });
     }
 
     if (action === "integrations.test_email") {
