@@ -25,10 +25,25 @@ const linking = {
   prefixes: ['keep://'],
   config: {
     screens: {
+      Main: {
+        path: 'Main',
+        screens: {
+          Listen: 'Listen',
+          Discover: 'Discover',
+          MyMusic: 'MyMusic',
+          Parties: 'Parties',
+          Profile: 'Profile',
+        },
+      },
+      SessionRecap: 'session-recap',
+      SessionHistory: 'session-history',
+      ProfileSettings: 'profile-settings',
+      AdvancedProfileSettings: 'profile-settings/advanced',
       PublicProfile: 'profile/:username',
       MusicConnections: 'music-connections',
       Notifications: 'notifications',
       Offers: 'offers',
+      AppleMusicConnect: 'apple-music-connect',
     },
   },
 };
@@ -43,17 +58,18 @@ const TAB = {
 function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Listen"
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,
-        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: TAB.bg,
           borderTopColor: TAB.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 5,
-          paddingTop: 5,
+          height: 68,
+          paddingBottom: 8,
+          paddingTop: 7,
+          display: 'flex',
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         headerShown: false,
@@ -71,7 +87,7 @@ function MainTabs() {
 export default function Navigation() {
   return (
     <NavigationContainer linking={linking}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
