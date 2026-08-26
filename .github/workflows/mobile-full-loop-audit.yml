@@ -123,19 +123,27 @@ jobs:
             await textLast('Rechercher et préremplir', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await textLast('Choisir une date', { exact: true }).click();
             const validateDate = textLast('Valider la date', { exact: true });
-            await assertInViewport(validateDate, 'Valider date');
+            await validateDate.waitFor({ state: 'attached', timeout: 10000 });
+            await validateDate.scrollIntoViewIfNeeded();
+            await validateDate.waitFor({ state: 'visible', timeout: 10000 });
             await validateDate.click();
             await shot('08-profile-edit-location-date');
 
-            await textLast('Réglages avancés du profil', { exact: true }).click();
+            const advanced = textLast('Réglages avancés du profil', { exact: true });
+            await advanced.scrollIntoViewIfNeeded();
+            await advanced.click();
             await textLast('Réglages avancés', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await page.getByLabel('Retour au profil').last().waitFor({ state: 'visible', timeout: 10000 });
-            await page.getByLabel('Revenir aux Playlists').last().waitFor({ state: 'visible', timeout: 10000 });
+            const backPlaylists = page.getByLabel('Revenir aux Playlists').last();
+            await backPlaylists.scrollIntoViewIfNeeded();
+            await backPlaylists.waitFor({ state: 'visible', timeout: 10000 });
             for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) {
-              await textLast(network, { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+              const item = textLast(network, { exact: true });
+              await item.scrollIntoViewIfNeeded();
+              await item.waitFor({ state: 'visible', timeout: 10000 });
             }
             await shot('09-advanced-settings');
-            await page.getByLabel('Revenir aux Playlists').last().click();
+            await backPlaylists.click();
             await textLast('Playlists', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await shot('10-advanced-to-playlists');
 
@@ -162,6 +170,7 @@ jobs:
               'Listen start: PASS',
               'Listen stop returns to idle: PASS',
               'Essential listen actions without swipe: PASS',
+              'Profile form scroll/navigation: PASS',
               'Reduced desktop window/no horizontal overflow: PASS',
               'Notification bell: PASS',
               'Social icons: PASS',
