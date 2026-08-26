@@ -93,6 +93,26 @@ async function profileById(id: string) {
   return data ?? null;
 }
 
+async function createProfile(userId: string, username: string) {
+  const { error } = await admin.from("profiles").insert({
+    id: userId,
+    username,
+    display_name: username,
+    bio: "",
+    avatar_url: null,
+    country_code: null,
+    city: null,
+    kind: "USER",
+    language_code: "fr",
+    is_public: true,
+    location_opt_in: false,
+    website: null,
+    favorite_genres: [],
+    favorite_artists: [],
+  });
+  if (error) throw error;
+}
+
 async function bearerUserId(req: Request): Promise<string | null> {
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token || token === ANON_KEY) return null;
@@ -101,7 +121,14 @@ async function bearerUserId(req: Request): Promise<string | null> {
   return data.user.id;
 }
 
-async function legacyUsernameFlow(req: Request, action: string, username: string, password: string) {
+/**
+ * Parcours principal KEEP : pseudo + mot de passe uniquement.
+ * Une adresse interne @keep.local est un détail technique privé de Supabase :
+ * aucun e-mail n'est envoyé et l'utilisateur n'a pas à la connaître.
+ * Une vraie adresse de récupération pourra être rattachée plus tard sans
+ * recréer le profil ni changer l'auth.uid().
+ */
+async function usernameFlow(req: Request, action: string, username: string, password: string) {
   if (!validUsername(username)) return json({ ok: false, error: "invalid_username" });
   if (!validPassword(password)) return json({ ok: false, error: "invalid_password" });
 
@@ -121,30 +148,179 @@ async function legacyUsernameFlow(req: Request, action: string, username: string
   }
 
   if (action !== "signup") return json({ ok: false, error: "invalid_action" });
+
   if (existingProfile) {
     const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
     if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
-    if (!userData.user.is_anonymous && userData.user.email) return json({ ok: false, error: "username_taken" });
 
-    const callerId = await bearerUserId(req);
-    if (!callerId || callerId !== existingProfile.id) {
-      return json({ ok: false, error: "legacy_profile_requires_original_device" });
+    // Ancien profil anonyme : seul l'appareil qui possède encore la session
+    // originale peut le convertir, sinon quelqu'un pourrait voler un pseudo.
+    if (userData.user.is_anonymous) {
+      const callerId = await bearerUserId(req);
+      if (!callerId || callerId !== existingProfile.id) {
+        return json({ ok: false, error: "legacy_profile_requires_original_device" });
+      }
+      const email = syntheticEmail(existingProfile.id);
+      const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfile.id, {
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
+      });
+      if (upgradeError) throw upgradeError;
+      const signed = await sessionFor(email, password);
+      if (!signed.ok) return json({ ok: false, error: signed.error });
+      return json({ ok: true, username, ...signed.session });
     }
 
-    const email = syntheticEmail(existingProfile.id);
-    const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfile.id, {
+    return json({ ok: false, error: "username_taken" });
+  }
+
+  const userId = crypto.randomUUID();
+  const email = syntheticEmail(userId);
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    id: userId,
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { keep_username: username, keep_username_only: true },
+  });
+  if (createError || !created.user) throw createError ?? new Error("create_user_failed");
+
+  try {
+    await createProfile(userId, username);
+  } catch (error) {
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
+    throw error;
+  }
+
+  const signed = await sessionFor(email, password);
+  if (!signed.ok) return json({ ok: false, error: signed.error });
+  return json({ ok: true, username, ...signed.session, username_only: true });
+}
+
+async function emailFlow(req: Request, action: string, username: string, email: string, password: string) {
+  if (!validEmail(email)) return json({ ok: false, error: "invalid_email" });
+  if (!validPassword(password)) return json({ ok: false, error: "invalid_password" });
+
+  if (action === "login") {
+    const signed = await sessionFor(email, password);
+    if (!signed.ok) return json({ ok: false, error: signed.error });
+    const profile = await profileById(signed.session.user_id);
+    return json({ ok: true, username: profile?.username ?? null, ...signed.session });
+  }
+
+  if (action !== "signup") return json({ ok: false, error: "invalid_action" });
+  if (!validUsername(username)) return json({ ok: false, error: "invalid_username" });
+
+  const matches = await profileByUsername(username);
+  if (matches.length > 1) return json({ ok: false, error: "username_conflict" });
+  const existingProfileForUsername = matches[0] ?? null;
+
+  // Une adresse existante n'est jamais dupliquée : le mot de passe ou la
+  // session authentifiée courante doit prouver que l'identité appartient bien
+  // à la personne qui demande le rattachement.
+  const existingEmailUser = await findAuthUserByEmail(email);
+  if (existingEmailUser) {
+    let proof = await sessionFor(email, password);
+    if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
+      const callerId = await bearerUserId(req);
+      if (!callerId || callerId !== existingEmailUser.id) {
+        return json({ ok: false, error: "email_taken" });
+      }
+      const { error: passwordError } = await admin.auth.admin.updateUserById(existingEmailUser.id, { password });
+      if (passwordError) throw passwordError;
+      proof = await sessionFor(email, password);
+      if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
+        return json({ ok: false, error: "invalid_credentials" });
+      }
+    }
+
+    if (existingProfileForUsername && existingProfileForUsername.id !== existingEmailUser.id) {
+      return json({ ok: false, error: "username_taken" });
+    }
+
+    const existingOwnProfile = await profileById(existingEmailUser.id);
+    if (existingOwnProfile) {
+      if (existingOwnProfile.username !== username) {
+        const { error: updateProfileError } = await admin
+          .from("profiles")
+          .update({ username, updated_at: new Date().toISOString() })
+          .eq("id", existingEmailUser.id);
+        if (updateProfileError) throw updateProfileError;
+      }
+    } else {
+      await createProfile(existingEmailUser.id, username);
+    }
+
+    const { error: metadataError } = await admin.auth.admin.updateUserById(existingEmailUser.id, {
+      user_metadata: { ...(existingEmailUser.user_metadata ?? {}), keep_username: username },
+    });
+    if (metadataError) throw metadataError;
+    return json({ ok: true, username, ...proof.session, reused_existing_identity: true });
+  }
+
+  let userId: string;
+  if (existingProfileForUsername) {
+    const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfileForUsername.id);
+    if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
+
+    if (userData.user.is_anonymous) {
+      const callerId = await bearerUserId(req);
+      if (!callerId || callerId !== existingProfileForUsername.id) {
+        return json({ ok: false, error: "legacy_profile_requires_original_device" });
+      }
+      const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
+      });
+      if (upgradeError) {
+        if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "email_taken" });
+        throw upgradeError;
+      }
+      userId = existingProfileForUsername.id;
+    } else if (userData.user.email?.endsWith("@keep.local")) {
+      const proof = await sessionFor(userData.user.email, password);
+      if (!proof.ok) return json({ ok: false, error: "username_taken" });
+      const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
+        email,
+        email_confirm: true,
+        user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username, keep_username_only: false },
+      });
+      if (upgradeError) {
+        if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "email_taken" });
+        throw upgradeError;
+      }
+      userId = existingProfileForUsername.id;
+    } else {
+      return json({ ok: false, error: "username_taken" });
+    }
+  } else {
+    userId = crypto.randomUUID();
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      id: userId,
       email,
       password,
       email_confirm: true,
-      user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
+      user_metadata: { keep_username: username },
     });
-    if (upgradeError) throw upgradeError;
-    const signed = await sessionFor(email, password);
-    if (!signed.ok) return json({ ok: false, error: signed.error });
-    return json({ ok: true, username, ...signed.session });
+    if (createError || !created.user) {
+      if (looksLikeDuplicateEmail(createError)) return json({ ok: false, error: "email_taken" });
+      throw createError ?? new Error("create_user_failed");
+    }
+    try {
+      await createProfile(userId, username);
+    } catch (error) {
+      await admin.auth.admin.deleteUser(userId).catch(() => {});
+      throw error;
+    }
   }
 
-  return json({ ok: false, error: "invalid_email" });
+  const signed = await sessionFor(email, password);
+  if (!signed.ok) return json({ ok: false, error: signed.error });
+  return json({ ok: true, username, ...signed.session });
 }
 
 Deno.serve(async (req) => {
@@ -158,165 +334,10 @@ Deno.serve(async (req) => {
     const email = normalizeEmail(body?.email);
     const password = String(body?.password ?? "");
 
-    if (body?.legacy_username === "1" || !email) {
-      return await legacyUsernameFlow(req, action, username, password);
+    if (body?.username_only === "1" || body?.legacy_username === "1" || !email) {
+      return await usernameFlow(req, action, username, password);
     }
-
-    if (!validEmail(email)) return json({ ok: false, error: "invalid_email" });
-    if (!validPassword(password)) return json({ ok: false, error: "invalid_password" });
-
-    if (action === "login") {
-      const signed = await sessionFor(email, password);
-      if (!signed.ok) return json({ ok: false, error: signed.error });
-      const profile = await profileById(signed.session.user_id);
-      return json({ ok: true, username: profile?.username ?? null, ...signed.session });
-    }
-
-    if (action !== "signup") return json({ ok: false, error: "invalid_action" });
-    if (!validUsername(username)) return json({ ok: false, error: "invalid_username" });
-
-    const matches = await profileByUsername(username);
-    if (matches.length > 1) return json({ ok: false, error: "username_conflict" });
-    const existingProfileForUsername = matches[0] ?? null;
-
-    // Un seul auth.uid() peut porter simultanément le profil utilisateur KEEP
-    // et un rôle Super Admin. On ne duplique donc jamais l'adresse.
-    const existingEmailUser = await findAuthUserByEmail(email);
-    if (existingEmailUser) {
-      let proof = await sessionFor(email, password);
-      if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
-        // Si ce navigateur possède déjà une session authentifiée pour cette
-        // même identité (par exemple une session Super Admin), elle constitue
-        // une preuve suffisante pour choisir le mot de passe KEEP sans e-mail.
-        const callerId = await bearerUserId(req);
-        if (!callerId || callerId !== existingEmailUser.id) {
-          return json({ ok: false, error: "email_taken" });
-        }
-        const { error: passwordError } = await admin.auth.admin.updateUserById(existingEmailUser.id, { password });
-        if (passwordError) throw passwordError;
-        proof = await sessionFor(email, password);
-        if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
-          return json({ ok: false, error: "invalid_credentials" });
-        }
-      }
-
-      if (existingProfileForUsername && existingProfileForUsername.id !== existingEmailUser.id) {
-        return json({ ok: false, error: "username_taken" });
-      }
-
-      const existingOwnProfile = await profileById(existingEmailUser.id);
-      if (existingOwnProfile) {
-        if (existingOwnProfile.username !== username) {
-          const { error: updateProfileError } = await admin
-            .from("profiles")
-            .update({ username, updated_at: new Date().toISOString() })
-            .eq("id", existingEmailUser.id);
-          if (updateProfileError) throw updateProfileError;
-        }
-      } else {
-        const { error: profileError } = await admin.from("profiles").insert({
-          id: existingEmailUser.id,
-          username,
-          display_name: username,
-          bio: "",
-          avatar_url: null,
-          country_code: null,
-          city: null,
-          kind: "USER",
-          language_code: "fr",
-          is_public: true,
-          location_opt_in: false,
-          website: null,
-          favorite_genres: [],
-          favorite_artists: [],
-        });
-        if (profileError) throw profileError;
-      }
-
-      const { error: metadataError } = await admin.auth.admin.updateUserById(existingEmailUser.id, {
-        user_metadata: { ...(existingEmailUser.user_metadata ?? {}), keep_username: username },
-      });
-      if (metadataError) throw metadataError;
-      return json({ ok: true, username, ...proof.session, reused_existing_identity: true });
-    }
-
-    let userId: string;
-
-    if (existingProfileForUsername) {
-      const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfileForUsername.id);
-      if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
-
-      if (userData.user.is_anonymous) {
-        const callerId = await bearerUserId(req);
-        if (!callerId || callerId !== existingProfileForUsername.id) {
-          return json({ ok: false, error: "legacy_profile_requires_original_device" });
-        }
-        const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
-        });
-        if (upgradeError) {
-          if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "email_taken" });
-          throw upgradeError;
-        }
-        userId = existingProfileForUsername.id;
-      } else if (userData.user.email?.endsWith("@keep.local")) {
-        const proof = await sessionFor(userData.user.email, password);
-        if (!proof.ok) return json({ ok: false, error: "username_taken" });
-        const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
-          email,
-          email_confirm: true,
-          user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
-        });
-        if (upgradeError) {
-          if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "email_taken" });
-          throw upgradeError;
-        }
-        userId = existingProfileForUsername.id;
-      } else {
-        return json({ ok: false, error: "username_taken" });
-      }
-    } else {
-      userId = crypto.randomUUID();
-      const { data: created, error: createError } = await admin.auth.admin.createUser({
-        id: userId,
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { keep_username: username },
-      });
-      if (createError || !created.user) {
-        if (looksLikeDuplicateEmail(createError)) return json({ ok: false, error: "email_taken" });
-        throw createError ?? new Error("create_user_failed");
-      }
-
-      const { error: profileError } = await admin.from("profiles").insert({
-        id: userId,
-        username,
-        display_name: username,
-        bio: "",
-        avatar_url: null,
-        country_code: null,
-        city: null,
-        kind: "USER",
-        language_code: "fr",
-        is_public: true,
-        location_opt_in: false,
-        website: null,
-        favorite_genres: [],
-        favorite_artists: [],
-      });
-      if (profileError) {
-        await admin.auth.admin.deleteUser(userId).catch(() => {});
-        throw profileError;
-      }
-    }
-
-    const signed = await sessionFor(email, password);
-    if (!signed.ok) return json({ ok: false, error: signed.error });
-    return json({ ok: true, username, ...signed.session });
+    return await emailFlow(req, action, username, email, password);
   } catch (error) {
     console.error("[keep-username-auth]", error);
     return json({ ok: false, error: "server_error" }, 500);
