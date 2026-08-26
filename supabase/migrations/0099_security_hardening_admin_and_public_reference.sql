@@ -25,12 +25,25 @@ alter function public.handle_follow_delete() set search_path = public;
 alter function public.set_updated_at() set search_path = public;
 alter function public.sync_is_adult() set search_path = public;
 
--- Admin SECURITY DEFINER RPCs must never be callable by an unsigned client.
--- Authenticated calls still perform their own admin-role checks.
-revoke execute on function public.admin_integration_runtime_status() from anon;
-revoke execute on function public.admin_remote_config_list() from anon;
-revoke execute on function public.admin_remote_config_set(text,jsonb,text) from anon;
-revoke execute on function public.admin_search_profiles(text) from anon;
-revoke execute on function public.admin_user_directory() from anon;
-revoke execute on function public.get_my_admin_role() from anon;
-revoke execute on function public.log_admin_action(text,text,text,jsonb,jsonb) from anon;
+-- Admin SECURITY DEFINER RPCs must never inherit PostgreSQL's default PUBLIC
+-- EXECUTE grant. Authenticated calls still perform their own admin-role checks.
+revoke all on function public.admin_integration_runtime_status() from public, anon;
+grant execute on function public.admin_integration_runtime_status() to authenticated, service_role;
+
+revoke all on function public.admin_remote_config_list() from public, anon;
+grant execute on function public.admin_remote_config_list() to authenticated, service_role;
+
+revoke all on function public.admin_remote_config_set(text,jsonb,text) from public, anon;
+grant execute on function public.admin_remote_config_set(text,jsonb,text) to authenticated, service_role;
+
+revoke all on function public.admin_search_profiles(text) from public, anon;
+grant execute on function public.admin_search_profiles(text) to authenticated, service_role;
+
+revoke all on function public.admin_user_directory() from public, anon;
+grant execute on function public.admin_user_directory() to authenticated, service_role;
+
+revoke all on function public.get_my_admin_role() from public, anon;
+grant execute on function public.get_my_admin_role() to authenticated, service_role;
+
+revoke all on function public.log_admin_action(text,text,text,jsonb,jsonb) from public, anon;
+grant execute on function public.log_admin_action(text,text,text,jsonb,jsonb) to authenticated, service_role;
