@@ -6,6 +6,7 @@ import { radius } from '../theme/spacing';
 import { SocialLink } from '../types';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import { createProfileService } from '../services/profileService';
+import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
@@ -20,7 +21,6 @@ const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
 export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
-  const updateUser = useUserStore((s) => s.updateUser);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
@@ -35,9 +35,15 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     const nextUser = { ...user, socialLinks: links };
     setSavingNetwork(platform);
     try {
-      if (!supabase || isLocalGuest || isDemoMode) {
+      if (isDemoMode) {
         setUser(nextUser);
-        Alert.alert('Réseau enregistré pour l’essai', 'Crée ton compte KEEP pour conserver ce réseau après rechargement et le rendre disponible sur ton profil public.');
+        Alert.alert('Mode démo', 'Ce réglage est temporaire dans le mode démo.');
+        return;
+      }
+      if (isLocalGuest || !supabase) {
+        setUser(nextUser);
+        if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
+        Alert.alert('Réseau enregistré', 'Le lien est conservé sur cet appareil. Il sera repris automatiquement lorsque tu créeras ton compte KEEP.');
         return;
       }
       await createProfileService(supabase).saveOwnProfile(nextUser);
@@ -47,6 +53,17 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
       Alert.alert('Réseau social', e?.message || 'Impossible d’enregistrer ce réseau pour le moment.');
     } finally {
       setSavingNetwork(null);
+    }
+  };
+
+  const updateProfileVisibility = async (value: boolean) => {
+    const nextUser = { ...user, isPublic: value };
+    setUser(nextUser);
+    try {
+      if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
+      else if (supabase && !isDemoMode) await createProfileService(supabase).saveOwnProfile(nextUser);
+    } catch {
+      Alert.alert('Profil public', 'La visibilité sera resynchronisée à la prochaine connexion.');
     }
   };
 
@@ -100,7 +117,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           <Text style={s.sectionTitle}>Profil public</Text>
           <View style={s.switchRow}>
             <View style={s.switchText}><Text style={s.label}>Profil visible</Text><Text style={s.help}>Permet aux autres utilisateurs de découvrir tes goûts musicaux.</Text></View>
-            <Switch value={user.isPublic} onValueChange={(value) => updateUser({ isPublic: value })} trackColor={{ false: colors.background, true: colors.primary }} />
+            <Switch value={user.isPublic} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.background, true: colors.primary }} />
           </View>
         </View>
 
