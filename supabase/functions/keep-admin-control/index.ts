@@ -114,6 +114,26 @@ async function findAuthUserByEmail(email: string) {
   return null;
 }
 
+async function findAuthUserByIdentity(identity: string) {
+  const raw = identity.trim();
+  if (!raw) return null;
+  if (raw.includes("@")) return findAuthUserByEmail(raw.toLowerCase());
+
+  const username = raw.replace(/^@+/, "").normalize("NFKC");
+  const { data: profiles, error: profileError } = await admin
+    .from("profiles")
+    .select("id,username")
+    .ilike("username", username)
+    .limit(2);
+  if (profileError) throw profileError;
+  if (!profiles?.length) return null;
+  if (profiles.length > 1) throw new Error("ambiguous_username");
+
+  const { data, error } = await admin.auth.admin.getUserById(profiles[0].id);
+  if (error || !data.user) return null;
+  return data.user;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -295,16 +315,16 @@ Deno.serve(async (req) => {
     }
 
     if (action === "users.grant") {
-      const email = String(body?.email ?? "").trim().toLowerCase();
+      const identity = String(body?.identity ?? body?.email ?? "").trim();
       const planCode = String(body?.planCode ?? "").trim().toUpperCase();
       const months = Number(body?.months ?? 0);
       const reason = String(body?.reason ?? "").trim();
-      if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
+      if (!identity) return json(400, { error: "identity_required" });
       if (!Number.isInteger(months) || months < 1 || months > 60) return json(400, { error: "invalid_duration" });
       if (!['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].includes(planCode)) return json(400, { error: "invalid_plan" });
-      const user = await findAuthUserByEmail(email);
+      const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
-      const { data: profile } = await admin.from("profiles").select("id").eq("id", user.id).maybeSingle();
+      const { data: profile } = await admin.from("profiles").select("id,username").eq("id", user.id).maybeSingle();
       if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir KEEP une première fois avant l’attribution." });
       const { data, error } = await admin.rpc("service_grant_plan", {
         p_profile_id: user.id,
@@ -314,20 +334,21 @@ Deno.serve(async (req) => {
         p_reason: reason || "Offert depuis le Super Admin KEEP",
       });
       if (error) throw error;
-      await audit(actor.id, "subscription.admin_granted", "profile", user.id, { email, planCode, months, reason });
-      return json(200, { ok: true, data });
+      await audit(actor.id, "subscription.admin_granted", "profile", user.id, { identity, username: profile.username, planCode, months, reason });
+      return json(200, { ok: true, data, username: profile.username });
     }
 
     if (action === "users.revoke_grant") {
-      const email = String(body?.email ?? "").trim().toLowerCase();
-      const user = await findAuthUserByEmail(email);
+      const identity = String(body?.identity ?? body?.email ?? "").trim();
+      if (!identity) return json(400, { error: "identity_required" });
+      const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
       const { data, error } = await admin.rpc("service_revoke_admin_grant", {
         p_profile_id: user.id,
         p_granted_by: actor.id,
       });
       if (error) throw error;
-      await audit(actor.id, "subscription.admin_revoked", "profile", user.id, { email, revoked: Number(data ?? 0) });
+      await audit(actor.id, "subscription.admin_revoked", "profile", user.id, { identity, revoked: Number(data ?? 0) });
       return json(200, { ok: true, revoked: Number(data ?? 0) });
     }
 
