@@ -40,6 +40,9 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   STRIPE_WEBHOOK_SECRET: { category: "payments", label: "Stripe Webhook Secret", secret: true },
 };
 
+const ADMIN_TEAM_ROLES = ["ADMIN", "SUPPORT", "FINANCE", "MARKETING", "MODERATOR", "TECH"] as const;
+type AdminActor = { id: string; role: string };
+
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), { status, headers: corsHeaders });
 }
@@ -72,7 +75,11 @@ function syntheticKeepEmail(userId: string) {
   return `${userId.toLowerCase()}@keep.local`;
 }
 
-async function requireAdmin(req: Request) {
+function assertRole(actor: AdminActor, allowed: string[]) {
+  if (!allowed.includes(actor.role)) throw new Error("role_forbidden");
+}
+
+async function requireAdmin(req: Request): Promise<AdminActor> {
   const authHeader = req.headers.get("authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) throw new Error("unauthorized");
@@ -162,6 +169,7 @@ Deno.serve(async (req) => {
     const action = String(body?.action ?? "");
 
     if (action === "plans.list") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "FINANCE"]);
       const { data, error } = await admin
         .from("plans")
         .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active)")
@@ -171,6 +179,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "plans.update") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "FINANCE"]);
       const planId = String(body?.planId ?? "").trim();
       const trialDays = Number(body?.trialDays ?? 0);
       const prices = Array.isArray(body?.prices) ? body.prices : [];
@@ -200,6 +209,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "integrations.list") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const { data, error } = await admin
         .from("integration_secrets")
         .select("key,category,value_hint,is_configured,updated_at")
@@ -225,6 +235,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "integrations.set") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const key = String(body?.key ?? "");
       const value = String(body?.value ?? "").trim();
       const meta = CATALOG[key];
@@ -245,6 +256,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "integrations.delete") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const key = String(body?.key ?? "");
       if (!CATALOG[key]) return json(400, { error: "integration_key_not_allowed" });
       const { error } = await admin.rpc("service_delete_integration_secret", { p_key: key });
@@ -256,6 +268,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "integrations.test_email") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
       const apiKey = await getSecret("BREVO_API_KEY");
@@ -281,6 +294,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "users.invite") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
       const email = String(body?.email ?? "").trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
       const existing = await findAuthUserByEmail(email);
@@ -294,6 +308,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "users.recover_legacy") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
       const username = String(body?.username ?? "").trim().replace(/^@+/, "");
       if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) return json(400, { error: "invalid_username" });
 
@@ -342,13 +357,14 @@ Deno.serve(async (req) => {
     }
 
     if (action === "users.grant") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN"]);
       const identity = String(body?.identity ?? body?.email ?? "").trim();
       const planCode = String(body?.planCode ?? "").trim().toUpperCase();
       const months = Number(body?.months ?? 0);
       const reason = String(body?.reason ?? "").trim();
       if (!identity) return json(400, { error: "identity_required" });
       if (!Number.isInteger(months) || months < 0 || months > 60) return json(400, { error: "invalid_duration" });
-      if (!['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].includes(planCode)) return json(400, { error: "invalid_plan" });
+      if (!["FREE", "PREMIUM", "CREATOR_PRO", "VENUE_PRO"].includes(planCode)) return json(400, { error: "invalid_plan" });
       const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
       const { data: profile } = await admin.from("profiles").select("id,username").eq("id", user.id).maybeSingle();
@@ -366,6 +382,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "users.revoke_grant") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN"]);
       const identity = String(body?.identity ?? body?.email ?? "").trim();
       if (!identity) return json(400, { error: "identity_required" });
       const user = await findAuthUserByIdentity(identity);
@@ -379,10 +396,82 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, revoked: Number(data ?? 0) });
     }
 
+    if (action === "admins.list") {
+      assertRole(actor, ["SUPER_ADMIN"]);
+      const { data: rows, error } = await admin
+        .from("admin_users")
+        .select("id,role,is_active,created_at")
+        .order("created_at");
+      if (error) throw error;
+      const result = [];
+      for (const row of rows ?? []) {
+        const { data: authData } = await admin.auth.admin.getUserById(row.id);
+        result.push({
+          id: row.id,
+          email: authData.user?.email ?? null,
+          role: String(row.role),
+          isActive: Boolean(row.is_active),
+          createdAt: row.created_at,
+        });
+      }
+      return json(200, { data: result });
+    }
+
+    if (action === "admins.create") {
+      assertRole(actor, ["SUPER_ADMIN"]);
+      const email = String(body?.email ?? "").trim().toLowerCase();
+      const role = String(body?.role ?? "").trim().toUpperCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
+      if (!ADMIN_TEAM_ROLES.includes(role as any)) return json(400, { error: "invalid_admin_role" });
+
+      let user = await findAuthUserByEmail(email);
+      let temporaryPassword = "";
+      let created = false;
+      if (!user) {
+        temporaryPassword = generateTemporaryPassword();
+        const { data: createData, error: createError } = await admin.auth.admin.createUser({
+          email,
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: { keep_admin_created: true },
+        });
+        if (createError || !createData.user) throw createError ?? new Error("admin_user_create_failed");
+        user = createData.user;
+        created = true;
+      }
+
+      const { data: existingAdmin } = await admin.from("admin_users").select("role").eq("id", user.id).maybeSingle();
+      if (existingAdmin?.role === "SUPER_ADMIN") return json(409, { error: "super_admin_protected" });
+
+      const { error: upsertError } = await admin.from("admin_users").upsert({ id: user.id, role, is_active: true }, { onConflict: "id" });
+      if (upsertError) throw upsertError;
+      await audit(actor.id, "admin_member.created", "admin_user", user.id, { email, role, created });
+      return json(200, { ok: true, adminId: user.id, role, temporaryPassword: created ? temporaryPassword : null, existingUser: !created });
+    }
+
+    if (action === "admins.update") {
+      assertRole(actor, ["SUPER_ADMIN"]);
+      const adminId = String(body?.adminId ?? "").trim();
+      const role = String(body?.role ?? "").trim().toUpperCase();
+      const isActive = Boolean(body?.isActive);
+      if (!adminId) return json(400, { error: "admin_id_required" });
+      if (!["SUPER_ADMIN", ...ADMIN_TEAM_ROLES].includes(role as any)) return json(400, { error: "invalid_admin_role" });
+      if (adminId === actor.id && (!isActive || role !== "SUPER_ADMIN")) return json(409, { error: "cannot_demote_self" });
+
+      const { data: target, error: targetError } = await admin.from("admin_users").select("id,role,is_active").eq("id", adminId).maybeSingle();
+      if (targetError || !target) return json(404, { error: "admin_not_found" });
+      if (String(target.role) === "SUPER_ADMIN" && adminId !== actor.id) return json(409, { error: "super_admin_protected" });
+
+      const { error: updateError } = await admin.from("admin_users").update({ role, is_active: isActive }).eq("id", adminId);
+      if (updateError) throw updateError;
+      await audit(actor.id, "admin_member.updated", "admin_user", adminId, { role, isActive });
+      return json(200, { ok: true, adminId, role, isActive });
+    }
+
     return json(400, { error: "unknown_action" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const status = message === "unauthorized" ? 401 : message === "admin_required" ? 403 : 500;
+    const status = message === "unauthorized" ? 401 : message === "admin_required" || message === "role_forbidden" ? 403 : 500;
     return json(status, { error: message });
   }
 });
