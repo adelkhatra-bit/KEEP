@@ -21,6 +21,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const setTrackVisibilityInSession = useSessionHistoryStore((s) => s.setTrackVisibilityInSession);
   const [analysis, setAnalysis] = useState<LibraryAnalysis | null>(null);
+  const [analysisExpanded, setAnalysisExpanded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tracksByPlaylist, setTracksByPlaylist] = useState<Record<string, CanonicalTrack[]>>({});
@@ -98,6 +99,7 @@ export default function MyMusicScreen({ navigation }: any) {
         ? { ...nextRaw, unclassifiedCount: 0, duplicateGroups: [], duplicateCount: 0 }
         : nextRaw;
       setAnalysis(next);
+      setAnalysisExpanded(false);
     } catch (e: any) {
       Alert.alert('Ranger ma musique', e?.message ?? 'Impossible d’analyser la bibliothèque pour le moment.');
     } finally {
@@ -229,15 +231,20 @@ export default function MyMusicScreen({ navigation }: any) {
         <Text style={styles.organizeButtonText}>{analyzing ? '…' : `🧹 ${t('myMusic.organizeMyMusic')}`}</Text>
       </TouchableOpacity>
 
-      {analysis ? <View style={styles.analysisCard}>
-        <Text style={styles.analysisStatus}>{analysisMessage}</Text>
-        <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
-        <Text style={styles.analysisLine}>{t('myMusic.suggestions', { count: analysis.unclassifiedCount })}</Text>
-        <Text style={styles.analysisLine}>{t('myMusic.duplicates', { count: analysis.duplicateCount })}</Text>
-        {genreSummary.length ? <Text style={styles.genreLine}>Styles détectés : {genreSummary.map(([genre, count]) => `${genre} (${count})`).join(' · ')}</Text> : null}
-        <Text style={styles.analysisHelp}>Le rangement intelligent utilise les styles fournis par les catalogues et apprend tes corrections. Rien n’est déplacé ou supprimé sans validation.</Text>
-        {(analysis.duplicateCount > 0 || analysis.unclassifiedCount > 0) ? <TouchableOpacity style={styles.viewSuggestionsButton} onPress={() => Alert.alert(t('myMusic.viewSuggestions'), analysis.duplicateGroups.map((g) => `• ${g[0].title} — ${g[0].artist} (${g.length}x)`).join('\n') || 'Des morceaux sans style sont à classer manuellement.')}><Text style={styles.viewSuggestionsText}>{t('myMusic.viewSuggestions')}</Text></TouchableOpacity> : null}
-      </View> : null}
+      {analysis ? <>
+        <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)} accessibilityRole="button" accessibilityLabel="Afficher ou masquer le détail du rangement">
+          <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text>
+          <Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
+        </TouchableOpacity>
+        {analysisExpanded ? <View style={styles.analysisCard}>
+          <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
+          <Text style={styles.analysisLine}>{t('myMusic.suggestions', { count: analysis.unclassifiedCount })}</Text>
+          <Text style={styles.analysisLine}>{t('myMusic.duplicates', { count: analysis.duplicateCount })}</Text>
+          {genreSummary.length ? <Text style={styles.genreLine}>Styles détectés : {genreSummary.map(([genre, count]) => `${genre} (${count})`).join(' · ')}</Text> : null}
+          <Text style={styles.analysisHelp}>Le rangement intelligent utilise les styles fournis par les catalogues et apprend tes corrections. Rien n’est déplacé ou supprimé sans validation.</Text>
+          {(analysis.duplicateCount > 0 || analysis.unclassifiedCount > 0) ? <TouchableOpacity style={styles.viewSuggestionsButton} onPress={() => Alert.alert(t('myMusic.viewSuggestions'), analysis.duplicateGroups.map((g) => `• ${g[0].title} — ${g[0].artist} (${g.length}x)`).join('\n') || 'Des morceaux sans style sont à classer manuellement.')}><Text style={styles.viewSuggestionsText}>{t('myMusic.viewSuggestions')}</Text></TouchableOpacity> : null}
+        </View> : null}
+      </> : null}
 
       <FlatList
         data={displayPlaylists}
@@ -279,8 +286,10 @@ const styles = StyleSheet.create({
   servicesButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },
   organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   organizeButtonText: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
-  analysisCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: colors.backgroundElevated, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
-  analysisStatus: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', marginBottom: 3 },
+  analysisSummary: { marginHorizontal: spacing.xl, marginTop: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  analysisSummaryText: { flex: 1, color: colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '800' },
+  analysisChevron: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
+  analysisCard: { marginHorizontal: spacing.xl, marginTop: spacing.xs, backgroundColor: colors.backgroundElevated, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
   analysisLine: { color: colors.textSecondary, fontSize: 13 },
   genreLine: { color: colors.primaryLight, fontSize: 12, lineHeight: 17, marginTop: 4 },
   analysisHelp: { color: colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 5 },
