@@ -7,14 +7,14 @@ import { radius, spacing, typography } from '../theme/spacing';
 
 const BENEFITS: Record<string, string[]> = {
   FREE: [
-    'Découvrir KEEP, écouter et construire ton KEEP DNA',
+    'Découvrir KEEP, identifier les morceaux autour de toi et construire ton KEEP DNA',
     '3 téléchargements avant inscription',
     '+4 téléchargements offerts après création du compte',
     'Visibilité limitée : partage public, QR KEEP et playlists publiques restent verrouillés',
   ],
   PREMIUM: [
     'Débloque le partage public du profil et le QR KEEP',
-    'Rend tes playlists et ta musique visibles à ta communauté',
+    'Rend tes playlists et les morceaux que tu gardes visibles à ta communauté',
     'KEEP, abonnements et comparaisons sans quota mensuel prévu',
     'Jusqu’à 3 services musicaux connectés',
   ],
@@ -107,14 +107,14 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
             <Text style={s.promiseTitle}>Partage tes goûts musicaux. Crée ta communauté.</Text>
-            <Text style={s.promiseBody}>La version Free permet de découvrir KEEP et de construire ton identité musicale. Les fonctions de visibilité et de communauté se débloquent avec les formules adaptées.</Text>
+            <Text style={s.promiseBody}>KEEP identifie les morceaux entendus autour de toi et construit ton identité musicale. Ce n’est pas une plateforme de streaming : les fonctions de visibilité et de communauté se débloquent avec les formules adaptées.</Text>
           </View>
 
           <View style={s.creditCard}>
             <Text style={s.sectionTitle}>Essai gratuit</Text>
             <Text style={s.creditBig}>{funnel.guestSuccessLimit} + {funnel.signupBonusSuccesses} = {freeTotal}</Text>
             <Text style={s.creditText}>{funnel.guestSuccessLimit} téléchargements avant inscription, puis {funnel.signupBonusSuccesses} supplémentaires offerts après création du compte.</Text>
-            <Text style={s.creditRule}>Écouter, reconnaître et PASSER ne consomment aucun crédit. Seul un téléchargement/GARDER réellement effectué consomme un crédit.</Text>
+            <Text style={s.creditRule}>Détecter, reconnaître un morceau et PASSER ne consomment aucun crédit. Seul GARDER/télécharger réellement un morceau consomme un crédit.</Text>
           </View>
         </>}
 
