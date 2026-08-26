@@ -76,11 +76,11 @@ for (const expected of [
   'KEEP LIVE · RECONCILE',
   'admin_users',
   'signInWithPassword',
-  'signInWithOtp',
-  'Recevoir un lien de secours',
+  'Aucun lien e-mail n’est envoyé',
 ]) {
   if (!admin.includes(expected)) failures.push(`ADMIN LOGIN MARKER MISSING: ${expected}`);
 }
+if (/signInWithOtp|Recevoir un lien de secours|emailRedirectTo/i.test(admin)) failures.push('BROKEN ADMIN MAGIC-LINK FLOW REINTRODUCED');
 if (admin.includes("const DEMO_PASSWORD = '1234'")) failures.push('DEMO ADMIN PASSWORD REINTRODUCED');
 
 const sharing = fs.readFileSync(path.join(root, 'packages/mobile/src/services/sharingService.ts'), 'utf8');
@@ -90,11 +90,9 @@ if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
-// L'auth utilisateur KEEP est désormais volontairement SANS redirection :
-// username/e-mail + mot de passe -> fonction keep-username-auth -> session
-// Supabase posée directement. C'est précisément ce qui évite les anciens
-// Site URL / localhost / ancien projet. Le garde-fou CI doit donc vérifier ce
-// contrat et non réintroduire artificiellement une URL de redirection.
+// L'auth utilisateur KEEP est volontairement SANS redirection :
+// e-mail + mot de passe -> fonction keep-username-auth -> session Supabase
+// posée directement. Le garde-fou CI interdit le retour des anciens liens.
 for (const expected of ['keep-username-auth', 'setSession', 'email_flow_disabled']) {
   if (!authService.includes(expected)) failures.push(`DIRECT AUTH MARKER MISSING: ${expected}`);
 }
@@ -168,6 +166,7 @@ console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('auth user: direct keep-username-auth session (no redirect)');
+console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
 console.log('backend: packages/backend');
