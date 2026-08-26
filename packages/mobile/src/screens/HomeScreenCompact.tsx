@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Modal, SafeAreaView, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Image, Modal, SafeAreaView, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { KeepVisibility } from '../types';
 import { useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
@@ -24,21 +25,22 @@ function formatElapsed(startedAt: string | null) {
 
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
-  const { isActive, tracks, showEndPrompt, startedAt, error, recognizing, micLevel, startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack } = useSessionStore();
+  const {
+    isActive, tracks, showEndPrompt, startedAt, error, recognizing, micLevel,
+    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
+  } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const micPulse = useRef(new Animated.Value(0)).current;
   const [screenCopy, setScreenCopy] = useState<{ emptyTitle: string | null; emptySubtitle: string | null }>({ emptyTitle: null, emptySubtitle: null });
-  // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "comment ça se fait
-  // quand je suis en premium ? tout à l'heure j'étais en free") : ce badge
-  // affichait "♛ Premium" en dur, sans jamais lire le vrai plan -- alors que
-  // packages/mobile/src/screens/ProfilePublicScreen.tsx charge déjà le VRAI
-  // plan via loadCurrentPlanCode (table subscriptions/plans réelle). Même
-  // pattern réutilisé ici, jamais une deuxième logique de plan.
   const [planCode, setPlanCode] = useState('FREE');
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
+  const [keepChoiceOpen, setKeepChoiceOpen] = useState(false);
+  const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
+  const [keepBusy, setKeepBusy] = useState(false);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
 
   const refreshCreditBadge = async () => {
     try {
@@ -73,21 +75,9 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => clearInterval(timer);
   }, [isActive, startedAt]);
 
-  // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "l'animation qui suit le
-  // micro" toujours pas branchée) : ce composant (HomeScreenCompact, celui
-  // réellement affiché sur cette branche -- l'ancien HomeScreen.tsx n'est plus
-  // utilisé) avait sa propre boucle décorative à durée fixe (620ms), jamais
-  // reliée à `micLevel` (le niveau micro réel déjà calculé en continu par
-  // useSessionStore/micCapture.ts, voir le fix précédent). Remplacé par une
-  // réaction RÉELLE au niveau micro -- jamais une activité inventée.
-  // Réglage du 26/08/2026 (Adel, test réel : "ça détecte pas assez sensible,
-  // ça bouge pas assez") -- réappliqué après un merge avec des commits Codex
-  // qui avaient réintroduit sans le vouloir les anciennes valeurs (0.02/sqrt) :
-  // seuil de silence abaissé (0.008) et amplification en ^0.32 pour que les
-  // niveaux réels faibles (0.03-0.08) produisent un mouvement visible.
   const isLiveMic = !musicEngine.isDemoMode;
   useEffect(() => {
-    if (!isLiveMic) return undefined; // Mode Démo -- pas de vrai niveau micro, voir boucle décorative ci-dessous.
+    if (!isLiveMic) return undefined;
     const raw = Math.max(0, Math.min(1, micLevel));
     const SILENCE_FLOOR = 0.008;
     const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.pow(raw, 0.32);
@@ -95,7 +85,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [micPulse, isLiveMic, micLevel]);
 
   useEffect(() => {
-    if (isLiveMic) return undefined; // Niveau réel géré ci-dessus -- jamais les deux logiques en même temps.
+    if (isLiveMic) return undefined;
     micPulse.stopAnimation();
     if (!recognizing) {
       micPulse.setValue(0);
@@ -116,29 +106,34 @@ export default function HomeScreenCompact({ navigation }: any) {
   const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
+  const currentVisibility: KeepVisibility = current?.visibility ?? 'PRIVATE';
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
-    // L'arrêt doit être immédiat et ne jamais faire disparaître la barre des
-    // cinq onglets. requestEndSession() coupe les timers + Audio.Recording,
-    // archive la session si elle contient des morceaux puis remet isActive à
-    // false. Le récap reste consultable depuis l'historique, mais n'est plus
-    // imposé comme écran intermédiaire.
+    setKeepChoiceOpen(false);
     requestEndSession();
   };
 
-  const doKeep = async (entryId: string, playlistId?: string) => {
-    await keepTrack(entryId, playlistId);
+  const doKeep = async (entryId: string, playlistId: string | undefined, visibility: KeepVisibility) => {
+    if (keepBusy) return;
+    setKeepBusy(true);
+    setKeepChoiceOpen(false);
+    await keepTrack(entryId, playlistId, visibility);
     await refreshCreditBadge();
+    setKeepBusy(false);
   };
 
-  const keep = () => {
-    if (!current || alreadySaved) return;
-    if (playlists.length <= 1) {
-      void doKeep(current.id);
-      return;
-    }
-    Alert.alert(t('session.chooseDestination'), undefined, playlists.map((p) => ({ text: p.name, onPress: () => { void doKeep(current.id, p.id); } })));
+  const openKeepChooser = () => {
+    if (!current || alreadySaved || !pending || keepBusy) return;
+    setKeepPlaylistId(current.recommendations?.[0]?.playlistId || playlists[0]?.id);
+    setKeepChoiceOpen(true);
+  };
+
+  const toggleCurrentVisibility = async () => {
+    if (!current || current.status !== 'kept' || privacyBusy) return;
+    setPrivacyBusy(true);
+    await setTrackVisibility(current.id, currentVisibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC');
+    setPrivacyBusy(false);
   };
 
   const share = async () => {
@@ -162,9 +157,6 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
   }
 
-  // 1.20 (pas 1.32, pas l'original 1.14) -- réappliqué après le merge avec
-  // Codex : assez réactif pour un vrai son, sans chevaucher "Micro actif"
-  // sous le cercle (voir marginTop:6 de liveRow ci-dessous).
   const pulseScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] });
   const pulseOpacity = micPulse.interpolate({ inputRange: [0, 1], outputRange: [0.72, 0.05] });
 
@@ -172,20 +164,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}>
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
-      {/* BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "quand je suis sur
-          l'écoute, on ne voit pas les boutons du bas") : tout le contenu
-          (radar, stats, morceau détecté) vivait dans un seul <View flex:1>
-          sans ScrollView -- sur un écran réel plus petit que le simulateur,
-          "Partager"/"Terminer la session" se retrouvaient poussés hors de
-          l'écran, sans aucun moyen de les atteindre. Fix : le contenu
-          variable scrolle, les actions restent fixées en bas, TOUJOURS
-          visibles -- "Terminer la session" est une action critique, jamais
-          quelque chose à devoir chercher en scrollant. */}
       <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
         <View style={s.radarWrap}>
           <View style={s.radarOuter}>
             <Animated.View pointerEvents="none" style={[s.micPulse, { transform: [{ scale: pulseScale }], opacity: pulseOpacity }]} />
-            <View style={s.radarInner}><Text style={s.note}>♫</Text><Text style={s.radarTitle}>EN ÉCOUTE</Text></View>
+            <View style={s.radarInner}><Text style={s.note}>♫</Text></View>
           </View>
           <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveText}>{recognizing ? 'Micro actif · analyse en cours' : 'Session active'}</Text></View>
         </View>
@@ -212,10 +195,25 @@ export default function HomeScreenCompact({ navigation }: any) {
             </View>
             {alreadySaved ? (
               <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
+            ) : current.status === 'kept' ? (
+              <View style={s.keptState}>
+                <Text style={s.keptStateText}>✓ Gardé</Text>
+                <TouchableOpacity
+                  style={[s.privacyPill, currentVisibility === 'PUBLIC' ? s.privacyPublic : s.privacyPrivate]}
+                  onPress={() => { void toggleCurrentVisibility(); }}
+                  disabled={privacyBusy}
+                >
+                  <Text style={currentVisibility === 'PUBLIC' ? s.privacyPublicText : s.privacyPrivateText}>
+                    {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : current.status === 'passed' ? (
+              <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
             ) : (
               <View style={s.actions}>
-                <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                <TouchableOpacity style={[s.action, s.keep, !pending && s.disabled]} onPress={keep} disabled={!pending}><Text style={s.keepText}>♡  {t('listen.keep')}</Text></TouchableOpacity>
+                <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
+                <TouchableOpacity style={[s.action, s.keep, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepText}>{keepBusy ? '…' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
               </View>
             )}
           </View>
@@ -228,6 +226,33 @@ export default function HomeScreenCompact({ navigation }: any) {
         <TouchableOpacity style={s.secondary} onPress={share} disabled={!current}><Text style={s.secondaryText}>↗ Partager</Text></TouchableOpacity>
         <TouchableOpacity style={s.secondary} onPress={finishSession}><Text style={s.secondaryText}>{t('session.endNow')}</Text></TouchableOpacity>
       </View>
+
+      <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => setKeepChoiceOpen(false)}>
+        <View style={s.modalOverlay}><View style={s.keepChoiceCard}>
+          <Text style={s.modalTitle}>Garder ce morceau</Text>
+          <Text style={s.modalBody}>Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard dans Mes Sessions.</Text>
+          {playlists.length > 1 ? (
+            <View style={s.playlistChoices}>
+              <Text style={s.choiceLabel}>DESTINATION</Text>
+              <View style={s.playlistChoiceWrap}>
+                {playlists.slice(0, 5).map((playlist) => {
+                  const selected = keepPlaylistId === playlist.id;
+                  return <TouchableOpacity key={playlist.id} style={[s.playlistChoice, selected && s.playlistChoiceOn]} onPress={() => setKeepPlaylistId(playlist.id)}><Text style={[s.playlistChoiceText, selected && s.playlistChoiceTextOn]} numberOfLines={1}>{playlist.name}</Text></TouchableOpacity>;
+                })}
+              </View>
+            </View>
+          ) : null}
+          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePublic]} onPress={() => current && void doKeep(current.id, keepPlaylistId, 'PUBLIC')} disabled={keepBusy}>
+            <Text style={s.visibilityChoiceTitlePublic}>PUBLIC SUR MON PROFIL</Text>
+            <Text style={s.visibilityChoiceText}>Le morceau apparaîtra dans ton univers KEEP partagé.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePrivate]} onPress={() => current && void doKeep(current.id, keepPlaylistId, 'PRIVATE')} disabled={keepBusy}>
+            <Text style={s.visibilityChoiceTitlePrivate}>GARDER EN PRIVÉ</Text>
+            <Text style={s.visibilityChoiceText}>Le morceau reste dans ta bibliothèque et n’apparaît pas sur ton profil public.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.cancelChoice} onPress={() => setKeepChoiceOpen(false)}><Text style={s.cancelChoiceText}>Annuler</Text></TouchableOpacity>
+        </View></View>
+      </Modal>
 
       <Modal visible={showEndPrompt} transparent animationType="fade">
         <View style={s.modalOverlay}><View style={s.modalCard}>
@@ -251,9 +276,13 @@ function TopBar({ navigation, planCode, creditRemaining, creditUnlimited }: any)
   return <View style={s.topBar}>
     <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')}><Text style={s.roundText}>☰</Text></TouchableOpacity>
     <Text style={s.brand}>KEEP</Text>
-    <View style={[s.premium, isPaidPlan ? s.planPaid : creditsExhausted ? s.planExhausted : s.planFree]}>
+    <TouchableOpacity
+      style={[s.premium, isPaidPlan ? s.planPaid : creditsExhausted ? s.planExhausted : s.planFree]}
+      onPress={() => navigation.navigate('Offers', { focusPlan: isPaidPlan ? planCode : 'PREMIUM', sourceFeature: 'LISTEN_PLAN_BADGE' })}
+      accessibilityLabel="Voir mon offre KEEP"
+    >
       <Text style={[s.premiumText, !isPaidPlan && (creditsExhausted ? s.planExhaustedText : s.planFreeText)]}>{isPaidPlan ? paidLabel : freeLabel}</Text>
-    </View>
+    </TouchableOpacity>
   </View>;
 }
 
@@ -274,11 +303,6 @@ const s = StyleSheet.create({
   planExhaustedText: { color: C.pink },
   planPaid: { borderColor: '#382559', backgroundColor: '#171023' },
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "cette phrase remonte un
-  // peu plus haut") -- justifyContent:'center' centrait tout le bloc au
-  // milieu de l'espace disponible, ce qui pousse visuellement le titre/sous-
-  // titre trop bas sur un écran haut. flex-start + paddingTop remonte le
-  // contenu sans le coller au TopBar.
   idle: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
   idleTitle: { color: C.text, fontSize: 28, lineHeight: 32, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 6 },
   idleSubtitle: { color: '#C9C1D2', fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 6, marginBottom: 14 },
@@ -289,11 +313,10 @@ const s = StyleSheet.create({
   main: { flex: 1 },
   mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
   radarWrap: { alignItems: 'center', marginTop: 2 },
-  radarOuter: { width: 126, height: 126, borderRadius: 63, borderWidth: 1, borderColor: '#6339A6', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(139,92,246,0.10)' },
-  micPulse: { ...StyleSheet.absoluteFillObject, borderRadius: 63, borderWidth: 2, borderColor: C.purpleLight },
-  radarInner: { width: 94, height: 94, borderRadius: 47, borderWidth: 2, borderColor: '#A884FA', backgroundColor: '#6D35CF', alignItems: 'center', justifyContent: 'center' },
-  note: { color: '#fff', fontSize: 24 },
-  radarTitle: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 1.2, marginTop: 2 },
+  radarOuter: { width: 112, height: 112, borderRadius: 56, borderWidth: 1, borderColor: '#6339A6', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(139,92,246,0.10)' },
+  micPulse: { ...StyleSheet.absoluteFillObject, borderRadius: 56, borderWidth: 2, borderColor: C.purpleLight },
+  radarInner: { width: 78, height: 78, borderRadius: 39, borderWidth: 2, borderColor: '#A884FA', backgroundColor: '#6D35CF', alignItems: 'center', justifyContent: 'center' },
+  note: { color: '#fff', fontSize: 23 },
   liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green, marginRight: 6 },
   liveText: { color: C.green, fontSize: 12, fontWeight: '800' },
@@ -322,6 +345,15 @@ const s = StyleSheet.create({
   disabled: { opacity: 0.45 },
   saved: { minHeight: 42, marginTop: 9, borderRadius: 10, backgroundColor: 'rgba(104,242,177,0.10)', alignItems: 'center', justifyContent: 'center' },
   savedText: { color: C.green, fontWeight: '800', fontSize: 12 },
+  keptState: { minHeight: 46, marginTop: 9, borderRadius: 10, backgroundColor: 'rgba(104,242,177,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, gap: 8 },
+  keptStateText: { color: C.green, fontSize: 12, fontWeight: '900' },
+  privacyPill: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  privacyPublic: { borderColor: C.green, backgroundColor: 'rgba(104,242,177,0.12)' },
+  privacyPrivate: { borderColor: C.line, backgroundColor: '#120D1B' },
+  privacyPublicText: { color: C.green, fontSize: 10, fontWeight: '800' },
+  privacyPrivateText: { color: C.muted, fontSize: 10, fontWeight: '800' },
+  passedState: { minHeight: 42, marginTop: 9, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,95,131,0.38)', backgroundColor: 'rgba(255,95,131,0.06)', alignItems: 'center', justifyContent: 'center' },
+  passedStateText: { color: C.pink, fontSize: 12, fontWeight: '900' },
   waiting: { minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   waitingText: { color: C.muted, fontSize: 12, textAlign: 'center' },
   footerActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
@@ -329,8 +361,24 @@ const s = StyleSheet.create({
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   modalCard: { width: '100%', maxWidth: 360, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 20 },
+  keepChoiceCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 18 },
   modalTitle: { color: C.text, fontSize: 19, fontWeight: '900' },
-  modalBody: { color: C.muted, fontSize: 13, marginTop: 8 },
+  modalBody: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 8 },
+  playlistChoices: { marginTop: 15 },
+  choiceLabel: { color: C.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
+  playlistChoiceWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  playlistChoice: { minHeight: 32, maxWidth: '100%', paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
+  playlistChoiceOn: { borderColor: C.purpleLight, backgroundColor: 'rgba(139,92,246,0.18)' },
+  playlistChoiceText: { color: C.muted, fontSize: 10, fontWeight: '700', maxWidth: 140 },
+  playlistChoiceTextOn: { color: C.purpleLight },
+  visibilityChoice: { minHeight: 58, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 10, marginTop: 10, justifyContent: 'center', borderWidth: 1 },
+  visibilityChoicePublic: { borderColor: C.green, backgroundColor: 'rgba(104,242,177,0.08)' },
+  visibilityChoicePrivate: { borderColor: C.line, backgroundColor: '#120D1B' },
+  visibilityChoiceTitlePublic: { color: C.green, fontSize: 11, fontWeight: '900' },
+  visibilityChoiceTitlePrivate: { color: C.text, fontSize: 11, fontWeight: '900' },
+  visibilityChoiceText: { color: C.muted, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  cancelChoice: { minHeight: 38, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  cancelChoiceText: { color: C.muted, fontSize: 11, fontWeight: '800' },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 18 },
   modalBtn: { flex: 1, minHeight: 44, borderRadius: 11, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   modalBtnText: { color: C.text, fontSize: 12, fontWeight: '800' },
