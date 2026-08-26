@@ -15,6 +15,14 @@ if (!html.includes('<script type="module" src=')) {
   html = html.replace(/<script\s+src=/g, '<script type="module" src=');
 }
 
+// iOS Safari zoome automatiquement lorsqu'un input a une taille de police
+// inférieure à 16px. On corrige uniquement les champs sur petit écran web,
+// sans désactiver le pinch-to-zoom ni modifier le design natif Android/iOS.
+const mobileFormCss = '<style id="keep-mobile-form-nozoom">@media (max-width: 767px){input,textarea,select{font-size:16px!important}}</style>';
+if (!html.includes('keep-mobile-form-nozoom') && html.includes('</head>')) {
+  html = html.replace('</head>', `${mobileFormCss}</head>`);
+}
+
 // SEO sans toucher au rendu React Native : toutes les routes de l'application
 // web sont des variantes du même shell, donc elles déclarent la racine KEEP
 // comme URL canonique. Les profils publics ont leur propre canonical dynamique
@@ -45,5 +53,5 @@ fs.writeFileSync(indexPath, html);
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${canonicalRoot}</loc></url>\n</urlset>\n`;
 fs.writeFileSync(path.join(outputRoot, 'sitemap.xml'), sitemap, 'utf8');
 
-console.log(`[KEEP] web bootstrap ES module + SEO corrigés: ${indexPath}`);
+console.log(`[KEEP] web bootstrap ES module + SEO + formulaires mobiles corrigés: ${indexPath}`);
 console.log(`[KEEP] sitemap: ${path.join(outputRoot, 'sitemap.xml')}`);
