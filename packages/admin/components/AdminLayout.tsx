@@ -27,11 +27,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     let active = true;
     if (!supabase) return () => { active = false; };
-    void supabase.rpc('get_my_admin_role').then(({ data }) => {
-      if (!active) return;
-      const value = String(data || '') as AdminRole;
-      setRole(ALL_ROLES.includes(value) ? value : null);
-    }).catch(() => { if (active) setRole(null); });
+    void Promise.resolve(supabase.rpc('get_my_admin_role'))
+      .then(({ data }) => {
+        if (!active) return;
+        const value = String(data || '') as AdminRole;
+        setRole(ALL_ROLES.includes(value) ? value : null);
+      })
+      .catch(() => { if (active) setRole(null); });
     return () => { active = false; };
   }, []);
 
