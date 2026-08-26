@@ -12,6 +12,7 @@ export type DownloadCreditStatus = {
 };
 
 const LOCAL_GUEST_CREDIT_KEY = '@keep/local-guest-download-consumed-v1';
+const PENDING_GUEST_CREDIT_UPGRADE_KEY = '@keep/pending-guest-credit-upgrade-v1';
 const LOCAL_GUEST_LIMIT = 3;
 
 function normalize(row: any): DownloadCreditStatus {
@@ -25,7 +26,7 @@ function normalize(row: any): DownloadCreditStatus {
   };
 }
 
-async function getLocalGuestCreditStatus(): Promise<DownloadCreditStatus> {
+async function readLocalGuestConsumed(): Promise<number> {
   let consumed = 0;
   try {
     const stored = Number(await AsyncStorage.getItem(LOCAL_GUEST_CREDIT_KEY));
@@ -33,7 +34,11 @@ async function getLocalGuestCreditStatus(): Promise<DownloadCreditStatus> {
   } catch {
     // Le stockage local ne doit jamais empêcher l'essai de s'ouvrir.
   }
-  consumed = Math.min(Math.max(consumed, 0), LOCAL_GUEST_LIMIT);
+  return Math.min(Math.max(consumed, 0), LOCAL_GUEST_LIMIT);
+}
+
+async function getLocalGuestCreditStatus(): Promise<DownloadCreditStatus> {
+  const consumed = await readLocalGuestConsumed();
   return {
     planCode: 'GUEST',
     isAnonymous: true,
@@ -42,6 +47,45 @@ async function getLocalGuestCreditStatus(): Promise<DownloadCreditStatus> {
     remaining: Math.max(LOCAL_GUEST_LIMIT - consumed, 0),
     unlimited: false,
   };
+}
+
+/**
+ * Fige le nombre de crédits réellement utilisés pendant l'essai AVANT de
+ * quitter le profil local. Au premier login confirmé, ce nombre sera importé
+ * dans le compteur du vrai compte : 3 consommés avant inscription => 4
+ * crédits restants sur le total FREE de 7, jamais 7 nouveaux crédits.
+ */
+export async function stageLocalGuestCreditsForUpgrade(): Promise<void> {
+  const consumed = await readLocalGuestConsumed();
+  try {
+    await AsyncStorage.setItem(PENDING_GUEST_CREDIT_UPGRADE_KEY, String(consumed));
+  } catch {
+    // Si le stockage échoue, la création du compte reste possible.
+  }
+}
+
+/**
+ * Importe une seule fois la consommation invitée dans le compte authentifié.
+ * Le RPC borne lui-même la valeur au quota invité et ne peut jamais diminuer
+ * un compteur serveur déjà plus élevé.
+ */
+export async function importStagedGuestCreditsForAuthenticatedAccount(): Promise<DownloadCreditStatus | null> {
+  if (!supabase) return null;
+  let pendingRaw: string | null = null;
+  try { pendingRaw = await AsyncStorage.getItem(PENDING_GUEST_CREDIT_UPGRADE_KEY); } catch {}
+  if (pendingRaw == null) return null;
+
+  const parsed = Number(pendingRaw);
+  const consumed = Number.isFinite(parsed) ? Math.min(Math.max(Math.floor(parsed), 0), LOCAL_GUEST_LIMIT) : 0;
+  const { data, error } = await supabase.rpc('keep_import_guest_credit_usage', { p_guest_consumed: consumed });
+  if (error) throw error;
+
+  try {
+    await AsyncStorage.multiRemove([PENDING_GUEST_CREDIT_UPGRADE_KEY, LOCAL_GUEST_CREDIT_KEY]);
+  } catch {}
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return normalize(row);
 }
 
 export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
