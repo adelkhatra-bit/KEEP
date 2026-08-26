@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createAuthService } from '../services/authService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
@@ -40,13 +40,9 @@ function generateKeepPassword(): string {
 export default function UsernameAccountForm({ initialMode = 'create', followUsername = '', onSuccess }: Props) {
   const currentUser = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
-  const suggestedUsername = useMemo(() => {
-    const candidate = currentUser?.username?.trim().replace(/^@+/, '') || '';
-    return /^invite-/i.test(candidate) || candidate === 'demouser' ? '' : candidate;
-  }, [currentUser?.username]);
 
   const [mode, setMode] = useState<UsernameAccountMode>(initialMode);
-  const [username, setUsername] = useState(suggestedUsername);
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -91,7 +87,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const submit = async () => {
     if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
     const cleanUsername = username.trim().replace(/^@+/, '');
-    if (cleanUsername.includes('@')) return setError('Ne mets pas ton adresse e-mail ici. Choisis simplement ton pseudo KEEP, par exemple adel4A.');
+    if (cleanUsername.includes('@')) return setError('Ne mets pas ton adresse e-mail ici. Choisis simplement ton pseudo KEEP.');
     if (cleanUsername.length < 3 || cleanUsername.length > 30 || !/^[\p{L}\p{N}._-]+$/u.test(cleanUsername)) {
       return setError('Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.');
     }
@@ -119,7 +115,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       if (followUsername) {
         Alert.alert(
           mode === 'create' ? 'Compte KEEP créé' : 'Connexion réussie',
-          followed ? `Tu suis maintenant @${followUsername.replace(/^@+/, '')}.` : 'Ton compte est connecté. Le suivi pourra être terminé depuis le profil.',
+          followed ? 'Le profil que tu consultais est maintenant suivi.' : 'Ton compte est connecté. Le suivi pourra être terminé depuis le profil.',
         );
       } else if (mode === 'create') {
         Alert.alert('Compte KEEP créé', 'Ton profil d’essai est maintenant rattaché à ton vrai compte.');
@@ -137,14 +133,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   return <View style={s.container}>
     <Text style={s.title}>{mode === 'create' ? 'Créer mon compte KEEP' : 'Se connecter à KEEP'}</Text>
-    {followUsername ? <Text style={s.followHint}>Après connexion, @${followUsername.replace(/^@+/, '')} sera suivi automatiquement.</Text> : null}
+    {followUsername ? <Text style={s.followHint}>Après connexion, le profil que tu consultais sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>Aucun e-mail requis : choisis simplement un pseudo KEEP et un mot de passe.</Text>
 
     <TextInput
       style={s.input}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder="Pseudo KEEP — ex. adel4A"
+      placeholder="Pseudo KEEP"
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
