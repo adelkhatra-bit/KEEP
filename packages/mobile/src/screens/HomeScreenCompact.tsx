@@ -7,6 +7,7 @@ import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
+import { getDownloadCreditStatus } from '../services/creditService';
 
 const C = {
   bg: '#090610', card: '#151020', line: '#312348', purple: '#8B5CF6', purpleLight: '#B79CFF',
@@ -36,6 +37,22 @@ export default function HomeScreenCompact({ navigation }: any) {
   // plan via loadCurrentPlanCode (table subscriptions/plans réelle). Même
   // pattern réutilisé ici, jamais une deuxième logique de plan.
   const [planCode, setPlanCode] = useState('FREE');
+  const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
+  const [creditUnlimited, setCreditUnlimited] = useState(false);
+
+  const refreshCreditBadge = async () => {
+    try {
+      const status = await getDownloadCreditStatus();
+      setCreditRemaining(status.remaining);
+      setCreditUnlimited(status.unlimited);
+      if (status.planCode && status.planCode !== 'GUEST' && status.planCode !== 'DEMO') {
+        setPlanCode(status.planCode);
+      }
+    } catch {
+      setCreditRemaining(null);
+      setCreditUnlimited(false);
+    }
+  };
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { loadSessionScreenCopy().then(setScreenCopy).catch(() => {}); }, []);
@@ -44,6 +61,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     if (user && !musicEngine.isDemoMode) loadCurrentPlanCode(user.id).then((code) => live && setPlanCode(code || 'FREE')).catch(() => live && setPlanCode('FREE'));
     return () => { live = false; };
   }, [user?.id]);
+  useEffect(() => {
+    void refreshCreditBadge();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCreditBadge(); });
+    return () => unsubscribe?.();
+  }, [navigation, user?.id]);
   useEffect(() => {
     if (!isActive) return;
     setElapsed(formatElapsed(startedAt));
@@ -105,10 +127,18 @@ export default function HomeScreenCompact({ navigation }: any) {
     requestEndSession();
   };
 
+  const doKeep = async (entryId: string, playlistId?: string) => {
+    await keepTrack(entryId, playlistId);
+    await refreshCreditBadge();
+  };
+
   const keep = () => {
     if (!current || alreadySaved) return;
-    if (playlists.length <= 1) return keepTrack(current.id);
-    Alert.alert(t('session.chooseDestination'), undefined, playlists.map((p) => ({ text: p.name, onPress: () => keepTrack(current.id, p.id) })));
+    if (playlists.length <= 1) {
+      void doKeep(current.id);
+      return;
+    }
+    Alert.alert(t('session.chooseDestination'), undefined, playlists.map((p) => ({ text: p.name, onPress: () => { void doKeep(current.id, p.id); } })));
   };
 
   const share = async () => {
@@ -119,7 +149,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}>
-        <TopBar navigation={navigation} planCode={planCode} />
+        <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
         <View style={s.idle}>
           <SessionPulse active={false} />
           <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
@@ -140,7 +170,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.container}>
-      <TopBar navigation={navigation} planCode={planCode} />
+      <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
       {/* BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "quand je suis sur
           l'écoute, on ne voit pas les boutons du bas") : tout le contenu
@@ -213,12 +243,17 @@ export default function HomeScreenCompact({ navigation }: any) {
   );
 }
 
-function TopBar({ navigation, planCode }: any) {
+function TopBar({ navigation, planCode, creditRemaining, creditUnlimited }: any) {
   const isPaidPlan = planCode && planCode !== 'FREE';
+  const creditsExhausted = !creditUnlimited && creditRemaining === 0;
+  const paidLabel = planCode === 'PREMIUM' ? '♛ Premium' : planCode === 'CREATOR_PRO' ? 'Creator Pro' : planCode === 'VENUE_PRO' ? 'Venue Pro' : planCode;
+  const freeLabel = creditRemaining == null ? 'FREE' : `FREE · ${creditRemaining}`;
   return <View style={s.topBar}>
     <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')}><Text style={s.roundText}>☰</Text></TouchableOpacity>
     <Text style={s.brand}>KEEP</Text>
-    <View style={s.premium}><Text style={s.premiumText}>{isPaidPlan ? '♛ Premium' : 'Free'}</Text></View>
+    <View style={[s.premium, isPaidPlan ? s.planPaid : creditsExhausted ? s.planExhausted : s.planFree]}>
+      <Text style={[s.premiumText, !isPaidPlan && (creditsExhausted ? s.planExhaustedText : s.planFreeText)]}>{isPaidPlan ? paidLabel : freeLabel}</Text>
+    </View>
   </View>;
 }
 
@@ -232,7 +267,12 @@ const s = StyleSheet.create({
   round: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: '#120D1B' },
   roundText: { color: C.text, fontSize: 17 },
   brand: { color: C.text, fontSize: 24, fontWeight: '900', letterSpacing: 5 },
-  premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#382559', backgroundColor: '#171023' },
+  premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  planFree: { borderColor: '#2C8A60', backgroundColor: 'rgba(104,242,177,0.12)' },
+  planFreeText: { color: C.green },
+  planExhausted: { borderColor: '#B94B62', backgroundColor: 'rgba(255,95,131,0.12)' },
+  planExhaustedText: { color: C.pink },
+  planPaid: { borderColor: '#382559', backgroundColor: '#171023' },
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
   // BUG RÉEL trouvé le 26/08/2026 (Adel, test réel : "cette phrase remonte un
   // peu plus haut") -- justifyContent:'center' centrait tout le bloc au
