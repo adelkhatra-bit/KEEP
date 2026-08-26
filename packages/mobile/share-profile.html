@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07070d" />
+  <meta name="robots" content="index,follow" />
   <title>Profil KEEP</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#07070d;color:#fff;font-family:Inter,Arial,sans-serif;min-height:100vh;display:flex;justify-content:center}.shell{width:min(100%,620px);padding:28px 18px 48px}.logo{text-align:center;font-size:34px;font-weight:900;letter-spacing:9px;margin:10px 0 28px}.card{background:#151021;border:1px solid #382a55;border-radius:26px;padding:24px}.avatar{width:96px;height:96px;border-radius:50%;background:#241936;object-fit:cover;display:block;margin:0 auto 14px}.fallback{display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;color:#a884fa}.name{text-align:center;font-size:25px;font-weight:900}.meta{text-align:center;color:#a99db9;margin-top:6px}.bio{text-align:center;color:#d2c9dc;line-height:1.55;margin:18px 0}.dna{margin-top:18px;padding:16px;border-radius:18px;background:#0f0b16;border:1px solid #2b2038}.eyebrow{font-size:11px;color:#a884fa;font-weight:900;letter-spacing:1.5px}.dna h2{font-size:17px;margin:4px 0 0}.socials{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px}.socials a{color:#fff;text-decoration:none;background:#211a2b;border:1px solid #40354e;padding:9px 12px;border-radius:999px;font-size:12px;font-weight:800}.cta{display:block;margin:22px auto 0;text-align:center;background:#7f5cff;color:#fff;text-decoration:none;padding:15px 20px;border-radius:999px;font-weight:900}.tagline{text-align:center;color:#a884fa;font-weight:800;margin-top:24px}.small{text-align:center;color:#786f84;font-size:11px;margin-top:8px}.error{padding:22px;text-align:center;color:#c9bfd9}.hidden{display:none}
+    *{box-sizing:border-box}body{margin:0;background:#07070d;color:#fff;font-family:Inter,Arial,sans-serif;min-height:100vh;display:flex;justify-content:center}.shell{width:min(100%,620px);padding:28px 18px 48px}.logo{text-align:center;font-size:34px;font-weight:900;letter-spacing:9px;margin:10px 0 28px}.card{background:#151021;border:1px solid #382a55;border-radius:26px;padding:24px}.avatar{width:96px;height:96px;border-radius:50%;background:#241936;object-fit:cover;display:block;margin:0 auto 14px}.fallback{display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;color:#a884fa}.nameRow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.name{text-align:center;font-size:25px;font-weight:900}.follow{appearance:none;border:0;border-radius:999px;padding:9px 14px;background:#7f5cff;color:#fff;font-size:12px;font-weight:900;cursor:pointer}.follow.on{background:#211a2b;border:1px solid #514562;color:#d9d0e4}.follow:disabled{opacity:.65;cursor:default}.meta{text-align:center;color:#a99db9;margin-top:6px}.bio{text-align:center;color:#d2c9dc;line-height:1.55;margin:18px 0}.dna{margin-top:18px;padding:16px;border-radius:18px;background:#0f0b16;border:1px solid #2b2038}.eyebrow{font-size:11px;color:#a884fa;font-weight:900;letter-spacing:1.5px}.dna h2{font-size:17px;margin:4px 0 0}.genres{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap}.genre{font-size:11px;color:#d7cdf0;background:#211831;border:1px solid #392a54;border-radius:999px;padding:6px 9px}.socials{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px}.socials a{color:#fff;text-decoration:none;background:#211a2b;border:1px solid #40354e;padding:9px 12px;border-radius:999px;font-size:12px;font-weight:800}.cta{display:block;margin:14px auto 0;text-align:center;background:#7f5cff;color:#fff;text-decoration:none;padding:15px 20px;border-radius:999px;font-weight:900}.cta.secondary{background:#211a2b;border:1px solid #40354e;color:#e6deef}.followHint{text-align:center;color:#8f849f;font-size:11px;line-height:1.5;margin-top:10px;min-height:17px}.tagline{text-align:center;color:#a884fa;font-weight:800;margin-top:24px}.small{text-align:center;color:#786f84;font-size:11px;margin-top:8px}.error{padding:22px;text-align:center;color:#c9bfd9}.hidden{display:none}
   </style>
 </head>
 <body>
@@ -15,39 +16,119 @@
     <section id="card" class="card hidden">
       <div id="avatarFallback" class="avatar fallback">K</div>
       <img id="avatar" class="avatar hidden" alt="Avatar" />
-      <div id="name" class="name"></div>
+      <div class="nameRow">
+        <div id="name" class="name"></div>
+        <button id="follow" class="follow" type="button">+ Suivre</button>
+      </div>
       <div id="meta" class="meta"></div>
       <div id="bio" class="bio"></div>
-      <div class="dna"><div class="eyebrow">KEEP DNA</div><h2>Son univers musical</h2></div>
+      <div class="dna">
+        <div class="eyebrow">KEEP DNA</div>
+        <h2>Son univers musical</h2>
+        <div id="genres" class="genres"></div>
+      </div>
       <div id="socials" class="socials"></div>
-      <a class="cta" href="https://adelkhatra-bit.github.io/KEEP/">OUVRIR KEEP</a>
+      <div id="followHint" class="followHint">Connecte-toi à KEEP pour suivre ce profil.</div>
+      <a id="openKeep" class="cta" href="https://adelkhatra-bit.github.io/KEEP/">OUVRIR KEEP</a>
+      <a class="cta secondary" href="https://adelkhatra-bit.github.io/KEEP/">DÉCOUVRIR KEEP</a>
       <div class="tagline">Tes goûts te ressemblent. Fais grandir ta communauté.</div>
-      <div class="small">Ce lien public ne contient aucun code ni jeton de connexion.</div>
+      <div class="small">Lien public permanent · aucun code ni jeton de connexion n’est partagé.</div>
     </section>
     <div id="status" class="error">Chargement du profil…</div>
   </main>
 <script>
 const SUPABASE_URL='https://rrhqsqzcplvmwxizqnla.supabase.co';
+const PROJECT_REF='rrhqsqzcplvmwxizqnla';
 const ANON_KEY='sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru';
+const KEEP_ROOT='https://adelkhatra-bit.github.io/KEEP/';
 const u=(new URLSearchParams(location.search).get('u')||'').replace(/^@/,'').trim();
-const headers={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`};
+const publicHeaders={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`};
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-async function get(path){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+async function get(path,headers=publicHeaders){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+function routeIntoKeep(username){return `${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+username)}`}
+function readSession(){
+  try{
+    const key=Object.keys(localStorage).find(k=>k===`sb-${PROJECT_REF}-auth-token` || (k.startsWith(`sb-${PROJECT_REF}`)&&k.endsWith('-auth-token')));
+    if(!key)return null;
+    const raw=JSON.parse(localStorage.getItem(key)||'null');
+    const s=raw?.currentSession||raw?.session||raw;
+    return s?.access_token&&s?.user?.id?s:null;
+  }catch{return null}
+}
+async function authedRequest(path,method='GET',body){
+  const session=readSession(); if(!session) throw new Error('NO_SESSION');
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{
+    method,
+    headers:{apikey:ANON_KEY,Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:body?JSON.stringify(body):undefined
+  });
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  if(method==='GET')return r.json();
+  return null;
+}
 (async()=>{
   const status=document.getElementById('status');
   if(!u){status.textContent='Profil KEEP introuvable.';return}
   try{
-    const rows=await get(`profiles?username=eq.${encodeURIComponent(u)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,city,country_code,website&limit=1`);
+    let rows=await get(`profiles?username=eq.${encodeURIComponent(u)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,city,country_code,kind,favorite_genres,favorite_artists,website,updated_at&limit=1`);
+    if(!rows.length){
+      rows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,city,country_code,kind,favorite_genres,favorite_artists,website,updated_at&order=updated_at.desc&limit=1`);
+    }
     const p=rows[0]; if(!p){status.textContent='Ce profil KEEP n’est pas public ou n’existe pas.';return}
     document.title=`@${p.username} · KEEP`;
     document.getElementById('name').textContent='@'+p.username;
-    document.getElementById('meta').textContent=[p.display_name,p.city,p.country_code].filter(Boolean).join(' · ');
+    document.getElementById('meta').textContent=[p.display_name,p.kind,p.city,p.country_code].filter(Boolean).join(' · ');
     document.getElementById('bio').textContent=p.bio||'Découvre son univers musical sur KEEP.';
+    const identity=[...(Array.isArray(p.favorite_genres)?p.favorite_genres:[]),...(Array.isArray(p.favorite_artists)?p.favorite_artists:[])].slice(0,8);
+    document.getElementById('genres').innerHTML=identity.map(x=>`<span class="genre">${esc(x)}</span>`).join('');
     if(p.avatar_url){const img=document.getElementById('avatar');img.src=p.avatar_url;img.classList.remove('hidden');document.getElementById('avatarFallback').classList.add('hidden')}
     try{
       const links=await get(`social_links?profile_id=eq.${encodeURIComponent(p.id)}&visibility=eq.PUBLIC&select=platform,url`);
       document.getElementById('socials').innerHTML=links.filter(x=>x.url).map(x=>`<a rel="noopener noreferrer" target="_blank" href="${esc(/^https?:\/\//i.test(x.url)?x.url:'https://'+x.url)}">${esc(x.platform)}</a>`).join('');
     }catch{}
+
+    const openKeep=document.getElementById('openKeep');
+    openKeep.href=routeIntoKeep(p.username);
+    const follow=document.getElementById('follow');
+    const hint=document.getElementById('followHint');
+    const session=readSession();
+    let following=false;
+
+    async function refreshFollow(){
+      const current=readSession();
+      if(!current){follow.textContent='+ Suivre';follow.classList.remove('on');hint.textContent='Connecte-toi à KEEP pour suivre ce profil.';return}
+      if(current.user.id===p.id){follow.textContent='Ton profil';follow.classList.add('on');follow.disabled=true;hint.textContent='Tu consultes ton propre profil KEEP.';return}
+      try{
+        const existing=await authedRequest(`follows?follower_id=eq.${encodeURIComponent(current.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}&select=follower_id&limit=1`);
+        following=Array.isArray(existing)&&existing.length>0;
+        follow.textContent=following?'Abonné(e)':'+ Suivre';
+        follow.classList.toggle('on',following);
+        hint.textContent=following?'Tu suis ce profil.':'Tu peux suivre ce profil directement.';
+      }catch{hint.textContent='Ouvre KEEP pour suivre ce profil.'}
+    }
+
+    follow.addEventListener('click',async()=>{
+      const current=readSession();
+      if(!current){location.href=routeIntoKeep(p.username);return}
+      if(current.user.id===p.id)return;
+      follow.disabled=true;
+      try{
+        if(following){
+          await authedRequest(`follows?follower_id=eq.${encodeURIComponent(current.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}`,'DELETE');
+          following=false;
+        }else{
+          await authedRequest('follows','POST',{follower_id:current.user.id,followee_id:p.id});
+          following=true;
+        }
+        follow.textContent=following?'Abonné(e)':'+ Suivre';
+        follow.classList.toggle('on',following);
+        hint.textContent=following?'Tu suis ce profil.':'Tu peux suivre ce profil directement.';
+      }catch{
+        location.href=routeIntoKeep(p.username);
+      }finally{follow.disabled=false}
+    });
+
+    await refreshFollow();
     document.getElementById('card').classList.remove('hidden');status.classList.add('hidden');
   }catch(e){status.textContent='Impossible de charger ce profil pour le moment.'}
 })();
