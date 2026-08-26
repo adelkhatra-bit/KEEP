@@ -13,6 +13,9 @@ on:
       - 'packages/mobile/src/services/creditService.ts'
       - 'packages/mobile/src/services/sharingService.ts'
       - 'packages/mobile/share-profile.html'
+      - 'supabase/functions/keep-public/**'
+      - 'supabase/functions/keep-preview/**'
+      - 'supabase/functions/keep-admin-preview/**'
       - 'scripts/keep-public-trial-smoke.cjs'
       - '.github/workflows/public-trial-smoke.yml'
   workflow_dispatch:
@@ -50,6 +53,28 @@ jobs:
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
+
+      - name: Prove every legacy KEEP URL redirects to the canonical site
+        shell: bash
+        run: |
+          set -euo pipefail
+          canonical='https://adelkhatra-bit.github.io/KEEP/'
+          supabase='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1'
+
+          check_redirect() {
+            local source="$1"
+            local expected="$2"
+            local result
+            result="$(curl --connect-timeout 10 --max-time 20 -sS -o /dev/null -w '%{http_code}|%{redirect_url}' "$source")"
+            echo "$source -> $result"
+            test "$result" = "308|$expected"
+          }
+
+          check_redirect "$supabase/keep-public" "$canonical"
+          check_redirect "$supabase/keep-preview" "$canonical"
+          check_redirect "$supabase/keep-public/share-profile/?u=keep-smoke" "${canonical}share-profile/?u=keep-smoke"
+          check_redirect "$supabase/keep-preview/share-profile/?u=keep-smoke" "${canonical}share-profile/?u=keep-smoke"
+          check_redirect "$supabase/keep-admin-preview" "${canonical}admin-preview/"
 
       - name: Install Chromium + Firefox + WebKit
         run: |
