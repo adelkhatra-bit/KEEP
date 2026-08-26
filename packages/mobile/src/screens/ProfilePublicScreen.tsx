@@ -14,6 +14,7 @@ import { hasFeature } from '../services/entitlementService';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadNotifications } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
+import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -51,8 +52,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<Record<string, CanonicalTrack[]>>({});
   const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(null);
+  const [playlistPreferences, setPlaylistPreferences] = useState<Record<string, KeepPlaylistPreference>>({});
 
   const accountRequired = isLocalGuest || isDemoMode;
+  const providerId = musicEngine.musicProvider.providerId || 'KEEP';
 
   useEffect(() => {
     let live = true;
@@ -90,6 +93,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   useEffect(() => {
     let live = true;
+    const refreshPreferences = async () => {
+      const next = await loadPlaylistPreferences(providerId).catch(() => ({}));
+      if (live) setPlaylistPreferences(next);
+    };
+    void refreshPreferences();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPreferences(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation, providerId, providerPlaylists.length]);
+
+  useEffect(() => {
+    let live = true;
     if (!user || accountRequired) {
       setUnreadCount(0);
       return () => { live = false; };
@@ -101,17 +115,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [accountRequired, user?.id]);
 
   const keptTracks = useMemo(() => sessions.flatMap((session) => session.tracks.filter((entry) => entry.status === 'kept')), [sessions]);
+  // Profil = aperçu public réel. Un morceau passé en Privé dans Mes musiques
+  // reste dans la bibliothèque et dans les sessions, mais disparaît ici immédiatement.
+  const publicKeptTracks = useMemo(() => keptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [keptTracks]);
+  const publicTrackIds = useMemo(() => new Set(publicKeptTracks.map((entry) => entry.track.id)), [publicKeptTracks]);
   const dna = useMemo(() => {
-    const decisions: DnaSourceDecision[] = keptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
+    const decisions: DnaSourceDecision[] = publicKeptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
     return computeMusicDNA(decisions);
-  }, [keptTracks]);
-  const artists = useMemo(() => Array.from(new Set(keptTracks.map((entry) => entry.track.artist))).slice(0, 18), [keptTracks]);
-  const albums = useMemo(() => Array.from(new Set(keptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])).slice(0, 18), [keptTracks]);
+  }, [publicKeptTracks]);
+  const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))).slice(0, 18), [publicKeptTracks]);
+  const albums = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])).slice(0, 18), [publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
-    if (providerPlaylists.length) return providerPlaylists.slice(0, 18);
-    if (!keptTracks.length) return [];
-    return [{ id: LOCAL_PROFILE_PLAYLIST_ID, name: 'Mes KEEP', description: 'Morceaux gardés sur cet appareil', trackCount: keptTracks.length, isKeepManaged: true }];
-  }, [keptTracks.length, providerPlaylists]);
+    if (providerPlaylists.length) {
+      return providerPlaylists.filter((playlist) => preferenceFor(playlistPreferences, providerId, playlist.id)?.isPublic === true).slice(0, 18);
+    }
+    const localPreference = preferenceFor(playlistPreferences, providerId, LOCAL_PROFILE_PLAYLIST_ID);
+    if (!publicKeptTracks.length || localPreference?.isPublic !== true) return [];
+    return [{ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference.name || 'Mes KEEP', description: localPreference.description || 'Morceaux publics gardés sur cet appareil', trackCount: publicKeptTracks.length, isKeepManaged: true }];
+  }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length]);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil KEEP</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
@@ -168,7 +189,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const loadPlaylistTracks = async (playlist: ProviderPlaylist) => {
     if (playlist.id === LOCAL_PROFILE_PLAYLIST_ID) {
-      const localTracks = keptTracks.map((entry) => entry.track);
+      const localTracks = publicKeptTracks.map((entry) => entry.track);
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: localTracks }));
       return;
     }
@@ -177,7 +198,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     try {
       const session = await musicEngine.getSession();
       const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
-      setPlaylistTracks((current) => ({ ...current, [playlist.id]: tracks }));
+      const visibleTracks = musicEngine.usesDemoMusicProvider ? tracks.filter((track) => publicTrackIds.has(track.id)) : tracks;
+      setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
     } catch {
       Alert.alert('Playlist', 'Impossible de charger les morceaux de cette playlist pour le moment.');
     } finally {
@@ -206,8 +228,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const tabContent = () => {
     if (activeTab === 'KEEP') {
-      if (!keptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
-      return <View style={s.keepList}>{keptTracks.slice(0,18).map((entry) => renderCompactTrack(entry.track, entry.id))}</View>;
+      if (!publicKeptTracks.length) return <Empty text="Tes morceaux publics apparaîtront ici. Les morceaux privés restent dans Mes musiques." />;
+      return <View style={s.keepList}>{publicKeptTracks.slice(0,18).map((entry) => renderCompactTrack(entry.track, entry.id))}</View>;
     }
 
     if (activeTab === 'PLAYLISTS') {
@@ -263,7 +285,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
         {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant KEEP et ton mot de passe. Aucun e-mail n’est obligatoire.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
-        <View style={s.stats}><Stat value={keptTracks.length} label="KEEP"/><Stat value={user.followerCount} label="Abonnés"/><Stat value={user.followingCount} label="Abonnements"/></View>
+        <View style={s.stats}><Stat value={publicKeptTracks.length} label="KEEP"/><Stat value={user.followerCount} label="Abonnés"/><Stat value={user.followingCount} label="Abonnements"/></View>
       </View>
 
       <View style={s.dna}>
