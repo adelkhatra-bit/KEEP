@@ -6,8 +6,8 @@
 # PostgREST/Supabase). Ce n'est PAS une preuve que Supabase fonctionnera à
 # l'identique (extensions/policies supplémentaires possibles côté Supabase
 # managé), mais une preuve réelle que :
-# - les 7 migrations s'appliquent sans erreur, dans l'ordre, sur un moteur
-#   PostgreSQL propre ;
+# - toutes les migrations présentes s'appliquent sans erreur, dans l'ordre,
+#   sur un moteur PostgreSQL propre ;
 # - les triggers métier (is_adult, cohérence devise) produisent le bon
 #   résultat, pas seulement "la syntaxe est valide" ;
 # - les policies RLS bloquent réellement un accès cross-utilisateur, testé
@@ -52,9 +52,11 @@ create or replace function auth.uid() returns uuid
 language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
--- Rôles Supabase simulés : certaines migrations accordent explicitement
--- des droits à `authenticated`. Le conteneur PostgreSQL CI ne crée pas ce
--- rôle automatiquement, contrairement à Supabase managé.
+-- Rôles Supabase simulés. Certaines migrations accordent ou révoquent
+-- explicitement des droits à `anon` / `authenticated`; un PostgreSQL brut
+-- ne crée pas ces rôles automatiquement, contrairement à Supabase managé.
+drop role if exists anon;
+create role anon nosuperuser nobypassrls;
 drop role if exists authenticated;
 create role authenticated nosuperuser nobypassrls;
 -- Rôle applicatif non-superuser : sans ça, RLS est silencieusement
