@@ -8,6 +8,7 @@ import { GenderOption, User } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { pickAndUploadAvatar } from '../services/avatarService';
+import UsernameAccountForm from '../components/UsernameAccountForm';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
   { key: 'MALE', label: 'Homme' }, { key: 'FEMALE', label: 'Femme' }, { key: 'OTHER', label: 'Autre' }, { key: 'PREFER_NOT_TO_SAY', label: 'Ne pas préciser' },
@@ -19,6 +20,7 @@ const COUNTRIES = [
 export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const user = useUserStore((state) => state.user);
   const isDemoMode = useUserStore((state) => state.isDemoMode);
+  const isLocalGuest = useUserStore((state) => state.isLocalGuest);
   const setUser = useUserStore((state) => state.setUser);
   const [username, setUsername] = useState(user?.username ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
@@ -35,6 +37,9 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+
+  const accountRequired = isLocalGuest || isDemoMode;
 
   const parsed = useMemo(() => {
     const parts = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -47,6 +52,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   const goToTab = (screen: 'Listen' | 'Discover' | 'MyMusic' | 'Parties' | 'Profile') => {
     navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
+  };
+
+  const requireAccount = () => {
+    setError('');
+    setCountryOpen(false);
+    setDateOpen(false);
+    setAccountOpen(true);
   };
 
   const buildUser = (): User => {
@@ -64,6 +76,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   };
 
   const save = async () => {
+    if (accountRequired) return requireAccount();
     const cleanUsername = username.trim().replace(/^@+/, '').replace(/\s+/g, '');
     if (cleanUsername.length < 3) { setError('Le pseudo doit contenir au moins 3 caractères.'); return; }
     setError(''); setSaving(true);
@@ -79,7 +92,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   };
 
   const changeAvatar = async () => {
-    if (isDemoMode) return void Alert.alert('Mode démo', 'Connecte-toi à un vrai compte pour enregistrer une photo.');
+    if (accountRequired) return requireAccount();
     setAvatarBusy(true);
     try {
       const url = await pickAndUploadAvatar(user.id);
@@ -95,6 +108,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   };
 
   const useCurrentLocation = async () => {
+    if (accountRequired) return requireAccount();
     setLocating(true);
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
@@ -107,6 +121,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   };
 
   const searchCity = async () => {
+    if (accountRequired) return requireAccount();
     const query = city.trim();
     if (query.length < 2) return void Alert.alert('Ville', 'Saisis au moins 2 caractères.');
     setCitySearching(true);
@@ -134,32 +149,37 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     </View>
 
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <Section title="Photo">
+      {accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte KEEP">
+        <Text style={s.accountGateTitle}>🔒 Créer mon compte KEEP</Text>
+        <Text style={s.accountGateText}>Débloque photo, profil, localisation, réseaux et partage. Tout est facultatif.</Text>
+      </TouchableOpacity> : null}
+
+      <Section title="Photo" subtitle="Facultatif">
         <View style={s.avatarRow}>
           {avatar ? <Image source={{ uri: avatar }} style={s.avatar} /> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarK}>K</Text></View>}
-          <TouchableOpacity style={s.locationButton} onPress={changeAvatar} disabled={avatarBusy}>{avatarBusy ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>Changer la photo</Text>}</TouchableOpacity>
+          <TouchableOpacity style={s.locationButton} onPress={changeAvatar} disabled={avatarBusy}>{avatarBusy ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Ajouter une photo' : 'Changer la photo'}</Text>}</TouchableOpacity>
         </View>
       </Section>
 
-      <Section title="Identité">
-        <Field label="Pseudo" value={username} onChangeText={setUsername} placeholder="tonpseudo" autoCapitalize="none" />
+      <Section title="Identité" subtitle="Facultatif">
+        <Field label="Pseudo" value={username} onChangeText={setUsername} placeholder="tonpseudo" autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
         <Text style={s.hint}>Visible publiquement sous la forme @{username.trim().replace(/^@+/, '') || 'pseudo'}.</Text>
-        <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur toi" multiline />
+        <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur toi" multiline editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
-      <Section title="Localisation" subtitle="KEEP peut préremplir automatiquement la ville et le pays.">
-        <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>⌖ Utiliser ma position</Text>}</TouchableOpacity>
-        <Field label="Ville" value={city} onChangeText={setCity} placeholder="Commence à saisir une ville" />
+      <Section title="Localisation" subtitle="Facultatif · KEEP peut préremplir automatiquement la ville et le pays.">
+        <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Utiliser ma position' : '⌖ Utiliser ma position'}</Text>}</TouchableOpacity>
+        <Field label="Ville" value={city} onChangeText={setCity} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
         <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>Rechercher et préremplir</Text>}</TouchableOpacity>
-        <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => setCountryOpen(true)} />
-        <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" />
+        <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} />
+        <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
-      <Section title="Informations privées" subtitle="Jamais affichées publiquement.">
-        <Selector label="Date de naissance" value={birthDate || 'Choisir une date'} onPress={() => { setDateDraft({ year: parsed.year, month: parsed.month, day: parsed.day }); setDateOpen(true); }} />
-        <Text style={s.hint}>Utilisée pour les filtres d’âge et événements 18+.</Text>
+      <Section title="Informations privées" subtitle="Facultatif · jamais affichées publiquement.">
+        <Selector label="Date de naissance" value={birthDate || 'Choisir une date'} onPress={() => { if (accountRequired) return requireAccount(); setDateDraft({ year: parsed.year, month: parsed.month, day: parsed.day }); setDateOpen(true); }} />
+        <Text style={s.hint}>Utilisée seulement si tu veux activer les filtres d’âge et événements 18+.</Text>
         <Text style={[s.label,{marginTop:18}]}>Genre</Text>
-        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive]} onPress={()=>setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive]} onPress={()=>accountRequired ? requireAccount() : setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
       </Section>
 
       <Section title="KEEP">
@@ -169,10 +189,12 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       </Section>
 
       {error ? <Text style={s.error}>{error}</Text> : null}
-      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>Enregistrer les modifications</Text>}</TouchableOpacity>
+      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
       <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
-      <TouchableOpacity style={s.advanced} onPress={()=>navigation.navigate('AdvancedProfileSettings')}><Text style={s.advancedText}>Réglages avancés du profil</Text></TouchableOpacity>
+      <TouchableOpacity style={s.advanced} onPress={()=>accountRequired ? requireAccount() : navigation.navigate('AdvancedProfileSettings')}><Text style={s.advancedText}>{accountRequired ? '🔒 Réseaux et réglages avancés' : 'Réglages avancés du profil'}</Text></TouchableOpacity>
     </ScrollView>
+
+    <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></Modal>
 
     <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>{setCountryCode(code);setCountryOpen(false);}}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></Modal>
 
@@ -187,5 +209,5 @@ function QuickLink({ label, onPress }: { label:string; onPress:()=>void }) { ret
 function DateColumn({ title, values, selected, onSelect }: { title:string; values:number[]; selected:number; onSelect:(v:number)=>void }) { return <View style={s.dateCol}><Text style={s.dateTitle}>{title}</Text><ScrollView style={s.dateScroll}>{values.map(v=><TouchableOpacity key={v} style={[s.dateOption,selected===v&&s.dateOptionActive]} onPress={()=>onSelect(v)}><Text style={[s.dateText,selected===v&&s.dateTextActive]}>{String(v).padStart(title==='Année'?4:2,'0')}</Text></TouchableOpacity>)}</ScrollView></View>; }
 
 const s=StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted},header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},saveText:{color:colors.primaryLight,fontSize:13,fontWeight:'800',textAlign:'right'},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},content:{padding:18,paddingBottom:38},section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16},sectionTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:12,fontWeight:'700',marginBottom:7},input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:14,backgroundColor:colors.background},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:14},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:colors.backgroundElevated},locationButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},lookupButton:{minHeight:40,marginTop:8,borderRadius:20,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.background},lookupText:{color:colors.textSecondary,fontSize:12,fontWeight:'800'},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderText:{color:colors.textSecondary,fontSize:12,fontWeight:'700'},genderTextActive:{color:colors.white},quickLink:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},quickLabel:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'800'},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:12,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:14,fontWeight:'900'},playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},playlistsText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},advanced:{minHeight:44,marginTop:8,alignItems:'center',justifyContent:'center'},advancedText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'78%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:12},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:11,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:42,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},dateTextActive:{color:'#fff',fontWeight:'900'}
+  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted},header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},saveText:{color:colors.primaryLight,fontSize:13,fontWeight:'800',textAlign:'right'},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},content:{padding:18,paddingBottom:38},accountGate:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,borderRadius:radius.lg,padding:14,marginBottom:16},accountGateTitle:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},accountGateText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:4},section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16},sectionTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:12,fontWeight:'700',marginBottom:7},input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:14,backgroundColor:colors.background},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:14},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:colors.backgroundElevated},locationButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},lookupButton:{minHeight:40,marginTop:8,borderRadius:20,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.background},lookupText:{color:colors.textSecondary,fontSize:12,fontWeight:'800'},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderText:{color:colors.textSecondary,fontSize:12,fontWeight:'700'},genderTextActive:{color:colors.white},quickLink:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},quickLabel:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'800'},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:12,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:14,fontWeight:'900'},playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},playlistsText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},advanced:{minHeight:44,marginTop:8,alignItems:'center',justifyContent:'center'},advancedText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'88%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},continueTrial:{minHeight:40,alignItems:'center',justifyContent:'center',marginTop:6},continueTrialText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:12},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:11,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:42,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},dateTextActive:{color:'#fff',fontWeight:'900'}
 });
