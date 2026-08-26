@@ -24,6 +24,12 @@ type SupabaseAuthClient = Pick<SupabaseClient, 'auth'>;
 export function createAuthService(client: SupabaseAuthClient): AuthService {
   return {
     async signInAsGuest() {
+      // Un refresh ou un deuxième clic ne doit JAMAIS recréer un compte
+      // anonyme. Les tests précédents créaient plusieurs /signup à la suite et
+      // finissaient par déclencher le rate-limit Supabase (429).
+      const { data: existing } = await client.auth.getSession();
+      if (existing.session?.user) return { error: null };
+
       const { error } = await client.auth.signInAnonymously();
       return { error: error?.message ?? null };
     },
