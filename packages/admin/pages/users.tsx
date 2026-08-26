@@ -17,6 +17,8 @@ type DirectoryUser = {
   keeps_this_month: number;
 };
 
+type LegacyRecovery = { username: string; temporaryPassword: string; message?: string };
+
 async function invokeAdmin(body: Record<string, unknown>) {
   if (!supabase) throw new Error('Supabase Super Admin non configuré.');
   const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
@@ -36,6 +38,8 @@ export default function Users() {
   const [managePlan, setManagePlan] = useState<'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO'>('PREMIUM');
   const [months, setMonths] = useState(12);
   const [reason, setReason] = useState('Offert depuis le Super Admin KEEP');
+  const [legacyUsername, setLegacyUsername] = useState('');
+  const [legacyRecovery, setLegacyRecovery] = useState<LegacyRecovery | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -77,6 +81,37 @@ export default function Users() {
       setError(e?.message ?? 'Invitation impossible.');
     } finally {
       setActionBusy(null);
+    }
+  };
+
+  const recoverLegacy = async () => {
+    const username = legacyUsername.trim().replace(/^@+/, '');
+    if (!username) return;
+    setActionBusy('recover'); setError(null); setActionMessage(null); setLegacyRecovery(null);
+    try {
+      const result = await invokeAdmin({ action: 'users.recover_legacy', username });
+      setLegacyRecovery({
+        username: String(result?.username || username),
+        temporaryPassword: String(result?.temporaryPassword || ''),
+        message: result?.message,
+      });
+      setActionMessage(`Ancien essai @${String(result?.username || username)} converti en vrai compte KEEP sans changer son profil.`);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? 'Récupération impossible.');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const copyRecovery = async () => {
+    if (!legacyRecovery) return;
+    const text = `Identifiant KEEP : ${legacyRecovery.username}\nMot de passe temporaire : ${legacyRecovery.temporaryPassword}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setActionMessage('Identifiant et mot de passe temporaire copiés.');
+    } catch {
+      setActionMessage(text);
     }
   };
 
@@ -125,6 +160,33 @@ export default function Users() {
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {actionMessage && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{actionMessage}</div>}
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils + e-mails Supabase Auth + plan actif + KEEP du mois. Accès réservé aux `admin_users` actifs.</div>}
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Récupérer un ancien essai KEEP</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
+          Pour un profil créé avec l’ancien mode anonyme puis perdu après suppression du cache. Cette action conserve exactement le même identifiant Supabase, la photo, la bio, les réseaux, la ville et les données du profil. Elle transforme seulement l’ancien accès anonyme en identifiant KEEP + mot de passe.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="Pseudo KEEP, ex. adel4A"
+            value={legacyUsername}
+            onChange={(e) => setLegacyUsername(e.target.value)}
+            style={{ flex: '1 1 260px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 16 }}
+          />
+          <button onClick={() => void recoverLegacy()} disabled={!legacyUsername.trim() || actionBusy !== null}>
+            {actionBusy === 'recover' ? 'Récupération…' : 'Récupérer ce profil'}
+          </button>
+        </div>
+        {legacyRecovery && (
+          <div style={{ marginTop: 14, border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--bg-card)' }}>
+            <div style={{ fontWeight: 800 }}>Identifiant : {legacyRecovery.username}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 16, marginTop: 7, wordBreak: 'break-all' }}>Mot de passe temporaire : {legacyRecovery.temporaryPassword}</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>Ce mot de passe n’est affiché qu’après cette récupération. Connecte-toi ensuite dans KEEP avec l’identifiant ci-dessus.</div>
+            <button style={{ marginTop: 10 }} onClick={() => void copyRecovery()}>Copier les accès</button>
+          </div>
+        )}
+      </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter / offrir un abonnement</h3>
@@ -187,12 +249,12 @@ export default function Users() {
           placeholder="Rechercher (pseudo, e-mail, pays, type, plan)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}
+          style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 16 }}
         />
         <select
           value={planFilter}
           onChange={(e) => setPlanFilter(e.target.value as PlanFilter)}
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 16 }}
         >
           {PLAN_OPTIONS.map((p) => <option key={p} value={p}>{p === 'ALL' ? 'Tous les plans' : p}</option>)}
         </select>
@@ -215,7 +277,13 @@ export default function Users() {
               <td>{u.plan_code ?? 'FREE'}</td>
               <td>{u.keeps_this_month ?? 0}</td>
               <td>{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
-              <td><button disabled={!u.email} onClick={() => u.email && setManageEmail(u.email)}>Gérer</button></td>
+              <td>
+                {u.email ? (
+                  <button onClick={() => setManageEmail(u.email || '')}>Gérer</button>
+                ) : (
+                  <button onClick={() => { setLegacyUsername(u.username); setLegacyRecovery(null); }}>Récupérer</button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
