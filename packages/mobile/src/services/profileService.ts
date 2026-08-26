@@ -9,7 +9,8 @@ export interface SaveProfileOptions {
    * des champs Supabase déjà renseignés par des valeurs vides.
    *
    * Les écrans où l'utilisateur appuie explicitement sur Enregistrer/Supprimer
-   * passent allowClearing=true afin qu'un effacement volontaire reste possible.
+   * utilisent une nouvelle instance du service et restent destructifs afin
+   * qu'un effacement volontaire soit toujours possible.
    */
   allowClearing?: boolean;
 }
@@ -103,6 +104,12 @@ async function persistLocalAvatar(client: SupabaseClient, profileId: string, ava
 }
 
 export function createProfileService(client: SupabaseClient) {
+  // L'instance longue durée créée au bootstrap appelle d'abord loadOrCreate...
+  // puis reçoit les changements automatiques du store. Les instances créées
+  // directement par les écrans de réglages n'ont pas fait ce chargement : leur
+  // save correspond donc à une action utilisateur explicite (effacement permis).
+  let loadedOwnProfileId: string | null = null;
+
   return {
     async loadOrCreateOwnProfile(session: KeepAuthSession): Promise<User> {
       const fallback = fallbackUser(session);
@@ -138,6 +145,7 @@ export function createProfileService(client: SupabaseClient) {
           favorite_artists: [],
         });
         if (insertError) throw insertError;
+        loadedOwnProfileId = session.userId;
         return fallback;
       }
 
@@ -153,6 +161,7 @@ export function createProfileService(client: SupabaseClient) {
       if (followersResult.error) throw followersResult.error;
       if (followingResult.error) throw followingResult.error;
 
+      loadedOwnProfileId = session.userId;
       return {
         ...publicUserFromProfile(
           profile,
@@ -212,7 +221,7 @@ export function createProfileService(client: SupabaseClient) {
       const authenticatedId = authState.session?.user?.id;
       if (!authenticatedId || authenticatedId !== user.id) return;
 
-      const allowClearing = options.allowClearing === true;
+      const allowClearing = options.allowClearing ?? loadedOwnProfileId !== user.id;
 
       // Avant toute écriture, relire l'état Supabase. Les sauvegardes automatiques
       // sont déclenchées par plusieurs changements du store (GPS, notifications,
