@@ -21,6 +21,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'true'
       EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
       - uses: actions/checkout@v4
@@ -90,16 +91,15 @@ jobs:
             await assertInViewport(start, 'Démarrer session');
             await start.click();
 
-            // Le libellé vivant varie volontairement entre « Session active »
-            // et « Micro actif · analyse en cours » pendant une reconnaissance.
-            // L'ancien test attendait « EN ÉCOUTE », texte qui n'existe plus dans
-            // le design validé et créait un faux échec alors que la session était active.
             const listening = textLast(/Micro actif · analyse en cours|Session active/i);
             await assertInViewport(listening, 'Radar écoute');
             const share = textLast(/Partager/i);
             await assertInViewport(share, 'Partager');
             const end = textLast(/Terminer la session|Arrêter|End session/i);
             await assertInViewport(end, 'Arrêter session');
+            // Ce workflow valide l'ergonomie sans swipe avec le provider de
+            // reconnaissance démo déterministe. La reconnaissance réelle AudD
+            // est vérifiée séparément par keep-music-core + le runtime browser.
             await textLast(/PASS|PASSER/i).waitFor({ state: 'visible', timeout: 15000 });
             await textLast(/KEEP|GARDER/i).waitFor({ state: 'visible', timeout: 15000 });
             await shot('02-listen-active-no-swipe');
@@ -151,8 +151,6 @@ jobs:
             await textLast('Playlists', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await shot('10-advanced-to-playlists');
 
-            // Cas réel PC : fenêtre non maximisée. Les 5 onglets doivent
-            // rester visibles et aucun contenu ne doit déborder horizontalement.
             await page.setViewportSize({ width: 900, height: 700 });
             await textLast('Écouter', { exact: true }).click();
             await page.waitForTimeout(350);
