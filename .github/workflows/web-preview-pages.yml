@@ -83,10 +83,18 @@ jobs:
       - name: Assemble public site
         run: |
           rm -rf _site
-          mkdir -p _site/admin-preview _site/share-profile
+          mkdir -p _site/admin-preview _site/share-profile _site/superadmin
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
+          cat > _site/superadmin/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir KEEP Super Admin</a>
+          HTML
+          cat > _site/404.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP</title><script>
+          (function(){var p=location.pathname,q=location.search,h=location.hash,t='/KEEP/';if(p.indexOf('/KEEP/admin-preview')===0||p.indexOf('/KEEP/superadmin')===0)t='/KEEP/admin-preview/';else if(p.indexOf('/KEEP/share-profile')===0)t='/KEEP/share-profile/';location.replace(t+q+h)})();
+          </script><a href="/KEEP/">Ouvrir KEEP</a>
+          HTML
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
@@ -102,4 +110,5 @@ jobs:
         run: |
           echo "KEEP APP: ${{ steps.deployment.outputs.page_url }}"
           echo "KEEP ADMIN: ${{ steps.deployment.outputs.page_url }}admin-preview/"
+          echo "KEEP ADMIN ALIAS: ${{ steps.deployment.outputs.page_url }}superadmin/"
           echo "KEEP SHARE: ${{ steps.deployment.outputs.page_url }}share-profile/"
