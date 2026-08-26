@@ -62,23 +62,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   // une respiration légère (jamais plate) reste en dessous du seuil de
   // silence pour qu'on sache que KEEP écoute, sans jamais prétendre détecter
   // un son qui n'existe pas.
-  // Réglage du 26/08/2026 (Adel, test réel : "ça détecte pas assez sensible,
-  // ça bouge pas assez") -- deux changements réels, pas juste esthétiques :
-  // 1) seuil de silence abaissé (0.02 -> 0.008) : les niveaux réels observés
-  //    en test étaient parfois écrasés à la respiration décorative alors
-  //    qu'il y avait déjà un vrai son faible.
-  // 2) courbe d'amplification passée de sqrt (^0.5) à ^0.32 -- amplifie
-  //    beaucoup plus les niveaux faibles réalistes (0.03-0.08) tout en
-  //    restant bornée à 1 pour un son fort, jamais un mouvement inventé à
-  //    partir de rien (le plancher de respiration reste inchangé en dessous
-  //    du seuil).
   const isLiveMic = !musicEngine.isDemoMode;
   useEffect(() => {
     if (!isLiveMic) return undefined; // Mode Démo -- pas de vrai niveau micro, voir boucle décorative ci-dessous.
     const raw = Math.max(0, Math.min(1, micLevel));
-    const SILENCE_FLOOR = 0.008;
-    const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.pow(raw, 0.32);
-    Animated.timing(micPulse, { toValue: target, duration: 70, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
+    const SILENCE_FLOOR = 0.02;
+    const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.sqrt(raw);
+    Animated.timing(micPulse, { toValue: target, duration: 90, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
   }, [micPulse, isLiveMic, micLevel]);
 
   useEffect(() => {
@@ -106,9 +96,12 @@ export default function HomeScreenCompact({ navigation }: any) {
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
-    const sessionId = requestEndSession();
-    if (sessionId) navigation.navigate('SessionRecap', { sessionId });
-    else Alert.alert(t('session.endNow'), t('session.emptySessionEnded'));
+    // L'arrêt doit être immédiat et ne jamais faire disparaître la barre des
+    // cinq onglets. requestEndSession() coupe les timers + Audio.Recording,
+    // archive la session si elle contient des morceaux puis remet isActive à
+    // false. Le récap reste consultable depuis l'historique, mais n'est plus
+    // imposé comme écran intermédiaire.
+    requestEndSession();
   };
 
   const keep = () => {
@@ -138,12 +131,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
   }
 
-  // Amplitude 1.32 -> 1.20 (26/08/2026, Adel test réel : le cercle grossissait
-  // assez pour toucher le texte "Micro actif" sous radarOuter -- radarWrap n'a
-  // qu'un marginTop:6 avant liveRow, et micPulse déborde visuellement de
-  // radarOuter en React Native (overflow visible par défaut). 1.20 reste plus
-  // réactif que l'original (1.14) sans chevaucher le texte en dessous.
-  const pulseScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] });
+  const pulseScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
   const pulseOpacity = micPulse.interpolate({ inputRange: [0, 1], outputRange: [0.72, 0.05] });
 
   return (

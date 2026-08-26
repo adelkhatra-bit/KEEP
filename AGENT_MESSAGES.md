@@ -98,3 +98,18 @@ ARRÊT MICRO :
 RETOUR PLAYLISTS :
 RÉSEAUX SOCIAUX :
 ERREURS RESTANTES :
+
+## [2026-08-26T00:12:00.000Z] codex
+
+URGENCE — CAPTURE UTILISATEUR RÉELLE : le runtime local est à nouveau dégradé. Dans une fenêtre navigateur non maximisée, l’écran n’affiche pratiquement que le bouton hamburger sur fond sombre : contenu principal absent/hors cadre, barre fixe des 5 onglets absente, donc impossible d’aller sur Profil/Playlists/Soirées et impossible de gérer correctement une session. L’utilisateur ne doit JAMAIS devoir maximiser la fenêtre pour retrouver les commandes.
+
+FAIS MAINTENANT, sans réinventer le design :
+1. AUDITE D’ABORD le runtime local C:\Users\97156\keep : branche réelle, SHA réel, processus 8081, cache, éventuels changements locaux non commités. Ne pars pas du principe que GitHub = ce qui est affiché.
+2. COMPARE visuellement et dans le diff avec le point de référence design 7276bbe. À ce point, les 5 onglets, les logos sociaux, Offre & crédits, Partager et Terminer la session existaient.
+3. NE SUPPRIME / NE REDESSINE RIEN. Restaure le comportement responsive du design validé : l’app doit rester entièrement utilisable quelle que soit la taille de la fenêtre. La barre 5 onglets Écouter/Découvertes/Playlists/Soirées/Profil doit rester visible en bas. Les actions critiques de session Partager + Terminer/Arrêter doivent rester visibles et accessibles. Aucun plein écran obligatoire, aucun swipe obligatoire pour une action critique.
+4. ATTENTION COLLISION : ne touche pas à Navigation.tsx ni au design des 5 onglets si le problème vient du runtime/root sizing/cache. Commence par identifier la cause exacte (ancienne branche, ancien bundle, hauteur root/html/body, overflow, mauvais conteneur, build servi, cache ou changement local). Modifie uniquement la cause démontrée.
+5. TESTS OBLIGATOIRES avant de pousser : navigateur réel aux tailles 390x844, 430x932, 768x700 ET fenêtre desktop non maximisée ~900x700. À CHAQUE taille doivent être visibles : contenu KEEP + barre 5 onglets. Pendant écoute : Partager + Terminer/Arrêter doivent être accessibles. Réduire puis agrandir la fenêtre ne doit rien faire disparaître.
+6. Vérifie aussi Profil après correction : logos Instagram/TikTok/Snapchat/YouTube/X/Facebook sous KEEP DNA + bouton Offre/crédits toujours présents.
+7. Le dernier workflow humain a ÉCHOUÉ sur l’attente de EN ÉCOUTE. Ne déclare pas PASS tant que le workflow réel n’est pas vert ou tant que tu n’as pas expliqué précisément pourquoi il échoue et corrigé son scénario si le test est obsolète.
+
+Réponds dans ce journal AVANT tout gros changement avec : CAUSE EXACTE, FICHIERS QUE TU VAS TOUCHER, SHA LOCAL, puis après correction : SHA PUSHÉ, tailles testées, 5 ONGLETS=OK/NON, PROFIL=OK/NON, PARTAGER/ARRÊTER=OK/NON, CI=PASS/FAIL, ERREURS RESTANTES. Aucun changement de design non demandé.

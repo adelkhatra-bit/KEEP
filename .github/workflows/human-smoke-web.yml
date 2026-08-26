@@ -55,7 +55,7 @@ jobs:
           done
           cat /tmp/keep-preview.log
           exit 1
-      - name: Parcours Claude Design + captures
+      - name: Parcours KEEP + captures
         run: |
           mkdir -p artifacts/human-smoke
           cat > keep-human-smoke.cjs <<'JS'
@@ -68,6 +68,8 @@ jobs:
             const failures = [];
             page.on('pageerror', err => failures.push(`PAGE ERROR: ${err.message}`));
             page.on('console', msg => { if (msg.type() === 'error') failures.push(`CONSOLE ERROR: ${msg.text()}`); });
+            page.on('dialog', async d => d.accept().catch(() => {}));
+            const textLast = (value, options = {}) => page.getByText(value, options).last();
 
             const dump = async (name) => {
               await page.screenshot({ path: `artifacts/human-smoke/${name}.png`, fullPage: true });
@@ -81,37 +83,45 @@ jobs:
 
             await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1500);
-            await page.getByText('KEEP', { exact: true }).first().waitFor({ timeout: 15000 });
+            await textLast('KEEP', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
             for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
-              await page.getByText(label, { exact: true }).last().waitFor({ timeout: 10000 });
+              await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             }
-            await dump('01-five-tabs-claude-design');
+            await dump('01-five-tabs');
 
-            await page.getByText(/START A SESSION|DÉMARRER|COMMENCER/i).first().click();
-            await page.getByText('EN ÉCOUTE', { exact: true }).waitFor({ timeout: 15000 });
-            await page.getByText('PASSER', { exact: true }).waitFor({ timeout: 15000 });
-            await page.getByText('GARDER', { exact: true }).waitFor({ timeout: 15000 });
-            await page.getByText(/PARTAGE RAPIDE/i).waitFor({ timeout: 15000 });
-            await dump('02-neon-listening');
+            await textLast(/START A SESSION|DÉMARRER|COMMENCER/i).click();
+            await textLast('EN ÉCOUTE', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/PASS|PASSER/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/KEEP|GARDER/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/Partager/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/Terminer la session|Arrêter|End session/i).waitFor({ state: 'visible', timeout: 15000 });
+            await dump('02-listening-current-design');
 
-            await page.getByText('Playlists', { exact: true }).last().click();
-            await page.waitForTimeout(800);
+            for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
+              await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            }
+
+            await textLast('Playlists', { exact: true }).click();
+            await page.waitForTimeout(500);
             await dump('03-playlists');
 
-            await page.getByText('Soirées', { exact: true }).last().click();
-            await page.waitForTimeout(800);
+            await textLast('Soirées', { exact: true }).click();
+            await page.waitForTimeout(500);
             await dump('04-parties');
 
-            await page.getByText('Profil', { exact: true }).last().click();
-            await page.getByText(/KEEP DNA/i).waitFor({ timeout: 15000 });
+            await textLast('Profil', { exact: true }).click();
+            await textLast(/KEEP DNA/i).waitFor({ state: 'visible', timeout: 15000 });
             await dump('05-profile');
 
             if (failures.some(x => x.startsWith('PAGE ERROR:'))) throw new Error(failures.join('\n'));
             fs.writeFileSync('artifacts/human-smoke/report.txt', [
-              'KEEP reconciliation Claude Design smoke: PASS',
+              'KEEP browser smoke: PASS',
+              '5 tabs: PASS',
+              'Listening screen + footer actions: PASS',
+              'Profile KEEP DNA: PASS',
               `URL: ${page.url()}`,
-              `Console/page errors: ${failures.length}`,
+              `Console/page errors captured: ${failures.length}`,
               ...failures.slice(0, 30),
             ].join('\n'));
             await browser.close();

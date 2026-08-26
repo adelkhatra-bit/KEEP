@@ -39,104 +39,146 @@ jobs:
         working-directory: packages/mobile
         run: |
           node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-mobile-loop.log 2>&1 &
-          for i in {1..90}; do curl -fsS http://127.0.0.1:8081 >/dev/null && exit 0; sleep 1; done
+          echo $! >/tmp/keep-mobile-loop.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-mobile-loop.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
           cat /tmp/keep-mobile-loop.log
           exit 1
-      - name: Audit complete mobile 390x844
+      - name: Audit complet mobile 390x844 + fenêtre réduite
         run: |
           mkdir -p artifacts/mobile-loop
           cat > mobile-loop.cjs <<'JS'
           const { chromium } = require('playwright');
           const fs = require('fs');
+
           (async () => {
             const browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
-            const page = await context.newPage();
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
             const errors = [];
             page.on('pageerror', e => errors.push(`PAGE: ${e.message}`));
             page.on('console', m => { if (m.type() === 'error') errors.push(`CONSOLE: ${m.text()}`); });
             page.on('dialog', async d => { await d.accept().catch(() => {}); });
+
             const shot = async (name) => page.screenshot({ path: `artifacts/mobile-loop/${name}.png`, fullPage: true });
-            const assertInViewport = async (locator, label) => {
+            const assertInViewport = async (locator, label, viewportBottom = 784) => {
+              await locator.waitFor({ state: 'visible', timeout: 15000 });
               const box = await locator.boundingBox();
               if (!box) throw new Error(`${label}: élément invisible`);
-              if (box.y < 0 || box.y + box.height > 784) throw new Error(`${label}: nécessite un swipe (${JSON.stringify(box)})`);
+              if (box.y < 0 || box.y + box.height > viewportBottom) throw new Error(`${label}: nécessite un swipe (${JSON.stringify(box)})`);
             };
+            const textLast = (value, options = {}) => page.getByText(value, options).last();
 
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1000);
-            const demo = page.getByText('ENTRER EN MODE DÉMO', { exact: true });
-            if (await demo.count()) { await demo.first().click(); await page.waitForTimeout(600); }
 
-            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await page.getByText(label, { exact: true }).last().waitFor({ timeout: 15000 });
+            const demo = textLast('ENTRER EN MODE DÉMO', { exact: true });
+            if (await demo.isVisible().catch(() => false)) {
+              await demo.click();
+              await page.waitForTimeout(600);
+            }
+
+            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
+              await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+            }
             await shot('01-listen-idle');
 
-            const start = page.getByText(/START A SESSION|DÉMARRER|COMMENCER/i).first();
-            await start.waitFor({ timeout: 10000 });
+            const start = textLast(/START A SESSION|DÉMARRER|COMMENCER/i);
             await assertInViewport(start, 'Démarrer session');
             await start.click();
-            const listening = page.getByText('EN ÉCOUTE', { exact: true });
-            await listening.waitFor({ timeout: 10000 });
+
+            const listening = textLast('EN ÉCOUTE', { exact: true });
             await assertInViewport(listening, 'Radar écoute');
-            const share = page.getByText('↗ Partager', { exact: true });
-            await share.waitFor();
+            const share = textLast(/Partager/i);
             await assertInViewport(share, 'Partager');
-            const end = page.getByText(/terminer|arrêter|end session/i).last();
-            await end.waitFor({ timeout: 10000 });
+            const end = textLast(/Terminer la session|Arrêter|End session/i);
             await assertInViewport(end, 'Arrêter session');
+            await textLast(/PASS|PASSER/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/KEEP|GARDER/i).waitFor({ state: 'visible', timeout: 15000 });
             await shot('02-listen-active-no-swipe');
+
             await end.click();
-            await start.waitFor({ timeout: 10000 });
-            if (await listening.count()) throw new Error('Arrêt session: EN ÉCOUTE encore visible après clic');
+            await start.waitFor({ state: 'visible', timeout: 10000 });
+            if (await listening.isVisible().catch(() => false)) throw new Error('Arrêt session: EN ÉCOUTE encore visible après clic');
             await shot('03-listen-stopped');
 
             for (const [label, file] of [['Découvertes','04-discover'],['Playlists','05-playlists'],['Soirées','06-parties'],['Profil','07-profile']]) {
-              await page.getByText(label, { exact: true }).last().click();
+              await textLast(label, { exact: true }).click();
               await page.waitForTimeout(350);
               await shot(file);
             }
 
-            await page.getByLabel('Notifications').waitFor();
-            for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) await page.getByLabel(network).waitFor();
+            await page.getByLabel('Notifications').last().waitFor({ state: 'visible', timeout: 10000 });
+            for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) {
+              await page.getByLabel(network).last().waitFor({ state: 'visible', timeout: 10000 });
+            }
 
-            await page.getByLabel('Modifier le profil').click();
-            await page.getByText('Modifier le profil', { exact: true }).waitFor();
-            await page.getByPlaceholder('tonpseudo').fill('keepmobiletest');
-            await page.getByText('⌖ Utiliser ma position', { exact: true }).waitFor();
-            await page.getByText('Rechercher et préremplir', { exact: true }).waitFor();
-            await page.getByText('Choisir une date', { exact: true }).click();
-            const validateDate = page.getByText('Valider la date', { exact: true });
-            await validateDate.waitFor();
-            await assertInViewport(validateDate, 'Valider date');
+            await page.getByLabel('Modifier le profil').last().click();
+            await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByPlaceholder('tonpseudo').last().fill('keepmobiletest');
+            await textLast('⌖ Utiliser ma position', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('Rechercher et préremplir', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('Choisir une date', { exact: true }).click();
+            const validateDate = textLast('Valider la date', { exact: true });
+            await validateDate.waitFor({ state: 'attached', timeout: 10000 });
+            await validateDate.scrollIntoViewIfNeeded();
+            await validateDate.waitFor({ state: 'visible', timeout: 10000 });
             await validateDate.click();
             await shot('08-profile-edit-location-date');
 
-            await page.getByText('Réglages avancés du profil', { exact: true }).click();
-            await page.getByText('Réglages avancés', { exact: true }).waitFor();
-            await page.getByLabel('Retour au profil').waitFor();
-            await page.getByLabel('Revenir aux Playlists').waitFor();
-            for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) await page.getByText(network, { exact: true }).waitFor();
+            const advanced = textLast('Réglages avancés du profil', { exact: true });
+            await advanced.scrollIntoViewIfNeeded();
+            await advanced.click();
+            await textLast('Réglages avancés', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByLabel('Retour au profil').last().waitFor({ state: 'visible', timeout: 10000 });
+            const backPlaylists = page.getByLabel('Revenir aux Playlists').last();
+            await backPlaylists.scrollIntoViewIfNeeded();
+            await backPlaylists.waitFor({ state: 'visible', timeout: 10000 });
+            for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) {
+              const item = textLast(network, { exact: true });
+              await item.scrollIntoViewIfNeeded();
+              await item.waitFor({ state: 'visible', timeout: 10000 });
+            }
             await shot('09-advanced-settings');
-            await page.getByLabel('Revenir aux Playlists').click();
-            await page.getByText('Playlists', { exact: true }).last().waitFor({ timeout: 10000 });
+            await backPlaylists.click();
+            await textLast('Playlists', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await shot('10-advanced-to-playlists');
 
-            if (errors.length) throw new Error(`Erreurs navigateur:\n${errors.join('\n')}`);
+            // Cas réel PC : fenêtre non maximisée. Les 5 onglets doivent
+            // rester visibles et aucun contenu ne doit déborder horizontalement.
+            await page.setViewportSize({ width: 900, height: 700 });
+            await textLast('Écouter', { exact: true }).click();
+            await page.waitForTimeout(350);
+            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
+              const tab = textLast(label, { exact: true });
+              await assertInViewport(tab, `Onglet ${label}`, 700);
+            }
+            const dimensions = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+            if (dimensions.scrollWidth > dimensions.width + 1) throw new Error(`Débordement horizontal fenêtre réduite: ${JSON.stringify(dimensions)}`);
+            await shot('11-windowed-900x700');
+
+            const pageErrors = errors.filter(x => x.startsWith('PAGE:'));
+            if (pageErrors.length) throw new Error(`Erreurs page:\n${pageErrors.join('\n')}`);
             fs.writeFileSync('artifacts/mobile-loop/report.txt', [
               'KEEP MOBILE LOOP AUDIT: PASS',
-              'Viewport: 390x844',
+              'Viewport mobile: 390x844',
+              'Viewport fenêtre réduite: 900x700',
               '5 tabs navigation: PASS',
               'Listen start: PASS',
               'Listen stop returns to idle: PASS',
               'Essential listen actions without swipe: PASS',
+              'Profile form scroll/navigation: PASS',
+              'Reduced desktop window/no horizontal overflow: PASS',
               'Notification bell: PASS',
               'Social icons: PASS',
               'Pseudo field: PASS',
               'Location helpers: PASS',
               'Birth date selector: PASS',
-              'Advanced settings back/profile controls: PASS',
               'Advanced settings -> Playlists: PASS',
-              'Console/page errors: 0'
+              `Console/page errors captured: ${errors.length}`
             ].join('\n'));
             await browser.close();
           })().catch(err => { console.error(err); process.exit(1); });

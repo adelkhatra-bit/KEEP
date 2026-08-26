@@ -71,6 +71,7 @@ if exist "%REPO%\.expo" rmdir /S /Q "%REPO%\.expo"
 if exist "%REPO%\.metro-cache" rmdir /S /Q "%REPO%\.metro-cache"
 if exist "%REPO%\packages\mobile\.expo" rmdir /S /Q "%REPO%\packages\mobile\.expo"
 if exist "%REPO%\packages\mobile\dist" rmdir /S /Q "%REPO%\packages\mobile\dist"
+if exist "%REPO%\packages\mobile\dist-web" rmdir /S /Q "%REPO%\packages\mobile\dist-web"
 if exist "%REPO%\packages\mobile\web-build" rmdir /S /Q "%REPO%\packages\mobile\web-build"
 if exist "%REPO%\packages\admin\.next" rmdir /S /Q "%REPO%\packages\admin\.next"
 if exist "%REPO%\node_modules\.cache" rmdir /S /Q "%REPO%\node_modules\.cache"
@@ -97,19 +98,47 @@ start "KEEP ADMIN - %KEEP_SHA%" cmd /k "cd /D \"%REPO%\" && set NEXT_PUBLIC_SUPA
 echo [11/12] Mobile 8081 depuis CE DOSSIER et CE SHA uniquement...
 start "KEEP MOBILE - %KEEP_SHA%" cmd /k "cd /D \"%REPO%\" && set EXPO_PUBLIC_SUPABASE_URL=%SUPABASE_URL%&& set EXPO_PUBLIC_SUPABASE_ANON_KEY=%SUPABASE_KEY%&& set EXPO_PUBLIC_DEMO_MODE=false&& set EXPO_PUBLIC_API_URL=http://localhost:3010&& npm run start:web --workspace=packages/mobile -- --port 8081 --clear"
 
-echo [12/12] Ouverture SANS cache navigateur...
-timeout /t 18 /nobreak >nul
+echo [12/12] Attente REELLE du mobile avant ouverture navigateur...
+set "READY="
+for /L %%I in (1,1,90) do (
+  powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8081/' -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500 -and $r.Content.Length -gt 100){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>&1
+  if not errorlevel 1 (
+    set "READY=1"
+    goto :mobile_ready
+  )
+  timeout /t 1 /nobreak >nul
+)
+
+:mobile_ready
+if not defined READY (
+  echo ERREUR: KEEP mobile n'est pas pret sur 8081 apres 90 secondes.
+  echo La page blanche n'est PAS ouverte. Regarde la fenetre KEEP MOBILE pour l'erreur Expo.
+  pause
+  exit /b 1
+)
+
+set "ADMIN_READY="
+for /L %%I in (1,1,45) do (
+  powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:3001/login' -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>&1
+  if not errorlevel 1 (
+    set "ADMIN_READY=1"
+    goto :admin_ready
+  )
+  timeout /t 1 /nobreak >nul
+)
+
+:admin_ready
 set "APP_URL=http://localhost:8081/?keep_sha=%KEEP_SHA%&nocache=%RANDOM%%RANDOM%"
 set "ADMIN_URL=http://localhost:3001/login?keep_sha=%KEEP_SHA%&nocache=%RANDOM%%RANDOM%"
 if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" (
   start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --inprivate --new-window "%APP_URL%"
-  start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --inprivate --new-window "%ADMIN_URL%"
+  if defined ADMIN_READY start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --inprivate --new-window "%ADMIN_URL%"
 ) else if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
   start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --incognito --new-window "%APP_URL%"
-  start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --incognito --new-window "%ADMIN_URL%"
+  if defined ADMIN_READY start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --incognito --new-window "%ADMIN_URL%"
 ) else (
   start "" "%APP_URL%"
-  start "" "%ADMIN_URL%"
+  if defined ADMIN_READY start "" "%ADMIN_URL%"
 )
 
 echo.
@@ -117,7 +146,7 @@ echo ==============================================
 echo KEEP ISOLE / CACHE VIDE / NAVIGATEUR PRIVE
 echo SHA : %KEEP_SHA%
 echo APP : %APP_URL%
-echo ADMIN: %ADMIN_URL%
+if defined ADMIN_READY (echo ADMIN: %ADMIN_URL%) else (echo ADMIN: demarrage trop lent, fenetre admin non ouverte automatiquement)
 echo ==============================================
 echo.
 pause
