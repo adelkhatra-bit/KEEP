@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
@@ -75,7 +75,52 @@ export default function OnboardingScreen() {
     enterGuestMode(guestId);
   };
 
+  const closeAccount = () => {
+    clearWebIntent();
+    setAccountOpen(false);
+  };
+
+  const continueWithoutSignup = async () => {
+    clearWebIntent();
+    await handleGuestPress();
+  };
+
   const showDemo = __DEV__ || process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1';
+
+  if (accountOpen) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView
+          style={styles.accountScroll}
+          contentContainerStyle={styles.accountScrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.accountCard}>
+            <TouchableOpacity style={styles.backChoice} onPress={closeAccount} accessibilityRole="button" accessibilityLabel="Retour sans créer de compte">
+              <Text style={styles.backChoiceText}>← Retour</Text>
+            </TouchableOpacity>
+            <UsernameAccountForm
+              initialMode={accountMode}
+              followUsername={intent.followUsername}
+              onSuccess={() => clearWebIntent()}
+            />
+            <TouchableOpacity
+              style={[styles.button, styles.accountButton, styles.continueTrialButton]}
+              onPress={continueWithoutSignup}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Continuer sans inscription"
+            >
+              {busy ? <ActivityIndicator color={colors.textPrimary} /> : <Text style={styles.accountButtonText}>CONTINUER SANS INSCRIPTION</Text>}
+            </TouchableOpacity>
+            <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte KEEP plus tard.</Text>
+            <Text style={styles.legal}>{t('onboarding.legalNotice')}</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -86,27 +131,18 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.actions}>
-        {!accountOpen ? <>
-          <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
-            {busy ? <ActivityIndicator color={colors.white} /> : <>
-              <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
-              <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>
-            </>}
-          </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
+          {busy ? <ActivityIndicator color={colors.white} /> : <>
+            <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
+            <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>
+          </>}
+        </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.button, styles.accountButton]} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
-            <Text style={styles.accountButtonText}>SE CONNECTER / CRÉER MON COMPTE</Text>
-          </TouchableOpacity>
-        </> : <View style={styles.accountCard}>
-          {!intent.followUsername ? <TouchableOpacity style={styles.backChoice} onPress={() => setAccountOpen(false)}><Text style={styles.backChoiceText}>← Retour</Text></TouchableOpacity> : null}
-          <UsernameAccountForm
-            initialMode={accountMode}
-            followUsername={intent.followUsername}
-            onSuccess={() => clearWebIntent()}
-          />
-        </View>}
+        <TouchableOpacity style={[styles.button, styles.accountButton]} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
+          <Text style={styles.accountButtonText}>SE CONNECTER / CRÉER MON COMPTE</Text>
+        </TouchableOpacity>
 
-        {showDemo && !accountOpen ? (
+        {showDemo ? (
           <TouchableOpacity style={styles.demoButton} onPress={() => enterDemoMode()} accessibilityRole="button" accessibilityLabel="Entrer en mode démo" testID="onboarding-demo-button">
             <Text style={styles.demoButtonText}>Mode démo</Text>
           </TouchableOpacity>
@@ -131,9 +167,13 @@ const styles = StyleSheet.create({
   trialHint:{color:colors.white,fontSize:10,opacity:.82,marginTop:2},
   accountButton:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   accountButtonText:{...typography.button,color:colors.textPrimary,fontWeight:'800'},
-  accountCard:{gap:spacing.sm},
-  backChoice:{minHeight:32,alignSelf:'flex-start',justifyContent:'center',paddingHorizontal:spacing.xs},
+  accountScroll:{flex:1},
+  accountScrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl,paddingVertical:spacing.xl},
+  accountCard:{width:'100%',maxWidth:520,alignSelf:'center',gap:spacing.sm},
+  backChoice:{minHeight:40,alignSelf:'flex-start',justifyContent:'center',paddingHorizontal:spacing.xs},
   backChoiceText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},
+  continueTrialButton:{marginTop:spacing.xs},
+  continueTrialHint:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center'},
   demoButton:{minHeight:38,alignItems:'center',justifyContent:'center'},
   demoButtonText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},
   legal:{marginTop:spacing.sm,fontSize:11,color:colors.textMuted,textAlign:'center'},
