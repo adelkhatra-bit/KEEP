@@ -3,11 +3,19 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 let activeSound: Audio.Sound | null = null;
 let activeKey: string | null = null;
 let activeStateListener: ((playing: boolean) => void) | null = null;
+let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
+
+function clearActiveTimer() {
+  if (!activeTimer) return;
+  clearTimeout(activeTimer);
+  activeTimer = null;
+}
 
 async function unloadActive() {
   const sound = activeSound;
   const listener = activeStateListener;
+  clearActiveTimer();
   activeSound = null;
   activeKey = null;
   activeStateListener = null;
@@ -21,6 +29,14 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   const next = operation.then(task, task);
   operation = next.then(() => undefined, () => undefined);
   return next;
+}
+
+async function configurePreviewAudio() {
+  await Audio.setAudioModeAsync({
+    playsInSilentModeIOS: true,
+    staysActiveInBackground: false,
+    shouldDuckAndroid: true,
+  });
 }
 
 /**
@@ -40,11 +56,7 @@ export async function toggleTrackPreview(
     }
 
     await unloadActive();
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-    });
+    await configurePreviewAudio();
 
     let createdSound: Audio.Sound | null = null;
     const created = await Audio.Sound.createAsync(
@@ -63,6 +75,50 @@ export async function toggleTrackPreview(
     activeKey = key;
     activeStateListener = onStateChange;
     onStateChange(true);
+  });
+}
+
+/**
+ * Lit un segment court à partir d'une position donnée. Cette variante est
+ * utilisée par les boutons 0s / 10s / 20s de la session et partage le même
+ * lecteur global : deux morceaux KEEP ne peuvent donc jamais se superposer.
+ */
+export async function playTrackPreviewSegment(
+  key: string,
+  previewUrl: string,
+  positionMillis: number,
+  durationMillis = 7000,
+  onStateChange?: (playing: boolean) => void,
+): Promise<void> {
+  return serialize(async () => {
+    await unloadActive();
+    await configurePreviewAudio();
+
+    let createdSound: Audio.Sound | null = null;
+    const created = await Audio.Sound.createAsync(
+      { uri: previewUrl },
+      {
+        shouldPlay: true,
+        positionMillis: Math.max(0, Math.round(positionMillis)),
+        progressUpdateIntervalMillis: 250,
+      },
+      (status: AVPlaybackStatus) => {
+        if (!status.isLoaded || !status.didJustFinish || !createdSound) return;
+        if (activeSound === createdSound) {
+          void serialize(async () => { await unloadActive(); });
+        }
+      },
+    );
+    createdSound = created.sound;
+    activeSound = createdSound;
+    activeKey = key;
+    activeStateListener = onStateChange ?? null;
+    onStateChange?.(true);
+
+    activeTimer = setTimeout(() => {
+      if (activeSound !== createdSound) return;
+      void serialize(async () => { await unloadActive(); });
+    }, Math.max(1000, Math.round(durationMillis)));
   });
 }
 
