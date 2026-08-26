@@ -27,6 +27,26 @@ let permissionGranted = false;
 let activeRecording: Audio.Recording | null = null;
 let cancellationVersion = 0;
 let activeDelayCancel: (() => void) | null = null;
+let nativeRecordingModeDesired = false;
+let nativeAudioModeQueue: Promise<void> = Promise.resolve();
+
+/**
+ * expo-av applique le mode audio de façon asynchrone. Sans sérialisation, un
+ * ancien ARRÊTER pouvait terminer après un nouveau DÉMARRER et remettre iOS en
+ * `allowsRecordingIOS:false` alors qu'une nouvelle capture venait de partir.
+ * Chaque opération lit donc le dernier état désiré au moment où elle s'exécute.
+ */
+function setNativeRecordingMode(desired: boolean): Promise<void> {
+  if (Platform.OS === 'web') return Promise.resolve();
+  nativeRecordingModeDesired = desired;
+  nativeAudioModeQueue = nativeAudioModeQueue
+    .catch(() => {})
+    .then(async () => {
+      const target = nativeRecordingModeDesired;
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: target, playsInSilentModeIOS: true });
+    });
+  return nativeAudioModeQueue;
+}
 
 async function ensurePermission(): Promise<void> {
   if (!permissionGranted) {
@@ -37,7 +57,7 @@ async function ensurePermission(): Promise<void> {
   // `cancelAudioCapture` repasse explicitement iOS hors mode enregistrement
   // pour libérer le micro. Chaque nouvel échantillon réactive donc le mode ici,
   // y compris quand l'autorisation avait déjà été accordée auparavant.
-  await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+  await setNativeRecordingMode(true);
 }
 
 function waitForSampleOrCancel(durationMs: number, versionAtStart: number): Promise<void> {
@@ -77,9 +97,13 @@ async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
 // ---- Natif (iOS/Android) ----
 
 async function captureAudioSampleNative(onLevel?: (level: number) => void): Promise<Blob> {
-  await ensurePermission();
-
+  // Le numéro doit être capturé AVANT la permission/mise en mode audio. Si
+  // ARRÊTER arrive pendant cette phase asynchrone, la capture ne doit surtout
+  // pas créer un nouvel Audio.Recording après l'arrêt demandé.
   const versionAtStart = cancellationVersion;
+  await ensurePermission();
+  if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
+
   const { recording } = await Audio.Recording.createAsync(
     { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },
     onLevel ? (status) => {
@@ -283,10 +307,10 @@ export async function cancelAudioCapture(): Promise<void> {
   }
 
   // Sur iOS, `stopAndUnloadAsync` arrête le fichier mais la session audio peut
-  // rester en mode enregistrement. On la désactive explicitement pour rendre le
-  // micro au système dès que l'utilisateur touche ARRÊTER.
+  // rester en mode enregistrement. La file de mode audio garantit qu'un ancien
+  // ARRÊTER ne peut pas désactiver un nouveau démarrage concurrent.
   try {
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+    await setNativeRecordingMode(false);
   } catch {
     // Le micro est déjà arrêté : une erreur de changement de mode ne doit pas
     // empêcher l'interface de revenir à l'état inactif.
