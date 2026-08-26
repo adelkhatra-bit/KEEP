@@ -74,6 +74,14 @@ export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
 
 export async function loadCurrentPlanCode(profileId: string): Promise<string> {
   if (!supabase) return 'FREE';
+
+  // Les profils Démo/Invité sont volontairement locaux et n'ont jamais de
+  // ligne `subscriptions` Supabase. La colonne profile_id est un UUID : envoyer
+  // "demo-user-1" provoquait un HTTP 400 dans le navigateur alors que l'app
+  // était parfaitement rendue. Un identifiant non UUID est donc, par contrat,
+  // un profil local Free et ne doit jamais déclencher une requête distante.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId)) return 'FREE';
+
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('subscriptions')
