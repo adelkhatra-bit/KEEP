@@ -13,6 +13,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+type RuntimeStatus = "UNKNOWN" | "ACTIVE" | "EXHAUSTED" | "ERROR" | "NOT_CONFIGURED";
+
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -20,15 +22,34 @@ function json(status: number, payload: unknown) {
   });
 }
 
+async function setRecognitionStatus(status: RuntimeStatus, lastError: string | null = null) {
+  try {
+    const now = new Date().toISOString();
+    await admin.from("integration_runtime_status").upsert({
+      key: "AUDD_API_KEY",
+      status,
+      last_checked_at: now,
+      last_error: lastError ? lastError.slice(0, 500) : null,
+      updated_at: now,
+    }, { onConflict: "key" });
+  } catch {
+    // Le statut Super Admin ne doit jamais bloquer une reconnaissance utilisateur.
+  }
+}
+
+function classifyProviderIssue(message: string, httpStatus?: number): RuntimeStatus {
+  if (httpStatus === 402) return "EXHAUSTED";
+  if (/quota|credit|balance|request(?:s)?\s+(?:left|limit)|limit\s+(?:reached|exceeded)|not enough|payment|subscription|exhaust/i.test(message)) {
+    return "EXHAUSTED";
+  }
+  return "ERROR";
+}
+
 async function getSecret(key: string): Promise<string | null> {
   const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
   if (error) throw error;
   if (typeof data === "string" && data.trim()) return data.trim();
 
-  // Compatibilité avec les clés déjà enregistrées dans les Secrets des Edge
-  // Functions avant l'ajout du Vault au Super Admin. On ne force jamais
-  // l'utilisateur à recopier une clé existante et on ne l'expose jamais au
-  // navigateur : la valeur reste lue uniquement côté serveur.
   const legacyEdgeSecret = Deno.env.get(key);
   return typeof legacyEdgeSecret === "string" && legacyEdgeSecret.trim()
     ? legacyEdgeSecret.trim()
@@ -95,6 +116,7 @@ async function recognize(req: Request) {
 
   const apiKey = await getSecret("AUDD_API_KEY");
   if (!apiKey) {
+    await setRecognitionStatus("NOT_CONFIGURED", "Aucune clé AudD active");
     return json(409, {
       error: "recognition_not_configured",
       message: "La reconnaissance musicale KEEP n’est pas encore branchée dans le Super Admin.",
@@ -114,14 +136,27 @@ async function recognize(req: Request) {
 
   const response = await fetch("https://api.audd.io/", { method: "POST", body: form });
   const body = await response.json().catch(() => null);
+  const providerMessage = String(body?.error?.error_message || body?.error?.message || body?.message || `AudD HTTP ${response.status}`);
+
   if (!response.ok) {
-    return json(502, { error: "recognition_provider_http_error", status: response.status });
+    const status = classifyProviderIssue(providerMessage, response.status);
+    await setRecognitionStatus(status, providerMessage);
+    return json(status === "EXHAUSTED" ? 402 : 502, {
+      error: status === "EXHAUSTED" ? "recognition_quota_exhausted" : "recognition_provider_http_error",
+      status: response.status,
+      message: providerMessage.slice(0, 260),
+    });
   }
   if (body?.status === "error") {
-    const providerMessage = String(body?.error?.error_message || body?.error?.message || "AudD error");
-    return json(502, { error: "recognition_provider_error", message: providerMessage.slice(0, 260) });
+    const status = classifyProviderIssue(providerMessage);
+    await setRecognitionStatus(status, providerMessage);
+    return json(status === "EXHAUSTED" ? 402 : 502, {
+      error: status === "EXHAUSTED" ? "recognition_quota_exhausted" : "recognition_provider_error",
+      message: providerMessage.slice(0, 260),
+    });
   }
 
+  await setRecognitionStatus("ACTIVE");
   const recognition = normalizeAuddResult(body?.result);
   return json(200, { ok: true, recognition });
 }
@@ -203,11 +238,16 @@ Deno.serve(async (req) => {
       const url = new URL(req.url);
       if (url.searchParams.get("health") !== "1") return json(405, { error: "method_not_allowed" });
       const recognitionConfigured = Boolean(await getSecret("AUDD_API_KEY"));
+      if (!recognitionConfigured) await setRecognitionStatus("NOT_CONFIGURED", "Aucune clé AudD active");
+      const { data: runtime } = await admin.from("integration_runtime_status").select("status,last_checked_at,last_error").eq("key", "AUDD_API_KEY").maybeSingle();
       return json(recognitionConfigured ? 200 : 503, {
-        ok: recognitionConfigured,
+        ok: recognitionConfigured && runtime?.status !== "EXHAUSTED" && runtime?.status !== "ERROR",
         service: "keep-music-core",
         recognitionProvider: "AudD",
         recognitionConfigured,
+        providerStatus: runtime?.status ?? (recognitionConfigured ? "UNKNOWN" : "NOT_CONFIGURED"),
+        lastCheckedAt: runtime?.last_checked_at ?? null,
+        lastError: runtime?.last_error ?? null,
         secretExposed: false,
       });
     }
