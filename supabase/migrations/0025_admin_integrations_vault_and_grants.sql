@@ -49,17 +49,32 @@ begin
 end;
 $$;
 
+-- PL/pgSQL + SQL dynamique : Supabase possède `vault.decrypted_secrets`, mais
+-- le CI migrations tourne sur PostgreSQL pur. On peut donc créer la migration
+-- dans les deux environnements sans faux échec, tout en utilisant Vault en prod.
 create or replace function public.service_get_integration_secret(p_key text)
 returns text
-language sql
+language plpgsql
 security definer
 set search_path = ''
 as $$
-  select v.decrypted_secret
-  from public.integration_secrets i
-  join vault.decrypted_secrets v on v.id = i.vault_secret_id
-  where i.key = p_key and i.is_configured = true
-  limit 1;
+declare
+  v_value text;
+begin
+  if to_regclass('vault.decrypted_secrets') is null then
+    return null;
+  end if;
+
+  execute $sql$
+    select v.decrypted_secret
+    from public.integration_secrets i
+    join vault.decrypted_secrets v on v.id = i.vault_secret_id
+    where i.key = $1 and i.is_configured = true
+    limit 1
+  $sql$ into v_value using p_key;
+
+  return v_value;
+end;
 $$;
 
 create or replace function public.service_delete_integration_secret(p_key text)
@@ -73,8 +88,8 @@ declare
 begin
   select vault_secret_id into v_id from public.integration_secrets where key = p_key;
   delete from public.integration_secrets where key = p_key;
-  if v_id is not null then
-    delete from vault.secrets where id = v_id;
+  if v_id is not null and to_regclass('vault.secrets') is not null then
+    execute 'delete from vault.secrets where id = $1' using v_id;
   end if;
 end;
 $$;
