@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeepSession, KeepVisibility, SessionTrackStatus } from '../types';
 import { commitKeep } from '../services/keepTrackAction';
+import { getDownloadCreditStatus } from '../services/creditService';
 import { recordKeepDecision, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 
 interface SessionHistoryStore {
@@ -17,6 +18,7 @@ interface SessionHistoryStore {
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
   keepAllPendingInSession: (sessionId: string) => Promise<void>;
   syncUnsyncedKeeps: () => Promise<void>;
+  refreshCreditLocks: () => Promise<void>;
   getSession: (sessionId: string) => KeepSession | undefined;
 }
 
@@ -54,6 +56,17 @@ function lockPendingFrom(sessions: KeepSession[], sessionId: string, entryId?: s
           ),
         }
   );
+}
+
+function unlockPending(sessions: KeepSession[]): KeepSession[] {
+  return sessions.map((session) => ({
+    ...session,
+    tracks: session.tracks.map((track) =>
+      track.status === 'pending' && track.creditLocked
+        ? { ...track, creditLocked: false }
+        : track,
+    ),
+  }));
 }
 
 export const useSessionHistoryStore = create<SessionHistoryStore>()(
@@ -127,6 +140,12 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
             }
           }
         }
+      },
+
+      refreshCreditLocks: async () => {
+        const status = await getDownloadCreditStatus();
+        const available = status.unlimited || (status.remaining ?? 0) > 0;
+        if (available) set((state) => ({ sessions: unlockPending(state.sessions) }));
       },
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),
