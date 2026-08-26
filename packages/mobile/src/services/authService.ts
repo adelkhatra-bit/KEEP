@@ -1,7 +1,5 @@
-/** Auth KEEP réelle (Supabase Auth). */
+/** Auth KEEP réelle (Supabase Auth), isolée des liens e-mail externes. */
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-const AUTH_REDIRECT_URL = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL || 'https://adelkhatra-bit.github.io/KEEP/';
 
 export interface KeepAuthSession {
   userId: string;
@@ -74,6 +72,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
       error: null,
       username: data.username ? String(data.username) : undefined,
       userId: String(data.user_id || ''),
+      requiresEmailConfirmation: false,
     };
   };
 
@@ -84,73 +83,31 @@ export function createAuthService(client: SupabaseClient): AuthService {
   return {
     async signInAsGuest() {
       // Héritage uniquement. L'essai public actuel est local et ne doit jamais
-      // appeler cette méthode ni créer un nouvel auth.users anonyme.
+      // créer un nouvel utilisateur Supabase anonyme.
       const { data: existing } = await client.auth.getSession();
       if (existing.session?.user) return { error: null };
-      const { error } = await client.auth.signInAnonymously();
-      return { error: error?.message ?? null };
+      return { error: 'guest_auth_disabled' };
     },
 
     async signUpWithEmailIdentity(email, username, password) {
-      const cleanEmail = normalizeEmail(email);
-      const cleanUsername = normalizeUsername(username);
-
-      // Le pseudo est choisi explicitement par l'utilisateur. KEEP ne dérive
-      // jamais le pseudo à partir de l'adresse e-mail. On réserve son unicité
-      // avant de lancer Supabase Auth afin d'éviter deux profils publics identiques.
-      const { data: existingProfiles, error: usernameError } = await client
-        .from('profiles')
-        .select('id')
-        .ilike('username', cleanUsername)
-        .limit(1);
-      if (usernameError) return { error: 'server_error' };
-      if ((existingProfiles ?? []).length > 0) return { error: 'username_taken' };
-
-      const { data, error } = await client.auth.signUp({
-        email: cleanEmail,
+      // IMPORTANT : KEEP ne passe plus par client.auth.signUp() ici.
+      // La fonction KEEP crée/convertit le compte puis renvoie directement une
+      // session. Aucun e-mail de confirmation, aucun Site URL Supabase et donc
+      // aucune redirection vers un autre projet ne peuvent intervenir.
+      return invokeAccountAuth({
+        action: 'signup',
+        email: normalizeEmail(email),
+        username: normalizeUsername(username),
         password,
-        options: {
-          emailRedirectTo: AUTH_REDIRECT_URL,
-          data: { keep_username: cleanUsername },
-        },
       });
-      if (error) {
-        const message = error.message.toLowerCase();
-        if (message.includes('already') || message.includes('registered') || message.includes('exists')) return { error: 'email_taken' };
-        return { error: error.message || 'server_error' };
-      }
-
-      // Supabase peut volontairement masquer l'existence d'un compte. Une
-      // liste identities vide indique ici qu'aucune nouvelle identité e-mail
-      // n'a été créée : on renvoie un message neutre côté UI.
-      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        return { error: 'email_taken' };
-      }
-
-      return {
-        error: null,
-        username: cleanUsername,
-        userId: data.user?.id,
-        requiresEmailConfirmation: !data.session,
-      };
     },
 
     async signInWithEmailIdentity(email, password) {
-      const cleanEmail = normalizeEmail(email);
-      const { data, error } = await client.auth.signInWithPassword({ email: cleanEmail, password });
-      if (error || !data.session?.user) return { error: 'invalid_credentials' };
-
-      const { data: profile } = await client
-        .from('profiles')
-        .select('username')
-        .eq('id', data.session.user.id)
-        .maybeSingle();
-
-      return {
-        error: null,
-        username: profile?.username ? String(profile.username) : usernameFromMetadata(data.session.user) ?? undefined,
-        userId: data.session.user.id,
-      };
+      return invokeAccountAuth({
+        action: 'login',
+        email: normalizeEmail(email),
+        password,
+      });
     },
 
     async signUpWithUsername(username, password) {
@@ -161,40 +118,30 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return legacyUsernameAuth('login', username, password);
     },
 
-    // Flux e-mail conservés pour récupération/validation future.
-    async requestEmailMagicLink(email) {
-      const { error } = await client.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: AUTH_REDIRECT_URL,
-        },
-      });
-      return { error: error?.message ?? null };
+    // Ces anciens flux sont volontairement coupés dans l'app KEEP. Ils
+    // dépendaient de la configuration globale Site URL de Supabase et ont déjà
+    // provoqué une redirection vers un autre projet. On ne réactive aucun lien
+    // e-mail tant que cette configuration externe n'est pas explicitement
+    // dédiée à KEEP.
+    async requestEmailMagicLink() {
+      return { error: 'email_flow_disabled' };
     },
 
-    async requestEmailLink(email) {
-      const { error } = await client.auth.updateUser({ email });
-      return { error: error?.message ?? null };
+    async requestEmailLink() {
+      return { error: 'email_flow_disabled' };
     },
 
-    async verifyEmailLink(email, code) {
-      const { error } = await client.auth.verifyOtp({ email, token: code, type: 'email_change' });
-      return { error: error?.message ?? null };
+    async verifyEmailLink() {
+      return { error: 'email_flow_disabled' };
     },
 
-    async signUpWithPassword(email, password) {
-      const { data, error } = await client.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: AUTH_REDIRECT_URL },
-      });
-      return { error: error?.message ?? null, sessionCreated: Boolean(data.session) };
+    async signUpWithPassword() {
+      return { error: 'email_flow_disabled', sessionCreated: false };
     },
 
     async signInWithPassword(email, password) {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
+      const result = await invokeAccountAuth({ action: 'login', email: normalizeEmail(email), password });
+      return { error: result.error };
     },
 
     async getCurrentSession() {
