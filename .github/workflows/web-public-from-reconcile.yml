@@ -102,8 +102,10 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Install browser engines
-        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Install cross-browser test runner
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium firefox webkit
 
       - name: Cross-browser public smoke
         env:
