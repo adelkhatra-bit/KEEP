@@ -82,9 +82,12 @@ export default function HomeScreenCompact({ navigation }: any) {
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
-    const sessionId = requestEndSession();
-    if (sessionId) navigation.navigate('SessionRecap', { sessionId });
-    else Alert.alert(t('session.endNow'), t('session.emptySessionEnded'));
+    // L'arrêt doit être immédiat et ne jamais faire disparaître la barre des
+    // cinq onglets. requestEndSession() coupe les timers + Audio.Recording,
+    // archive la session si elle contient des morceaux puis remet isActive à
+    // false. Le récap reste consultable depuis l'historique, mais n'est plus
+    // imposé comme écran intermédiaire.
+    requestEndSession();
   };
 
   const keep = () => {
