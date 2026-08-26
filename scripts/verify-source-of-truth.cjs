@@ -99,7 +99,10 @@ for (const expected of ['keep-username-auth', 'setSession', 'signUpWithEmailIden
 }
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 if (!authService.includes(`const KEEP_PUBLIC_URL = '${expectedPublicRoot}/';`)) failures.push('USER AUTH CANONICAL ROOT MISSING');
-if (/emailRedirectTo\s*:\s*(?!KEEP_PUBLIC_URL)/i.test(authService)) failures.push('USER AUTH REDIRECT IS NOT CANONICAL');
+const userAuthRedirects = [...authService.matchAll(/emailRedirectTo\s*:\s*([^,\n}]+)/gi)].map((match) => match[1].trim());
+for (const target of userAuthRedirects) {
+  if (target !== 'KEEP_PUBLIC_URL') failures.push(`USER AUTH REDIRECT IS NOT CANONICAL: ${target}`);
+}
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 for (const marker of ['QRCode', 'Mon QR KEEP', 'Partager par e-mail']) {
