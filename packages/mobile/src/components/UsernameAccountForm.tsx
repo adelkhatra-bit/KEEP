@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createAuthService } from '../services/authService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { importStagedGuestCreditsForAuthenticatedAccount, stageLocalGuestCreditsForUpgrade } from '../services/creditService';
 import { supabase } from '../services/supabaseClient';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
@@ -18,7 +19,7 @@ type Props = {
 
 function errorText(code: string) {
   if (code === 'invalid_email') return 'Saisis une adresse e-mail valide.';
-  if (code === 'email_taken') return 'Cette adresse possède déjà une identité KEEP. Utilise le mot de passe déjà associé à cette adresse, ou choisis « J’ai déjà un compte ».';
+  if (code === 'email_taken') return 'Cette adresse possède déjà une identité KEEP. Utilise « J’ai déjà un compte ».';
   if (code === 'invalid_username') return 'Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.';
   if (code === 'invalid_password') return 'Le mot de passe doit contenir au moins 8 caractères.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre.';
@@ -26,6 +27,7 @@ function errorText(code: string) {
   if (code === 'account_not_created') return 'Ce profil existe encore en mode essai. Crée son compte depuis l’appareil où il a été créé.';
   if (code === 'legacy_profile_requires_original_device') return 'Ce profil provient d’un ancien essai KEEP et doit être récupéré depuis le Super Admin pour éviter toute usurpation.';
   if (code === 'invalid_credentials') return 'Adresse e-mail ou mot de passe incorrect.';
+  if (code === 'email_confirmation_not_enabled') return 'La vérification e-mail KEEP doit être activée avant de créer de nouveaux comptes.';
   return 'Connexion KEEP indisponible pour le moment. Réessaie dans un instant.';
 }
 
@@ -58,6 +60,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
 
   const applyFollowIntent = async () => {
     if (!supabase || !followUsername) return true;
@@ -107,7 +110,10 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setError('');
     try {
       if (mode === 'create' && isLocalGuest && currentUser) {
-        await stageGuestProfileForUpgrade({ ...currentUser, username: cleanUsername, email: cleanEmail });
+        await Promise.all([
+          stageGuestProfileForUpgrade({ ...currentUser, username: cleanUsername, email: cleanEmail }),
+          stageLocalGuestCreditsForUpgrade(),
+        ]);
       }
 
       const auth = createAuthService(supabase);
@@ -116,10 +122,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         : await auth.signInWithEmailIdentity(cleanEmail, password);
       if (result.error) return setError(errorText(result.error));
 
-      // La fonction KEEP crée ou réutilise directement l'identité Supabase et
-      // renvoie une session. Aucun code ni lien de confirmation e-mail n'est
-      // nécessaire pour ce parcours de test.
+      if (result.requiresEmailConfirmation) {
+        setConfirmationPending(true);
+        return;
+      }
+
+      await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
       await useSessionHistoryStore.getState().syncUnsyncedKeeps();
+      await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
 
       const followed = await applyFollowIntent();
       if (followUsername) {
@@ -140,6 +150,18 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const passwordAutocomplete = mode === 'create' ? 'new-password' : 'current-password';
 
+  if (confirmationPending) {
+    return <View style={s.confirmCard}>
+      <Text style={s.confirmIcon}>✓</Text>
+      <Text style={s.title}>Vérifie ton adresse e-mail</Text>
+      <Text style={s.confirmText}>Un lien KEEP vient d’être envoyé à {email.trim().toLowerCase()}. Clique dessus pour activer ton compte. Tant que l’adresse n’est pas validée, le compte reste bloqué.</Text>
+      <Text style={s.confirmBonus}>Tes 3 essais sont conservés. Après validation, KEEP ajoute 20 crédits gratuits.</Text>
+      <TouchableOpacity style={s.switchMode} onPress={() => { setConfirmationPending(false); setMode('login'); }}>
+        <Text style={s.switchText}>J’AI VALIDÉ MON E-MAIL · ME CONNECTER</Text>
+      </TouchableOpacity>
+    </View>;
+  }
+
   return <ScrollView
     style={s.scroll}
     contentContainerStyle={s.container}
@@ -149,7 +171,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   >
     <Text style={s.title}>{mode === 'create' ? 'Créer mon compte KEEP' : 'Se connecter à KEEP'}</Text>
     {followUsername ? <Text style={s.followHint}>Après connexion, le profil que tu consultais sera suivi automatiquement.</Text> : null}
-    <Text style={s.subtitle}>{mode === 'create' ? 'Ton adresse sert d’identifiant privé. Aucun code e-mail n’est envoyé : choisis ton pseudo public et ton mot de passe.' : 'Connecte-toi avec ton adresse e-mail et ton mot de passe.'}</Text>
+    <Text style={s.subtitle}>{mode === 'create' ? '3 essais sans inscription, puis 20 crédits gratuits après validation de ton e-mail. Ton adresse reste privée.' : 'Connecte-toi avec ton adresse e-mail et ton mot de passe.'}</Text>
 
     <TextInput
       style={s.input}
@@ -178,7 +200,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         textContentType="none"
         maxLength={30}
       />
-      <Text style={s.usernameHint}>Le pseudo est public ; ton adresse e-mail reste privée. Une même adresse peut servir à ton profil KEEP et au Super Admin si elle possède les droits.</Text>
+      <Text style={s.usernameHint}>Le pseudo est public ; ton adresse e-mail reste privée. Le compte n’est activé qu’après validation de l’adresse.</Text>
 
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
         <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE KEEP</Text>
@@ -228,5 +250,5 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:2},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},
+  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:2},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},confirmCard:{gap:spacing.sm,paddingVertical:spacing.md},confirmIcon:{color:colors.keep,fontSize:30,fontWeight:'900',textAlign:'center'},confirmText:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center'},confirmBonus:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},
 });
