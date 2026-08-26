@@ -46,14 +46,14 @@ function MainTabs() {
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,
-        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: TAB.bg,
           borderTopColor: TAB.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 5,
-          paddingTop: 5,
+          height: 68,
+          paddingBottom: 8,
+          paddingTop: 7,
+          display: 'flex',
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         headerShown: false,
