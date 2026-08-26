@@ -12,6 +12,12 @@ import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
 import { registerForPushNotifications } from './src/services/pushNotificationService';
+import {
+  clearLocalGuestMarker,
+  clearStagedGuestProfile,
+  loadStagedGuestProfile,
+  mergeStagedGuestProfile,
+} from './src/services/guestUpgradeService';
 
 // __DEV__ uniquement, jamais en build production/TestFlight -- pratique pour
 // débugger (console/web) sans dépendre de flux UI natifs.
@@ -109,7 +115,38 @@ export default function App() {
       useUserStore.getState().syncFromAuthSession(session);
 
       try {
-        const profile = await profileService.loadOrCreateOwnProfile(session);
+        let profile = await profileService.loadOrCreateOwnProfile(session);
+
+        // Si l'utilisateur vient d'un essai local, son profil préparé reste sur
+        // l'appareil jusqu'à ce qu'une vraie session e-mail soit vérifiée. On le
+        // rattache alors au nouvel auth.uid(), sans toucher à l'historique local
+        // des sessions musicales. Le compte devient ainsi partageable sans
+        // fabriquer un deuxième profil fantôme.
+        if (!session.isAnonymous) {
+          const staged = await loadStagedGuestProfile();
+          if (staged) {
+            const merged = mergeStagedGuestProfile(profile, staged);
+            try {
+              await profileService.saveOwnProfile(merged);
+              profile = merged;
+              await clearStagedGuestProfile();
+            } catch (upgradeError) {
+              // Un pseudo peut avoir été pris entre l'essai et la validation de
+              // l'e-mail. Dans ce cas on conserve toutes les autres données et
+              // le pseudo serveur unique, au lieu de perdre le profil entier.
+              if (merged.username !== profile.username) {
+                const withoutConflictingUsername = { ...merged, username: profile.username };
+                await profileService.saveOwnProfile(withoutConflictingUsername);
+                profile = withoutConflictingUsername;
+                await clearStagedGuestProfile();
+              } else {
+                throw upgradeError;
+              }
+            }
+          }
+          await clearLocalGuestMarker();
+        }
+
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
         // Fire-and-forget -- un compte réel (jamais un invité, "suivre" un
