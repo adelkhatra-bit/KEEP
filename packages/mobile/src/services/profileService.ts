@@ -45,6 +45,33 @@ function publicUserFromProfile(profile: any, socialLinks: SocialLink[], follower
   };
 }
 
+function isRemoteAvatar(value: string | undefined): boolean {
+  return !value || /^https?:\/\//i.test(value);
+}
+
+async function persistLocalAvatar(client: SupabaseClient, profileId: string, avatar: string): Promise<string> {
+  if (isRemoteAvatar(avatar)) return avatar || '';
+
+  const response = await fetch(avatar);
+  if (!response.ok && !avatar.startsWith('blob:') && !avatar.startsWith('file:')) {
+    throw new Error('Impossible de lire la photo locale avant sa sauvegarde.');
+  }
+  const blob = await response.blob();
+  const mime = blob.type || 'image/jpeg';
+  const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+  const path = `${profileId}/avatar.${extension}`;
+
+  const { error } = await client.storage.from('avatars').upload(path, blob, {
+    upsert: true,
+    contentType: mime,
+    cacheControl: '3600',
+  });
+  if (error) throw error;
+
+  const { data } = client.storage.from('avatars').getPublicUrl(path);
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
+
 export function createProfileService(client: SupabaseClient) {
   return {
     async loadOrCreateOwnProfile(session: KeepAuthSession): Promise<User> {
@@ -108,9 +135,6 @@ export function createProfileService(client: SupabaseClient) {
     },
 
     async loadPublicProfileByUsername(username: string): Promise<User | null> {
-      // Les pseudos KEEP sont uniques sans tenir compte des majuscules/minuscules
-      // (index profiles_username_lower_key). Un lien partagé reste donc valide
-      // même si Mail/WhatsApp ou l'utilisateur change la casse du pseudo.
       const cleanUsername = username.trim().replace(/^@/, '');
       const { data: profile, error: profileError } = await client
         .from('profiles')
@@ -145,12 +169,18 @@ export function createProfileService(client: SupabaseClient) {
     },
 
     async saveOwnProfile(user: User): Promise<void> {
+      // Lors du passage essai local -> vrai compte, l'avatar peut encore être
+      // un blob:/file: local. On le transforme ici, sous la session authentifiée
+      // et dans le dossier storage de auth.uid(), AVANT d'écrire profiles.
+      // Les avatars déjà publics ne sont jamais ré-uploadés.
+      const persistedAvatar = await persistLocalAvatar(client, user.id, user.avatar || '');
+
       const { error: profileError } = await client.from('profiles').upsert({
         id: user.id,
         username: user.username,
         display_name: user.username,
         bio: user.bio || null,
-        avatar_url: user.avatar || null,
+        avatar_url: persistedAvatar || null,
         country_code: user.countryCode || null,
         city: user.city || null,
         kind: user.kind,
