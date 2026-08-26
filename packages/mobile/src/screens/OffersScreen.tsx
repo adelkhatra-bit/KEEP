@@ -37,8 +37,16 @@ function money(plan: KeepPlan) {
   return `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`;
 }
 
-export default function OffersScreen({ navigation }: any) {
+function planLabel(code: string) {
+  if (code === 'CREATOR_PRO') return 'Creator Pro';
+  if (code === 'VENUE_PRO') return 'Venue Pro';
+  if (code === 'PREMIUM') return 'Premium';
+  return code === 'FREE' ? 'Free' : code.replace(/_/g, ' ');
+}
+
+export default function OffersScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
+  const focusPlan = String(route?.params?.focusPlan || '').toUpperCase();
   const [plans, setPlans] = useState<KeepPlan[]>([]);
   const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 4 });
   const [currentPlan, setCurrentPlan] = useState('FREE');
@@ -68,12 +76,19 @@ export default function OffersScreen({ navigation }: any) {
   }, [user?.id]);
 
   const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses, [funnel]);
+  const orderedPlans = useMemo(() => {
+    if (!focusPlan) return plans;
+    return [...plans].sort((a, b) => Number(b.code === focusPlan) - Number(a.code === focusPlan));
+  }, [focusPlan, plans]);
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Retour"><Text style={s.back}>‹</Text></TouchableOpacity>
-        <View style={s.headerText}><Text style={s.title}>Offre & crédits</Text><Text style={s.subtitle}>Ton plan actuel : {currentPlan}</Text></View>
+        <View style={s.headerText}>
+          <Text style={s.title}>Offre & crédits</Text>
+          <Text style={s.subtitle}>{focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
+        </View>
         <View style={s.headerSpacer} />
       </View>
 
@@ -91,23 +106,24 @@ export default function OffersScreen({ navigation }: any) {
           <Text style={s.creditRule}>Écouter, reconnaître et PASSER ne consomment aucun crédit. Seul un téléchargement/GARDER réellement effectué consomme un crédit.</Text>
         </View>
 
-        {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : plans.map((plan) => {
+        {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : orderedPlans.map((plan) => {
           const active = plan.code === currentPlan;
+          const focused = !!focusPlan && plan.code === focusPlan;
           return (
-            <View key={plan.code} style={[s.planCard, active && s.planCardActive]}>
+            <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused]}>
               <View style={s.planTop}>
                 <View>
                   <Text style={s.planName}>{plan.name}</Text>
                   <Text style={s.planPrice}>{money(plan)}</Text>
                 </View>
-                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : null}
+                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>FORMULE REQUISE</Text></View> : null}
               </View>
               {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
               {(BENEFITS[plan.code] || []).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}
               {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               {!active && plan.code !== 'FREE' ? (
                 <TouchableOpacity style={s.cta} onPress={() => {}} accessibilityRole="button">
-                  <Text style={s.ctaText}>En savoir plus</Text>
+                  <Text style={s.ctaText}>{focused ? `Choisir ${planLabel(plan.code)}` : 'En savoir plus'}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -138,11 +154,14 @@ const s = StyleSheet.create({
   creditRule: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
+  planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   planName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
   planPrice: { color: colors.primaryLight, fontSize: 13, fontWeight: '800', marginTop: 3 },
   currentBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.smartBadgeBg },
   currentBadgeText: { color: colors.smartBadgeText, fontSize: 9, fontWeight: '900' },
+  requiredBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#3D2860', borderWidth: 1, borderColor: colors.primaryLight },
+  requiredBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
   planDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 10, marginBottom: 6 },
   benefit: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
   trial: { color: colors.keep, fontSize: 11, fontWeight: '800', marginTop: 8 },
