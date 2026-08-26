@@ -49,7 +49,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const [mode, setMode] = useState<UsernameAccountMode>(initialMode);
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState(currentUser?.username?.replace(/^invite-/i, '') || '');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -172,7 +172,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         textContentType="none"
         maxLength={30}
       />
-      <Text style={s.usernameHint}>Le pseudo est public. L’adresse e-mail reste privée et sert uniquement à la connexion.</Text>
+      <Text style={s.usernameHint}>Choisis toi-même ton pseudo public KEEP. L’adresse e-mail reste privée et sert uniquement à la connexion.</Text>
 
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
         <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE KEEP</Text>
