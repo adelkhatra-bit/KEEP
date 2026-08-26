@@ -5,6 +5,10 @@ on:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/src/screens/onboarding/OnboardingScreen.tsx'
+      - 'packages/mobile/src/screens/ProfilePublicScreen.tsx'
+      - 'packages/mobile/src/screens/OffersScreen.tsx'
+      - 'packages/mobile/src/components/CreatorToolsPanel.tsx'
+      - 'packages/mobile/src/components/UsernameAccountForm.tsx'
       - 'packages/mobile/src/store/useUserStore.ts'
       - 'packages/mobile/src/services/creditService.ts'
       - 'packages/mobile/src/services/sharingService.ts'
@@ -47,10 +51,10 @@ jobs:
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
 
-      - name: Install Chromium + WebKit
+      - name: Install Chromium + Firefox + WebKit
         run: |
           npm install --no-save @playwright/test@1.55.0
-          npx playwright install chromium webkit --with-deps
+          npx playwright install chromium firefox webkit --with-deps
 
       - name: Wait until corrected public KEEP is deployed
         shell: bash
@@ -67,7 +71,7 @@ jobs:
           echo 'KEEP public unreachable'
           exit 1
 
-      - name: Prove ESSAYER GRATUITEMENT on desktop Android and iPhone
+      - name: Prove trial creator paywall and sharing on desktop Android and iPhone
         shell: bash
         run: |
           set -euo pipefail
