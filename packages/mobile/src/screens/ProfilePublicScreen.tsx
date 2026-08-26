@@ -4,6 +4,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { usePlaylistStore } from '../store/usePlaylistStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { SocialLink } from '../types';
@@ -34,6 +35,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const sessions = useSessionHistoryStore((s) => s.sessions);
+  const providerPlaylists = usePlaylistStore((s) => s.playlists);
+  const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
   const [planCode, setPlanCode] = useState('FREE');
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
@@ -54,21 +57,31 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [accountRequired, user?.id]);
 
   useEffect(() => {
+    if (!user) return undefined;
     let live = true;
-    if (!user) return () => { live = false; };
-    getDownloadCreditStatus()
-      .then((status) => {
+    const refreshCredits = async () => {
+      try {
+        const status = await getDownloadCreditStatus();
         if (!live) return;
         setCreditRemaining(status.remaining);
         setCreditUnlimited(status.unlimited);
-      })
-      .catch(() => {
+      } catch {
         if (!live) return;
         setCreditRemaining(null);
         setCreditUnlimited(false);
-      });
-    return () => { live = false; };
-  }, [accountRequired, sessions.length, user?.id]);
+      }
+    };
+    void refreshCredits();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCredits(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [accountRequired, navigation, sessions.length, user?.id]);
+
+  useEffect(() => {
+    const refresh = () => { void refreshPlaylists().catch(() => {}); };
+    refresh();
+    const unsubscribe = navigation?.addListener?.('focus', refresh);
+    return () => unsubscribe?.();
+  }, [navigation, refreshPlaylists]);
 
   useEffect(() => {
     let live = true;
@@ -89,7 +102,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [keptTracks]);
   const artists = useMemo(() => Array.from(new Set(keptTracks.map((entry) => entry.track.artist))).slice(0, 18), [keptTracks]);
   const albums = useMemo(() => Array.from(new Set(keptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])).slice(0, 18), [keptTracks]);
-  const playlists = useMemo(() => Array.from(new Set(keptTracks.flatMap((entry) => entry.recommendations.map((r) => r.playlistName)))).slice(0, 18), [keptTracks]);
+  const playlists = useMemo(() => {
+    const realNames = Array.from(new Set(providerPlaylists.map((playlist) => playlist.name).filter(Boolean)));
+    if (realNames.length) return realNames.slice(0, 18);
+    return keptTracks.length ? ['Mes KEEP'] : [];
+  }, [keptTracks.length, providerPlaylists]);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil KEEP</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
@@ -271,7 +288,7 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontWeight:'900'},
   topBar:{paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},topTitle:{...typography.h2,color:colors.textPrimary},actions:{flexDirection:'row',gap:6,alignItems:'center'},iconButton:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:17},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:8,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:9,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:88,height:88,borderRadius:44,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:32,fontWeight:'800'},identityText:{flex:1,marginLeft:16},username:{...typography.h2,color:colors.textPrimary},identityMeta:{flexDirection:'row',alignItems:'center',gap:8,marginTop:4},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},followPreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followPreviewText:{color:'#FFF',fontSize:10,fontWeight:'900'},location:{color:colors.textMuted,fontSize:13,marginTop:5},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,marginTop:12},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},accountBannerText:{color:'#B9AEC6',fontSize:11,lineHeight:16,marginTop:3},stats:{marginTop:16,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:12},statValue:{color:colors.textPrimary,fontSize:19,fontWeight:'800'},statLabel:{color:colors.textMuted,fontSize:11,marginTop:3},
+  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:68,height:68,borderRadius:34,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},username:{...typography.h2,color:colors.textPrimary},identityMeta:{flexDirection:'row',alignItems:'center',gap:8,marginTop:4},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},followPreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followPreviewText:{color:'#FFF',fontSize:10,fontWeight:'900'},location:{color:colors.textMuted,fontSize:13,marginTop:5},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,marginTop:12},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},accountBannerText:{color:'#B9AEC6',fontSize:11,lineHeight:16,marginTop:3},stats:{marginTop:16,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:12},statValue:{color:colors.textPrimary,fontSize:19,fontWeight:'800'},statLabel:{color:colors.textMuted,fontSize:11,marginTop:3},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},muted:{color:colors.textMuted,fontSize:12,lineHeight:17},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
