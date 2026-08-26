@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { useSessionStore } from '../store/useSessionStore';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
@@ -18,14 +19,28 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
   const refreshCreditLocks = useSessionHistoryStore((s) => s.refreshCreditLocks);
+  const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
+  const isListening = useSessionStore((s) => s.isActive);
+  const activeSessionId = useSessionStore((s) => s.sessionId);
+  const realActiveSessionId = isListening ? activeSessionId : null;
+  const hasOrphanedLiveSession = sessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
 
   useEffect(() => {
-    void refreshCreditLocks().catch(() => {});
-    const unsubscribe = navigation?.addListener?.('focus', () => {
+    // AsyncStorage se réhydrate après le premier rendu. Cette dépendance passe à
+    // true dès qu'une ancienne session endedAt=null réapparaît : elle est alors
+    // fermée automatiquement, sans toucher à une écoute réellement active.
+    if (hasOrphanedLiveSession) reconcileOrphanedLiveSessions(realActiveSessionId);
+  }, [hasOrphanedLiveSession, realActiveSessionId, reconcileOrphanedLiveSessions]);
+
+  useEffect(() => {
+    const refresh = () => {
+      reconcileOrphanedLiveSessions(realActiveSessionId);
       void refreshCreditLocks().catch(() => {});
-    });
+    };
+    refresh();
+    const unsubscribe = navigation?.addListener?.('focus', refresh);
     return () => unsubscribe?.();
-  }, [navigation, refreshCreditLocks]);
+  }, [navigation, realActiveSessionId, reconcileOrphanedLiveSessions, refreshCreditLocks]);
 
   const requestDelete = (session: KeepSession) => {
     const title = autoTitle(session);
@@ -42,7 +57,10 @@ export default function SessionHistoryScreen({ navigation }: any) {
     const pendingCount = item.tracks.filter((tr) => tr.status === 'pending').length;
     const lockedCount = item.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
     const time = new Date(item.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const isLive = item.endedAt == null;
+    // endedAt=null n'est plus suffisant : un crash/reload pouvait laisser ce
+    // marqueur dans AsyncStorage. L'UI n'affiche « Écoute en cours » que si le
+    // moteur micro possède réellement la même session active en mémoire.
+    const isLive = isListening && activeSessionId === item.id && item.endedAt == null;
 
     return (
       <View style={styles.card}>
