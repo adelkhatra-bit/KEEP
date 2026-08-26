@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -12,15 +12,21 @@ import { spacing, radius, typography } from '../theme/spacing';
 /**
  * "TA SESSION KEEP" — récapitulatif de fin de session. Les morceaux déjà
  * gardés/passés au fil de l'eau restent tels quels ; les morceaux encore
- * `pending` peuvent être traités ici : GARDER TOUT, sélection individuelle,
- * ou laissés en attente (traitables plus tard depuis l'historique — voir
- * SessionHistoryScreen, même mécanisme).
+ * `pending` peuvent être traités ici. Un KEEP gardé peut ensuite rester privé
+ * ou être rendu public sur le profil, sans changer la playlist musicale.
  */
 export default function SessionRecapScreen({ route, navigation }: any) {
   const { t } = useTranslation();
   const sessionId: string = route.params?.sessionId;
   const session = useSessionHistoryStore((s) => s.sessions.find((x) => x.id === sessionId));
-  const { keepTrackInSession, passTrackInSession, keepAllPendingInSession, renameSession } = useSessionHistoryStore();
+  const {
+    keepTrackInSession,
+    passTrackInSession,
+    keepAllPendingInSession,
+    renameSession,
+    deleteSession,
+    setTrackVisibilityInSession,
+  } = useSessionHistoryStore();
   const { playlists } = usePlaylistStore();
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
@@ -61,6 +67,23 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     if (trimmed && trimmed !== session.title) renameSession(sessionId, trimmed);
   };
 
+  const handleDelete = () => {
+    const message = 'Supprimer cette session de ton historique KEEP ? Les morceaux déjà envoyés vers Spotify ou Apple Music ne seront pas supprimés de ces services.';
+    const run = () => {
+      deleteSession(sessionId);
+      if (navigation.canGoBack()) navigation.goBack();
+      else navigation.navigate('Main');
+    };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(message)) run();
+      return;
+    }
+    Alert.alert('Supprimer cette session ?', message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: run },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -96,6 +119,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       )}
 
+      <Text style={styles.visibilityHint}>Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
+
       <FlatList
         data={session.tracks}
         keyExtractor={(item) => item.id}
@@ -104,11 +129,16 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <TrackRow
             entry={item}
             playlists={playlists}
-            onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId)}
+            onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId, 'PRIVATE')}
             onPass={(entryId) => passTrackInSession(sessionId, entryId)}
+            onVisibilityChange={(entryId, visibility) => { void setTrackVisibilityInSession(sessionId, entryId, visibility); }}
           />
         )}
       />
+
+      <TouchableOpacity style={styles.deleteSessionButton} onPress={handleDelete}>
+        <Text style={styles.deleteSessionText}>Supprimer cette session</Text>
+      </TouchableOpacity>
 
       {musicEngine.isDemoMode && (
         <View style={styles.demoBadge}>
@@ -148,7 +178,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md, alignItems: 'center', minHeight: 48, justifyContent: 'center',
   },
   keepAllButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
-  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  visibilityHint: { color: colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
+  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.md },
+  deleteSessionButton: { minHeight: 42, marginHorizontal: spacing.xl, marginBottom: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  deleteSessionText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
   demoBadge: {
     marginHorizontal: spacing.xl, marginBottom: spacing.md,
     backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder,
