@@ -90,7 +90,23 @@ export async function commitKeep(
   let keepDecisionId: string | undefined;
   let profileSyncFailed = false;
   try {
-    const recorded = await recordKeepDecision(track, visibility, options?.context ?? {});
+    // KEEP ne stocke jamais l'audio. Pour permettre la réécoute sur un profil
+    // public, on conserve uniquement les petits liens catalogue déjà renvoyés
+    // par la reconnaissance (extrait promotionnel + deep links fournisseurs).
+    const decisionContext = {
+      ...(options?.context ?? {}),
+      playback: {
+        previewUrl: track.previewUrl ?? null,
+        availableOn: track.availableOn ?? [],
+        externalUrls: track.externalUrls ?? {},
+      },
+      playlist: {
+        provider: session.provider || 'KEEP',
+        providerPlaylistId: targetPlaylistId,
+        name: playlistName,
+      },
+    };
+    const recorded = await recordKeepDecision(track, visibility, decisionContext);
     keepDecisionId = recorded?.decisionId;
     if (recorded?.trackId) {
       await syncPlaylistTrack({
