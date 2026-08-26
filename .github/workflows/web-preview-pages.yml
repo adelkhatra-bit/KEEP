@@ -161,6 +161,39 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Live refresh + direct-link smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP'
+          sleep 5
+          urls=(
+            "$base/"
+            "$base/Main/Listen/"
+            "$base/Main/Listen"
+            "$base/Main/Discover/"
+            "$base/Main/MyMusic/"
+            "$base/Main/Parties/"
+            "$base/Main/Profile/"
+            "$base/profile-settings/"
+            "$base/notifications/"
+            "$base/offers/"
+            "$base/admin-preview/"
+            "$base/superadmin/"
+            "$base/share-profile/"
+          )
+          for url in "${urls[@]}"; do
+            code="$(curl -L --retry 5 --retry-delay 2 --connect-timeout 10 --max-time 30 -sS -o /tmp/keep-live.html -w '%{http_code}' "$url")"
+            echo "$code $url"
+            test "$code" = '200'
+          done
+          curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
+          grep -q 'KEEP' /tmp/keep-admin.html
+          dynamic_code="$(curl -sS -o /tmp/keep-dynamic.html -w '%{http_code}' "$base/profile/__keep_route_smoke__/")"
+          echo "$dynamic_code dynamic-profile-fallback"
+          test "$dynamic_code" = '404'
+          grep -q '__keep_route' /tmp/keep-dynamic.html
+
       - name: Show public URLs
         run: |
           echo "KEEP APP: https://adelkhatra-bit.github.io/KEEP/"
