@@ -118,6 +118,71 @@ export async function updateKeepDecisionVisibility(decisionId: string, visibilit
   return true;
 }
 
+export interface PersistedKeepDecision {
+  decisionId: string;
+  visibility: KeepVisibility;
+  createdAt: string;
+  detectedAt: string;
+  sessionId?: string;
+  track: CanonicalTrack;
+}
+
+/**
+ * Recharge les KEEP d'un compte depuis Supabase.
+ *
+ * L'historique détaillé de session reste disponible hors-ligne dans
+ * AsyncStorage, mais le profil musical (KEEP DNA / morceaux gardés) ne doit pas
+ * dépendre d'un seul navigateur ou téléphone. Cette lecture transforme donc
+ * les décisions persistées côté serveur en CanonicalTrack réutilisables par le
+ * store local après une mise à jour, une reconnexion ou un nouvel appareil.
+ */
+export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepDecision[]> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return [];
+  const accessToken = await getSupabaseAccessToken();
+  if (!accessToken) return [];
+
+  const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/keep_decisions`);
+  url.searchParams.set('select', 'id,visibility,created_at,context,track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
+  url.searchParams.set('decision', 'eq.KEPT');
+  url.searchParams.set('order', 'created_at.asc');
+  url.searchParams.set('limit', String(Math.max(1, Math.min(limit, 1000))));
+
+  const response = await fetch(url.toString(), { headers: baseHeaders(accessToken) });
+  const rows = await parseResponse(response);
+  if (!Array.isArray(rows)) return [];
+
+  return rows.flatMap((row: any): PersistedKeepDecision[] => {
+    const track = Array.isArray(row?.track) ? row.track[0] : row?.track;
+    if (!row?.id || !track?.id || !track?.title || !track?.artist) return [];
+    const context = row?.context && typeof row.context === 'object' ? row.context : {};
+    const createdAt = String(row.created_at || new Date().toISOString());
+    const detectedAt = typeof context.detectedAt === 'string' && context.detectedAt ? context.detectedAt : createdAt;
+    const sessionId = typeof context.sessionId === 'string' && context.sessionId ? context.sessionId : undefined;
+    const visibility: KeepVisibility = row.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+    return [{
+      decisionId: String(row.id),
+      visibility,
+      createdAt,
+      detectedAt,
+      sessionId,
+      track: {
+        id: String(track.id),
+        isrc: track.isrc || undefined,
+        title: String(track.title),
+        artist: String(track.artist),
+        album: track.album || undefined,
+        durationSec: typeof track.duration_sec === 'number' ? track.duration_sec : undefined,
+        artworkUrl: track.artwork_url || undefined,
+        genres: Array.isArray(track.genres) ? track.genres : [],
+        providerIds: track.provider_ids && typeof track.provider_ids === 'object' ? track.provider_ids : {},
+        previewUrl: track.preview_url || undefined,
+        externalUrls: track.external_urls && typeof track.external_urls === 'object' ? track.external_urls : {},
+        availableOn: Array.isArray(track.available_on) ? track.available_on : [],
+      },
+    }];
+  });
+}
+
 type RecognitionAttempt = {
   ok: boolean;
   status: number;
