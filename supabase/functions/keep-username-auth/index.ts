@@ -179,17 +179,27 @@ Deno.serve(async (req) => {
     if (matches.length > 1) return json({ ok: false, error: "username_conflict" });
     const existingProfileForUsername = matches[0] ?? null;
 
-    // Une même identité Supabase peut être à la fois utilisateur KEEP et membre
-    // du Super Admin. On ne crée JAMAIS un deuxième auth.users pour la même
-    // adresse. Si l'adresse existe déjà, le mot de passe doit prouver que la
-    // personne possède ce compte ; son profil KEEP est ensuite créé/complété
-    // sur le même uid. Cela évite le conflit "e-mail déjà utilisé".
+    // Un seul auth.uid() peut porter simultanément le profil utilisateur KEEP
+    // et un rôle Super Admin. On ne duplique donc jamais l'adresse.
     const existingEmailUser = await findAuthUserByEmail(email);
     if (existingEmailUser) {
-      const proof = await sessionFor(email, password);
+      let proof = await sessionFor(email, password);
       if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
-        return json({ ok: false, error: "email_taken" });
+        // Si ce navigateur possède déjà une session authentifiée pour cette
+        // même identité (par exemple une session Super Admin), elle constitue
+        // une preuve suffisante pour choisir le mot de passe KEEP sans e-mail.
+        const callerId = await bearerUserId(req);
+        if (!callerId || callerId !== existingEmailUser.id) {
+          return json({ ok: false, error: "email_taken" });
+        }
+        const { error: passwordError } = await admin.auth.admin.updateUserById(existingEmailUser.id, { password });
+        if (passwordError) throw passwordError;
+        proof = await sessionFor(email, password);
+        if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
+          return json({ ok: false, error: "invalid_credentials" });
+        }
       }
+
       if (existingProfileForUsername && existingProfileForUsername.id !== existingEmailUser.id) {
         return json({ ok: false, error: "username_taken" });
       }
