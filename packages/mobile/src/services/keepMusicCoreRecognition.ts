@@ -118,9 +118,48 @@ export async function updateKeepDecisionVisibility(decisionId: string, visibilit
   return true;
 }
 
+type RecognitionAttempt = {
+  ok: boolean;
+  status: number;
+  payload: any;
+};
+
+async function recognitionAttempt(
+  functionName: 'keep-music-core' | 'keep-music-fallback',
+  blob: Blob,
+  accessToken: string | null,
+  deviceId: string,
+): Promise<RecognitionAttempt> {
+  const form = new FormData();
+  form.append('audio', blob, `keep-sample.${audioExtension(blob)}`);
+  try {
+    const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders(accessToken),
+        'x-keep-device-id': deviceId,
+      },
+      body: form,
+    });
+    const payload = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, payload };
+  } catch (error: any) {
+    return { ok: false, status: 0, payload: { error: 'network_error', message: error?.message ?? 'Réseau indisponible' } };
+  }
+}
+
+function attemptMessage(attempt: RecognitionAttempt): string {
+  return String(attempt.payload?.message || attempt.payload?.error || (attempt.status ? `HTTP ${attempt.status}` : 'Reconnaissance indisponible'));
+}
+
 /**
- * Reconnaissance musicale via la fonction Supabase `keep-music-core`.
- * La clé fournisseur reste exclusivement dans Supabase Vault.
+ * Reconnaissance musicale en cascade :
+ * 1. AudD via `keep-music-core` (clé serveur/Vault),
+ * 2. ACRCloud via `keep-music-fallback` uniquement si AudD ne reconnaît pas
+ *    le morceau ou rencontre un incident.
+ *
+ * Spotify/YouTube/Deezer/Apple servent ensuite à enrichir le morceau reconnu ;
+ * ils ne sont jamais présentés comme des moteurs d'empreinte audio eux-mêmes.
  */
 export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvider {
   readonly providerId = 'keep-music-core';
@@ -133,22 +172,31 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample], { type: 'audio/wav' });
     if (!blob.size) return null;
 
-    const form = new FormData();
-    const extension = audioExtension(blob);
-    form.append('audio', blob, `keep-sample.${extension}`);
+    const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
+    const primary = await recognitionAttempt('keep-music-core', blob, accessToken, deviceId);
+    if (primary.ok && primary.payload?.recognition) {
+      return primary.payload.recognition as RecognitionResult;
+    }
 
-    const accessToken = await getSupabaseAccessToken();
-    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-core`, {
-      method: 'POST',
-      headers: {
-        ...baseHeaders(accessToken),
-        'x-keep-device-id': await getDeviceId(),
-      },
-      body: form,
-    });
+    // Un no-match AudD ou une erreur fournisseur déclenche le second moteur.
+    // Le même échantillon est réutilisé : aucune nouvelle capture micro n'est
+    // nécessaire et le morceau reste dans la session dès qu'un moteur répond.
+    const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
+    if (fallback.ok && fallback.payload?.recognition) {
+      return fallback.payload.recognition as RecognitionResult;
+    }
 
-    const payload = await parseResponse(response);
-    return payload?.recognition ? payload.recognition as RecognitionResult : null;
+    // Fallback non configuré : on conserve le comportement AudD historique.
+    // Un simple no-match n'est jamais transformé en erreur utilisateur.
+    if (primary.ok) return null;
+    if (fallback.status === 409 || fallback.payload?.error === 'fallback_not_configured') {
+      throw new Error(attemptMessage(primary));
+    }
+
+    // Si les deux moteurs ont été tentés mais ne trouvent rien, on évite une
+    // fausse erreur rouge : l'écoute continue et réessaiera au prochain extrait.
+    if (fallback.ok) return null;
+    throw new Error(attemptMessage(primary));
   }
 }
 
