@@ -1,4 +1,4 @@
-/** Auth KEEP réelle (Supabase Auth), isolée des liens e-mail externes. */
+/** Auth KEEP réelle (Supabase Auth). Les nouveaux comptes e-mail doivent être confirmés avant connexion. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KeepAuthSession {
@@ -32,6 +32,8 @@ export interface AuthService {
   onSessionChange(callback: (session: KeepAuthSession | null) => void): () => void;
 }
 
+const KEEP_PUBLIC_URL = 'https://adelkhatra-bit.github.io/KEEP/';
+
 function normalizeUsername(username: string) {
   return username.trim().replace(/^@+/, '').normalize('NFKC');
 }
@@ -45,6 +47,15 @@ function usernameFromMetadata(user: any): string | null {
   if (typeof value !== 'string') return null;
   const clean = normalizeUsername(value);
   return clean || null;
+}
+
+function mapSignupError(message: string): string {
+  const value = message.toLowerCase();
+  if (value.includes('already') || value.includes('registered') || value.includes('exists')) return 'email_taken';
+  if (value.includes('email')) return 'invalid_email';
+  if (value.includes('password')) return 'invalid_password';
+  if (value.includes('profile') || value.includes('username') || value.includes('duplicate')) return 'username_taken';
+  return message || 'server_error';
 }
 
 export function createAuthService(client: SupabaseClient): AuthService {
@@ -90,16 +101,43 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signUpWithEmailIdentity(email, username, password) {
-      // IMPORTANT : KEEP ne passe plus par client.auth.signUp() ici.
-      // La fonction KEEP crée/convertit le compte puis renvoie directement une
-      // session. Aucun e-mail de confirmation, aucun Site URL Supabase et donc
-      // aucune redirection vers un autre projet ne peuvent intervenir.
-      return invokeAccountAuth({
-        action: 'signup',
-        email: normalizeEmail(email),
-        username: normalizeUsername(username),
+      const cleanEmail = normalizeEmail(email);
+      const cleanUsername = normalizeUsername(username);
+
+      // Utiliser Supabase Auth directement est volontaire : contrairement à
+      // admin.createUser(email_confirm:true), signUp déclenche le vrai mail de
+      // confirmation. Le compte n'obtient donc aucune session utilisable avant
+      // le clic du propriétaire de l'adresse.
+      const { data, error } = await client.auth.signUp({
+        email: cleanEmail,
         password,
+        options: {
+          data: { keep_username: cleanUsername },
+          emailRedirectTo: KEEP_PUBLIC_URL,
+        },
       });
+      if (error) return { error: mapSignupError(error.message) };
+      if (!data.user) return { error: 'account_not_created' };
+
+      // Avec l'énumération sécurisée de Supabase, une adresse déjà inscrite peut
+      // revenir sans identité au lieu d'une erreur explicite.
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { error: 'email_taken' };
+      }
+
+      // Hosted Supabase doit demander la confirmation. Si un environnement de
+      // test la désactive, on n'annonce jamais à tort que l'adresse a été vérifiée.
+      if (data.session) {
+        await client.auth.signOut().catch(() => {});
+        return { error: 'email_confirmation_not_enabled' };
+      }
+
+      return {
+        error: null,
+        username: cleanUsername,
+        userId: data.user.id,
+        requiresEmailConfirmation: true,
+      };
     },
 
     async signInWithEmailIdentity(email, password) {
@@ -118,11 +156,6 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return legacyUsernameAuth('login', username, password);
     },
 
-    // Ces anciens flux sont volontairement coupés dans l'app KEEP. Ils
-    // dépendaient de la configuration globale Site URL de Supabase et ont déjà
-    // provoqué une redirection vers un autre projet. On ne réactive aucun lien
-    // e-mail tant que cette configuration externe n'est pas explicitement
-    // dédiée à KEEP.
     async requestEmailMagicLink() {
       return { error: 'email_flow_disabled' };
     },
