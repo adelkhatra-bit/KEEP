@@ -30,6 +30,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const { playlists } = usePlaylistStore();
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
+  const [titleSaved, setTitleSaved] = useState(false);
 
   if (!session) {
     return (
@@ -60,6 +61,17 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     } catch {
       // Annulé -- pas une erreur applicative.
     }
+  };
+
+  const handleTitleSave = () => {
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      Alert.alert('Nom de session', 'Écris un nom avant de valider.');
+      return;
+    }
+    if (trimmed !== session.title) renameSession(sessionId, trimmed);
+    setTitleDraft(trimmed);
+    setTitleSaved(true);
   };
 
   const handleTitleBlur = () => {
@@ -96,14 +108,23 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={styles.titleInput}
-        value={titleDraft}
-        onChangeText={setTitleDraft}
-        onBlur={handleTitleBlur}
-        placeholder={t('session.namePlaceholder')}
-        placeholderTextColor={colors.textMuted}
-      />
+      <Text style={styles.nameLabel}>NOM DE LA SESSION</Text>
+      <View style={styles.titleEditRow}>
+        <TextInput
+          style={styles.titleInput}
+          value={titleDraft}
+          onChangeText={(value) => { setTitleDraft(value); setTitleSaved(false); }}
+          onBlur={handleTitleBlur}
+          onSubmitEditing={handleTitleSave}
+          placeholder={t('session.namePlaceholder')}
+          placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
+        />
+        <TouchableOpacity style={styles.validateTitleButton} onPress={handleTitleSave} accessibilityRole="button" accessibilityLabel="Valider le nom de la session">
+          <Text style={styles.validateTitleText}>VALIDER</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={titleSaved ? styles.titleSaved : styles.titleHint}>{titleSaved ? '✓ Nom enregistré' : 'Écris un nom puis appuie sur VALIDER.'}</Text>
 
       <View style={styles.statsRow}>
         <Text style={styles.statsText}>{t('session.detected', { count: detectedCount })}</Text>
@@ -163,11 +184,16 @@ const styles = StyleSheet.create({
   title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
   shareBtn: { padding: spacing.xs },
   shareBtnText: { fontSize: 20 },
+  nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
+  titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   titleInput: {
-    marginHorizontal: spacing.xl, marginTop: spacing.sm,
-    color: colors.textPrimary, fontSize: 15, fontWeight: '600',
+    flex: 1, minHeight: 44, color: colors.textPrimary, fontSize: 15, fontWeight: '600',
     borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm,
   },
+  validateTitleButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  validateTitleText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
+  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
+  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
