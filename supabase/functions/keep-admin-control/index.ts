@@ -55,6 +55,18 @@ function hint(value: string) {
   return `${clean.slice(0, 3)}••••••${clean.slice(-4)}`;
 }
 
+function generateTemporaryPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(14));
+  let body = "";
+  for (const byte of bytes) body += alphabet[byte % alphabet.length];
+  return `K!${body}7`;
+}
+
+function syntheticKeepEmail(userId: string) {
+  return `${userId.toLowerCase()}@keep.local`;
+}
+
 async function requireAdmin(req: Request) {
   const authHeader = req.headers.get("authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -232,6 +244,54 @@ Deno.serve(async (req) => {
       if (error) throw error;
       await audit(actor.id, "user.invited", "auth_user", data.user?.id ?? null, { email });
       return json(200, { ok: true, userId: data.user?.id ?? null });
+    }
+
+    if (action === "users.recover_legacy") {
+      const username = String(body?.username ?? "").trim().replace(/^@+/, "");
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) return json(400, { error: "invalid_username" });
+
+      const { data: profiles, error: profileError } = await admin
+        .from("profiles")
+        .select("id,username")
+        .ilike("username", username)
+        .limit(2);
+      if (profileError) throw profileError;
+      if (!profiles?.length) return json(404, { error: "profile_not_found" });
+      if (profiles.length > 1) return json(409, { error: "ambiguous_username" });
+
+      const profile = profiles[0];
+      const { data: authData, error: authError } = await admin.auth.admin.getUserById(profile.id);
+      if (authError || !authData.user) return json(404, { error: "auth_user_not_found" });
+      if (!authData.user.is_anonymous) {
+        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte KEEP." });
+      }
+
+      const temporaryPassword = generateTemporaryPassword();
+      const syntheticEmail = syntheticKeepEmail(profile.id);
+      const { error: updateError } = await admin.auth.admin.updateUserById(profile.id, {
+        email: syntheticEmail,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          ...(authData.user.user_metadata ?? {}),
+          keep_username: profile.username,
+          keep_username_key: String(profile.username).normalize("NFKC").toLowerCase(),
+          recovered_from_legacy_trial: true,
+        },
+      });
+      if (updateError) throw updateError;
+
+      await audit(actor.id, "user.legacy_recovered", "profile", profile.id, {
+        username: profile.username,
+        authMode: "username_password",
+        preservedProfileId: true,
+      });
+      return json(200, {
+        ok: true,
+        username: profile.username,
+        temporaryPassword,
+        message: "Profil récupéré sans changer son identifiant, sa photo ni ses données.",
+      });
     }
 
     if (action === "users.grant") {
