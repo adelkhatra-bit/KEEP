@@ -105,11 +105,19 @@ async function getSecret(key: string): Promise<string | null> {
   const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
   if (error) throw error;
   if (typeof data === "string" && data.trim()) return data.trim();
-
-  // Compatibilité non destructive : les premières APIs KEEP ont été stockées
-  // dans les Secrets des Edge Functions avant l'arrivée du Vault. Elles restent
-  // utilisables côté serveur et ne sont jamais renvoyées au navigateur.
   return existingEdgeSecret(key);
+}
+
+async function resetIntegrationRuntimeStatus(key: string, configured: boolean) {
+  if (key !== "AUDD_API_KEY") return;
+  const now = new Date().toISOString();
+  await admin.from("integration_runtime_status").upsert({
+    key,
+    status: configured ? "UNKNOWN" : "NOT_CONFIGURED",
+    last_checked_at: now,
+    last_error: null,
+    updated_at: now,
+  }, { onConflict: "key" });
 }
 
 async function findAuthUserByEmail(email: string) {
@@ -231,6 +239,7 @@ Deno.serve(async (req) => {
         p_updated_by: actor.id,
       });
       if (error) throw error;
+      await resetIntegrationRuntimeStatus(key, true);
       await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint });
       return json(200, { ok: true, key, configured: true, hint: valueHint });
     }
@@ -240,8 +249,10 @@ Deno.serve(async (req) => {
       if (!CATALOG[key]) return json(400, { error: "integration_key_not_allowed" });
       const { error } = await admin.rpc("service_delete_integration_secret", { p_key: key });
       if (error) throw error;
-      await audit(actor.id, "integration_secret.deleted", "integration_secret", key, { key, configured: Boolean(existingEdgeSecret(key)) });
-      return json(200, { ok: true, configured: Boolean(existingEdgeSecret(key)), legacyEdgeSecretStillActive: Boolean(existingEdgeSecret(key)) });
+      const edgeStillActive = Boolean(existingEdgeSecret(key));
+      await resetIntegrationRuntimeStatus(key, edgeStillActive);
+      await audit(actor.id, "integration_secret.deleted", "integration_secret", key, { key, configured: edgeStillActive });
+      return json(200, { ok: true, configured: edgeStillActive, legacyEdgeSecretStillActive: edgeStillActive });
     }
 
     if (action === "integrations.test_email") {
@@ -336,7 +347,7 @@ Deno.serve(async (req) => {
       const months = Number(body?.months ?? 0);
       const reason = String(body?.reason ?? "").trim();
       if (!identity) return json(400, { error: "identity_required" });
-      if (!Number.isInteger(months) || months < 1 || months > 60) return json(400, { error: "invalid_duration" });
+      if (!Number.isInteger(months) || months < 0 || months > 60) return json(400, { error: "invalid_duration" });
       if (!['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].includes(planCode)) return json(400, { error: "invalid_plan" });
       const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
