@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Linking } from 'react-native';
-import { Audio } from 'expo-av';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
 
 interface Props {
   entry: SessionTrackEntry;
@@ -22,13 +22,11 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
   const topPlaylistName = entry.recommendations[0]?.playlistName;
   const visibility: KeepVisibility = entry.visibility ?? 'PRIVATE';
   const [previewBusy, setPreviewBusy] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const previewKey = `session:${entry.id}`;
 
   useEffect(() => () => {
-    const sound = soundRef.current;
-    soundRef.current = null;
-    if (sound) void sound.unloadAsync().catch(() => {});
-  }, []);
+    void stopTrackPreview(previewKey);
+  }, [previewKey]);
 
   const handleKeepPress = () => {
     if (entry.creditLocked) { onUnlock?.(); return; }
@@ -40,17 +38,12 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
     if (!track.previewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      if (soundRef.current) { await soundRef.current.unloadAsync().catch(() => {}); soundRef.current = null; }
-      const { sound } = await Audio.Sound.createAsync({ uri: track.previewUrl }, { shouldPlay: true, positionMillis });
-      soundRef.current = sound;
-      setTimeout(() => {
-        if (soundRef.current !== sound) return;
-        void sound.stopAsync().catch(() => {});
-        void sound.unloadAsync().catch(() => {});
-        soundRef.current = null;
-      }, 7000);
-    } catch { Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.'); }
-    finally { setPreviewBusy(false); }
+      await playTrackPreviewSegment(previewKey, track.previewUrl, positionMillis, 7000);
+    } catch {
+      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+    } finally {
+      setPreviewBusy(false);
+    }
   };
 
   const openYoutubeSearch = async () => {
