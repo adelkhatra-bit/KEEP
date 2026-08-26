@@ -48,6 +48,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const detectedCount = session.tracks.length;
   const keptCount = session.tracks.filter((tr) => tr.status === 'kept').length;
   const pendingCount = session.tracks.filter((tr) => tr.status === 'pending').length;
+  const lockedCount = session.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
 
   const handleKeepAll = async () => {
     setProcessing(true);
@@ -96,6 +97,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     ]);
   };
 
+  const openUnlock = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' });
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -132,6 +135,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
       </View>
 
+      {lockedCount > 0 ? (
+        <TouchableOpacity style={styles.lockedBanner} onPress={openUnlock}>
+          <Text style={styles.lockedBannerTitle}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente</Text>
+          <Text style={styles.lockedBannerText}>Tes extraits restent disponibles. Appuie ici pour voir la formule qui débloque les fonctions payantes.</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {pendingCount > 0 && (
         <TouchableOpacity style={styles.keepAllButton} onPress={handleKeepAll} disabled={processing}>
           <Text style={styles.keepAllButtonText}>
@@ -153,6 +163,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
             onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId, 'PRIVATE')}
             onPass={(entryId) => passTrackInSession(sessionId, entryId)}
             onVisibilityChange={(entryId, visibility) => { void setTrackVisibilityInSession(sessionId, entryId, visibility); }}
+            onUnlock={openUnlock}
           />
         )}
       />
@@ -176,20 +187,14 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textSecondary, fontSize: 15, marginBottom: spacing.lg },
   backLink: { paddingVertical: spacing.sm },
   backLinkText: { color: colors.primaryLight, fontWeight: '700' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
   backArrow: { color: colors.textPrimary, fontSize: 22 },
   title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
   shareBtn: { padding: spacing.xs },
   shareBtnText: { fontSize: 20 },
   nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
   titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  titleInput: {
-    flex: 1, minHeight: 44, color: colors.textPrimary, fontSize: 15, fontWeight: '600',
-    borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm,
-  },
+  titleInput: { flex: 1, minHeight: 44, color: colors.textPrimary, fontSize: 15, fontWeight: '600', borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm },
   validateTitleButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
@@ -198,20 +203,15 @@ const styles = StyleSheet.create({
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
   statsDot: { color: colors.textMuted },
-  keepAllButton: {
-    marginHorizontal: spacing.xl, marginTop: spacing.lg,
-    backgroundColor: colors.keep, borderRadius: radius.lg,
-    paddingVertical: spacing.md, alignItems: 'center', minHeight: 48, justifyContent: 'center',
-  },
+  lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
+  lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
+  lockedBannerText: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, marginTop: 4 },
+  keepAllButton: { marginHorizontal: spacing.xl, marginTop: spacing.lg, backgroundColor: colors.keep, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
   keepAllButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
   visibilityHint: { color: colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.md },
   deleteSessionButton: { minHeight: 42, marginHorizontal: spacing.xl, marginBottom: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
   deleteSessionText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
-  demoBadge: {
-    marginHorizontal: spacing.xl, marginBottom: spacing.md,
-    backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder,
-    borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center',
-  },
+  demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
 });
