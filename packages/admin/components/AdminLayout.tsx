@@ -6,6 +6,7 @@ const NAV = [
   { href: '/', label: 'Dashboard' },
   { href: '/users', label: 'Utilisateurs' },
   { href: '/plans', label: 'Abonnements & Prix' },
+  { href: '/operations', label: 'API payantes & Support' },
   { href: '/costs', label: 'Coûts & Rentabilité' },
   { href: '/feature-flags', label: 'Feature Flags' },
   { href: '/remote-config', label: 'Textes & Quotas app' },
