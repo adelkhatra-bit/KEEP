@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, Platform, TextInput, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
@@ -6,8 +6,9 @@ import { spacing, radius, typography } from '../../theme/spacing';
 import { useUserStore } from '../../store/useUserStore';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
 import { createAuthService } from '../../services/authService';
+import { consumeWebAuthAndOpenNative, subscribeToNativeAuthLinks } from '../../services/authLinkHandoff';
 
-type EmailStep = 'idle' | 'codeSent';
+type EmailStep = 'idle' | 'linkSent';
 
 export default function OnboardingScreen() {
   const { t } = useTranslation();
@@ -15,10 +16,31 @@ export default function OnboardingScreen() {
   const [emailFormVisible, setEmailFormVisible] = useState(false);
   const [emailStep, setEmailStep] = useState<EmailStep>('idle');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const authService = supabase ? createAuthService(supabase) : null;
+
+  // Solution e-mail gratuite pour les tests : pas de code à recopier et pas
+  // de dépendance obligatoire à Brevo. Supabase envoie un lien de connexion.
+  // Sur web, le lien établit la session. Sur téléphone, il tente ensuite de
+  // rouvrir KEEP via keep://auth/callback ; l'écran ci-dessous récupère alors
+  // la même session dans l'app native.
+  useEffect(() => {
+    if (!supabase) return;
+
+    if (Platform.OS === 'web') {
+      void consumeWebAuthAndOpenNative(supabase).catch(() => {
+        setErrorMsg('Le lien de connexion est invalide ou expiré. Demande un nouveau lien.');
+      });
+      return;
+    }
+
+    return subscribeToNativeAuthLinks(
+      supabase,
+      () => setErrorMsg(null),
+      () => setErrorMsg('Le lien de connexion est invalide ou expiré. Demande un nouveau lien.'),
+    );
+  }, []);
 
   const handleAuthPress = (provider: 'apple' | 'google') => {
     Alert.alert(
@@ -50,7 +72,7 @@ export default function OnboardingScreen() {
     setErrorMsg(null);
   };
 
-  const handleSendCode = async () => {
+  const handleSendLink = async () => {
     if (!authService) return;
     const trimmed = email.trim();
     if (!trimmed.includes('@')) {
@@ -62,23 +84,10 @@ export default function OnboardingScreen() {
     const { error } = await authService.requestEmailCode(trimmed);
     setBusy(false);
     if (error) {
-      setErrorMsg('Impossible d’envoyer le code. Réessaie dans un instant.');
+      setErrorMsg('Impossible d’envoyer le lien. Réessaie dans un instant.');
       return;
     }
-    setEmailStep('codeSent');
-  };
-
-  const handleVerifyCode = async () => {
-    if (!authService) return;
-    if (code.trim().length < 6) {
-      setErrorMsg('Code à 6 chiffres requis.');
-      return;
-    }
-    setBusy(true);
-    setErrorMsg(null);
-    const { error } = await authService.verifyEmailCode(email.trim(), code.trim());
-    setBusy(false);
-    if (error) setErrorMsg('Code invalide ou expiré.');
+    setEmailStep('linkSent');
   };
 
   const showEmailForm = isSupabaseConfigured && emailFormVisible;
@@ -114,21 +123,26 @@ export default function OnboardingScreen() {
 
         {showEmailForm && emailStep === 'idle' && (
           <View style={styles.emailForm}>
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="ton@email.com" placeholderTextColor={colors.textMuted} autoCapitalize="none" keyboardType="email-address" onSubmitEditing={handleSendCode} />
+            <Text style={styles.codeHint}>Entre ton e-mail. KEEP t’envoie un lien : tu cliques dessus et tu es connecté.</Text>
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="ton@email.com" placeholderTextColor={colors.textMuted} autoCapitalize="none" keyboardType="email-address" onSubmitEditing={handleSendLink} />
             {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendCode} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Envoyer le code</Text>}
+            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendLink} disabled={busy}>
+              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>M’ENVOYER LE LIEN</Text>}
             </TouchableOpacity>
           </View>
         )}
 
-        {showEmailForm && emailStep === 'codeSent' && (
-          <View style={styles.emailForm}>
-            <Text style={styles.codeHint}>Code envoyé à {email.trim()}</Text>
-            <TextInput style={styles.input} value={code} onChangeText={setCode} placeholder="123456" placeholderTextColor={colors.textMuted} keyboardType="number-pad" maxLength={6} onSubmitEditing={handleVerifyCode} />
+        {showEmailForm && emailStep === 'linkSent' && (
+          <View style={[styles.emailForm, styles.linkSentCard]}>
+            <Text style={styles.linkSentTitle}>Vérifie ton e-mail</Text>
+            <Text style={styles.codeHint}>Un lien de connexion KEEP a été envoyé à {email.trim()}.</Text>
+            <Text style={styles.linkSentHelp}>Ouvre l’e-mail puis touche le lien. Aucun code à recopier.</Text>
             {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleVerifyCode} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Valider</Text>}
+            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendLink} disabled={busy}>
+              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>RENVOYER LE LIEN</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.emailButton} onPress={() => { setEmailStep('idle'); setErrorMsg(null); }}>
+              <Text style={styles.emailButtonText}>Changer d’adresse e-mail</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -170,7 +184,10 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.textPrimary, fontSize: 15 },
   primaryButton: { backgroundColor: colors.primary },
   primaryButtonText: { ...typography.button, color: colors.white },
-  codeHint: { color: colors.textSecondary, fontSize: 13 },
+  codeHint: { color: colors.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 19 },
   errorText: { color: colors.danger, fontSize: 12, textAlign: 'center' },
   legal: { marginTop: spacing.sm, fontSize: 11, color: colors.textMuted, textAlign: 'center' },
+  linkSentCard: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  linkSentTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', textAlign: 'center' },
+  linkSentHelp: { color: colors.primaryLight, fontSize: 12, fontWeight: '700', textAlign: 'center' },
 });
