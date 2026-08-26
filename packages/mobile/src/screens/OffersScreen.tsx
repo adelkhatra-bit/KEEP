@@ -7,28 +7,28 @@ import { radius, spacing, typography } from '../theme/spacing';
 
 const BENEFITS: Record<string, string[]> = {
   FREE: [
-    'Découvrir KEEP et commencer à partager tes goûts musicaux',
+    'Découvrir KEEP, écouter et construire ton KEEP DNA',
     '3 téléchargements avant inscription',
     '+4 téléchargements offerts après création du compte',
-    'Profil public, KEEP DNA et réseau musical',
+    'Visibilité limitée : partage public, QR KEEP et playlists publiques restent verrouillés',
   ],
   PREMIUM: [
-    'Pour écouter, garder et classer ta musique au quotidien',
+    'Débloque le partage public du profil et le QR KEEP',
+    'Rend tes playlists et ta musique visibles à ta communauté',
     'Synchronisation multi-plateformes étendue',
     'Historique complet et usage plus confortable',
-    'Développer une communauté autour de tes goûts musicaux',
   ],
   CREATOR_PRO: [
-    'Pensé pour artistes, DJ et créateurs',
-    'Transformer tes goûts musicaux en contenu suivi par ta communauté',
+    'Inclut les fonctions Premium',
+    'Profils DJ, Artiste, Créateur ou Producteur',
+    'Création d’événements et notifications aux abonnés',
     'Analytics et fonctions créateur avancées',
-    'Événements et visibilité supplémentaires',
   ],
   VENUE_PRO: [
-    'Pour établissements et événements',
-    'Expériences musicales partagées avec le public',
-    'Analytics de fréquentation et QR',
-    'Outils professionnels illimités selon le plan actif',
+    'Inclut les fonctions créateur disponibles pour les lieux',
+    'Profil Lieu / établissement',
+    'Événements, communauté, QR et visibilité professionnelle',
+    'Outils et analytics dédiés aux établissements',
   ],
 };
 
@@ -44,9 +44,18 @@ function planLabel(code: string) {
   return code === 'FREE' ? 'Free' : code.replace(/_/g, ' ');
 }
 
+function requiredReason(feature: string, plan: string) {
+  if (feature === 'PROFILE_SHARE') return 'Cette formule débloque le partage public, le QR KEEP et la visibilité de tes playlists.';
+  if (feature === 'CREATOR_KIND') return 'Cette formule débloque les profils DJ, Artiste, Créateur et Producteur.';
+  if (feature === 'CREATE_EVENT') return 'Cette formule débloque la création d’événements et les notifications à tes abonnés.';
+  if (feature === 'VENUE_KIND') return 'Cette formule débloque le profil Lieu / établissement et ses outils professionnels.';
+  return `${planLabel(plan)} est la formule requise pour cette fonction.`;
+}
+
 export default function OffersScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const focusPlan = String(route?.params?.focusPlan || '').toUpperCase();
+  const sourceFeature = String(route?.params?.sourceFeature || '').toUpperCase();
   const [plans, setPlans] = useState<KeepPlan[]>([]);
   const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 4 });
   const [currentPlan, setCurrentPlan] = useState('FREE');
@@ -76,10 +85,7 @@ export default function OffersScreen({ navigation, route }: any) {
   }, [user?.id]);
 
   const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses, [funnel]);
-  const orderedPlans = useMemo(() => {
-    if (!focusPlan) return plans;
-    return [...plans].sort((a, b) => Number(b.code === focusPlan) - Number(a.code === focusPlan));
-  }, [focusPlan, plans]);
+  const visiblePlans = useMemo(() => focusPlan ? plans.filter((plan) => plan.code === focusPlan) : plans, [focusPlan, plans]);
 
   return (
     <SafeAreaView style={s.container}>
@@ -93,20 +99,26 @@ export default function OffersScreen({ navigation, route }: any) {
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={s.promiseCard}>
-          <Text style={s.promiseEyebrow}>KEEP</Text>
-          <Text style={s.promiseTitle}>Partage tes goûts musicaux. Crée ta communauté.</Text>
-          <Text style={s.promiseBody}>Tes abonnés peuvent découvrir les artistes, albums et morceaux que tu gardes, même s’ils ne suivent pas forcément ta propre musique.</Text>
-        </View>
+        {focusPlan ? <View style={s.requiredIntro}>
+          <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
+          <Text style={s.requiredIntroTitle}>{planLabel(focusPlan)}</Text>
+          <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan)}</Text>
+        </View> : <>
+          <View style={s.promiseCard}>
+            <Text style={s.promiseEyebrow}>KEEP</Text>
+            <Text style={s.promiseTitle}>Partage tes goûts musicaux. Crée ta communauté.</Text>
+            <Text style={s.promiseBody}>La version Free permet de découvrir KEEP et de construire ton identité musicale. Les fonctions de visibilité et de communauté se débloquent avec les formules adaptées.</Text>
+          </View>
 
-        <View style={s.creditCard}>
-          <Text style={s.sectionTitle}>Essai gratuit</Text>
-          <Text style={s.creditBig}>{funnel.guestSuccessLimit} + {funnel.signupBonusSuccesses} = {freeTotal}</Text>
-          <Text style={s.creditText}>{funnel.guestSuccessLimit} téléchargements avant inscription, puis {funnel.signupBonusSuccesses} supplémentaires offerts après création du compte.</Text>
-          <Text style={s.creditRule}>Écouter, reconnaître et PASSER ne consomment aucun crédit. Seul un téléchargement/GARDER réellement effectué consomme un crédit.</Text>
-        </View>
+          <View style={s.creditCard}>
+            <Text style={s.sectionTitle}>Essai gratuit</Text>
+            <Text style={s.creditBig}>{funnel.guestSuccessLimit} + {funnel.signupBonusSuccesses} = {freeTotal}</Text>
+            <Text style={s.creditText}>{funnel.guestSuccessLimit} téléchargements avant inscription, puis {funnel.signupBonusSuccesses} supplémentaires offerts après création du compte.</Text>
+            <Text style={s.creditRule}>Écouter, reconnaître et PASSER ne consomment aucun crédit. Seul un téléchargement/GARDER réellement effectué consomme un crédit.</Text>
+          </View>
+        </>}
 
-        {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : orderedPlans.map((plan) => {
+        {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
           const active = plan.code === currentPlan;
           const focused = !!focusPlan && plan.code === focusPlan;
           return (
@@ -129,6 +141,10 @@ export default function OffersScreen({ navigation, route }: any) {
             </View>
           );
         })}
+
+        {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
+          <Text style={s.allPlansText}>Voir toutes les formules</Text>
+        </TouchableOpacity> : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -143,6 +159,10 @@ const s = StyleSheet.create({
   subtitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '800', marginTop: 2 },
   headerSpacer: { width: 42 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
+  requiredIntro: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
+  requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', marginTop: 5 },
+  requiredIntroText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 7 },
   promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
@@ -167,5 +187,7 @@ const s = StyleSheet.create({
   trial: { color: colors.keep, fontSize: 11, fontWeight: '800', marginTop: 8 },
   cta: { minHeight: 44, borderRadius: 22, marginTop: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   ctaText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  allPlans: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  allPlansText: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   error: { color: colors.danger, textAlign: 'center', paddingVertical: 20 },
 });
