@@ -76,10 +76,19 @@ jobs:
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1000);
 
-            const demo = textLast('Mode démo', { exact: true });
-            if (await demo.isVisible().catch(() => false)) {
-              await demo.click();
+            // Le test complet doit utiliser un vrai essai local éditable. Le
+            // mode démo est volontairement lecture seule et ne doit pas servir
+            // à valider la persistance du profil utilisateur.
+            const trial = textLast('ESSAYER GRATUITEMENT', { exact: true });
+            if (await trial.isVisible().catch(() => false)) {
+              await trial.click();
               await page.waitForTimeout(600);
+            } else {
+              const demo = textLast('Mode démo', { exact: true });
+              if (await demo.isVisible().catch(() => false)) {
+                await demo.click();
+                await page.waitForTimeout(600);
+              }
             }
 
             for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
@@ -122,7 +131,9 @@ jobs:
 
             await page.getByLabel('Modifier le profil').last().click();
             await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
-            await page.getByPlaceholder('tonpseudo').last().fill('keepmobiletest');
+            const pseudo = page.getByPlaceholder('tonpseudo').last();
+            if (!(await pseudo.isEditable())) throw new Error('Pseudo: le profil d’essai doit être éditable');
+            await pseudo.fill('keepmobiletest');
             await textLast('⌖ Utiliser ma position', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await textLast('Rechercher et préremplir', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await textLast('Choisir une date', { exact: true }).click();
