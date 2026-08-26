@@ -90,14 +90,16 @@ if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
-// L'auth utilisateur KEEP est volontairement SANS redirection :
-// e-mail + mot de passe -> fonction keep-username-auth -> session Supabase
-// posée directement. Le garde-fou CI interdit le retour des anciens liens.
-for (const expected of ['keep-username-auth', 'setSession', 'email_flow_disabled']) {
-  if (!authService.includes(expected)) failures.push(`DIRECT AUTH MARKER MISSING: ${expected}`);
+// L'auth utilisateur KEEP conserve la session directe keep-username-auth pour
+// la connexion, et peut vérifier l'adresse lors de la création via Supabase.
+// Toute redirection e-mail autorisée doit revenir UNIQUEMENT sur l'URL KEEP
+// publique canonique : jamais localhost, jamais un ancien HTML ou domaine.
+for (const expected of ['keep-username-auth', 'setSession', 'signUpWithEmailIdentity', 'KEEP_PUBLIC_URL']) {
+  if (!authService.includes(expected)) failures.push(`USER AUTH MARKER MISSING: ${expected}`);
 }
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
-if (/emailRedirectTo|redirectTo\s*:/i.test(authService)) failures.push('USER AUTH REDIRECT REINTRODUCED');
+if (!authService.includes(`const KEEP_PUBLIC_URL = '${expectedPublicRoot}/';`)) failures.push('USER AUTH CANONICAL ROOT MISSING');
+if (/emailRedirectTo\s*:\s*(?!KEEP_PUBLIC_URL)/i.test(authService)) failures.push('USER AUTH REDIRECT IS NOT CANONICAL');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 for (const marker of ['QRCode', 'Mon QR KEEP', 'Partager par e-mail']) {
@@ -165,7 +167,7 @@ console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
-console.log('auth user: direct keep-username-auth session (no redirect)');
+console.log('auth user: canonical KEEP account session + verified-email creation when enabled');
 console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
