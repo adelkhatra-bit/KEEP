@@ -13,6 +13,7 @@ export interface UsernameAuthResult {
   error: string | null;
   username?: string;
   userId?: string;
+  requiresEmailConfirmation?: boolean;
 }
 
 export interface AuthService {
@@ -83,12 +84,47 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signUpWithEmailIdentity(email, username, password) {
-      return invokeAccountAuth({
-        action: 'signup',
-        email: normalizeEmail(email),
-        username: normalizeUsername(username),
+      const cleanEmail = normalizeEmail(email);
+      const cleanUsername = normalizeUsername(username);
+
+      // Le pseudo reste public/modifiable, mais n'est plus un identifiant de
+      // connexion. On réserve simplement son unicité avant de lancer Supabase
+      // Auth afin d'éviter deux profils publics identiques.
+      const { data: existingProfiles, error: usernameError } = await client
+        .from('profiles')
+        .select('id')
+        .ilike('username', cleanUsername)
+        .limit(1);
+      if (usernameError) return { error: 'server_error' };
+      if ((existingProfiles ?? []).length > 0) return { error: 'username_taken' };
+
+      const { data, error } = await client.auth.signUp({
+        email: cleanEmail,
         password,
+        options: {
+          emailRedirectTo: AUTH_REDIRECT_URL,
+          data: { keep_username: cleanUsername },
+        },
       });
+      if (error) {
+        const message = error.message.toLowerCase();
+        if (message.includes('already') || message.includes('registered') || message.includes('exists')) return { error: 'email_taken' };
+        return { error: error.message || 'server_error' };
+      }
+
+      // Supabase peut volontairement masquer l'existence d'un compte. Une
+      // liste identities vide indique ici qu'aucune nouvelle identité e-mail
+      // n'a été créée : on renvoie un message neutre côté UI.
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { error: 'email_taken' };
+      }
+
+      return {
+        error: null,
+        username: cleanUsername,
+        userId: data.user?.id,
+        requiresEmailConfirmation: !data.session,
+      };
     },
 
     async signInWithEmailIdentity(email, password) {
