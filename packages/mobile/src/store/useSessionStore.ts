@@ -8,7 +8,11 @@ import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
-const RECOGNITION_TICK_MS = 6500;
+// Le tick ne représente plus la durée d'un échantillon : il sert seulement à
+// relancer très vite une capture dès que la précédente est terminée. Avec un
+// intervalle long, une reconnaissance réseau qui dépassait légèrement le tick
+// faisait attendre tout un cycle supplémentaire avant d'écouter à nouveau.
+const RECOGNITION_TICK_MS = 900;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
 
@@ -93,6 +97,32 @@ function persistLiveSession(state: SessionStore) {
   });
 }
 
+/**
+ * Enrichit un morceau déjà affiché/sauvegardé dans la session. La détection ne
+ * doit jamais attendre Spotify/Apple/playlists : dès que le titre est reconnu,
+ * il existe comme `pending`. Si la session est fermée pendant l'enrichissement,
+ * la copie persistée dans Mes Sessions est mise à jour sans perdre le morceau.
+ */
+function applyTrackEnrichment(
+  sessionId: string,
+  entryId: string,
+  patch: Pick<SessionTrackEntry, 'recommendations' | 'status' | 'existingMatch'>,
+) {
+  const live = useSessionStore.getState();
+  if (live.isActive && live.sessionId === sessionId) {
+    useSessionStore.setState((state) => ({
+      tracks: state.tracks.map((entry) => entry.id === entryId ? { ...entry, ...patch } : entry),
+    }));
+    persistLiveSession(useSessionStore.getState());
+  }
+
+  useSessionHistoryStore.setState((state) => ({
+    sessions: state.sessions.map((session) => session.id !== sessionId
+      ? session
+      : { ...session, tracks: session.tracks.map((entry) => entry.id === entryId ? { ...entry, ...patch } : entry) }),
+  }));
+}
+
 let tickHandle: ReturnType<typeof setInterval> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let lastDetectionAt = 0;
@@ -140,21 +170,45 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           return;
         }
 
-        const { session, playlists, match } = await findExistingTrack(track);
-        if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
-        const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
-        const entry: SessionTrackEntry = { id: newId(), track, recommendations, status: match ? 'already_saved' : 'pending', detectedAt: new Date().toISOString(), existingMatch: match };
+        const sessionIdAtDetection = get().sessionId;
+        if (!sessionIdAtDetection) { set({ recognizing: false, micLevel: 0, error: null }); return; }
+
+        // Le morceau entre IMMÉDIATEMENT dans la session. GARDER/PASSER peut
+        // être décidé maintenant ou plus tard depuis Mes Sessions.
+        const entry: SessionTrackEntry = {
+          id: newId(),
+          track,
+          recommendations: [],
+          status: 'pending',
+          detectedAt: new Date().toISOString(),
+        };
         lastDetectionAt = Date.now();
         set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null }));
         persistLiveSession(get());
+
+        // Recherche de doublon dans les bibliothèques + routage en arrière-plan.
+        // Une panne Spotify/Apple ne doit jamais faire disparaître une détection.
+        void (async () => {
+          try {
+            const { session, playlists, match } = await findExistingTrack(track);
+            const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
+            applyTrackEnrichment(sessionIdAtDetection, entry.id, {
+              recommendations,
+              status: match ? 'already_saved' : 'pending',
+              existingMatch: match,
+            });
+          } catch {
+            // Le morceau reste pending et disponible dans la session.
+          }
+        })();
       } catch (e: any) {
         if (e instanceof MicCaptureCancelledError || !get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         set({ recognizing: false, micLevel: 0, error: e?.message ?? 'Erreur de reconnaissance' });
       }
     };
 
-    tick();
-    tickHandle = setInterval(tick, RECOGNITION_TICK_MS);
+    void tick();
+    tickHandle = setInterval(() => { void tick(); }, RECOGNITION_TICK_MS);
     silenceCheckHandle = setInterval(() => {
       const { isActive, silenceTimeoutMin, showEndPrompt } = get();
       if (!isActive || showEndPrompt) return;
