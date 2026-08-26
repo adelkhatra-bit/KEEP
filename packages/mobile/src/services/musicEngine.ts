@@ -15,7 +15,6 @@ import {
   InMemoryRoutingWeightsStore,
   MusicProviderAdapter,
   MusicRecognitionProvider,
-  ProviderPlaylist,
   SmartPlaylistRouter,
   TrackResolver,
 } from '@keep/music';
@@ -25,13 +24,6 @@ import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from 
 const USE_DEMO_MUSIC_PROVIDER = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
 const USE_REAL_RECOGNITION = isSecureRecognitionConfigured && process.env.EXPO_PUBLIC_KEEP_REAL_RECOGNITION !== 'false';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
-const SEED_PLAYLISTS: ProviderPlaylist[] = [
-  { id: 'playlist-piscine', name: 'Piscine', description: 'Sons d’été, ambiance chill au bord de l’eau', trackCount: 32 },
-  { id: 'playlist-afro', name: 'Afro House', description: 'Rythmes afro house, sets DJ', trackCount: 28 },
-  { id: 'playlist-voiture', name: 'Voiture', description: 'Pour la route, énergie et rythme', trackCount: 45 },
-  { id: 'playlist-chill', name: 'Chill Evening', description: 'Sons ambiants, soirée détente', trackCount: 19 },
-];
 
 function isPlaceholder(value: string | undefined): boolean {
   return !value || value.startsWith('your_') || value === 'undefined';
@@ -96,8 +88,13 @@ class MusicEngine {
       ? new KeepMusicCoreRecognitionProvider()
       : new DemoRecognitionProvider();
 
+    // Le provider local part désormais VIDE. Les anciennes playlists fictives
+    // « Piscine / Afro House / Voiture / Chill Evening » et leurs faux compteurs
+    // ne doivent jamais être présentés comme les données d'un utilisateur.
+    // En essai gratuit, seules les musiques réellement gardées sur l'appareil
+    // créent et alimentent les playlists visibles dans « Mes musiques ».
     this.musicProvider = USE_DEMO_MUSIC_PROVIDER
-      ? new DemoMusicProvider(SEED_PLAYLISTS)
+      ? new DemoMusicProvider()
       : createRealMusicProvider();
 
     this.trackResolver = new TrackResolver();
