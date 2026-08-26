@@ -4,6 +4,7 @@ import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
   return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>KEEP LIVE · RECONCILE</div>;
@@ -13,7 +14,7 @@ async function hasActiveAdminRole(userId:string):Promise<boolean>{
   if(!supabase)return false;
   const {data,error}=await supabase.from('admin_users').select('id,role,is_active').eq('id',userId).eq('is_active',true).maybeSingle();
   if(error||!data)return false;
-  return data.role==='SUPER_ADMIN'||data.role==='ADMIN';
+  return ADMIN_ROLES.includes(String(data.role));
 }
 
 function friendlyAuthError(message?:string){
@@ -58,7 +59,7 @@ function AdminLogin(){
     </div>
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
     <button type="submit" disabled={busy||!email.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
-    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle Admin actif peuvent entrer. Le flux magic-link Supabase a été retiré pour éviter les liens expirés et les mauvaises redirections.</p>
+    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. Les sections visibles et les actions autorisées dépendent ensuite du rôle attribué.</p>
   </form></main>;
 }
 
