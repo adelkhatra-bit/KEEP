@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
@@ -17,13 +17,18 @@ function autoTitle(session: KeepSession): string {
 export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
   const sessions = useSessionHistoryStore((s) => s.sessions);
+  // Les KEEP restaurés depuis Supabase alimentent le profil musical/KEEP DNA,
+  // mais ne constituent pas un historique complet de session (les PASS/pending
+  // ne sont pas sur le serveur). La session technique de récupération reste
+  // donc invisible ici pour ne jamais inventer une fausse écoute utilisateur.
+  const visibleSessions = sessions.filter((session) => !isCloudProfileRecoverySession(session));
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
   const refreshCreditLocks = useSessionHistoryStore((s) => s.refreshCreditLocks);
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
   const isListening = useSessionStore((s) => s.isActive);
   const activeSessionId = useSessionStore((s) => s.sessionId);
   const realActiveSessionId = isListening ? activeSessionId : null;
-  const hasOrphanedLiveSession = sessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
+  const hasOrphanedLiveSession = visibleSessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
 
   useEffect(() => {
     // AsyncStorage se réhydrate après le premier rendu. Cette dépendance passe à
@@ -87,10 +92,10 @@ export default function SessionHistoryScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
         <Text style={styles.title}>{t('history.title')}</Text>
       </View>
-      {sessions.length === 0 ? (
+      {visibleSessions.length === 0 ? (
         <View style={styles.centered}><Text style={styles.emptyEmoji}>🕐</Text><Text style={styles.emptyText}>{t('history.empty')}</Text></View>
       ) : (
-        <FlatList data={sessions} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.list} />
+        <FlatList data={visibleSessions} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.list} />
       )}
     </SafeAreaView>
   );
