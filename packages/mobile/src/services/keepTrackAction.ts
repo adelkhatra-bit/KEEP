@@ -41,39 +41,48 @@ export async function commitKeep(
   // et on ne pourrait jamais valider le parcours FREE avant mise en production.
   if (consumesCredit) await ensureDownloadCreditAvailable();
 
-  let targetPlaylistId = chosenPlaylistId ?? recommendations[0]?.playlistId ?? null;
-  let playlistName = recommendations.find((r) => r.playlistId === targetPlaylistId)?.playlistName ?? '';
+  const playlistsBefore = await withRetry(() => musicEngine.musicProvider.getPlaylists(session));
+  const requestedId = chosenPlaylistId ?? recommendations[0]?.playlistId ?? null;
+  const requestedRecommendation = recommendations.find((r) => r.playlistId === requestedId) ?? recommendations[0];
+  let target = requestedId ? playlistsBefore.find((playlist) => playlist.id === requestedId) : undefined;
 
-  if (!targetPlaylistId) {
-    const playlists = await withRetry(() => musicEngine.musicProvider.getPlaylists(session));
-    const first = playlists[0];
-    if (first) {
-      targetPlaylistId = first.id;
-      playlistName = first.name;
-    } else {
-      const created = await withRetry(() => musicEngine.musicProvider.createPlaylist(
-        session,
-        'KEEP',
-        'Morceaux gardés automatiquement par KEEP.'
-      ));
-      targetPlaylistId = created.id;
-      playlistName = created.name;
-    }
+  // Une recommandation peut exister avant sa playlist physique. L'ancien code
+  // ajoutait alors le morceau sous un id invisible et « Ranger ma musique »
+  // pouvait afficher 0 morceau malgré un KEEP réel. On crée maintenant la
+  // destination avant l'ajout : aucun faux compteur, aucune playlist fantôme.
+  if (!target && requestedId) {
+    target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
+      session,
+      requestedRecommendation?.playlistName?.trim() || 'Mes KEEP',
+      'Morceaux rangés par KEEP. Le nom et la visibilité peuvent être modifiés depuis Mes musiques.'
+    ));
   }
 
-  const alreadyThere = await withRetry(() => musicEngine.musicProvider.isTrackInPlaylist(session, targetPlaylistId!, track));
+  if (!target) target = playlistsBefore[0];
+
+  if (!target) {
+    target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
+      session,
+      'Mes KEEP',
+      'Morceaux gardés avec KEEP.'
+    ));
+  }
+
+  const targetPlaylistId = target.id;
+  const playlistName = target.name;
+  const alreadyThere = await withRetry(() => musicEngine.musicProvider.isTrackInPlaylist(session, targetPlaylistId, track));
   let downloaded = false;
 
   if (!alreadyThere) {
-    await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId!, track));
+    await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
     downloaded = consumesCredit;
     if (consumesCredit) await consumeDownloadCredit();
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
-  if (targetPlaylistId === topRecommendation) {
+  if (requestedId && requestedId === topRecommendation) {
     await musicEngine.router.recordAccepted(session.userId, track, targetPlaylistId);
-  } else {
+  } else if (requestedId) {
     await musicEngine.router.recordCorrection(session.userId, {
       trackId: track.id,
       artist: track.artist,
@@ -99,7 +108,7 @@ export async function commitKeep(
 
   return {
     targetPlaylistId,
-    playlistName: playlistName || 'KEEP',
+    playlistName,
     downloaded,
     visibility,
     keepDecisionId,
