@@ -8,6 +8,7 @@ import { GenderOption, User } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { pickAndUploadAvatar } from '../services/avatarService';
+import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
@@ -39,7 +40,11 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [dateOpen, setDateOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
-  const accountRequired = isLocalGuest || isDemoMode;
+  // Le Mode Démo reste volontairement lecture seule. L'essai local, lui, est
+  // un vrai brouillon de profil : l'utilisateur peut le préparer avant de
+  // donner son e-mail. Le partage public reste bloqué tant que le compte réel
+  // n'est pas créé (ProfilePublicScreen), donc aucune identité publique fantôme.
+  const accountRequired = isDemoMode;
 
   const parsed = useMemo(() => {
     const parts = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -84,8 +89,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     try {
       const nextUser = buildUser();
       setUser(nextUser);
-      if (supabase && !isDemoMode) await createProfileService(supabase).saveOwnProfile(nextUser);
-      Alert.alert('Profil enregistré', 'Tes informations sont sauvegardées dans KEEP.');
+      if (isLocalGuest) {
+        await stageGuestProfileForUpgrade(nextUser);
+        Alert.alert('Profil enregistré', 'Ton profil d’essai est conservé sur cet appareil. Crée ton compte plus tard pour le synchroniser et le partager publiquement.');
+      } else if (supabase && !isDemoMode) {
+        await createProfileService(supabase).saveOwnProfile(nextUser);
+        Alert.alert('Profil enregistré', 'Tes informations sont sauvegardées dans KEEP.');
+      }
       goToTab('Profile');
     } catch (e: any) {
       setError(e?.message || 'Impossible de sauvegarder le profil.');
@@ -150,7 +160,10 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     </View>
 
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      {accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte KEEP">
+      {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte KEEP">
+        <Text style={s.accountGateTitle}>Créer mon compte KEEP</Text>
+        <Text style={s.accountGateText}>Tu peux préparer tout ton profil maintenant. L’inscription débloque ensuite la synchronisation, le partage public et le suivi.</Text>
+      </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte KEEP">
         <Text style={s.accountGateTitle}>🔒 Créer mon compte KEEP</Text>
         <Text style={s.accountGateText}>Débloque photo, profil, localisation, réseaux et partage. Tout est facultatif.</Text>
       </TouchableOpacity> : null}
@@ -186,7 +199,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       <Section title="KEEP">
         <View style={s.supportCard}>
           <Text style={s.supportLabel}>N° membre / support</Text>
-          <Text style={s.supportNumber}>{accountRequired ? 'Créé après inscription' : keepSupportNumber}</Text>
+          <Text style={s.supportNumber}>{isLocalGuest || isDemoMode ? 'Créé après inscription' : keepSupportNumber}</Text>
           <Text style={s.hint}>À communiquer au support KEEP en cas de problème. Ce numéro n’est pas affiché sur ton profil public.</Text>
         </View>
         <QuickLink label="Notifications" onPress={()=>navigation.navigate('Notifications')} />
@@ -195,7 +208,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       </Section>
 
       {error ? <Text style={s.error}>{error}</Text> : null}
-      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
+      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : isLocalGuest ? 'Enregistrer sur cet appareil' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
       <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
       <TouchableOpacity style={s.advanced} onPress={()=>accountRequired ? requireAccount() : navigation.navigate('AdvancedProfileSettings')}><Text style={s.advancedText}>{accountRequired ? '🔒 Réseaux et réglages avancés' : 'Réglages avancés du profil'}</Text></TouchableOpacity>
     </ScrollView>
