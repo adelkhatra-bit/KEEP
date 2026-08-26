@@ -44,6 +44,7 @@ for (const forbidden of [
   'FORCE_START_LATEST_KEEP.bat',
   'START_KEEP_PRO.bat',
   '.github/workflows/admin-preview.yml',
+  '.github/workflows/web-public-from-reconcile.yml',
 ]) {
   if (fs.existsSync(path.join(root, forbidden))) failures.push(`LEGACY PATH PRESENT: ${forbidden}`);
 }
