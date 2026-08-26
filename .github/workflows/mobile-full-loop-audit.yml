@@ -20,7 +20,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'true'
-      EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
@@ -80,16 +80,9 @@ jobs:
             // mode démo est volontairement lecture seule et ne doit pas servir
             // à valider la persistance du profil utilisateur.
             const trial = textLast('ESSAYER GRATUITEMENT', { exact: true });
-            if (await trial.isVisible().catch(() => false)) {
-              await trial.click();
-              await page.waitForTimeout(600);
-            } else {
-              const demo = textLast('Mode démo', { exact: true });
-              if (await demo.isVisible().catch(() => false)) {
-                await demo.click();
-                await page.waitForTimeout(600);
-              }
-            }
+            await trial.waitFor({ state: 'visible', timeout: 15000 });
+            await trial.click();
+            await page.waitForTimeout(600);
 
             for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
               await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
