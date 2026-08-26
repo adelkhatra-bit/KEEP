@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07070d" />
   <meta name="robots" content="index,follow" />
+  <meta name="description" content="Découvre ce profil musical, son KEEP DNA et ses goûts musicaux sur KEEP." />
+  <meta property="og:type" content="profile" />
+  <meta property="og:site_name" content="KEEP" />
+  <meta property="og:title" content="Profil musical KEEP" />
+  <meta property="og:description" content="Découvre son univers musical et son KEEP DNA." />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Profil musical KEEP" />
+  <meta name="twitter:description" content="Découvre son univers musical et son KEEP DNA." />
   <title>Profil KEEP</title>
   <style>
     *{box-sizing:border-box}body{margin:0;background:#07070d;color:#fff;font-family:Inter,Arial,sans-serif;min-height:100vh;display:flex;justify-content:center}.shell{width:min(100%,620px);padding:28px 18px 48px}.logo{text-align:center;font-size:34px;font-weight:900;letter-spacing:9px;margin:10px 0 28px}.card{background:#151021;border:1px solid #382a55;border-radius:26px;padding:24px}.avatar{width:96px;height:96px;border-radius:50%;background:#241936;object-fit:cover;display:block;margin:0 auto 14px}.fallback{display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;color:#a884fa}.nameRow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.name{text-align:center;font-size:25px;font-weight:900}.follow{appearance:none;border:0;border-radius:999px;padding:9px 14px;background:#7f5cff;color:#fff;font-size:12px;font-weight:900;cursor:pointer}.follow.on{background:#211a2b;border:1px solid #514562;color:#d9d0e4}.follow:disabled{opacity:.65;cursor:default}.meta{text-align:center;color:#a99db9;margin-top:6px}.bio{text-align:center;color:#d2c9dc;line-height:1.55;margin:18px 0}.dna{margin-top:18px;padding:16px;border-radius:18px;background:#0f0b16;border:1px solid #2b2038}.eyebrow{font-size:11px;color:#a884fa;font-weight:900;letter-spacing:1.5px}.dna h2{font-size:17px;margin:4px 0 0}.genres{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap}.genre{font-size:11px;color:#d7cdf0;background:#211831;border:1px solid #392a54;border-radius:999px;padding:6px 9px}.socials{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px}.socials a{color:#fff;text-decoration:none;background:#211a2b;border:1px solid #40354e;padding:9px 12px;border-radius:999px;font-size:12px;font-weight:800}.cta{display:block;margin:14px auto 0;text-align:center;background:#7f5cff;color:#fff;text-decoration:none;padding:15px 20px;border-radius:999px;font-weight:900}.cta.secondary{background:#211a2b;border:1px solid #40354e;color:#e6deef}.followHint{text-align:center;color:#8f849f;font-size:11px;line-height:1.5;margin-top:10px;min-height:17px}.tagline{text-align:center;color:#a884fa;font-weight:800;margin-top:24px}.small{text-align:center;color:#786f84;font-size:11px;margin-top:8px}.error{padding:22px;text-align:center;color:#c9bfd9}.hidden{display:none}
@@ -48,6 +56,16 @@ async function get(path,headers=publicHeaders){const r=await fetch(`${SUPABASE_U
 function routeIntoKeep(username){return `${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+username)}`}
 function createAccountRoute(){return `${KEEP_ROOT}?__keep_auth=create`}
 function followAccountRoute(username){return `${KEEP_ROOT}?__keep_auth=create&__keep_follow=${encodeURIComponent(username)}`}
+function setMeta(selectorType,key,value){
+  let node=document.head.querySelector(`meta[${selectorType}="${key}"]`);
+  if(!node){node=document.createElement('meta');node.setAttribute(selectorType,key);document.head.appendChild(node)}
+  node.setAttribute('content',value);
+}
+function setCanonical(url){
+  let node=document.head.querySelector('link[rel="canonical"]');
+  if(!node){node=document.createElement('link');node.setAttribute('rel','canonical');document.head.appendChild(node)}
+  node.setAttribute('href',url);
+}
 function readSession(){
   try{
     const key=Object.keys(localStorage).find(k=>k===`sb-${PROJECT_REF}-auth-token` || (k.startsWith(`sb-${PROJECT_REF}`)&&k.endsWith('-auth-token')));
@@ -77,7 +95,19 @@ async function authedRequest(path,method='GET',body){
       rows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,city,country_code,kind,favorite_genres,favorite_artists,website,updated_at&order=updated_at.desc&limit=1`);
     }
     const p=rows[0]; if(!p){status.textContent='Ce profil KEEP n’est pas public ou n’existe pas.';return}
-    document.title=`@${p.username} · KEEP`;
+    const canonical=`${KEEP_ROOT}share-profile/?u=${encodeURIComponent(p.username)}`;
+    const profileTitle=`@${p.username} · KEEP`;
+    const profileDescription=(p.bio||`Découvre l’univers musical de @${p.username} et son KEEP DNA.`).trim().slice(0,180);
+    document.title=profileTitle;
+    setCanonical(canonical);
+    setMeta('name','description',profileDescription);
+    setMeta('property','og:title',profileTitle);
+    setMeta('property','og:description',profileDescription);
+    setMeta('property','og:url',canonical);
+    setMeta('name','twitter:title',profileTitle);
+    setMeta('name','twitter:description',profileDescription);
+    if(p.avatar_url){setMeta('property','og:image',p.avatar_url);setMeta('name','twitter:image',p.avatar_url)}
+
     document.getElementById('name').textContent='@'+p.username;
     document.getElementById('meta').textContent=[p.display_name,p.kind,p.city,p.country_code].filter(Boolean).join(' · ');
     document.getElementById('bio').textContent=p.bio||'Découvre son univers musical sur KEEP.';
