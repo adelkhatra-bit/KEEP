@@ -28,9 +28,9 @@
         <div id="genres" class="genres"></div>
       </div>
       <div id="socials" class="socials"></div>
-      <div id="followHint" class="followHint">Connecte-toi à KEEP pour suivre ce profil.</div>
-      <a id="openKeep" class="cta" href="https://adelkhatra-bit.github.io/KEEP/">OUVRIR KEEP</a>
-      <a class="cta secondary" href="https://adelkhatra-bit.github.io/KEEP/">DÉCOUVRIR KEEP</a>
+      <div id="followHint" class="followHint">Crée un compte KEEP pour suivre ce profil.</div>
+      <a id="openKeep" class="cta" href="https://adelkhatra-bit.github.io/KEEP/">CRÉER MON COMPTE KEEP</a>
+      <a id="discoverKeep" class="cta secondary" href="https://adelkhatra-bit.github.io/KEEP/">DÉCOUVRIR KEEP</a>
       <div class="tagline">Tes goûts te ressemblent. Fais grandir ta communauté.</div>
       <div class="small">Lien public permanent · aucun code ni jeton de connexion n’est partagé.</div>
     </section>
@@ -46,6 +46,8 @@ const publicHeaders={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`};
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 async function get(path,headers=publicHeaders){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 function routeIntoKeep(username){return `${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+username)}`}
+function createAccountRoute(){return `${KEEP_ROOT}?__keep_auth=create`}
+function followAccountRoute(username){return `${KEEP_ROOT}?__keep_auth=create&__keep_follow=${encodeURIComponent(username)}`}
 function readSession(){
   try{
     const key=Object.keys(localStorage).find(k=>k===`sb-${PROJECT_REF}-auth-token` || (k.startsWith(`sb-${PROJECT_REF}`)&&k.endsWith('-auth-token')));
@@ -88,15 +90,24 @@ async function authedRequest(path,method='GET',body){
     }catch{}
 
     const openKeep=document.getElementById('openKeep');
-    openKeep.href=routeIntoKeep(p.username);
+    const discoverKeep=document.getElementById('discoverKeep');
     const follow=document.getElementById('follow');
     const hint=document.getElementById('followHint');
     const session=readSession();
     let following=false;
 
+    discoverKeep.href=KEEP_ROOT;
+    if(session){
+      openKeep.textContent='OUVRIR KEEP';
+      openKeep.href=routeIntoKeep(p.username);
+    }else{
+      openKeep.textContent='CRÉER MON COMPTE KEEP';
+      openKeep.href=createAccountRoute();
+    }
+
     async function refreshFollow(){
       const current=readSession();
-      if(!current){follow.textContent='+ Suivre';follow.classList.remove('on');hint.textContent='Connecte-toi à KEEP pour suivre ce profil.';return}
+      if(!current){follow.textContent='+ Suivre';follow.classList.remove('on');hint.textContent='Crée un compte KEEP : le suivi sera ajouté automatiquement après inscription.';return}
       if(current.user.id===p.id){follow.textContent='Ton profil';follow.classList.add('on');follow.disabled=true;hint.textContent='Tu consultes ton propre profil KEEP.';return}
       try{
         const existing=await authedRequest(`follows?follower_id=eq.${encodeURIComponent(current.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}&select=follower_id&limit=1`);
@@ -109,7 +120,7 @@ async function authedRequest(path,method='GET',body){
 
     follow.addEventListener('click',async()=>{
       const current=readSession();
-      if(!current){location.href=routeIntoKeep(p.username);return}
+      if(!current){location.href=followAccountRoute(p.username);return}
       if(current.user.id===p.id)return;
       follow.disabled=true;
       try{
@@ -124,7 +135,7 @@ async function authedRequest(path,method='GET',body){
         follow.classList.toggle('on',following);
         hint.textContent=following?'Tu suis ce profil.':'Tu peux suivre ce profil directement.';
       }catch{
-        location.href=routeIntoKeep(p.username);
+        location.href=followAccountRoute(p.username);
       }finally{follow.disabled=false}
     });
 
