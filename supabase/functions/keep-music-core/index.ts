@@ -23,7 +23,16 @@ function json(status: number, payload: unknown) {
 async function getSecret(key: string): Promise<string | null> {
   const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
   if (error) throw error;
-  return typeof data === "string" && data.trim() ? data.trim() : null;
+  if (typeof data === "string" && data.trim()) return data.trim();
+
+  // Compatibilité avec les clés déjà enregistrées dans les Secrets des Edge
+  // Functions avant l'ajout du Vault au Super Admin. On ne force jamais
+  // l'utilisateur à recopier une clé existante et on ne l'expose jamais au
+  // navigateur : la valeur reste lue uniquement côté serveur.
+  const legacyEdgeSecret = Deno.env.get(key);
+  return typeof legacyEdgeSecret === "string" && legacyEdgeSecret.trim()
+    ? legacyEdgeSecret.trim()
+    : null;
 }
 
 async function optionalUserId(req: Request): Promise<string | null> {
