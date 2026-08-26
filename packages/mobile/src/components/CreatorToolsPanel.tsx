@@ -48,13 +48,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
   const openPaywall = (feature: 'CREATOR_KIND' | 'VENUE_KIND' | 'CREATE_EVENT' = 'CREATE_EVENT') => {
     const plan = requiredPlan(feature);
-    Alert.alert(
-      `${plan === 'VENUE_PRO' ? 'Venue Pro' : 'Creator Pro'} requis`,
-      plan === 'VENUE_PRO'
-        ? 'Le profil établissement et les outils dédiés nécessitent Venue Pro.'
-        : 'Les profils DJ / Artiste / Créateur et les événements avec notification aux abonnés nécessitent Creator Pro.',
-      [{ text: 'Plus tard', style: 'cancel' }, { text: 'Voir les formules', onPress: () => navigation.navigate('Offers') }],
-    );
+    navigation.navigate('Offers', { focusPlan: plan, sourceFeature: feature });
   };
 
   const changeKind = async (kind: ProfileKind, feature?: 'CREATOR_KIND' | 'VENUE_KIND') => {
