@@ -5,7 +5,7 @@ import { SocialLink, User } from '../types';
 function fallbackUser(session: KeepAuthSession): User {
   return {
     id: session.userId,
-    username: session.email?.split('@')[0] ?? session.userId.slice(0, 8),
+    username: session.username ?? '',
     email: session.email ?? '',
     avatar: '',
     bio: '',
@@ -86,6 +86,11 @@ export function createProfileService(client: SupabaseClient) {
       if (profileError) throw profileError;
 
       if (!profile) {
+        // Un nouveau profil doit toujours utiliser le pseudo explicitement
+        // choisi lors de l'inscription. On ne fabrique jamais un pseudo depuis
+        // l'adresse e-mail ou l'UUID : si la métadonnée manque, on refuse la
+        // création au lieu de publier une identité inventée.
+        if (!fallback.username) throw new Error('missing_keep_username');
         const { error: insertError } = await client.from('profiles').insert({
           id: session.userId,
           username: fallback.username,
