@@ -10,13 +10,13 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-device-id",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -197,9 +197,22 @@ async function recordDecision(req: Request) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
   try {
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      if (url.searchParams.get("health") !== "1") return json(405, { error: "method_not_allowed" });
+      const recognitionConfigured = Boolean(await getSecret("AUDD_API_KEY"));
+      return json(recognitionConfigured ? 200 : 503, {
+        ok: recognitionConfigured,
+        service: "keep-music-core",
+        recognitionProvider: "AudD",
+        recognitionConfigured,
+        secretExposed: false,
+      });
+    }
+
+    if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
     const contentType = req.headers.get("content-type") || "";
     if (contentType.includes("multipart/form-data")) return await recognize(req);
 
