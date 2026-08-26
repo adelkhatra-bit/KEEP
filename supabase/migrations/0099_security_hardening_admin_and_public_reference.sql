@@ -20,8 +20,24 @@ create policy tax_rules_public_read on public.tax_rules
 alter table public.event_recommendation_sends enable row level security;
 
 -- Pin trigger/function lookup paths to avoid mutable search_path execution.
-alter function public.handle_follow_insert() set search_path = public;
-alter function public.handle_follow_delete() set search_path = public;
+-- `handle_follow_insert/delete` existaient déjà sur le projet Supabase avant
+-- l'historisation complète des migrations. Sur une base neuve ils peuvent ne
+-- pas exister : ne jamais rendre le replay de toutes les migrations impossible
+-- pour un objet historique absent. `notify_on_follow` est la fonction canonique
+-- versionnée dans 0024.
+do $$
+begin
+  if to_regprocedure('public.handle_follow_insert()') is not null then
+    execute 'alter function public.handle_follow_insert() set search_path = public';
+  end if;
+  if to_regprocedure('public.handle_follow_delete()') is not null then
+    execute 'alter function public.handle_follow_delete() set search_path = public';
+  end if;
+  if to_regprocedure('public.notify_on_follow()') is not null then
+    execute 'alter function public.notify_on_follow() set search_path = public';
+  end if;
+end;
+$$;
 alter function public.set_updated_at() set search_path = public;
 alter function public.sync_is_adult() set search_path = public;
 
