@@ -29,15 +29,26 @@ let cancellationVersion = 0;
 let activeDelayCancel: (() => void) | null = null;
 
 async function ensurePermission(): Promise<void> {
-  if (permissionGranted) return;
-  const { status } = await Audio.requestPermissionsAsync();
-  if (status !== 'granted') throw new MicPermissionDeniedError();
-  permissionGranted = true;
+  if (!permissionGranted) {
+    const { status } = await Audio.requestPermissionsAsync();
+    if (status !== 'granted') throw new MicPermissionDeniedError();
+    permissionGranted = true;
+  }
+  // `cancelAudioCapture` repasse explicitement iOS hors mode enregistrement
+  // pour libérer le micro. Chaque nouvel échantillon réactive donc le mode ici,
+  // y compris quand l'autorisation avait déjà été accordée auparavant.
   await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 }
 
-function waitForSampleOrCancel(durationMs: number): Promise<void> {
+function waitForSampleOrCancel(durationMs: number, versionAtStart: number): Promise<void> {
   return new Promise((resolve) => {
+    // Couvre la course où ARRÊTER est pressé juste avant que l'attente soit
+    // installée : on ne doit jamais patienter encore cinq secondes.
+    if (versionAtStart !== cancellationVersion) {
+      resolve();
+      return;
+    }
+
     const timer = setTimeout(() => {
       activeDelayCancel = null;
       resolve();
@@ -48,7 +59,19 @@ function waitForSampleOrCancel(durationMs: number): Promise<void> {
       activeDelayCancel = null;
       resolve();
     };
+
+    // Couvre aussi une annulation intervenue entre le premier test et
+    // l'installation de `activeDelayCancel`.
+    if (versionAtStart !== cancellationVersion) activeDelayCancel();
   });
+}
+
+async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
+  try {
+    await recording.stopAndUnloadAsync();
+  } catch {
+    // Déjà arrêté/déchargé : l'objectif de libération est atteint.
+  }
 }
 
 // ---- Natif (iOS/Android) ----
@@ -69,9 +92,20 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void): Prom
   );
   activeRecording = recording;
 
-  await waitForSampleOrCancel(SAMPLE_DURATION_MS);
+  // ARRÊTER peut être pressé pendant `Audio.Recording.createAsync`. Dans cette
+  // fenêtre l'ancien code ne voyait pas encore `activeRecording` et pouvait
+  // laisser le nouvel enregistrement vivant jusqu'au prochain cycle.
+  if (versionAtStart !== cancellationVersion) {
+    activeRecording = null;
+    await stopRecordingQuietly(recording);
+    throw new MicCaptureCancelledError();
+  }
+
+  await waitForSampleOrCancel(SAMPLE_DURATION_MS, versionAtStart);
 
   if (versionAtStart !== cancellationVersion || activeRecording !== recording) {
+    if (activeRecording === recording) activeRecording = null;
+    await stopRecordingQuietly(recording);
     throw new MicCaptureCancelledError();
   }
 
@@ -145,6 +179,14 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
 async function captureAudioSampleWeb(onLevel?: (level: number) => void): Promise<Blob> {
   const versionAtStart = cancellationVersion;
   const stream = await ensureWebStream();
+
+  // Même garde-fou que sur natif : si ARRÊTER est pressé pendant la demande
+  // getUserMedia, le flux qui arrive ensuite est fermé immédiatement.
+  if (versionAtStart !== cancellationVersion) {
+    releaseCaptureResources();
+    throw new MicCaptureCancelledError();
+  }
+
   const audioCtx = getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
   if (audioCtx.state !== 'running') {
@@ -174,13 +216,16 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void): Promise
   processor.connect(muteGain);
   muteGain.connect(audioCtx.destination);
 
-  await waitForSampleOrCancel(SAMPLE_DURATION_MS);
+  await waitForSampleOrCancel(SAMPLE_DURATION_MS, versionAtStart);
 
   processor.disconnect();
   source.disconnect();
   muteGain.disconnect();
 
-  if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
+  if (versionAtStart !== cancellationVersion) {
+    releaseCaptureResources();
+    throw new MicCaptureCancelledError();
+  }
 
   const sampleRate = audioCtx.sampleRate;
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -230,14 +275,22 @@ export async function cancelAudioCapture(): Promise<void> {
 
   const recording = activeRecording;
   activeRecording = null;
-  if (recording) {
-    try {
-      await recording.stopAndUnloadAsync();
-    } catch {
-      // Déjà arrêté/déchargé : l'objectif d'interruption est atteint.
-    }
+  if (recording) await stopRecordingQuietly(recording);
+
+  if (Platform.OS === 'web') {
+    releaseCaptureResources();
+    return;
   }
-  if (Platform.OS === 'web') releaseCaptureResources();
+
+  // Sur iOS, `stopAndUnloadAsync` arrête le fichier mais la session audio peut
+  // rester en mode enregistrement. On la désactive explicitement pour rendre le
+  // micro au système dès que l'utilisateur touche ARRÊTER.
+  try {
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+  } catch {
+    // Le micro est déjà arrêté : une erreur de changement de mode ne doit pas
+    // empêcher l'interface de revenir à l'état inactif.
+  }
 }
 
 export async function captureAudioSample(onLevel?: (level: number) => void): Promise<Blob> {
