@@ -1,22 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { adminApi, AdminApiError, isBackendConfigured } from '../lib/apiClient';
+import { supabase } from '../lib/supabaseClient';
 
 interface RemoteConfigRow {
   key: string;
   value: unknown;
   description: string | null;
+  updated_at?: string | null;
 }
 
-/**
- * Édition réelle de remote_config (demande explicite du 26/08/2026 -- "je
- * veux pouvoir la changer dans le super admin", à propos du texte de l'écran
- * Écouter au repos). Réutilise EXACTEMENT les routes déjà réelles
- * (GET/PUT /api/admin/remote-config, packages/backend/src/routes/admin.ts)
- * -- jamais une deuxième logique de config. Chaque ligne peut être un texte
- * (session_empty_title/subtitle) ou un nombre (quotas) -- l'éditeur choisit
- * le bon type de champ selon la valeur actuelle.
- */
+function editableValue(row: RemoteConfigRow) {
+  return typeof row.value === 'string' ? row.value : JSON.stringify(row.value);
+}
+
 export default function RemoteConfig() {
   const [rows, setRows] = useState<RemoteConfigRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -26,14 +22,15 @@ export default function RemoteConfig() {
   const [savedNote, setSavedNote] = useState<Record<string, string>>({});
 
   const load = async () => {
-    if (!isBackendConfigured) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
-      const res = await adminApi.get<{ data: RemoteConfigRow[] }>('/remote-config');
-      setRows(res.data ?? []);
-    } catch (e) {
-      setError(e instanceof AdminApiError ? `${e.message} (HTTP ${e.status})` : 'Échec du chargement.');
+      if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+      const { data, error: rpcError } = await supabase.rpc('admin_remote_config_list');
+      if (rpcError) throw rpcError;
+      setRows((data ?? []) as RemoteConfigRow[]);
+    } catch (e: any) {
+      setError(e?.message ?? 'Échec du chargement de la configuration.');
     } finally {
       setLoading(false);
     }
@@ -41,19 +38,29 @@ export default function RemoteConfig() {
 
   useEffect(() => { void load(); }, []);
 
-  const draftFor = (row: RemoteConfigRow) => drafts[row.key] ?? (typeof row.value === 'string' ? row.value : JSON.stringify(row.value));
+  const draftFor = (row: RemoteConfigRow) => drafts[row.key] ?? editableValue(row);
 
   const save = async (row: RemoteConfigRow) => {
+    if (!supabase) return;
     setSavingKey(row.key);
     setError(null);
     try {
       const raw = draftFor(row);
-      const value = typeof row.value === 'number' ? Number(raw) : raw;
-      await adminApi.put(`/remote-config/${encodeURIComponent(row.key)}`, { value, description: row.description });
+      let value: unknown = raw;
+      if (typeof row.value !== 'string') {
+        try { value = JSON.parse(raw); }
+        catch { throw new Error('Valeur JSON invalide.'); }
+      }
+      const { error: rpcError } = await supabase.rpc('admin_remote_config_set', {
+        p_key: row.key,
+        p_value: value,
+        p_description: row.description,
+      });
+      if (rpcError) throw rpcError;
       setSavedNote((n) => ({ ...n, [row.key]: `Enregistré à ${new Date().toLocaleTimeString('fr-FR')}` }));
       await load();
-    } catch (e) {
-      setError(e instanceof AdminApiError ? `${e.message} (HTTP ${e.status})` : "Échec de l'enregistrement.");
+    } catch (e: any) {
+      setError(e?.message ?? "Échec de l'enregistrement.");
     } finally {
       setSavingKey(null);
     }
@@ -62,21 +69,16 @@ export default function RemoteConfig() {
   return (
     <AdminLayout>
       <div className="page-title">Textes & Quotas app</div>
-      <div className="page-subtitle">Modifie directement ce que voient les utilisateurs KEEP -- effet immédiat, sans nouveau déploiement.</div>
+      <div className="page-subtitle">Modifie directement la configuration KEEP stockée dans Supabase — aucun serveur local ni redéploiement requis.</div>
 
-      {!isBackendConfigured && (
-        <div className="demo-banner">
-          Backend non configuré (NEXT_PUBLIC_API_URL manquant) -- rien n'est éditable ici tant que ce n'est pas branché.
-        </div>
-      )}
-
-      {error && <p style={{ color: 'var(--danger, #e05252)', fontSize: 13 }}>{error}</p>}
+      {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
+      {!error && !loading && <div className="demo-banner">● MODE RÉEL — accès réservé aux Admin actifs, écriture auditée dans Supabase.</div>}
       {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chargement…</p>}
 
       {!loading && rows.length > 0 && (
         <table>
           <thead>
-            <tr><th>Clé</th><th>Valeur</th><th>Description</th><th /></tr>
+            <tr><th>Clé</th><th>Valeur</th><th>Description</th><th>Action</th></tr>
           </thead>
           <tbody>
             {rows.map((row) => (
@@ -102,7 +104,7 @@ export default function RemoteConfig() {
                 <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{row.description}</td>
                 <td>
                   <button
-                    onClick={() => save(row)}
+                    onClick={() => void save(row)}
                     disabled={savingKey === row.key}
                     style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 700, cursor: 'pointer' }}
                   >
