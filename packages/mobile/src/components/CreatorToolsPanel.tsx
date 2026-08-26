@@ -26,6 +26,16 @@ const KIND_LABELS: Record<ProfileKind, string> = {
   VENUE: 'Lieu / établissement',
 };
 
+type TierBadgeProps = { tier: 'PREMIUM' | 'CREATOR' | 'VENUE'; active?: boolean };
+
+function TierBadge({ tier, active = false }: TierBadgeProps) {
+  const label = tier === 'PREMIUM' ? 'KEEP PREMIUM' : tier === 'CREATOR' ? 'KEEP CREATOR PRO' : 'KEEP VENUE PRO';
+  return <View style={[s.tierBadge, tier === 'PREMIUM' ? s.tierPremium : tier === 'CREATOR' ? s.tierCreator : s.tierVenue]}>
+    <View style={[s.tierDot, active && s.tierDotActive]} />
+    <Text style={s.tierBadgeText}>{label}</Text>
+  </View>;
+}
+
 export default function CreatorToolsPanel({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
@@ -148,14 +158,14 @@ export default function CreatorToolsPanel({ navigation }: any) {
       accessibilityLabel="Premium 2,99 euros par mois"
     >
       <View style={s.planChoiceText}>
-        <Text style={s.planChoiceTitle}>{premiumEnabled ? '✓ Premium' : '🔒 Premium'} · {planPrices.PREMIUM}</Text>
+        <View style={s.planHeadingRow}><TierBadge tier="PREMIUM" active={premiumEnabled} /><Text style={s.planPrice}>{planPrices.PREMIUM}</Text></View>
         <Text style={s.planChoiceSubtitle}>Partage public, QR KEEP et playlists visibles sans limite pendant l’abonnement.</Text>
       </View>
       <Text style={s.planChoiceArrow}>›</Text>
     </TouchableOpacity>
 
     {creatorKindEnabled ? <>
-      <Text style={s.planSectionTitle}>✓ Creator Pro · {planPrices.CREATOR_PRO}</Text>
+      <View style={s.unlockedHeading}><TierBadge tier="CREATOR" active /><Text style={s.planPrice}>{planPrices.CREATOR_PRO}</Text></View>
       <Text style={s.planChoiceSubtitle}>Inclut Premium + profils DJ, Artiste, Créateur ou Producteur + événements et notifications.</Text>
       <View style={s.kindWrap}>{CREATOR_KINDS.map((item) => (
         <TouchableOpacity key={item.key} style={[s.kindChip, user.kind === item.key && s.kindChipOn]} onPress={() => changeKind(item.key, 'CREATOR_KIND')} disabled={busy}>
@@ -164,21 +174,27 @@ export default function CreatorToolsPanel({ navigation }: any) {
       ))}</View>
     </> : (
       <TouchableOpacity style={s.planChoiceLocked} onPress={() => openPaywall('CREATOR_KIND')} disabled={busy} accessibilityLabel="Creator Pro requis">
-        <View style={s.planChoiceText}><Text style={s.planChoiceTitle}>🔒 Creator Pro · {planPrices.CREATOR_PRO}</Text><Text style={s.planChoiceSubtitle}>Premium inclus + DJ · Artiste · Créateur · Producteur · événements · notifications.</Text></View>
+        <View style={s.planChoiceText}>
+          <View style={s.planHeadingRow}><TierBadge tier="CREATOR" /><Text style={s.planPrice}>{planPrices.CREATOR_PRO}</Text></View>
+          <Text style={s.planChoiceSubtitle}>Premium inclus + DJ · Artiste · Créateur · Producteur · événements · notifications.</Text>
+        </View>
         <Text style={s.planChoiceArrow}>›</Text>
       </TouchableOpacity>
     )}
 
     {venueKindEnabled ? (
       <>
-        <Text style={s.planSectionTitle}>✓ Venue Pro · {planPrices.VENUE_PRO}</Text>
+        <View style={s.unlockedHeading}><TierBadge tier="VENUE" active /><Text style={s.planPrice}>{planPrices.VENUE_PRO}</Text></View>
         <TouchableOpacity style={[s.kindChip, user.kind === 'VENUE' && s.kindChipOn]} onPress={() => changeKind('VENUE', 'VENUE_KIND')} disabled={busy}>
           <Text style={[s.kindText, user.kind === 'VENUE' && s.kindTextOn]}>Lieu / établissement</Text>
         </TouchableOpacity>
       </>
     ) : (
       <TouchableOpacity style={s.planChoiceLocked} onPress={() => openPaywall('VENUE_KIND')} disabled={busy} accessibilityLabel="Venue Pro requis">
-        <View style={s.planChoiceText}><Text style={s.planChoiceTitle}>🔒 Venue Pro · {planPrices.VENUE_PRO}</Text><Text style={s.planChoiceSubtitle}>Creator Pro inclus + profil lieu / établissement et outils professionnels.</Text></View>
+        <View style={s.planChoiceText}>
+          <View style={s.planHeadingRow}><TierBadge tier="VENUE" /><Text style={s.planPrice}>{planPrices.VENUE_PRO}</Text></View>
+          <Text style={s.planChoiceSubtitle}>Creator Pro inclus + profil lieu / établissement et outils professionnels.</Text>
+        </View>
         <Text style={s.planChoiceArrow}>›</Text>
       </TouchableOpacity>
     )}
@@ -211,5 +227,5 @@ export default function CreatorToolsPanel({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:3},label:{color:colors.textPrimary,fontSize:12,fontWeight:'900',marginTop:14,marginBottom:7},planSectionTitle:{color:colors.primaryLight,fontSize:10,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#B9AEC6',fontSize:10,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:54,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planChoiceTitle:{color:'#E9DFFF',fontSize:12,fontWeight:'900'},planChoiceSubtitle:{color:'#968AA4',fontSize:10,lineHeight:15,marginTop:2},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},subscriptionNote:{color:'#B9AEC6',fontSize:10,lineHeight:15,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonText:{color:'#FFF',fontSize:11,fontWeight:'900'},backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'flex-end',alignItems:'center'},sheet:{width:'100%',maxWidth:520,maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18,paddingBottom:28},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8},modalTitle:{color:'#FFF',fontSize:19,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#40354E',backgroundColor:'#0E0A14',paddingHorizontal:13,color:'#FFF',fontSize:13,marginTop:9},multiline:{minHeight:82,paddingTop:12,textAlignVertical:'top'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900'},secondary:{minHeight:44,alignItems:'center',justifyContent:'center'},secondaryText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},
+  card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:3},label:{color:colors.textPrimary,fontSize:12,fontWeight:'900',marginTop:14,marginBottom:7},planSectionTitle:{color:colors.primaryLight,fontSize:10,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#B9AEC6',fontSize:10,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:62,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planHeadingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7},unlockedHeading:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7,marginTop:9,marginBottom:5},planPrice:{color:'#E9DFFF',fontSize:11,fontWeight:'900'},tierBadge:{minHeight:24,borderRadius:999,borderWidth:1,paddingHorizontal:8,flexDirection:'row',alignItems:'center',gap:5},tierPremium:{backgroundColor:'#2A203A',borderColor:'#B993FF'},tierCreator:{backgroundColor:'#2C2530',borderColor:'#D5B46A'},tierVenue:{backgroundColor:'#1C2A34',borderColor:'#7DC5E8'},tierBadgeText:{color:'#FFFFFF',fontSize:8,fontWeight:'900',letterSpacing:.55},tierDot:{width:6,height:6,borderRadius:3,backgroundColor:'#6D6376'},tierDotActive:{backgroundColor:'#FFFFFF'},planChoiceSubtitle:{color:'#968AA4',fontSize:10,lineHeight:15,marginTop:4},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},subscriptionNote:{color:'#B9AEC6',fontSize:10,lineHeight:15,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonText:{color:'#FFF',fontSize:11,fontWeight:'900'},backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'flex-end',alignItems:'center'},sheet:{width:'100%',maxWidth:520,maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18,paddingBottom:28},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8},modalTitle:{color:'#FFF',fontSize:19,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#40354E',backgroundColor:'#0E0A14',paddingHorizontal:13,color:'#FFF',fontSize:13,marginTop:9},multiline:{minHeight:82,paddingTop:12,textAlignVertical:'top'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900'},secondary:{minHeight:44,alignItems:'center',justifyContent:'center'},secondaryText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},
 });
