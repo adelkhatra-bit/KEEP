@@ -28,6 +28,8 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+      EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
 
     steps:
@@ -42,6 +44,7 @@ jobs:
           test "$(git branch --show-current)" = "reconcile/claude-main-20260825"
           test -f packages/mobile/App.tsx
           test -f packages/mobile/src/navigation/Navigation.tsx
+          test -f packages/mobile/share-profile.html
           echo "KEEP_SOURCE_BRANCH=$(git branch --show-current)"
           echo "KEEP_SOURCE_SHA=$(git rev-parse HEAD)"
 
@@ -87,14 +90,19 @@ jobs:
       - name: Assemble public site
         run: |
           rm -rf _site
-          mkdir -p _site/admin-preview _site/superadmin _site/admin
+          mkdir -p _site/admin-preview _site/superadmin _site/admin _site/share-profile
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
-          cp _site/index.html _site/404.html
+          cp packages/mobile/share-profile.html _site/share-profile/index.html
           cat > _site/superadmin/index.html <<'HTML'
-          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP Super Admin</title><meta http-equiv="refresh" content="0; url=/KEEP/admin-preview/"></head><body><script>location.replace('/KEEP/admin-preview/');</script><a href="/KEEP/admin-preview/">Ouvrir KEEP Super Admin</a></body></html>
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP Super Admin</title></head><body><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash);</script><a href="/KEEP/admin-preview/">Ouvrir KEEP Super Admin</a></body></html>
           HTML
           cp _site/superadmin/index.html _site/admin/index.html
+          cat > _site/404.html <<'HTML'
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP</title></head><body><script>
+          (function(){var p=location.pathname,q=location.search,h=location.hash,t='/KEEP/';if(p.indexOf('/KEEP/admin-preview')===0||p.indexOf('/KEEP/superadmin')===0||p.indexOf('/KEEP/admin')===0)t='/KEEP/admin-preview/';else if(p.indexOf('/KEEP/share-profile')===0)t='/KEEP/share-profile/';location.replace(t+q+h)})();
+          </script><a href="/KEEP/">Ouvrir KEEP</a></body></html>
+          HTML
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
@@ -121,6 +129,7 @@ jobs:
           const appUrl = process.env.KEEP_PUBLIC_URL;
           const adminUrl = appUrl + 'admin-preview/';
           const shortAdminUrl = appUrl + 'superadmin/';
+          const shareUrl = appUrl + 'share-profile/';
           (async () => {
             for (const [name, engine] of Object.entries(engines)) {
               const browser = await engine.launch({ headless: true });
@@ -133,7 +142,9 @@ jobs:
               if (misconfigured) throw new Error(`${name}: Super Admin Supabase non configuré`);
               await page.goto(shortAdminUrl, { waitUntil: 'networkidle', timeout: 60000 });
               await page.getByText('E-mail Super Admin', { exact: true }).waitFor({ timeout: 30000 });
-              console.log(`${name}: KEEP + Super Admin direct + alias OK`);
+              await page.goto(shareUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              if ((await page.title()) !== 'Profil KEEP') throw new Error(`${name}: page de partage absente`);
+              console.log(`${name}: KEEP + Super Admin + partage public OK`);
               await browser.close();
             }
           })().catch((error) => { console.error(error); process.exit(1); });
@@ -144,3 +155,4 @@ jobs:
           echo "KEEP APP: ${{ steps.deployment.outputs.page_url }}"
           echo "KEEP ADMIN: ${{ steps.deployment.outputs.page_url }}admin-preview/"
           echo "KEEP ADMIN SHORT: ${{ steps.deployment.outputs.page_url }}superadmin/"
+          echo "KEEP SHARE: ${{ steps.deployment.outputs.page_url }}share-profile/"
