@@ -31,9 +31,10 @@ async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Créer mon compte KEEP', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('ESPACE CRÉATEUR', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('Utilisateur · Free', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('🔒 Creator Pro', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('🔒 Venue Pro', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('🔒 Creator Pro', { exact: true }).last().click();
+  await page.getByText('KEEP PREMIUM', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText('KEEP CREATOR PRO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText('KEEP VENUE PRO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByLabel('Creator Pro requis').last().click();
   await page.getByText('Offre & crédits', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('Formule requise : Creator Pro', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('FORMULE REQUISE', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
@@ -166,7 +167,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       await proveSharedProfileRoute(page, scenario.name);
 
       if (errors.length) throw new Error(`${scenario.name}: ${errors.join(' | ')}`);
-      report.push(`${scenario.name}: PASS — same profile account banner + Free/Creator/Venue controls + exact required plan + reload + shared follow→signup + no overlap + return to free trial; no blank page/no auth signup`);
+      report.push(`${scenario.name}: PASS — same profile account banner + Free/Premium/Creator/Venue controls + exact required plan + reload + shared follow→signup + no overlap + return to free trial; no blank page/no auth signup`);
     } catch (error) {
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-FAIL.png`), fullPage: true }).catch(() => {});
       fs.writeFileSync(path.join(OUT, `${scenario.name}-FAIL.txt`), [
