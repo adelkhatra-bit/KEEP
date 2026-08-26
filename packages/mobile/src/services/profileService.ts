@@ -169,6 +169,14 @@ export function createProfileService(client: SupabaseClient) {
     },
 
     async saveOwnProfile(user: User): Promise<void> {
+      // Un essai gratuit local possède volontairement un UUID local mais PAS
+      // de session Supabase. Dans ce cas on ne tente aucune écriture distante :
+      // le store garde les changements sur l'appareil et ils seront migrés à
+      // la création du compte. Cela évite les erreurs RLS et les faux profils.
+      const { data: authState } = await client.auth.getSession();
+      const authenticatedId = authState.session?.user?.id;
+      if (!authenticatedId || authenticatedId !== user.id) return;
+
       // Lors du passage essai local -> vrai compte, l'avatar peut encore être
       // un blob:/file: local. On le transforme ici, sous la session authentifiée
       // et dans le dossier storage de auth.uid(), AVANT d'écrire profiles.
