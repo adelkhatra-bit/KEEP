@@ -4,7 +4,7 @@ const path = require('path');
 
 const BASE = process.env.KEEP_PUBLIC_BASE || 'https://adelkhatra-bit.github.io/KEEP';
 const OUT = process.env.KEEP_PUBLIC_EVIDENCE || 'artifacts/public-browser-matrix';
-const SHARE_USER = process.env.KEEP_SHARE_SMOKE_USER || 'adel4A';
+const SHARE_USER = process.env.KEEP_SHARE_SMOKE_USER || 'keeptest-a-mt7jit5n';
 fs.mkdirSync(OUT, { recursive: true });
 
 const scenarios = [
@@ -73,8 +73,8 @@ async function proveSharedProfileRoute(page, scenarioName) {
     }
 
     const signupTitle = page.getByText('Créer mon compte KEEP', { exact: true }).last();
-    const followHint = page.getByText(`Après connexion, @${SHARE_USER} sera suivi automatiquement.`, { exact: true }).last();
-    const signupSubtitle = page.getByText('Aucun e-mail requis : ton identifiant KEEP et ton mot de passe suffisent.', { exact: true }).last();
+    const followHint = page.getByText('Après connexion, le profil que tu consultais sera suivi automatiquement.', { exact: true }).last();
+    const signupSubtitle = page.getByText('Aucun e-mail requis : choisis simplement un pseudo KEEP et un mot de passe.', { exact: true }).last();
     const continueWithoutSignup = page.getByText('CONTINUER SANS INSCRIPTION', { exact: true }).last();
 
     await signupTitle.waitFor({ state: 'visible', timeout: 20000 });
