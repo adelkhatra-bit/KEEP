@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Platform, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -24,6 +24,11 @@ const RootStack = createNativeStackNavigator();
 const linking = {
   prefixes: ['keep://'],
   config: {
+    // KEEP est publié sur GitHub Pages sous /KEEP. Sans ce préfixe, React
+    // Navigation écrivait /Main/Listen à la racine du domaine : la navigation
+    // semblait marcher, puis un refresh sortait du projet et renvoyait 404.
+    // Le préfixe ne s'applique qu'au Web et ne change aucun deep-link natif.
+    path: Platform.OS === 'web' ? 'KEEP' : undefined,
     screens: {
       Main: {
         path: 'Main',
