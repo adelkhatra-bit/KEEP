@@ -2,6 +2,18 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { KeepAuthSession } from './authService';
 import { SocialLink, User } from '../types';
 
+export interface SaveProfileOptions {
+  /**
+   * Les sauvegardes automatiques sont volontairement non destructives : une
+   * ancienne version de l'app ou un store incomplet ne doit jamais remplacer
+   * des champs Supabase déjà renseignés par des valeurs vides.
+   *
+   * Les écrans où l'utilisateur appuie explicitement sur Enregistrer/Supprimer
+   * passent allowClearing=true afin qu'un effacement volontaire reste possible.
+   */
+  allowClearing?: boolean;
+}
+
 function fallbackUser(session: KeepAuthSession): User {
   return {
     id: session.userId,
@@ -47,6 +59,24 @@ function publicUserFromProfile(profile: any, socialLinks: SocialLink[], follower
 
 function isRemoteAvatar(value: string | undefined): boolean {
   return !value || /^https?:\/\//i.test(value);
+}
+
+function keepTextUnlessExplicitlyCleared(
+  localValue: string | undefined,
+  remoteValue: string | null | undefined,
+  allowClearing: boolean,
+): string | null {
+  const local = localValue?.trim() ?? '';
+  if (allowClearing) return local || null;
+  return local || remoteValue || null;
+}
+
+function mergeSocialLinks(remote: SocialLink[], local: SocialLink[], allowClearing: boolean): SocialLink[] {
+  if (allowClearing) return local.map((link) => ({ ...link }));
+  const byPlatform = new Map<SocialLink['platform'], SocialLink>();
+  for (const link of remote) byPlatform.set(link.platform, { ...link });
+  for (const link of local) byPlatform.set(link.platform, { ...link });
+  return Array.from(byPlatform.values());
 }
 
 async function persistLocalAvatar(client: SupabaseClient, profileId: string, avatar: string): Promise<string> {
@@ -173,7 +203,7 @@ export function createProfileService(client: SupabaseClient) {
       );
     },
 
-    async saveOwnProfile(user: User): Promise<void> {
+    async saveOwnProfile(user: User, options: SaveProfileOptions = {}): Promise<void> {
       // Un essai gratuit local possède volontairement un UUID local mais PAS
       // de session Supabase. Dans ce cas on ne tente aucune écriture distante :
       // le store garde les changements sur l'appareil et ils seront migrés à
@@ -182,54 +212,102 @@ export function createProfileService(client: SupabaseClient) {
       const authenticatedId = authState.session?.user?.id;
       if (!authenticatedId || authenticatedId !== user.id) return;
 
+      const allowClearing = options.allowClearing === true;
+
+      // Avant toute écriture, relire l'état Supabase. Les sauvegardes automatiques
+      // sont déclenchées par plusieurs changements du store (GPS, notifications,
+      // refresh de session). Elles ne doivent JAMAIS transformer un profil déjà
+      // complet en profil vide après une mise à jour de l'application.
+      const [profileResult, privateResult, socialResult] = await Promise.all([
+        client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        client.from('profile_private_info').select('birth_date, gender').eq('profile_id', user.id).maybeSingle(),
+        client.from('social_links').select('platform, url, visibility').eq('profile_id', user.id),
+      ]);
+      if (profileResult.error) throw profileResult.error;
+      if (privateResult.error) throw privateResult.error;
+      if (socialResult.error) throw socialResult.error;
+
+      const existingProfile = profileResult.data as any | null;
+      const existingPrivate = privateResult.data as any | null;
+      const existingSocialLinks = (socialResult.data ?? []) as SocialLink[];
+
       // Lors du passage essai local -> vrai compte, l'avatar peut encore être
       // un blob:/file: local. On le transforme ici, sous la session authentifiée
       // et dans le dossier storage de auth.uid(), AVANT d'écrire profiles.
       // Les avatars déjà publics ne sont jamais ré-uploadés.
-      const persistedAvatar = await persistLocalAvatar(client, user.id, user.avatar || '');
+      const localAvatar = user.avatar || '';
+      const uploadedAvatar = localAvatar ? await persistLocalAvatar(client, user.id, localAvatar) : '';
+      const persistedAvatar = allowClearing ? uploadedAvatar : (uploadedAvatar || existingProfile?.avatar_url || '');
+
+      const favoriteGenres = allowClearing || user.favoriteGenres.length > 0
+        ? user.favoriteGenres
+        : (existingProfile?.favorite_genres ?? []);
+      const favoriteArtists = allowClearing || user.favoriteArtists.length > 0
+        ? user.favoriteArtists
+        : (existingProfile?.favorite_artists ?? []);
+
+      const safeUsername = user.username.trim() || existingProfile?.username;
+      if (!safeUsername) throw new Error('missing_keep_username');
 
       const { error: profileError } = await client.from('profiles').upsert({
         id: user.id,
-        username: user.username,
-        display_name: user.username,
-        bio: user.bio || null,
+        username: safeUsername,
+        display_name: safeUsername,
+        bio: keepTextUnlessExplicitlyCleared(user.bio, existingProfile?.bio, allowClearing),
         avatar_url: persistedAvatar || null,
-        country_code: user.countryCode || null,
-        city: user.city || null,
-        kind: user.kind,
+        country_code: keepTextUnlessExplicitlyCleared(user.countryCode, existingProfile?.country_code, allowClearing),
+        city: keepTextUnlessExplicitlyCleared(user.city, existingProfile?.city, allowClearing),
+        kind: user.kind || existingProfile?.kind || 'USER',
         is_public: user.isPublic,
         location_opt_in: user.locationOptIn,
-        website: user.website || null,
-        favorite_genres: user.favoriteGenres,
-        favorite_artists: user.favoriteArtists,
+        website: keepTextUnlessExplicitlyCleared(user.website, existingProfile?.website, allowClearing),
+        favorite_genres: favoriteGenres,
+        favorite_artists: favoriteArtists,
       }, { onConflict: 'id' });
       if (profileError) throw profileError;
 
-      const { error: deleteLinksError } = await client
-        .from('social_links')
-        .delete()
-        .eq('profile_id', user.id);
-      if (deleteLinksError) throw deleteLinksError;
-
-      if (user.socialLinks.length > 0) {
-        const { error: socialError } = await client.from('social_links').insert(
-          user.socialLinks.map((link) => ({
+      // IMPORTANT : ne plus faire DELETE ALL puis INSERT. Une erreur réseau entre
+      // les deux opérations effaçait tous les réseaux sociaux. On upsert d'abord
+      // chaque lien, puis on ne supprime les liens absents que lors d'une action
+      // utilisateur explicitement destructive.
+      const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, allowClearing);
+      if (desiredSocialLinks.length > 0) {
+        const { error: socialError } = await client.from('social_links').upsert(
+          desiredSocialLinks.map((link) => ({
             profile_id: user.id,
             platform: link.platform,
             url: link.url,
             visibility: link.visibility,
-          }))
+          })),
+          { onConflict: 'profile_id,platform' }
         );
         if (socialError) throw socialError;
       }
 
-      // Toujours écrire la ligne privée, même lorsque les deux champs viennent
-      // d'être effacés. Sinon une ancienne date/genre restait en base après que
-      // l'utilisateur l'avait supprimé dans l'interface.
+      if (allowClearing) {
+        const desiredPlatforms = new Set(desiredSocialLinks.map((link) => link.platform));
+        for (const existing of existingSocialLinks) {
+          if (desiredPlatforms.has(existing.platform)) continue;
+          const { error: deleteError } = await client
+            .from('social_links')
+            .delete()
+            .eq('profile_id', user.id)
+            .eq('platform', existing.platform);
+          if (deleteError) throw deleteError;
+        }
+      }
+
+      const birthDate = allowClearing
+        ? (user.privateInfo.birthDate || null)
+        : (user.privateInfo.birthDate || existingPrivate?.birth_date || null);
+      const gender = allowClearing
+        ? (user.privateInfo.gender || null)
+        : (user.privateInfo.gender || existingPrivate?.gender || null);
+
       const { error: privateError } = await client.from('profile_private_info').upsert({
         profile_id: user.id,
-        birth_date: user.privateInfo.birthDate || null,
-        gender: user.privateInfo.gender || null,
+        birth_date: birthDate,
+        gender,
       }, { onConflict: 'profile_id' });
       if (privateError) throw privateError;
     },
