@@ -108,18 +108,26 @@ function applyTrackEnrichment(
   entryId: string,
   patch: Pick<SessionTrackEntry, 'recommendations' | 'status' | 'existingMatch'>,
 ) {
+  const enrich = (entry: SessionTrackEntry): SessionTrackEntry => {
+    if (entry.id !== entryId) return entry;
+    // GARDER/PASSER fait par l'utilisateur gagne toujours sur un résultat de
+    // fond arrivé quelques millisecondes plus tard.
+    if (entry.status !== 'pending') {
+      return { ...entry, recommendations: patch.recommendations };
+    }
+    return { ...entry, ...patch };
+  };
+
   const live = useSessionStore.getState();
   if (live.isActive && live.sessionId === sessionId) {
-    useSessionStore.setState((state) => ({
-      tracks: state.tracks.map((entry) => entry.id === entryId ? { ...entry, ...patch } : entry),
-    }));
+    useSessionStore.setState((state) => ({ tracks: state.tracks.map(enrich) }));
     persistLiveSession(useSessionStore.getState());
   }
 
   useSessionHistoryStore.setState((state) => ({
     sessions: state.sessions.map((session) => session.id !== sessionId
       ? session
-      : { ...session, tracks: session.tracks.map((entry) => entry.id === entryId ? { ...entry, ...patch } : entry) }),
+      : { ...session, tracks: session.tracks.map(enrich) }),
   }));
 }
 
