@@ -57,18 +57,19 @@ export default function HomeScreenCompact({ navigation }: any) {
   // utilisé) avait sa propre boucle décorative à durée fixe (620ms), jamais
   // reliée à `micLevel` (le niveau micro réel déjà calculé en continu par
   // useSessionStore/micCapture.ts, voir le fix précédent). Remplacé par une
-  // réaction RÉELLE au niveau micro -- jamais une activité inventée : sqrt()
-  // amplifie les niveaux réalistes faibles (0.03-0.06) en mouvement visible,
-  // une respiration légère (jamais plate) reste en dessous du seuil de
-  // silence pour qu'on sache que KEEP écoute, sans jamais prétendre détecter
-  // un son qui n'existe pas.
+  // réaction RÉELLE au niveau micro -- jamais une activité inventée.
+  // Réglage du 26/08/2026 (Adel, test réel : "ça détecte pas assez sensible,
+  // ça bouge pas assez") -- réappliqué après un merge avec des commits Codex
+  // qui avaient réintroduit sans le vouloir les anciennes valeurs (0.02/sqrt) :
+  // seuil de silence abaissé (0.008) et amplification en ^0.32 pour que les
+  // niveaux réels faibles (0.03-0.08) produisent un mouvement visible.
   const isLiveMic = !musicEngine.isDemoMode;
   useEffect(() => {
     if (!isLiveMic) return undefined; // Mode Démo -- pas de vrai niveau micro, voir boucle décorative ci-dessous.
     const raw = Math.max(0, Math.min(1, micLevel));
-    const SILENCE_FLOOR = 0.02;
-    const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.sqrt(raw);
-    Animated.timing(micPulse, { toValue: target, duration: 90, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
+    const SILENCE_FLOOR = 0.008;
+    const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.pow(raw, 0.32);
+    Animated.timing(micPulse, { toValue: target, duration: 70, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
   }, [micPulse, isLiveMic, micLevel]);
 
   useEffect(() => {
@@ -131,7 +132,10 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
   }
 
-  const pulseScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
+  // 1.20 (pas 1.32, pas l'original 1.14) -- réappliqué après le merge avec
+  // Codex : assez réactif pour un vrai son, sans chevaucher "Micro actif"
+  // sous le cercle (voir marginTop:6 de liveRow ci-dessous).
+  const pulseScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] });
   const pulseOpacity = micPulse.interpolate({ inputRange: [0, 1], outputRange: [0.72, 0.05] });
 
   return (

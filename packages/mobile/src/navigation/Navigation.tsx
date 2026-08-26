@@ -81,8 +81,6 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Écouter',
           tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
-          tabBarBadge: 'FIX',
-          tabBarBadgeStyle: { fontSize: 8, minWidth: 28, height: 16, lineHeight: 16 },
         }}
       />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
