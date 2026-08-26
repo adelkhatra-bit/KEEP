@@ -20,22 +20,36 @@ async function hasActiveAdminRole(userId:string):Promise<boolean>{
 function friendlyAuthError(message?:string){
   if(!message)return 'Impossible de se connecter pour le moment.';
   if(/rate|security purposes|seconds/i.test(message))return 'Trop de demandes de connexion. Attends quelques instants puis réessaie.';
+  if(/invalid login credentials|invalid credentials/i.test(message))return 'E-mail ou mot de passe incorrect.';
   if(/expired|invalid|token/i.test(message))return 'Lien invalide ou expiré. Demande un nouveau lien.';
   if(/not found|signup|user/i.test(message))return 'Cette adresse n’est pas autorisée pour le Super Admin KEEP.';
-  return 'Connexion impossible. Vérifie l’adresse puis réessaie.';
+  return 'Connexion impossible. Vérifie les informations puis réessaie.';
 }
 
 function AdminLogin(){
   const [email,setEmail]=useState('');
+  const [password,setPassword]=useState('');
+  const [showPassword,setShowPassword]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [info,setInfo]=useState('');
 
-  const sendLink=async(e:FormEvent)=>{
+  const signIn=async(e:FormEvent)=>{
     e.preventDefault();
     if(!supabase)return;
     const normalized=email.trim().toLowerCase();
     if(!/^\S+@\S+\.\S+$/.test(normalized)){setError('Saisis une adresse e-mail valide.');return;}
+    if(password.length<8){setError('Saisis ton mot de passe Super Admin.');return;}
+    setBusy(true);setError('');setInfo('');
+    const {error:signInError}=await supabase.auth.signInWithPassword({email:normalized,password});
+    setBusy(false);
+    if(signInError){setError(friendlyAuthError(signInError.message));return;}
+  };
+
+  const sendLink=async()=>{
+    if(!supabase)return;
+    const normalized=email.trim().toLowerCase();
+    if(!/^\S+@\S+\.\S+$/.test(normalized)){setError('Saisis d’abord une adresse e-mail valide.');return;}
     setBusy(true);setError('');setInfo('');
     const {error:sendError}=await supabase.auth.signInWithOtp({
       email:normalized,
@@ -43,21 +57,27 @@ function AdminLogin(){
     });
     setBusy(false);
     if(sendError){setError(friendlyAuthError(sendError.message));return;}
-    setInfo(`Lien de connexion envoyé à ${normalized}. Ouvre l’e-mail puis clique sur le bouton KEEP.`);
+    setInfo(`Lien de secours envoyé à ${normalized}.`);
   };
 
   if(!isSupabaseConfigured)return <main style={page}><LiveMarker/><div style={card}><div style={brand}>KEEP</div><h1 style={title}>Super Admin</h1><p style={muted}>Supabase n’est pas configuré dans cet environnement.</p></div></main>;
 
-  return <main style={page}><LiveMarker/><form onSubmit={sendLink} style={card}>
+  return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
     <div style={brand}>KEEP</div>
     <h1 style={title}>Super Admin</h1>
-    <p style={muted}>Connexion sécurisée par lien e-mail. Aucun code à recopier. Seuls les comptes ayant un rôle Admin actif peuvent entrer.</p>
+    <p style={muted}>Connexion directe par e-mail + mot de passe. Aucun e-mail n’est envoyé pour une connexion normale.</p>
     <label style={label}>E-mail Super Admin</label>
     <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} autoComplete="email" style={input}/>
+    <label style={label}>Mot de passe</label>
+    <div style={passwordRow}>
+      <input type={showPassword?'text':'password'} value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="current-password" style={passwordInput}/>
+      <button type="button" aria-label={showPassword?'Masquer le mot de passe':'Afficher le mot de passe'} onClick={()=>setShowPassword(v=>!v)} style={eyeButton}>{showPassword?'◉':'◎'}</button>
+    </div>
     {info?<p style={{color:'#86efac',margin:'10px 0 0',lineHeight:1.5}}>{info}</p>:null}
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
-    <button type="submit" disabled={busy||!email.trim()} style={button}>{busy?'Envoi…':'M’ENVOYER LE LIEN'}</button>
-    <p style={hint}>Le lien revient directement sur ce Super Admin. La session reste ensuite connectée sur cet appareil jusqu’à déconnexion.</p>
+    <button type="submit" disabled={busy||!email.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
+    <button type="button" onClick={()=>void sendLink()} disabled={busy||!email.trim()} style={secondaryButton}>Recevoir un lien de secours</button>
+    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle Admin actif peuvent entrer. Le lien e-mail reste uniquement une solution de secours.</p>
   </form></main>;
 }
 
@@ -94,5 +114,9 @@ const title={margin:'8px 0 6px',fontSize:30} as const;
 const muted={margin:'0 0 24px',color:'#a9a2b7',lineHeight:1.5} as const;
 const label={display:'block',margin:'14px 0 8px',fontWeight:700} as const;
 const input={width:'100%',boxSizing:'border-box' as const,padding:14,borderRadius:12,border:'1px solid #3b3150',background:'#0d0a13',color:'#fff',fontSize:16};
+const passwordRow={display:'flex',alignItems:'center',borderRadius:12,border:'1px solid #3b3150',background:'#0d0a13',overflow:'hidden'} as const;
+const passwordInput={flex:1,minWidth:0,padding:14,border:0,outline:'none',background:'transparent',color:'#fff',fontSize:16} as const;
+const eyeButton={width:50,alignSelf:'stretch',border:0,borderLeft:'1px solid #3b3150',background:'#120e1b',color:'#a78bfa',fontSize:20,cursor:'pointer'} as const;
 const button={width:'100%',marginTop:20,padding:14,border:0,borderRadius:999,background:'#7c3aed',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer'} as const;
+const secondaryButton={width:'100%',marginTop:10,padding:12,border:'1px solid #3b3150',borderRadius:999,background:'#0d0a13',color:'#cfc5dd',fontSize:13,fontWeight:700,cursor:'pointer'} as const;
 const hint={margin:'14px 0 0',color:'#7f768c',fontSize:12,lineHeight:1.5} as const;
