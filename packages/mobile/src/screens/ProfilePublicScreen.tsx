@@ -10,6 +10,8 @@ import { SocialLink } from '../types';
 import { buildPublicProfileLink, shareProfile, shareProfileByEmail } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { hasFeature } from '../services/entitlementService';
+import { getDownloadCreditStatus } from '../services/creditService';
+import { loadNotifications } from '../services/notificationService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -33,6 +35,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
   const [planCode, setPlanCode] = useState('FREE');
+  const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
+  const [creditUnlimited, setCreditUnlimited] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -44,6 +49,35 @@ export default function ProfilePublicScreen({ navigation }: any) {
     let live = true;
     if (user && !accountRequired) loadCurrentPlanCode(user.id).then((code) => live && setPlanCode(code || 'FREE')).catch(() => live && setPlanCode('FREE'));
     else setPlanCode('FREE');
+    return () => { live = false; };
+  }, [accountRequired, user?.id]);
+
+  useEffect(() => {
+    let live = true;
+    if (!user) return () => { live = false; };
+    getDownloadCreditStatus()
+      .then((status) => {
+        if (!live) return;
+        setCreditRemaining(status.remaining);
+        setCreditUnlimited(status.unlimited);
+      })
+      .catch(() => {
+        if (!live) return;
+        setCreditRemaining(null);
+        setCreditUnlimited(false);
+      });
+    return () => { live = false; };
+  }, [accountRequired, sessions.length, user?.id]);
+
+  useEffect(() => {
+    let live = true;
+    if (!user || accountRequired) {
+      setUnreadCount(0);
+      return () => { live = false; };
+    }
+    loadNotifications(user.id)
+      .then((items) => live && setUnreadCount(items.filter((item) => !item.readAt).length))
+      .catch(() => live && setUnreadCount(0));
     return () => { live = false; };
   }, [accountRequired, user?.id]);
 
@@ -61,6 +95,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
   const publicProfileLink = buildPublicProfileLink(user.username);
   const identityGenres = user.favoriteGenres.length ? user.favoriteGenres.slice(0, 4) : dna.topGenres.slice(0, 4).map((g) => g.genre);
+  const creditsExhausted = !creditUnlimited && creditRemaining === 0;
+  const planLabel = planCode === 'FREE' && creditRemaining != null ? `FREE · ${creditRemaining}` : planCode;
+  const planStyle = planCode === 'FREE' ? (creditsExhausted ? s.planExhausted : s.planFree) : s.planPaid;
 
   const openAccount = (mode: AccountMode = 'create') => {
     setShareOpen(false);
@@ -132,8 +169,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.topBar}>
         <Text style={s.topTitle}>Profil</Text>
         <View style={s.actions}>
-          <TouchableOpacity style={s.plan} onPress={() => navigation.navigate('Offers')} accessibilityLabel="Offre et crédits"><Text style={s.planText}>{planCode}</Text></TouchableOpacity>
-          <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel="Notifications"><Text style={s.bell}>🔔</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.plan, planStyle]} onPress={() => navigation.navigate('Offers')} accessibilityLabel="Offre et crédits"><Text style={s.planText}>{planLabel}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
+            <Text style={s.bell}>🔔</Text>
+            {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
+          </TouchableOpacity>
           <TouchableOpacity style={s.iconButton} onPress={openShare} accessibilityLabel="Partager le profil"><Text style={s.iconText}>↗</Text></TouchableOpacity>
           <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Modifier le profil"><Text style={s.iconText}>⚙</Text></TouchableOpacity>
         </View>
@@ -151,7 +191,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
           </View>
         </View>
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Conserve ton profil, choisis ton identifiant et un mot de passe. Aucun e-mail obligatoire.</Text></TouchableOpacity> : null}
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Conserve ton profil avec une adresse e-mail unique, un pseudo public et ton mot de passe.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <View style={s.stats}><Stat value={keptTracks.length} label="KEEP"/><Stat value={user.followerCount} label="Abonnés"/><Stat value={user.followingCount} label="Abonnements"/></View>
       </View>
@@ -229,7 +269,7 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontWeight:'900'},
-  topBar:{paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},topTitle:{...typography.h2,color:colors.textPrimary},actions:{flexDirection:'row',gap:6,alignItems:'center'},iconButton:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:17},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#3D2860',borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},planText:{color:'#FFF',fontSize:9,fontWeight:'900'},
+  topBar:{paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},topTitle:{...typography.h2,color:colors.textPrimary},actions:{flexDirection:'row',gap:6,alignItems:'center'},iconButton:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:17},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:8,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:9,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:88,height:88,borderRadius:44,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:32,fontWeight:'800'},identityText:{flex:1,marginLeft:16},username:{...typography.h2,color:colors.textPrimary},identityMeta:{flexDirection:'row',alignItems:'center',gap:8,marginTop:4},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},followPreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followPreviewText:{color:'#FFF',fontSize:10,fontWeight:'900'},location:{color:colors.textMuted,fontSize:13,marginTop:5},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,marginTop:12},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},accountBannerText:{color:'#B9AEC6',fontSize:11,lineHeight:16,marginTop:3},stats:{marginTop:16,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:12},statValue:{color:colors.textPrimary,fontSize:19,fontWeight:'800'},statLabel:{color:colors.textMuted,fontSize:11,marginTop:3},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},muted:{color:colors.textMuted,fontSize:12,lineHeight:17},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
