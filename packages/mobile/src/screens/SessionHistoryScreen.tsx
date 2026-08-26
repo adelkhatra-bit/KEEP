@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -17,6 +17,15 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
+  const refreshCreditLocks = useSessionHistoryStore((s) => s.refreshCreditLocks);
+
+  useEffect(() => {
+    void refreshCreditLocks().catch(() => {});
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      void refreshCreditLocks().catch(() => {});
+    });
+    return () => unsubscribe?.();
+  }, [navigation, refreshCreditLocks]);
 
   const requestDelete = (session: KeepSession) => {
     const title = autoTitle(session);
