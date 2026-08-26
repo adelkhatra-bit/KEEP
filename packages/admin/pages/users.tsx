@@ -27,6 +27,11 @@ async function invokeAdmin(body: Record<string, unknown>) {
   return data;
 }
 
+function visibleEmail(email: string | null) {
+  if (!email || email.endsWith('@keep.local')) return 'Sans e-mail';
+  return email;
+}
+
 export default function Users() {
   const [query, setQuery] = useState('');
   const [planFilter, setPlanFilter] = useState<PlanFilter>('ALL');
@@ -34,7 +39,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [manageEmail, setManageEmail] = useState('');
+  const [manageIdentity, setManageIdentity] = useState('');
   const [managePlan, setManagePlan] = useState<'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO'>('PREMIUM');
   const [months, setMonths] = useState(12);
   const [reason, setReason] = useState('Offert depuis le Super Admin KEEP');
@@ -65,14 +70,17 @@ export default function Users() {
     return users.filter((u) => {
       if (planFilter !== 'ALL' && u.plan_code !== planFilter) return false;
       if (!needle) return true;
-      return [u.username, u.display_name ?? '', u.email ?? '', u.country_code ?? '', u.kind ?? '', u.plan_code]
+      return [u.username, u.display_name ?? '', visibleEmail(u.email), u.country_code ?? '', u.kind ?? '', u.plan_code]
         .some((value) => value.toLowerCase().includes(needle));
     });
   }, [users, query, planFilter]);
 
   const invite = async () => {
-    const email = manageEmail.trim();
-    if (!email) return;
+    const email = manageIdentity.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email) || email.endsWith('@keep.local')) {
+      setError('Pour envoyer une invitation, saisis une vraie adresse e-mail.');
+      return;
+    }
     setActionBusy('invite'); setError(null); setActionMessage(null);
     try {
       await invokeAdmin({ action: 'users.invite', email });
@@ -116,19 +124,19 @@ export default function Users() {
   };
 
   const grant = async () => {
-    const email = manageEmail.trim();
-    if (!email) return;
+    const identity = manageIdentity.trim().replace(/^@+/, '');
+    if (!identity) return;
     setActionBusy('grant'); setError(null); setActionMessage(null);
     try {
       const result = await invokeAdmin({
         action: 'users.grant',
-        email,
+        identity,
         planCode: managePlan,
         months,
         reason,
       });
       const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
-      setActionMessage(`${managePlan} offert à ${email} pour ${months} mois${endsAt ? ` — jusqu’au ${endsAt}` : ''}.`);
+      setActionMessage(`${managePlan} offert à @${result?.username || identity} pour ${months} mois${endsAt ? ` — jusqu’au ${endsAt}` : ''}.`);
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Attribution impossible.');
@@ -138,12 +146,12 @@ export default function Users() {
   };
 
   const revoke = async () => {
-    const email = manageEmail.trim();
-    if (!email) return;
+    const identity = manageIdentity.trim().replace(/^@+/, '');
+    if (!identity) return;
     setActionBusy('revoke'); setError(null); setActionMessage(null);
     try {
-      const result = await invokeAdmin({ action: 'users.revoke_grant', email });
-      setActionMessage(`Abonnement offert révoqué pour ${email} (${result?.revoked ?? 0} attribution active).`);
+      const result = await invokeAdmin({ action: 'users.revoke_grant', identity });
+      setActionMessage(`Abonnement offert révoqué pour ${identity} (${result?.revoked ?? 0} attribution active).`);
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Révocation impossible.');
@@ -152,6 +160,8 @@ export default function Users() {
     }
   };
 
+  const canInviteByEmail = /^\S+@\S+\.\S+$/.test(manageIdentity.trim()) && !manageIdentity.trim().endsWith('@keep.local');
+
   return (
     <AdminLayout>
       <div className="page-title">Utilisateurs</div>
@@ -159,7 +169,7 @@ export default function Users() {
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {actionMessage && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{actionMessage}</div>}
-      {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils + e-mails Supabase Auth + plan actif + KEEP du mois. Accès réservé aux `admin_users` actifs.</div>}
+      {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils, plan actif et KEEP du mois. Les comptes sans e-mail sont gérés directement par leur pseudo KEEP.</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Récupérer un ancien essai KEEP</h3>
@@ -191,14 +201,14 @@ export default function Users() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter / offrir un abonnement</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.5 }}>
-          Invite une nouvelle adresse ou attribue manuellement une formule à un compte KEEP existant. Les cadeaux sont enregistrés dans Supabase avec leur durée et l’administrateur qui les a accordés.
+          Saisis un <strong>pseudo KEEP</strong> ou une adresse e-mail existante pour offrir Premium, Creator Pro ou Venue Pro. L’e-mail n’est plus obligatoire pour les comptes KEEP.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(150px, 1fr) 110px', gap: 10, marginBottom: 10 }}>
           <input
-            type="email"
-            placeholder="utilisateur@email.fr"
-            value={manageEmail}
-            onChange={(e) => setManageEmail(e.target.value)}
+            type="text"
+            placeholder="pseudo KEEP ou utilisateur@email.fr"
+            value={manageIdentity}
+            onChange={(e) => setManageIdentity(e.target.value)}
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
           />
           <select
@@ -228,18 +238,18 @@ export default function Users() {
           style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', marginBottom: 10 }}
         />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={() => void invite()} disabled={!manageEmail.trim() || actionBusy !== null}>
-            {actionBusy === 'invite' ? 'Invitation…' : 'Inviter l’utilisateur'}
-          </button>
-          <button onClick={() => void grant()} disabled={!manageEmail.trim() || actionBusy !== null}>
+          <button onClick={() => void grant()} disabled={!manageIdentity.trim() || actionBusy !== null}>
             {actionBusy === 'grant' ? 'Attribution…' : `Offrir ${managePlan} — ${months} mois`}
           </button>
-          <button onClick={() => void revoke()} disabled={!manageEmail.trim() || actionBusy !== null} style={{ opacity: 0.8 }}>
+          <button onClick={() => void revoke()} disabled={!manageIdentity.trim() || actionBusy !== null} style={{ opacity: 0.8 }}>
             {actionBusy === 'revoke' ? 'Révocation…' : 'Révoquer le cadeau actif'}
+          </button>
+          <button onClick={() => void invite()} disabled={!canInviteByEmail || actionBusy !== null} style={{ opacity: canInviteByEmail ? 1 : 0.55 }}>
+            {actionBusy === 'invite' ? 'Invitation…' : 'Inviter par e-mail (optionnel)'}
           </button>
         </div>
         <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 10 }}>
-          Pour un nouveau compte : invite d’abord l’adresse. L’utilisateur doit ouvrir KEEP une première fois avant qu’une formule puisse être attribuée à son profil.
+          Un cadeau ne crée jamais un nouveau compte : le profil doit déjà exister dans KEEP. L’invitation e-mail est seulement une option séparée.
         </div>
       </div>
 
@@ -270,20 +280,14 @@ export default function Users() {
           {!loading && filtered.length === 0 && <tr><td colSpan={8} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Aucun utilisateur ne correspond à ces critères.</td></tr>}
           {filtered.map((u) => (
             <tr key={u.id}>
-              <td><strong>{u.username}</strong>{u.display_name ? <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{u.display_name}</div> : null}</td>
-              <td>{u.email ?? '—'}</td>
+              <td><strong>@{u.username}</strong>{u.display_name ? <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{u.display_name}</div> : null}</td>
+              <td>{visibleEmail(u.email)}</td>
               <td>{u.country_code ?? '—'}</td>
               <td>{u.kind ?? 'USER'}</td>
               <td>{u.plan_code ?? 'FREE'}</td>
               <td>{u.keeps_this_month ?? 0}</td>
               <td>{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
-              <td>
-                {u.email ? (
-                  <button onClick={() => setManageEmail(u.email || '')}>Gérer</button>
-                ) : (
-                  <button onClick={() => { setLegacyUsername(u.username); setLegacyRecovery(null); }}>Récupérer</button>
-                )}
-              </td>
+              <td><button onClick={() => setManageIdentity(u.username)}>Gérer</button></td>
             </tr>
           ))}
         </tbody>
