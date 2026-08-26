@@ -4,24 +4,31 @@
  * réussi dans une plateforme musicale externe consomme 1 crédit.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
+import type { KeepVisibility } from '../types';
 import { musicEngine } from './musicEngine';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { withRetry } from './retry';
 import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
+import { recordKeepDecision } from './keepMusicCoreRecognition';
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
   playlistName: string;
   downloaded: boolean;
+  visibility: KeepVisibility;
+  keepDecisionId?: string;
+  profileSyncFailed: boolean;
 }
 
 export async function commitKeep(
   track: CanonicalTrack,
   recommendations: RoutingRecommendation[],
-  chosenPlaylistId?: string
+  chosenPlaylistId?: string,
+  options?: { visibility?: KeepVisibility; context?: Record<string, unknown> }
 ): Promise<CommitKeepResult> {
   const session = await musicEngine.getSession();
   const externalWrite = !musicEngine.usesDemoMusicProvider;
+  const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
   // L'essai/public peut ranger localement un morceau reconnu sans consommer
   // un crédit. Le quota n'est vérifié que lorsqu'un vrai service musical
@@ -71,7 +78,25 @@ export async function commitKeep(
     });
   }
 
+  let keepDecisionId: string | undefined;
+  let profileSyncFailed = false;
+  try {
+    const recorded = await recordKeepDecision(track, visibility, options?.context ?? {});
+    keepDecisionId = recorded?.decisionId;
+  } catch {
+    // Le morceau est déjà gardé dans la bibliothèque. On ne transforme jamais
+    // une panne de synchro profil en faux échec de téléchargement.
+    profileSyncFailed = true;
+  }
+
   await usePlaylistStore.getState().refresh();
 
-  return { targetPlaylistId, playlistName: playlistName || 'KEEP', downloaded };
+  return {
+    targetPlaylistId,
+    playlistName: playlistName || 'KEEP',
+    downloaded,
+    visibility,
+    keepDecisionId,
+    profileSyncFailed,
+  };
 }
