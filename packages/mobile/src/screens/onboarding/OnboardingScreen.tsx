@@ -103,7 +103,7 @@ export default function OnboardingScreen() {
             <UsernameAccountForm
               initialMode={accountMode}
               followUsername={intent.followUsername}
-              onSuccess={() => clearWebIntent()}
+              onSuccess={closeAccount}
             />
             <TouchableOpacity
               style={[styles.button, styles.accountButton, styles.continueTrialButton]}
