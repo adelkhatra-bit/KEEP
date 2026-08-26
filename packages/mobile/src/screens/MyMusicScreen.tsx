@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { musicEngine } from '../services/musicEngine';
 import { sharePlaylist } from '../services/sharingService';
 import { colors } from '../theme/colors';
@@ -11,8 +12,14 @@ import { spacing, radius, typography } from '../theme/spacing';
 export default function MyMusicScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { playlists, isLoading, refresh } = usePlaylistStore();
+  const sessions = useSessionHistoryStore((s) => s.sessions);
   const [analysis, setAnalysis] = useState<LibraryAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+
+  const localKeptTracks = useMemo(
+    () => sessions.flatMap((session) => session.tracks.filter((entry) => entry.status === 'kept').map((entry) => entry.track)),
+    [sessions],
+  );
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -26,11 +33,51 @@ export default function MyMusicScreen({ navigation }: any) {
           tracks: await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id),
         }))
       );
-      setAnalysis(analyzeLibrary(withTracks));
+
+      let next = analyzeLibrary(withTracks);
+
+      // En essai gratuit, la bibliothèque provider est volontairement en mémoire.
+      // Après un refresh navigateur/app elle peut donc être vide alors que les KEEP
+      // de l'utilisateur sont bien conservés dans l'historique local persistant.
+      // On utilise ce même historique comme filet de sécurité pour ne jamais afficher
+      // "0 morceau" alors qu'un KEEP réel est visible sur le profil.
+      if (next.totalTracks === 0 && localKeptTracks.length > 0) {
+        next = analyzeLibrary([
+          {
+            playlist: {
+              id: 'keep-local-history',
+              name: 'Mes KEEP',
+              description: 'Morceaux gardés dans KEEP',
+              trackCount: localKeptTracks.length,
+              isKeepManaged: true,
+            },
+            tracks: localKeptTracks,
+          },
+        ]);
+      }
+
+      // Avec zéro ou un morceau, il n'y a rien de pertinent à proposer ou dédupliquer.
+      if (next.totalTracks <= 1) {
+        next = { ...next, unclassifiedCount: 0, duplicateGroups: [], duplicateCount: 0 };
+      }
+
+      setAnalysis(next);
+    } catch (e: any) {
+      Alert.alert('Ranger ma musique', e?.message ?? 'Impossible d’analyser la bibliothèque pour le moment.');
     } finally {
       setAnalyzing(false);
     }
   };
+
+  const analysisMessage = analysis
+    ? analysis.totalTracks === 0
+      ? 'Aucun morceau à analyser pour le moment.'
+      : analysis.totalTracks === 1
+        ? '1 morceau trouvé · rien à trier pour le moment.'
+        : analysis.duplicateCount === 0 && analysis.unclassifiedCount === 0
+          ? `${analysis.totalTracks} morceaux trouvés · rien à trier pour le moment.`
+          : `${analysis.totalTracks} morceaux analysés · vérifie les propositions avant toute modification.`
+    : null;
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => (
     <View style={styles.playlistCard}>
@@ -68,6 +115,7 @@ export default function MyMusicScreen({ navigation }: any) {
 
       {analysis && (
         <View style={styles.analysisCard}>
+          <Text style={styles.analysisStatus}>{analysisMessage}</Text>
           <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
           <Text style={styles.analysisLine}>{t('myMusic.suggestions', { count: analysis.unclassifiedCount })}</Text>
           <Text style={styles.analysisLine}>{t('myMusic.duplicates', { count: analysis.duplicateCount })}</Text>
@@ -117,6 +165,7 @@ const styles = StyleSheet.create({
   organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   organizeButtonText: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
   analysisCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: colors.backgroundElevated, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
+  analysisStatus: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', marginBottom: 3 },
   analysisLine: { color: colors.textSecondary, fontSize: 13 },
   viewSuggestionsButton: { marginTop: spacing.sm, alignSelf: 'flex-start' },
   viewSuggestionsText: { color: colors.primaryLight, fontSize: 13, fontWeight: '700' },
