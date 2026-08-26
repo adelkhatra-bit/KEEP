@@ -11,7 +11,10 @@ export type PaidFeature =
   | 'CREATOR_ANALYTICS';
 
 const ACCESS: Record<PaidFeature, PlanCode[]> = {
-  PROFILE_SHARE: ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
+  // Après création d'un vrai compte, un utilisateur Free peut partager son
+  // profil limité et les KEEP réellement acquis avec ses crédits. Premium
+  // débloque les playlists publiques et la visibilité étendue.
+  PROFILE_SHARE: ['FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
   PUBLIC_PLAYLISTS: ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
   CREATOR_KIND: ['CREATOR_PRO', 'VENUE_PRO'],
   VENUE_KIND: ['VENUE_PRO'],
@@ -21,7 +24,7 @@ const ACCESS: Record<PaidFeature, PlanCode[]> = {
 };
 
 export const FEATURE_PLAN: Record<PaidFeature, PlanCode> = {
-  PROFILE_SHARE: 'PREMIUM',
+  PROFILE_SHARE: 'FREE',
   PUBLIC_PLAYLISTS: 'PREMIUM',
   CREATOR_KIND: 'CREATOR_PRO',
   VENUE_KIND: 'VENUE_PRO',
@@ -53,6 +56,7 @@ export async function loadEntitlements(profileId: string) {
 
 /**
  * Quand un abonnement n'est plus TRIALING/ACTIVE, loadCurrentPlanCode retourne
- * FREE automatiquement. Le compte, le profil et les données restent conservés,
- * mais les fonctions payantes ci-dessus redeviennent verrouillées.
+ * FREE automatiquement. Le compte, le profil et les données restent conservés.
+ * Le profil limité reste partageable, mais les playlists publiques et les
+ * fonctions payantes sont automatiquement reverrouillées.
  */
