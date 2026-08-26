@@ -103,22 +103,30 @@ function upscaleArtwork(url: string): string {
     .replace(/\{h\}/g, "600");
 }
 
+type FreeCatalogData = {
+  artworkUrl: string | null;
+  previewUrl: string | null;
+  appleMusicUrl: string | null;
+  appleTrackId: string | null;
+  album: string | null;
+};
+
 /**
- * Fallback gratuit de métadonnées uniquement : lorsqu'AudD reconnaît bien le
- * morceau mais ne renvoie aucune pochette Spotify/Apple, on interroge le
- * catalogue public Apple Search afin de ne pas afficher un carré vide dans
- * KEEP. Aucun flux audio n'est téléchargé ni stocké.
+ * Enrichissement gratuit uniquement en métadonnées via le catalogue public
+ * Apple/iTunes Search : jaquette + extrait promotionnel + lien catalogue.
+ * KEEP ne télécharge ni ne stocke le fichier audio de l'extrait.
  */
-async function findFreeArtwork(title: string, artist: string): Promise<string | null> {
+async function findFreeCatalogData(title: string, artist: string): Promise<FreeCatalogData> {
+  const empty: FreeCatalogData = { artworkUrl: null, previewUrl: null, appleMusicUrl: null, appleTrackId: null, album: null };
   try {
     const term = encodeURIComponent(`${artist} ${title}`);
     const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8&country=FR`, {
       headers: { "User-Agent": "KEEP/1.0" },
     });
-    if (!response.ok) return null;
+    if (!response.ok) return empty;
     const body = await response.json().catch(() => null);
     const results = Array.isArray(body?.results) ? body.results : [];
-    if (!results.length) return null;
+    if (!results.length) return empty;
 
     const wantedTitle = normalizeText(title);
     const wantedArtist = normalizeText(artist);
@@ -133,9 +141,19 @@ async function findFreeArtwork(title: string, artist: string): Promise<string | 
     }) ?? results[0];
 
     const artwork = String(best?.artworkUrl100 || best?.artworkUrl60 || "").trim();
-    return artwork ? upscaleArtwork(artwork) : null;
+    const previewUrl = String(best?.previewUrl || "").trim();
+    const appleMusicUrl = String(best?.trackViewUrl || "").trim();
+    const appleTrackId = best?.trackId == null ? "" : String(best.trackId);
+    const album = String(best?.collectionName || "").trim();
+    return {
+      artworkUrl: artwork ? upscaleArtwork(artwork) : null,
+      previewUrl: previewUrl || null,
+      appleMusicUrl: appleMusicUrl || null,
+      appleTrackId: appleTrackId || null,
+      album: album || null,
+    };
   } catch {
-    return null;
+    return empty;
   }
 }
 
@@ -143,20 +161,47 @@ async function normalizeAuddResult(result: any) {
   if (!result || !result.title || !result.artist) return null;
   const apple = result.apple_music ?? result.appleMusic ?? null;
   const spotify = result.spotify ?? null;
-  let artworkUrl =
+  const catalog = await findFreeCatalogData(String(result.title), String(result.artist));
+
+  const artworkUrl =
     apple?.artwork?.url?.replace?.("{w}", "600")?.replace?.("{h}", "600") ||
     spotify?.album?.images?.[0]?.url ||
+    catalog.artworkUrl ||
     null;
 
-  if (!artworkUrl) artworkUrl = await findFreeArtwork(String(result.title), String(result.artist));
+  const appleTrackId = apple?.playParams?.id ?? apple?.id ?? catalog.appleTrackId ?? undefined;
+  const spotifyTrackId = spotify?.id ?? undefined;
+  const providerIds: Record<string, string> = {};
+  if (appleTrackId) providerIds.appleMusic = String(appleTrackId);
+  if (spotifyTrackId) providerIds.spotify = String(spotifyTrackId);
+
+  const availableOn: string[] = [];
+  if (spotifyTrackId) availableOn.push("Spotify");
+  if (appleTrackId || catalog.appleMusicUrl) availableOn.push("Apple Music");
+
+  const externalUrls: Record<string, string> = {};
+  if (spotifyTrackId) externalUrls.spotify = `https://open.spotify.com/track/${encodeURIComponent(String(spotifyTrackId))}`;
+  if (catalog.appleMusicUrl) externalUrls.appleMusic = catalog.appleMusicUrl;
+  if (result.song_link) externalUrls.universal = String(result.song_link);
+  externalUrls.youtubeSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${result.artist} ${result.title}`)}`;
 
   return {
     confidence: 1,
     title: String(result.title),
     artist: String(result.artist),
-    album: result.album ? String(result.album) : undefined,
-    isrc: result.isrc ? String(result.isrc) : undefined,
+    album: result.album ? String(result.album) : catalog.album ?? undefined,
+    isrc: result.isrc
+      ? String(result.isrc)
+      : apple?.isrc
+        ? String(apple.isrc)
+        : spotify?.external_ids?.isrc
+          ? String(spotify.external_ids.isrc)
+          : undefined,
     artworkUrl: artworkUrl ? upscaleArtwork(String(artworkUrl)) : undefined,
+    previewUrl: catalog.previewUrl ?? undefined,
+    availableOn,
+    externalUrls,
+    providerIds,
     recognitionProviderTrackId: result.song_link ? String(result.song_link) : undefined,
   };
 }
