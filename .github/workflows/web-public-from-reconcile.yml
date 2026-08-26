@@ -1,5 +1,6 @@
 name: KEEP — Web public depuis reconcile
 
+# Main ne contient ici que le contrôleur de déploiement. La source applicative publiée reste reconcile/claude-main-20260825.
 on:
   push:
     branches: ['main']
