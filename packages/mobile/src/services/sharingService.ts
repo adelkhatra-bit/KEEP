@@ -77,16 +77,25 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   );
   const mailto = `mailto:?subject=${subject}&body=${body}`;
 
-  // Sur Safari/Chrome mobile en version web, Linking peut considérer mailto:
-  // comme "ouvert" sans déclencher l'application Mail. Un clic DOM issu du
-  // geste utilisateur est beaucoup plus fiable et ne consomme aucun e-mail KEEP.
-  if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    const anchor = document.createElement('a');
-    anchor.href = mailto;
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
+  // Sur une PWA / Expo Web mobile, `Linking.openURL(mailto:)` peut résoudre la
+  // promesse sans réellement lancer Mail. Une navigation `mailto:` exécutée
+  // directement pendant le geste utilisateur est la voie la plus fiable sur
+  // Safari iOS, Chrome Android et les navigateurs desktop avec handler e-mail.
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      window.location.assign(mailto);
+    } catch {
+      if (typeof document !== 'undefined') {
+        const anchor = document.createElement('a');
+        anchor.href = mailto;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      } else {
+        throw new Error('email_handler_unavailable');
+      }
+    }
     return;
   }
 
