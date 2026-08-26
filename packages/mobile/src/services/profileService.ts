@@ -218,15 +218,15 @@ export function createProfileService(client: SupabaseClient) {
         if (socialError) throw socialError;
       }
 
-      const hasPrivateInfo = Boolean(user.privateInfo.birthDate || user.privateInfo.gender);
-      if (hasPrivateInfo) {
-        const { error: privateError } = await client.from('profile_private_info').upsert({
-          profile_id: user.id,
-          birth_date: user.privateInfo.birthDate || null,
-          gender: user.privateInfo.gender || null,
-        }, { onConflict: 'profile_id' });
-        if (privateError) throw privateError;
-      }
+      // Toujours écrire la ligne privée, même lorsque les deux champs viennent
+      // d'être effacés. Sinon une ancienne date/genre restait en base après que
+      // l'utilisateur l'avait supprimé dans l'interface.
+      const { error: privateError } = await client.from('profile_private_info').upsert({
+        profile_id: user.id,
+        birth_date: user.privateInfo.birthDate || null,
+        gender: user.privateInfo.gender || null,
+      }, { onConflict: 'profile_id' });
+      if (privateError) throw privateError;
     },
   };
 }
