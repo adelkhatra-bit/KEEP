@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { adminApi, isBackendConfigured } from '../lib/apiClient';
+import { supabase } from '../lib/supabaseClient';
 
 interface ApiPrice {
   id: string;
@@ -43,6 +43,14 @@ function mapPlan(plan: ApiPlan): PlanRow {
   };
 }
 
+async function invokeAdmin(body: Record<string, unknown>) {
+  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.message || data.error);
+  return data;
+}
+
 export default function Plans() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,9 +62,8 @@ export default function Plans() {
     setLoading(true);
     setError(null);
     try {
-      if (!isBackendConfigured) throw new Error('Backend Super Admin non configuré.');
-      const response = await adminApi.get<{ data: ApiPlan[] }>('/plans');
-      setPlans((response.data ?? []).map(mapPlan));
+      const response = await invokeAdmin({ action: 'plans.list' });
+      setPlans(((response?.data ?? []) as ApiPlan[]).map(mapPlan));
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les plans réels.');
     } finally {
@@ -76,9 +83,15 @@ export default function Plans() {
     setError(null);
     try {
       for (const plan of plans) {
-        await adminApi.patch(`/plans/${plan.id}`, { trial_days: plan.trialDays });
-        if (plan.monthlyPriceId) await adminApi.patch(`/plan-prices/${plan.monthlyPriceId}`, { amount: plan.monthly });
-        if (plan.yearlyPriceId) await adminApi.patch(`/plan-prices/${plan.yearlyPriceId}`, { amount: plan.yearly });
+        await invokeAdmin({
+          action: 'plans.update',
+          planId: plan.id,
+          trialDays: plan.trialDays,
+          prices: [
+            ...(plan.monthlyPriceId ? [{ id: plan.monthlyPriceId, amount: plan.monthly }] : []),
+            ...(plan.yearlyPriceId ? [{ id: plan.yearlyPriceId, amount: plan.yearly }] : []),
+          ],
+        });
       }
       setSavedAt(new Date().toLocaleTimeString('fr-FR'));
       await load();
@@ -95,7 +108,7 @@ export default function Plans() {
       <div className="page-subtitle">Plans et prix réellement stockés dans Supabase — France (EUR)</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
-      {!error && !loading && <div className="demo-banner">● MODE RÉEL — lecture et écriture via le backend Super Admin sécurisé + audit logs.</div>}
+      {!error && !loading && <div className="demo-banner">● MODE RÉEL — lecture et écriture via la fonction Super Admin sécurisée + audit logs.</div>}
 
       <table>
         <thead>

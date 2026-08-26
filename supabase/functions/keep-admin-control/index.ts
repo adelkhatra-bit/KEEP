@@ -111,6 +111,44 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
 
+    if (action === "plans.list") {
+      const { data, error } = await admin
+        .from("plans")
+        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active)")
+        .order("code");
+      if (error) throw error;
+      return json(200, { data: data ?? [] });
+    }
+
+    if (action === "plans.update") {
+      const planId = String(body?.planId ?? "").trim();
+      const trialDays = Number(body?.trialDays ?? 0);
+      const prices = Array.isArray(body?.prices) ? body.prices : [];
+      if (!planId) return json(400, { error: "plan_id_required" });
+      if (!Number.isInteger(trialDays) || trialDays < 0 || trialDays > 365) return json(400, { error: "invalid_trial_days" });
+      if (prices.length > 8) return json(400, { error: "too_many_prices" });
+
+      const { error: planError } = await admin.from("plans").update({ trial_days: trialDays }).eq("id", planId);
+      if (planError) throw planError;
+
+      const updatedPrices: { id: string; amount: number }[] = [];
+      for (const price of prices) {
+        const id = String(price?.id ?? "").trim();
+        const amount = Number(price?.amount);
+        if (!id || !Number.isFinite(amount) || amount < 0 || amount > 100000) return json(400, { error: "invalid_price" });
+        const { error: priceError } = await admin
+          .from("plan_prices")
+          .update({ amount })
+          .eq("id", id)
+          .eq("plan_id", planId);
+        if (priceError) throw priceError;
+        updatedPrices.push({ id, amount });
+      }
+
+      await audit(actor.id, "plan.updated", "plan", planId, { trialDays, prices: updatedPrices });
+      return json(200, { ok: true, planId, trialDays, prices: updatedPrices });
+    }
+
     if (action === "integrations.list") {
       const { data, error } = await admin
         .from("integration_secrets")

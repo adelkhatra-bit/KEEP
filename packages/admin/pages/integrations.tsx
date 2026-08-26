@@ -108,11 +108,11 @@ export default function Integrations() {
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>E-mail d’authentification KEEP</h3>
+        <h3 style={{ marginTop: 0 }}>Connexion e-mail KEEP</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          L’application KEEP attend déjà un code à 6 chiffres. Pour que Supabase envoie le code plutôt qu’un « sign-in link »,
-          le modèle <strong>Magic Link</strong> doit utiliser <code>{'{{ .Token }}'}</code>. Le modèle KEEP est versionné dans
-          <code> supabase/templates/keep_magic_link_otp.html</code>.
+          KEEP utilise désormais un <strong>lien de connexion Supabase</strong> : un seul e-mail de vérification est nécessaire sur un nouvel appareil, puis la session est conservée localement. Aucun code à recopier.
+          Le partage d’un profil est séparé : il ouvre l’application Mail de l’utilisateur et <strong>ne consomme aucun e-mail KEEP</strong>.
+          Le modèle visuel KEEP de référence est versionné dans <code>supabase/templates/keep_magic_link.html</code>.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
@@ -126,7 +126,7 @@ export default function Integrations() {
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Tester l’envoi Brevo</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous.</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant du lien de connexion Supabase.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             type="email"
