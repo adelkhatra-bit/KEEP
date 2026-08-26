@@ -62,6 +62,12 @@ export interface SessionTrackEntry {
   visibility?: KeepVisibility;
   /** Identifiant Supabase de la décision, présent dès qu'un vrai compte est synchronisé. */
   keepDecisionId?: string;
+  /**
+   * Le morceau reste intégralement dans Mes Sessions (métadonnées + extrait distant)
+   * quand le quota gratuit est épuisé. Aucun audio n'est stocké par KEEP et aucune
+   * écriture vers le profil/playlist externe n'est effectuée tant qu'il est verrouillé.
+   */
+  creditLocked?: boolean;
   /** Défini lorsque KEEP retrouve déjà le morceau dans une playlist connectée. */
   existingMatch?: ExistingLibraryMatch;
 }
