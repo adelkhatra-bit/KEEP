@@ -26,6 +26,8 @@ jobs:
     env:
       EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+      EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
 
     steps:
@@ -85,9 +87,10 @@ jobs:
       - name: Assemble public site
         run: |
           rm -rf _site
-          mkdir -p _site/admin-preview
+          mkdir -p _site/admin-preview _site/share-profile
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
+          cp packages/mobile/share-profile.html _site/share-profile/index.html
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
@@ -103,3 +106,4 @@ jobs:
         run: |
           echo "KEEP APP: ${{ steps.deployment.outputs.page_url }}"
           echo "KEEP ADMIN: ${{ steps.deployment.outputs.page_url }}admin-preview/"
+          echo "KEEP SHARE: ${{ steps.deployment.outputs.page_url }}share-profile/"
