@@ -3,17 +3,17 @@ name: KEEP — Vérification migrations SQL (PostgreSQL réel)
 # Aucun secret nécessaire : ce workflow utilise un vrai service PostgreSQL 16,
 # applique toutes les migrations présentes dans supabase/migrations, puis
 # exécute les assertions métier réelles (triggers, cohérence devise, RLS).
-# La branche de travail unique KEEP est vérifiée directement ; main reste
-# couvert pour le jour où la réconciliation sera fusionnée.
+# La branche de travail unique KEEP est la seule source active.
 
 on:
   push:
-    branches: [main, 'reconcile/claude-main-20260825']
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - "supabase/migrations/**"
       - "supabase/scripts/verify-migrations.sh"
       - ".github/workflows/verify-migrations.yml"
   pull_request:
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - "supabase/migrations/**"
       - "supabase/scripts/verify-migrations.sh"
