@@ -15,6 +15,7 @@ import { loadNotifications } from '../services/notificationService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
+import TrackPreviewButton from '../components/TrackPreviewButton';
 
 type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
@@ -157,7 +158,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const tabContent = () => {
     if (activeTab === 'KEEP') {
       if (!keptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
-      return <View style={s.grid}>{keptTracks.slice(0,18).map((entry) => <View key={entry.id} style={s.tile}>{entry.track.artworkUrl ? <Image source={{uri:entry.track.artworkUrl}} style={s.cover}/> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}<Text style={s.tileTitle} numberOfLines={1}>{entry.track.title}</Text><Text style={s.tileSub} numberOfLines={1}>{entry.track.artist}</Text></View>)}</View>;
+      return <View style={s.grid}>{keptTracks.slice(0,18).map((entry) => <View key={entry.id} style={s.tile}>{entry.track.artworkUrl ? <Image source={{uri:entry.track.artworkUrl}} style={s.cover}/> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}<Text style={s.tileTitle} numberOfLines={1}>{entry.track.title}</Text><Text style={s.tileSub} numberOfLines={1}>{entry.track.artist}</Text><TrackPreviewButton trackKey={entry.track.id || entry.id} previewUrl={entry.track.previewUrl} compact /></View>)}</View>;
     }
     const items = activeTab === 'PLAYLISTS' ? playlists : activeTab === 'ARTISTS' ? artists : albums;
     if (!items.length) return <Empty text={activeTab === 'PLAYLISTS' ? 'Tes playlists apparaîtront ici.' : activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
