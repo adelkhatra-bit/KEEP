@@ -240,8 +240,8 @@ const s = StyleSheet.create({
   // titre trop bas sur un écran haut. flex-start + paddingTop remonte le
   // contenu sans le coller au TopBar.
   idle: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 20 },
-  idleTitle: { color: C.text, fontSize: 25, fontWeight: '800', textAlign: 'center', marginTop: 18 },
-  idleSubtitle: { color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 7, marginBottom: 20 },
+  idleTitle: { color: C.text, fontSize: 28, lineHeight: 32, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 18 },
+  idleSubtitle: { color: '#C9C1D2', fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 10, marginBottom: 22 },
   start: { minWidth: 220, minHeight: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   startText: { color: '#fff', fontWeight: '900', fontSize: 15 },
   demo: { marginTop: 10, color: C.purpleLight, fontSize: 10, fontWeight: '800' },
