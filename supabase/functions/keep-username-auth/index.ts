@@ -66,6 +66,18 @@ async function sessionFor(email: string, password: string) {
   };
 }
 
+async function findAuthUserByEmail(email: string) {
+  const target = normalizeEmail(email);
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const found = data.users.find((user) => normalizeEmail(user.email) === target);
+    if (found) return found;
+    if (data.users.length < 200) break;
+  }
+  return null;
+}
+
 async function profileByUsername(username: string) {
   const { data, error } = await admin
     .from("profiles")
@@ -165,20 +177,71 @@ Deno.serve(async (req) => {
 
     const matches = await profileByUsername(username);
     if (matches.length > 1) return json({ ok: false, error: "username_conflict" });
-    const existingProfile = matches[0] ?? null;
+    const existingProfileForUsername = matches[0] ?? null;
+
+    // Une même identité Supabase peut être à la fois utilisateur KEEP et membre
+    // du Super Admin. On ne crée JAMAIS un deuxième auth.users pour la même
+    // adresse. Si l'adresse existe déjà, le mot de passe doit prouver que la
+    // personne possède ce compte ; son profil KEEP est ensuite créé/complété
+    // sur le même uid. Cela évite le conflit "e-mail déjà utilisé".
+    const existingEmailUser = await findAuthUserByEmail(email);
+    if (existingEmailUser) {
+      const proof = await sessionFor(email, password);
+      if (!proof.ok || proof.session.user_id !== existingEmailUser.id) {
+        return json({ ok: false, error: "email_taken" });
+      }
+      if (existingProfileForUsername && existingProfileForUsername.id !== existingEmailUser.id) {
+        return json({ ok: false, error: "username_taken" });
+      }
+
+      const existingOwnProfile = await profileById(existingEmailUser.id);
+      if (existingOwnProfile) {
+        if (existingOwnProfile.username !== username) {
+          const { error: updateProfileError } = await admin
+            .from("profiles")
+            .update({ username, updated_at: new Date().toISOString() })
+            .eq("id", existingEmailUser.id);
+          if (updateProfileError) throw updateProfileError;
+        }
+      } else {
+        const { error: profileError } = await admin.from("profiles").insert({
+          id: existingEmailUser.id,
+          username,
+          display_name: username,
+          bio: "",
+          avatar_url: null,
+          country_code: null,
+          city: null,
+          kind: "USER",
+          language_code: "fr",
+          is_public: true,
+          location_opt_in: false,
+          website: null,
+          favorite_genres: [],
+          favorite_artists: [],
+        });
+        if (profileError) throw profileError;
+      }
+
+      const { error: metadataError } = await admin.auth.admin.updateUserById(existingEmailUser.id, {
+        user_metadata: { ...(existingEmailUser.user_metadata ?? {}), keep_username: username },
+      });
+      if (metadataError) throw metadataError;
+      return json({ ok: true, username, ...proof.session, reused_existing_identity: true });
+    }
 
     let userId: string;
 
-    if (existingProfile) {
-      const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
+    if (existingProfileForUsername) {
+      const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfileForUsername.id);
       if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
 
       if (userData.user.is_anonymous) {
         const callerId = await bearerUserId(req);
-        if (!callerId || callerId !== existingProfile.id) {
+        if (!callerId || callerId !== existingProfileForUsername.id) {
           return json({ ok: false, error: "legacy_profile_requires_original_device" });
         }
-        const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfile.id, {
+        const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
           email,
           password,
           email_confirm: true,
@@ -188,13 +251,11 @@ Deno.serve(async (req) => {
           if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "email_taken" });
           throw upgradeError;
         }
-        userId = existingProfile.id;
+        userId = existingProfileForUsername.id;
       } else if (userData.user.email?.endsWith("@keep.local")) {
-        // Migration sûre des comptes de test créés avec l'ancien identifiant pseudo :
-        // le mot de passe actuel doit être correct avant de rattacher le vrai e-mail.
         const proof = await sessionFor(userData.user.email, password);
         if (!proof.ok) return json({ ok: false, error: "username_taken" });
-        const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfile.id, {
+        const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfileForUsername.id, {
           email,
           email_confirm: true,
           user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
@@ -203,7 +264,7 @@ Deno.serve(async (req) => {
           if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "email_taken" });
           throw upgradeError;
         }
-        userId = existingProfile.id;
+        userId = existingProfileForUsername.id;
       } else {
         return json({ ok: false, error: "username_taken" });
       }
@@ -213,10 +274,6 @@ Deno.serve(async (req) => {
         id: userId,
         email,
         password,
-        // Phase de test KEEP : l'e-mail est l'identifiant unique mais aucun
-        // message transactionnel n'est requis pour ouvrir le compte. Avant la
-        // mise en production, on pourra activer la confirmation réelle sans
-        // changer ce modèle de données ni le mot de passe.
         email_confirm: true,
         user_metadata: { keep_username: username },
       });
