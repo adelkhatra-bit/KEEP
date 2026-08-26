@@ -10,11 +10,11 @@ function LiveMarker() {
   return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>KEEP LIVE · RECONCILE</div>;
 }
 
-async function hasActiveAdminRole(userId:string):Promise<boolean>{
+async function hasActiveAdminRole():Promise<boolean>{
   if(!supabase)return false;
-  const {data,error}=await supabase.from('admin_users').select('id,role,is_active').eq('id',userId).eq('is_active',true).maybeSingle();
+  const {data,error}=await supabase.rpc('get_my_admin_role');
   if(error||!data)return false;
-  return ADMIN_ROLES.includes(String(data.role));
+  return ADMIN_ROLES.includes(String(data));
 }
 
 function friendlyAuthError(message?:string){
@@ -75,7 +75,7 @@ export default function App({Component,pageProps}:AppProps){
       const user=data.session?.user;
       if(!user){setState('signed_out');return;}
       setState('checking_role');
-      const allowed=await hasActiveAdminRole(user.id);
+      const allowed=await hasActiveAdminRole();
       if(!active)return;
       if(!allowed){await client.auth.signOut();setState('forbidden');return;}
       setState('allowed');
