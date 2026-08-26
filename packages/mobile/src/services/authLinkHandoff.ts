@@ -4,10 +4,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 /**
  * Auth e-mail KEEP sans code à recopier.
  *
- * Supabase envoie son Magic Link standard. Quand le lien revient sur la version
- * web KEEP, on récupère les jetons dans l'URL et, sur téléphone, on les transmet
- * à l'application native via le scheme keep://. Aucun fournisseur e-mail payant
- * n'est nécessaire pour ce flux de test.
+ * Le flux accepte les deux formes Supabase :
+ * - tokens access_token/refresh_token après une redirection standard ;
+ * - token_hash + type dans notre lien KEEP personnalisé.
+ * Cette seconde forme permet au template e-mail KEEP de pointer directement
+ * vers le site public, sans dépendre d'un ancien Site URL localhost.
  */
 export async function consumeSupabaseAuthUrl(client: SupabaseClient, url: string): Promise<boolean> {
   if (!url) return false;
@@ -18,6 +19,20 @@ export async function consumeSupabaseAuthUrl(client: SupabaseClient, url: string
     parsed = new URL(normalized);
   } catch {
     return false;
+  }
+
+  const tokenHash = parsed.searchParams.get('token_hash');
+  const type = parsed.searchParams.get('type');
+  if (tokenHash) {
+    const verifyType = type === 'signup' || type === 'invite' || type === 'recovery' || type === 'email_change' || type === 'email' || type === 'magiclink'
+      ? type
+      : 'magiclink';
+    const { error } = await client.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: verifyType as 'signup' | 'invite' | 'recovery' | 'email_change' | 'email' | 'magiclink',
+    });
+    if (error) throw error;
+    return true;
   }
 
   const accessToken = parsed.searchParams.get('access_token');
@@ -58,8 +73,9 @@ export async function consumeWebAuthAndOpenNative(client: SupabaseClient): Promi
   if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
 
   const currentUrl = window.location.href;
-  const hasTokens = currentUrl.includes('access_token=') && currentUrl.includes('refresh_token=');
-  if (!hasTokens) return false;
+  const hasHashToken = currentUrl.includes('token_hash=');
+  const hasSessionTokens = currentUrl.includes('access_token=') && currentUrl.includes('refresh_token=');
+  if (!hasHashToken && !hasSessionTokens) return false;
 
   const ok = await consumeSupabaseAuthUrl(client, currentUrl);
   if (!ok) return false;
@@ -68,11 +84,15 @@ export async function consumeWebAuthAndOpenNative(client: SupabaseClient): Promi
   const accessToken = current.searchParams.get('access_token');
   const refreshToken = current.searchParams.get('refresh_token');
 
-  // Nettoie immédiatement les jetons de la barre d'adresse du navigateur.
-  window.history.replaceState({}, document.title, window.location.pathname + window.location.search.replace(/[?&](access_token|refresh_token|expires_in|expires_at|token_type)=[^&]*/g, ''));
+  // Nettoie immédiatement tous les secrets de connexion de la barre d'adresse.
+  const cleanParams = new URLSearchParams(current.searchParams);
+  for (const key of ['token_hash', 'type', 'access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type']) cleanParams.delete(key);
+  const cleanQuery = cleanParams.toString();
+  window.history.replaceState({}, document.title, window.location.pathname + (cleanQuery ? `?${cleanQuery}` : ''));
 
-  // Sur mobile, tente d'ouvrir l'app native. Si elle n'est pas installée, la
-  // session web reste valide : l'utilisateur n'est donc jamais bloqué.
+  // Pour les anciennes redirections qui fournissent directement les deux
+  // jetons, on peut encore ouvrir l'app native. Avec token_hash, la session
+  // web est déjà créée et persistée, ce qui suffit pour les tests web/PWA.
   if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && accessToken && refreshToken) {
     const deepLink = `keep://auth/callback?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
     window.setTimeout(() => {
