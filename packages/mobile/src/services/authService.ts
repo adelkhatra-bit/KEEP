@@ -1,6 +1,8 @@
 /** Auth KEEP réelle (Supabase Auth). */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+const AUTH_REDIRECT_URL = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL || 'https://adelkhatra-bit.github.io/KEEP/';
+
 export interface KeepAuthSession {
   userId: string;
   email: string | null;
@@ -26,15 +28,15 @@ export function createAuthService(client: SupabaseAuthClient): AuthService {
       return { error: error?.message ?? null };
     },
 
-    // Connexion e-mail KEEP : Magic Link Supabase, sans code à recopier.
-    // `signInWithOtp` est le nom historique du SDK Supabase, mais lorsque le
-    // template contient ConfirmationURL il envoie bien un lien cliquable.
+    // Premier accès / nouvel appareil : un seul e-mail de vérification.
+    // Ensuite la session Supabase est persistée localement et auto-renouvelée,
+    // donc KEEP ne renvoie pas un e-mail à chaque ouverture de l'application.
     async requestEmailMagicLink(email) {
       const { error } = await client.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: 'https://adelkhatra-bit.github.io/KEEP/',
+          emailRedirectTo: AUTH_REDIRECT_URL,
         },
       });
       return { error: error?.message ?? null };
