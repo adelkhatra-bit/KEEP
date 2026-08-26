@@ -9,8 +9,16 @@ export interface KeepAuthSession {
   isAnonymous: boolean;
 }
 
+export interface UsernameAuthResult {
+  error: string | null;
+  username?: string;
+  userId?: string;
+}
+
 export interface AuthService {
   signInAsGuest(): Promise<{ error: string | null }>;
+  signUpWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
+  signInWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
   requestEmailMagicLink(email: string): Promise<{ error: string | null }>;
   requestEmailLink(email: string): Promise<{ error: string | null }>;
   verifyEmailLink(email: string, code: string): Promise<{ error: string | null }>;
@@ -21,18 +29,59 @@ export interface AuthService {
   onSessionChange(callback: (session: KeepAuthSession | null) => void): () => void;
 }
 
-type SupabaseAuthClient = Pick<SupabaseClient, 'auth'>;
+function normalizeUsername(username: string) {
+  return username.trim().replace(/^@+/, '').normalize('NFKC');
+}
 
-export function createAuthService(client: SupabaseAuthClient): AuthService {
+export function createAuthService(client: SupabaseClient): AuthService {
+  const usernameAuth = async (action: 'signup' | 'login', username: string, password: string): Promise<UsernameAuthResult> => {
+    const cleanUsername = normalizeUsername(username);
+    const { data: current } = await client.auth.getSession();
+    const accessToken = current.session?.access_token;
+
+    const { data, error } = await client.functions.invoke('keep-username-auth', {
+      body: { action, username: cleanUsername, password },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
+
+    if (error) return { error: error.message || 'server_error' };
+    if (!data?.ok || !data?.access_token || !data?.refresh_token) {
+      return { error: String(data?.error || 'server_error') };
+    }
+
+    const { error: sessionError } = await client.auth.setSession({
+      access_token: String(data.access_token),
+      refresh_token: String(data.refresh_token),
+    });
+    if (sessionError) return { error: sessionError.message };
+
+    return {
+      error: null,
+      username: String(data.username || cleanUsername),
+      userId: String(data.user_id || ''),
+    };
+  };
+
   return {
     async signInAsGuest() {
+      // Héritage uniquement. L'essai public actuel est local et ne doit jamais
+      // appeler cette méthode ni créer un nouvel auth.users anonyme.
       const { data: existing } = await client.auth.getSession();
       if (existing.session?.user) return { error: null };
-
       const { error } = await client.auth.signInAnonymously();
       return { error: error?.message ?? null };
     },
 
+    async signUpWithUsername(username, password) {
+      return usernameAuth('signup', username, password);
+    },
+
+    async signInWithUsername(username, password) {
+      return usernameAuth('login', username, password);
+    },
+
+    // Flux e-mail conservés uniquement comme compatibilité/récupération future.
+    // L'interface principale KEEP n'en dépend plus.
     async requestEmailMagicLink(email) {
       const { error } = await client.auth.signInWithOtp({
         email,
@@ -54,10 +103,6 @@ export function createAuthService(client: SupabaseAuthClient): AuthService {
       return { error: error?.message ?? null };
     },
 
-    // Flux principal KEEP : e-mail + mot de passe. Il n'envoie pas de lien à
-    // chaque connexion. Selon la configuration Supabase, la première création
-    // peut demander une confirmation e-mail unique ; ensuite le mot de passe
-    // suffit sur tous les appareils.
     async signUpWithPassword(email, password) {
       const { data, error } = await client.auth.signUp({
         email,
