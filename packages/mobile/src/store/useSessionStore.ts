@@ -157,6 +157,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startSession: () => {
     clearTimers();
     void cancelAudioCapture();
+    // L'historique survit aux rechargements alors que la session micro active
+    // ne survit pas. Avant de démarrer une nouvelle écoute, fermer donc toute
+    // ancienne entrée restée artificiellement « en cours » après crash/reload.
+    useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
     set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, locationLabel: undefined, lat: undefined, lng: undefined });
 
