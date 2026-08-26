@@ -38,7 +38,7 @@ async function parseResponse(response: Response) {
   return payload;
 }
 
-function baseHeaders(accessToken?: string | null) {
+function baseHeaders(accessToken?: string | null): Record<string, string> {
   if (!configured(SUPABASE_ANON_KEY)) return {};
   return {
     apikey: SUPABASE_ANON_KEY,
