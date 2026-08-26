@@ -81,7 +81,7 @@ export default function OnboardingScreen() {
     }
     setBusy(true);
     setErrorMsg(null);
-    const { error } = await authService.requestEmailCode(trimmed);
+    const { error } = await authService.requestEmailMagicLink(trimmed);
     setBusy(false);
     if (error) {
       setErrorMsg('Impossible d’envoyer le lien. Réessaie dans un instant.');
