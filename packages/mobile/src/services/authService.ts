@@ -14,6 +14,8 @@ export interface AuthService {
   requestEmailMagicLink(email: string): Promise<{ error: string | null }>;
   requestEmailLink(email: string): Promise<{ error: string | null }>;
   verifyEmailLink(email: string, code: string): Promise<{ error: string | null }>;
+  signUpWithPassword(email: string, password: string): Promise<{ error: string | null; sessionCreated: boolean }>;
+  signInWithPassword(email: string, password: string): Promise<{ error: string | null }>;
   getCurrentSession(): Promise<KeepAuthSession | null>;
   signOut(): Promise<void>;
   onSessionChange(callback: (session: KeepAuthSession | null) => void): () => void;
@@ -24,9 +26,6 @@ type SupabaseAuthClient = Pick<SupabaseClient, 'auth'>;
 export function createAuthService(client: SupabaseAuthClient): AuthService {
   return {
     async signInAsGuest() {
-      // Un refresh ou un deuxième clic ne doit JAMAIS recréer un compte
-      // anonyme. Les tests précédents créaient plusieurs /signup à la suite et
-      // finissaient par déclencher le rate-limit Supabase (429).
       const { data: existing } = await client.auth.getSession();
       if (existing.session?.user) return { error: null };
 
@@ -34,9 +33,6 @@ export function createAuthService(client: SupabaseAuthClient): AuthService {
       return { error: error?.message ?? null };
     },
 
-    // Premier accès / nouvel appareil : un seul e-mail de vérification.
-    // Ensuite la session Supabase est persistée localement et auto-renouvelée,
-    // donc KEEP ne renvoie pas un e-mail à chaque ouverture de l'application.
     async requestEmailMagicLink(email) {
       const { error } = await client.auth.signInWithOtp({
         email,
@@ -48,8 +44,6 @@ export function createAuthService(client: SupabaseAuthClient): AuthService {
       return { error: error?.message ?? null };
     },
 
-    // Conversion d'une session anonyme existante vers un compte réel en
-    // conservant le même auth.uid() et donc ses crédits/KEEP/profil.
     async requestEmailLink(email) {
       const { error } = await client.auth.updateUser({ email });
       return { error: error?.message ?? null };
@@ -57,6 +51,24 @@ export function createAuthService(client: SupabaseAuthClient): AuthService {
 
     async verifyEmailLink(email, code) {
       const { error } = await client.auth.verifyOtp({ email, token: code, type: 'email_change' });
+      return { error: error?.message ?? null };
+    },
+
+    // Flux principal KEEP : e-mail + mot de passe. Il n'envoie pas de lien à
+    // chaque connexion. Selon la configuration Supabase, la première création
+    // peut demander une confirmation e-mail unique ; ensuite le mot de passe
+    // suffit sur tous les appareils.
+    async signUpWithPassword(email, password) {
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: AUTH_REDIRECT_URL },
+      });
+      return { error: error?.message ?? null, sessionCreated: Boolean(data.session) };
+    },
+
+    async signInWithPassword(email, password) {
+      const { error } = await client.auth.signInWithPassword({ email, password });
       return { error: error?.message ?? null };
     },
 
