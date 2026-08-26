@@ -5,6 +5,7 @@
  * 1) e-mail d'authentification ; 2) partage public du profil.
  */
 import { Linking, Share } from 'react-native';
+import { useUserStore } from '../store/useUserStore';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
 
@@ -36,17 +37,42 @@ export async function shareProfile(username: string): Promise<void> {
 }
 
 /**
- * Partage directement via l'application e-mail de l'utilisateur. Le message est
- * simplement prérempli ; l'envoi est effectué par son propre compte e-mail.
+ * Partage directement via la boîte e-mail de l'utilisateur. KEEP ouvre un
+ * brouillon local prérempli mais ne connaît pas les destinataires et n'expédie
+ * rien via Brevo/Supabase. Le lien HTTPS reste écrit en clair pour être reconnu
+ * comme cliquable par Mail, Gmail, Outlook et les webmails.
  */
 export async function shareProfileByEmail(username: string): Promise<void> {
   const cleanUsername = username.trim().replace(/^@/, '');
   const link = buildPublicProfileLink(cleanUsername);
-  const subject = encodeURIComponent(`Découvre mon KEEP — @${cleanUsername}`);
+  const current = useUserStore.getState().user;
+  const sameProfile = current?.username?.trim().replace(/^@/, '') === cleanUsername ? current : null;
+
+  const identity = sameProfile
+    ? [sameProfile.username ? `@${cleanUsername}` : '', sameProfile.city, sameProfile.countryCode].filter(Boolean).join(' · ')
+    : `@${cleanUsername}`;
+  const bio = sameProfile?.bio?.trim() ? `\n${sameProfile.bio.trim()}\n` : '';
+  const genres = sameProfile?.favoriteGenres?.length
+    ? `\nMes styles : ${sameProfile.favoriteGenres.slice(0, 5).join(' · ')}\n`
+    : '';
+
+  const subject = encodeURIComponent(`Découvre mon univers KEEP — @${cleanUsername}`);
   const body = encodeURIComponent(
-    `Je partage mon univers musical avec toi sur KEEP.\n\nDécouvre mon KEEP DNA, mes morceaux gardés et les réseaux que j'ai choisi de partager :\n${link}\n\nTes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.`,
+    `Je partage mon profil KEEP avec toi.\n\n${identity}${bio}${genres}\nDécouvre mon KEEP DNA, mes morceaux gardés et les réseaux que j’ai choisi de rendre publics :\n\n${link}\n\nOuvre simplement le lien ci-dessus pour accéder directement à mon profil public KEEP.\n\nTes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.`,
   );
-  await Linking.openURL(`mailto:?subject=${subject}&body=${body}`);
+  const mailto = `mailto:?subject=${subject}&body=${body}`;
+
+  try {
+    await Linking.openURL(mailto);
+  } catch (error) {
+    // Secours explicite sur navigateur desktop/mobile : certains moteurs Web
+    // refusent Linking alors que le protocole mailto est bien disponible.
+    if (typeof window !== 'undefined') {
+      window.location.href = mailto;
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
