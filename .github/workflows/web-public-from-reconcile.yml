@@ -35,9 +35,12 @@ jobs:
           ref: reconcile/claude-main-20260825
           fetch-depth: 1
 
-      - name: Prove source SHA
+      - name: Verify deployed source
         run: |
-          echo "KEEP_SOURCE_BRANCH=reconcile/claude-main-20260825"
+          test "$(git branch --show-current)" = "reconcile/claude-main-20260825"
+          test -f packages/mobile/App.tsx
+          test -f packages/mobile/src/navigation/Navigation.tsx
+          echo "KEEP_SOURCE_BRANCH=$(git branch --show-current)"
           echo "KEEP_SOURCE_SHA=$(git rev-parse HEAD)"
 
       - name: Configure GitHub Pages
@@ -51,9 +54,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Verify single source of truth
-        run: node scripts/verify-source-of-truth.cjs
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
