@@ -2,11 +2,15 @@ name: KEEP — CI complète
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/**'
       - 'scripts/**'
       - 'supabase/**'
+      - 'render.yaml'
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - '.github/copilot-instructions.md'
       - 'package.json'
       - 'package-lock.json'
       - 'START_KEEP_LIVE_CLEAN.bat'
