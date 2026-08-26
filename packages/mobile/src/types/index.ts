@@ -8,6 +8,7 @@ import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 export type ProfileKind = 'USER' | 'CREATOR' | 'DJ' | 'ARTIST' | 'PRODUCER' | 'VENUE';
 export type GenderOption = 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
 export type LinkVisibility = 'PUBLIC' | 'PRIVATE';
+export type KeepVisibility = 'PUBLIC' | 'PRIVATE';
 
 export interface SocialLink {
   platform: 'instagram' | 'tiktok' | 'facebook' | 'snapchat' | 'youtube' | 'x' | 'website' | 'other';
@@ -57,6 +58,10 @@ export interface SessionTrackEntry {
   status: SessionTrackStatus;
   detectedAt: string;
   keptPlaylistId?: string;
+  /** PUBLIC = visible sur le profil partagé ; PRIVATE = gardé uniquement pour soi. */
+  visibility?: KeepVisibility;
+  /** Identifiant Supabase de la décision, présent dès qu'un vrai compte est synchronisé. */
+  keepDecisionId?: string;
   /** Défini lorsque KEEP retrouve déjà le morceau dans une playlist connectée. */
   existingMatch?: ExistingLibraryMatch;
 }
