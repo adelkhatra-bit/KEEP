@@ -74,11 +74,13 @@ export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
 
 export async function loadCurrentPlanCode(profileId: string): Promise<string> {
   if (!supabase) return 'FREE';
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('status,plans!inner(code)')
+    .select('status,current_period_end,plans!inner(code)')
     .eq('profile_id', profileId)
     .in('status', ['TRIALING', 'ACTIVE'])
+    .or(`current_period_end.is.null,current_period_end.gt.${now}`)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

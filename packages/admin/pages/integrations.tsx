@@ -1,153 +1,185 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { getSupabaseAccessToken } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
-type SecretField = {
+type IntegrationRow = {
   key: string;
+  category: string;
   label: string;
-  category: 'E-mails' | 'Musique' | 'Reconnaissance';
-  help: string;
-};
-
-type IntegrationStatus = {
-  key: string;
+  secret?: boolean;
   configured: boolean;
-  hint?: string | null;
-  updatedAt?: string | null;
+  hint: string | null;
+  updatedAt: string | null;
 };
 
-const FIELDS: SecretField[] = [
-  { key: 'BREVO_API_KEY', label: 'Brevo API transactionnelle', category: 'E-mails', help: 'Clé API Brevo utilisée pour l’envoi HTTP. Prioritaire si elle est configurée.' },
-  { key: 'BREVO_SMTP_KEY', label: 'Brevo SMTP key', category: 'E-mails', help: 'Mot de passe SMTP Brevo. Toujours masqué et remplaçable depuis cet écran.' },
-  { key: 'BREVO_SMTP_LOGIN', label: 'Brevo SMTP login', category: 'E-mails', help: 'Identifiant SMTP fourni par Brevo.' },
-  { key: 'BREVO_SENDER_EMAIL', label: 'Adresse expéditeur', category: 'E-mails', help: 'Adresse vérifiée utilisée par KEEP pour les e-mails.' },
-  { key: 'BREVO_SENDER_NAME', label: 'Nom expéditeur', category: 'E-mails', help: 'Nom visible par l’utilisateur, ex. KEEP.' },
-  { key: 'SPOTIFY_CLIENT_ID', label: 'Spotify Client ID', category: 'Musique', help: 'Application Spotify OAuth.' },
-  { key: 'SPOTIFY_CLIENT_SECRET', label: 'Spotify Client Secret', category: 'Musique', help: 'Secret Spotify OAuth. Jamais envoyé au mobile.' },
-  { key: 'DEEZER_APP_ID', label: 'Deezer App ID', category: 'Musique', help: 'Application Deezer OAuth.' },
-  { key: 'DEEZER_APP_SECRET', label: 'Deezer App Secret', category: 'Musique', help: 'Secret Deezer OAuth. Jamais envoyé au mobile.' },
-  { key: 'APPLE_MUSICKIT_TEAM_ID', label: 'Apple Music Team ID', category: 'Musique', help: 'Identifiant équipe Apple Developer.' },
-  { key: 'APPLE_MUSICKIT_KEY_ID', label: 'Apple Music Key ID', category: 'Musique', help: 'Identifiant de la clé MusicKit.' },
-  { key: 'APPLE_MUSICKIT_PRIVATE_KEY', label: 'Apple Music Private Key', category: 'Musique', help: 'Clé privée MusicKit. Stockage chiffré uniquement.' },
-  { key: 'AUDD_API_KEY', label: 'AudD API Key', category: 'Reconnaissance', help: 'Reconnaissance musicale réelle.' },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  email: 'E-mail',
+  music: 'Musique',
+  recognition: 'Reconnaissance',
+  payments: 'Paiements',
+};
 
-export default function IntegrationsPage() {
+async function invokeAdmin(body: Record<string, unknown>) {
+  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.message || data.error);
+  return data;
+}
+
+export default function Integrations() {
+  const [rows, setRows] = useState<IntegrationRow[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<Record<string, IntegrationStatus>>({});
-  const [visible, setVisible] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [message, setMessage] = useState<Record<string, string>>({});
-  const [loadError, setLoadError] = useState('');
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState('');
 
-  const groups = useMemo(() => ['E-mails', 'Musique', 'Reconnaissance'].map((category) => ({
-    category,
-    fields: FIELDS.filter((f) => f.category === category),
-  })), []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const token = await getSupabaseAccessToken();
-      if (!apiUrl || !token) {
-        if (!cancelled) setLoadError('Backend ou session Super Admin non connecté.');
-        return;
-      }
-      try {
-        const res = await fetch(`${apiUrl}/api/admin/integrations`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const payload = await res.json();
-        const indexed: Record<string, IntegrationStatus> = {};
-        for (const item of payload.data || []) indexed[item.key] = item;
-        if (!cancelled) {
-          setStatus(indexed);
-          setLoadError('');
-        }
-      } catch {
-        if (!cancelled) setLoadError('Impossible de charger l’état réel des intégrations.');
-      }
-    };
-    void load();
-    return () => { cancelled = true; };
-  }, [apiUrl]);
-
-  const saveField = async (field: SecretField) => {
-    const value = values[field.key]?.trim();
-    if (!value) return;
-    setBusy((s) => ({ ...s, [field.key]: true }));
-    setMessage((s) => ({ ...s, [field.key]: '' }));
-
+  const load = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const token = await getSupabaseAccessToken();
-      if (!apiUrl || !token) throw new Error('Backend sécurisé non connecté : la clé n’a PAS été enregistrée.');
-      const res = await fetch(`${apiUrl}/api/admin/integrations/${field.key}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ value }),
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(typeof payload.error === 'string' ? payload.error : `Échec enregistrement ${field.label}`);
-      setStatus((s) => ({ ...s, [field.key]: payload.data }));
-      setValues((s) => ({ ...s, [field.key]: '' }));
-      setVisible((s) => ({ ...s, [field.key]: false }));
-      setMessage((s) => ({ ...s, [field.key]: 'Enregistré et chiffré côté serveur.' }));
-    } catch (error: any) {
-      setMessage((s) => ({ ...s, [field.key]: error?.message || 'Erreur pendant l’enregistrement.' }));
+      const result = await invokeAdmin({ action: 'integrations.list' });
+      setRows((result?.data ?? []) as IntegrationRow[]);
+    } catch (e: any) {
+      setError(e?.message ?? 'Impossible de charger les intégrations.');
     } finally {
-      setBusy((s) => ({ ...s, [field.key]: false }));
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const grouped = useMemo(() => {
+    const map: Record<string, IntegrationRow[]> = {};
+    for (const row of rows) (map[row.category] ||= []).push(row);
+    return map;
+  }, [rows]);
+
+  const save = async (row: IntegrationRow) => {
+    const value = (values[row.key] ?? '').trim();
+    if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
+    setBusy(row.key); setError(null); setMessage(null);
+    try {
+      await invokeAdmin({ action: 'integrations.set', key: row.key, value });
+      setValues((prev) => ({ ...prev, [row.key]: '' }));
+      setMessage(`${row.label} enregistré dans Supabase Vault.`);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async (row: IntegrationRow) => {
+    setBusy(row.key); setError(null); setMessage(null);
+    try {
+      await invokeAdmin({ action: 'integrations.delete', key: row.key });
+      setMessage(`${row.label} supprimé.`);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? `Impossible de supprimer ${row.label}.`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendTest = async () => {
+    setBusy('EMAIL_TEST'); setError(null); setMessage(null);
+    try {
+      await invokeAdmin({ action: 'integrations.test_email', email: testEmail.trim() });
+      setMessage(`E-mail KEEP envoyé à ${testEmail.trim()} via Brevo.`);
+    } catch (e: any) {
+      setError(e?.message ?? 'Test Brevo impossible.');
+    } finally {
+      setBusy(null);
     }
   };
 
   return (
     <AdminLayout>
-      <div className="page-title">Clés & intégrations</div>
-      <div className="page-subtitle">Coffre centralisé — e-mails, plateformes musicales et reconnaissance</div>
-      <div className="demo-banner" style={{ marginBottom: 24 }}>
-        🔐 Les secrets enregistrés ne sont jamais affichés en clair. {apiUrl ? 'Backend détecté.' : 'Le backend doit être connecté avant toute sauvegarde réelle.'}
-      </div>
-      {loadError && <div style={{ marginBottom: 18, color: '#fb7185', fontSize: 12 }}>{loadError}</div>}
+      <div className="page-title">Intégrations</div>
+      <div className="page-subtitle">Clés et connexions externes de KEEP — stockées chiffrées dans Supabase Vault.</div>
 
-      {groups.map((group) => (
-        <section key={group.category} style={{ marginBottom: 28 }}>
-          <h2 style={{ margin: '0 0 12px', fontSize: 18 }}>{group.category}</h2>
-          <div style={{ display: 'grid', gap: 12 }}>
-            {group.fields.map((field) => {
-              const configured = Boolean(status[field.key]?.configured);
-              const hint = status[field.key]?.hint;
-              return (
-                <div key={field.key} className="kpi-card" style={{ display: 'grid', gridTemplateColumns: 'minmax(210px, 1fr) minmax(260px, 1.4fr) auto', gap: 16, alignItems: 'center' }}>
+      {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
+      {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
+      {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>E-mail d’authentification KEEP</h3>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
+          L’application KEEP attend déjà un code à 6 chiffres. Pour que Supabase envoie le code plutôt qu’un « sign-in link »,
+          le modèle <strong>Magic Link</strong> doit utiliser <code>{'{{ .Token }}'}</code>. Le modèle KEEP est versionné dans
+          <code> supabase/templates/keep_magic_link_otp.html</code>.
+        </p>
+        <a
+          href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}
+        >
+          Ouvrir les modèles e-mail Supabase
+        </a>
+      </div>
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Tester l’envoi Brevo</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous.</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            type="email"
+            placeholder="adresse@test.fr"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            style={{ flex: '1 1 280px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
+          />
+          <button onClick={() => void sendTest()} disabled={busy === 'EMAIL_TEST' || !testEmail.trim()}>
+            {busy === 'EMAIL_TEST' ? 'Envoi…' : 'Envoyer un test KEEP'}
+          </button>
+        </div>
+      </div>
+
+      {loading && <div className="card">Chargement des intégrations…</div>}
+
+      {!loading && Object.entries(grouped).map(([category, items]) => (
+        <div className="card" key={category} style={{ marginBottom: 22 }}>
+          <h3 style={{ marginTop: 0 }}>{CATEGORY_LABELS[category] ?? category}</h3>
+          <div style={{ display: 'grid', gap: 14 }}>
+            {items.map((row) => (
+              <div key={row.key} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
                   <div>
-                    <div style={{ fontWeight: 800 }}>{field.label}</div>
-                    <div style={{ fontSize: 11, opacity: 0.65, marginTop: 4 }}>{field.help}</div>
-                    <div style={{ fontSize: 11, marginTop: 7, fontWeight: 700, color: configured ? '#34d399' : 'var(--muted)' }}>
-                      {configured ? `● Configuré${hint ? ` — ${hint}` : ''}` : '○ Non configuré'}
-                    </div>
+                    <strong>{row.label}</strong>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>{row.key}</div>
                   </div>
-                  <div>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={visible[field.key] ? 'text' : 'password'}
-                        value={values[field.key] || ''}
-                        onChange={(e) => setValues((s) => ({ ...s, [field.key]: e.target.value }))}
-                        placeholder={configured ? '••••••••••••  saisir pour remplacer' : 'Saisir une nouvelle valeur'}
-                        autoComplete="new-password"
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '12px 76px 12px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
-                      />
-                      <button type="button" onClick={() => setVisible((s) => ({ ...s, [field.key]: !s[field.key] }))} style={{ position: 'absolute', right: 8, top: 7, border: 0, background: 'transparent', color: 'var(--muted)', cursor: 'pointer', padding: 6 }}>
-                        {visible[field.key] ? 'Masquer' : 'Voir'}
-                      </button>
-                    </div>
-                    {message[field.key] && <div style={{ fontSize: 11, marginTop: 6, color: message[field.key].includes('PAS') ? '#fb7185' : 'var(--muted)' }}>{message[field.key]}</div>}
+                  <div style={{ fontSize: 12, color: row.configured ? '#62c46f' : 'var(--text-muted)' }}>
+                    {row.configured ? `● Configuré ${row.hint ? `(${row.hint})` : ''}` : '○ Non configuré'}
                   </div>
-                  <button type="button" onClick={() => saveField(field)} disabled={!values[field.key]?.trim() || busy[field.key]} style={{ minWidth: 110, padding: '11px 14px', borderRadius: 999, border: 0, cursor: values[field.key]?.trim() && !busy[field.key] ? 'pointer' : 'not-allowed', background: values[field.key]?.trim() && !busy[field.key] ? 'var(--primary)' : 'var(--border)', color: '#fff', fontWeight: 800 }}>
-                    {busy[field.key] ? 'Enregistrement…' : configured ? 'Remplacer' : 'Enregistrer'}
-                  </button>
                 </div>
-              );
-            })}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    type={row.secret ? 'password' : 'text'}
+                    placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
+                    value={values[row.key] ?? ''}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                    style={{ flex: '1 1 360px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
+                  />
+                  <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
+                    {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
+                  </button>
+                  {row.configured && (
+                    <button onClick={() => void remove(row)} disabled={busy === row.key} style={{ opacity: 0.8 }}>
+                      Supprimer
+                    </button>
+                  )}
+                </div>
+                {row.updatedAt && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>Mis à jour : {new Date(row.updatedAt).toLocaleString('fr-FR')}</div>}
+              </div>
+            ))}
           </div>
-        </section>
+        </div>
       ))}
     </AdminLayout>
   );
