@@ -1,18 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
+import { CanonicalTrack, computeMusicDNA, DnaSourceDecision, ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { SocialLink } from '../types';
-import { buildPublicProfileLink, shareProfile, shareProfileByEmail } from '../services/sharingService';
+import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { hasFeature } from '../services/entitlementService';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadNotifications } from '../services/notificationService';
+import { musicEngine } from '../services/musicEngine';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -22,6 +23,7 @@ type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
 type AccountMode = 'create' | 'login';
 
+const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
 const TABS: { key: ProfileTab; label: string }[] = [
   { key: 'KEEP', label: 'KEEP' }, { key: 'PLAYLISTS', label: 'Playlists' }, { key: 'ARTISTS', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
 ];
@@ -46,6 +48,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [qrOpen, setQrOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMode, setAccountMode] = useState<AccountMode>('create');
+  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
+  const [playlistTracks, setPlaylistTracks] = useState<Record<string, CanonicalTrack[]>>({});
+  const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(null);
 
   const accountRequired = isLocalGuest || isDemoMode;
 
@@ -102,10 +107,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [keptTracks]);
   const artists = useMemo(() => Array.from(new Set(keptTracks.map((entry) => entry.track.artist))).slice(0, 18), [keptTracks]);
   const albums = useMemo(() => Array.from(new Set(keptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])).slice(0, 18), [keptTracks]);
-  const playlists = useMemo(() => {
-    const realNames = Array.from(new Set(providerPlaylists.map((playlist) => playlist.name).filter(Boolean)));
-    if (realNames.length) return realNames.slice(0, 18);
-    return keptTracks.length ? ['Mes KEEP'] : [];
+  const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
+    if (providerPlaylists.length) return providerPlaylists.slice(0, 18);
+    if (!keptTracks.length) return [];
+    return [{ id: LOCAL_PROFILE_PLAYLIST_ID, name: 'Mes KEEP', description: 'Morceaux gardés sur cet appareil', trackCount: keptTracks.length, isKeepManaged: true }];
   }, [keptTracks.length, providerPlaylists]);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil KEEP</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
@@ -123,16 +128,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     setAccountOpen(true);
   };
 
-  const openPaywall = () => {
-    Alert.alert('Premium requis', 'Le partage public et le QR KEEP sont inclus à partir de Premium.', [
-      { text: 'Plus tard', style: 'cancel' },
-      { text: 'Voir la formule', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PROFILE_SHARE' }) },
-    ]);
-  };
-
   const openShare = () => {
     if (accountRequired) return openAccount('create');
-    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(true);
   };
 
@@ -151,7 +148,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const shareNative = async () => {
     if (accountRequired) return openAccount('create');
-    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(false);
     try { await shareProfile(user.username); }
     catch { Alert.alert('Partage', 'Impossible d’ouvrir le partage pour le moment.'); }
@@ -159,7 +155,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const shareEmail = async () => {
     if (accountRequired) return openAccount('create');
-    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(false);
     try { await shareProfileByEmail(user.username); }
     catch { Alert.alert('E-mail', 'Aucune application e-mail n’est disponible sur cet appareil.'); }
@@ -167,18 +162,75 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const showQr = () => {
     if (accountRequired) return openAccount('create');
-    if (!hasFeature(planCode, 'PROFILE_SHARE')) return openPaywall();
     setShareOpen(false);
     setQrOpen(true);
   };
 
+  const loadPlaylistTracks = async (playlist: ProviderPlaylist) => {
+    if (playlist.id === LOCAL_PROFILE_PLAYLIST_ID) {
+      const localTracks = keptTracks.map((entry) => entry.track);
+      setPlaylistTracks((current) => ({ ...current, [playlist.id]: localTracks }));
+      return;
+    }
+    if (playlistTracks[playlist.id]) return;
+    setLoadingPlaylistId(playlist.id);
+    try {
+      const session = await musicEngine.getSession();
+      const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
+      setPlaylistTracks((current) => ({ ...current, [playlist.id]: tracks }));
+    } catch {
+      Alert.alert('Playlist', 'Impossible de charger les morceaux de cette playlist pour le moment.');
+    } finally {
+      setLoadingPlaylistId(null);
+    }
+  };
+
+  const togglePlaylist = async (playlist: ProviderPlaylist) => {
+    if (expandedPlaylistId === playlist.id) { setExpandedPlaylistId(null); return; }
+    setExpandedPlaylistId(playlist.id);
+    await loadPlaylistTracks(playlist);
+  };
+
+  const renderCompactTrack = (track: CanonicalTrack, key: string) => (
+    <View key={key} style={s.keepRow}>
+      {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.keepCover} /> : <View style={[s.keepCover, s.coverFallback]}><Text style={s.keepCoverK}>K</Text></View>}
+      <View style={s.keepInfo}>
+        <View style={s.keepTitleRow}>
+          <View style={s.keepTitleBlock}><Text style={s.keepTitle} numberOfLines={1}>{track.title}</Text><Text style={s.keepArtist} numberOfLines={1}>{track.artist}</Text></View>
+          <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact />
+        </View>
+        <TouchableOpacity style={s.trackShare} onPress={() => void shareProfileTrack(user.username, track.title, track.artist)}><Text style={s.trackShareText}>↗ Partager</Text></TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const tabContent = () => {
     if (activeTab === 'KEEP') {
       if (!keptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
-      return <View style={s.grid}>{keptTracks.slice(0,18).map((entry) => <View key={entry.id} style={s.tile}>{entry.track.artworkUrl ? <Image source={{uri:entry.track.artworkUrl}} style={s.cover}/> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}<Text style={s.tileTitle} numberOfLines={1}>{entry.track.title}</Text><Text style={s.tileSub} numberOfLines={1}>{entry.track.artist}</Text><TrackPreviewButton trackKey={entry.track.id || entry.id} previewUrl={entry.track.previewUrl} compact /></View>)}</View>;
+      return <View style={s.keepList}>{keptTracks.slice(0,18).map((entry) => renderCompactTrack(entry.track, entry.id))}</View>;
     }
-    const items = activeTab === 'PLAYLISTS' ? playlists : activeTab === 'ARTISTS' ? artists : albums;
-    if (!items.length) return <Empty text={activeTab === 'PLAYLISTS' ? 'Tes playlists apparaîtront ici.' : activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
+
+    if (activeTab === 'PLAYLISTS') {
+      if (!displayPlaylists.length) return <Empty text="Tes playlists apparaîtront ici." />;
+      return <View style={s.list}>{displayPlaylists.map((playlist) => {
+        const expanded = expandedPlaylistId === playlist.id;
+        const tracks = playlistTracks[playlist.id] ?? [];
+        return <View key={playlist.id} style={s.playlistBlock}>
+          <TouchableOpacity style={s.listRow} onPress={() => void togglePlaylist(playlist)} accessibilityLabel={`Ouvrir ${playlist.name}`}>
+            {playlist.coverUrl ? <Image source={{ uri: playlist.coverUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
+            <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{playlist.name}</Text><Text style={s.playlistCount}>{playlist.trackCount} {playlist.trackCount > 1 ? 'morceaux' : 'morceau'}</Text></View>
+            <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          <View style={s.playlistButtons}>
+            <TouchableOpacity style={s.playlistShareButton} onPress={() => void sharePlaylist(playlist.id, playlist.name)}><Text style={s.playlistShareText}>↗ Partager</Text></TouchableOpacity>
+          </View>
+          {expanded ? <View style={s.playlistTracks}>{loadingPlaylistId === playlist.id ? <Text style={s.muted}>Chargement…</Text> : tracks.length ? tracks.map((track) => renderCompactTrack(track, `${playlist.id}-${track.id}`)) : <Text style={s.muted}>Aucun morceau dans cette playlist.</Text>}</View> : null}
+        </View>;
+      })}</View>;
+    }
+
+    const items = activeTab === 'ARTISTS' ? artists : albums;
+    if (!items.length) return <Empty text={activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
     return <View style={s.list}>{items.map((item) => <View key={item} style={s.listRow}><View style={s.note}><Text style={s.noteText}>♪</Text></View><Text style={s.listText} numberOfLines={1}>{item}</Text></View>)}</View>;
   };
 
@@ -292,7 +344,8 @@ const s=StyleSheet.create({
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},muted:{color:colors.textMuted,fontSize:12,lineHeight:17},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  grid:{flexDirection:'row',flexWrap:'wrap',padding:8},tile:{width:'33.333%',padding:4},cover:{width:'100%',aspectRatio:1,borderRadius:radius.sm,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},coverK:{color:colors.primaryLight,fontSize:28,fontWeight:'900'},tileTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'700',marginTop:6},tileSub:{color:colors.textMuted,fontSize:10,marginTop:2},list:{marginHorizontal:18,marginTop:10},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:12,borderBottomWidth:1,borderBottomColor:colors.border},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},listText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'600',marginLeft:12},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
+  keepList:{marginHorizontal:18,marginTop:10,gap:7},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackShare:{alignSelf:'flex-start',marginTop:6,minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},trackShareText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},
+  list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:10,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},playlistShareText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:11,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.5},shareAction:{marginTop:10,padding:13,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:11,marginTop:4},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:6},cancelShareText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
   accountInput:{marginTop:14,minHeight:50,borderRadius:14,borderWidth:1,borderColor:'#40354E',backgroundColor:'#0E0A14',paddingHorizontal:14,color:'#FFF',fontSize:14},passwordRow:{marginTop:10,minHeight:50,borderRadius:14,borderWidth:1,borderColor:'#40354E',backgroundColor:'#0E0A14',flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:48,paddingHorizontal:14,color:'#FFF',fontSize:14},eye:{width:48,height:48,alignItems:'center',justifyContent:'center'},eyeText:{color:'#BFA9FF',fontSize:20,fontWeight:'900'},accountError:{color:colors.danger,fontSize:11,lineHeight:16,textAlign:'center',marginTop:10},switchMode:{minHeight:42,alignItems:'center',justifyContent:'center'},switchModeText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},accountInfo:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center',marginTop:5},
   qrShell:{width:'100%',maxWidth:430},qrCard:{backgroundColor:'#100B17',borderRadius:28,borderWidth:1,borderColor:'#6E4BA5',padding:22,shadowColor:'#000',shadowOpacity:.35,shadowRadius:20,shadowOffset:{width:0,height:12}},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFF',fontSize:25,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#A884FA',fontSize:9,fontWeight:'900',letterSpacing:1.4},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241936'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#A884FA',fontSize:27,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:14},qrUsername:{color:'#FFF',fontSize:21,fontWeight:'900'},qrKind:{color:'#A884FA',fontSize:10,fontWeight:'900',marginTop:4},qrLocation:{color:'#968BA4',fontSize:11,marginTop:4},qrBio:{color:'#D7CDDF',fontSize:12,lineHeight:18,marginTop:16},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:12},qrGenre:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#231833',borderWidth:1,borderColor:'#46325F'},qrGenreText:{color:'#CBB5FF',fontSize:10,fontWeight:'800'},qrBox:{alignSelf:'center',padding:12,borderRadius:18,backgroundColor:'#FFF',marginTop:20},qrScan:{color:'#FFF',fontSize:10,fontWeight:'900',letterSpacing:1.1,textAlign:'center',marginTop:14},qrTagline:{color:'#A884FA',fontSize:12,fontWeight:'900',textAlign:'center',marginTop:7},screenshotHint:{color:'#C9BFD9',fontSize:11,lineHeight:16,textAlign:'center',paddingHorizontal:14,marginTop:12},
