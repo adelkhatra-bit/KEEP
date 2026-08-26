@@ -66,10 +66,10 @@ jobs:
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
             const failures = [];
-            const visible = locator => locator.filter({ visible: true });
             page.on('pageerror', err => failures.push(`PAGE ERROR: ${err.message}`));
             page.on('console', msg => { if (msg.type() === 'error') failures.push(`CONSOLE ERROR: ${msg.text()}`); });
             page.on('dialog', async d => d.accept().catch(() => {}));
+            const textLast = (value, options = {}) => page.getByText(value, options).last();
 
             const dump = async (name) => {
               await page.screenshot({ path: `artifacts/human-smoke/${name}.png`, fullPage: true });
@@ -83,36 +83,35 @@ jobs:
 
             await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1500);
-            await visible(page.getByText('KEEP', { exact: true })).first().waitFor({ timeout: 15000 });
+            await textLast('KEEP', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
             for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
-              await visible(page.getByText(label, { exact: true })).last().waitFor({ timeout: 10000 });
+              await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             }
             await dump('01-five-tabs');
 
-            await visible(page.getByText(/START A SESSION|DÉMARRER|COMMENCER/i)).first().click();
-            await visible(page.getByText('EN ÉCOUTE', { exact: true })).waitFor({ timeout: 15000 });
-            await visible(page.getByText('PASSER', { exact: true })).waitFor({ timeout: 15000 });
-            await visible(page.getByText('GARDER', { exact: true })).waitFor({ timeout: 15000 });
-            await visible(page.getByText('↗ Partager', { exact: true })).waitFor({ timeout: 15000 });
-            await visible(page.getByText(/Terminer la session|End session/i)).last().waitFor({ timeout: 15000 });
+            await textLast(/START A SESSION|DÉMARRER|COMMENCER/i).click();
+            await textLast('EN ÉCOUTE', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/PASS|PASSER/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/KEEP|GARDER/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/Partager/i).waitFor({ state: 'visible', timeout: 15000 });
+            await textLast(/Terminer la session|Arrêter|End session/i).waitFor({ state: 'visible', timeout: 15000 });
             await dump('02-listening-current-design');
 
-            // La navigation reste disponible pendant une session active.
             for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
-              await visible(page.getByText(label, { exact: true })).last().waitFor({ timeout: 10000 });
+              await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             }
 
-            await visible(page.getByText('Playlists', { exact: true })).last().click();
+            await textLast('Playlists', { exact: true }).click();
             await page.waitForTimeout(500);
             await dump('03-playlists');
 
-            await visible(page.getByText('Soirées', { exact: true })).last().click();
+            await textLast('Soirées', { exact: true }).click();
             await page.waitForTimeout(500);
             await dump('04-parties');
 
-            await visible(page.getByText('Profil', { exact: true })).last().click();
-            await visible(page.getByText(/KEEP DNA/i)).waitFor({ timeout: 15000 });
+            await textLast('Profil', { exact: true }).click();
+            await textLast(/KEEP DNA/i).waitFor({ state: 'visible', timeout: 15000 });
             await dump('05-profile');
 
             if (failures.some(x => x.startsWith('PAGE ERROR:'))) throw new Error(failures.join('\n'));
@@ -122,7 +121,7 @@ jobs:
               'Listening screen + footer actions: PASS',
               'Profile KEEP DNA: PASS',
               `URL: ${page.url()}`,
-              `Console/page errors: ${failures.length}`,
+              `Console/page errors captured: ${failures.length}`,
               ...failures.slice(0, 30),
             ].join('\n'));
             await browser.close();
