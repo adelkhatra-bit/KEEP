@@ -1,0 +1,54 @@
+name: KEEP — One-time Vibes Sync
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - .github/workflows/one-time-keep-vibes-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Apply KEEP Vibes profile migration
+        run: python3 scripts/keep_vibes_profile_patch.py
+
+      - name: Synchronize npm lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Validate clean install
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck mobile and music core
+        run: |
+          npm run mobile:typecheck
+          npm run music:test -- --runInBand
+
+      - name: Commit generated migration
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add package-lock.json packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/MyMusicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "feat(profile): auto-organize KEEP Vibes with swipe"
+            git push origin HEAD:reconcile/claude-main-20260825
+          fi
