@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createAuthService } from '../services/authService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
@@ -9,7 +9,7 @@ import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
-// Source-of-truth auth KEEP : Aucun e-mail, aucun code à attendre.
+// Source-of-truth auth KEEP : aucun e-mail, aucun code à attendre.
 export type UsernameAccountMode = 'create' | 'login';
 
 type Props = {
@@ -20,7 +20,7 @@ type Props = {
 
 function errorText(code: string) {
   if (code === 'invalid_username') return 'Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.';
-  if (code === 'invalid_password') return 'Le mot de passe doit contenir au moins 6 caractères.';
+  if (code === 'invalid_password') return 'Le service d’authentification exige techniquement au moins 6 caractères.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre.';
   if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support KEEP doit le régulariser.';
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
@@ -48,6 +48,15 @@ function isValidUsername(value: string) {
   return value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 }
 
+function passwordStrength(value: string) {
+  if (!value) return 0;
+  let score = value.length >= 6 ? 1 : 0;
+  if (value.length >= 10) score += 1;
+  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+  if (/\d/.test(value) && /[^A-Za-z0-9]/.test(value)) score += 1;
+  return Math.min(score, 4);
+}
+
 export default function UsernameAccountForm({ initialMode = 'create', followUsername = '', onSuccess }: Props) {
   const currentUser = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -65,6 +74,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
+  const strength = useMemo(() => passwordStrength(password), [password]);
+  const strengthLabel = strength <= 1 ? 'Faible' : strength === 2 ? 'Correct' : strength === 3 ? 'Bon' : 'Très bon';
 
   const applyFollowIntent = async () => {
     if (!supabase || !followUsername) return true;
@@ -91,13 +102,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const finishAuthenticatedFlow = async () => {
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-    // Une bibliothèque locale n'est transférée que lors de la transformation
-    // explicite d'un invité en NOUVEAU compte. Une connexion à un compte existant
-    // ou une création depuis la démo repart de la bibliothèque serveur du compte.
-    const carryGuestKeeps = mode === 'create' && isLocalGuest && !isDemoMode;
-    if (!carryGuestKeeps) useSessionHistoryStore.getState().clearSessions();
+
+    // Règle d'identité stricte : une musique de l'essai/démo n'entre JAMAIS
+    // automatiquement dans le compte créé. Le compte recharge uniquement les
+    // décisions KEEP qui appartiennent déjà à son auth.uid() côté Supabase.
+    useSessionHistoryStore.getState().clearSessions();
     await useSessionHistoryStore.getState().syncUnsyncedKeeps().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+
     const followed = await applyFollowIntent();
     if (followUsername) {
       Alert.alert(
@@ -122,7 +134,10 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     try {
       if (mode === 'create' && isLocalGuest && currentUser) {
         await Promise.all([
+          // Les informations du profil peuvent être reprises ; pas la musique.
           stageGuestProfileForUpgrade({ ...currentUser, username: normalizedUsername }),
+          // La consommation de l'essai reste comptée afin d'éviter de recréer
+          // des comptes pour réinitialiser artificiellement le quota gratuit.
           stageLocalGuestCreditsForUpgrade(),
         ]);
       }
@@ -194,24 +209,30 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       <TouchableOpacity style={s.eye} onPress={() => setShowPassword((v) => !v)} accessibilityLabel="Afficher ou masquer le mot de passe"><Text style={s.eyeText}>{showPassword ? '◉' : '◎'}</Text></TouchableOpacity>
     </View>
 
-    {mode === 'create' ? <View style={s.passwordRow}>
-      <TextInput
-        style={s.passwordInput}
-        value={password2}
-        onChangeText={(value) => { setPassword2(value); setPasswordSuggested(false); if (error) setError(''); }}
-        placeholder="Confirmer le mot de passe"
-        placeholderTextColor={colors.textMuted}
-        secureTextEntry={!showPassword2}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="new-password"
-        textContentType="newPassword"
-        onSubmitEditing={submit}
-      />
-      <TouchableOpacity style={s.eye} onPress={() => setShowPassword2((v) => !v)} accessibilityLabel="Afficher ou masquer la confirmation"><Text style={s.eyeText}>{showPassword2 ? '◉' : '◎'}</Text></TouchableOpacity>
-    </View> : null}
+    {mode === 'create' ? <>
+      <View style={s.strengthRow}>
+        {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strength >= 3 ? s.strengthGood : strength === 2 ? s.strengthMedium : s.strengthWeak)]} />)}
+      </View>
+      <Text style={[s.strengthText, strength >= 3 ? s.strengthTextGood : strength === 2 ? s.strengthTextMedium : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
+      <View style={s.passwordRow}>
+        <TextInput
+          style={s.passwordInput}
+          value={password2}
+          onChangeText={(value) => { setPassword2(value); setPasswordSuggested(false); if (error) setError(''); }}
+          placeholder="Confirmer le mot de passe"
+          placeholderTextColor={colors.textMuted}
+          secureTextEntry={!showPassword2}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="new-password"
+          textContentType="newPassword"
+          onSubmitEditing={submit}
+        />
+        <TouchableOpacity style={s.eye} onPress={() => setShowPassword2((v) => !v)} accessibilityLabel="Afficher ou masquer la confirmation"><Text style={s.eyeText}>{showPassword2 ? '◉' : '◎'}</Text></TouchableOpacity>
+      </View>
+    </> : null}
 
-    <Text style={s.passwordRule}>Minimum technique : 6 caractères. KEEP n’impose aucune règle supplémentaire. Utilise l’œil pour vérifier ta saisie.</Text>
+    <Text style={s.passwordRule}>Minimum technique du service : 6 caractères. La jauge te montre ensuite le niveau de sécurité choisi.</Text>
     {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par KEEP : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
@@ -222,10 +243,10 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
     </TouchableOpacity>
-    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard » sans perdre les morceaux en attente sur cet appareil.</Text>
+    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Les musiques d’essai restent sur cet appareil et ne sont jamais ajoutées automatiquement au compte.</Text>
   </ScrollView>;
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
+  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},strengthWeak:{backgroundColor:'#EF4444'},strengthMedium:{backgroundColor:'#F59E0B'},strengthGood:{backgroundColor:'#22C55E'},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:'#EF4444'},strengthTextMedium:{color:'#F59E0B'},strengthTextGood:{color:'#22C55E'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
 });
