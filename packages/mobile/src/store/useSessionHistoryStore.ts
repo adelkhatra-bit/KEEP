@@ -144,7 +144,7 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
     ...session,
     tracks: session.tracks
       .filter((entry) => !entry.keepDecisionId || remoteDecisionIds.has(entry.keepDecisionId))
-      .map((entry) => {
+      .map((entry): SessionTrackEntry => {
         if (!entry.keepDecisionId) return entry;
         const remote = remoteByDecision.get(entry.keepDecisionId);
         if (!remote) return entry;
