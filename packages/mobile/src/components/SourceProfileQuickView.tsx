@@ -62,13 +62,13 @@ export default function SourceProfileQuickView({
           const nextProfile = data[0] as QuickProfile;
           setProfile(nextProfile);
           if (currentUserId && currentUserId !== nextProfile.id && !accountRequired) {
-            const { data: relation } = await client
+            const { data: relation, error: relationError } = await client
               .from('follows')
               .select('follower_id')
               .eq('follower_id', currentUserId)
               .eq('followee_id', nextProfile.id)
               .maybeSingle();
-            if (live) setIsFollowing(Boolean(relation));
+            if (live && !relationError) setIsFollowing(Boolean(relation));
           }
         } else setMessage('Profil indisponible pour le moment.');
       } finally {
@@ -80,31 +80,38 @@ export default function SourceProfileQuickView({
     return () => { live = false; };
   }, [accountRequired, currentUserId, username, visible]);
 
-  const follow = async () => {
+  const toggleFollow = async () => {
     if (!profile || followBusy) return;
     if (profile.id === currentUserId) {
       setMessage('C’est ton profil KEEP.');
       return;
     }
-    if (accountRequired || !supabase) {
+    if (accountRequired || !supabase || !currentUserId) {
       onClose();
       onRequireAccount(profile.username);
-      return;
-    }
-    if (isFollowing) {
-      setMessage(`Tu es déjà abonné(e) à @${profile.username}.`);
       return;
     }
 
     setFollowBusy(true);
     setMessage('');
     try {
-      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: profile.id });
-      if (error) throw error;
-      setIsFollowing(true);
-      setMessage(`Tu suis maintenant @${profile.username}.`);
+      if (isFollowing) {
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUserId)
+          .eq('followee_id', profile.id);
+        if (error) throw error;
+        setIsFollowing(false);
+        setMessage(`Tu ne suis plus @${profile.username}.`);
+      } else {
+        const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: profile.id });
+        if (error) throw error;
+        setIsFollowing(true);
+        setMessage(`Tu suis maintenant @${profile.username}.`);
+      }
     } catch {
-      setMessage('Impossible de suivre ce profil pour le moment.');
+      setMessage(isFollowing ? 'Impossible de se désabonner pour le moment.' : 'Impossible de suivre ce profil pour le moment.');
     } finally {
       setFollowBusy(false);
     }
@@ -124,8 +131,8 @@ export default function SourceProfileQuickView({
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
             {message ? <Text style={s.message}>{message}</Text> : null}
 
-            <TouchableOpacity style={[s.follow, isFollowing && s.followOn]} onPress={() => void follow()} disabled={followBusy || profile.id === currentUserId}>
-              {followBusy ? <ActivityIndicator color="#FFF" /> : <Text style={[s.followText, isFollowing && s.followTextOn]}>{profile.id === currentUserId ? 'MON PROFIL' : isFollowing ? 'ABONNÉ(E)' : '+ SUIVRE'}</Text>}
+            <TouchableOpacity style={[s.follow, isFollowing && s.followOn]} onPress={() => void toggleFollow()} disabled={followBusy || profile.id === currentUserId}>
+              {followBusy ? <ActivityIndicator color="#FFF" /> : <Text style={[s.followText, isFollowing && s.followTextOn]}>{profile.id === currentUserId ? 'MON PROFIL' : isFollowing ? 'SE DÉSABONNER' : "S'ABONNER"}</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={s.secondary} onPress={() => { onClose(); onOpenFull(profile.username); }}>
               <Text style={s.secondaryText}>VOIR LE PROFIL COMPLET</Text>
