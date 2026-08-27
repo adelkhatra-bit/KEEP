@@ -66,11 +66,11 @@ const DEMO_USER: User = {
 };
 
 function clearLocalMusicIdentity() {
-  // L'historique, les playlists en mémoire et la session du provider local
-  // appartiennent à UNE identité. Aucun de ces éléments ne doit fuiter vers
-  // le compte suivant ni vers la démo. Supprimer aussi la copie persistée
-  // évite qu'une hydratation AsyncStorage tardive réinjecte les morceaux du
-  // compte précédent après le changement d'identité.
+  // Un changement EXPLICITE d'identité (déconnexion, autre vrai compte, démo)
+  // repart sans la musique du compte précédent. En revanche, le bootstrap
+  // d'authentification d'un même compte ne doit jamais vider l'historique déjà
+  // hydraté depuis AsyncStorage : c'était la cause de sessions qui semblaient
+  // disparaître après un reload.
   useSessionHistoryStore.getState().clearSessions();
   void useSessionHistoryStore.persist.clearStorage();
   usePlaylistStore.setState({ playlists: [], isLoading: false });
@@ -124,12 +124,15 @@ export const useUserStore = create<UserStore>((set, get) => ({
     const currentRealId = currentIsReal ? state.user?.id ?? null : null;
     const nextRealId = session?.userId ?? null;
 
-    // Au bootstrap comme lors d'un changement invité/démo/compte, la musique
-    // locale ne peut pas être supposée appartenir au prochain auth.uid(). On
-    // repart donc du serveur pour le compte authentifié.
-    if (nextRealId && (!currentRealId || currentRealId !== nextRealId || state.isDemoMode || state.isLocalGuest)) {
-      clearLocalMusicIdentity();
-    }
+    // Ne jamais effacer au simple bootstrap null -> compte réel : le store
+    // d'historique peut déjà avoir été hydraté et contient alors les sessions
+    // du même utilisateur. On purge uniquement lorsqu'on sait qu'il s'agit
+    // réellement d'une AUTRE identité, ou lorsqu'on quitte volontairement la
+    // démo. Une conversion invité -> compte conserve également ses sessions,
+    // conformément au parcours d'inscription KEEP.
+    const switchingRealAccount = Boolean(nextRealId && currentRealId && currentRealId !== nextRealId);
+    const leavingDemoForReal = Boolean(nextRealId && state.isDemoMode);
+    if (switchingRealAccount || leavingDemoForReal) clearLocalMusicIdentity();
 
     set((s) => {
       if (s.isDemoMode && !session) return s;
@@ -202,5 +205,5 @@ export const useUserStore = create<UserStore>((set, get) => ({
       },
     };
   }),
-  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
+  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } : s)),
 }));
