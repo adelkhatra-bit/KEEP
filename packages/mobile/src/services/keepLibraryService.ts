@@ -108,6 +108,7 @@ export async function syncPlaylistTrack(params: {
   playlistDescription?: string;
   coverUrl?: string;
   trackId: string;
+  addedVia?: 'KEEP' | 'SOCIAL';
 }): Promise<void> {
   if (!supabase) return;
   const { data: sessionData } = await supabase.auth.getSession();
@@ -143,8 +144,8 @@ export async function syncPlaylistTrack(params: {
   const { error: membershipError } = await supabase.from('playlist_tracks').upsert({
     playlist_id: playlistId,
     track_id: params.trackId,
-    added_via: 'KEEP',
-  }, { onConflict: 'playlist_id,track_id', ignoreDuplicates: true });
+    added_via: params.addedVia ?? 'KEEP',
+  }, { onConflict: 'playlist_id,track_id', ignoreDuplicates: false });
   if (membershipError) throw membershipError;
 }
 
