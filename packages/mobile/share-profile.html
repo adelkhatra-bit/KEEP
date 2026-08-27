@@ -215,6 +215,14 @@ function renderPublicPlaylists(playlists){
     if(!rows.length){
       rows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,city,country_code,kind,favorite_genres,favorite_artists,website,updated_at&order=updated_at.desc&limit=1`);
     }
+    if(!rows.length){
+      let aliases=await get(`profile_username_aliases?alias=eq.${encodeURIComponent(u)}&select=profile_id&limit=1`);
+      if(!aliases.length) aliases=await get(`profile_username_aliases?alias=ilike.${encodeURIComponent(u)}&select=profile_id&limit=1`);
+      const aliasedProfileId=aliases?.[0]?.profile_id;
+      if(aliasedProfileId){
+        rows=await get(`profiles?id=eq.${encodeURIComponent(aliasedProfileId)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,city,country_code,kind,favorite_genres,favorite_artists,website,updated_at&limit=1`);
+      }
+    }
     const p=rows[0]; if(!p){status.textContent='Ce profil KEEP n’est pas public ou n’existe pas.';return}
     const canonical=`${KEEP_ROOT}share-profile/?u=${encodeURIComponent(p.username)}`;
     const profileTitle=`@${p.username} · KEEP`;
