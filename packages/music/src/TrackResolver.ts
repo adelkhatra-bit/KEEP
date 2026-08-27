@@ -103,6 +103,7 @@ export class TrackResolver {
       if (!existing.previewUrl && result.previewUrl) existing.previewUrl = result.previewUrl;
       if (result.availableOn?.length) existing.availableOn = Array.from(new Set([...(existing.availableOn ?? []), ...result.availableOn]));
       if (result.externalUrls) existing.externalUrls = { ...(existing.externalUrls ?? {}), ...result.externalUrls };
+      if (result.genres?.length) existing.genres = Array.from(new Set([...(existing.genres ?? []), ...result.genres]));
       for (const [provider, id] of Object.entries(result.providerIds ?? {})) {
         if (id) this.linkProviderId(existing, provider, id);
       }
@@ -119,6 +120,7 @@ export class TrackResolver {
       previewUrl: result.previewUrl,
       availableOn: result.availableOn,
       externalUrls: result.externalUrls,
+      genres: result.genres ?? [],
       providerIds: { ...(result.providerIds ?? {}) },
     };
     this.index(track);
