@@ -1,4 +1,4 @@
-/** Auth KEEP réelle (Supabase Auth). L'e-mail est obligatoire à la création ; la connexion accepte e-mail ou pseudo KEEP. */
+/** Auth KEEP réelle (Supabase Auth). La création peut se faire avec pseudo KEEP + mot de passe, sans e-mail visible. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KeepAuthSession {
@@ -132,8 +132,8 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return { error: error ? mapSignupError(error.message) : null };
     },
 
-    async signUpWithUsername() {
-      return { error: 'email_required' };
+    async signUpWithUsername(username, password) {
+      return usernameAuth('signup', username, password);
     },
 
     async signInWithUsername(username, password) {
