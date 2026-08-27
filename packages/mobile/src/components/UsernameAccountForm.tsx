@@ -1,7 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createAuthService } from '../services/authService';
-import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import {
+  clearStagedGuestMusic,
+  loadStagedGuestMusic,
+  stageGuestMusicForUpgrade,
+  stageGuestProfileForUpgrade,
+} from '../services/guestUpgradeService';
 import { importStagedGuestCreditsForAuthenticatedAccount, stageLocalGuestCreditsForUpgrade } from '../services/creditService';
 import { supabase } from '../services/supabaseClient';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -102,9 +107,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const finishAuthenticatedFlow = async () => {
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
+
+    const stagedMusic = await loadStagedGuestMusic().catch(() => []);
     useSessionHistoryStore.getState().clearSessions();
+    for (const session of stagedMusic) useSessionHistoryStore.getState().upsertSession(session);
+
     await useSessionHistoryStore.getState().syncUnsyncedKeeps().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+    await clearStagedGuestMusic().catch(() => {});
 
     const followed = await applyFollowIntent();
     if (followUsername) {
@@ -135,6 +145,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       if (mode === 'create' && isLocalGuest && currentUser) {
         await Promise.all([
           stageGuestProfileForUpgrade({ ...currentUser, username: normalizedUsername }),
+          stageGuestMusicForUpgrade(useSessionHistoryStore.getState().sessions),
           stageLocalGuestCreditsForUpgrade(),
         ]);
       }
@@ -246,7 +257,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
     </TouchableOpacity>
-    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Les musiques d’essai restent sur cet appareil et ne sont jamais ajoutées automatiquement au compte.</Text>
+    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Les musiques d’essai restent sur cet appareil jusqu’à ce que tu crées ton compte ; elles sont alors rattachées uniquement à ce compte KEEP.</Text>
   </ScrollView>;
 }
 
