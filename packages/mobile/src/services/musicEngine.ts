@@ -20,6 +20,7 @@ import {
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
 import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
+import { isSmartAlbumUiId, loadSmartAlbumTracks } from './smartAlbumService';
 
 const USE_DEMO_MUSIC_PROVIDER = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
 const USE_REAL_RECOGNITION = isSecureRecognitionConfigured && process.env.EXPO_PUBLIC_KEEP_REAL_RECOGNITION !== 'false';
@@ -85,6 +86,16 @@ class MusicEngine {
     this.musicProvider = USE_DEMO_MUSIC_PROVIDER
       ? new DemoMusicProvider()
       : createRealMusicProvider();
+
+    // Les écrans existants continuent d'utiliser exactement le même contrat
+    // MusicProviderAdapter. Seule l'ouverture d'un identifiant `keep-smart:*`
+    // est interceptée : les morceaux viennent alors de Supabase, sans changer
+    // la navigation, le design ni les flux Apple Music / démo.
+    const providerGetPlaylistTracks = this.musicProvider.getPlaylistTracks.bind(this.musicProvider);
+    this.musicProvider.getPlaylistTracks = async (session, playlistId) => {
+      if (isSmartAlbumUiId(playlistId)) return loadSmartAlbumTracks(playlistId);
+      return providerGetPlaylistTracks(session, playlistId);
+    };
 
     this.trackResolver = new TrackResolver();
     this.router = new SmartPlaylistRouter(new InMemoryRoutingWeightsStore());
