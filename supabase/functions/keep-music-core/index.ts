@@ -95,6 +95,11 @@ function normalizeText(value: unknown): string {
     .trim();
 }
 
+function validUuid(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text) ? text : null;
+}
+
 function upscaleArtwork(url: string): string {
   return url
     .replace(/100x100bb/gi, "600x600bb")
@@ -285,25 +290,29 @@ async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: stri
   return String(existing.id);
 }
 
+async function findExistingTrack(title: string, artist: string, isrc: string): Promise<any | null> {
+  if (isrc) {
+    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,provider_ids").eq("isrc", isrc).maybeSingle();
+    if (data?.id) return data;
+  }
+  const { data: matches, error } = await admin
+    .from("tracks")
+    .select("id,isrc,album,artwork_url,provider_ids")
+    .ilike("title", title)
+    .ilike("artist", artist)
+    .limit(1);
+  if (error) throw error;
+  return matches?.[0] ?? null;
+}
+
 async function findOrCreateTrack(track: TrackInput): Promise<string> {
   const title = String(track.title ?? "").trim();
   const artist = String(track.artist ?? "").trim();
   const isrc = String(track.isrc ?? "").trim().toUpperCase();
   if (!title || !artist) throw new Error("invalid_track");
 
-  if (isrc) {
-    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,provider_ids").eq("isrc", isrc).maybeSingle();
-    if (data?.id) return refreshTrackMetadata(data, track, isrc);
-  }
-
-  const { data: matches, error: matchError } = await admin
-    .from("tracks")
-    .select("id,isrc,album,artwork_url,provider_ids")
-    .ilike("title", title)
-    .ilike("artist", artist)
-    .limit(1);
-  if (matchError) throw matchError;
-  if (matches?.[0]?.id) return refreshTrackMetadata(matches[0], track, isrc);
+  const existing = await findExistingTrack(title, artist, isrc);
+  if (existing?.id) return refreshTrackMetadata(existing, track, isrc);
 
   const { data, error } = await admin.from("tracks").insert({
     isrc: isrc || null,
@@ -315,8 +324,42 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
     genres: Array.isArray(track.genres) ? track.genres.slice(0, 20) : [],
     provider_ids: track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {},
   }).select("id").single();
+
+  if (!error && data?.id) return String(data.id);
+
+  // Deux téléphones peuvent reconnaître le même titre exactement au même
+  // instant. L'index unique PostgreSQL gagne la course ; le perdant recharge
+  // simplement le track déjà créé au lieu de fabriquer un doublon ou une 500.
+  if ((error as any)?.code === "23505") {
+    const raced = await findExistingTrack(title, artist, isrc);
+    if (raced?.id) return refreshTrackMetadata(raced, track, isrc);
+  }
+  throw error;
+}
+
+async function resolveSocialOrigin(sourceProfileId: string | null, trackId: string): Promise<string | null> {
+  if (!sourceProfileId) return null;
+  const { data } = await admin
+    .from("keep_decisions")
+    .select("source_user_id")
+    .eq("profile_id", sourceProfileId)
+    .eq("track_id", trackId)
+    .eq("decision", "KEPT")
+    .eq("visibility", "PUBLIC")
+    .maybeSingle();
+  return validUuid(data?.source_user_id) ?? sourceProfileId;
+}
+
+async function existingKeptDecision(userId: string, trackId: string) {
+  const { data, error } = await admin
+    .from("keep_decisions")
+    .select("id,created_at,visibility,source_user_id,source_type,context")
+    .eq("profile_id", userId)
+    .eq("track_id", trackId)
+    .eq("decision", "KEPT")
+    .maybeSingle();
   if (error) throw error;
-  return String(data.id);
+  return data;
 }
 
 async function recordDecision(req: Request) {
@@ -328,8 +371,39 @@ async function recordDecision(req: Request) {
   if (decision !== "KEPT" && decision !== "PASSED") return json(400, { error: "invalid_decision" });
   const visibility: KeepVisibility = String(body?.visibility ?? "PRIVATE").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PRIVATE";
   const trackId = await findOrCreateTrack((body?.track ?? {}) as TrackInput);
-
   const context = body?.context && typeof body.context === "object" ? body.context : {};
+
+  if (decision === "KEPT") {
+    const current = await existingKeptDecision(userId, trackId);
+    if (current?.id) {
+      // GARDER deux fois le même morceau doit être idempotent. On peut modifier
+      // sa visibilité, mais on ne remplace jamais l'origine historique.
+      let returned = current;
+      if (current.visibility !== visibility) {
+        const { data: updated, error: updateError } = await admin
+          .from("keep_decisions")
+          .update({ visibility })
+          .eq("id", current.id)
+          .select("id,created_at,visibility,source_user_id,source_type,context")
+          .single();
+        if (updateError) throw updateError;
+        returned = updated;
+      }
+      return json(200, {
+        ok: true,
+        trackId,
+        decisionId: returned.id,
+        createdAt: returned.created_at,
+        visibility: returned.visibility,
+        deduplicated: true,
+      });
+    }
+  }
+
+  const sourceProfileId = validUuid((context as any)?.sourceProfileId);
+  const socialSource = sourceProfileId && sourceProfileId !== userId ? sourceProfileId : null;
+  const originProfileId = decision === "KEPT" ? await resolveSocialOrigin(socialSource, trackId) : null;
+
   const { data, error } = await admin.from("keep_decisions").insert({
     profile_id: userId,
     track_id: trackId,
@@ -339,9 +413,30 @@ async function recordDecision(req: Request) {
     chosen_playlist_id: null,
     was_correction: false,
     context,
+    source_type: socialSource ? "profile" : null,
+    source_user_id: originProfileId,
   }).select("id,created_at,visibility").single();
-  if (error) throw error;
-  return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility });
+
+  if (!error && data?.id) {
+    return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility, deduplicated: false });
+  }
+
+  // Protection de course côté base : si deux actions GARDER arrivent en même
+  // temps, l'index unique rejette la seconde ; on renvoie alors la première.
+  if (decision === "KEPT" && (error as any)?.code === "23505") {
+    const raced = await existingKeptDecision(userId, trackId);
+    if (raced?.id) {
+      return json(200, {
+        ok: true,
+        trackId,
+        decisionId: raced.id,
+        createdAt: raced.created_at,
+        visibility: raced.visibility,
+        deduplicated: true,
+      });
+    }
+  }
+  throw error;
 }
 
 async function updateDecisionVisibility(req: Request, body: any) {
