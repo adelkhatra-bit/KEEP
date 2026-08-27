@@ -1,4 +1,4 @@
-/** Auth KEEP réelle (Supabase Auth). Les nouveaux comptes e-mail doivent être confirmés avant connexion. */
+/** Auth KEEP réelle (Supabase Auth). Les comptes peuvent utiliser un pseudo KEEP seul ; l'e-mail reste optionnel. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KeepAuthSession {
@@ -20,7 +20,6 @@ export interface AuthService {
   signUpWithEmailIdentity(email: string, username: string, password: string): Promise<UsernameAuthResult>;
   signInWithEmailIdentity(email: string, password: string): Promise<UsernameAuthResult>;
   resendSignupConfirmation(email: string): Promise<{ error: string | null }>;
-  /** Compatibilité avec les anciens essais créés avant le passage à l'e-mail. */
   signUpWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
   signInWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
   requestEmailMagicLink(email: string): Promise<{ error: string | null }>;
@@ -48,6 +47,18 @@ function usernameFromMetadata(user: any): string | null {
   if (typeof value !== 'string') return null;
   const clean = normalizeUsername(value);
   return clean || null;
+}
+
+/**
+ * Les comptes pseudo-only utilisent en interne une adresse technique
+ * `<uuid>@keep.local` pour bénéficier de la session Supabase par mot de passe.
+ * Cette adresse n'est jamais une donnée utilisateur et ne doit jamais remonter
+ * dans le profil, les réglages ou l'interface.
+ */
+function visibleEmail(user: any): string | null {
+  const email = typeof user?.email === 'string' ? user.email.trim() : '';
+  if (!email || /@keep\.local$/i.test(email)) return null;
+  return email;
 }
 
 function mapSignupError(message: string): string {
@@ -88,14 +99,12 @@ export function createAuthService(client: SupabaseClient): AuthService {
     };
   };
 
-  const legacyUsernameAuth = async (action: 'signup' | 'login', username: string, password: string): Promise<UsernameAuthResult> => {
-    return invokeAccountAuth({ action, username: normalizeUsername(username), password, legacy_username: '1' });
+  const usernameAuth = async (action: 'signup' | 'login', username: string, password: string): Promise<UsernameAuthResult> => {
+    return invokeAccountAuth({ action, username: normalizeUsername(username), password, username_only: '1' });
   };
 
   return {
     async signInAsGuest() {
-      // Héritage uniquement. L'essai public actuel est local et ne doit jamais
-      // créer un nouvel utilisateur Supabase anonyme.
       const { data: existing } = await client.auth.getSession();
       if (existing.session?.user) return { error: null };
       return { error: 'guest_auth_disabled' };
@@ -105,10 +114,6 @@ export function createAuthService(client: SupabaseClient): AuthService {
       const cleanEmail = normalizeEmail(email);
       const cleanUsername = normalizeUsername(username);
 
-      // Utiliser Supabase Auth directement est volontaire : contrairement à
-      // admin.createUser(email_confirm:true), signUp déclenche le vrai mail de
-      // confirmation. Le compte n'obtient donc aucune session utilisable avant
-      // le clic du propriétaire de l'adresse.
       const { data, error } = await client.auth.signUp({
         email: cleanEmail,
         password,
@@ -120,14 +125,10 @@ export function createAuthService(client: SupabaseClient): AuthService {
       if (error) return { error: mapSignupError(error.message) };
       if (!data.user) return { error: 'account_not_created' };
 
-      // Avec l'énumération sécurisée de Supabase, une adresse déjà inscrite peut
-      // revenir sans identité au lieu d'une erreur explicite.
       if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
         return { error: 'email_taken' };
       }
 
-      // Hosted Supabase doit demander la confirmation. Si un environnement de
-      // test la désactive, on n'annonce jamais à tort que l'adresse a été vérifiée.
       if (data.session) {
         await client.auth.signOut().catch(() => {});
         return { error: 'email_confirmation_not_enabled' };
@@ -161,11 +162,11 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signUpWithUsername(username, password) {
-      return legacyUsernameAuth('signup', username, password);
+      return usernameAuth('signup', username, password);
     },
 
     async signInWithUsername(username, password) {
-      return legacyUsernameAuth('login', username, password);
+      return usernameAuth('login', username, password);
     },
 
     async requestEmailMagicLink() {
@@ -194,7 +195,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
       const user = data.session?.user;
       return user ? {
         userId: user.id,
-        email: user.email ?? null,
+        email: visibleEmail(user),
         username: usernameFromMetadata(user),
         isAnonymous: Boolean(user.is_anonymous),
       } : null;
@@ -209,7 +210,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
         const user = session?.user;
         callback(user ? {
           userId: user.id,
-          email: user.email ?? null,
+          email: visibleEmail(user),
           username: usernameFromMetadata(user),
           isAnonymous: Boolean(user.is_anonymous),
         } : null);
