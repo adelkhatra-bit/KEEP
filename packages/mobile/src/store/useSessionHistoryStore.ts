@@ -30,7 +30,7 @@ interface SessionHistoryStore {
   passTrackInSession: (sessionId: string, entryId: string) => void;
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
   setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
-  keepAllPendingInSession: (sessionId: string) => Promise<void>;
+  keepAllPendingInSession: (sessionId: string, visibility?: KeepVisibility) => Promise<void>;
   syncUnsyncedKeeps: () => Promise<void>;
   refreshCreditLocks: () => Promise<void>;
   getSession: (sessionId: string) => KeepSession | undefined;
@@ -132,35 +132,57 @@ function remoteEntry(remote: PersistedKeepDecision): SessionTrackEntry {
   };
 }
 
-function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
-  const remoteByDecision = new Map(remoteKeeps.map((item) => [item.decisionId, item]));
-  const remoteDecisionIds = new Set(remoteByDecision.keys());
+function buildRecoveredSession(sessionId: string, keeps: PersistedKeepDecision[]): KeepSession {
+  const tracks = keeps.map(remoteEntry).sort((a, b) => safeTime(b.detectedAt) - safeTime(a.detectedAt));
+  const earliest = tracks.reduce((min, entry) => {
+    const value = safeTime(entry.detectedAt);
+    return value > 0 && (min === 0 || value < min) ? value : min;
+  }, 0);
+  const latest = tracks.reduce((max, entry) => Math.max(max, safeTime(entry.detectedAt)), 0);
+  const fallbackNow = Date.now();
+  return {
+    id: sessionId,
+    startedAt: new Date(earliest || latest || fallbackNow).toISOString(),
+    endedAt: new Date(latest || earliest || fallbackNow).toISOString(),
+    title: 'Session récupérée',
+    tracks,
+  };
+}
 
-  // Toute entrée déjà synchronisée doit appartenir au compte actuellement
-  // authentifié. Si son decisionId n'existe pas dans la lecture serveur de ce
-  // compte, elle provient d'une ancienne identité locale (ou a été supprimée)
-  // et ne doit jamais polluer son KEEP, ses compteurs ou son ADN musical.
+/**
+ * Réconciliation serveur NON DESTRUCTIVE.
+ *
+ * Le serveur confirme/enrichit les KEEP déjà synchronisés et restaure les KEEP
+ * absents du téléphone. Une absence dans une réponse distante n'est JAMAIS une
+ * preuve suffisante pour supprimer l'historique local : réseau partiel, ancien
+ * backfill, déduplication ou changement de version pouvaient auparavant vider
+ * une session entière. Les changements de vrai compte sont traités séparément
+ * dans useUserStore, au moment où l'identité est réellement connue.
+ */
+export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
+  const remoteByDecision = new Map(remoteKeeps.map((item) => [item.decisionId, item]));
+
   let next = sessions.map((session) => ({
     ...session,
-    tracks: session.tracks
-      .filter((entry) => !entry.keepDecisionId || remoteDecisionIds.has(entry.keepDecisionId))
-      .map((entry): SessionTrackEntry => {
-        if (!entry.keepDecisionId) return entry;
-        const remote = remoteByDecision.get(entry.keepDecisionId);
-        if (!remote) return entry;
-        return {
-          ...entry,
-          track: mergeCanonicalTrack(entry.track, remote.track),
-          status: 'kept' as SessionTrackStatus,
-          visibility: remote.visibility,
-          sourceProfileId: remote.sourceProfileId,
-          sourceUsername: remote.sourceUsername,
-          creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
-          creditLocked: false,
-        };
-      }),
+    tracks: session.tracks.map((entry): SessionTrackEntry => {
+      if (!entry.keepDecisionId) return entry;
+      const remote = remoteByDecision.get(entry.keepDecisionId);
+      if (!remote) return entry;
+      return {
+        ...entry,
+        track: mergeCanonicalTrack(entry.track, remote.track),
+        status: 'kept' as SessionTrackStatus,
+        visibility: remote.visibility,
+        sourceProfileId: remote.sourceProfileId,
+        sourceUsername: remote.sourceUsername,
+        creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
+        creditLocked: false,
+      };
+    }),
   }));
 
+  // Si un vrai historique local contient déjà le KEEP, ne pas le dupliquer
+  // dans la session générique de récupération cloud.
   const visibleDecisionIds = new Set<string>();
   for (const session of next) {
     if (isCloudProfileRecoverySession(session)) continue;
@@ -176,34 +198,70 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
   }
   const missing = remoteKeeps.filter((item) => !represented.has(item.decisionId));
 
-  const existingCloud = next.find(isCloudProfileRecoverySession);
-  if (!missing.length) {
-    return next.filter((session) => !isCloudProfileRecoverySession(session) || session.tracks.length > 0);
+  // Les décisions récentes transportent le vrai sessionId dans leur contexte.
+  // On reconstruit donc LA session correspondante au lieu de jeter tous les
+  // morceaux dans un dossier générique. C'est ce qui permet de restaurer une
+  // session visible après reload, nouvel appareil ou ancienne perte locale.
+  const missingBySession = new Map<string, PersistedKeepDecision[]>();
+  const legacyMissing: PersistedKeepDecision[] = [];
+  for (const item of missing) {
+    if (item.sessionId && item.sessionId !== CLOUD_PROFILE_RECOVERY_SESSION_ID) {
+      const group = missingBySession.get(item.sessionId) ?? [];
+      group.push(item);
+      missingBySession.set(item.sessionId, group);
+    } else {
+      legacyMissing.push(item);
+    }
   }
 
-  const cloudTracks = [
-    ...(existingCloud?.tracks ?? []),
-    ...missing.map(remoteEntry),
-  ].sort((a, b) => safeTime(b.detectedAt) - safeTime(a.detectedAt));
+  for (const [sessionId, keeps] of missingBySession.entries()) {
+    const index = next.findIndex((session) => session.id === sessionId);
+    if (index >= 0) {
+      const existing = next[index];
+      const currentIds = new Set(existing.tracks.map((entry) => entry.keepDecisionId).filter(Boolean));
+      const additions = keeps.filter((item) => !currentIds.has(item.decisionId)).map(remoteEntry);
+      if (additions.length) {
+        const tracks = [...existing.tracks, ...additions].sort((a, b) => safeTime(b.detectedAt) - safeTime(a.detectedAt));
+        next[index] = {
+          ...existing,
+          tracks,
+          startedAt: existing.startedAt || buildRecoveredSession(sessionId, keeps).startedAt,
+          endedAt: existing.endedAt ?? buildRecoveredSession(sessionId, keeps).endedAt,
+        };
+      }
+    } else {
+      next.push(buildRecoveredSession(sessionId, keeps));
+    }
+  }
 
-  const earliest = cloudTracks.reduce((min, entry) => {
-    const value = safeTime(entry.detectedAt);
-    return value > 0 && (min === 0 || value < min) ? value : min;
-  }, 0);
-  const latest = cloudTracks.reduce((max, entry) => Math.max(max, safeTime(entry.detectedAt)), 0);
-  const fallbackNow = Date.now();
-  const cloudSession: KeepSession = {
-    id: CLOUD_PROFILE_RECOVERY_SESSION_ID,
-    startedAt: new Date(earliest || latest || fallbackNow).toISOString(),
-    endedAt: new Date(latest || earliest || fallbackNow).toISOString(),
-    title: 'KEEP sauvegardés',
-    tracks: cloudTracks,
-  };
+  // Les anciens KEEP n'ont pas de sessionId : ils restent accessibles dans une
+  // seule session de récupération, sans jamais effacer les sessions réelles.
+  const existingCloudIndex = next.findIndex(isCloudProfileRecoverySession);
+  if (legacyMissing.length) {
+    const existingCloud = existingCloudIndex >= 0 ? next[existingCloudIndex] : undefined;
+    const known = new Set((existingCloud?.tracks ?? []).map((entry) => entry.keepDecisionId).filter(Boolean));
+    const cloudTracks = [
+      ...(existingCloud?.tracks ?? []),
+      ...legacyMissing.filter((item) => !known.has(item.decisionId)).map(remoteEntry),
+    ].sort((a, b) => safeTime(b.detectedAt) - safeTime(a.detectedAt));
+    const earliest = cloudTracks.reduce((min, entry) => {
+      const value = safeTime(entry.detectedAt);
+      return value > 0 && (min === 0 || value < min) ? value : min;
+    }, 0);
+    const latest = cloudTracks.reduce((max, entry) => Math.max(max, safeTime(entry.detectedAt)), 0);
+    const fallbackNow = Date.now();
+    const cloudSession: KeepSession = {
+      id: CLOUD_PROFILE_RECOVERY_SESSION_ID,
+      startedAt: new Date(earliest || latest || fallbackNow).toISOString(),
+      endedAt: new Date(latest || earliest || fallbackNow).toISOString(),
+      title: 'KEEP sauvegardés',
+      tracks: cloudTracks,
+    };
+    if (existingCloudIndex >= 0) next[existingCloudIndex] = cloudSession;
+    else next.push(cloudSession);
+  }
 
-  next = existingCloud
-    ? next.map((session) => isCloudProfileRecoverySession(session) ? cloudSession : session)
-    : [...next, cloudSession];
-
+  next = next.filter((session) => !isCloudProfileRecoverySession(session) || session.tracks.length > 0);
   return next.sort((a, b) => {
     if (isCloudProfileRecoverySession(a)) return 1;
     if (isCloudProfileRecoverySession(b)) return -1;
@@ -273,12 +331,12 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         return changed;
       },
 
-      keepAllPendingInSession: async (sessionId) => {
+      keepAllPendingInSession: async (sessionId, visibility = 'PRIVATE') => {
         const session = get().sessions.find((s) => s.id === sessionId);
         if (!session) return;
         const pending = session.tracks.filter((t) => t.status === 'pending');
         for (const entry of pending) {
-          await get().keepTrackInSession(sessionId, entry.id, undefined, 'PRIVATE');
+          await get().keepTrackInSession(sessionId, entry.id, undefined, visibility);
           const refreshed = get().sessions.find((s) => s.id === sessionId)?.tracks.find((t) => t.id === entry.id);
           if (refreshed?.creditLocked) {
             set((s) => ({ sessions: lockPendingFrom(s.sessions, sessionId) }));
@@ -305,10 +363,8 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
 
         try {
           const remoteKeeps = await loadOwnPersistedKeeps();
-          // Une lecture serveur réussie, même vide, est la source de vérité du
-          // compte actif. Elle purge les anciennes décisions synchronisées qui
-          // appartenaient à un autre profil tout en conservant les entrées
-          // locales encore non synchronisées.
+          // Le serveur enrichit et restaure. Il ne supprime jamais une session
+          // locale sur la seule base d'une absence dans cette lecture distante.
           set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
