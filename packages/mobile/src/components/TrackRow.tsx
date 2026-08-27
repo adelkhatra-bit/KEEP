@@ -23,6 +23,10 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
   const visibility: KeepVisibility = entry.visibility ?? 'PRIVATE';
   const [previewBusy, setPreviewBusy] = useState(false);
   const previewKey = `session:${entry.id}`;
+  const externalPlayUrl = track.externalUrls?.appleMusic
+    || track.externalUrls?.spotify
+    || track.externalUrls?.universal
+    || track.externalUrls?.youtubeSearch;
 
   useEffect(() => () => {
     void stopTrackPreview(previewKey);
@@ -46,10 +50,10 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
     }
   };
 
-  const openYoutubeSearch = async () => {
-    const url = track.externalUrls?.youtubeSearch;
-    if (!url) return;
-    try { await Linking.openURL(url); } catch { Alert.alert('YouTube indisponible', 'Impossible d’ouvrir la recherche YouTube.'); }
+  const openExternal = async () => {
+    if (!externalPlayUrl) return;
+    try { await Linking.openURL(externalPlayUrl); }
+    catch { Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'); }
   };
 
   const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
@@ -62,14 +66,14 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
         <Text style={styles.artist} numberOfLines={1}>{track.artist}</Text>
         {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
         {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
-        {(track.previewUrl || track.externalUrls?.youtubeSearch) ? <View style={styles.previewRow}>
+        {(track.previewUrl || externalPlayUrl) ? <View style={styles.previewRow}>
           {track.previewUrl ? <>
             <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
             <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
             <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
           </> : null}
-          {track.externalUrls?.youtubeSearch ? <TouchableOpacity style={styles.youtubePill} onPress={() => void openYoutubeSearch()}><Text style={styles.youtubeText}>YouTube</Text></TouchableOpacity> : null}
-        </View> : null}
+          {externalPlayUrl ? <TouchableOpacity style={styles.youtubePill} onPress={() => void openExternal()}><Text style={styles.youtubeText}>{track.previewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
+        </View> : <Text style={styles.audioUnavailable}>Audio indisponible</Text>}
         {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
       </View>
 
@@ -106,6 +110,7 @@ const styles = StyleSheet.create({
   previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
   youtubePill: { minHeight: 24, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
   youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
+  audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
   passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
