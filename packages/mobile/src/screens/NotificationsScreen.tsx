@@ -15,6 +15,17 @@ import {
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
 
+function notificationTypeLabel(type: string) {
+  const key = type.trim().toUpperCase();
+  if (key === 'NEW_FOLLOWER') return 'NOUVEL ABONNÉ';
+  if (key === 'FOLLOWER_LEFT') return 'DÉSABONNEMENT';
+  if (key === 'NEW_PUBLIC_KEEP') return 'NOUVEAU KEEP';
+  if (key === 'MUSIC_TAKEN') return 'KEEP PARTAGÉ';
+  if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
+  if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
+  return key.replace(/_/g, ' ');
+}
+
 export default function NotificationsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const [items, setItems] = useState<KeepNotification[]>([]);
@@ -213,7 +224,7 @@ export default function NotificationsScreen({ navigation }: any) {
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
               <TouchableOpacity style={styles.cardMain} onPress={() => { void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
                 <View style={styles.cardTop}>
-                  <Text style={styles.cardType}>{item.type.toUpperCase()}</Text>
+                  <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>
                   <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
                 </View>
                 <Text style={styles.cardTitle}>{item.title}</Text>
