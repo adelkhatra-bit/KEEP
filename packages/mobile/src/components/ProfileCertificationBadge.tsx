@@ -1,34 +1,54 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 
 type Props = {
   tier: ProfileCertificationTier;
   compact?: boolean;
+  showLabel?: boolean;
 };
 
-const META: Record<ProfileCertificationTier, { label: string; border: string; background: string; text: string }> = {
-  UNVERIFIED: { label: 'ESSAI', border: '#5B5265', background: '#1A1520', text: '#A79DAF' },
-  FREE: { label: 'FREE', border: '#31C981', background: 'rgba(49,201,129,.12)', text: '#68F2B1' },
-  PREMIUM: { label: 'PREMIUM', border: '#6F8CFF', background: 'rgba(111,140,255,.14)', text: '#AFC0FF' },
-  CREATOR_PRO: { label: 'CREATOR PRO', border: '#A884FA', background: 'rgba(168,132,250,.14)', text: '#D9C7FF' },
-  VENUE_PRO: { label: 'VENUE PRO', border: '#D6AA36', background: 'rgba(214,170,54,.15)', text: '#F7D979' },
+type TierMeta = {
+  label: string;
+  colors: readonly [string, string, ...string[]];
+  ring: string;
+  check: string;
 };
 
-export default function ProfileCertificationBadge({ tier, compact = false }: Props) {
-  const meta = META[tier] ?? META.UNVERIFIED;
+export const CERTIFICATION_META: Record<ProfileCertificationTier, TierMeta> = {
+  UNVERIFIED: { label: 'ESSAI', colors: ['#3D3745', '#211C27'], ring: '#62596D', check: '#B9AFBF' },
+  FREE: { label: 'FREE', colors: ['#78F5BA', '#22B975'], ring: '#98FFD0', check: '#062418' },
+  PREMIUM: { label: 'PREMIUM', colors: ['#8EAAFF', '#5575F2'], ring: '#C3D0FF', check: '#FFFFFF' },
+  CREATOR_PRO: { label: 'CREATOR PRO', colors: ['#D2B9FF', '#8B5CF6'], ring: '#E7D9FF', check: '#FFFFFF' },
+  // Reflet volontairement asymétrique : la formule 29,99 € doit se lire comme
+  // le niveau « or » de KEEP, pas comme une simple pastille jaune.
+  VENUE_PRO: { label: 'VENUE PRO', colors: ['#FFF4B8', '#C99722', '#FFF0A1', '#8D6310'], ring: '#FFF2A8', check: '#352300' },
+};
+
+export default function ProfileCertificationBadge({ tier, compact = false, showLabel = false }: Props) {
+  const meta = CERTIFICATION_META[tier] ?? CERTIFICATION_META.UNVERIFIED;
+  const size = compact ? 20 : 26;
   return (
-    <View style={[styles.badge, compact && styles.badgeCompact, { borderColor: meta.border, backgroundColor: meta.background }]} accessibilityLabel={`Certification KEEP ${meta.label}`}>
-      <View style={[styles.dot, { backgroundColor: meta.border }]} />
-      <Text style={[styles.text, compact && styles.textCompact, { color: meta.text }]}>{meta.label}</Text>
+    <View style={styles.wrap} accessibilityLabel={`Certification KEEP ${meta.label}`}>
+      <View style={[styles.ring, { width: size, height: size, borderRadius: size / 2, borderColor: meta.ring }]}>
+        <LinearGradient colors={meta.colors as [string, string, ...string[]]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={[styles.medallion, { borderRadius: size / 2 }]}>
+          <Text style={[styles.check, compact && styles.checkCompact, { color: meta.check }]}>✓</Text>
+          {tier === 'VENUE_PRO' ? <View pointerEvents="none" style={styles.goldGlint} /> : null}
+        </LinearGradient>
+      </View>
+      {showLabel ? <Text style={[styles.label, compact && styles.labelCompact, { color: meta.ring }]}>{meta.label}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  badge: { minHeight: 25, paddingHorizontal: 9, borderRadius: 13, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
-  badgeCompact: { minHeight: 21, paddingHorizontal: 7, borderRadius: 11, gap: 4 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  text: { fontSize: 9, fontWeight: '900', letterSpacing: .35 },
-  textCompact: { fontSize: 8 },
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ring: { borderWidth: 1.5, padding: 1.5, alignItems: 'center', justifyContent: 'center' },
+  medallion: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  check: { fontSize: 13, lineHeight: 15, fontWeight: '1000' },
+  checkCompact: { fontSize: 10, lineHeight: 12 },
+  goldGlint: { position: 'absolute', left: 3, top: 2, width: '46%', height: 3, borderRadius: 3, backgroundColor: 'rgba(255,255,255,.72)', transform: [{ rotate: '-22deg' }] },
+  label: { fontSize: 9, fontWeight: '900', letterSpacing: .35 },
+  labelCompact: { fontSize: 8 },
 });
