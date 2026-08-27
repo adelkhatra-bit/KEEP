@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -48,37 +48,48 @@ export default function MusicSwipeDeckModal({
 }: Props) {
   const [round, setRound] = useState(0);
   const [index, setIndex] = useState(0);
+  const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
   const [previewInfoOpen, setPreviewInfoOpen] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
   const actionInFlight = useRef(false);
-  const shuffled = useMemo(() => shuffle(tracks), [tracks, round]);
-  const current = shuffled[index];
+  const wasVisible = useRef(false);
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const current = deckTracks[index];
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
 
   const advanceIndex = useCallback(() => {
-    if (index + 1 >= shuffled.length) {
-      if (loop) {
-        setIndex(0);
-        setRound((value) => value + 1);
-      } else {
-        setIndex(shuffled.length);
+    setIndex((currentIndex) => {
+      if (currentIndex + 1 >= deckTracks.length) {
+        if (loop) {
+          const nextRound = shuffle(tracksRef.current);
+          setDeckTracks(nextRound);
+          setRound((value) => value + 1);
+          return nextRound.length ? 0 : nextRound.length;
+        }
+        return deckTracks.length;
       }
-      return;
-    }
-    setIndex((value) => value + 1);
-  }, [index, loop, shuffled.length]);
+      return currentIndex + 1;
+    });
+  }, [deckTracks.length, loop]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      wasVisible.current = false;
+      return;
+    }
+    if (wasVisible.current) return;
+    wasVisible.current = true;
     actionInFlight.current = false;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setIndex(0);
+    setDeckTracks(loop ? shuffle(tracksRef.current) : [...tracksRef.current]);
     setRound((value) => value + 1);
-  }, [visible]);
+  }, [visible, loop]);
 
   useEffect(() => {
     let alive = true;
@@ -101,11 +112,16 @@ export default function MusicSwipeDeckModal({
         await stopTrackPreview();
         if (!alive || !previewUrl) return;
         await toggleTrackPreview(
-          `swipe-${current.id}`,
+          `swipe-${current.id}-${index}`,
           previewUrl,
           () => {},
           () => {
             if (!alive || actionInFlight.current) return;
+            // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
+            // une décision. Le morceau reste affiché jusqu'à PASSER ou GARDER.
+            // Cela garantit qu'aucun pending n'est sauté et qu'il n'est plus
+            // nécessaire de fermer/réouvrir le Swipe pour finir le tri.
+            if (!loop) return;
             advanceIndex();
           },
         );
@@ -118,9 +134,9 @@ export default function MusicSwipeDeckModal({
 
     return () => {
       alive = false;
-      void stopTrackPreview(`swipe-${current.id}`);
+      void stopTrackPreview(`swipe-${current.id}-${index}`);
     };
-  }, [visible, current?.id, current?.previewUrl, current?.title, current?.artist, advanceIndex, round]);
+  }, [visible, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
 
   const advance = async () => {
     await stopTrackPreview();
@@ -216,7 +232,7 @@ export default function MusicSwipeDeckModal({
         {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
             <SwipeDeck
-              resetKey={current.id}
+              resetKey={`${current.id}-${index}`}
               enabled={!processing && !keepPromptOpen && !previewInfoOpen}
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={requestKeep}
