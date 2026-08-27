@@ -46,19 +46,23 @@ export default function SourceProfileQuickView({
     setMessage('');
     setProfile(null);
 
-    void supabase
-      .from('profiles')
-      .select('id,username,display_name,bio,avatar_url,kind,city,country_code')
-      .ilike('username', username.replace(/^@+/, ''))
-      .eq('is_public', true)
-      .limit(1)
-      .then(({ data, error }) => {
+    const loadProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id,username,display_name,bio,avatar_url,kind,city,country_code')
+          .ilike('username', username.replace(/^@+/, ''))
+          .eq('is_public', true)
+          .limit(1);
         if (!live) return;
         if (!error && data?.[0]) setProfile(data[0] as QuickProfile);
         else setMessage('Profil indisponible pour le moment.');
-      })
-      .finally(() => { if (live) setLoading(false); });
+      } finally {
+        if (live) setLoading(false);
+      }
+    };
 
+    void loadProfile();
     return () => { live = false; };
   }, [username, visible]);
 
