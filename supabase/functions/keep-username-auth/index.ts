@@ -81,16 +81,12 @@ async function createProfile(userId: string, username: string) {
     favorite_genres: [],
     favorite_artists: [],
   };
-  // auth.users déclenche déjà keep_create_profile_from_auth_user. L'upsert
-  // rend ce chemin idempotent et évite le double INSERT qui cassait toutes
-  // les nouvelles inscriptions avec profiles_pkey.
   const { error } = await admin.from("profiles").upsert(payload, { onConflict: "id" });
   if (error) throw error;
 }
 
 async function bearerUserId(req: Request): Promise<string | null> {
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  // Les nouvelles clés publishable Supabase ne sont pas des JWT utilisateur.
   if (!token || token === ANON_KEY || token.startsWith("sb_")) return null;
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return null;
@@ -115,47 +111,7 @@ async function usernameFlow(req: Request, action: string, username: string, pass
   }
 
   if (action !== "signup") return json({ ok: false, error: "invalid_action" });
-
-  if (existingProfile) {
-    const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
-    if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
-    if (userData.user.is_anonymous) {
-      const callerId = await bearerUserId(req);
-      if (!callerId || callerId !== existingProfile.id) return json({ ok: false, error: "legacy_profile_requires_original_device" });
-      const email = syntheticEmail(existingProfile.id);
-      const { error: upgradeError } = await admin.auth.admin.updateUserById(existingProfile.id, {
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username },
-      });
-      if (upgradeError) throw upgradeError;
-      const signed = await sessionFor(email, password);
-      if (!signed.ok) return json({ ok: false, error: signed.error });
-      return json({ ok: true, username, ...signed.session });
-    }
-    return json({ ok: false, error: "username_taken" });
-  }
-
-  const userId = crypto.randomUUID();
-  const email = syntheticEmail(userId);
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    id: userId,
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { keep_username: username, keep_username_only: true },
-  });
-  if (createError || !created.user) throw createError ?? new Error("create_user_failed");
-  try {
-    await createProfile(userId, username);
-  } catch (error) {
-    await admin.auth.admin.deleteUser(userId).catch(() => {});
-    throw error;
-  }
-  const signed = await sessionFor(email, password);
-  if (!signed.ok) return json({ ok: false, error: signed.error });
-  return json({ ok: true, username, ...signed.session, username_only: true });
+  return json({ ok: false, error: "email_required" });
 }
 
 async function emailFlow(req: Request, action: string, username: string, email: string, password: string) {
@@ -276,7 +232,12 @@ Deno.serve(async (req) => {
     const username = normalizeUsername(body?.username);
     const email = normalizeEmail(body?.email);
     const password = String(body?.password ?? "");
-    if (body?.username_only === "1" || body?.legacy_username === "1" || !email) return await usernameFlow(req, action, username, password);
+
+    if (action === "signup" && !email) return json({ ok: false, error: "email_required" });
+    if (!email || body?.username_only === "1" || body?.legacy_username === "1") {
+      if (action === "signup") return json({ ok: false, error: "email_required" });
+      return await usernameFlow(req, action, username, password);
+    }
     return await emailFlow(req, action, username, email, password);
   } catch (error) {
     console.error("[keep-username-auth]", error);
