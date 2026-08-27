@@ -93,14 +93,16 @@ export default function MandatoryProfileRequirementsGate({ children }: { childre
       .select('requirements')
       .eq('profile_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (!live) return;
-        const raw = Array.isArray(data?.requirements) ? data.requirements : [];
-        const supported = raw.filter((item: unknown): item is Requirement => typeof item === 'string' && Object.prototype.hasOwnProperty.call(LABELS, item));
-        setRequirements(supported);
-        setLoaded(true);
-      })
-      .catch(() => { if (live) setLoaded(true); });
+      .then(
+        ({ data }) => {
+          if (!live) return;
+          const raw = Array.isArray(data?.requirements) ? data.requirements : [];
+          const supported = raw.filter((item: unknown): item is Requirement => typeof item === 'string' && Object.prototype.hasOwnProperty.call(LABELS, item));
+          setRequirements(supported);
+          setLoaded(true);
+        },
+        () => { if (live) setLoaded(true); },
+      );
     return () => { live = false; };
   }, [isDemoMode, isLocalGuest, user?.id]);
 
