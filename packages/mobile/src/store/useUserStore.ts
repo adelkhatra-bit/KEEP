@@ -121,10 +121,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
     const currentRealId = currentIsReal ? state.user?.id ?? null : null;
     const nextRealId = session?.userId ?? null;
 
-    if (
-      (currentRealId && currentRealId !== nextRealId) ||
-      ((state.isDemoMode || state.isLocalGuest) && nextRealId)
-    ) {
+    // Au bootstrap comme lors d'un changement invité/démo/compte, la musique
+    // locale ne peut pas être supposée appartenir au prochain auth.uid(). On
+    // repart donc du serveur pour le compte authentifié.
+    if (nextRealId && (!currentRealId || currentRealId !== nextRealId || state.isDemoMode || state.isLocalGuest)) {
       clearLocalMusicIdentity();
     }
 
@@ -199,5 +199,5 @@ export const useUserStore = create<UserStore>((set, get) => ({
       },
     };
   }),
-  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
+  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } : s)),
 }));
