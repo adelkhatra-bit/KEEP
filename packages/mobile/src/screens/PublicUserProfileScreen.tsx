@@ -4,13 +4,15 @@ import { CanonicalTrack } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { requestSocialLink } from '../services/notificationService';
+import { loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import { useUserStore } from '../store/useUserStore';
-import { SocialLink, User } from '../types';
+import { ProfileKind, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
+import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { commitKeep } from '../services/keepTrackAction';
 import { shareProfileTrack } from '../services/sharingService';
 
@@ -41,6 +43,9 @@ const SOCIALS: { platform: SocialPlatform; label: string }[] = [
   { platform: 'x', label: 'X' },
   { platform: 'facebook', label: 'Facebook' },
 ];
+const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
+  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
+};
 
 const KEEP_PAGE_SIZE = 250;
 const QUERY_CHUNK_SIZE = 120;
@@ -57,6 +62,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [profile, setProfile] = useState<User | null>(null);
+  const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
   const [directKeepCount, setDirectKeepCount] = useState(0);
   const [socialKeepCount, setSocialKeepCount] = useState(0);
@@ -76,6 +82,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const load = async () => {
       setLoading(true);
       setError(null);
+      setPublicSnapshot(null);
       setViewerKeepTrackIds(new Set());
       if (!username || !supabase) { setError('Profil indisponible.'); setLoading(false); return; }
       try {
@@ -84,6 +91,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         if (!result) { setError('Ce profil est privé ou introuvable.'); return; }
         setProfile(result);
         setFollowerCount(result.followerCount);
+
+        const snapshotPromise = loadPublicProfileSnapshot(result.id).catch(() => null);
 
         if (viewer?.id && viewer.id !== result.id && !isLocalGuest && !isDemoMode) {
           const { data: existing } = await supabase.from('follows').select('follower_id').eq('follower_id', viewer.id).eq('followee_id', result.id).maybeSingle();
@@ -96,7 +105,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         for (let from = 0; ; from += KEEP_PAGE_SIZE) {
           const { data: page, error: keepError } = await supabase
             .from('keep_decisions')
-            .select('id, created_at, context, source_user_id, tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids)')
+            .select('id, created_at, context, source_user_id, source_type, tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids)')
             .eq('profile_id', result.id)
             .eq('decision', 'KEPT')
             .eq('visibility', 'PUBLIC')
@@ -132,9 +141,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         if (cancelled) return;
         setTracks(normalized);
-        const socialCount = normalized.filter((track) => Boolean(track.sourceUserId || track.sourceProfileId)).length;
-        setSocialKeepCount(socialCount);
-        setDirectKeepCount(Math.max(0, normalized.length - socialCount));
+        const localSocialCount = normalized.filter((track) => Boolean(track.sourceUserId || track.sourceProfileId)).length;
+        const snapshot = await snapshotPromise;
+        if (cancelled) return;
+        if (snapshot) {
+          setPublicSnapshot(snapshot);
+          setDirectKeepCount(snapshot.directPublicKeeps);
+          setSocialKeepCount(snapshot.socialPublicKeeps);
+          setFollowerCount(snapshot.followers);
+        } else {
+          setSocialKeepCount(localSocialCount);
+          setDirectKeepCount(Math.max(0, normalized.length - localSocialCount));
+        }
 
         const ids = Array.from(new Set(normalized.map((track) => track.trackId).filter(Boolean)));
         const counts: Record<string, number> = {};
@@ -171,8 +189,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       }
     };
     void load();
-    return () => { cancelled = true; };
-  }, [username, viewer?.id, isLocalGuest, isDemoMode]);
+    const unsubscribe = navigation?.addListener?.('focus', () => { void load(); });
+    return () => { cancelled = true; unsubscribe?.(); };
+  }, [username, viewer?.id, isLocalGuest, isDemoMode, navigation]);
 
   const albums = useMemo(() => Array.from(new Set(tracks.map((track) => track.album).filter(Boolean) as string[])), [tracks]);
   const swipeTracks = useMemo<CanonicalTrack[]>(() => tracks.map((track) => ({
@@ -199,7 +218,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       if (viewer && viewer.id !== profile.id) {
         try { await requestSocialLink(profile.id, platform); } catch { }
       }
-      Alert.alert('Réseau non partagé', `Malheureusement, @${profile.username} ne partage pas ce réseau social pour le moment.`);
+      Alert.alert('Réseau non partagé', 'Cette personne ne partage pas ce réseau');
       return;
     }
     let url = link.url.trim();
@@ -336,42 +355,63 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   if (loading) return <SafeAreaView style={styles.container}><View style={styles.center}><ActivityIndicator color={colors.primaryLight} /></View></SafeAreaView>;
   if (!profile || error) return <SafeAreaView style={styles.container}><View style={styles.topBar}><TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>‹</Text></TouchableOpacity></View><View style={styles.center}><Text style={styles.muted}>{error ?? 'Profil introuvable.'}</Text></View></SafeAreaView>;
 
+  const certificationTier: ProfileCertificationTier = publicSnapshot?.certificationTier ?? 'UNVERIFIED';
+  const followingCount = publicSnapshot?.following ?? profile.followingCount;
+  const kindLabel = PROFILE_KIND_LABELS[profile.kind] ?? 'Utilisateur';
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
-          <Text style={styles.title}>@{profile.username}</Text><View style={styles.placeholder} />
+          <View style={styles.topTitleRow}><Text style={styles.topTitle}>Profil</Text><View style={styles.kindBadge}><Text style={styles.kindBadgeText}>{kindLabel}</Text></View></View>
+          <View style={styles.placeholder} />
         </View>
+
         <View style={styles.hero}>
-          {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>K</Text></View>}
-          <View style={styles.usernameRow}>
-            <Text style={styles.username}>@{profile.username}</Text>
-            {viewer?.id !== profile.id && (
-              <TouchableOpacity style={[styles.followButton, isFollowing && styles.followButtonActive]} onPress={toggleFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}>
-                <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>{isFollowing ? 'Abonné(e)' : '+ Suivre'}</Text>
-              </TouchableOpacity>
-            )}
+          <View style={styles.identity}>
+            {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>K</Text></View>}
+            <View style={styles.identityText}>
+              <View style={styles.usernameLine}><Text style={styles.username}>@{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+              <View style={styles.identityMeta}>
+                {viewer?.id !== profile.id && (
+                  <TouchableOpacity style={[styles.followButton, isFollowing && styles.followButtonActive]} onPress={toggleFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}>
+                    <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>{isFollowing ? 'Abonné(e)' : '+ Suivre'}</Text>
+                  </TouchableOpacity>
+                )}
+                {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipePreview} onPress={() => setSwipeOpen(true)}><Text style={styles.swipePreviewText}>▶ SWIPE</Text></TouchableOpacity> : null}
+              </View>
+              {(profile.city || profile.countryCode) && <Text style={styles.location}>{[profile.city, profile.countryCode].filter(Boolean).join(' · ')}</Text>}
+            </View>
           </View>
-          <Text style={styles.kind}>{profile.kind}</Text>
-          {(profile.city || profile.countryCode) && <Text style={styles.location}>{[profile.city, profile.countryCode].filter(Boolean).join(' · ')}</Text>}
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+          <View style={styles.statsRow}>
+            <Stat value={directKeepCount} label="KEEP" />
+            <Stat value={socialKeepCount} label="KEEP utilisateurs" />
+            <Stat value={followerCount} label="Abonnés" />
+            <Stat value={followingCount} label="Abonnements" />
+          </View>
+        </View>
+
+        <View style={styles.dna}>
+          <View style={styles.dnaHeader}><View><Text style={styles.dnaEyebrow}>KEEP DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View><Text style={styles.publicCount}>{tracks.length}</Text></View>
+          {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0)
+            ? <View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View>
+            : <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>}
+          {albums.length > 0 ? <Text style={styles.albumSummaryText} numberOfLines={2}>Albums : {albums.slice(0,5).join(' · ')}</Text> : null}
+        </View>
+
+        <View style={styles.socialHub}>
+          <Text style={styles.socialTitle}>Ses réseaux</Text>
           <View style={styles.socialRow}>
             {SOCIALS.map((item) => {
               const configured = Boolean(profile.socialLinks.find((link) => link.platform === item.platform && link.url.trim()));
               return <TouchableOpacity key={item.platform} style={[styles.socialButton, configured && styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#5C5468'} /></TouchableOpacity>;
             })}
           </View>
-          <View style={styles.statsRow}>
-            <Stat value={directKeepCount} label="KEEP" />
-            <Stat value={socialKeepCount} label="KEEP utilisateurs" />
-            <Stat value={followerCount} label="Abonnés" />
-            <Stat value={profile.followingCount} label="Abonnements" />
-          </View>
-          {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0) && <View style={styles.musicIdentity}><Text style={styles.sectionTitle}>KEEP DNA</Text><View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View></View>}
-          {albums.length > 0 ? <View style={styles.albumSummary}><Text style={styles.albumSummaryTitle}>Albums partagés</Text><Text style={styles.albumSummaryText} numberOfLines={2}>{albums.slice(0,5).join(' · ')}</Text></View> : null}
-          {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · KEEP te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
         </View>
+
+        {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · KEEP te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
 
         <View style={styles.publicMusicSection}>
           <View style={styles.musicSectionHeader}><Text style={styles.sectionTitle}>KEEP publics</Text><Text style={styles.publicCount}>{tracks.length}</Text></View>
@@ -415,8 +455,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 function Stat({ value, label }: { value: number; label: string }) { return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:56,paddingHorizontal:spacing.xl,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},title:{...typography.h3,color:colors.textPrimary},placeholder:{width:28},hero:{alignItems:'center',paddingHorizontal:spacing.xl,paddingTop:spacing.md},avatar:{width:88,height:88,borderRadius:44,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:27,fontWeight:'900'},usernameRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',marginTop:spacing.md},username:{...typography.h2,color:colors.textPrimary},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},location:{color:colors.textMuted,fontSize:13,marginTop:6},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginTop:spacing.md},
-  socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:spacing.lg},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:13,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
-  statsRow:{width:'100%',flexDirection:'row',marginTop:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:spacing.md,paddingHorizontal:2},statValue:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:9,lineHeight:12,marginTop:4,textAlign:'center'},
-  followButton:{minHeight:32,marginLeft:10,paddingHorizontal:13,borderRadius:radius.pill,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},followButtonTextActive:{color:colors.textSecondary},musicIdentity:{width:'100%',marginTop:spacing.lg,padding:spacing.md,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},sectionTitle:{...typography.h3,color:colors.textPrimary},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:spacing.sm},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},albumSummary:{width:'100%',marginTop:spacing.md},albumSummaryTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},albumSummaryText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:3},swipeLaunch:{width:'100%',marginTop:spacing.lg,minHeight:58,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:11,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:spacing.xl,marginTop:spacing.xl},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'center',gap:6},trackTitleBlock:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:5,marginTop:7},keepButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#AFA6BD'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:56,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},topTitleRow:{flexDirection:'row',alignItems:'center',gap:7},topTitle:{...typography.h2,color:colors.textPrimary},kindBadge:{minHeight:21,paddingHorizontal:7,borderRadius:11,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#BFA9FF',fontSize:8,fontWeight:'900'},placeholder:{width:34},
+  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:68,height:68,borderRadius:34,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},identityMeta:{flexDirection:'row',alignItems:'center',gap:6,marginTop:5,flexWrap:'wrap'},location:{color:colors.textMuted,fontSize:13,marginTop:5},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,marginTop:12},
+  followButton:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundCard,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:10,fontWeight:'900'},followButtonTextActive:{color:colors.textSecondary},swipePreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:'#21182F',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},swipePreviewText:{color:'#D9C7FF',fontSize:10,fontWeight:'900'},
+  statsRow:{width:'100%',flexDirection:'row',marginTop:16,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:10,paddingHorizontal:2},statValue:{color:colors.textPrimary,fontSize:18,fontWeight:'800'},statLabel:{color:colors.textMuted,fontSize:8,marginTop:3,textAlign:'center'},
+  dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},mutedSmall:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:8},albumSummaryText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:8},
+  socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
+  sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:58,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:11,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'center',gap:6},trackTitleBlock:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:5,marginTop:7},keepButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#AFA6BD'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
 });
