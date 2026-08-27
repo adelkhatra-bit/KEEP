@@ -36,9 +36,11 @@ export async function commitKeep(
 ): Promise<CommitKeepResult> {
   const session = await musicEngine.getSession();
   const userState = useUserStore.getState();
-  // Le mode démo est illimité. Les appels normaux consomment un crédit, sauf
-  // lorsqu'un flux produit explicite `consumeCredit:false` (profil -> profil).
-  const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;
+  const sourceProfileId = typeof options?.context?.sourceProfileId === 'string' ? options.context.sourceProfileId.trim() : '';
+  const isSocialCopy = Boolean(sourceProfileId && sourceProfileId !== userState.user?.id);
+  // Une reprise depuis le profil d'un autre membre est un cadeau communautaire :
+  // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/KEEP.
+  const consumesCredit = !userState.isDemoMode && !isSocialCopy && options?.consumeCredit !== false;
   const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
   if (consumesCredit) await ensureDownloadCreditAvailable();

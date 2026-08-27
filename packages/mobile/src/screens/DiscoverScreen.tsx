@@ -11,6 +11,7 @@ import { getDownloadCreditStatus } from '../services/creditService';
 import { hasFeature } from '../services/entitlementService';
 import { loadCurrentPlanCode } from '../services/planService';
 import SwipeDeck from '../components/SwipeDeck';
+import CommunityConnectionsPanel from '../components/CommunityConnectionsPanel';
 
 type DiscoveryProfile = {
   id: string;
@@ -232,6 +233,8 @@ export default function DiscoverScreen({ navigation }: any) {
         )}
 
         {!user?.city && <TouchableOpacity style={styles.locationHint} onPress={() => navigation.navigate('ProfileSettings')}><Text style={styles.locationHintText}>📍 Ajoute ta ville ou utilise ta position pour améliorer les profils autour de toi.</Text></TouchableOpacity>}
+
+        {user && !isLocalGuest && !isDemoMode ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('discover.yourTrends')}</Text>

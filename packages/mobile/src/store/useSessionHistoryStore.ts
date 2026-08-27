@@ -125,6 +125,9 @@ function remoteEntry(remote: PersistedKeepDecision): SessionTrackEntry {
     detectedAt: remote.detectedAt,
     visibility: remote.visibility,
     keepDecisionId: remote.decisionId,
+    sourceProfileId: remote.sourceProfileId,
+    sourceUsername: remote.sourceUsername,
+    creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
     creditLocked: false,
   };
 }
@@ -145,6 +148,9 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
         track: mergeCanonicalTrack(entry.track, remote.track),
         status: 'kept' as SessionTrackStatus,
         visibility: remote.visibility,
+        sourceProfileId: remote.sourceProfileId ?? entry.sourceProfileId,
+        sourceUsername: remote.sourceUsername ?? entry.sourceUsername,
+        creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : (entry.creditSource ?? 'FREE'),
         creditLocked: false,
       };
     }),

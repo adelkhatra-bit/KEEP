@@ -19,7 +19,7 @@ const normalizeUsername = (value: unknown) => String(value ?? "").trim().replace
 const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();
 const validUsername = (value: string) => value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 const validEmail = (value: string) => value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const validPassword = (value: string) => value.length >= 8 && value.length <= 128;
+const validPassword = (value: string) => value.length >= 6 && value.length <= 128;
 const syntheticEmail = (userId: string) => `${userId.toLowerCase()}@keep.local`;
 
 function looksLikeDuplicateEmail(error: unknown) {

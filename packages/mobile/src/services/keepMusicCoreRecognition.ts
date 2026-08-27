@@ -124,6 +124,9 @@ export interface PersistedKeepDecision {
   createdAt: string;
   detectedAt: string;
   sessionId?: string;
+  sourceProfileId?: string;
+  sourceUsername?: string;
+  creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT';
   track: CanonicalTrack;
 }
 
@@ -142,7 +145,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
   if (!accessToken) return [];
 
   const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/keep_decisions`);
-  url.searchParams.set('select', 'id,visibility,created_at,context,track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
+  url.searchParams.set('select', 'id,visibility,created_at,context,source_user_id,source:profiles!keep_decisions_source_user_id_fkey(username),track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
   url.searchParams.set('decision', 'eq.KEPT');
   url.searchParams.set('order', 'created_at.asc');
   url.searchParams.set('limit', String(Math.max(1, Math.min(limit, 1000))));
@@ -153,6 +156,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
 
   return rows.flatMap((row: any): PersistedKeepDecision[] => {
     const track = Array.isArray(row?.track) ? row.track[0] : row?.track;
+    const source = Array.isArray(row?.source) ? row.source[0] : row?.source;
     if (!row?.id || !track?.id || !track?.title || !track?.artist) return [];
     const context = row?.context && typeof row.context === 'object' ? row.context : {};
     const createdAt = String(row.created_at || new Date().toISOString());
@@ -165,6 +169,9 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       createdAt,
       detectedAt,
       sessionId,
+      sourceProfileId: row.source_user_id ? String(row.source_user_id) : undefined,
+      sourceUsername: source?.username ? String(source.username) : undefined,
+      creditPolicy: context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP',
       track: {
         id: String(track.id),
         isrc: track.isrc || undefined,

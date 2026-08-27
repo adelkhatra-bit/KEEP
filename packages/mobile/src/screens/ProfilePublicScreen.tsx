@@ -41,6 +41,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const sessions = useSessionHistoryStore((s) => s.sessions);
+  const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
@@ -96,6 +97,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [navigation, refreshPlaylists]);
 
   useEffect(() => {
+    if (accountRequired) return undefined;
+    const refreshKeeps = () => { void syncUnsyncedKeeps().catch(() => {}); };
+    refreshKeeps();
+    const unsubscribe = navigation?.addListener?.('focus', refreshKeeps);
+    return () => unsubscribe?.();
+  }, [accountRequired, navigation, syncUnsyncedKeeps, user?.id]);
+
+  useEffect(() => {
     let live = true;
     const refreshPreferences = async () => {
       const next = await loadPlaylistPreferences(providerId).catch(() => ({}));
@@ -118,7 +127,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return () => { live = false; };
   }, [accountRequired, user?.id]);
 
-  const keptTracks = useMemo(() => sessions.flatMap((session) => session.tracks.filter((entry) => entry.status === 'kept')), [sessions]);
+  const keptTracks = useMemo(() => {
+    const unique = new Map<string, (typeof sessions)[number]['tracks'][number]>();
+    const all = sessions.flatMap((session) => session.tracks.filter((entry) => entry.status === 'kept'));
+    for (const entry of all) {
+      const title = entry.track.title.trim().toLowerCase().replace(/\s+/g, ' ');
+      const artist = entry.track.artist.trim().toLowerCase().replace(/\s+/g, ' ');
+      const identity = entry.track.isrc?.trim().toUpperCase() || `${title}|${artist}`;
+      const current = unique.get(identity);
+      if (!current || new Date(entry.detectedAt).getTime() >= new Date(current.detectedAt).getTime()) unique.set(identity, entry);
+    }
+    return Array.from(unique.values()).sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  }, [sessions]);
   const publicKeptTracks = useMemo(() => keptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [keptTracks]);
   const publicSwipeTracks = useMemo<CanonicalTrack[]>(() => publicKeptTracks.map((entry) => entry.track), [publicKeptTracks]);
   const publicTrackIds = useMemo(() => new Set(publicKeptTracks.map((entry) => entry.track.id)), [publicKeptTracks]);
@@ -224,7 +244,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     await loadPlaylistTracks(playlist);
   };
 
-  const renderCompactTrack = (track: CanonicalTrack, key: string) => (
+  const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null) => (
     <View key={key} style={s.keepRow}>
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.keepCover} /> : <View style={[s.keepCover, s.coverFallback]}><Text style={s.keepCoverK}>K</Text></View>}
       <View style={s.keepInfo}>
@@ -233,6 +253,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact />
         </View>
         <TouchableOpacity style={s.trackShare} onPress={() => void shareProfileTrack(user.username, track.title, track.artist)}><Text style={s.trackShareText}>↗ Partager</Text></TouchableOpacity>
+        {sourceUsername !== undefined ? <Text style={[s.keepOrigin, sourceUsername ? s.keepOriginSocial : s.keepOriginFree]}>{sourceUsername ? `UTILISATEUR · @${sourceUsername}` : 'FREE'}</Text> : null}
       </View>
     </View>
   );
@@ -240,7 +261,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const tabContent = () => {
     if (activeTab === 'KEEP') {
       if (!publicKeptTracks.length) return <Empty text="Tes morceaux publics apparaîtront ici. Les morceaux privés restent dans Mes musiques." />;
-      return <View style={s.keepList}>{publicKeptTracks.slice(0,18).map((entry) => renderCompactTrack(entry.track, entry.id))}</View>;
+      return <View style={s.keepList}>{publicKeptTracks.slice(0,18).map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null))}</View>;
     }
 
     if (activeTab === 'PLAYLISTS') {
@@ -388,7 +409,7 @@ const s=StyleSheet.create({
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},muted:{color:colors.textMuted,fontSize:12,lineHeight:17},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  keepList:{marginHorizontal:18,marginTop:10,gap:7},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackShare:{alignSelf:'flex-start',marginTop:6,minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},trackShareText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},
+  keepList:{marginHorizontal:18,marginTop:10,gap:7},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackShare:{alignSelf:'flex-start',marginTop:6,minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},trackShareText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},keepOrigin:{alignSelf:'flex-start',marginTop:5,fontSize:8,fontWeight:'900',letterSpacing:.35},keepOriginFree:{color:'#8E8798'},keepOriginSocial:{color:'#CBB6FF'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:10,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},playlistShareText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:11,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:12,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:9,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelShareText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
   qrShell:{width:'100%',maxWidth:520,alignItems:'center'},qrCard:{width:'100%',backgroundColor:'#F7F4FF',borderRadius:26,padding:20},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#171020',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#6A4BA5',fontSize:9,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#E7DFFF'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#6A4BA5',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#171020',fontSize:22,fontWeight:'900'},qrKind:{color:'#6A4BA5',fontSize:10,fontWeight:'900',marginTop:2},qrLocation:{color:'#6B6377',fontSize:10,marginTop:3},qrBio:{color:'#4D4655',fontSize:11,lineHeight:16,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#E9E0FF',borderRadius:999,paddingHorizontal:8,paddingVertical:4},qrGenreText:{color:'#5B3E94',fontSize:9,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#FFF',borderRadius:16},qrScan:{color:'#171020',fontSize:9,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#6A4BA5',fontSize:12,fontWeight:'900',textAlign:'center',marginTop:5},screenshotHint:{color:'#A99EBA',fontSize:10,lineHeight:15,textAlign:'center',marginTop:10,paddingHorizontal:10},

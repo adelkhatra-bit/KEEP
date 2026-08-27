@@ -20,7 +20,7 @@ type Props = {
 
 function errorText(code: string) {
   if (code === 'invalid_username') return 'Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.';
-  if (code === 'invalid_password') return 'Le mot de passe doit contenir au moins 8 caractères.';
+  if (code === 'invalid_password') return 'Le mot de passe doit contenir au moins 6 caractères.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre.';
   if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support KEEP doit le régulariser.';
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
@@ -51,6 +51,7 @@ function isValidUsername(value: string) {
 export default function UsernameAccountForm({ initialMode = 'create', followUsername = '', onSuccess }: Props) {
   const currentUser = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const initialUsername = isLocalGuest && currentUser?.username && !/^invite-/i.test(currentUser.username)
     ? cleanUsername(currentUser.username)
     : '';
@@ -90,6 +91,11 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const finishAuthenticatedFlow = async () => {
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
+    // Une bibliothèque locale n'est transférée que lors de la transformation
+    // explicite d'un invité en NOUVEAU compte. Une connexion à un compte existant
+    // ou une création depuis la démo repart de la bibliothèque serveur du compte.
+    const carryGuestKeeps = mode === 'create' && isLocalGuest && !isDemoMode;
+    if (!carryGuestKeeps) useSessionHistoryStore.getState().clearSessions();
     await useSessionHistoryStore.getState().syncUnsyncedKeeps().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
     const followed = await applyFollowIntent();
@@ -108,7 +114,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
     const normalizedUsername = cleanUsername(username);
     if (!isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
-    if (password.length < 8) return setError(errorText('invalid_password'));
+    if (password.length < 6) return setError(errorText('invalid_password'));
     if (mode === 'create' && password !== password2) return setError('Les deux mots de passe ne correspondent pas.');
 
     setBusy(true);
@@ -176,7 +182,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         style={s.passwordInput}
         value={password}
         onChangeText={(value) => { setPassword(value); setPasswordSuggested(false); if (error) setError(''); }}
-        placeholder="Mot de passe — 8 caractères minimum"
+        placeholder="Mot de passe"
         placeholderTextColor={colors.textMuted}
         secureTextEntry={!showPassword}
         autoCapitalize="none"
@@ -205,7 +211,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       <TouchableOpacity style={s.eye} onPress={() => setShowPassword2((v) => !v)} accessibilityLabel="Afficher ou masquer la confirmation"><Text style={s.eyeText}>{showPassword2 ? '◉' : '◎'}</Text></TouchableOpacity>
     </View> : null}
 
-    <Text style={s.passwordRule}>8 caractères minimum. Utilise l’œil pour vérifier ta saisie.</Text>
+    <Text style={s.passwordRule}>Minimum technique : 6 caractères. KEEP n’impose aucune règle supplémentaire. Utilise l’œil pour vérifier ta saisie.</Text>
     {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par KEEP : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
