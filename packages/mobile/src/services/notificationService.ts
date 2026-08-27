@@ -92,6 +92,33 @@ export function subscribeToNotifications(
   };
 }
 
+/**
+ * Écoute INSERT/UPDATE/DELETE pour synchroniser les badges de compteur. Cela
+ * évite qu'un badge reste à l'ancien chiffre après lecture ou suppression.
+ */
+export function subscribeToNotificationChanges(profileId: string, onChange: () => void): () => void {
+  const client = supabase;
+  if (!client || !profileId) return () => {};
+
+  const channel = client
+    .channel(`keep-notification-count-${profileId}-${Math.random().toString(36).slice(2, 8)}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `profile_id=eq.${profileId}`,
+      },
+      () => onChange(),
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
+
 export async function requestSocialLink(targetProfileId: string, platform: string): Promise<void> {
   if (!supabase) throw new Error('Connexion KEEP indisponible.');
   const { error } = await supabase.rpc('request_social_link', {
@@ -118,11 +145,27 @@ export async function markAllNotificationsRead(_profileId: string): Promise<void
   await runNotificationAction('read_all');
 }
 
-export async function deleteNotification(_profileId: string, notificationId: string): Promise<void> {
+export async function deleteNotification(profileId: string, notificationId: string): Promise<void> {
+  if (!supabase) return;
+  // La suppression directe s'appuie sur la policy RLS notifications_delete_own.
+  // Elle est plus robuste côté client que de dépendre exclusivement du cache RPC
+  // PostgREST. En cas d'indisponibilité de cette route, on garde le RPC en secours.
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', profileId)
+    .eq('id', notificationId);
+  if (!error) return;
   await runNotificationAction('delete', notificationId);
 }
 
-export async function deleteAllNotifications(_profileId: string): Promise<void> {
+export async function deleteAllNotifications(profileId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', profileId);
+  if (!error) return;
   await runNotificationAction('delete_all');
 }
 
