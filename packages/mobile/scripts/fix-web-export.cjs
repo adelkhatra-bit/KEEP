@@ -5,6 +5,7 @@ const outDir = process.argv[2] || 'dist';
 const outputRoot = path.resolve(process.cwd(), outDir);
 const indexPath = path.join(outputRoot, 'index.html');
 const canonicalRoot = 'https://adelkhatra-bit.github.io/KEEP/';
+const buildId = (process.env.GITHUB_SHA || `local-${Date.now()}`).slice(0, 16);
 
 if (!fs.existsSync(indexPath)) {
   throw new Error(`KEEP web export introuvable: ${indexPath}`);
@@ -13,6 +14,20 @@ if (!fs.existsSync(indexPath)) {
 let html = fs.readFileSync(indexPath, 'utf8');
 if (!html.includes('<script type="module" src=')) {
   html = html.replace(/<script\s+src=/g, '<script type="module" src=');
+}
+
+// Hygiène de cache : à chaque nouvelle version publiée, on invalide uniquement
+// les caches navigateur/service-worker. On ne touche JAMAIS à localStorage
+// métier (session, profil, préférences) afin de ne pas déconnecter l'utilisateur.
+const cacheHygiene = [
+  '<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />',
+  '<meta http-equiv="Pragma" content="no-cache" />',
+  '<meta http-equiv="Expires" content="0" />',
+  `<meta name="keep-build" content="${buildId}" />`,
+  `<script id="keep-cache-hygiene">(function(){try{var k='__keep_web_build';var n='${buildId}';var p=localStorage.getItem(k);if(p!==n){if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister().catch(function(){})})}).catch(function(){})}if('caches' in window){caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key)}))}).catch(function(){})}localStorage.setItem(k,n)}}catch(e){}})();</script>`,
+].join('');
+if (!html.includes('keep-cache-hygiene') && html.includes('</head>')) {
+  html = html.replace('</head>', `${cacheHygiene}</head>`);
 }
 
 // iOS Safari zoome automatiquement lorsqu'un input a une taille de police
@@ -53,5 +68,6 @@ fs.writeFileSync(indexPath, html);
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${canonicalRoot}</loc></url>\n</urlset>\n`;
 fs.writeFileSync(path.join(outputRoot, 'sitemap.xml'), sitemap, 'utf8');
 
-console.log(`[KEEP] web bootstrap ES module + SEO + formulaires mobiles corrigés: ${indexPath}`);
+console.log(`[KEEP] web bootstrap ES module + cache hygiene + SEO + formulaires mobiles corrigés: ${indexPath}`);
+console.log(`[KEEP] build id: ${buildId}`);
 console.log(`[KEEP] sitemap: ${path.join(outputRoot, 'sitemap.xml')}`);
