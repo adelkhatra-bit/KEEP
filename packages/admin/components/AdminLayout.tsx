@@ -13,7 +13,7 @@ const NAV: NavItem[] = [
   { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/costs', label: 'Coûts & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+  { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
   { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
