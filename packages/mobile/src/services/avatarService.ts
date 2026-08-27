@@ -21,11 +21,12 @@ export async function pickAndUploadAvatar(profileId: string): Promise<string | n
   const asset = await pickAvatarAsset();
   if (!asset) return null;
 
-  // En essai gratuit il n'y a volontairement aucune session Supabase.
-  // On conserve donc l'URI locale sur l'appareil. Lors de la création du vrai
-  // compte, guestUpgradeService + profileService la transfèrent dans Storage.
-  const { data: authState } = await supabase.auth.getSession();
-  if (!authState.session?.user || authState.session.user.id !== profileId) return asset.uri;
+  // L'avatar d'un essai local reste sur l'appareil. `getUser()` vérifie la
+  // session auprès de Supabase au lieu de faire confiance à un ancien token
+  // encore présent dans le navigateur après suppression/réinitialisation d'un
+  // compte. Cela évite les erreurs Storage/FK vues pendant les tests mobiles.
+  const { data: authState, error: authError } = await supabase.auth.getUser();
+  if (authError || !authState.user || authState.user.id !== profileId) return asset.uri;
 
   const response = await fetch(asset.uri);
   const blob = await response.blob();
