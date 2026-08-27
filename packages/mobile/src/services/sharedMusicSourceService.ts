@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@keep/shared-music-source-v1';
+const SOURCE_TTL_MS = 5 * 60 * 1000;
 
 export type SharedMusicPlatform = 'TIKTOK' | 'INSTAGRAM' | 'SNAPCHAT' | 'YOUTUBE' | 'FACEBOOK' | 'WEB' | 'UNKNOWN';
 
@@ -13,6 +14,12 @@ export type SharedMusicSource = {
 };
 
 let memorySource: SharedMusicSource | null = null;
+let storageQueue: Promise<void> = Promise.resolve();
+
+function enqueueStorage(operation: () => Promise<void>) {
+  storageQueue = storageQueue.then(operation, operation).catch(() => {});
+  return storageQueue;
+}
 
 function normalizeUrl(value: string) {
   const trimmed = value.trim();
@@ -47,18 +54,28 @@ export function buildSharedMusicSource(input: { webUrl?: string | null; text?: s
 
 export async function setSharedMusicSource(source: SharedMusicSource): Promise<void> {
   memorySource = source;
-  try { await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(source)); } catch {}
+  await enqueueStorage(async () => {
+    // Si un clear plus récent a eu lieu entre-temps, ne réécrit jamais une
+    // ancienne provenance sociale dans le stockage persistant.
+    if (memorySource !== source) return;
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(source));
+  });
 }
 
 export async function getSharedMusicSource(): Promise<SharedMusicSource | null> {
-  if (memorySource) return memorySource;
+  if (memorySource) {
+    if (Date.now() - new Date(memorySource.sharedAt).getTime() <= SOURCE_TTL_MS) return memorySource;
+    await clearSharedMusicSource();
+    return null;
+  }
   try {
+    await storageQueue;
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SharedMusicSource;
     if (!parsed?.url || !parsed?.sharedAt) return null;
-    // Une source sociale ne doit jamais contaminer une écoute effectuée plus tard.
-    if (Date.now() - new Date(parsed.sharedAt).getTime() > 30 * 60 * 1000) {
+    // Une URL sociale n'est valable que pour le handoff tout juste reçu.
+    if (Date.now() - new Date(parsed.sharedAt).getTime() > SOURCE_TTL_MS) {
       await clearSharedMusicSource();
       return null;
     }
@@ -71,5 +88,9 @@ export async function getSharedMusicSource(): Promise<SharedMusicSource | null> 
 
 export async function clearSharedMusicSource(): Promise<void> {
   memorySource = null;
-  try { await AsyncStorage.removeItem(STORAGE_KEY); } catch {}
+  await enqueueStorage(async () => {
+    // Un nouveau partage arrivé après ce clear gagne toujours la course.
+    if (memorySource !== null) return;
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  });
 }
