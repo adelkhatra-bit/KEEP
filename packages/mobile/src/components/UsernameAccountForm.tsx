@@ -9,7 +9,7 @@ import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
-// Source-of-truth auth KEEP : aucun e-mail, aucun code à attendre.
+// Source-of-truth auth KEEP : aucun e-mail ni code reçu par e-mail n'est requis.
 export type UsernameAccountMode = 'create' | 'login';
 
 type Props = {
@@ -19,13 +19,14 @@ type Props = {
 };
 
 function errorText(code: string) {
-  if (code === 'invalid_username') return 'Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.';
-  if (code === 'invalid_password') return 'Le service d’authentification exige techniquement au moins 6 caractères.';
+  if (code === 'invalid_username') return 'Ce pseudo KEEP ne peut pas être utilisé.';
+  if (code === 'invalid_password') return 'Choisis un autre mot de passe.';
+  if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre.';
   if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support KEEP doit le régulariser.';
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
   if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin KEEP.';
-  if (code === 'invalid_credentials') return 'Pseudo KEEP ou mot de passe incorrect.';
+  if (code === 'invalid_credentials') return 'Identifiant KEEP, e-mail ou mot de passe incorrect.';
   return 'Connexion KEEP indisponible pour le moment. Réessaie dans un instant.';
 }
 
@@ -45,7 +46,7 @@ function cleanUsername(value: string) {
 }
 
 function isValidUsername(value: string) {
-  return value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
+  return value.length >= 1 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 }
 
 function passwordStrength(value: string) {
@@ -60,7 +61,6 @@ function passwordStrength(value: string) {
 export default function UsernameAccountForm({ initialMode = 'create', followUsername = '', onSuccess }: Props) {
   const currentUser = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
-  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const initialUsername = isLocalGuest && currentUser?.username && !/^invite-/i.test(currentUser.username)
     ? cleanUsername(currentUser.username)
     : '';
@@ -102,10 +102,6 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const finishAuthenticatedFlow = async () => {
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-
-    // Règle d'identité stricte : une musique de l'essai/démo n'entre JAMAIS
-    // automatiquement dans le compte créé. Le compte recharge uniquement les
-    // décisions KEEP qui appartiennent déjà à son auth.uid() côté Supabase.
     useSessionHistoryStore.getState().clearSessions();
     await useSessionHistoryStore.getState().syncUnsyncedKeeps().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
@@ -124,8 +120,12 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const submit = async () => {
     if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
-    const normalizedUsername = cleanUsername(username);
-    if (!isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
+    const identity = username.trim();
+    const normalizedUsername = cleanUsername(identity);
+    const loginByEmail = mode === 'login' && identity.includes('@');
+
+    if (mode === 'create' && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
+    if (mode === 'login' && !loginByEmail && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
     if (password.length < 6) return setError(errorText('invalid_password'));
     if (mode === 'create' && password !== password2) return setError('Les deux mots de passe ne correspondent pas.');
 
@@ -134,10 +134,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     try {
       if (mode === 'create' && isLocalGuest && currentUser) {
         await Promise.all([
-          // Les informations du profil peuvent être reprises ; pas la musique.
           stageGuestProfileForUpgrade({ ...currentUser, username: normalizedUsername }),
-          // La consommation de l'essai reste comptée afin d'éviter de recréer
-          // des comptes pour réinitialiser artificiellement le quota gratuit.
           stageLocalGuestCreditsForUpgrade(),
         ]);
       }
@@ -145,7 +142,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       const auth = createAuthService(supabase);
       const result = mode === 'create'
         ? await auth.signUpWithUsername(normalizedUsername, password)
-        : await auth.signInWithUsername(normalizedUsername, password);
+        : loginByEmail
+          ? await auth.signInWithEmailIdentity(identity, password)
+          : await auth.signInWithUsername(normalizedUsername, password);
       if (result.error) return setError(errorText(result.error));
       await finishAuthenticatedFlow();
     } catch {
@@ -168,21 +167,21 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
-        ? 'Simple : ton pseudo KEEP et ton mot de passe suffisent. Tu pourras ajouter un e-mail de récupération plus tard si tu le souhaites.'
-        : 'Connecte-toi avec ton pseudo KEEP et ton mot de passe.'}
+        ? 'Ton pseudo KEEP et ton mot de passe suffisent. Aucun e-mail n’est obligatoire.'
+        : 'Connecte-toi avec ton pseudo KEEP ou ton e-mail, puis ton mot de passe.'}
     </Text>
 
     <TextInput
       style={s.input}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder="Identifiant KEEP, ex. musicfan23"
+      placeholder={mode === 'create' ? 'Pseudo KEEP' : 'Pseudo KEEP ou e-mail'}
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
-      autoComplete="username"
-      textContentType="username"
-      maxLength={30}
+      autoComplete={mode === 'login' ? 'email' : 'username'}
+      textContentType={mode === 'login' ? 'username' : 'username'}
+      maxLength={160}
     />
 
     {mode === 'create' ? <>
@@ -232,13 +231,17 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       </View>
     </> : null}
 
-    <Text style={s.passwordRule}>Minimum technique du service : 6 caractères. La jauge te montre ensuite le niveau de sécurité choisi.</Text>
     {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par KEEP : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
     <TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>
       {busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>{mode === 'create' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>}
     </TouchableOpacity>
+
+    {mode === 'login' ? <TouchableOpacity style={s.forgot} onPress={() => Alert.alert(
+      'Mot de passe oublié',
+      'Pendant les tests, le Super Admin KEEP peut générer immédiatement un mot de passe temporaire pour ce compte, sans envoyer d’e-mail.',
+    )}><Text style={s.forgotText}>Mot de passe oublié ?</Text></TouchableOpacity> : null}
 
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
@@ -248,5 +251,5 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},strengthWeak:{backgroundColor:'#EF4444'},strengthMedium:{backgroundColor:'#F59E0B'},strengthGood:{backgroundColor:'#22C55E'},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:'#EF4444'},strengthTextMedium:{color:'#F59E0B'},strengthTextGood:{color:'#22C55E'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
+  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},strengthWeak:{backgroundColor:'#EF4444'},strengthMedium:{backgroundColor:'#F59E0B'},strengthGood:{backgroundColor:'#22C55E'},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:'#EF4444'},strengthTextMedium:{color:'#F59E0B'},strengthTextGood:{color:'#22C55E'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:'#F0C85A',fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
 });
