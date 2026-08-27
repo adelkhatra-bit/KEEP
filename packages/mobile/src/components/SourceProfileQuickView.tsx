@@ -37,6 +37,7 @@ export default function SourceProfileQuickView({
   const [profile, setProfile] = useState<QuickProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function SourceProfileQuickView({
     setLoading(true);
     setMessage('');
     setProfile(null);
+    setIsFollowing(false);
 
     const loadProfile = async () => {
       try {
@@ -56,8 +58,19 @@ export default function SourceProfileQuickView({
           .eq('is_public', true)
           .limit(1);
         if (!live) return;
-        if (!error && data?.[0]) setProfile(data[0] as QuickProfile);
-        else setMessage('Profil indisponible pour le moment.');
+        if (!error && data?.[0]) {
+          const nextProfile = data[0] as QuickProfile;
+          setProfile(nextProfile);
+          if (currentUserId && currentUserId !== nextProfile.id && !accountRequired) {
+            const { data: relation } = await client
+              .from('follows')
+              .select('follower_id')
+              .eq('follower_id', currentUserId)
+              .eq('followee_id', nextProfile.id)
+              .maybeSingle();
+            if (live) setIsFollowing(Boolean(relation));
+          }
+        } else setMessage('Profil indisponible pour le moment.');
       } finally {
         if (live) setLoading(false);
       }
@@ -65,7 +78,7 @@ export default function SourceProfileQuickView({
 
     void loadProfile();
     return () => { live = false; };
-  }, [username, visible]);
+  }, [accountRequired, currentUserId, username, visible]);
 
   const follow = async () => {
     if (!profile || followBusy) return;
@@ -78,12 +91,17 @@ export default function SourceProfileQuickView({
       onRequireAccount(profile.username);
       return;
     }
+    if (isFollowing) {
+      setMessage(`Tu es déjà abonné(e) à @${profile.username}.`);
+      return;
+    }
 
     setFollowBusy(true);
     setMessage('');
     try {
       const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: profile.id });
       if (error) throw error;
+      setIsFollowing(true);
       setMessage(`Tu suis maintenant @${profile.username}.`);
     } catch {
       setMessage('Impossible de suivre ce profil pour le moment.');
@@ -106,8 +124,8 @@ export default function SourceProfileQuickView({
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
             {message ? <Text style={s.message}>{message}</Text> : null}
 
-            <TouchableOpacity style={s.follow} onPress={() => void follow()} disabled={followBusy || profile.id === currentUserId}>
-              {followBusy ? <ActivityIndicator color="#FFF" /> : <Text style={s.followText}>{profile.id === currentUserId ? 'MON PROFIL' : '+ SUIVRE'}</Text>}
+            <TouchableOpacity style={[s.follow, isFollowing && s.followOn]} onPress={() => void follow()} disabled={followBusy || profile.id === currentUserId}>
+              {followBusy ? <ActivityIndicator color="#FFF" /> : <Text style={[s.followText, isFollowing && s.followTextOn]}>{profile.id === currentUserId ? 'MON PROFIL' : isFollowing ? 'ABONNÉ(E)' : '+ SUIVRE'}</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={s.secondary} onPress={() => { onClose(); onOpenFull(profile.username); }}>
               <Text style={s.secondaryText}>VOIR LE PROFIL COMPLET</Text>
@@ -131,7 +149,9 @@ const s = StyleSheet.create({
   bio:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
   message:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginVertical:8},
   follow:{width:'100%',minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:12},
+  followOn:{backgroundColor:'#1C3028',borderWidth:1,borderColor:'#3B8061'},
   followText:{color:'#FFF',fontSize:11,fontWeight:'900'},
+  followTextOn:{color:'#76E3AE'},
   secondary:{width:'100%',minHeight:42,borderRadius:21,borderWidth:1,borderColor:'#6E4BA5',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center',marginTop:8},
   secondaryText:{color:'#D9C7FF',fontSize:10,fontWeight:'900'},
   close:{minHeight:38,alignItems:'center',justifyContent:'center',marginTop:5},closeText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},
