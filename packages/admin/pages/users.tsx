@@ -17,6 +17,14 @@ type DirectoryUser = {
   created_at: string;
   plan_code: string;
   keeps_this_month: number;
+  avatar_url: string | null;
+  free_keeps_used: number;
+  social_keeps: number;
+  credit_consumed: number;
+  credit_limit: number | null;
+  credit_remaining: number | null;
+  playlist_tracks: number;
+  recognized_count: number;
 };
 
 type UserSnapshot = {
@@ -28,7 +36,10 @@ type UserSnapshot = {
   socialLinks: Array<{ platform: string; url: string; visibility: string }>;
   requirements: string[];
   auth: { email: string | null; emailVerified: boolean; emailConfirmedAt: string | null; isAnonymous: boolean; bannedUntil: string | null };
-  usage: { kept: number; passed: number; publicKeeps: number; playlists: number; downloadsConsumed: number };
+  usage: {
+    kept: number; ownKeeps: number; socialKeeps: number; passed: number; publicKeeps: number; playlists: number;
+    downloadsConsumed: number; recognizedCount: number; lastRecognizedAt: string | null;
+  };
 };
 
 type LegacyRecovery = { username: string; temporaryPassword: string; message?: string };
@@ -62,6 +73,12 @@ function visibleEmail(email: string | null) {
 function memberNumber(id: string) { return `KEEP-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`; }
 function durationLabel(months: number) { return months === 0 ? 'Illimité' : months === 12 ? '1 an' : months === 24 ? '2 ans' : `${months} mois`; }
 function isBanned(until: string | null | undefined) { return Boolean(until && new Date(until).getTime() > Date.now()); }
+function planColor(plan: string) {
+  if (plan === 'VENUE_PRO') return '#d6aa36';
+  if (plan === 'CREATOR_PRO') return '#b788ff';
+  if (plan === 'PREMIUM') return '#6f8cff';
+  return '#31c981';
+}
 
 export default function Users() {
   const [query, setQuery] = useState('');
@@ -77,6 +94,7 @@ export default function Users() {
   const [plan, setPlan] = useState<PaidPlan>('PREMIUM');
   const [months, setMonths] = useState(12);
   const [busy, setBusy] = useState<string | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
 
   const [legacyUsername, setLegacyUsername] = useState('');
   const [legacyRecovery, setLegacyRecovery] = useState<LegacyRecovery | null>(null);
@@ -104,7 +122,7 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setMessage(null); setError(null); setBusy('load');
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setMessage(null); setError(null); setBusy('load');
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
@@ -137,7 +155,7 @@ export default function Users() {
     try {
       const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin KEEP' });
       const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
-      setMessage(`${plan} offert à @${selected.username} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : ''}. Une notification KEEP est créée automatiquement.`);
+      setMessage(`${plan} offert à @${selected.username} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : ''}.`);
       await load(); await refreshSelected();
     } catch (e: any) { setError(e?.message ?? 'Attribution impossible.'); }
     finally { setBusy(null); }
@@ -151,6 +169,19 @@ export default function Users() {
       setMessage(`Avantage offert retiré pour @${selected.username}. Le compte et les données restent intacts.`);
       await load(); await refreshSelected();
     } catch (e: any) { setError(e?.message ?? 'Révocation impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const resetPassword = async () => {
+    if (!selected) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Générer un nouveau mot de passe temporaire pour @${selected.username} ? L’ancien ne fonctionnera plus.`)) return;
+    setBusy('password'); setError(null); setTemporaryPassword(null);
+    try {
+      const result = await invokeUserControl({ action: 'reset_password', profileId: selected.id });
+      setTemporaryPassword(String(result.temporaryPassword || ''));
+      setMessage(`Mot de passe temporaire généré pour @${selected.username}. Aucun e-mail n’a été envoyé.`);
+      if (result.data) setSnapshot(result.data as UserSnapshot);
+    } catch (e: any) { setError(e?.message ?? 'Réinitialisation impossible.'); }
     finally { setBusy(null); }
   };
 
@@ -168,12 +199,12 @@ export default function Users() {
 
   const deleteUser = async () => {
     if (!selected) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Supprimer définitivement @${selected.username} ? Le compte pourra ensuite être recréé.`)) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Supprimer définitivement @${selected.username} ? Profil, musiques, playlists et accès seront supprimés.`)) return;
     setBusy('delete'); setError(null);
     try {
       await invokeUserControl({ action: 'delete', profileId: selected.id });
       setMessage(`@${selected.username} a été supprimé.`);
-      setSelected(null); setSnapshot(null); await load();
+      setSelected(null); setSnapshot(null); setTemporaryPassword(null); await load();
     } catch (e: any) { setError(e?.message ?? 'Suppression impossible.'); }
     finally { setBusy(null); }
   };
@@ -194,7 +225,7 @@ export default function Users() {
 
   return <AdminLayout>
     <div className="page-title">Utilisateurs</div>
-    <div className="page-subtitle">{users.length} compte(s) réels dans KEEP · clique sur un utilisateur pour tout gérer</div>
+    <div className="page-subtitle">{users.length} compte(s) réels · écoute, FREE, profil, abonnement et récupération au même endroit</div>
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
 
@@ -206,16 +237,16 @@ export default function Users() {
       <button onClick={()=>void load()} disabled={loading}>Actualiser</button>
     </div>
 
-    <div className="card" style={{ padding:0, overflow:'hidden' }}>
-      <table style={{ margin:0 }}>
-        <thead><tr><th>Utilisateur</th><th>E-mail</th><th>Plan</th><th>KEEP</th><th>Pays</th><th></th></tr></thead>
+    <div className="card" style={{ padding:0, overflowX:'auto' }}>
+      <table style={{ margin:0, minWidth:980 }}>
+        <thead><tr><th>Utilisateur</th><th>Plan</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th></th></tr></thead>
         <tbody>
-          {loading && <tr><td colSpan={6} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
-          {!loading && filtered.length===0 && <tr><td colSpan={6} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
+          {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
+          {!loading && filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
           {filtered.map((u)=><tr key={u.id} onClick={()=>void openUser(u)} style={{ cursor:'pointer' }}>
-            <td><strong>@{u.username}</strong><div style={{fontSize:11,color:'var(--text-muted)'}}>{memberNumber(u.id)}</div></td>
-            <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}} style={{background:'transparent',border:0,padding:0,color:'inherit',textDecoration:'underline',cursor:'pointer'}}>{visibleEmail(u.email)}</button></td>
-            <td>{u.plan_code || 'FREE'}</td><td>{u.keeps_this_month ?? 0}</td><td>{u.country_code || '—'}</td>
+            <td><div style={{display:'flex',alignItems:'center',gap:10}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:34,height:34,borderRadius:'50%',objectFit:'cover'}}/>:<div style={{width:34,height:34,borderRadius:'50%',background:'#251d32'}}/>}<div><strong>@{u.username}</strong><div style={{fontSize:11,color:'var(--text-muted)'}}>{visibleEmail(u.email)}</div></div></div></td>
+            <td><span style={{display:'inline-flex',padding:'4px 8px',borderRadius:999,border:`1px solid ${planColor(u.plan_code)}`,color:planColor(u.plan_code),fontWeight:800,fontSize:11}}>{u.plan_code || 'FREE'}</span></td>
+            <td>{u.recognized_count ?? 0}</td><td>{u.free_keeps_used ?? 0}</td><td>{u.social_keeps ?? 0}</td><td>{u.credit_remaining == null ? '∞' : u.credit_remaining}</td><td>{u.playlist_tracks ?? 0}</td>
             <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}}>Gérer</button></td>
           </tr>)}
         </tbody>
@@ -232,21 +263,33 @@ export default function Users() {
     </details>
 
     {selected && <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
-      <div onClick={(e)=>e.stopPropagation()} style={{width:'min(760px,96vw)',maxHeight:'90vh',overflowY:'auto',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
-          <div><div style={{fontSize:22,fontWeight:900}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div></div>
+          <div style={{display:'flex',gap:12,alignItems:'center'}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover'}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32'}}/>}<div><div style={{fontSize:22,fontWeight:900}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div></div></div>
           <button onClick={()=>setSelected(null)}>Fermer</button>
         </div>
 
         {busy==='load' || !snapshot ? <div style={{padding:30,textAlign:'center'}}>Chargement du profil réel…</div> : <>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:8,marginTop:16}}>
             {[
-              ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'À vérifier') : 'Non ajouté'],
-              ['Naissance', snapshot.privateInfo?.birth_date || 'Manquante'], ['Genre', snapshot.privateInfo?.gender || 'Manquant'],
-              ['Ville / pays', [snapshot.profile.city,snapshot.profile.country_code].filter(Boolean).join(' · ') || 'Manquant'],
-              ['KEEP', String(snapshot.usage.kept)], ['Publics', String(snapshot.usage.publicKeeps)], ['Playlists', String(snapshot.usage.playlists)],
+              ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
+              ['Reconnaissances', String(snapshot.usage.recognizedCount)],
+              ['KEEP débités', String(snapshot.usage.ownKeeps)],
+              ['KEEP utilisateurs', String(snapshot.usage.socialKeeps)],
+              ['KEEP total', String(snapshot.usage.kept)],
+              ['Publics', String(snapshot.usage.publicKeeps)],
+              ['Playlists', String(snapshot.usage.playlists)],
               ['Réseaux', String(snapshot.socialLinks.length)],
+              ['Naissance', snapshot.privateInfo?.birth_date || 'Manquante'],
+              ['Ville / pays', [snapshot.profile.city,snapshot.profile.country_code].filter(Boolean).join(' · ') || 'Manquant'],
             ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong>{value}</strong></div>)}
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
+            <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
+            <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
+            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo KEEP ou l’e-mail réel + ce mot de passe.</div></div>}
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
