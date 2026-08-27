@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
 import { useSessionStore } from '../store/useSessionStore';
@@ -8,10 +8,11 @@ import { colors } from '../theme/colors';
 type Props = {
   trackKey: string;
   previewUrl?: string;
+  fallbackUrl?: string;
   compact?: boolean;
 };
 
-export default function TrackPreviewButton({ trackKey, previewUrl, compact = false }: Props) {
+export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
 
@@ -30,14 +31,30 @@ export default function TrackPreviewButton({ trackKey, previewUrl, compact = fal
   const stopListeningThenPreview = async () => {
     const session = useSessionStore.getState();
     if (session.isActive) session.requestEndSession();
-    // requestEndSession déclenche déjà l'arrêt ; l'attente ici garantit que le
-    // micro est réellement libéré AVANT d'ouvrir la sortie audio du morceau.
     await cancelAudioCapture().catch(() => {});
     await playOrStopPreview();
   };
 
+  const openFallback = async () => {
+    if (!fallbackUrl || busy) return;
+    setBusy(true);
+    try {
+      const canOpen = await Linking.canOpenURL(fallbackUrl).catch(() => true);
+      if (!canOpen) throw new Error('unavailable');
+      await Linking.openURL(fallbackUrl);
+    } catch {
+      Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggle = () => {
-    if (!previewUrl || busy) return;
+    if (busy) return;
+    if (!previewUrl) {
+      if (fallbackUrl) void openFallback();
+      return;
+    }
     if (playing) {
       void playOrStopPreview();
       return;
@@ -58,8 +75,8 @@ export default function TrackPreviewButton({ trackKey, previewUrl, compact = fal
     void playOrStopPreview();
   };
 
-  if (!previewUrl) {
-    return compact ? null : <Text style={styles.unavailable}>Extrait indisponible</Text>;
+  if (!previewUrl && !fallbackUrl) {
+    return compact ? <Text style={styles.unavailable}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
   }
 
   return (
@@ -68,9 +85,9 @@ export default function TrackPreviewButton({ trackKey, previewUrl, compact = fal
       onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
-      accessibilityLabel={playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau'}
+      accessibilityLabel={previewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
     >
-      <Text style={[styles.text, compact && styles.compactText]}>{busy ? '…' : playing ? '■ Stop' : '▶ Extrait'}</Text>
+      <Text style={[styles.text, compact && styles.compactText]}>{busy ? '…' : previewUrl ? (playing ? '■ Stop' : '▶ Extrait') : '▶ Écouter'}</Text>
     </TouchableOpacity>
   );
 }
