@@ -36,6 +36,14 @@ function canDestruct(role: string) {
   return role === "SUPER_ADMIN";
 }
 
+function generateTemporaryPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(14));
+  let body = "";
+  for (const byte of bytes) body += alphabet[byte % alphabet.length];
+  return `K!${body}7`;
+}
+
 async function audit(actorId: string, action: string, targetId: string, after: unknown) {
   await admin.from("audit_logs").insert({
     actor_admin_id: actorId,
@@ -55,20 +63,23 @@ async function cleanupAvatarFolder(profileId: string) {
 }
 
 async function getUserSnapshot(profileId: string) {
-  const [{ data: profile, error: profileError }, { data: privateInfo }, { data: socials }, { data: requirements }, authResult, keepResult, playlistResult, downloadResult] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: privateInfo }, { data: socials }, { data: requirements }, authResult, keepResult, playlistResult, downloadResult, musicUsageResult] = await Promise.all([
     admin.from("profiles").select("id,username,display_name,bio,avatar_url,city,country_code,kind,website,is_public,created_at,updated_at").eq("id", profileId).maybeSingle(),
     admin.from("profile_private_info").select("birth_date,gender").eq("profile_id", profileId).maybeSingle(),
     admin.from("social_links").select("platform,url,visibility").eq("profile_id", profileId),
     admin.from("user_profile_requirements").select("requirements,updated_at").eq("profile_id", profileId).maybeSingle(),
     admin.auth.admin.getUserById(profileId),
-    admin.from("keep_decisions").select("id,decision,visibility", { count: "exact" }).eq("profile_id", profileId),
+    admin.from("keep_decisions").select("id,decision,visibility,context,source_user_id", { count: "exact" }).eq("profile_id", profileId),
     admin.from("playlists").select("id", { count: "exact", head: true }).eq("owner_id", profileId),
     admin.from("download_credit_usage").select("consumed_count").eq("profile_id", profileId).maybeSingle(),
+    admin.from("music_usage_counters").select("recognized_count,last_recognized_at").eq("profile_id", profileId).maybeSingle(),
   ]);
   if (profileError || !profile) throw new Error("profile_not_found");
   const authUser = authResult.data.user ?? null;
   const decisions = keepResult.data ?? [];
   const realEmail = authUser?.email && !authUser.email.endsWith("@keep.local") ? authUser.email : null;
+  const socialKeeps = decisions.filter((row: any) => row.decision === "KEPT" && (row.context?.creditPolicy === "SOCIAL_ZERO_CREDIT" || row.source_user_id)).length;
+  const ownKeeps = decisions.filter((row: any) => row.decision === "KEPT" && row.context?.creditPolicy !== "SOCIAL_ZERO_CREDIT" && !row.source_user_id).length;
   return {
     profile,
     privateInfo: privateInfo ?? null,
@@ -84,10 +95,14 @@ async function getUserSnapshot(profileId: string) {
     },
     usage: {
       kept: decisions.filter((row: any) => row.decision === "KEPT").length,
+      ownKeeps,
+      socialKeeps,
       passed: decisions.filter((row: any) => row.decision === "PASSED").length,
       publicKeeps: decisions.filter((row: any) => row.decision === "KEPT" && row.visibility === "PUBLIC").length,
       playlists: playlistResult.count ?? 0,
       downloadsConsumed: downloadResult.data?.consumed_count ?? 0,
+      recognizedCount: musicUsageResult.data?.recognized_count ?? 0,
+      lastRecognizedAt: musicUsageResult.data?.last_recognized_at ?? null,
     },
   };
 }
@@ -135,6 +150,18 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, data: await getUserSnapshot(profileId) });
     }
 
+    if (action === "reset_password") {
+      if (!canDestruct(actor.role)) return json(403, { error: "role_forbidden" });
+      if (profileId === actor.id) return json(409, { error: "cannot_reset_self_here" });
+      const { data: existing, error: existingError } = await admin.auth.admin.getUserById(profileId);
+      if (existingError || !existing.user) return json(404, { error: "profile_not_found" });
+      const temporaryPassword = generateTemporaryPassword();
+      const { error } = await admin.auth.admin.updateUserById(profileId, { password: temporaryPassword });
+      if (error) throw error;
+      await audit(actor.id, "user.password.reset", profileId, { temporary: true, emailSent: false });
+      return json(200, { ok: true, temporaryPassword, data: await getUserSnapshot(profileId) });
+    }
+
     if (action === "delete") {
       if (!canDestruct(actor.role)) return json(403, { error: "role_forbidden" });
       if (profileId === actor.id) return json(409, { error: "cannot_delete_self" });
@@ -144,13 +171,18 @@ Deno.serve(async (req) => {
       await audit(actor.id, "user.deleted", profileId, { username: existing.username });
       await cleanupAvatarFolder(profileId).catch(() => {});
 
-      const { error } = await admin.auth.admin.deleteUser(profileId);
+      const { error } = await admin.auth.admin.deleteUser(profileId, false);
       if (error) throw error;
 
       const { data: remainingProfile, error: verifyError } = await admin.from("profiles").select("id").eq("id", profileId).maybeSingle();
       if (verifyError) throw verifyError;
-      if (remainingProfile) throw new Error("delete_incomplete");
+      if (remainingProfile) {
+        const { error: profileDeleteError } = await admin.from("profiles").delete().eq("id", profileId);
+        if (profileDeleteError) throw profileDeleteError;
+      }
 
+      const { data: stillThere } = await admin.from("profiles").select("id").eq("id", profileId).maybeSingle();
+      if (stillThere) throw new Error("delete_incomplete");
       return json(200, { ok: true, deleted: true, profileId });
     }
 
