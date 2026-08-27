@@ -10,6 +10,7 @@ import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
+import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { commitKeep } from '../services/keepTrackAction';
 import { shareProfileTrack } from '../services/sharingService';
 
@@ -54,6 +55,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
+  const [swipeOpen, setSwipeOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +122,20 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   }, [username, viewer?.id]);
 
   const albums = useMemo(() => Array.from(new Set(tracks.map((track) => track.album).filter(Boolean) as string[])), [tracks]);
+  const swipeTracks = useMemo<CanonicalTrack[]>(() => tracks.map((track) => ({
+    id: track.trackId,
+    isrc: track.isrc,
+    title: track.title,
+    artist: track.artist,
+    album: track.album || undefined,
+    durationSec: track.durationSec,
+    artworkUrl: track.artworkUrl || undefined,
+    previewUrl: track.previewUrl,
+    availableOn: track.availableOn,
+    externalUrls: track.externalUrls,
+    genres: track.genres,
+    providerIds: track.providerIds || {},
+  })), [tracks]);
 
   const goToOwnProfile = () => navigation.navigate('Main', { screen: 'Profile' });
 
@@ -128,7 +144,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const link = profile.socialLinks.find((item) => item.platform === platform && item.url.trim());
     if (!link) {
       if (viewer && viewer.id !== profile.id) {
-        try { await requestSocialLink(profile.id, platform); } catch { /* popup stays useful even if notification fails */ }
+        try { await requestSocialLink(profile.id, platform); } catch { }
       }
       Alert.alert('Réseau non partagé', `Malheureusement, @${profile.username} ne partage pas ce réseau social pour le moment.`);
       return;
@@ -180,6 +196,28 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setLikeCounts((current) => ({ ...current, [trackId]: (current[trackId] || 0) + 1 }));
     }
     setLikedTrackIds(next);
+  };
+
+  const addCanonicalToMyKeep = async (canonical: CanonicalTrack) => {
+    if (!viewer || isLocalGuest || isDemoMode) {
+      setSwipeOpen(false);
+      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte pour ajouter cette musique à ton KEEP.', [
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return;
+    }
+    if (profile && viewer.id === profile.id) return;
+    try {
+      await commitKeep(canonical, [], undefined, { visibility: 'PRIVATE', context: { source: 'public_profile_swipe', sourceProfileId: profile?.id } });
+    } catch (e: any) {
+      if (e?.message === 'CREDITS_EXHAUSTED') {
+        setSwipeOpen(false);
+        Alert.alert('Crédits gratuits utilisés', 'Passe à Premium pour continuer à ajouter les découvertes à ton KEEP.', [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
+        ]);
+      } else throw e;
+    }
   };
 
   const addToMyKeep = async (track: PublicKeepTrack) => {
@@ -255,6 +293,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <View style={styles.statsRow}><Stat value={tracks.length} label="KEEP" /><Stat value={followerCount} label="Abonnés" /><Stat value={profile.followingCount} label="Abonnements" /></View>
           {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0) && <View style={styles.musicIdentity}><Text style={styles.sectionTitle}>KEEP DNA</Text><View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View></View>}
           {albums.length > 0 ? <View style={styles.albumSummary}><Text style={styles.albumSummaryTitle}>Albums partagés</Text><Text style={styles.albumSummaryText} numberOfLines={2}>{albums.slice(0,5).join(' · ')}</Text></View> : null}
+          {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · passe ou ajoute directement à ton KEEP.</Text></TouchableOpacity> : null}
         </View>
 
         <View style={styles.publicMusicSection}>
@@ -281,6 +320,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           )}
         </View>
       </ScrollView>
+
+      <MusicSwipeDeckModal
+        visible={swipeOpen}
+        tracks={swipeTracks}
+        title={`Le KEEP de @${profile.username}`}
+        subtitle="Les extraits disponibles démarrent automatiquement."
+        onClose={() => setSwipeOpen(false)}
+        onKeep={addCanonicalToMyKeep}
+      />
     </SafeAreaView>
   );
 }
@@ -291,5 +339,5 @@ const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:56,paddingHorizontal:spacing.xl,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},title:{...typography.h3,color:colors.textPrimary},placeholder:{width:28},hero:{alignItems:'center',paddingHorizontal:spacing.xl,paddingTop:spacing.md},avatar:{width:88,height:88,borderRadius:44,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:27,fontWeight:'900'},usernameRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',marginTop:spacing.md},username:{...typography.h2,color:colors.textPrimary},kind:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},location:{color:colors.textMuted,fontSize:13,marginTop:6},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginTop:spacing.md},
   socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:spacing.lg},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:13,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
   statsRow:{width:'100%',flexDirection:'row',marginTop:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:spacing.md},statValue:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:11,marginTop:4},
-  followButton:{minHeight:32,marginLeft:10,paddingHorizontal:13,borderRadius:radius.pill,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},followButtonTextActive:{color:colors.textSecondary},musicIdentity:{width:'100%',marginTop:spacing.lg,padding:spacing.md,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},sectionTitle:{...typography.h3,color:colors.textPrimary},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:spacing.sm},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},albumSummary:{width:'100%',marginTop:spacing.md},albumSummaryTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},albumSummaryText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:3},publicMusicSection:{paddingHorizontal:spacing.xl,marginTop:spacing.xl},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'center',gap:6},trackTitleBlock:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:5,marginTop:7},keepButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  followButton:{minHeight:32,marginLeft:10,paddingHorizontal:13,borderRadius:radius.pill,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},followButtonTextActive:{color:colors.textSecondary},musicIdentity:{width:'100%',marginTop:spacing.lg,padding:spacing.md,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},sectionTitle:{...typography.h3,color:colors.textPrimary},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:spacing.sm},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},albumSummary:{width:'100%',marginTop:spacing.md},albumSummaryTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},albumSummaryText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:3},swipeLaunch:{width:'100%',marginTop:spacing.lg,minHeight:58,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:11,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:spacing.xl,marginTop:spacing.xl},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'center',gap:6},trackTitleBlock:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:5,marginTop:7},keepButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
 });
