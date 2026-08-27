@@ -88,11 +88,27 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const pendingCount = session.tracks.filter((tr) => tr.status === 'pending').length;
   const lockedCount = session.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
 
-  const handleKeepAll = async () => {
+  const runKeepAll = async (visibility: 'PUBLIC' | 'PRIVATE') => {
     setProcessing(true);
-    await refreshCreditLocks().catch(() => {});
-    await keepAllPendingInSession(sessionId);
-    setProcessing(false);
+    try {
+      await refreshCreditLocks().catch(() => {});
+      await keepAllPendingInSession(sessionId, visibility);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleKeepAll = () => {
+    if (processing) return;
+    Alert.alert(
+      'Garder tous les morceaux',
+      'Choisis la visibilité pour les morceaux encore en attente. Aucun morceau ne sera mis en privé automatiquement sans ton choix.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Tout en privé', onPress: () => void runKeepAll('PRIVATE') },
+        { text: 'Tout en public', onPress: () => void runKeepAll('PUBLIC') },
+      ],
+    );
   };
 
   const handleShare = async () => {
@@ -211,7 +227,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <Text style={styles.statsDot}>·</Text>
           <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
         </View>
-        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Trier ${pendingCount} musiques`}><Text style={styles.pendingPillText}>À TRIER · {pendingCount}</Text></TouchableOpacity> : null}
+        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}><Text style={styles.pendingPillText}>SWIPER · {pendingCount}</Text></TouchableOpacity> : null}
       </View>
 
       {lockedCount > 0 ? (
@@ -221,7 +237,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.visibilityHint}>À trier en premier · Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
+      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
 
       <FlatList
         data={sortedTracks}
@@ -231,7 +247,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <TrackRow
             entry={item}
             playlists={playlists}
-            onKeep={(entryId, playlistId) => keepTrackInSession(sessionId, entryId, playlistId, 'PRIVATE')}
+            onKeep={(entryId, playlistId, visibility) => keepTrackInSession(sessionId, entryId, playlistId, visibility ?? 'PRIVATE')}
             onPass={(entryId) => passTrackInSession(sessionId, entryId)}
             onVisibilityChange={(entryId, visibility) => { void setTrackVisibilityInSession(sessionId, entryId, visibility); }}
             onUnlock={() => { void openUnlock(); }}
@@ -241,13 +257,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
       <View style={styles.sessionActionsRow}>
         {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Trier la session en swipe">
-            <Text style={styles.swipeActionText}>↔ À TRIER · {pendingCount}</Text>
+          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Swiper la session">
+            <Text style={styles.swipeActionText}>↔ SWIPER · {pendingCount}</Text>
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
           <TouchableOpacity style={[styles.compactAction, styles.keepAllButton]} onPress={handleKeepAll} disabled={processing} accessibilityRole="button" accessibilityLabel="Garder tous les morceaux en attente">
-            <Text style={styles.keepAllButtonText}>{processing ? '…' : `✓ GARDER TOUT (${pendingCount})`}</Text>
+            <Text style={styles.keepAllButtonText}>{processing ? '…' : `♡ GARDER TOUT (${pendingCount})`}</Text>
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity style={[styles.compactAction, styles.deleteSessionButton]} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette session">
@@ -264,9 +280,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <MusicSwipeDeckModal
         visible={swipeOpen}
         tracks={swipeTracks}
-        title="Trier cette session"
+        title="Swiper cette session"
         subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} à valider · PASSER ou GARDER enchaîne automatiquement la suivante.`}
-        emptyTitle="Session triée. Toutes les musiques ont été validées."
+        emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep
         onClose={closeSwipe}
