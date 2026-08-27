@@ -180,7 +180,7 @@ export function createProfileService(client: SupabaseClient) {
 
     async loadPublicProfileByUsername(username: string): Promise<User | null> {
       const cleanUsername = username.trim().replace(/^@/, '');
-      const { data: profile, error: profileError } = await client
+      let { data: profile, error: profileError } = await client
         .from('profiles')
         .select('*')
         .ilike('username', cleanUsername)
@@ -188,6 +188,28 @@ export function createProfileService(client: SupabaseClient) {
         .maybeSingle();
 
       if (profileError) throw profileError;
+
+      // Un ancien lien reste valable après changement de pseudo : la base garde
+      // chaque ancien pseudo réservé et le résout vers le même profile_id.
+      if (!profile) {
+        const { data: alias, error: aliasError } = await client
+          .from('profile_username_aliases')
+          .select('profile_id')
+          .ilike('alias', cleanUsername)
+          .maybeSingle();
+        if (aliasError) throw aliasError;
+        if (alias?.profile_id) {
+          const resolved = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', alias.profile_id)
+            .eq('is_public', true)
+            .maybeSingle();
+          if (resolved.error) throw resolved.error;
+          profile = resolved.data;
+        }
+      }
+
       if (!profile) return null;
 
       const [{ data: socialLinks, error: socialError }, followersResult, followingResult] = await Promise.all([
