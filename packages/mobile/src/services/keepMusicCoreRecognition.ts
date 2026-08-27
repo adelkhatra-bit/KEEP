@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import type { KeepVisibility } from '../types';
-import { getSupabaseAccessToken } from './supabaseClient';
+import { getSupabaseAccessToken, supabase } from './supabaseClient';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -140,12 +140,16 @@ export interface PersistedKeepDecision {
  * store local après une mise à jour, une reconnexion ou un nouvel appareil.
  */
 export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepDecision[]> {
-  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return [];
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY) || !supabase) return [];
   const accessToken = await getSupabaseAccessToken();
   if (!accessToken) return [];
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (!userId) return [];
 
   const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/keep_decisions`);
-  url.searchParams.set('select', 'id,visibility,created_at,context,source_user_id,source:profiles!keep_decisions_source_user_id_fkey(username),track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
+  url.searchParams.set('select', 'id,profile_id,visibility,created_at,context,source_user_id,source:profiles!keep_decisions_source_user_id_fkey(username),track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
+  url.searchParams.set('profile_id', `eq.${userId}`);
   url.searchParams.set('decision', 'eq.KEPT');
   url.searchParams.set('order', 'created_at.asc');
   url.searchParams.set('limit', String(Math.max(1, Math.min(limit, 1000))));
@@ -155,6 +159,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
   if (!Array.isArray(rows)) return [];
 
   return rows.flatMap((row: any): PersistedKeepDecision[] => {
+    if (String(row?.profile_id || '') !== userId) return [];
     const track = Array.isArray(row?.track) ? row.track[0] : row?.track;
     const source = Array.isArray(row?.source) ? row.source[0] : row?.source;
     if (!row?.id || !track?.id || !track?.title || !track?.artist) return [];
