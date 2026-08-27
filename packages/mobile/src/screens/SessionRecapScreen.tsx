@@ -29,6 +29,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
   const [titleSaved, setTitleSaved] = useState(false);
   const [swipeOpen, setSwipeOpen] = useState(false);
+  const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
 
   useEffect(() => {
     void refreshCreditLocks().catch(() => {});
@@ -42,6 +43,32 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     if (!session) return [];
     return session.tracks.filter((entry) => entry.status === 'pending').map((entry) => entry.track);
   }, [session]);
+
+  const sortedTracks = useMemo(() => {
+    if (!session) return [];
+    const rank = (status: string) => status === 'pending' ? 0 : status === 'kept' ? 1 : 2;
+    return session.tracks.slice().sort((a, b) => {
+      const statusDiff = rank(a.status) - rank(b.status);
+      if (statusDiff) return statusDiff;
+      return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
+    });
+  }, [session]);
+
+  const openSwipe = () => {
+    const pending = pendingSwipeTracks.slice();
+    if (!pending.length) return;
+    // Snapshot volontaire : le parent met à jour le statut après chaque choix.
+    // Garder la liste stable évite le double saut qui obligeait à fermer puis
+    // rouvrir le Swipe après PASSER/GARDER.
+    setSwipeTracks(pending);
+    setSwipeOpen(true);
+  };
+
+  useEffect(() => {
+    if (!route.params?.openSwipe || !pendingSwipeTracks.length || swipeOpen) return;
+    openSwipe();
+    navigation?.setParams?.({ openSwipe: false });
+  }, [route.params?.openSwipe, pendingSwipeTracks.length, swipeOpen]);
 
   if (!session) {
     return (
@@ -130,6 +157,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
       setSwipeOpen(false);
+      setSwipeTracks([]);
       await openUnlock();
       return false;
     }
@@ -140,6 +168,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     const entry = findPendingEntry(track);
     if (entry) passTrackInSession(sessionId, entry.id);
     return true;
+  };
+
+  const closeSwipe = () => {
+    setSwipeOpen(false);
+    setSwipeTracks([]);
   };
 
   return (
@@ -173,9 +206,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <Text style={titleSaved ? styles.titleSaved : styles.titleHint}>{titleSaved ? '✓ Nom enregistré' : 'Écris un nom puis appuie sur VALIDER.'}</Text>
 
       <View style={styles.statsRow}>
-        <Text style={styles.statsText}>{t('session.detected', { count: detectedCount })}</Text>
-        <Text style={styles.statsDot}>·</Text>
-        <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
+        <View style={styles.statsCopy}>
+          <Text style={styles.statsText}>{t('session.detected', { count: detectedCount })}</Text>
+          <Text style={styles.statsDot}>·</Text>
+          <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
+        </View>
+        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Trier ${pendingCount} musiques`}><Text style={styles.pendingPillText}>À TRIER · {pendingCount}</Text></TouchableOpacity> : null}
       </View>
 
       {lockedCount > 0 ? (
@@ -185,10 +221,10 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.visibilityHint}>Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
+      <Text style={styles.visibilityHint}>À trier en premier · Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
 
       <FlatList
-        data={session.tracks}
+        data={sortedTracks}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
@@ -205,8 +241,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
       <View style={styles.sessionActionsRow}>
         {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={() => setSwipeOpen(true)} accessibilityRole="button" accessibilityLabel="Trier la session en swipe">
-            <Text style={styles.swipeActionText}>↔ SWIPE</Text>
+          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Trier la session en swipe">
+            <Text style={styles.swipeActionText}>↔ À TRIER · {pendingCount}</Text>
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
@@ -227,13 +263,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
       <MusicSwipeDeckModal
         visible={swipeOpen}
-        tracks={pendingSwipeTracks}
+        tracks={swipeTracks}
         title="Trier cette session"
-        subtitle="Comme un feed : gauche pour passer, droite pour garder."
-        emptyTitle="Session triée. Tu peux revenir à la liste."
+        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} à valider · PASSER ou GARDER enchaîne automatiquement la suivante.`}
+        emptyTitle="Session triée. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep
-        onClose={() => setSwipeOpen(false)}
+        onClose={closeSwipe}
         onKeep={handleSwipeKeep}
         onPass={handleSwipePass}
       />
@@ -259,10 +295,13 @@ const styles = StyleSheet.create({
   validateTitleText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
   titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+  statsCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
   statsDot: { color: colors.textMuted },
+  pendingPill: { minHeight: 30, paddingHorizontal: 10, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight },
+  pendingPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: .35 },
   lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, marginTop: 4 },
