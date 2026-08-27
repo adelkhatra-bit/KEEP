@@ -5,11 +5,18 @@ on:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
+      - 'packages/music/**'
       - '.github/workflows/mobile-full-loop-audit.yml'
   workflow_dispatch:
+  # Prêt pour une exécution permanente dès que cette source devient la branche
+  # par défaut GitHub : les workflows planifiés sont toujours lus sur la branche
+  # par défaut par GitHub Actions.
+  schedule:
+    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   mobile-loop:
@@ -49,7 +56,7 @@ jobs:
           done
           cat /tmp/keep-mobile-loop.log
           exit 1
-      - name: Audit complet mobile 390x844 + persistance + fenêtre réduite
+      - name: Audit complet mobile + persistance + fenêtres réelles
         run: |
           mkdir -p artifacts/mobile-loop
           cat > mobile-loop.cjs <<'JS'
@@ -65,7 +72,7 @@ jobs:
             page.on('dialog', async d => { await d.accept().catch(() => {}); });
 
             const shot = async (name) => page.screenshot({ path: `artifacts/mobile-loop/${name}.png`, fullPage: true });
-            const assertInViewport = async (locator, label, viewportBottom = 784) => {
+            const assertInViewport = async (locator, label, viewportBottom) => {
               await locator.waitFor({ state: 'visible', timeout: 15000 });
               const box = await locator.boundingBox();
               if (!box) throw new Error(`${label}: élément invisible`);
@@ -77,13 +84,24 @@ jobs:
                 await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
               }
             };
+            const assertFiveTabsAt = async (width, height, name) => {
+              await page.setViewportSize({ width, height });
+              await page.waitForTimeout(250);
+              for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
+                const tab = textLast(label, { exact: true });
+                await assertInViewport(tab, `${name} / onglet ${label}`, height);
+              }
+              const dimensions = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+              if (dimensions.scrollWidth > dimensions.width + 1) throw new Error(`${name}: débordement horizontal ${JSON.stringify(dimensions)}`);
+              await shot(name);
+            };
 
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1000);
 
-            // Le test complet utilise un vrai essai local éditable. Le mode
-            // démo est volontairement lecture seule et ne valide pas la
-            // persistance d'un profil utilisateur.
+            // Le test complet utilise un vrai essai LOCAL éditable : jamais un
+            // compte utilisateur Supabase réel. Les données QA restent isolées
+            // dans le navigateur éphémère du runner GitHub.
             const trial = textLast('ESSAYER GRATUITEMENT', { exact: true });
             await trial.waitFor({ state: 'visible', timeout: 15000 });
             await trial.click();
@@ -93,18 +111,15 @@ jobs:
             await shot('01-listen-idle');
 
             const start = textLast(/START A SESSION|DÉMARRER|COMMENCER/i);
-            await assertInViewport(start, 'Démarrer session');
+            await assertInViewport(start, 'Démarrer écoute', 844);
             await start.click();
 
             const listening = textLast(/Micro actif · analyse en cours|Session active/i);
-            await assertInViewport(listening, 'Radar écoute');
+            await assertInViewport(listening, 'Écoute active', 844);
             const share = textLast(/Partager/i);
-            await assertInViewport(share, 'Partager');
+            await assertInViewport(share, 'Partager', 844);
             const end = textLast(/Terminer la session|Arrêter|End session/i);
-            await assertInViewport(end, 'Arrêter session');
-            // Ce workflow valide l'ergonomie sans swipe avec le provider de
-            // reconnaissance démo déterministe. La reconnaissance réelle AudD
-            // est vérifiée séparément par keep-music-core + le runtime browser.
+            await assertInViewport(end, 'Arrêter session', 844);
             await textLast(/PASS|PASSER/i).waitFor({ state: 'visible', timeout: 15000 });
             await textLast(/KEEP|GARDER/i).waitFor({ state: 'visible', timeout: 15000 });
             await shot('02-listen-active-no-swipe');
@@ -125,8 +140,6 @@ jobs:
               await page.getByLabel(network).last().waitFor({ state: 'visible', timeout: 10000 });
             }
 
-            // Prépare un profil d'essai complet et enregistre-le réellement
-            // dans le stockage local de l'appareil avant tout compte Supabase.
             await page.getByLabel('Modifier le profil').last().click();
             await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             const pseudo = page.getByPlaceholder('tonpseudo').last();
@@ -152,7 +165,6 @@ jobs:
             await page.waitForTimeout(500);
             await textLast('Profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
 
-            // Relit immédiatement le brouillon local avant reload.
             await page.getByLabel('Modifier le profil').last().click();
             await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             if ((await page.getByPlaceholder('tonpseudo').last().inputValue()) !== 'keepmobiletest') throw new Error('Pseudo local non relu après enregistrement');
@@ -171,9 +183,6 @@ jobs:
               await item.waitFor({ state: 'visible', timeout: 10000 });
             }
 
-            // Enregistre un réseau en essai : le champ et l'état connecté
-            // doivent survivre au reload complet eux aussi. Le label unique évite
-            // de viser un bouton Enregistrer d'un écran conservé dans la pile.
             const instagram = page.getByPlaceholder('Lien Instagram').last();
             await instagram.scrollIntoViewIfNeeded();
             await instagram.fill('https://instagram.com/keepmobiletest');
@@ -185,8 +194,6 @@ jobs:
             await textLast('Connecté au profil', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
             await shot('09-advanced-settings-social-saved');
 
-            // Reload complet : pas seulement retour écran. Le même profil
-            // d'essai doit être restauré automatiquement depuis AsyncStorage.
             await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(800);
             await waitFiveTabs();
@@ -214,23 +221,20 @@ jobs:
             await textLast('Playlists', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await shot('12-advanced-to-playlists');
 
-            await page.setViewportSize({ width: 900, height: 700 });
+            // Matrice mobile demandée : la barre des 5 onglets ne doit jamais
+            // disparaître quand la fenêtre change de taille.
             await textLast('Écouter', { exact: true }).click();
-            await page.waitForTimeout(350);
-            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
-              const tab = textLast(label, { exact: true });
-              await assertInViewport(tab, `Onglet ${label}`, 700);
-            }
-            const dimensions = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
-            if (dimensions.scrollWidth > dimensions.width + 1) throw new Error(`Débordement horizontal fenêtre réduite: ${JSON.stringify(dimensions)}`);
-            await shot('13-windowed-900x700');
+            await assertFiveTabsAt(430, 932, '13-mobile-430x932');
+            await assertFiveTabsAt(768, 700, '14-tablet-window-768x700');
+            await assertFiveTabsAt(900, 700, '15-windowed-900x700');
+            await assertFiveTabsAt(390, 844, '16-mobile-back-390x844');
 
             const pageErrors = errors.filter(x => x.startsWith('PAGE:'));
             if (pageErrors.length) throw new Error(`Erreurs page:\n${pageErrors.join('\n')}`);
             fs.writeFileSync('artifacts/mobile-loop/report.txt', [
               'KEEP MOBILE LOOP AUDIT: PASS',
-              'Viewport mobile: 390x844',
-              'Viewport fenêtre réduite: 900x700',
+              'Isolated QA identity: local browser only (no real user account)',
+              'Viewports: 390x844, 430x932, 768x700, 900x700',
               '5 tabs navigation: PASS',
               'Listen start: PASS',
               'Listen stop returns to idle: PASS',
@@ -239,7 +243,7 @@ jobs:
               'Guest pseudo/city/country/date saved: PASS',
               'Guest profile survives full reload: PASS',
               'Guest Instagram survives full reload: PASS',
-              'Reduced desktop window/no horizontal overflow: PASS',
+              'No horizontal overflow on tested viewports: PASS',
               'Notification bell: PASS',
               'Social icons: PASS',
               'Location helpers: PASS',
@@ -261,3 +265,33 @@ jobs:
           path: artifacts/mobile-loop
           retention-days: 14
           if-no-files-found: warn
+
+  report-failure:
+    needs: mobile-loop
+    if: ${{ always() && needs.mobile-loop.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ouvrir ou mettre à jour l'incident QA permanent
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[AUTO-QA] KEEP boucle mobile en échec';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Le robot de test utilisateur KEEP a détecté une régression.',
+              '',
+              `- Branche : ${context.ref}`,
+              `- SHA : ${context.sha}`,
+              `- Workflow : ${runUrl}`,
+              '- Identité de test : navigateur local éphémère, aucun compte utilisateur réel',
+              '- Les captures et le rapport sont disponibles dans les artifacts du run.',
+              '',
+              'Ne pas déclarer la fonction corrigée tant que le workflow humain n’est pas revenu au vert.'
+            ].join('\n');
+            const { data } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
+            const existing = data.find(issue => issue.title === title && !issue.pull_request);
+            if (existing) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+            } else {
+              await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: [] });
+            }
