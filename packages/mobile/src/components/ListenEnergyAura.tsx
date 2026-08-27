@@ -1,18 +1,27 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 
-const TOP_FLAMES = 22;
-const SIDE_SPARKS = 8;
+const TOP_FLAMES = 20;
+const SIDE_SPARKS = 7;
+const SOUND_GATE = 0.012;
 
 function flameProfile(index: number) {
   const variants = [
-    [0.34, 1.08, 0.54],
-    [0.58, 1.58, 0.38],
-    [0.44, 1.28, 0.78],
-    [0.72, 1.78, 0.48],
-    [0.5, 1.42, 0.3],
+    [0.28, 1.18, 0.46],
+    [0.48, 1.82, 0.34],
+    [0.38, 1.42, 0.78],
+    [0.64, 2.05, 0.42],
+    [0.42, 1.56, 0.24],
   ];
   return variants[index % variants.length];
+}
+
+function rotationDuration(level: number) {
+  if (level >= 0.72) return 360;
+  if (level >= 0.5) return 520;
+  if (level >= 0.28) return 760;
+  if (level >= 0.12) return 1080;
+  return 1500;
 }
 
 export default function ListenEnergyAura({
@@ -28,67 +37,81 @@ export default function ListenEnergyAura({
   detectedCount: number;
   children: React.ReactNode;
 }) {
-  const beat = useRef(new Animated.Value(0)).current;
-  const chroma = useRef(new Animated.Value(0)).current;
-  const sweep = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
+  const energy = useRef(new Animated.Value(0)).current;
+  const orbit = useRef(new Animated.Value(0)).current;
+  const orbit2 = useRef(new Animated.Value(0)).current;
+  const wave1 = useRef(new Animated.Value(0)).current;
+  const wave2 = useRef(new Animated.Value(0)).current;
+  const wave3 = useRef(new Animated.Value(0)).current;
   const burst = useRef(new Animated.Value(0)).current;
   const lastDetected = useRef(detectedCount);
 
-  useEffect(() => {
-    beat.stopAnimation();
-    if (!active) {
-      beat.setValue(0);
-      return undefined;
-    }
-
-    const fast = recognizing;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(beat, { toValue: 1, duration: fast ? 92 : 135, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(beat, { toValue: 0.08, duration: fast ? 105 : 155, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-        Animated.timing(beat, { toValue: 0.78, duration: fast ? 72 : 105, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(beat, { toValue: 0.16, duration: fast ? 90 : 130, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(beat, { toValue: 0.94, duration: fast ? 82 : 118, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(beat, { toValue: 0, duration: fast ? 145 : 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [active, beat, recognizing]);
+  const raw = Math.max(0, Math.min(1, Number.isFinite(micLevel) ? micLevel : 0));
+  const soundActive = active && raw >= SOUND_GATE;
+  const normalized = soundActive ? Math.min(1, Math.pow((raw - SOUND_GATE) / (1 - SOUND_GATE), 0.38) * 1.22) : 0;
 
   useEffect(() => {
-    chroma.stopAnimation();
-    if (!active) {
-      chroma.setValue(0);
-      return undefined;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(chroma, { toValue: 1, duration: recognizing ? 260 : 420, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(chroma, { toValue: 0, duration: recognizing ? 230 : 390, easing: Easing.linear, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [active, chroma, recognizing]);
+    Animated.timing(energy, {
+      toValue: normalized,
+      duration: soundActive ? 45 : 80,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [energy, normalized, soundActive]);
 
   useEffect(() => {
-    sweep.stopAnimation();
-    if (!active) {
-      sweep.setValue(0);
+    pulse.stopAnimation();
+    if (!soundActive) {
+      pulse.setValue(0);
       return undefined;
     }
-    const loop = Animated.loop(
-      Animated.timing(sweep, {
-        toValue: 1,
-        duration: recognizing ? 430 : 760,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
+    const d = normalized > 0.65 ? 72 : normalized > 0.3 ? 105 : 145;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: d, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0.12, duration: d + 18, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0.82, duration: Math.max(52, d - 20), easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: d + 38, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]));
     loop.start();
     return () => loop.stop();
-  }, [active, recognizing, sweep]);
+  }, [normalized, pulse, soundActive]);
+
+  useEffect(() => {
+    orbit.stopAnimation();
+    orbit2.stopAnimation();
+    if (!soundActive) {
+      orbit.setValue(0);
+      orbit2.setValue(0);
+      return undefined;
+    }
+    orbit.setValue(0);
+    orbit2.setValue(0);
+    const duration = rotationDuration(normalized);
+    const a = Animated.loop(Animated.timing(orbit, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true }));
+    const b = Animated.loop(Animated.timing(orbit2, { toValue: 1, duration: Math.round(duration * 1.34), easing: Easing.linear, useNativeDriver: true }));
+    a.start(); b.start();
+    return () => { a.stop(); b.stop(); };
+  }, [normalized, orbit, orbit2, soundActive]);
+
+  useEffect(() => {
+    wave1.stopAnimation(); wave2.stopAnimation(); wave3.stopAnimation();
+    if (!soundActive) {
+      wave1.setValue(0); wave2.setValue(0); wave3.setValue(0);
+      return undefined;
+    }
+    const duration = normalized > 0.65 ? 520 : normalized > 0.3 ? 720 : 980;
+    const makeWave = (v: Animated.Value, delay: number) => Animated.loop(Animated.sequence([
+      Animated.delay(delay),
+      Animated.timing(v, { toValue: 1, duration, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(v, { toValue: 0, duration: 1, useNativeDriver: true }),
+    ]));
+    const a = makeWave(wave1, 0);
+    const b = makeWave(wave2, Math.round(duration * 0.3));
+    const c = makeWave(wave3, Math.round(duration * 0.6));
+    a.start(); b.start(); c.start();
+    return () => { a.stop(); b.stop(); c.stop(); };
+  }, [normalized, soundActive, wave1, wave2, wave3]);
 
   useEffect(() => {
     if (!active) {
@@ -100,75 +123,85 @@ export default function ListenEnergyAura({
       burst.stopAnimation();
       burst.setValue(0);
       Animated.sequence([
-        Animated.timing(burst, { toValue: 1, duration: 72, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(burst, { toValue: 0, duration: 640, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(burst, { toValue: 1, duration: 70, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(burst, { toValue: 0, duration: 680, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       ]).start();
     }
     lastDetected.current = detectedCount;
   }, [active, burst, detectedCount]);
 
-  const inputEnergy = Math.max(0.1, Math.min(1, Number.isFinite(micLevel) ? micLevel : 0));
-  const energyScale = 0.9 + Math.pow(inputEnergy, 0.36) * 0.64;
-  const flameRows = useMemo(() => Array.from({ length: TOP_FLAMES }, (_, i) => i), []);
-  const sideSparks = useMemo(() => Array.from({ length: SIDE_SPARKS }, (_, i) => i), []);
+  const flames = useMemo(() => Array.from({ length: TOP_FLAMES }, (_, i) => i), []);
+  const sparks = useMemo(() => Array.from({ length: SIDE_SPARKS }, (_, i) => i), []);
+  const flameEnergy = 0.34 + normalized * 1.28;
 
-  const shellScale = beat.interpolate({ inputRange: [0, 0.12, 0.52, 1], outputRange: [0.972, 0.958, 1.018, 1.052 + inputEnergy * 0.014] });
-  const shellOpacity = beat.interpolate({ inputRange: [0, 0.08, 0.45, 1], outputRange: [0.88, 0.72, 0.96, 1] });
-  const purpleOpacity = chroma.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.68, 0.12, 0.9] });
-  const redOpacity = chroma.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.08, 0.88, 0.16] });
-  const greenOpacity = beat.interpolate({ inputRange: [0, 0.32, 0.72, 1], outputRange: [0.1, 0.58, 0.18, 0.72] });
-  const flashOpacity = beat.interpolate({ inputRange: [0, 0.16, 0.44, 0.7, 1], outputRange: [0.04, 0.86, 0.18, 0.64, 0.98] });
-  const burstOpacity = burst.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 0] });
-  const burstScale = burst.interpolate({ inputRange: [0, 1], outputRange: [0.93, 1.105] });
-  const sweepX = sweep.interpolate({ inputRange: [0, 1], outputRange: [-90, 440] });
-  const sweepOpacity = chroma.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.25, 0.8, 0.34] });
+  const shellScale = pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1 + normalized * 0.012, 1 + normalized * 0.035] });
+  const orbitScale = energy.interpolate({ inputRange: [0, 1], outputRange: [1.005, 1.055] });
+  const rotateA = orbit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const rotateB = orbit2.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
+  const auraOpacity = energy.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.38, 0.96] });
+  const burstOpacity = burst.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 1, 0] });
+  const burstScale = burst.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.17] });
+
+  const waveStyle = (v: Animated.Value, scale: number) => ({
+    opacity: v.interpolate({ inputRange: [0, 0.12, 0.5, 1], outputRange: [0, 0.68, 0.26, 0] }),
+    transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.99, scale] }) }],
+  });
 
   return (
-    <Animated.View style={[s.shell, { opacity: shellOpacity, transform: [{ scale: shellScale }] }]}>
-      <Animated.View pointerEvents="none" style={[s.purpleGlow, { opacity: purpleOpacity }]} />
-      <Animated.View pointerEvents="none" style={[s.redGlow, { opacity: redOpacity }]} />
-      <Animated.View pointerEvents="none" style={[s.greenGlow, { opacity: greenOpacity }]} />
-      <Animated.View pointerEvents="none" style={[s.coreFlash, { opacity: flashOpacity }]} />
-      <Animated.View pointerEvents="none" style={[s.sweep, { opacity: sweepOpacity, transform: [{ translateX: sweepX }, { skewX: '-20deg' }] }]} />
+    <Animated.View style={[s.shell, { transform: [{ scale: shellScale }] }]}>
+      <Animated.View pointerEvents="none" style={[s.wave, s.wavePurple, waveStyle(wave1, 1.09)]} />
+      <Animated.View pointerEvents="none" style={[s.wave, s.waveRed, waveStyle(wave2, 1.13)]} />
+      <Animated.View pointerEvents="none" style={[s.wave, s.waveGreen, waveStyle(wave3, 1.17)]} />
+
+      <Animated.View pointerEvents="none" style={[s.orbit, { opacity: auraOpacity, transform: [{ scale: orbitScale }, { rotate: rotateA }] }]}>
+        <View style={[s.dash, s.topDash, s.purple]} />
+        <View style={[s.dash, s.rightDash, s.red]} />
+        <View style={[s.dash, s.bottomDash, s.green]} />
+        <View style={[s.dash, s.leftDash, s.hot]} />
+      </Animated.View>
+
+      <Animated.View pointerEvents="none" style={[s.orbitOuter, { opacity: auraOpacity, transform: [{ rotate: rotateB }] }]}>
+        <View style={[s.outerDash, s.outerTop, s.red]} />
+        <View style={[s.outerDash, s.outerRight, s.purple]} />
+        <View style={[s.outerDash, s.outerBottom, s.hot]} />
+        <View style={[s.outerDash, s.outerLeft, s.green]} />
+      </Animated.View>
 
       <View pointerEvents="none" style={s.topRail}>
-        {flameRows.map((index) => {
+        {flames.map((index) => {
           const [low, high, end] = flameProfile(index);
-          const scaleY = beat.interpolate({ inputRange: [0, 0.44, 1], outputRange: [low * energyScale, high * energyScale, end * energyScale] });
-          const translateY = beat.interpolate({ inputRange: [0, 1], outputRange: [1.5, -4 - (index % 4) * 1.4] });
-          const opacity = beat.interpolate({ inputRange: [0, 0.35, 0.62, 1], outputRange: [0.26, 1, 0.38, 0.94] });
-          const colorStyle = index % 7 === 0 ? s.flameRed : index % 5 === 0 ? s.flameHot : index % 2 === 0 ? s.flamePurple : s.flameGreen;
-          return <Animated.View key={`tf-${index}`} style={[s.flame, colorStyle, { opacity, transform: [{ scaleY }, { translateY }] }]} />;
+          const scaleY = pulse.interpolate({ inputRange: [0, 0.46, 1], outputRange: [low * flameEnergy, high * flameEnergy, end * flameEnergy] });
+          const translateY = pulse.interpolate({ inputRange: [0, 1], outputRange: [2, -4 - (index % 5) * 1.5 - normalized * 7] });
+          const opacity = energy.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 0.35, 1] });
+          const color = index % 7 === 0 ? s.red : index % 5 === 0 ? s.hot : index % 2 === 0 ? s.purple : s.green;
+          return <Animated.View key={`t-${index}`} style={[s.flame, color, { opacity, transform: [{ scaleY }, { translateY }] }]} />;
         })}
       </View>
 
       <View pointerEvents="none" style={s.bottomRail}>
-        {flameRows.map((index) => {
-          const mirrored = TOP_FLAMES - 1 - index;
-          const [low, high, end] = flameProfile(mirrored + 1);
-          const scaleY = beat.interpolate({ inputRange: [0, 0.5, 1], outputRange: [end * energyScale, high * 0.94 * energyScale, low * energyScale] });
-          const translateY = beat.interpolate({ inputRange: [0, 1], outputRange: [-1, 3 + (index % 3) * 1.4] });
-          const opacity = beat.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0.22, 0.96, 0.36] });
-          const colorStyle = index % 6 === 0 ? s.flameRed : index % 4 === 0 ? s.flameHot : index % 2 === 0 ? s.flameGreen : s.flamePurple;
-          return <Animated.View key={`bf-${index}`} style={[s.flame, colorStyle, { opacity, transform: [{ scaleY }, { translateY }] }]} />;
+        {flames.map((index) => {
+          const [low, high, end] = flameProfile(TOP_FLAMES - index);
+          const scaleY = pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [end * flameEnergy, high * flameEnergy, low * flameEnergy] });
+          const translateY = pulse.interpolate({ inputRange: [0, 1], outputRange: [-2, 4 + (index % 4) * 1.5 + normalized * 7] });
+          const opacity = energy.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 0.3, 0.96] });
+          const color = index % 6 === 0 ? s.red : index % 4 === 0 ? s.hot : index % 2 === 0 ? s.green : s.purple;
+          return <Animated.View key={`b-${index}`} style={[s.flame, color, { opacity, transform: [{ scaleY }, { translateY }] }]} />;
         })}
       </View>
 
       <View pointerEvents="none" style={s.leftRail}>
-        {sideSparks.map((index) => {
-          const scaleX = beat.interpolate({ inputRange: [0, 0.48, 1], outputRange: [0.38, 1.7 - index * 0.05, 0.62] });
-          const translateX = beat.interpolate({ inputRange: [0, 1], outputRange: [2, -5 - (index % 3) * 1.6] });
-          const opacity = beat.interpolate({ inputRange: [0, 0.38, 1], outputRange: [0.16, 0.96, 0.34] });
-          return <Animated.View key={`ls-${index}`} style={[s.spark, index % 4 === 0 ? s.flameRed : index % 2 ? s.flameGreen : s.flamePurple, { opacity, transform: [{ scaleX }, { translateX }] }]} />;
+        {sparks.map((index) => {
+          const scaleX = pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.3, 1.6 + normalized * 0.8, 0.5] });
+          const opacity = energy.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 0.3, 1] });
+          return <Animated.View key={`l-${index}`} style={[s.spark, index % 2 ? s.green : s.purple, { opacity, transform: [{ scaleX }] }]} />;
         })}
       </View>
 
       <View pointerEvents="none" style={s.rightRail}>
-        {sideSparks.map((index) => {
-          const scaleX = beat.interpolate({ inputRange: [0, 0.58, 1], outputRange: [0.52, 1.78 - index * 0.045, 0.35] });
-          const translateX = beat.interpolate({ inputRange: [0, 1], outputRange: [-2, 5 + (index % 3) * 1.6] });
-          const opacity = beat.interpolate({ inputRange: [0, 0.52, 1], outputRange: [0.2, 1, 0.26] });
-          return <Animated.View key={`rs-${index}`} style={[s.spark, index % 3 === 0 ? s.flameHot : index % 2 ? s.flameRed : s.flamePurple, { opacity, transform: [{ scaleX }, { translateX }] }]} />;
+        {sparks.map((index) => {
+          const scaleX = pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.3, 1.7 + normalized * 0.9, 0.44] });
+          const opacity = energy.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 0.3, 1] });
+          return <Animated.View key={`r-${index}`} style={[s.spark, index % 3 === 0 ? s.red : index % 2 ? s.hot : s.purple, { opacity, transform: [{ scaleX }] }]} />;
         })}
       </View>
 
@@ -179,22 +212,33 @@ export default function ListenEnergyAura({
 }
 
 const s = StyleSheet.create({
-  shell: { position: 'relative', marginTop: 13, marginBottom: 12, marginHorizontal: 4, borderRadius: 16, overflow: 'visible' },
+  shell: { position: 'relative', marginTop: 15, marginBottom: 14, marginHorizontal: 6, borderRadius: 16, overflow: 'visible' },
   content: { position: 'relative', zIndex: 5 },
-  purpleGlow: { ...StyleSheet.absoluteFillObject, zIndex: 0, borderRadius: 17, borderWidth: 2, borderColor: '#A77BFF', backgroundColor: 'rgba(139,92,246,0.10)', shadowColor: '#A77BFF', shadowOpacity: 1, shadowRadius: 11, elevation: 4 },
-  redGlow: { ...StyleSheet.absoluteFillObject, zIndex: 1, borderRadius: 17, borderWidth: 2, borderColor: '#FF3C69', backgroundColor: 'rgba(255,60,105,0.08)', shadowColor: '#FF3C69', shadowOpacity: 1, shadowRadius: 13, elevation: 4 },
-  greenGlow: { ...StyleSheet.absoluteFillObject, zIndex: 2, borderRadius: 17, borderWidth: 1.5, borderColor: '#68F2B1', shadowColor: '#68F2B1', shadowOpacity: 0.95, shadowRadius: 9, elevation: 4 },
-  coreFlash: { ...StyleSheet.absoluteFillObject, zIndex: 1, borderRadius: 17, backgroundColor: 'rgba(229,242,102,0.09)' },
-  sweep: { position: 'absolute', zIndex: 4, top: -13, bottom: -13, left: 0, width: 42, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.16)' },
-  topRail: { position: 'absolute', zIndex: 6, left: 8, right: 8, top: -14, height: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  bottomRail: { position: 'absolute', zIndex: 6, left: 8, right: 8, bottom: -14, height: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  leftRail: { position: 'absolute', zIndex: 6, left: -13, top: 5, bottom: 5, width: 14, justifyContent: 'space-around', alignItems: 'flex-end' },
-  rightRail: { position: 'absolute', zIndex: 6, right: -13, top: 5, bottom: 5, width: 14, justifyContent: 'space-around', alignItems: 'flex-start' },
-  flame: { width: 3.4, height: 13, borderRadius: 5, shadowOpacity: 1, shadowRadius: 6, elevation: 5 },
-  spark: { width: 12, height: 3, borderRadius: 4, shadowOpacity: 1, shadowRadius: 6, elevation: 5 },
-  flameGreen: { backgroundColor: '#68F2B1', shadowColor: '#68F2B1' },
-  flamePurple: { backgroundColor: '#B79CFF', shadowColor: '#B79CFF' },
-  flameHot: { backgroundColor: '#E5F266', shadowColor: '#E5F266' },
-  flameRed: { backgroundColor: '#FF3C69', shadowColor: '#FF3C69' },
-  burst: { ...StyleSheet.absoluteFillObject, zIndex: 7, borderRadius: 18, borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#E5F266', shadowOpacity: 1, shadowRadius: 18, elevation: 8 },
+  wave: { ...StyleSheet.absoluteFillObject, zIndex: 0, borderRadius: 18, borderWidth: 2 },
+  wavePurple: { borderColor: '#A77BFF', shadowColor: '#A77BFF', shadowOpacity: 1, shadowRadius: 14 },
+  waveRed: { borderColor: '#FF3C69', shadowColor: '#FF3C69', shadowOpacity: 1, shadowRadius: 16 },
+  waveGreen: { borderColor: '#68F2B1', shadowColor: '#68F2B1', shadowOpacity: 1, shadowRadius: 14 },
+  orbit: { ...StyleSheet.absoluteFillObject, zIndex: 2, borderRadius: 20 },
+  orbitOuter: { position: 'absolute', zIndex: 1, left: -12, right: -12, top: -12, bottom: -12, borderRadius: 24 },
+  dash: { position: 'absolute', borderRadius: 8, shadowOpacity: 1, shadowRadius: 8 },
+  topDash: { top: -4, left: '12%', width: '32%', height: 4 },
+  rightDash: { right: -4, top: '16%', width: 4, height: '34%' },
+  bottomDash: { bottom: -4, right: '12%', width: '36%', height: 4 },
+  leftDash: { left: -4, bottom: '14%', width: 4, height: '32%' },
+  outerDash: { position: 'absolute', borderRadius: 9, shadowOpacity: 1, shadowRadius: 10 },
+  outerTop: { top: 0, right: '18%', width: '24%', height: 3 },
+  outerRight: { right: 0, bottom: '18%', width: 3, height: '28%' },
+  outerBottom: { bottom: 0, left: '18%', width: '24%', height: 3 },
+  outerLeft: { left: 0, top: '18%', width: 3, height: '28%' },
+  topRail: { position: 'absolute', zIndex: 6, left: 6, right: 6, top: -15, height: 19, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  bottomRail: { position: 'absolute', zIndex: 6, left: 6, right: 6, bottom: -15, height: 19, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  leftRail: { position: 'absolute', zIndex: 6, left: -14, top: 5, bottom: 5, width: 15, justifyContent: 'space-around', alignItems: 'flex-end' },
+  rightRail: { position: 'absolute', zIndex: 6, right: -14, top: 5, bottom: 5, width: 15, justifyContent: 'space-around', alignItems: 'flex-start' },
+  flame: { width: 3.4, height: 13, borderRadius: 5, shadowOpacity: 1, shadowRadius: 6, elevation: 4 },
+  spark: { width: 12, height: 3, borderRadius: 4, shadowOpacity: 1, shadowRadius: 6, elevation: 4 },
+  purple: { backgroundColor: '#B79CFF', shadowColor: '#B79CFF' },
+  red: { backgroundColor: '#FF3C69', shadowColor: '#FF3C69' },
+  green: { backgroundColor: '#68F2B1', shadowColor: '#68F2B1' },
+  hot: { backgroundColor: '#E5F266', shadowColor: '#E5F266' },
+  burst: { ...StyleSheet.absoluteFillObject, zIndex: 8, borderRadius: 18, borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#E5F266', shadowOpacity: 1, shadowRadius: 20, elevation: 8 },
 });
