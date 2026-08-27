@@ -8,6 +8,7 @@ type PlanFilter = typeof PLAN_OPTIONS[number];
 type DirectoryUser = {
   id: string;
   email: string | null;
+  email_confirmed_at: string | null;
   username: string;
   display_name: string | null;
   country_code: string | null;
@@ -30,6 +31,12 @@ async function invokeAdmin(body: Record<string, unknown>) {
 function visibleEmail(email: string | null) {
   if (!email || email.endsWith('@keep.local')) return 'Sans e-mail';
   return email;
+}
+
+function emailVerification(u: DirectoryUser) {
+  if (!u.email || u.email.endsWith('@keep.local')) return { label: 'Ancien accès', verified: null as boolean | null };
+  if (u.email_confirmed_at) return { label: '✓ Vérifié', verified: true as boolean | null };
+  return { label: 'À vérifier', verified: false as boolean | null };
 }
 
 function memberNumber(id: string) {
@@ -81,7 +88,7 @@ export default function Users() {
     return users.filter((u) => {
       if (planFilter !== 'ALL' && u.plan_code !== planFilter) return false;
       if (!needle) return true;
-      return [u.username, u.display_name ?? '', visibleEmail(u.email), u.country_code ?? '', u.kind ?? '', u.plan_code, memberNumber(u.id)]
+      return [u.username, u.display_name ?? '', visibleEmail(u.email), emailVerification(u).label, u.country_code ?? '', u.kind ?? '', u.plan_code, memberNumber(u.id)]
         .some((value) => value.toLowerCase().includes(needle));
     });
   }, [users, query, planFilter]);
@@ -181,7 +188,7 @@ export default function Users() {
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {actionMessage && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{actionMessage}</div>}
-      {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils, numéro support KEEP, plan actif et KEEP du mois. Les comptes sans e-mail sont gérés directement par leur pseudo KEEP.</div>}
+      {!error && !loading && <div className="demo-banner">● MODE RÉEL — profils, e-mail + état de vérification Supabase Auth, numéro support KEEP, plan actif et KEEP du mois. Une adresse non vérifiée reste signalée « À vérifier ».</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Récupérer un ancien essai KEEP</h3>
@@ -274,7 +281,7 @@ export default function Users() {
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <input
           type="text"
-          placeholder="Rechercher (pseudo, n° KEEP, e-mail, pays, type, plan)…"
+          placeholder="Rechercher (pseudo, n° KEEP, e-mail, vérification, pays, type, plan)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', fontSize: 16 }}
@@ -291,24 +298,31 @@ export default function Users() {
 
       <table>
         <thead>
-          <tr><th>Utilisateur</th><th>N° KEEP</th><th>E-mail</th><th>Pays</th><th>Type</th><th>Plan réel</th><th>KEEP ce mois</th><th>Inscrit le</th><th>Action</th></tr>
+          <tr><th>Utilisateur</th><th>N° KEEP</th><th>E-mail</th><th>Vérification</th><th>Pays</th><th>Type</th><th>Plan réel</th><th>KEEP ce mois</th><th>Inscrit le</th><th>Action</th></tr>
         </thead>
         <tbody>
-          {loading && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 24 }}>Chargement de Supabase…</td></tr>}
-          {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Aucun utilisateur ne correspond à ces critères.</td></tr>}
-          {filtered.map((u) => (
-            <tr key={u.id}>
-              <td><strong>@{u.username}</strong>{u.display_name ? <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{u.display_name}</div> : null}</td>
-              <td><code>{memberNumber(u.id)}</code></td>
-              <td>{visibleEmail(u.email)}</td>
-              <td>{u.country_code ?? '—'}</td>
-              <td>{u.kind ?? 'USER'}</td>
-              <td>{u.plan_code ?? 'FREE'}</td>
-              <td>{u.keeps_this_month ?? 0}</td>
-              <td>{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
-              <td><button onClick={() => setManageIdentity(u.username)}>Gérer</button></td>
-            </tr>
-          ))}
+          {loading && <tr><td colSpan={10} style={{ textAlign: 'center', padding: 24 }}>Chargement de Supabase…</td></tr>}
+          {!loading && filtered.length === 0 && <tr><td colSpan={10} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Aucun utilisateur ne correspond à ces critères.</td></tr>}
+          {filtered.map((u) => {
+            const verification = emailVerification(u);
+            return (
+              <tr key={u.id}>
+                <td><strong>@{u.username}</strong>{u.display_name ? <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{u.display_name}</div> : null}</td>
+                <td><code>{memberNumber(u.id)}</code></td>
+                <td>{visibleEmail(u.email)}</td>
+                <td>
+                  <strong style={{ color: verification.verified === true ? '#62c46f' : verification.verified === false ? '#f0a85a' : 'var(--text-muted)' }}>{verification.label}</strong>
+                  {u.email_confirmed_at ? <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>{new Date(u.email_confirmed_at).toLocaleDateString('fr-FR')}</div> : null}
+                </td>
+                <td>{u.country_code ?? '—'}</td>
+                <td>{u.kind ?? 'USER'}</td>
+                <td>{u.plan_code ?? 'FREE'}</td>
+                <td>{u.keeps_this_month ?? 0}</td>
+                <td>{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
+                <td><button onClick={() => setManageIdentity(u.username)}>Gérer</button></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </AdminLayout>
