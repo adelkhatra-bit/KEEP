@@ -50,6 +50,7 @@ export default function MusicSwipeDeckModal({
   const [index, setIndex] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
+  const [previewInfoOpen, setPreviewInfoOpen] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
   const actionInFlight = useRef(false);
@@ -74,6 +75,7 @@ export default function MusicSwipeDeckModal({
     if (!visible) return;
     actionInFlight.current = false;
     setKeepPromptOpen(false);
+    setPreviewInfoOpen(false);
     setIndex(0);
     setRound((value) => value + 1);
   }, [visible]);
@@ -81,6 +83,7 @@ export default function MusicSwipeDeckModal({
   useEffect(() => {
     let alive = true;
     setKeepPromptOpen(false);
+    setPreviewInfoOpen(false);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
     if (!visible || !current) {
@@ -142,7 +145,7 @@ export default function MusicSwipeDeckModal({
     if (!current || processing) return;
     if (previewOnly) {
       actionInFlight.current = true;
-      void advance().finally(() => { actionInFlight.current = false; });
+      setPreviewInfoOpen(true);
       return;
     }
     if (!askVisibilityOnKeep) {
@@ -158,9 +161,15 @@ export default function MusicSwipeDeckModal({
     actionInFlight.current = false;
   };
 
+  const closePreviewInfo = () => {
+    setPreviewInfoOpen(false);
+    actionInFlight.current = false;
+  };
+
   const pass = async () => {
     if (!current || processing) return;
     setKeepPromptOpen(false);
+    setPreviewInfoOpen(false);
     actionInFlight.current = true;
     setProcessing(true);
     try {
@@ -174,6 +183,7 @@ export default function MusicSwipeDeckModal({
 
   const close = async () => {
     setKeepPromptOpen(false);
+    setPreviewInfoOpen(false);
     actionInFlight.current = true;
     try {
       await stopTrackPreview();
@@ -190,11 +200,10 @@ export default function MusicSwipeDeckModal({
       : 'Extrait indisponible';
 
   const swipeHint = previewOnly
-    ? 'Aperçu de ton profil public · glisse pour parcourir les morceaux visibles par les visiteurs'
+    ? 'Aperçu exact de ce que verront tes abonnés · glisse ← pour passer · → pour garder'
     : askVisibilityOnKeep
       ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé'
       : 'Glisse ← pour passer · → pour ajouter à ton KEEP';
-  const rightLabel = previewOnly ? 'SUIVANT' : 'KEEP';
 
   return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <SafeAreaView style={s.container}>
@@ -208,11 +217,11 @@ export default function MusicSwipeDeckModal({
           <View style={s.deckArea}>
             <SwipeDeck
               resetKey={current.id}
-              enabled={!processing && !keepPromptOpen}
+              enabled={!processing && !keepPromptOpen && !previewInfoOpen}
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={requestKeep}
               leftLabel="PASSER"
-              rightLabel={rightLabel}
+              rightLabel="KEEP"
               hint={swipeHint}
             >
               <View style={s.card}>
@@ -229,14 +238,14 @@ export default function MusicSwipeDeckModal({
 
           <View style={s.decisionBand}>
             <View style={s.decisionRow}>
-              <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={processing || keepPromptOpen} accessibilityLabel="Passer cette musique">
+              <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={processing || keepPromptOpen || previewInfoOpen} accessibilityLabel="Passer cette musique">
                 <Text style={s.passButtonText}>✕ PASSER</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing || keepPromptOpen} accessibilityLabel={resolvedBackLabel}>
+              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing || keepPromptOpen || previewInfoOpen} accessibilityLabel={resolvedBackLabel}>
                 <Text style={s.backDecisionText}>‹ {resolvedBackLabel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={requestKeep} disabled={processing || keepPromptOpen} accessibilityLabel={previewOnly ? 'Morceau suivant' : 'Garder cette musique'}>
-                {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>{previewOnly ? '→ SUIVANT' : '♡ GARDER'}</Text>}
+              <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={requestKeep} disabled={processing || keepPromptOpen || previewInfoOpen} accessibilityLabel="Garder cette musique">
+                {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -268,6 +277,23 @@ export default function MusicSwipeDeckModal({
           </View>
         </View>
       </Modal> : null}
+
+      {previewOnly ? <Modal visible={previewInfoOpen} transparent animationType="fade" onRequestClose={closePreviewInfo}>
+        <View style={s.keepOverlay}>
+          <View style={s.ownerPreviewCard}>
+            <Text style={s.ownerPreviewEyebrow}>APERÇU DE TON PROFIL</Text>
+            <Text style={s.ownerPreviewTitle}>Déjà dans ton KEEP</Text>
+            <Text style={s.ownerPreviewTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
+            <Text style={s.ownerPreviewBody}>Tu possèdes déjà ce morceau. Le bouton GARDER est ici pour te montrer exactement ce que verront tes abonnés.</Text>
+            <View style={s.ownerPreviewRule}>
+              <Text style={s.ownerPreviewRuleTitle}>Pour un abonné</Text>
+              <Text style={s.ownerPreviewRuleText}>GARDER ajoute le morceau à son KEEP, puis il choisit « Visible sur mon profil » ou « Garder en privé ».</Text>
+            </View>
+            <TouchableOpacity style={s.ownerPreviewOk} onPress={closePreviewInfo}><Text style={s.ownerPreviewOkText}>COMPRIS</Text></TouchableOpacity>
+            <Text style={s.ownerPreviewHint}>Cette fonction est destinée à tes abonnés.</Text>
+          </View>
+        </View>
+      </Modal> : null}
     </SafeAreaView>
   </Modal>;
 }
@@ -288,4 +314,6 @@ const s = StyleSheet.create({
   keepPromptEyebrow:{color:'#B79CFF',fontSize:9,fontWeight:'900',letterSpacing:1.3,textAlign:'center'},keepPromptTitle:{color:'#FFF',fontSize:22,fontWeight:'900',textAlign:'center',marginTop:6},keepPromptTrack:{color:'#D8CFE3',fontSize:12,fontWeight:'800',textAlign:'center',marginTop:5},keepPromptBody:{color:'#9E94AA',fontSize:11,lineHeight:16,textAlign:'center',marginTop:10,marginBottom:14},
   keepChoice:{minHeight:70,borderRadius:17,paddingHorizontal:15,paddingVertical:12,justifyContent:'center',marginTop:9,borderWidth:1},keepChoicePublic:{backgroundColor:'rgba(104,242,177,.12)',borderColor:'#68F2B1'},keepChoicePrivate:{backgroundColor:'#21182F',borderColor:'#5B3F8C'},keepChoicePublicTitle:{color:'#68F2B1',fontSize:11,fontWeight:'900'},keepChoicePrivateTitle:{color:'#D6C2FA',fontSize:11,fontWeight:'900'},keepChoiceText:{color:'#B8AFBF',fontSize:10,lineHeight:14,marginTop:3},
   keepCancel:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:12,borderRadius:14,borderWidth:1,borderColor:'#57313C',backgroundColor:'#1C1117'},keepCancelText:{color:'#FF8AA3',fontSize:10,fontWeight:'900'},keepCancelHint:{color:'#756D80',fontSize:9,lineHeight:13,textAlign:'center',marginTop:7},
+  ownerPreviewCard:{width:'100%',maxWidth:350,borderRadius:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:18,shadowColor:'#000',shadowOpacity:.42,shadowRadius:18,shadowOffset:{width:0,height:8},elevation:14},
+  ownerPreviewEyebrow:{color:'#B79CFF',fontSize:8,fontWeight:'900',letterSpacing:1.2,textAlign:'center'},ownerPreviewTitle:{color:'#FFF',fontSize:19,fontWeight:'900',textAlign:'center',marginTop:5},ownerPreviewTrack:{color:'#D8CFE3',fontSize:11,fontWeight:'800',textAlign:'center',marginTop:5},ownerPreviewBody:{color:'#A69CAD',fontSize:10,lineHeight:15,textAlign:'center',marginTop:9},ownerPreviewRule:{marginTop:12,borderRadius:14,backgroundColor:'rgba(104,242,177,.08)',borderWidth:1,borderColor:'rgba(104,242,177,.34)',padding:11},ownerPreviewRuleTitle:{color:'#68F2B1',fontSize:10,fontWeight:'900'},ownerPreviewRuleText:{color:'#B8AFBF',fontSize:9,lineHeight:14,marginTop:3},ownerPreviewOk:{minHeight:42,borderRadius:21,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:13},ownerPreviewOkText:{color:'#FFF',fontSize:10,fontWeight:'900'},ownerPreviewHint:{color:'#756D80',fontSize:8,textAlign:'center',marginTop:7},
 });
