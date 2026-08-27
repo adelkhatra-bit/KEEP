@@ -4,6 +4,7 @@ export type PlanCode = 'FREE' | 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
 export type PaidFeature =
   | 'PROFILE_SHARE'
   | 'PUBLIC_PLAYLISTS'
+  | 'SOCIAL_DISCOVERY'
   | 'CREATOR_KIND'
   | 'VENUE_KIND'
   | 'CREATE_EVENT'
@@ -16,6 +17,7 @@ const ACCESS: Record<PaidFeature, PlanCode[]> = {
   // débloque les playlists publiques et la visibilité étendue.
   PROFILE_SHARE: ['FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
   PUBLIC_PLAYLISTS: ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
+  SOCIAL_DISCOVERY: ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
   CREATOR_KIND: ['CREATOR_PRO', 'VENUE_PRO'],
   VENUE_KIND: ['VENUE_PRO'],
   CREATE_EVENT: ['CREATOR_PRO', 'VENUE_PRO'],
@@ -26,6 +28,7 @@ const ACCESS: Record<PaidFeature, PlanCode[]> = {
 export const FEATURE_PLAN: Record<PaidFeature, PlanCode> = {
   PROFILE_SHARE: 'FREE',
   PUBLIC_PLAYLISTS: 'PREMIUM',
+  SOCIAL_DISCOVERY: 'PREMIUM',
   CREATOR_KIND: 'CREATOR_PRO',
   VENUE_KIND: 'VENUE_PRO',
   CREATE_EVENT: 'CREATOR_PRO',
@@ -47,6 +50,7 @@ export async function loadEntitlements(profileId: string) {
     planCode,
     canShareProfile: hasFeature(planCode, 'PROFILE_SHARE'),
     canExposePlaylists: hasFeature(planCode, 'PUBLIC_PLAYLISTS'),
+    canUseSocialDiscovery: hasFeature(planCode, 'SOCIAL_DISCOVERY'),
     canUseCreatorKind: hasFeature(planCode, 'CREATOR_KIND'),
     canUseVenueKind: hasFeature(planCode, 'VENUE_KIND'),
     canCreateEvent: hasFeature(planCode, 'CREATE_EVENT'),
