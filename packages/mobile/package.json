@@ -38,7 +38,7 @@
     "expo-media-library": "~18.2.1",
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "~15.0.8",
-    "expo-share-intent": "5.1.0",
+    "expo-share-intent": "5.1.1",
     "expo-status-bar": "~3.0.9",
     "expo-updates": "~29.0.20",
     "i18next": "^23.11.5",
