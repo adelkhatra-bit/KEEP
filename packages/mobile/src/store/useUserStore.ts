@@ -121,7 +121,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
     const currentRealId = currentIsReal ? state.user?.id ?? null : null;
     const nextRealId = session?.userId ?? null;
 
-    if ((currentRealId && currentRealId !== nextRealId) || (state.isDemoMode && nextRealId)) {
+    if (
+      (currentRealId && currentRealId !== nextRealId) ||
+      ((state.isDemoMode || state.isLocalGuest) && nextRealId)
+    ) {
       clearLocalMusicIdentity();
     }
 
