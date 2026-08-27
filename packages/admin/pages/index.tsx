@@ -1,63 +1,130 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { DEMO_USERS, DEMO_SUBSCRIPTIONS, DEMO_COSTS } from '../lib/demoData';
-import {
-  computeMRR,
-  computeARR,
-  computePayingUsers,
-  computeConversionRate,
-  computeARPU,
-  computeKeepsTotal,
-  computeEstimatedMargin,
-} from '../lib/aggregate';
+import { supabase } from '../lib/supabaseClient';
+
+type Country = { code: string; name: string };
+type CountRow = { plan?: string; channel?: string; country?: string; count: number };
+type DailyRow = { date: string; count: number };
+type DashboardData = {
+  from: string;
+  to: string;
+  country: string | null;
+  usersTotal: number;
+  newUsers: number;
+  verifiedEmails: number;
+  activePaid: number;
+  keeps: number;
+  follows: number;
+  shares: number;
+  eventsCreated: number;
+  dailySignups: DailyRow[];
+  planMix: CountRow[];
+  sharesByChannel: CountRow[];
+  countryMix: CountRow[];
+};
+
+function isoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
 
 export default function Dashboard() {
-  const mrr = computeMRR(DEMO_SUBSCRIPTIONS);
-  const arr = computeARR(DEMO_SUBSCRIPTIONS);
-  const paying = computePayingUsers(DEMO_USERS);
-  const conversion = computeConversionRate(DEMO_USERS);
-  const arpu = computeARPU(DEMO_USERS, DEMO_SUBSCRIPTIONS);
-  const keeps = computeKeepsTotal(DEMO_USERS);
-  const margin = computeEstimatedMargin(DEMO_SUBSCRIPTIONS, DEMO_COSTS);
+  const today = new Date();
+  const monthAgo = new Date(today);
+  monthAgo.setDate(today.getDate() - 29);
+  const [from, setFrom] = useState(isoDate(monthAgo));
+  const [to, setTo] = useState(isoDate(today));
+  const [country, setCountry] = useState('');
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+      const [{ data: countryRows, error: countriesError }, { data: stats, error: statsError }] = await Promise.all([
+        supabase.from('countries').select('code,name').order('name'),
+        supabase.rpc('admin_dashboard_stats', { p_from: from, p_to: to, p_country: country || null }),
+      ]);
+      if (countriesError) throw countriesError;
+      if (statsError) throw statsError;
+      setCountries((countryRows ?? []) as Country[]);
+      setData(stats as DashboardData);
+    } catch (e: any) {
+      setError(e?.message ?? 'Impossible de charger les statistiques réelles.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
 
   return (
     <AdminLayout>
       <div className="page-title">Dashboard</div>
-      <div className="page-subtitle">Vue d'ensemble — France (EUR)</div>
+      <div className="page-subtitle">Statistiques réelles KEEP — filtres par période et pays</div>
 
-      <div className="demo-banner">
-        🎭 MODE DÉMO — données fictives ({DEMO_USERS.length} utilisateurs
-        d'exemple), aucun projet Supabase connecté. Tous les chiffres
-        ci-dessous sont calculés à partir de ces données d'exemple, pas
-        codés en dur (voir packages/admin/lib/aggregate.ts).
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
+          <label>Du<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label>Au<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <label>Pays<br />
+            <select value={country} onChange={(e) => setCountry(e.target.value)}>
+              <option value="">Tous les pays</option>
+              {countries.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
+            </select>
+          </label>
+          <button onClick={() => void load()} disabled={loading}>{loading ? 'Chargement…' : 'Appliquer'}</button>
+        </div>
       </div>
 
-      <div className="kpi-grid">
-        <div className="kpi-card"><div className="kpi-value">{DEMO_USERS.length}</div><div className="kpi-label">Utilisateurs totaux</div></div>
-        <div className="kpi-card"><div className="kpi-value">{paying}</div><div className="kpi-label">Abonnés payants</div></div>
-        <div className="kpi-card"><div className="kpi-value">{(conversion * 100).toFixed(0)}%</div><div className="kpi-label">Conversion Free → payant</div></div>
-        <div className="kpi-card"><div className="kpi-value">{mrr.toFixed(2)} €</div><div className="kpi-label">MRR</div></div>
-        <div className="kpi-card"><div className="kpi-value">{arr.toFixed(0)} €</div><div className="kpi-label">ARR</div></div>
-        <div className="kpi-card"><div className="kpi-value">{arpu.toFixed(2)} €</div><div className="kpi-label">ARPU</div></div>
-        <div className="kpi-card"><div className="kpi-value">{keeps}</div><div className="kpi-label">GARDER ce mois</div></div>
-        <div className="kpi-card"><div className="kpi-value">{margin.toFixed(2)} €</div><div className="kpi-label">Marge estimée / mois</div></div>
-      </div>
+      {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
+      {!error && data && <div className="demo-banner">● MODE RÉEL — données lues directement depuis Supabase. Les partages sont comptés par type à partir de cette version.</div>}
 
-      <table>
-        <thead>
-          <tr><th>Utilisateur</th><th>Pays</th><th>Plan</th><th>GARDER ce mois</th></tr>
-        </thead>
-        <tbody>
-          {DEMO_USERS.map((u) => (
-            <tr key={u.id}>
-              <td>{u.username}</td>
-              <td>{u.country}</td>
-              <td>{u.plan}</td>
-              <td>{u.keepsThisMonth}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {data && (
+        <>
+          <div className="kpi-grid">
+            <div className="kpi-card"><div className="kpi-value">{data.usersTotal}</div><div className="kpi-label">Utilisateurs totaux</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.newUsers}</div><div className="kpi-label">Nouveaux sur la période</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.verifiedEmails}</div><div className="kpi-label">E-mails vérifiés</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.activePaid}</div><div className="kpi-label">Abonnements payants actifs</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.keeps}</div><div className="kpi-label">KEEP sur la période</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.follows}</div><div className="kpi-label">Nouveaux abonnements / suivis</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.shares}</div><div className="kpi-label">Partages</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.eventsCreated}</div><div className="kpi-label">Événements créés</div></div>
+          </div>
+
+          <div className="card" style={{ marginTop: 22 }}>
+            <h3 style={{ marginTop: 0 }}>Inscriptions par jour</h3>
+            <table><thead><tr><th>Date</th><th>Nouveaux utilisateurs</th></tr></thead><tbody>
+              {data.dailySignups.map((row) => <tr key={row.date}><td>{new Date(`${row.date}T12:00:00`).toLocaleDateString('fr-FR')}</td><td>{row.count}</td></tr>)}
+            </tbody></table>
+          </div>
+
+          <div className="card" style={{ marginTop: 22 }}>
+            <h3 style={{ marginTop: 0 }}>Répartition des offres</h3>
+            <table><thead><tr><th>Formule</th><th>Utilisateurs</th></tr></thead><tbody>
+              {data.planMix.length ? data.planMix.map((row) => <tr key={row.plan}><td>{row.plan}</td><td>{row.count}</td></tr>) : <tr><td colSpan={2}>Aucune donnée.</td></tr>}
+            </tbody></table>
+          </div>
+
+          <div className="card" style={{ marginTop: 22 }}>
+            <h3 style={{ marginTop: 0 }}>Partages par type</h3>
+            <table><thead><tr><th>Canal</th><th>Partages</th></tr></thead><tbody>
+              {data.sharesByChannel.length ? data.sharesByChannel.map((row) => <tr key={row.channel}><td>{row.channel}</td><td>{row.count}</td></tr>) : <tr><td colSpan={2}>Les compteurs démarrent avec la nouvelle version.</td></tr>}
+            </tbody></table>
+          </div>
+
+          <div className="card" style={{ marginTop: 22 }}>
+            <h3 style={{ marginTop: 0 }}>Utilisateurs par pays</h3>
+            <table><thead><tr><th>Pays</th><th>Utilisateurs</th></tr></thead><tbody>
+              {data.countryMix.map((row) => <tr key={row.country}><td>{row.country === '--' ? 'Non renseigné' : row.country}</td><td>{row.count}</td></tr>)}
+            </tbody></table>
+          </div>
+        </>
+      )}
     </AdminLayout>
   );
 }
