@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
+import { cancelAudioCapture } from '../services/micCapture';
+import { useSessionStore } from '../store/useSessionStore';
 import { colors } from '../theme/colors';
 
 type Props = {
@@ -15,7 +17,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, compact = fal
 
   useEffect(() => () => { if (playing) void stopTrackPreview(trackKey); }, [playing, trackKey]);
 
-  const toggle = async () => {
+  const playOrStopPreview = async () => {
     if (!previewUrl || busy) return;
     setBusy(true);
     try {
@@ -25,6 +27,37 @@ export default function TrackPreviewButton({ trackKey, previewUrl, compact = fal
     }
   };
 
+  const stopListeningThenPreview = async () => {
+    const session = useSessionStore.getState();
+    if (session.isActive) session.requestEndSession();
+    // requestEndSession déclenche déjà l'arrêt ; l'attente ici garantit que le
+    // micro est réellement libéré AVANT d'ouvrir la sortie audio du morceau.
+    await cancelAudioCapture().catch(() => {});
+    await playOrStopPreview();
+  };
+
+  const toggle = () => {
+    if (!previewUrl || busy) return;
+    if (playing) {
+      void playOrStopPreview();
+      return;
+    }
+
+    if (useSessionStore.getState().isActive) {
+      Alert.alert(
+        'Arrêter l’écoute KEEP ?',
+        'Un morceau ne peut pas être diffusé pendant que KEEP écoute le micro. Souhaites-tu arrêter l’écoute puis lancer cet extrait ?',
+        [
+          { text: 'Continuer l’écoute', style: 'cancel' },
+          { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void stopListeningThenPreview() },
+        ],
+      );
+      return;
+    }
+
+    void playOrStopPreview();
+  };
+
   if (!previewUrl) {
     return compact ? null : <Text style={styles.unavailable}>Extrait indisponible</Text>;
   }
@@ -32,7 +65,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, compact = fal
   return (
     <TouchableOpacity
       style={[styles.button, compact && styles.compact]}
-      onPress={() => void toggle()}
+      onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
       accessibilityLabel={playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau'}
