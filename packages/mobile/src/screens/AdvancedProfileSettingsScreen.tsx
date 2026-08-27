@@ -1,12 +1,12 @@
 import React from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { SocialLink } from '../types';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import { createProfileService } from '../services/profileService';
-import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { createAuthService } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 
@@ -99,16 +99,24 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     setSigningOut(true);
     try {
       if (supabase && !isLocalGuest && !isDemoMode) await createAuthService(supabase).signOut();
-      logout();
+      await clearLocalGuestMarker();
     } catch {
-      logout();
+      // Même si Supabase est momentanément indisponible, on ferme l'identité
+      // locale de l'appareil pour que le bouton Déconnexion fonctionne.
+      await clearLocalGuestMarker();
     } finally {
+      logout();
       setSigningOut(false);
     }
   };
 
   const confirmSignOut = () => {
-    Alert.alert('Se déconnecter ?', 'Ton profil KEEP reste enregistré. Tu pourras revenir avec ton adresse e-mail et ton mot de passe.', [
+    const message = 'Ton profil KEEP reste enregistré. Tu pourras revenir avec ton identifiant KEEP et ton mot de passe.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`Se déconnecter ?\n\n${message}`)) void signOutNow();
+      return;
+    }
+    Alert.alert('Se déconnecter ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
     ]);
