@@ -1,10 +1,17 @@
 -- KEEP 2026-08-27
 -- Active les notifications temps réel pour le petit popup web et affine le
 -- message envoyé aux abonnés lorsqu'un utilisateur publie un nouveau KEEP.
+-- En CI PostgreSQL pur, la publication Supabase n'existe pas : on ne doit
+-- jamais faire échouer toutes les migrations pour une capacité spécifique
+-- à l'hébergement Supabase.
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
+    SELECT 1
+    FROM pg_publication
+    WHERE pubname = 'supabase_realtime'
+  ) AND NOT EXISTS (
     SELECT 1
     FROM pg_publication_tables
     WHERE pubname = 'supabase_realtime'
