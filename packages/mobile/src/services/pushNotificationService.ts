@@ -1,19 +1,21 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { getSupabaseAccessToken } from './supabaseClient';
+import { getSupabaseAccessToken, supabase } from './supabaseClient';
 
 /**
- * Enregistrement du token push réel (demande explicite du 26/08/2026 -- boucle
- * notifications complète). Native uniquement -- le web KEEP (Expo web, notre
- * seule surface réellement testée cette session) n'a pas l'infrastructure
- * service worker/VAPID nécessaire à `expo-notifications` sur web ; plutôt que
- * de prétendre que ça marche, on le dit honnêtement et on ne tente rien sur
- * web (voir Platform.OS check ci-dessous). Les notifications in-app (centre,
- * voir notificationService.ts) restent, elles, réelles sur web comme natif --
- * seule la livraison push OS est concernée ici.
+ * Enregistrement du token push réel + pont temps réel web.
+ *
+ * - iOS/Android natifs : token Expo Push, afin qu'une notification KEEP puisse
+ *   apparaître même lorsque l'utilisateur est dans TikTok, Snapchat, etc.
+ * - Web : pas de faux push système. On écoute `notifications` via Supabase
+ *   Realtime et on affiche un petit popup KEEP tant que la page est ouverte.
+ *
+ * Aucune donnée audio n'est envoyée par ce mécanisme.
  */
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+let webToastTimer: ReturnType<typeof setTimeout> | null = null;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -25,9 +27,88 @@ Notifications.setNotificationHandler({
   }),
 });
 
+function showWebKeepToast(title: string, body: string) {
+  const doc = (globalThis as any)?.document as Document | undefined;
+  if (!doc?.body) return;
+
+  const existing = doc.getElementById('keep-live-notification-toast');
+  existing?.remove();
+  if (webToastTimer) clearTimeout(webToastTimer);
+
+  const toast = doc.createElement('button');
+  toast.id = 'keep-live-notification-toast';
+  toast.type = 'button';
+  toast.setAttribute('aria-label', `${title}. ${body}`);
+  Object.assign(toast.style, {
+    position: 'fixed',
+    top: '14px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 'min(92vw, 420px)',
+    zIndex: '2147483647',
+    border: '1px solid rgba(168,132,250,.55)',
+    borderRadius: '16px',
+    padding: '12px 14px',
+    background: 'rgba(20,14,29,.97)',
+    color: '#fff',
+    boxShadow: '0 12px 32px rgba(0,0,0,.38)',
+    textAlign: 'left',
+    fontFamily: 'system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
+    cursor: 'pointer',
+  });
+
+  const brand = doc.createElement('div');
+  brand.textContent = 'KEEP · NOUVEAU';
+  Object.assign(brand.style, { fontSize: '10px', fontWeight: '900', letterSpacing: '1.1px', color: '#B79CFF', marginBottom: '4px' });
+  const titleNode = doc.createElement('div');
+  titleNode.textContent = title;
+  Object.assign(titleNode.style, { fontSize: '14px', fontWeight: '800', lineHeight: '1.25' });
+  const bodyNode = doc.createElement('div');
+  bodyNode.textContent = body;
+  Object.assign(bodyNode.style, { marginTop: '3px', fontSize: '12px', lineHeight: '1.35', color: '#CFC7DA' });
+
+  toast.append(brand, titleNode, bodyNode);
+  toast.onclick = () => {
+    const base = `${globalThis.location?.origin ?? ''}/KEEP/notifications`;
+    if (base.startsWith('http')) globalThis.location.href = base;
+    else toast.remove();
+  };
+  doc.body.appendChild(toast);
+  webToastTimer = setTimeout(() => toast.remove(), 6500);
+}
+
+async function startWebRealtimeNotificationBridge(): Promise<boolean> {
+  if (Platform.OS !== 'web' || !supabase) return false;
+  const { data } = await supabase.auth.getSession();
+  const profileId = data.session?.user?.id;
+  if (!profileId) return false;
+
+  if (webRealtimeChannel) {
+    await supabase.removeChannel(webRealtimeChannel);
+    webRealtimeChannel = null;
+  }
+
+  webRealtimeChannel = supabase
+    .channel(`keep-live-notifications-${profileId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `profile_id=eq.${profileId}` },
+      (payload) => {
+        const row = (payload as any)?.new ?? {};
+        const title = String(row.title || 'Nouveau sur KEEP');
+        const body = String(row.body || 'Ouvre KEEP pour voir la nouveauté.');
+        showWebKeepToast(title, body);
+      },
+    )
+    .subscribe();
+
+  return true;
+}
+
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
-    return { ok: false, reason: 'web_not_supported_yet' };
+    const realtime = await startWebRealtimeNotificationBridge().catch(() => false);
+    return { ok: realtime, reason: realtime ? 'web_realtime_enabled' : 'web_realtime_unavailable' };
   }
   if (!Device.isDevice) {
     return { ok: false, reason: 'simulator_no_push' };
@@ -45,7 +126,8 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
+      name: 'KEEP',
+      description: 'Nouveaux abonnés, nouveaux KEEP et événements',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
