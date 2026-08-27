@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -9,7 +9,7 @@ import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { createAuthService } from '../services/authService';
 import { pickAndUploadAvatar } from '../services/avatarService';
-import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
@@ -42,10 +42,6 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [dateOpen, setDateOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
-  // Le Mode Démo reste volontairement lecture seule. L'essai local, lui, est
-  // un vrai brouillon de profil : l'utilisateur peut le préparer avant de
-  // créer son identifiant KEEP. Le partage public reste bloqué tant que le
-  // compte réel n'est pas créé.
   const accountRequired = isDemoMode;
   const hasRealAccount = !isDemoMode && !isLocalGuest;
 
@@ -70,32 +66,31 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     setAccountOpen(true);
   };
 
+  const signOutNow = async () => {
+    if (sessionBusy) return;
+    setSessionBusy(true);
+    try {
+      if (supabase) await createAuthService(supabase).signOut();
+      await clearLocalGuestMarker();
+    } catch {
+      await clearLocalGuestMarker();
+    } finally {
+      useUserStore.getState().logout();
+      setSessionBusy(false);
+    }
+  };
+
   const handleSessionAction = () => {
     if (!hasRealAccount) return requireAccount();
-    Alert.alert(
-      'Se déconnecter de KEEP ?',
-      'Tes données enregistrées dans KEEP restent sur ton compte. Les données locales de cette session seront retirées de cet appareil pour ne jamais être visibles sur un autre compte.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Se déconnecter',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setSessionBusy(true);
-              try {
-                if (supabase) await createAuthService(supabase).signOut();
-                useUserStore.getState().logout();
-              } catch {
-                Alert.alert('Déconnexion', 'Impossible de se déconnecter pour le moment.');
-              } finally {
-                setSessionBusy(false);
-              }
-            })();
-          },
-        },
-      ],
-    );
+    const message = 'Tes données enregistrées dans KEEP restent sur ton compte. Tu pourras revenir avec ton identifiant KEEP et ton mot de passe.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`Se déconnecter de KEEP ?\n\n${message}`)) void signOutNow();
+      return;
+    }
+    Alert.alert('Se déconnecter de KEEP ?', message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
+    ]);
   };
 
   const buildUser = (): User => {
