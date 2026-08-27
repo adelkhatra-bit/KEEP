@@ -17,7 +17,7 @@ const corsHeaders = {
 const json = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { status, headers: corsHeaders });
 const normalizeUsername = (value: unknown) => String(value ?? "").trim().replace(/^@+/, "").normalize("NFKC");
 const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();
-const validUsername = (value: string) => value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
+const validUsername = (value: string) => value.length >= 1 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 const validEmail = (value: string) => value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const validPassword = (value: string) => value.length >= 6 && value.length <= 128;
 const syntheticEmail = (userId: string) => `${userId.toLowerCase()}@keep.local`;
