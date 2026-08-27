@@ -25,6 +25,8 @@ type DirectoryUser = {
   credit_remaining: number | null;
   playlist_tracks: number;
   recognized_count: number;
+  account_verified: boolean;
+  certification_tier: string;
 };
 
 type UserSnapshot = {
@@ -79,6 +81,10 @@ function planColor(plan: string) {
   if (plan === 'CREATOR_PRO') return '#b788ff';
   if (plan === 'PREMIUM') return '#6f8cff';
   return '#31c981';
+}
+function certificationLabel(user: DirectoryUser) {
+  if (!user.account_verified) return 'ESSAI';
+  return user.certification_tier || user.plan_code || 'FREE';
 }
 
 export default function Users() {
@@ -238,7 +244,7 @@ export default function Users() {
 
   return <AdminLayout>
     <div className="page-title">Utilisateurs</div>
-    <div className="page-subtitle">{users.length} compte(s) réels · écoute, FREE, profil, abonnement et récupération au même endroit</div>
+    <div className="page-subtitle">{users.length} compte(s) réels · écoute, FREE, profil, certification, abonnement et récupération au même endroit</div>
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
 
@@ -252,13 +258,13 @@ export default function Users() {
 
     <div className="card" style={{ padding:0, overflow:'hidden', width:'100%' }}>
       <table style={{ margin:0, width:'100%', tableLayout:'fixed' }}>
-        <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Plan</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
+        <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Certification</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
         <tbody>
           {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
           {!loading && filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
           {filtered.map((u)=><tr key={u.id} onClick={()=>void openUser(u)} style={{ cursor:'pointer' }}>
             <td><div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:32,height:32,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><strong style={{display:'block',overflow:'hidden',textOverflow:'ellipsis'}}>@{u.username}</strong><div style={{fontSize:10,color:'var(--text-muted)',overflow:'hidden',textOverflow:'ellipsis'}}>{visibleEmail(u.email)}</div></div></div></td>
-            <td><span style={{display:'inline-flex',padding:'4px 6px',borderRadius:999,border:`1px solid ${planColor(u.plan_code)}`,color:planColor(u.plan_code),fontWeight:800,fontSize:10}}>{u.plan_code || 'FREE'}</span></td>
+            <td><span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 6px',borderRadius:999,border:`1px solid ${u.account_verified ? planColor(u.certification_tier || u.plan_code) : '#6f6678'}`,color:u.account_verified ? planColor(u.certification_tier || u.plan_code) : '#9d94a8',fontWeight:800,fontSize:10}}>{u.account_verified?'●':'○'} {certificationLabel(u)}</span></td>
             <td>{u.recognized_count ?? 0}</td><td>{u.free_keeps_used ?? 0}</td><td>{u.social_keeps ?? 0}</td><td>{u.credit_remaining == null ? '∞' : u.credit_remaining}</td><td>{u.playlist_tracks ?? 0}</td>
             <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}} style={{padding:'7px 9px'}}>Gérer</button></td>
           </tr>)}
@@ -278,13 +284,14 @@ export default function Users() {
     {selected && <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
       <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',overflowX:'hidden',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
-          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div></div></div>
+          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification KEEP : {certificationLabel(selected)}</div></div></div>
           <button onClick={()=>setSelected(null)}>Fermer</button>
         </div>
 
         {busy==='load' || !snapshot ? <div style={{padding:30,textAlign:'center'}}>Chargement du profil réel…</div> : <>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:8,marginTop:16}}>
             {[
+              ['Certification', selected.account_verified ? certificationLabel(selected) : 'Compte non validé'],
               ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
               ['Reconnaissances', String(snapshot.usage.recognizedCount)],
               ['KEEP débités', String(snapshot.usage.ownKeeps)],
