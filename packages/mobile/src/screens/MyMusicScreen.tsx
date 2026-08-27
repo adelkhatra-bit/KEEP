@@ -20,6 +20,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const { playlists, isLoading, refresh } = usePlaylistStore();
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const setTrackVisibilityInSession = useSessionHistoryStore((s) => s.setTrackVisibilityInSession);
+  const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const [analysis, setAnalysis] = useState<LibraryAnalysis | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -39,10 +40,24 @@ export default function MyMusicScreen({ navigation }: any) {
       .map((entry) => ({ ...entry, sessionId: session.id }))),
     [sessions],
   );
-  const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
+  const localKeptTracks = useMemo(() => {
+    const unique = new Map<string, CanonicalTrack>();
+    for (const entry of localKeptEntries) unique.set(entry.track.id, entry.track);
+    return Array.from(unique.values());
+  }, [localKeptEntries]);
   const providerId = musicEngine.musicProvider.providerId || 'KEEP';
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  const refreshLibrary = async () => {
+    await syncUnsyncedKeeps().catch(() => {});
+    await refresh().catch(() => {});
+  };
+
+  useEffect(() => {
+    void refreshLibrary();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshLibrary(); });
+    return () => unsubscribe?.();
+  }, [navigation, refresh, syncUnsyncedKeeps]);
+
   useEffect(() => {
     let live = true;
     void loadPlaylistPreferences(providerId).then((next) => { if (live) setPreferences(next); });
@@ -50,15 +65,20 @@ export default function MyMusicScreen({ navigation }: any) {
   }, [providerId, playlists.length]);
 
   const basePlaylists = useMemo<ProviderPlaylist[]>(() => {
-    if (playlists.length) return playlists;
-    if (!localKeptTracks.length) return [];
-    return [{
-      id: LOCAL_HISTORY_PLAYLIST_ID,
-      name: 'Mes KEEP',
-      description: 'Morceaux réellement gardés sur cet appareil',
-      trackCount: localKeptTracks.length,
-      isKeepManaged: true,
-    }];
+    const result: ProviderPlaylist[] = [];
+    if (localKeptTracks.length) {
+      result.push({
+        id: LOCAL_HISTORY_PLAYLIST_ID,
+        name: 'Toute ma musique',
+        description: 'Tous tes titres KEEP, publics ou privés. Les services connectés restent aussi disponibles juste dessous.',
+        trackCount: localKeptTracks.length,
+        isKeepManaged: true,
+      });
+    }
+    for (const playlist of playlists) {
+      if (playlist.id !== LOCAL_HISTORY_PLAYLIST_ID) result.push(playlist);
+    }
+    return result;
   }, [localKeptTracks.length, playlists]);
 
   const displayPlaylists = useMemo(() => basePlaylists.map((playlist) => {
@@ -66,15 +86,39 @@ export default function MyMusicScreen({ navigation }: any) {
     return pref ? { ...playlist, name: pref.name || playlist.name, description: pref.description || playlist.description } : playlist;
   }), [basePlaylists, preferences, providerId]);
 
-  const loadTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
-    if (playlist.id === LOCAL_HISTORY_PLAYLIST_ID) return localKeptTracks;
+  const loadProviderTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
     if (tracksByPlaylist[playlist.id]) return tracksByPlaylist[playlist.id];
+    const session = await musicEngine.getSession();
+    const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
+    setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
+    return tracks;
+  };
+
+  const loadTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
+    if (playlist.id === LOCAL_HISTORY_PLAYLIST_ID) {
+      setLoadingPlaylist(playlist.id);
+      try {
+        const unique = new Map<string, CanonicalTrack>();
+        for (const track of localKeptTracks) unique.set(track.id, track);
+        for (const providerPlaylist of playlists) {
+          if (providerPlaylist.id === LOCAL_HISTORY_PLAYLIST_ID) continue;
+          try {
+            const providerTracks = await loadProviderTracks(providerPlaylist);
+            for (const track of providerTracks) unique.set(track.id, track);
+          } catch {
+            // Un fournisseur indisponible ne doit jamais masquer les KEEP locaux.
+          }
+        }
+        const merged = Array.from(unique.values());
+        setTracksByPlaylist((state) => ({ ...state, [LOCAL_HISTORY_PLAYLIST_ID]: merged }));
+        return merged;
+      } finally {
+        setLoadingPlaylist(null);
+      }
+    }
     setLoadingPlaylist(playlist.id);
     try {
-      const session = await musicEngine.getSession();
-      const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
-      setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
-      return tracks;
+      return await loadProviderTracks(playlist);
     } finally {
       setLoadingPlaylist(null);
     }
@@ -192,8 +236,12 @@ export default function MyMusicScreen({ navigation }: any) {
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => {
     const pref = preferenceFor(preferences, providerId, item.id);
     const expanded = expandedId === item.id;
-    const tracks = item.id === LOCAL_HISTORY_PLAYLIST_ID ? localKeptTracks : (tracksByPlaylist[item.id] ?? []);
-    const actualCount = item.id === LOCAL_HISTORY_PLAYLIST_ID ? localKeptTracks.length : item.trackCount;
+    const tracks = item.id === LOCAL_HISTORY_PLAYLIST_ID
+      ? (tracksByPlaylist[LOCAL_HISTORY_PLAYLIST_ID] ?? localKeptTracks)
+      : (tracksByPlaylist[item.id] ?? []);
+    const actualCount = item.id === LOCAL_HISTORY_PLAYLIST_ID
+      ? (tracksByPlaylist[LOCAL_HISTORY_PLAYLIST_ID]?.length ?? localKeptTracks.length)
+      : item.trackCount;
     return <View style={styles.playlistBlock}>
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
         {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>♪</Text></View>}
@@ -220,7 +268,7 @@ export default function MyMusicScreen({ navigation }: any) {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>{t('myMusic.title')}</Text>
-          <Text style={styles.headerSubtitle}>Tes vraies musiques, tous services confondus</Text>
+          <Text style={styles.headerSubtitle}>Ta bibliothèque KEEP complète + tes services connectés</Text>
         </View>
         <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')}>
           <Text style={styles.servicesButtonText}>＋ Services</Text>
@@ -252,7 +300,7 @@ export default function MyMusicScreen({ navigation }: any) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshing={isLoading}
-        onRefresh={refresh}
+        onRefresh={() => { void refreshLibrary(); }}
         ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Dès que tu fais GARDER pendant une écoute, le morceau apparaît ici. Connecte Apple Music, Spotify ou Deezer pour réunir aussi tes bibliothèques externes.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.emptyButtonText}>GÉRER MES SERVICES</Text></TouchableOpacity></View>}
       />
 
