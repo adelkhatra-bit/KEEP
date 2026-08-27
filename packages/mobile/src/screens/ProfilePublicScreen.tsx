@@ -19,6 +19,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
+import SourceProfileQuickView from '../components/SourceProfileQuickView';
 
 type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
@@ -54,6 +55,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [accountMode, setAccountMode] = useState<AccountMode>('create');
+  const [pendingFollowUsername, setPendingFollowUsername] = useState('');
+  const [sourceQuickUsername, setSourceQuickUsername] = useState('');
   const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<Record<string, CanonicalTrack[]>>({});
   const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(null);
@@ -168,8 +171,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const planLabel = planCode === 'FREE' && creditRemaining != null ? `FREE · ${creditRemaining}` : planCode;
   const planStyle = planCode === 'FREE' ? (creditsExhausted ? s.planExhausted : s.planFree) : s.planPaid;
 
-  const openAccount = (mode: AccountMode = 'create') => {
+  const openAccount = (mode: AccountMode = 'create', followUsername = '') => {
     setShareOpen(false);
+    setPendingFollowUsername(followUsername.replace(/^@+/, ''));
     setAccountMode(mode);
     setAccountOpen(true);
   };
@@ -188,7 +192,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   };
 
   const openSourceProfile = (sourceUsername: string) => {
-    navigation.navigate('PublicProfile', { username: sourceUsername });
+    setSourceQuickUsername(sourceUsername.replace(/^@+/, ''));
   };
 
   const openSocial = async (platform: SocialPlatform) => {
@@ -263,9 +267,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.freeBadge}><Text style={s.freeBadgeText}>FREE</Text></View>
           {sourceUsername ? (
             <View style={s.originInline}>
-              <Text style={s.originLabel}>UTIL.</Text>
-              <TouchableOpacity style={s.originUserLink} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil de ${sourceUsername}`}>
-                <Text style={s.originUserText}>@{sourceUsername.slice(0, 5)}</Text>
+              <Text style={s.originLabel}>Utilisateur</Text>
+              <TouchableOpacity style={s.originUserLink} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir rapidement le profil de ${sourceUsername}`}>
+                <Text style={s.originUserText}>@{sourceUsername.slice(0, 4)}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -335,9 +339,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <View style={s.stats}>
           <Stat value={ownKeepCount} label="KEEP"/>
-          <Stat value={userKeepCount} label="KEEP U."/>
+          <Stat value={userKeepCount} label="KEEP utilisateurs"/>
           <Stat value={user.followerCount} label="Abonnés"/>
-          <Stat value={user.followingCount} label="Suivis"/>
+          <Stat value={user.followingCount} label="Abonnements"/>
         </View>
       </View>
 
@@ -371,12 +375,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
       onClose={() => setProfileSwipeOpen(false)}
     />
 
-    <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={() => setAccountOpen(false)}>
+    <SourceProfileQuickView
+      visible={Boolean(sourceQuickUsername)}
+      username={sourceQuickUsername}
+      currentUserId={user.id}
+      accountRequired={accountRequired}
+      onClose={() => setSourceQuickUsername('')}
+      onOpenFull={(username) => navigation.navigate('PublicProfile', { username })}
+      onRequireAccount={(username) => openAccount('create', username)}
+    />
+
+    <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={() => { setAccountOpen(false); setPendingFollowUsername(''); }}>
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
-          <UsernameAccountForm initialMode={accountMode} onSuccess={() => setAccountOpen(false)} />
-          <TouchableOpacity style={s.cancelShare} onPress={() => setAccountOpen(false)}><Text style={s.cancelShareText}>Plus tard</Text></TouchableOpacity>
+          <UsernameAccountForm initialMode={accountMode} followUsername={pendingFollowUsername} onSuccess={() => { setAccountOpen(false); setPendingFollowUsername(''); }} />
+          <TouchableOpacity style={s.cancelShare} onPress={() => { setAccountOpen(false); setPendingFollowUsername(''); }}><Text style={s.cancelShareText}>Plus tard</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -426,11 +440,11 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontWeight:'900'},
   topBar:{paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},topTitleRow:{flexDirection:'row',alignItems:'center',gap:7},topTitle:{...typography.h2,color:colors.textPrimary},kindBadge:{minHeight:21,paddingHorizontal:7,borderRadius:11,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#BFA9FF',fontSize:8,fontWeight:'900'},actions:{flexDirection:'row',gap:6,alignItems:'center'},iconButton:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:17},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:8,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:9,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:68,height:68,borderRadius:34,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},username:{...typography.h2,color:colors.textPrimary},identityMeta:{flexDirection:'row',alignItems:'center',gap:6,marginTop:5,flexWrap:'wrap'},followPreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followPreviewText:{color:'#FFF',fontSize:10,fontWeight:'900'},swipePreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:'#21182F',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},swipePreviewText:{color:'#D9C7FF',fontSize:10,fontWeight:'900'},location:{color:colors.textMuted,fontSize:13,marginTop:5},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,marginTop:12},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},accountBannerText:{color:'#B9AEC6',fontSize:11,lineHeight:16,marginTop:3},stats:{marginTop:16,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:10,paddingHorizontal:2},statValue:{color:colors.textPrimary,fontSize:18,fontWeight:'800'},statLabel:{color:colors.textMuted,fontSize:9,marginTop:3,textAlign:'center'},
+  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:68,height:68,borderRadius:34,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},username:{...typography.h2,color:colors.textPrimary},identityMeta:{flexDirection:'row',alignItems:'center',gap:6,marginTop:5,flexWrap:'wrap'},followPreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followPreviewText:{color:'#FFF',fontSize:10,fontWeight:'900'},swipePreview:{minHeight:28,paddingHorizontal:11,borderRadius:14,backgroundColor:'#21182F',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},swipePreviewText:{color:'#D9C7FF',fontSize:10,fontWeight:'900'},location:{color:colors.textMuted,fontSize:13,marginTop:5},bio:{color:colors.textSecondary,fontSize:14,lineHeight:20,marginTop:12},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},accountBannerText:{color:'#B9AEC6',fontSize:11,lineHeight:16,marginTop:3},stats:{marginTop:16,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border},stat:{flex:1,alignItems:'center',paddingVertical:10,paddingHorizontal:2},statValue:{color:colors.textPrimary,fontSize:18,fontWeight:'800'},statLabel:{color:colors.textMuted,fontSize:8,marginTop:3,textAlign:'center'},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},muted:{color:colors.textMuted,fontSize:12,lineHeight:17},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  keepList:{marginHorizontal:18,marginTop:10,gap:7},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:9,fontWeight:'800'},freeBadge:{minHeight:23,paddingHorizontal:8,borderRadius:12,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#31C981',alignItems:'center',justifyContent:'center'},freeBadgeText:{color:'#FFFFFF',fontSize:8,fontWeight:'900',letterSpacing:.3},originInline:{flexDirection:'row',alignItems:'center',gap:4},originLabel:{color:'#FFFFFF',fontSize:8,fontWeight:'700',letterSpacing:.2},originUserLink:{minHeight:23,paddingHorizontal:2,alignItems:'center',justifyContent:'center'},originUserText:{color:'#FFFFFF',fontSize:9,fontWeight:'900',textDecorationLine:'underline'},
+  keepList:{marginHorizontal:18,marginTop:10,gap:7},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:9,fontWeight:'800'},freeBadge:{minHeight:23,paddingHorizontal:8,borderRadius:12,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#31C981',alignItems:'center',justifyContent:'center'},freeBadgeText:{color:'#FFFFFF',fontSize:8,fontWeight:'900',letterSpacing:.3},originInline:{flexDirection:'row',alignItems:'center',gap:4},originLabel:{color:'#FFFFFF',fontSize:8,fontWeight:'700',letterSpacing:.2},originUserLink:{minHeight:23,paddingHorizontal:8,borderRadius:12,backgroundColor:'#21182F',borderWidth:1,borderColor:'#6E4BA5',alignItems:'center',justifyContent:'center'},originUserText:{color:'#D9C7FF',fontSize:9,fontWeight:'900'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:10,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},playlistShareText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:11,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:12,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:9,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelShareText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
   qrShell:{width:'100%',maxWidth:520,alignItems:'center'},qrCard:{width:'100%',backgroundColor:'#F7F4FF',borderRadius:26,padding:20},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#171020',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#6A4BA5',fontSize:9,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#E7DFFF'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#6A4BA5',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#171020',fontSize:22,fontWeight:'900'},qrKind:{color:'#6A4BA5',fontSize:10,fontWeight:'900',marginTop:2},qrLocation:{color:'#6B6377',fontSize:10,marginTop:3},qrBio:{color:'#4D4655',fontSize:11,lineHeight:16,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#E9E0FF',borderRadius:999,paddingHorizontal:8,paddingVertical:4},qrGenreText:{color:'#5B3E94',fontSize:9,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#FFF',borderRadius:16},qrScan:{color:'#171020',fontSize:9,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#6A4BA5',fontSize:12,fontWeight:'900',textAlign:'center',marginTop:5},screenshotHint:{color:'#A99EBA',fontSize:10,lineHeight:15,textAlign:'center',marginTop:10,paddingHorizontal:10},
