@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, CanonicalTrack, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import { sharePlaylist } from '../services/sharingService';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
@@ -11,15 +12,25 @@ import TrackPreviewButton from '../components/TrackPreviewButton';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
-const LOCAL_HISTORY_PLAYLIST_ID = 'keep-local-history';
+const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
+
+function trackIdentity(track: CanonicalTrack) {
+  const isrc = track.isrc?.trim().toUpperCase();
+  if (isrc) return `isrc:${isrc}`;
+  const title = track.title.trim().toLowerCase().replace(/\s+/g, ' ');
+  const artist = track.artist.trim().toLowerCase().replace(/\s+/g, ' ');
+  return `meta:${title}|${artist}`;
+}
 
 export default function MyMusicScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { playlists, isLoading, refresh } = usePlaylistStore();
+  const userId = useUserStore((s) => s.user?.id ?? '');
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const setTrackVisibilityInSession = useSessionHistoryStore((s) => s.setTrackVisibilityInSession);
+  const setAllKeptVisibility = useSessionHistoryStore((s) => s.setAllKeptVisibility);
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const [analysis, setAnalysis] = useState<LibraryAnalysis | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
@@ -33,18 +44,24 @@ export default function MyMusicScreen({ navigation }: any) {
   const [editDescription, setEditDescription] = useState('');
   const [editPublic, setEditPublic] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [bulkPublicBusy, setBulkPublicBusy] = useState(false);
 
-  const localKeptEntries = useMemo(
-    () => sessions.flatMap((session) => session.tracks
+  const localKeptEntries = useMemo(() => {
+    const all = sessions.flatMap((session) => session.tracks
       .filter((entry) => entry.status === 'kept')
-      .map((entry) => ({ ...entry, sessionId: session.id }))),
-    [sessions],
-  );
-  const localKeptTracks = useMemo(() => {
-    const unique = new Map<string, CanonicalTrack>();
-    for (const entry of localKeptEntries) unique.set(entry.track.id, entry.track);
-    return Array.from(unique.values());
-  }, [localKeptEntries]);
+      .map((entry) => ({ ...entry, sessionId: session.id })));
+    const unique = new Map<string, (typeof all)[number]>();
+    for (const entry of all) {
+      const key = trackIdentity(entry.track);
+      const current = unique.get(key);
+      if (!current || new Date(entry.detectedAt).getTime() >= new Date(current.detectedAt).getTime()) unique.set(key, entry);
+    }
+    return Array.from(unique.values()).sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  }, [sessions]);
+
+  const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
+  const publicKeepCount = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PUBLIC').length, [localKeptEntries]);
+  const privateKeepCount = localKeptEntries.length - publicKeepCount;
   const providerId = musicEngine.musicProvider.providerId || 'KEEP';
 
   const refreshLibrary = async () => {
@@ -53,35 +70,41 @@ export default function MyMusicScreen({ navigation }: any) {
   };
 
   useEffect(() => {
+    setTracksByPlaylist({});
+    setExpandedId(null);
+    setAnalysis(null);
+    setPreferences({});
+  }, [userId]);
+
+  useEffect(() => {
     void refreshLibrary();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshLibrary(); });
     return () => unsubscribe?.();
-  }, [navigation, refresh, syncUnsyncedKeeps]);
+  }, [navigation, refresh, syncUnsyncedKeeps, userId]);
 
   useEffect(() => {
     let live = true;
     void loadPlaylistPreferences(providerId).then((next) => { if (live) setPreferences(next); });
     return () => { live = false; };
-  }, [providerId, playlists.length]);
+  }, [providerId, playlists.length, userId]);
 
   const basePlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = [];
     if (localKeptTracks.length) {
       result.push({
-        id: LOCAL_HISTORY_PLAYLIST_ID,
+        id: ALL_KEEP_VIEW_ID,
         name: 'Toute ma musique',
-        description: 'Tous tes titres KEEP, publics ou privés. Les services connectés restent aussi disponibles juste dessous.',
+        description: 'Tous tes titres KEEP, avec leur vraie visibilité Public ou Privé. Les services connectés restent disponibles juste dessous.',
         trackCount: localKeptTracks.length,
         isKeepManaged: true,
       });
     }
-    for (const playlist of playlists) {
-      if (playlist.id !== LOCAL_HISTORY_PLAYLIST_ID) result.push(playlist);
-    }
+    for (const playlist of playlists) result.push(playlist);
     return result;
   }, [localKeptTracks.length, playlists]);
 
   const displayPlaylists = useMemo(() => basePlaylists.map((playlist) => {
+    if (playlist.id === ALL_KEEP_VIEW_ID) return playlist;
     const pref = preferenceFor(preferences, providerId, playlist.id);
     return pref ? { ...playlist, name: pref.name || playlist.name, description: pref.description || playlist.description } : playlist;
   }), [basePlaylists, preferences, providerId]);
@@ -95,26 +118,9 @@ export default function MyMusicScreen({ navigation }: any) {
   };
 
   const loadTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
-    if (playlist.id === LOCAL_HISTORY_PLAYLIST_ID) {
-      setLoadingPlaylist(playlist.id);
-      try {
-        const unique = new Map<string, CanonicalTrack>();
-        for (const track of localKeptTracks) unique.set(track.id, track);
-        for (const providerPlaylist of playlists) {
-          if (providerPlaylist.id === LOCAL_HISTORY_PLAYLIST_ID) continue;
-          try {
-            const providerTracks = await loadProviderTracks(providerPlaylist);
-            for (const track of providerTracks) unique.set(track.id, track);
-          } catch {
-            // Un fournisseur indisponible ne doit jamais masquer les KEEP locaux.
-          }
-        }
-        const merged = Array.from(unique.values());
-        setTracksByPlaylist((state) => ({ ...state, [LOCAL_HISTORY_PLAYLIST_ID]: merged }));
-        return merged;
-      } finally {
-        setLoadingPlaylist(null);
-      }
+    if (playlist.id === ALL_KEEP_VIEW_ID) {
+      setTracksByPlaylist((state) => ({ ...state, [ALL_KEEP_VIEW_ID]: localKeptTracks }));
+      return localKeptTracks;
     }
     setLoadingPlaylist(playlist.id);
     try {
@@ -129,6 +135,19 @@ export default function MyMusicScreen({ navigation }: any) {
     setExpandedId(playlist.id);
     try { await loadTracks(playlist); }
     catch (e: any) { Alert.alert('Mes musiques', e?.message ?? 'Impossible de charger les morceaux.'); }
+  };
+
+  const makeAllPublic = async () => {
+    if (!privateKeepCount || bulkPublicBusy) return;
+    setBulkPublicBusy(true);
+    try {
+      const changed = await setAllKeptVisibility('PUBLIC');
+      Alert.alert('Visibilité', changed > 0 ? `${changed} morceau${changed > 1 ? 'x' : ''} passé${changed > 1 ? 's' : ''} en public.` : 'Tous tes morceaux sont déjà publics.');
+    } catch (e: any) {
+      Alert.alert('Visibilité', e?.message ?? 'Impossible de rendre tous les morceaux publics pour le moment.');
+    } finally {
+      setBulkPublicBusy(false);
+    }
   };
 
   const runOrganizeAnalysis = async () => {
@@ -153,8 +172,8 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const allKnownTracks = useMemo(() => {
     const map = new Map<string, CanonicalTrack>();
-    for (const track of localKeptTracks) map.set(track.id, track);
-    for (const tracks of Object.values(tracksByPlaylist)) for (const track of tracks) map.set(track.id, track);
+    for (const track of localKeptTracks) map.set(trackIdentity(track), track);
+    for (const tracks of Object.values(tracksByPlaylist)) for (const track of tracks) map.set(trackIdentity(track), track);
     return Array.from(map.values());
   }, [localKeptTracks, tracksByPlaylist]);
 
@@ -206,8 +225,10 @@ export default function MyMusicScreen({ navigation }: any) {
     }
   };
 
-  const toggleTrackVisibility = async (trackId: string) => {
-    const entry = localKeptEntries.find((item) => item.track.id === trackId);
+  const localEntryForTrack = (track: CanonicalTrack) => localKeptEntries.find((item) => trackIdentity(item.track) === trackIdentity(track));
+
+  const toggleTrackVisibility = async (track: CanonicalTrack) => {
+    const entry = localEntryForTrack(track);
     if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’un service connecté. Utilise la visibilité de la playlist pour contrôler son affichage public.');
     const next = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
     try { await setTrackVisibilityInSession(entry.sessionId, entry.id, next); }
@@ -215,9 +236,9 @@ export default function MyMusicScreen({ navigation }: any) {
   };
 
   const renderTrack = (track: CanonicalTrack) => {
-    const localEntry = localKeptEntries.find((item) => item.track.id === track.id);
+    const localEntry = localEntryForTrack(track);
     const available = track.availableOn?.length ? track.availableOn.join(' · ') : Object.keys(track.providerIds ?? {}).join(' · ');
-    return <View key={track.id} style={styles.trackRow}>
+    return <View key={trackIdentity(track)} style={styles.trackRow}>
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
       <View style={styles.trackInfo}>
         <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
@@ -225,37 +246,39 @@ export default function MyMusicScreen({ navigation }: any) {
         {available ? <Text style={styles.trackAvailable} numberOfLines={1}>Disponible : {available}</Text> : null}
         <View style={styles.trackActions}>
           <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact />
-          <TouchableOpacity style={styles.smallAction} onPress={() => void toggleTrackVisibility(track.id)}>
-            <Text style={styles.smallActionText}>{localEntry?.visibility === 'PUBLIC' ? '👁 Public' : '🔒 Privé'}</Text>
-          </TouchableOpacity>
+          {localEntry ? <TouchableOpacity style={styles.smallAction} onPress={() => void toggleTrackVisibility(track)}>
+            <Text style={styles.smallActionText}>{localEntry.visibility === 'PUBLIC' ? '👁 Public' : '🔒 Privé'}</Text>
+          </TouchableOpacity> : <View style={styles.smallAction}><Text style={styles.smallActionText}>Service connecté</Text></View>}
         </View>
       </View>
     </View>;
   };
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => {
-    const pref = preferenceFor(preferences, providerId, item.id);
+    const isAllKeepView = item.id === ALL_KEEP_VIEW_ID;
+    const pref = isAllKeepView ? null : preferenceFor(preferences, providerId, item.id);
     const expanded = expandedId === item.id;
-    const tracks = item.id === LOCAL_HISTORY_PLAYLIST_ID
-      ? (tracksByPlaylist[LOCAL_HISTORY_PLAYLIST_ID] ?? localKeptTracks)
+    const tracks = isAllKeepView
+      ? (tracksByPlaylist[ALL_KEEP_VIEW_ID] ?? localKeptTracks)
       : (tracksByPlaylist[item.id] ?? []);
-    const actualCount = item.id === LOCAL_HISTORY_PLAYLIST_ID
-      ? (tracksByPlaylist[LOCAL_HISTORY_PLAYLIST_ID]?.length ?? localKeptTracks.length)
-      : item.trackCount;
+    const actualCount = isAllKeepView ? localKeptTracks.length : item.trackCount;
+    const status = isAllKeepView
+      ? `${publicKeepCount} public${publicKeepCount > 1 ? 's' : ''} · ${privateKeepCount} privé${privateKeepCount > 1 ? 's' : ''}`
+      : `Playlist ${pref?.isPublic ? 'publique' : 'privée'}`;
     return <View style={styles.playlistBlock}>
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
         {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>♪</Text></View>}
         <View style={styles.playlistInfo}>
           <Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>
           {item.description ? <Text style={styles.playlistDesc} numberOfLines={2}>{item.description}</Text> : null}
-          <Text style={styles.songCount}>{actualCount} {actualCount > 1 ? 'morceaux' : 'morceau'} · {pref?.isPublic ? 'Public' : 'Privé'}</Text>
+          <Text style={styles.songCount}>{actualCount} {actualCount > 1 ? 'morceaux' : 'morceau'} · {status}</Text>
         </View>
         <Text style={styles.chevron}>{expanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity>
-      <View style={styles.playlistActions}>
+      {!isAllKeepView ? <View style={styles.playlistActions}>
         <TouchableOpacity style={styles.actionButton} onPress={() => openEdit(item)}><Text style={styles.actionText}>✎ Modifier</Text></TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Le partage de cette playlist est indisponible pour le moment.'))}><Text style={styles.actionText}>↗ Partager</Text></TouchableOpacity>
-      </View>
+      </View> : null}
       {expanded ? <View style={styles.tracksPanel}>
         <Text style={styles.panelHint}>Touchez un morceau pour pré-écouter l’extrait disponible. KEEP ne stocke pas l’audio : il utilise l’extrait du catalogue ou ouvre la plateforme liée.</Text>
         {loadingPlaylist === item.id ? <Text style={styles.loadingText}>Chargement…</Text> : tracks.length ? tracks.map(renderTrack) : <Text style={styles.loadingText}>Aucun morceau dans cette playlist.</Text>}
@@ -274,6 +297,16 @@ export default function MyMusicScreen({ navigation }: any) {
           <Text style={styles.servicesButtonText}>＋ Services</Text>
         </TouchableOpacity>
       </View>
+
+      {localKeptEntries.length ? <View style={styles.visibilitySummary}>
+        <View style={styles.visibilityCopy}>
+          <Text style={styles.visibilityTitle}>Visibilité de tes KEEP</Text>
+          <Text style={styles.visibilityCounts}>Public {publicKeepCount} · Privé {privateKeepCount} · Total {localKeptEntries.length}</Text>
+        </View>
+        <TouchableOpacity style={[styles.bulkPublicButton, privateKeepCount === 0 && styles.bulkPublicButtonDisabled]} onPress={() => void makeAllPublic()} disabled={privateKeepCount === 0 || bulkPublicBusy}>
+          <Text style={styles.bulkPublicText}>{bulkPublicBusy ? '…' : privateKeepCount === 0 ? 'TOUT EST PUBLIC' : 'TOUT METTRE EN PUBLIC'}</Text>
+        </TouchableOpacity>
+      </View> : null}
 
       <TouchableOpacity style={styles.organizeButton} onPress={runOrganizeAnalysis} disabled={analyzing}>
         <Text style={styles.organizeButtonText}>{analyzing ? '…' : `🧹 ${t('myMusic.organizeMyMusic')}`}</Text>
@@ -333,7 +366,14 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
   servicesButton: { flexShrink: 0, backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: 12, minHeight: 38, maxWidth: 116, alignItems: 'center', justifyContent: 'center' },
   servicesButtonText: { color: colors.white, fontSize: 11, fontWeight: '800' },
-  organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
+  visibilitySummary: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  visibilityCopy: { flex: 1, minWidth: 0 },
+  visibilityTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
+  visibilityCounts: { color: colors.textSecondary, fontSize: 10, marginTop: 4 },
+  bulkPublicButton: { minHeight: 36, maxWidth: 142, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
+  bulkPublicButtonDisabled: { opacity: 0.45 },
+  bulkPublicText: { color: colors.background, fontSize: 9, fontWeight: '900', textAlign: 'center' },
+  organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   organizeButtonText: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
   analysisSummary: { marginHorizontal: spacing.xl, marginTop: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   analysisSummaryText: { flex: 1, color: colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '800' },
