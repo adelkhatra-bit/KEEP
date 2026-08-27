@@ -46,6 +46,8 @@ export interface RecognitionResult {
   availableOn?: string[];
   externalUrls?: Record<string, string>;
   providerIds?: ProviderTrackIds;
+  /** Genres issus de catalogues de métadonnées, jamais inférés d'un fichier audio protégé. */
+  genres?: string[];
   /** Identifiant du morceau chez le provider de reconnaissance (pas encore résolu en CanonicalTrack). */
   recognitionProviderTrackId?: string;
 }
