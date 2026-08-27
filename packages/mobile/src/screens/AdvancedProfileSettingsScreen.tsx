@@ -5,9 +5,11 @@ import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { SocialLink } from '../types';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
+import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import { createProfileService } from '../services/profileService';
 import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { createAuthService } from '../services/authService';
+import { deleteOwnKeepAccount } from '../services/accountDeletionService';
 import { supabase } from '../services/supabaseClient';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
@@ -28,6 +30,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
   const [signingOut, setSigningOut] = React.useState(false);
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
 
@@ -122,6 +125,36 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     ]);
   };
 
+  const deleteAccountNow = async () => {
+    if (deletingAccount || isLocalGuest || isDemoMode) return;
+    setDeletingAccount(true);
+    try {
+      await deleteOwnKeepAccount();
+      await clearLocalGuestMarker();
+      logout();
+    } catch (e: any) {
+      Alert.alert('Suppression du compte', e?.message || 'Impossible de supprimer le compte pour le moment.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const confirmDeleteAccount = () => {
+    if (isLocalGuest || isDemoMode) {
+      Alert.alert('Aucun compte serveur', 'Cet essai n’a pas encore de compte KEEP permanent. Utilise Déconnexion pour effacer l’identité locale de cet appareil.');
+      return;
+    }
+    const message = 'Cette action supprime définitivement ton compte KEEP, ton profil, tes KEEP, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée. Si tu as plus tard un abonnement App Store actif, il faudra aussi le résilier dans les abonnements Apple.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`Supprimer définitivement mon compte ?\n\n${message}`)) void deleteAccountNow();
+      return;
+    }
+    Alert.alert('Supprimer définitivement mon compte ?', message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'SUPPRIMER MON COMPTE', style: 'destructive', onPress: () => { void deleteAccountNow(); } },
+    ]);
+  };
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -141,7 +174,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           <Text style={s.sectionTitle}>Raccourcis</Text>
           <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
           <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
-          <Action label="Offre & crédits" onPress={() => navigation.navigate('Offers')} />
+          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
         </View>
 
         <View style={s.section}>
@@ -150,6 +183,12 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
             <View style={s.switchText}><Text style={s.label}>Profil visible</Text><Text style={s.help}>Permet aux autres utilisateurs de découvrir tes goûts musicaux.</Text></View>
             <Switch value={user.isPublic} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.background, true: colors.primary }} />
           </View>
+        </View>
+
+        <View style={s.creatorSection}>
+          <Text style={s.sectionTitle}>Espace créateur</Text>
+          <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>
+          <CreatorToolsPanel navigation={navigation} />
         </View>
 
         <View style={s.section}>
@@ -187,8 +226,14 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
         <View style={s.section}>
           <Text style={s.sectionTitle}>Compte</Text>
           <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données KEEP restent enregistrés.</Text>
-          <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut} accessibilityRole="button" accessibilityLabel="Se déconnecter de KEEP">
+          <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount} accessibilityRole="button" accessibilityLabel="Se déconnecter de KEEP">
             <Text style={s.signOutText}>{signingOut ? 'Déconnexion…' : 'Se déconnecter'}</Text>
+          </TouchableOpacity>
+          <View style={s.deleteDivider} />
+          <Text style={s.deleteTitle}>Suppression définitive</Text>
+          <Text style={s.help}>Supprime le compte serveur et les données associées. Cette action est différente d’une simple déconnexion.</Text>
+          <TouchableOpacity style={s.deleteAccountButton} onPress={confirmDeleteAccount} disabled={deletingAccount || signingOut} accessibilityRole="button" accessibilityLabel="Supprimer définitivement mon compte KEEP">
+            <Text style={s.deleteAccountText}>{deletingAccount ? 'Suppression…' : 'Supprimer définitivement mon compte'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -204,9 +249,9 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, muted: { color: colors.textMuted },
   header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
-  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
+  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
   label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
   primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
-  signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' },
+  signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' }, deleteAccountButton: { minHeight: 44, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 11, fontWeight: '900', textAlign: 'center' },
 });
