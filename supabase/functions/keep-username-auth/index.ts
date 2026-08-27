@@ -20,7 +20,7 @@ const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCas
 const validUsername = (value: string) => value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 const validEmail = (value: string) => value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const validPassword = (value: string) => value.length >= 8 && value.length <= 128;
-const syntheticEmail = (userId: string) => `${userId}@keep.local`;
+const syntheticEmail = (userId: string) => `${userId.toLowerCase()}@keep.local`;
 
 function looksLikeDuplicateEmail(error: unknown) {
   const message = String((error as any)?.message ?? error ?? "").toLowerCase();
@@ -111,7 +111,57 @@ async function usernameFlow(req: Request, action: string, username: string, pass
   }
 
   if (action !== "signup") return json({ ok: false, error: "invalid_action" });
-  return json({ ok: false, error: "email_required" });
+
+  let userId: string;
+  let loginEmail: string;
+
+  if (existingProfile) {
+    const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
+    if (userError || !userData.user) return json({ ok: false, error: "profile_orphaned" });
+
+    if (userData.user.is_anonymous) {
+      const callerId = await bearerUserId(req);
+      if (!callerId || callerId !== existingProfile.id) return json({ ok: false, error: "legacy_profile_requires_original_device" });
+      userId = existingProfile.id;
+      loginEmail = syntheticEmail(userId);
+      const { error: upgradeError } = await admin.auth.admin.updateUserById(userId, {
+        email: loginEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { ...(userData.user.user_metadata ?? {}), keep_username: username, keep_username_only: true },
+      });
+      if (upgradeError) {
+        if (looksLikeDuplicateEmail(upgradeError)) return json({ ok: false, error: "username_taken" });
+        throw upgradeError;
+      }
+    } else {
+      return json({ ok: false, error: "username_taken" });
+    }
+  } else {
+    userId = crypto.randomUUID();
+    loginEmail = syntheticEmail(userId);
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      id: userId,
+      email: loginEmail,
+      password,
+      email_confirm: true,
+      user_metadata: { keep_username: username, keep_username_only: true },
+    });
+    if (createError || !created.user) {
+      if (looksLikeDuplicateEmail(createError)) return json({ ok: false, error: "username_taken" });
+      throw createError ?? new Error("create_user_failed");
+    }
+    try {
+      await createProfile(userId, username);
+    } catch (error) {
+      await admin.auth.admin.deleteUser(userId).catch(() => {});
+      throw error;
+    }
+  }
+
+  const signed = await sessionFor(loginEmail, password);
+  if (!signed.ok) return json({ ok: false, error: signed.error });
+  return json({ ok: true, username, ...signed.session, username_only: true });
 }
 
 async function emailFlow(req: Request, action: string, username: string, email: string, password: string) {
@@ -156,7 +206,7 @@ async function emailFlow(req: Request, action: string, username: string, email: 
     }
 
     const { error: metadataError } = await admin.auth.admin.updateUserById(existingEmailUser.id, {
-      user_metadata: { ...(existingEmailUser.user_metadata ?? {}), keep_username: username },
+      user_metadata: { ...(existingEmailUser.user_metadata ?? {}), keep_username: username, keep_username_only: false },
     });
     if (metadataError) throw metadataError;
     return json({ ok: true, username, ...proof.session, reused_existing_identity: true });
@@ -233,9 +283,7 @@ Deno.serve(async (req) => {
     const email = normalizeEmail(body?.email);
     const password = String(body?.password ?? "");
 
-    if (action === "signup" && !email) return json({ ok: false, error: "email_required" });
     if (!email || body?.username_only === "1" || body?.legacy_username === "1") {
-      if (action === "signup") return json({ ok: false, error: "email_required" });
       return await usernameFlow(req, action, username, password);
     }
     return await emailFlow(req, action, username, email, password);
