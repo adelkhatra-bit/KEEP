@@ -110,7 +110,7 @@ export default function MusicSwipeDeckModal({
       alive = false;
       void stopTrackPreview(`swipe-${current.id}`);
     };
-  }, [visible, current?.id, current?.previewUrl, advanceIndex]);
+  }, [visible, current?.id, current?.previewUrl, advanceIndex, round]);
 
   const advance = async () => {
     await stopTrackPreview();
