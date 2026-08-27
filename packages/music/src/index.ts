@@ -1,6 +1,7 @@
 export * from './types';
 export * from './TrackResolver';
 export * from './SmartPlaylistRouter';
+export * from './SmartAlbumEngine';
 export * from './InMemoryRoutingWeightsStore';
 export * from './LibraryAnalyzer';
 export * from './MusicDNA';
