@@ -1,4 +1,4 @@
-/** Auth KEEP réelle (Supabase Auth). Les comptes peuvent utiliser un pseudo KEEP seul ; l'e-mail reste optionnel. */
+/** Auth KEEP réelle (Supabase Auth). L'e-mail est obligatoire à la création ; la connexion accepte e-mail ou pseudo KEEP. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KeepAuthSession {
@@ -49,12 +49,6 @@ function usernameFromMetadata(user: any): string | null {
   return clean || null;
 }
 
-/**
- * Les comptes pseudo-only utilisent en interne une adresse technique
- * `<uuid>@keep.local` pour bénéficier de la session Supabase par mot de passe.
- * Cette adresse n'est jamais une donnée utilisateur et ne doit jamais remonter
- * dans le profil, les réglages ou l'interface.
- */
 function visibleEmail(user: any): string | null {
   const email = typeof user?.email === 'string' ? user.email.trim() : '';
   if (!email || /@keep\.local$/i.test(email)) return null;
@@ -111,35 +105,12 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signUpWithEmailIdentity(email, username, password) {
-      const cleanEmail = normalizeEmail(email);
-      const cleanUsername = normalizeUsername(username);
-
-      const { data, error } = await client.auth.signUp({
-        email: cleanEmail,
+      return invokeAccountAuth({
+        action: 'signup',
+        email: normalizeEmail(email),
+        username: normalizeUsername(username),
         password,
-        options: {
-          data: { keep_username: cleanUsername },
-          emailRedirectTo: KEEP_PUBLIC_URL,
-        },
       });
-      if (error) return { error: mapSignupError(error.message) };
-      if (!data.user) return { error: 'account_not_created' };
-
-      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        return { error: 'email_taken' };
-      }
-
-      if (data.session) {
-        await client.auth.signOut().catch(() => {});
-        return { error: 'email_confirmation_not_enabled' };
-      }
-
-      return {
-        error: null,
-        username: cleanUsername,
-        userId: data.user.id,
-        requiresEmailConfirmation: true,
-      };
     },
 
     async signInWithEmailIdentity(email, password) {
@@ -161,8 +132,8 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return { error: error ? mapSignupError(error.message) : null };
     },
 
-    async signUpWithUsername(username, password) {
-      return usernameAuth('signup', username, password);
+    async signUpWithUsername() {
+      return { error: 'email_required' };
     },
 
     async signInWithUsername(username, password) {
