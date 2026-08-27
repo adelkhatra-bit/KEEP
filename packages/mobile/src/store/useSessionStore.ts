@@ -8,10 +8,6 @@ import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
-// Le tick ne représente plus la durée d'un échantillon : il sert seulement à
-// relancer très vite une capture dès que la précédente est terminée. Avec un
-// intervalle long, une reconnaissance réseau qui dépassait légèrement le tick
-// faisait attendre tout un cycle supplémentaire avant d'écouter à nouveau.
 const RECOGNITION_TICK_MS = 900;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
@@ -97,12 +93,6 @@ function persistLiveSession(state: SessionStore) {
   });
 }
 
-/**
- * Enrichit un morceau déjà affiché/sauvegardé dans la session. La détection ne
- * doit jamais attendre Spotify/Apple/playlists : dès que le titre est reconnu,
- * il existe comme `pending`. Si la session est fermée pendant l'enrichissement,
- * la copie persistée dans Mes Sessions est mise à jour sans perdre le morceau.
- */
 function applyTrackEnrichment(
   sessionId: string,
   entryId: string,
@@ -110,8 +100,6 @@ function applyTrackEnrichment(
 ) {
   const enrich = (entry: SessionTrackEntry): SessionTrackEntry => {
     if (entry.id !== entryId) return entry;
-    // GARDER/PASSER fait par l'utilisateur gagne toujours sur un résultat de
-    // fond arrivé quelques millisecondes plus tard.
     if (entry.status !== 'pending') {
       return { ...entry, recommendations: patch.recommendations };
     }
@@ -157,9 +145,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startSession: () => {
     clearTimers();
     void cancelAudioCapture();
-    // L'historique survit aux rechargements alors que la session micro active
-    // ne survit pas. Avant de démarrer une nouvelle écoute, fermer donc toute
-    // ancienne entrée restée artificiellement « en cours » après crash/reload.
     useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
     set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, locationLabel: undefined, lat: undefined, lng: undefined });
@@ -185,8 +170,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const sessionIdAtDetection = get().sessionId;
         if (!sessionIdAtDetection) { set({ recognizing: false, micLevel: 0, error: null }); return; }
 
-        // Le morceau entre IMMÉDIATEMENT dans la session. GARDER/PASSER peut
-        // être décidé maintenant ou plus tard depuis Mes Sessions.
         const entry: SessionTrackEntry = {
           id: newId(),
           track,
@@ -198,8 +181,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null }));
         persistLiveSession(get());
 
-        // Recherche de doublon dans les bibliothèques + routage en arrière-plan.
-        // Une panne Spotify/Apple ne doit jamais faire disparaître une détection.
         void (async () => {
           try {
             const { session, playlists, match } = await findExistingTrack(track);
@@ -250,7 +231,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       persistLiveSession(get());
     } catch (e: any) {
       if (isCreditsExhausted(e)) {
-        set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, status: 'pending' as SessionTrackStatus, visibility: 'PRIVATE' as KeepVisibility, creditLocked: true } : t), error: 'Crédits gratuits utilisés : ce morceau reste en attente dans Mes Sessions. Tu peux continuer à écouter et le débloquer plus tard.' }));
+        set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, status: 'pending' as SessionTrackStatus, creditLocked: true } : t), error: 'Crédits gratuits utilisés : ce morceau reste en attente dans Mes Sessions. Tu peux continuer à écouter et le débloquer plus tard.' }));
         persistLiveSession(get());
         return;
       }
@@ -279,7 +260,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await get().keepTrack(entry.id, undefined, 'PRIVATE');
       const refreshed = get().tracks.find((t) => t.id === entry.id);
       if (refreshed?.creditLocked) {
-        set((s) => ({ tracks: s.tracks.map((t) => t.status === 'pending' ? { ...t, creditLocked: true, visibility: 'PRIVATE' as KeepVisibility } : t) }));
+        set((s) => ({ tracks: s.tracks.map((t) => t.status === 'pending' ? { ...t, creditLocked: true } : t) }));
         persistLiveSession(get());
         break;
       }
