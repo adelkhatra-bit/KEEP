@@ -72,6 +72,25 @@ export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
   };
 }
 
+/**
+ * Délai avant de proposer la fin d'une session silencieuse. Il reste piloté
+ * depuis `remote_config` afin que le Super Admin puisse l'ajuster sans publier
+ * une nouvelle version de l'application. KEEP ne coupe jamais la session tout
+ * seul : ce délai ne fait qu'ouvrir la proposition utilisateur.
+ */
+export async function loadSessionSilenceTimeoutMinutes(): Promise<number> {
+  if (!supabase) return 15;
+  const { data, error } = await supabase
+    .from('remote_config')
+    .select('value')
+    .eq('key', 'session_silence_timeout_minutes')
+    .maybeSingle();
+  if (error) return 15;
+  const minutes = Number(data?.value);
+  if (!Number.isFinite(minutes)) return 15;
+  return Math.max(1, Math.min(180, Math.round(minutes)));
+}
+
 export async function loadCurrentPlanCode(profileId: string): Promise<string> {
   if (!supabase) return 'FREE';
 
