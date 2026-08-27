@@ -1,0 +1,18 @@
+# KEEP — ownership canonique.
+# Ce fichier ne remplace pas la protection de branche GitHub : il prépare les
+# reviews obligatoires dès que cette option est activée dans les réglages.
+* @adelkhatra-bit
+
+# Zones critiques : déploiement, identité, sécurité, données et paiements.
+/.github/ @adelkhatra-bit
+/CLAUDE.md @adelkhatra-bit
+/AGENTS.md @adelkhatra-bit
+/scripts/ @adelkhatra-bit
+/packages/mobile/src/navigation/ @adelkhatra-bit
+/packages/mobile/src/services/ @adelkhatra-bit
+/packages/mobile/share-profile.html @adelkhatra-bit
+/packages/admin/ @adelkhatra-bit
+/packages/backend/ @adelkhatra-bit
+/supabase/ @adelkhatra-bit
+/render.yaml @adelkhatra-bit
+/vercel.json @adelkhatra-bit
