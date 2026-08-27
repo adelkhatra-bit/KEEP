@@ -44,7 +44,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const [editDescription, setEditDescription] = useState('');
   const [editPublic, setEditPublic] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [bulkPublicBusy, setBulkPublicBusy] = useState(false);
+  const [bulkVisibilityBusy, setBulkVisibilityBusy] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
 
   const localKeptEntries = useMemo(() => {
     const all = sessions.flatMap((session) => session.tracks
@@ -137,16 +137,21 @@ export default function MyMusicScreen({ navigation }: any) {
     catch (e: any) { Alert.alert('Mes musiques', e?.message ?? 'Impossible de charger les morceaux.'); }
   };
 
-  const makeAllPublic = async () => {
-    if (!privateKeepCount || bulkPublicBusy) return;
-    setBulkPublicBusy(true);
+  const setWholeLibraryVisibility = async (visibility: 'PUBLIC' | 'PRIVATE') => {
+    const needsChange = visibility === 'PUBLIC' ? privateKeepCount : publicKeepCount;
+    if (!needsChange || bulkVisibilityBusy) return;
+    setBulkVisibilityBusy(visibility);
     try {
-      const changed = await setAllKeptVisibility('PUBLIC');
-      Alert.alert('Visibilité', changed > 0 ? `${changed} morceau${changed > 1 ? 'x' : ''} passé${changed > 1 ? 's' : ''} en public.` : 'Tous tes morceaux sont déjà publics.');
+      const changed = await setAllKeptVisibility(visibility);
+      const target = visibility === 'PUBLIC' ? 'public' : 'privé';
+      const already = visibility === 'PUBLIC' ? 'publics' : 'privés';
+      Alert.alert('Visibilité', changed > 0
+        ? `${changed} morceau${changed > 1 ? 'x' : ''} passé${changed > 1 ? 's' : ''} en ${target}.`
+        : `Tous tes morceaux sont déjà ${already}.`);
     } catch (e: any) {
-      Alert.alert('Visibilité', e?.message ?? 'Impossible de rendre tous les morceaux publics pour le moment.');
+      Alert.alert('Visibilité', e?.message ?? `Impossible de rendre tous les morceaux ${visibility === 'PUBLIC' ? 'publics' : 'privés'} pour le moment.`);
     } finally {
-      setBulkPublicBusy(false);
+      setBulkVisibilityBusy(null);
     }
   };
 
@@ -303,9 +308,14 @@ export default function MyMusicScreen({ navigation }: any) {
           <Text style={styles.visibilityTitle}>Visibilité de tes KEEP</Text>
           <Text style={styles.visibilityCounts}>Public {publicKeepCount} · Privé {privateKeepCount} · Total {localKeptEntries.length}</Text>
         </View>
-        <TouchableOpacity style={[styles.bulkPublicButton, privateKeepCount === 0 && styles.bulkPublicButtonDisabled]} onPress={() => void makeAllPublic()} disabled={privateKeepCount === 0 || bulkPublicBusy}>
-          <Text style={styles.bulkPublicText}>{bulkPublicBusy ? '…' : privateKeepCount === 0 ? 'TOUT EST PUBLIC' : 'TOUT METTRE EN PUBLIC'}</Text>
-        </TouchableOpacity>
+        <View style={styles.bulkVisibilityActions}>
+          <TouchableOpacity style={[styles.bulkVisibilityButton, styles.bulkPublicButton, privateKeepCount === 0 && styles.bulkVisibilityButtonDisabled]} onPress={() => void setWholeLibraryVisibility('PUBLIC')} disabled={privateKeepCount === 0 || bulkVisibilityBusy !== null}>
+            <Text style={styles.bulkPublicText}>{bulkVisibilityBusy === 'PUBLIC' ? '…' : privateKeepCount === 0 ? 'TOUT EST PUBLIC' : 'TOUT METTRE EN PUBLIC'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.bulkVisibilityButton, styles.bulkPrivateButton, publicKeepCount === 0 && styles.bulkVisibilityButtonDisabled]} onPress={() => void setWholeLibraryVisibility('PRIVATE')} disabled={publicKeepCount === 0 || bulkVisibilityBusy !== null}>
+            <Text style={styles.bulkPrivateText}>{bulkVisibilityBusy === 'PRIVATE' ? '…' : publicKeepCount === 0 ? 'TOUT EST PRIVÉ' : 'TOUT METTRE EN PRIVÉ'}</Text>
+          </TouchableOpacity>
+        </View>
       </View> : null}
 
       <TouchableOpacity style={styles.organizeButton} onPress={runOrganizeAnalysis} disabled={analyzing}>
@@ -370,9 +380,13 @@ const styles = StyleSheet.create({
   visibilityCopy: { flex: 1, minWidth: 0 },
   visibilityTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   visibilityCounts: { color: colors.textSecondary, fontSize: 10, marginTop: 4 },
-  bulkPublicButton: { minHeight: 36, maxWidth: 142, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
-  bulkPublicButtonDisabled: { opacity: 0.45 },
-  bulkPublicText: { color: colors.background, fontSize: 9, fontWeight: '900', textAlign: 'center' },
+  bulkVisibilityActions: { width: 142, gap: 6 },
+  bulkVisibilityButton: { minHeight: 34, paddingHorizontal: 9, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  bulkPublicButton: { backgroundColor: colors.keep, borderColor: colors.keep },
+  bulkPrivateButton: { backgroundColor: colors.backgroundElevated, borderColor: colors.primary },
+  bulkVisibilityButtonDisabled: { opacity: 0.45 },
+  bulkPublicText: { color: colors.background, fontSize: 8, fontWeight: '900', textAlign: 'center' },
+  bulkPrivateText: { color: colors.primaryLight, fontSize: 8, fontWeight: '900', textAlign: 'center' },
   organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   organizeButtonText: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
   analysisSummary: { marginHorizontal: spacing.xl, marginTop: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
