@@ -18,13 +18,15 @@ type Props = {
 };
 
 function errorText(code: string) {
+  if (code === 'invalid_email' || code === 'email_required') return 'Une adresse e-mail valide est obligatoire pour créer ton compte KEEP.';
+  if (code === 'email_taken') return 'Cette adresse e-mail est déjà liée à un compte KEEP. Connecte-toi avec cette adresse ou ton pseudo.';
   if (code === 'invalid_username') return 'Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.';
   if (code === 'invalid_password') return 'Le mot de passe doit contenir au moins 8 caractères.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre ou connecte-toi.';
   if (code === 'username_conflict') return 'Ce pseudo nécessite une vérification. Choisis-en un autre pour le moment.';
   if (code === 'account_not_created') return 'Ce profil existe encore en mode essai. Crée son compte depuis l’appareil où il a été créé.';
   if (code === 'legacy_profile_requires_original_device') return 'Ce profil provient d’un ancien essai KEEP et doit être récupéré depuis le Super Admin pour éviter toute usurpation.';
-  if (code === 'invalid_credentials') return 'Pseudo KEEP ou mot de passe incorrect.';
+  if (code === 'invalid_credentials') return 'E-mail, pseudo KEEP ou mot de passe incorrect.';
   return 'Connexion KEEP indisponible pour le moment. Réessaie dans un instant.';
 }
 
@@ -47,6 +49,10 @@ function isValidUsername(value: string) {
   return value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 }
 
+function isValidEmail(value: string) {
+  return /^\S+@\S+\.\S+$/.test(value.trim().toLowerCase());
+}
+
 export default function UsernameAccountForm({ initialMode = 'create', followUsername = '', onSuccess }: Props) {
   const currentUser = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -55,6 +61,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     : '';
 
   const [mode, setMode] = useState<UsernameAccountMode>(initialMode);
+  const [email, setEmail] = useState('');
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -100,7 +107,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const submit = async () => {
     if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
     const normalizedUsername = cleanUsername(username);
-    if (!isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (mode === 'create') {
+      if (!isValidEmail(normalizedEmail)) return setError(errorText('email_required'));
+      if (!isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
+    } else if (!username.trim()) {
+      return setError('Saisis ton adresse e-mail ou ton pseudo KEEP.');
+    }
     if (password.length < 8) return setError(errorText('invalid_password'));
     if (mode === 'create' && password !== password2) return setError('Les deux mots de passe ne correspondent pas.');
 
@@ -116,8 +130,10 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
       const auth = createAuthService(supabase);
       const result = mode === 'create'
-        ? await auth.signUpWithUsername(normalizedUsername, password)
-        : await auth.signInWithUsername(normalizedUsername, password);
+        ? await auth.signUpWithEmailIdentity(normalizedEmail, normalizedUsername, password)
+        : username.includes('@')
+          ? await auth.signInWithEmailIdentity(username.trim().toLowerCase(), password)
+          : await auth.signInWithUsername(normalizedUsername, password);
       if (result.error) return setError(errorText(result.error));
 
       await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
@@ -131,7 +147,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
           followed ? 'Le profil que tu consultais est maintenant suivi.' : 'Ton compte est connecté. Le suivi pourra être terminé depuis le profil.',
         );
       } else if (mode === 'create') {
-        Alert.alert('Compte KEEP créé', 'Ton profil d’essai est maintenant rattaché à ton compte KEEP. Tes données et crédits ont été conservés.');
+        Alert.alert('Compte KEEP créé', 'Ton adresse e-mail, ton profil d’essai et tes crédits sont maintenant rattachés au même compte KEEP.');
       }
       onSuccess?.();
     } catch {
@@ -154,23 +170,39 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     {followUsername ? <Text style={s.followHint}>Après connexion, le profil que tu consultais sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
-        ? 'Aucun e-mail requis : ton pseudo KEEP et ton mot de passe suffisent. Après création, 4 crédits gratuits supplémentaires sont débloqués.'
-        : 'Connecte-toi simplement avec ton pseudo KEEP et ton mot de passe.'}
+        ? 'Adresse e-mail obligatoire. Aucun code à recopier : ton e-mail, ton pseudo KEEP et ton mot de passe créent le compte directement.'
+        : 'Connecte-toi avec ton adresse e-mail ou ton pseudo KEEP, puis ton mot de passe.'}
     </Text>
+
+    {mode === 'create' ? <>
+      <TextInput
+        style={s.input}
+        value={email}
+        onChangeText={(value) => { setEmail(value); if (error) setError(''); }}
+        placeholder="Adresse e-mail obligatoire"
+        placeholderTextColor={colors.textMuted}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+      />
+      <Text style={s.usernameHint}>Ton e-mail reste privé. Il sert à reconnaître et retrouver ton compte KEEP.</Text>
+    </> : null}
 
     <TextInput
       style={s.input}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder="Pseudo KEEP"
+      placeholder={mode === 'create' ? 'Pseudo KEEP' : 'E-mail ou pseudo KEEP'}
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
       autoComplete="username"
       textContentType="username"
-      maxLength={30}
+      maxLength={mode === 'create' ? 30 : 160}
     />
-    <Text style={s.usernameHint}>Ton pseudo est public. Aucun e-mail n’est nécessaire pour créer ou retrouver ce compte sur un appareil déjà connecté.</Text>
+    <Text style={s.usernameHint}>{mode === 'create' ? 'Ton pseudo est public et unique sur KEEP.' : 'Tu peux utiliser l’un ou l’autre : ton e-mail ou ton pseudo KEEP.'}</Text>
 
     {mode === 'create' ? <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
       <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE KEEP</Text>
@@ -214,8 +246,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par KEEP : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
     <TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>{busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>{mode === 'create' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>}</TouchableOpacity>
-    <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}><Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text></TouchableOpacity>
-    <Text style={s.recovery}>La session reste enregistrée sur cet appareil. Une méthode de récupération renforcée pourra être ajoutée ensuite dans les réglages.</Text>
+    <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setEmail(''); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}><Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text></TouchableOpacity>
+    <Text style={s.recovery}>La session reste enregistrée sur cet appareil. L’e-mail est conservé comme identifiant privé du compte et n’est jamais affiché sur le profil public.</Text>
   </ScrollView>;
 }
 
