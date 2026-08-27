@@ -130,8 +130,11 @@ if (!authService.includes("username_only: '1'")) failures.push('USERNAME AUTH DO
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 
 const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
-for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Pseudo KEEP', 'Aucun e-mail, aucun code à attendre.']) {
+for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Pseudo KEEP']) {
   if (!accountForm.includes(expected)) failures.push(`USERNAME/PASSWORD ACCOUNT MARKER MISSING: ${expected}`);
+}
+if (!/aucun e-mail[^\n]*(?:aucun code|n[’']est nécessaire|n'est nécessaire)/i.test(accountForm)) {
+  failures.push('USERNAME/PASSWORD ACCOUNT MARKER MISSING: no-email primary account flow');
 }
 if (/Adresse e-mail obligatoire|emailRequired|signUpWithEmailIdentity\(/i.test(accountForm)) {
   failures.push('MANDATORY EMAIL REINTRODUCED IN PRIMARY ACCOUNT FORM');
