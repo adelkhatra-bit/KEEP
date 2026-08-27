@@ -196,5 +196,5 @@ export const useUserStore = create<UserStore>((set, get) => ({
       },
     };
   }),
-  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } : s)),
+  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
 }));
