@@ -40,7 +40,8 @@ export default function SourceProfileQuickView({
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (!visible || !username || !supabase) return;
+    const client = supabase;
+    if (!visible || !username || !client) return;
     let live = true;
     setLoading(true);
     setMessage('');
@@ -48,7 +49,7 @@ export default function SourceProfileQuickView({
 
     const loadProfile = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('profiles')
           .select('id,username,display_name,bio,avatar_url,kind,city,country_code')
           .ilike('username', username.replace(/^@+/, ''))
