@@ -42,7 +42,7 @@ const mustExist = [
   'supabase/functions/keep-preview/index.ts',
   'supabase/functions/keep-admin-preview/index.ts',
   'supabase/migrations/20260827061000_permanent_profile_username_aliases.sql',
-  'supabase/migrations/20260827061500_restore_signup_bonus_four.sql',
+  'supabase/migrations/20260827094000_restore_signup_bonus_twenty.sql',
   'render.yaml',
   'START_KEEP_LIVE_CLEAN.bat',
 ];
@@ -111,9 +111,9 @@ for (const expected of ['profile_username_aliases', 'keep_guard_reserved_usernam
   if (!aliasMigration.includes(expected)) failures.push(`PROFILE LINK ALIAS MIGRATION MARKER MISSING: ${expected}`);
 }
 
-const freeCreditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260827061500_restore_signup_bonus_four.sql'), 'utf8');
-if (!freeCreditMigration.includes("'4'::jsonb") || !freeCreditMigration.includes("signup_bonus_successes")) {
-  failures.push('FREE SIGNUP BONUS MUST REMAIN +4');
+const freeCreditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260827094000_restore_signup_bonus_twenty.sql'), 'utf8');
+if (!freeCreditMigration.includes("'20'::jsonb") || !freeCreditMigration.includes("signup_bonus_successes") || !freeCreditMigration.includes('signup_bonus integer := 20')) {
+  failures.push('FREE SIGNUP BONUS MUST REMAIN +20 (3 guest + 20 account = 23)');
 }
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
@@ -204,7 +204,7 @@ console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('public profile links: permanent aliases reserved per profile');
 console.log('auth user: e-mail obligatoire à la création, connexion par e-mail ou pseudo KEEP + mot de passe');
-console.log('free credits: 3 guest + 4 signup bonus = 7');
+console.log('free credits: 3 guest + 20 signup bonus = 23');
 console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
