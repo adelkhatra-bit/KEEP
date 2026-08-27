@@ -131,12 +131,17 @@ export async function syncPlaylistTrack(params: {
   if (!userId) return;
 
   const keyProvider = params.provider || 'KEEP';
+  const normalizedPlaylistName = params.playlistName.trim().toLowerCase();
+  const providerPlaylistId = keyProvider === 'demo' && normalizedPlaylistName === 'mes keep'
+    ? 'keep-local-history'
+    : params.providerPlaylistId;
+
   const { data: rows, error: findError } = await supabase
     .from('playlists')
     .select('id,is_public,name,description')
     .eq('owner_id', userId)
     .eq('provider', keyProvider)
-    .eq('provider_playlist_id', params.providerPlaylistId)
+    .eq('provider_playlist_id', providerPlaylistId)
     .limit(1);
   if (findError) throw findError;
 
@@ -145,7 +150,7 @@ export async function syncPlaylistTrack(params: {
     const { data: created, error } = await supabase.from('playlists').insert({
       owner_id: userId,
       provider: keyProvider,
-      provider_playlist_id: params.providerPlaylistId,
+      provider_playlist_id: providerPlaylistId,
       name: params.playlistName || 'Mes KEEP',
       description: params.playlistDescription || 'Morceaux gardés avec KEEP.',
       is_public: false,
