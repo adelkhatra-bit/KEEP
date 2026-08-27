@@ -52,8 +52,8 @@ async function getLocalGuestCreditStatus(): Promise<DownloadCreditStatus> {
 /**
  * Fige le nombre de crédits réellement utilisés pendant l'essai AVANT de
  * quitter le profil local. Au premier login confirmé, ce nombre sera importé
- * dans le compteur du vrai compte : 3 consommés avant inscription => 4
- * crédits restants sur le total FREE de 7, jamais 7 nouveaux crédits.
+ * dans le compteur du vrai compte : 3 consommés avant inscription => 20
+ * crédits restants sur le total FREE de 23, jamais 23 nouveaux crédits.
  */
 export async function stageLocalGuestCreditsForUpgrade(): Promise<void> {
   const consumed = await readLocalGuestConsumed();
