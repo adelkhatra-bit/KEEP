@@ -52,6 +52,21 @@
         }
       ],
       [
+        "expo-share-intent",
+        {
+          "iosShareExtensionName": "KEEP",
+          "iosHideView": true,
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
+            "NSExtensionActivationSupportsText": true
+          },
+          "androidIntentFilters": [
+            "text/*"
+          ]
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Allow KEEP to access your photos"
