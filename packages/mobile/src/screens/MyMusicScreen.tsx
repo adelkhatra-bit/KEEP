@@ -266,11 +266,11 @@ export default function MyMusicScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{t('myMusic.title')}</Text>
-          <Text style={styles.headerSubtitle}>Ta bibliothèque KEEP complète + tes services connectés</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title} numberOfLines={1}>{t('myMusic.title')}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={2}>Ta bibliothèque KEEP complète + tes services connectés</Text>
         </View>
-        <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')}>
+        <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux">
           <Text style={styles.servicesButtonText}>＋ Services</Text>
         </TouchableOpacity>
       </View>
@@ -327,11 +327,12 @@ export default function MyMusicScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  header: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  headerCopy: { flex: 1, minWidth: 0 },
   title: { ...typography.h1, color: colors.textPrimary },
-  headerSubtitle: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
-  servicesButton: { backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: spacing.md, minHeight: 38, alignItems: 'center', justifyContent: 'center' },
-  servicesButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },
+  headerSubtitle: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  servicesButton: { flexShrink: 0, backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: 12, minHeight: 38, maxWidth: 116, alignItems: 'center', justifyContent: 'center' },
+  servicesButtonText: { color: colors.white, fontSize: 11, fontWeight: '800' },
   organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   organizeButtonText: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
   analysisSummary: { marginHorizontal: spacing.xl, marginTop: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
