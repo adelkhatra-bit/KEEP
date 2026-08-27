@@ -17,7 +17,7 @@ export interface UsernameAuthResult {
 
 export interface AuthService {
   signInAsGuest(): Promise<{ error: string | null }>;
-  signUpWithEmailIdentity(email: string, username: string, password: string): Promise<UsernameAuthResult>;
+  signUpWithEmailIdentity(email: string, username: string, password: string, pendingFollowUsername?: string): Promise<UsernameAuthResult>;
   signInWithEmailIdentity(email: string, password: string): Promise<UsernameAuthResult>;
   resendSignupConfirmation(email: string): Promise<{ error: string | null }>;
   signUpWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
@@ -96,14 +96,13 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return { error: 'guest_auth_disabled' };
     },
 
-    async signUpWithEmailIdentity(email, username, password) {
+    async signUpWithEmailIdentity(email, username, password, pendingFollowUsername) {
       const cleanEmail = normalizeEmail(email);
       const cleanUsername = normalizeUsername(username);
+      const cleanFollow = pendingFollowUsername ? normalizeUsername(pendingFollowUsername) : '';
       if (!cleanEmail) return { error: 'invalid_email' };
       if (!cleanUsername) return { error: 'invalid_username' };
 
-      // Vérification précoce du pseudo pour donner une erreur claire avant que
-      // le trigger profile ne tente l'INSERT au moment du signUp.
       const { data: usernames } = await client
         .from('profiles')
         .select('id')
@@ -116,21 +115,20 @@ export function createAuthService(client: SupabaseClient): AuthService {
         password,
         options: {
           emailRedirectTo: KEEP_PUBLIC_URL,
-          data: { keep_username: cleanUsername, keep_username_only: false },
+          data: {
+            keep_username: cleanUsername,
+            keep_username_only: false,
+            pending_follow_username: cleanFollow || null,
+          },
         },
       });
       if (error) return { error: mapSignupError(error.message) };
 
-      // Supabase renvoie parfois un user sans identities pour masquer le fait
-      // qu'un e-mail existe déjà. KEEP ne doit surtout pas afficher « créé ».
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
         return { error: 'email_taken' };
       }
 
       if (data.session) {
-        // KEEP exige la validation de l'adresse avant l'accès au compte. Si un
-        // environnement Supabase est configuré sans confirmation obligatoire,
-        // on coupe immédiatement cette session au lieu de contourner la règle.
         await client.auth.signOut().catch(() => {});
         return { error: 'email_confirmation_required_config' };
       }
@@ -166,8 +164,6 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return { error: error ? mapSignupError(error.message) : null };
     },
 
-    // Compatibilité temporaire des anciens comptes créés avec pseudo seul.
-    // Le nouvel écran d'inscription n'utilise plus ce chemin.
     async signUpWithUsername(username, password) {
       return invokeLegacyUsernameAuth({ action: 'signup', username: normalizeUsername(username), password, username_only: '1' });
     },
