@@ -68,9 +68,10 @@ export function subscribeToNotifications(
   profileId: string,
   onInsert: (notification: KeepNotification) => void,
 ): () => void {
-  if (!supabase || !profileId) return () => {};
+  const client = supabase;
+  if (!client || !profileId) return () => {};
 
-  const channel = supabase
+  const channel = client
     .channel(`keep-notifications-${profileId}-${Math.random().toString(36).slice(2, 8)}`)
     .on(
       'postgres_changes',
@@ -87,7 +88,7 @@ export function subscribeToNotifications(
     .subscribe();
 
   return () => {
-    void supabase.removeChannel(channel);
+    void client.removeChannel(channel);
   };
 }
 
