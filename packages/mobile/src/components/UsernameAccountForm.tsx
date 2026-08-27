@@ -19,13 +19,12 @@ type Props = {
 
 function errorText(code: string) {
   if (code === 'invalid_username') return 'Choisis un pseudo KEEP de 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.';
-  if (code === 'invalid_email') return 'Entre une adresse e-mail valide.';
-  if (code === 'email_taken') return 'Cette adresse e-mail possède déjà un compte KEEP. Connecte-toi ou utilise une autre adresse.';
-  if (code === 'email_not_confirmed') return 'Ton adresse e-mail n’est pas encore confirmée. Ouvre l’e-mail KEEP puis clique sur « Activer mon compte KEEP ».';
-  if (code === 'email_confirmation_required_config') return 'La vérification e-mail n’est pas encore activée côté serveur. Aucun compte n’a été ouvert sans contrôle.';
   if (code === 'invalid_password') return 'Le mot de passe doit contenir au moins 8 caractères.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre.';
-  if (code === 'invalid_credentials') return 'Adresse e-mail ou mot de passe incorrect.';
+  if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support KEEP doit le régulariser.';
+  if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
+  if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin KEEP.';
+  if (code === 'invalid_credentials') return 'Pseudo KEEP ou mot de passe incorrect.';
   return 'Connexion KEEP indisponible pour le moment. Réessaie dans un instant.';
 }
 
@@ -48,10 +47,6 @@ function isValidUsername(value: string) {
   return value.length >= 3 && value.length <= 30 && /^[\p{L}\p{N}._-]+$/u.test(value);
 }
 
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim().toLowerCase());
-}
-
 export default function UsernameAccountForm({ initialMode = 'create', followUsername = '', onSuccess }: Props) {
   const currentUser = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -60,7 +55,6 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     : '';
 
   const [mode, setMode] = useState<UsernameAccountMode>(initialMode);
-  const [email, setEmail] = useState('');
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -69,28 +63,17 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   const applyFollowIntent = async () => {
     if (!supabase || !followUsername) return true;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const followerId = sessionData.session?.user?.id;
-    if (!followerId) return false;
-
     const { data: targets, error: targetError } = await supabase
       .from('profiles')
       .select('id,username')
-      .ilike('username', followUsername.replace(/^@+/, ''))
+      .ilike('username', cleanUsername(followUsername))
       .eq('is_public', true)
       .limit(1);
     if (targetError || !targets?.[0]) return false;
-    const followeeId = String(targets[0].id);
-    if (followeeId === followerId) return true;
-
-    const { error: followError } = await supabase.from('follows').upsert(
-      { follower_id: followerId, followee_id: followeeId },
-      { onConflict: 'follower_id,followee_id', ignoreDuplicates: true },
-    );
+    const { error: followError } = await supabase.rpc('keep_follow_profile', { p_followee_id: String(targets[0].id) });
     return !followError;
   };
 
@@ -104,13 +87,26 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setError('');
   };
 
+  const finishAuthenticatedFlow = async () => {
+    await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
+    await useSessionHistoryStore.getState().syncUnsyncedKeeps().catch(() => {});
+    await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+    const followed = await applyFollowIntent();
+    if (followUsername) {
+      Alert.alert(
+        'Compte KEEP prêt',
+        followed
+          ? `Tu es maintenant abonné(e) à @${cleanUsername(followUsername)}.`
+          : `Ton compte est connecté. Ouvre @${cleanUsername(followUsername)} pour terminer le suivi.`,
+      );
+    }
+    onSuccess?.();
+  };
+
   const submit = async () => {
     if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
-    const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = cleanUsername(username);
-
-    if (!isValidEmail(normalizedEmail)) return setError(errorText('invalid_email'));
-    if (mode === 'create' && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
+    if (!isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
     if (password.length < 8) return setError(errorText('invalid_password'));
     if (mode === 'create' && password !== password2) return setError('Les deux mots de passe ne correspondent pas.');
 
@@ -125,46 +121,13 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       }
 
       const auth = createAuthService(supabase);
-      if (mode === 'create') {
-        const result = await auth.signUpWithEmailIdentity(normalizedEmail, normalizedUsername, password, followUsername);
-        if (result.error) return setError(errorText(result.error));
-        if (result.requiresEmailConfirmation) {
-          setAwaitingConfirmation(true);
-          setPassword('');
-          setPassword2('');
-          Alert.alert(
-            'Vérifie ton adresse e-mail',
-            `KEEP a envoyé un e-mail à ${normalizedEmail}. Ouvre-le puis clique sur « ACTIVER MON COMPTE KEEP ». Tu seras redirigé vers KEEP et ton profil d’essai sera récupéré automatiquement.`,
-          );
-          return;
-        }
-      } else {
-        const result = await auth.signInWithEmailIdentity(normalizedEmail, password);
-        if (result.error) return setError(errorText(result.error));
-        await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-        await useSessionHistoryStore.getState().syncUnsyncedKeeps();
-        await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
-        const followed = await applyFollowIntent();
-        if (followUsername) {
-          Alert.alert('Connexion réussie', followed ? 'Le profil que tu consultais est maintenant suivi.' : 'Ton compte est connecté. Le suivi pourra être terminé depuis le profil.');
-        }
-        onSuccess?.();
-      }
+      const result = mode === 'create'
+        ? await auth.signUpWithUsername(normalizedUsername, password)
+        : await auth.signInWithUsername(normalizedUsername, password);
+      if (result.error) return setError(errorText(result.error));
+      await finishAuthenticatedFlow();
     } catch {
       setError('Connexion KEEP indisponible pour le moment. Réessaie dans un instant.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resend = async () => {
-    if (!supabase || !isValidEmail(email)) return setError(errorText('invalid_email'));
-    setBusy(true);
-    setError('');
-    try {
-      const result = await createAuthService(supabase).resendSignupConfirmation(email);
-      if (result.error) setError(errorText(result.error));
-      else Alert.alert('E-mail renvoyé', 'Un nouvel e-mail d’activation KEEP vient d’être envoyé.');
     } finally {
       setBusy(false);
     }
@@ -180,40 +143,28 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     showsVerticalScrollIndicator={false}
   >
     <Text style={s.title}>{mode === 'create' ? 'Créer mon compte KEEP' : 'Se connecter à KEEP'}</Text>
-    {followUsername ? <Text style={s.followHint}>Après vérification/connexion, @{followUsername.replace(/^@+/, '')} sera suivi automatiquement.</Text> : null}
+    {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
-        ? 'Ton e-mail reste privé. Il sert uniquement à sécuriser et récupérer ton compte KEEP.'
-        : 'Connecte-toi avec ton adresse e-mail et ton mot de passe.'}
+        ? 'Simple : ton pseudo KEEP et ton mot de passe suffisent. Tu pourras ajouter un e-mail de récupération plus tard si tu le souhaites.'
+        : 'Connecte-toi avec ton pseudo KEEP et ton mot de passe.'}
     </Text>
 
     <TextInput
       style={s.input}
-      value={email}
-      onChangeText={(value) => { setEmail(value); setAwaitingConfirmation(false); if (error) setError(''); }}
-      placeholder="Adresse e-mail"
+      value={username}
+      onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
+      placeholder="Identifiant KEEP, ex. adel4A"
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
-      autoComplete="email"
-      textContentType="emailAddress"
-      keyboardType="email-address"
+      autoComplete="username"
+      textContentType="username"
+      maxLength={30}
     />
 
     {mode === 'create' ? <>
-      <TextInput
-        style={s.input}
-        value={username}
-        onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-        placeholder="Pseudo KEEP"
-        placeholderTextColor={colors.textMuted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="username"
-        textContentType="username"
-        maxLength={30}
-      />
-      <Text style={s.usernameHint}>Ton pseudo est public et unique. Ton e-mail n’est jamais affiché sur ton profil.</Text>
+      <Text style={s.usernameHint}>Ton identifiant est public et unique. Aucun e-mail n’est nécessaire pour créer le compte.</Text>
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
         <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE KEEP</Text>
       </TouchableOpacity>
@@ -257,18 +208,17 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par KEEP : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
-    {awaitingConfirmation ? <>
-      <View style={s.confirmBox}><Text style={s.confirmTitle}>✓ Inscription en attente de validation</Text><Text style={s.confirmText}>Ouvre ta boîte mail et active ton compte. Aucun accès connecté n’est accordé avant cette vérification.</Text></View>
-      <TouchableOpacity style={s.suggestButton} onPress={resend} disabled={busy}><Text style={s.suggestText}>RENVOYER L’E-MAIL D’ACTIVATION</Text></TouchableOpacity>
-    </> : (
-      <TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>{busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>{mode === 'create' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>}</TouchableOpacity>
-    )}
+    <TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>
+      {busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>{mode === 'create' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>}
+    </TouchableOpacity>
 
-    <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setEmail(''); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setAwaitingConfirmation(false); setError(''); }}><Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text></TouchableOpacity>
+    <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
+      <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
+    </TouchableOpacity>
     <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard » sans perdre les morceaux en attente sur cet appareil.</Text>
   </ScrollView>;
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},confirmBox:{borderWidth:1,borderColor:colors.primary,borderRadius:radius.md,backgroundColor:colors.backgroundElevated,padding:11,marginTop:3},confirmTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',textAlign:'center'},confirmText:{color:colors.textSecondary,fontSize:10,lineHeight:15,textAlign:'center',marginTop:4},
+  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordRule:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
 });
