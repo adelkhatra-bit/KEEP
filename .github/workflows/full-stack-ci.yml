@@ -14,6 +14,10 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'START_KEEP_LIVE_CLEAN.bat'
+      - 'START_KEEP_PRO.ps1'
+      - 'START_KEEP_PRO.bat'
+      - 'START_KEEP_LATEST.bat'
+      - 'FORCE_START_LATEST_KEEP.bat'
       - '.github/workflows/full-stack-ci.yml'
   workflow_dispatch:
 
