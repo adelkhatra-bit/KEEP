@@ -10,6 +10,8 @@ import { Audio } from 'expo-av';
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
 const MAX_SAMPLE_DURATION_MS = 8000;
+const NATIVE_VISUAL_NOISE_FLOOR_DB = -44;
+const WEB_VISUAL_RMS_FLOOR = 0.008;
 
 function safeSampleDuration(durationMs?: number) {
   if (!Number.isFinite(durationMs)) return DEFAULT_SAMPLE_DURATION_MS;
@@ -115,11 +117,19 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
     { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },
     onLevel ? (status) => {
       if (typeof status.metering !== 'number') return;
-      const linear = Math.max(0, Math.min(1, (status.metering + 60) / 60));
-      // L'animation doit rester lisible même avec une musique captée à faible volume.
-      onLevel(Math.min(1, Math.pow(linear, 0.62) * 1.55));
+      const db = Math.max(-160, Math.min(0, status.metering));
+      // Important : le visuel ne doit PAS inventer du mouvement à partir du
+      // souffle du micro. Sous le plancher de bruit on envoie un vrai 0.
+      if (db <= NATIVE_VISUAL_NOISE_FLOOR_DB) {
+        onLevel(0);
+        return;
+      }
+      const normalized = (db - NATIVE_VISUAL_NOISE_FLOOR_DB) / Math.abs(NATIVE_VISUAL_NOISE_FLOOR_DB);
+      // Courbe sensible au-dessus du plancher : petite musique = réaction visible,
+      // musique forte = tourbillon rapide.
+      onLevel(Math.min(1, Math.pow(Math.max(0, normalized), 0.42) * 1.2));
     } : undefined,
-    100
+    50
   );
   activeRecording = recording;
 
@@ -225,7 +235,7 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
   }
 
   const source = audioCtx.createMediaStreamSource(stream);
-  const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  const processor = audioCtx.createScriptProcessor(2048, 1, 1);
   const chunks: Float32Array[] = [];
   const muteGain = audioCtx.createGain();
   muteGain.gain.value = 0;
@@ -234,12 +244,17 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
     const chunk = new Float32Array(e.inputBuffer.getChannelData(0));
     chunks.push(chunk);
     if (onLevel) {
-      let peak = 0;
+      let squareSum = 0;
       for (let i = 0; i < chunk.length; i++) {
-        const v = Math.abs(chunk[i]);
-        if (v > peak) peak = v;
+        squareSum += chunk[i] * chunk[i];
       }
-      onLevel(Math.min(1, Math.pow(Math.min(1, peak * 4.5), 0.68)));
+      const rms = Math.sqrt(squareSum / Math.max(1, chunk.length));
+      if (rms <= WEB_VISUAL_RMS_FLOOR) {
+        onLevel(0);
+      } else {
+        const normalized = Math.min(1, (rms - WEB_VISUAL_RMS_FLOOR) * 12);
+        onLevel(Math.min(1, Math.pow(normalized, 0.46) * 1.15));
+      }
     }
   };
 
