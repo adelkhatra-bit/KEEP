@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import {
   KeepNotification,
   NotificationPreferences,
+  deleteAllNotifications,
   loadNotifications,
   loadNotificationPreferences,
   markAllNotificationsRead,
@@ -18,6 +19,8 @@ export default function NotificationsScreen({ navigation }: any) {
   const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +45,12 @@ export default function NotificationsScreen({ navigation }: any) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 1800);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const unread = useMemo(() => items.filter((item) => !item.readAt).length, [items]);
 
   const updatePrefs = async (patch: Partial<NotificationPreferences>) => {
@@ -50,6 +59,7 @@ export default function NotificationsScreen({ navigation }: any) {
     setPrefs(next);
     try {
       await saveNotificationPreferences(user.id, next);
+      setNotice('Préférence enregistrée');
     } catch {
       setError('Impossible d’enregistrer les préférences.');
     }
@@ -71,18 +81,55 @@ export default function NotificationsScreen({ navigation }: any) {
       await markAllNotificationsRead(user.id);
       const now = new Date().toISOString();
       setItems((current) => current.map((n) => ({ ...n, readAt: n.readAt ?? now })));
+      setNotice('Toutes les notifications sont lues');
     } catch {
       setError('Impossible de tout marquer comme lu.');
     }
   };
 
+  const clearAll = async () => {
+    if (!user || deleting) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteAllNotifications(user.id);
+      setItems([]);
+      setNotice('Notifications supprimées');
+    } catch {
+      setError('Impossible de supprimer les notifications.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const confirmClearAll = () => {
+    if (!items.length || deleting) return;
+    Alert.alert(
+      'Supprimer les notifications',
+      'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte ni tes préférences.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Tout supprimer', style: 'destructive', onPress: () => void clearAll() },
+      ],
+    );
+  };
+
+  const openActions = () => {
+    Alert.alert('Notifications', undefined, [
+      { text: 'Tout marquer comme lu', onPress: () => void readAll() },
+      { text: 'Tout supprimer', style: 'destructive', onPress: confirmClearAll },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      {notice ? <View pointerEvents="none" style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
           <View><Text style={styles.title}>Notifications</Text><Text style={styles.subtitle}>{unread} non lue{unread > 1 ? 's' : ''}</Text></View>
-          <TouchableOpacity onPress={readAll}><Text style={styles.readAll}>Tout lire</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.moreButton} onPress={openActions} accessibilityLabel="Actions notifications"><Text style={styles.moreText}>•••</Text></TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -94,7 +141,10 @@ export default function NotificationsScreen({ navigation }: any) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Centre de notifications</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Centre de notifications</Text>
+            {items.length ? <TouchableOpacity onPress={confirmClearAll} disabled={deleting}><Text style={styles.clearText}>{deleting ? 'Suppression…' : 'Tout supprimer'}</Text></TouchableOpacity> : null}
+          </View>
           {loading ? <ActivityIndicator color="#A884FA" /> : error && items.length === 0 ? <Text style={styles.error}>{error}</Text> : items.length === 0 ? (
             <View style={styles.empty}><Text style={styles.emptyIcon}>♩</Text><Text style={styles.muted}>Aucune notification pour le moment.</Text></View>
           ) : items.map((item) => (
@@ -126,9 +176,14 @@ const styles = StyleSheet.create({
   back: { color: '#F8F6FC', fontSize: 38, lineHeight: 40 },
   title: { ...typography.h2, color: '#F8F6FC', textAlign: 'center' },
   subtitle: { color: '#8F879D', fontSize: 11, textAlign: 'center', marginTop: 2 },
-  readAll: { color: '#B79CFF', fontSize: 12, fontWeight: '800' },
+  moreButton: { minWidth: 42, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348' },
+  moreText: { color: '#B79CFF', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  notice: { position: 'absolute', zIndex: 20, top: 12, alignSelf: 'center', maxWidth: '78%', backgroundColor: 'rgba(27,19,41,.96)', borderWidth: 1, borderColor: '#4D3A69', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  noticeText: { color: '#F8F6FC', fontSize: 10, lineHeight: 14, fontWeight: '800', textAlign: 'center' },
   section: { marginBottom: spacing.xxl },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { color: '#F8F6FC', fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
+  clearText: { color: '#FF7D92', fontSize: 10, fontWeight: '900' },
   preference: { minHeight: 56, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: radius.md, marginBottom: spacing.sm },
   preferenceLabel: { color: '#F8F6FC', fontSize: 13, fontWeight: '700' },
   card: { backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: 16, padding: spacing.md, marginBottom: spacing.sm },
