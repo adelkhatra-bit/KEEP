@@ -31,6 +31,7 @@ type UserSnapshot = {
   profile: {
     id: string; username: string; display_name: string | null; bio: string | null; avatar_url: string | null;
     city: string | null; country_code: string | null; kind: string | null; website: string | null; is_public: boolean;
+    discovery_hidden: boolean;
   };
   privateInfo: { birth_date?: string | null; gender?: string | null } | null;
   socialLinks: Array<{ platform: string; url: string; visibility: string }>;
@@ -197,6 +198,18 @@ export default function Users() {
     finally { setBusy(null); }
   };
 
+  const toggleDiscoveryHidden = async () => {
+    if (!selected || !snapshot) return;
+    const hidden = !snapshot.profile.discovery_hidden;
+    setBusy('discovery'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'set_discovery_hidden', profileId: selected.id, hidden });
+      setSnapshot(result.data as UserSnapshot);
+      setMessage(hidden ? `@${selected.username} est masqué de Découvertes.` : `@${selected.username} est de nouveau visible dans Découvertes.`);
+    } catch (e: any) { setError(e?.message ?? 'Modification de visibilité impossible.'); }
+    finally { setBusy(null); }
+  };
+
   const deleteUser = async () => {
     if (!selected) return;
     if (typeof window !== 'undefined' && !window.confirm(`Supprimer définitivement @${selected.username} ? Profil, musiques, playlists et accès seront supprimés.`)) return;
@@ -237,17 +250,17 @@ export default function Users() {
       <button onClick={()=>void load()} disabled={loading}>Actualiser</button>
     </div>
 
-    <div className="card" style={{ padding:0, overflowX:'auto' }}>
-      <table style={{ margin:0, minWidth:980 }}>
-        <thead><tr><th>Utilisateur</th><th>Plan</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th></th></tr></thead>
+    <div className="card" style={{ padding:0, overflow:'hidden', width:'100%' }}>
+      <table style={{ margin:0, width:'100%', tableLayout:'fixed' }}>
+        <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Plan</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
         <tbody>
           {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
           {!loading && filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
           {filtered.map((u)=><tr key={u.id} onClick={()=>void openUser(u)} style={{ cursor:'pointer' }}>
-            <td><div style={{display:'flex',alignItems:'center',gap:10}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:34,height:34,borderRadius:'50%',objectFit:'cover'}}/>:<div style={{width:34,height:34,borderRadius:'50%',background:'#251d32'}}/>}<div><strong>@{u.username}</strong><div style={{fontSize:11,color:'var(--text-muted)'}}>{visibleEmail(u.email)}</div></div></div></td>
-            <td><span style={{display:'inline-flex',padding:'4px 8px',borderRadius:999,border:`1px solid ${planColor(u.plan_code)}`,color:planColor(u.plan_code),fontWeight:800,fontSize:11}}>{u.plan_code || 'FREE'}</span></td>
+            <td><div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:32,height:32,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><strong style={{display:'block',overflow:'hidden',textOverflow:'ellipsis'}}>@{u.username}</strong><div style={{fontSize:10,color:'var(--text-muted)',overflow:'hidden',textOverflow:'ellipsis'}}>{visibleEmail(u.email)}</div></div></div></td>
+            <td><span style={{display:'inline-flex',padding:'4px 6px',borderRadius:999,border:`1px solid ${planColor(u.plan_code)}`,color:planColor(u.plan_code),fontWeight:800,fontSize:10}}>{u.plan_code || 'FREE'}</span></td>
             <td>{u.recognized_count ?? 0}</td><td>{u.free_keeps_used ?? 0}</td><td>{u.social_keeps ?? 0}</td><td>{u.credit_remaining == null ? '∞' : u.credit_remaining}</td><td>{u.playlist_tracks ?? 0}</td>
-            <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}}>Gérer</button></td>
+            <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}} style={{padding:'7px 9px'}}>Gérer</button></td>
           </tr>)}
         </tbody>
       </table>
@@ -263,14 +276,14 @@ export default function Users() {
     </details>
 
     {selected && <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
-      <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',overflowX:'hidden',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
-          <div style={{display:'flex',gap:12,alignItems:'center'}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover'}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32'}}/>}<div><div style={{fontSize:22,fontWeight:900}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div></div></div>
+          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div></div></div>
           <button onClick={()=>setSelected(null)}>Fermer</button>
         </div>
 
         {busy==='load' || !snapshot ? <div style={{padding:30,textAlign:'center'}}>Chargement du profil réel…</div> : <>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:8,marginTop:16}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:8,marginTop:16}}>
             {[
               ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
               ['Reconnaissances', String(snapshot.usage.recognizedCount)],
@@ -282,7 +295,8 @@ export default function Users() {
               ['Réseaux', String(snapshot.socialLinks.length)],
               ['Naissance', snapshot.privateInfo?.birth_date || 'Manquante'],
               ['Ville / pays', [snapshot.profile.city,snapshot.profile.country_code].filter(Boolean).join(' · ') || 'Manquant'],
-            ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong>{value}</strong></div>)}
+              ['Découvertes', snapshot.profile.discovery_hidden ? 'Masqué' : 'Visible'],
+            ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10,minWidth:0}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong style={{overflowWrap:'anywhere'}}>{value}</strong></div>)}
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
@@ -303,11 +317,17 @@ export default function Users() {
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
             <h3 style={{margin:'0 0 10px'}}>Abonnement offert</h3>
-            <div style={{display:'grid',gridTemplateColumns:'minmax(160px,1fr) minmax(130px,.7fr)',gap:8}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
               <select value={plan} onChange={(e)=>setPlan(e.target.value as PaidPlan)} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value="PREMIUM">Premium · 2,99 €</option><option value="CREATOR_PRO">Creator Pro · 9,99 €</option><option value="VENUE_PRO">Venue Pro · 29,99 €</option></select>
               <select value={months} onChange={(e)=>setMonths(Number(e.target.value))} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value={1}>1 mois</option><option value={3}>3 mois</option><option value={6}>6 mois</option><option value={12}>1 an</option><option value={24}>2 ans</option><option value={0}>Illimité</option></select>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}><button onClick={()=>void grant()} disabled={busy!==null}>Offrir {plan}</button><button onClick={()=>void revoke()} disabled={busy!==null} style={{opacity:.8}}>Arrêter l’offre</button></div>
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
+            <h3 style={{margin:'0 0 5px'}}>Visibilité Découvertes</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Masquer retire uniquement ce profil de l’onglet Découvertes. Son compte, ses données et son lien de profil restent intacts.</div>
+            <button onClick={()=>void toggleDiscoveryHidden()} disabled={busy!==null} style={{background:snapshot.profile.discovery_hidden?'#2e7d32':'#5b3f7f'}}>{busy==='discovery'?'Enregistrement…':snapshot.profile.discovery_hidden?'Rendre visible dans Découvertes':'Masquer de Découvertes'}</button>
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:'flex',gap:8,flexWrap:'wrap'}}>
