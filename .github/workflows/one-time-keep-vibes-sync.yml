@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: keep-vibes-one-time-sync
+  cancel-in-progress: true
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -20,6 +24,9 @@ jobs:
         with:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -50,5 +57,6 @@ jobs:
             echo "Nothing to commit"
           else
             git commit -m "feat(profile): auto-organize KEEP Vibes with swipe"
+            git pull --rebase origin reconcile/claude-main-20260825
             git push origin HEAD:reconcile/claude-main-20260825
           fi
