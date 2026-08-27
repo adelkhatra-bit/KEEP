@@ -98,7 +98,11 @@ export default function OnboardingScreen() {
     await handleGuestPress();
   };
 
-  const showDemo = __DEV__ || process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1';
+  // Le vrai parcours de test utilisateur est ESSAYER GRATUITEMENT. Le compte
+  // démo interne ne doit jamais apparaître par accident dans une preview ou un
+  // lien partagé : il reste disponible uniquement si un développeur l'active
+  // explicitement dans un build __DEV__.
+  const showDemo = __DEV__ && process.env.EXPO_PUBLIC_KEEP_SHOW_DEMO === '1';
 
   if (accountOpen) {
     return (
