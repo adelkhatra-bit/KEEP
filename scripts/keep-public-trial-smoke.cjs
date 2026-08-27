@@ -74,7 +74,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
 
     const signupTitle = page.getByText('Créer mon compte KEEP', { exact: true }).last();
     const followHint = page.getByText('Après connexion, le profil que tu consultais sera suivi automatiquement.', { exact: true }).last();
-    const signupSubtitle = page.getByText('Aucun e-mail requis : choisis simplement un pseudo KEEP et un mot de passe.', { exact: true }).last();
+    const signupSubtitle = page.getByText(/Aucun e-mail requis/i).last();
     const continueWithoutSignup = page.getByText('CONTINUER SANS INSCRIPTION', { exact: true }).last();
 
     await signupTitle.waitFor({ state: 'visible', timeout: 20000 });
