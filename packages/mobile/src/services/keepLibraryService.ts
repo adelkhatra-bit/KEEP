@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 
-const LOCAL_KEY = '@keep/playlist-preferences-v1';
+const LOCAL_KEY_PREFIX = '@keep/playlist-preferences-v2';
 
 export type KeepPlaylistPreference = {
   provider: string;
@@ -18,25 +18,29 @@ function mapKey(provider: string, providerPlaylistId: string) {
   return `${provider}:${providerPlaylistId}`;
 }
 
-async function readLocal(): Promise<PreferenceMap> {
+function storageKey(userId?: string | null) {
+  return `${LOCAL_KEY_PREFIX}:${userId || 'guest'}`;
+}
+
+async function readLocal(userId?: string | null): Promise<PreferenceMap> {
   try {
-    const raw = await AsyncStorage.getItem(LOCAL_KEY);
+    const raw = await AsyncStorage.getItem(storageKey(userId));
     return raw ? JSON.parse(raw) as PreferenceMap : {};
   } catch {
     return {};
   }
 }
 
-async function writeLocal(map: PreferenceMap) {
-  try { await AsyncStorage.setItem(LOCAL_KEY, JSON.stringify(map)); } catch {}
+async function writeLocal(userId: string | null | undefined, map: PreferenceMap) {
+  try { await AsyncStorage.setItem(storageKey(userId), JSON.stringify(map)); } catch {}
 }
 
 export async function loadPlaylistPreferences(provider: string): Promise<PreferenceMap> {
-  const local = await readLocal();
-  if (!supabase) return local;
+  if (!supabase) return readLocal(null);
 
   const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
+  const userId = sessionData.session?.user?.id ?? null;
+  const local = await readLocal(userId);
   if (!userId) return local;
 
   const { data, error } = await supabase
@@ -58,19 +62,22 @@ export async function loadPlaylistPreferences(provider: string): Promise<Prefere
       coverUrl: row.cover_url ? String(row.cover_url) : undefined,
     };
   }
-  await writeLocal(merged);
+  await writeLocal(userId, merged);
   return merged;
 }
 
 export async function savePlaylistPreference(preference: KeepPlaylistPreference): Promise<void> {
-  const local = await readLocal();
-  local[mapKey(preference.provider, preference.providerPlaylistId)] = preference;
-  await writeLocal(local);
+  let userId: string | null = null;
+  if (supabase) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    userId = sessionData.session?.user?.id ?? null;
+  }
 
-  if (!supabase) return;
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
-  if (!userId) return;
+  const local = await readLocal(userId);
+  local[mapKey(preference.provider, preference.providerPlaylistId)] = preference;
+  await writeLocal(userId, local);
+
+  if (!supabase || !userId) return;
 
   const { data: existing, error: findError } = await supabase
     .from('playlists')
