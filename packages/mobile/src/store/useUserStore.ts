@@ -3,10 +3,11 @@ import { User, SocialLink, ProfilePrivateInfo } from '../types';
 import { KeepAuthSession } from '../services/authService';
 
 function userFromAuthSession(session: KeepAuthSession): User {
+  const authUsername = session.username?.trim().replace(/^@+/, '');
   const emailPrefix = session.email?.split('@')[0];
   return {
     id: session.userId,
-    username: emailPrefix || `invite-${session.userId.slice(0, 6)}`,
+    username: authUsername || emailPrefix || `invite-${session.userId.slice(0, 6)}`,
     email: session.email ?? '',
     avatar: '',
     bio: '',
@@ -102,10 +103,16 @@ export const useUserStore = create<UserStore>((set, get) => ({
       if (!session) return { user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
 
       // Même uid = même personne. Un refresh de token ne doit jamais écraser
-      // le profil déjà chargé/modifié.
+      // le profil déjà chargé/modifié. Le pseudo des métadonnées KEEP peut en
+      // revanche compléter une identité minimale si le profil est encore vide.
       if (s.user && s.user.id === session.userId) {
+        const sessionUsername = session.username?.trim().replace(/^@+/, '');
         return {
-          user: { ...s.user, email: session.email ?? s.user.email },
+          user: {
+            ...s.user,
+            username: s.user.username || sessionUsername || s.user.username,
+            email: session.email ?? s.user.email,
+          },
           isDemoMode: false,
           isAnonymous: session.isAnonymous,
           isLocalGuest: false,
