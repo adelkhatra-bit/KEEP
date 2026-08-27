@@ -1,5 +1,6 @@
 import { buildSmartAlbumSuggestions, type CanonicalTrack, type ProviderPlaylist } from '@keep/music';
 import { supabase } from './supabaseClient';
+import { enrichMissingGenres } from './keylessGenreService';
 
 export type SmartAlbumConfig = {
   enabled: boolean;
@@ -111,7 +112,7 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   return (playlists ?? []).map((row: any) => ({
     id: String(row.id),
     smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
-    name: String(row.name ?? 'Album KEEP'),
+    name: String(row.name ?? 'Vibe KEEP'),
     description: String(row.description ?? ''),
     isPublic: Boolean(row.is_public),
     trackCount: counts.get(String(row.id)) ?? 0,
@@ -177,17 +178,23 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
     .eq('decision', 'KEPT');
   if (keepError) throw keepError;
 
-  const unique = new Map<string, { id: string; genres: string[] }>();
+  const unique = new Map<string, { id: string; title: string; artist: string; genres: string[] }>();
   for (const row of (rows ?? []) as any[]) {
     const joined = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks;
     if (!joined?.id) continue;
     unique.set(String(joined.id), {
       id: String(joined.id),
-      genres: Array.isArray(joined.genres) ? joined.genres.map(String) : [],
+      title: String(joined.title ?? ''),
+      artist: String(joined.artist ?? ''),
+      genres: Array.isArray(joined.genres) ? joined.genres.map(String).filter(Boolean) : [],
     });
   }
 
-  const suggestions = buildSmartAlbumSuggestions(Array.from(unique.values()), {
+  // Les anciens morceaux de la base n'avaient pas de genre. KEEP les enrichit
+  // lui-même, sans clé ni abonnement API, via le même catalogue public gratuit
+  // déjà utilisé pour les jaquettes. Le résultat est mis en cache 30 jours.
+  const enrichedTracks = await enrichMissingGenres(Array.from(unique.values()));
+  const suggestions = buildSmartAlbumSuggestions(enrichedTracks, {
     minTracks: config.minTracks,
     maxAlbums: config.maxAlbums,
   });
@@ -255,19 +262,15 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
     });
   }
 
+  // Si une Vibe ne correspond plus au seuil (morceaux retirés/changement de
+  // classement), on conserve son nom personnalisé mais jamais ses anciens
+  // morceaux : l'utilisateur ne voit donc aucune collection périmée.
   const freshIds = new Set(result.map((album) => album.id));
   for (const row of existingRows ?? []) {
     const id = String((row as any).id);
     if (freshIds.has(id)) continue;
-    result.push({
-      id,
-      smartKey: String((row as any).provider_playlist_id ?? '').replace(/^smart:/, ''),
-      name: String((row as any).name ?? 'Album KEEP'),
-      description: String((row as any).description ?? ''),
-      isPublic: Boolean((row as any).is_public),
-      trackCount: 0,
-      matchedGenres: [],
-    });
+    const { error: staleError } = await supabase.from('playlist_tracks').delete().eq('playlist_id', id);
+    if (staleError) throw staleError;
   }
 
   return result;
@@ -276,7 +279,7 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
 export async function renameOwnSmartAlbum(id: string, name: string): Promise<void> {
   if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
   const userId = await currentUserId();
-  if (!userId) throw new Error('Connecte-toi pour renommer cet album.');
+  if (!userId) throw new Error('Connecte-toi pour renommer cette Vibe.');
   const next = name.trim();
   if (next.length < 2) throw new Error('Le nom doit contenir au moins 2 caractères.');
   const { error } = await supabase.from('playlists').update({ name: next, updated_at: new Date().toISOString() })
@@ -287,7 +290,7 @@ export async function renameOwnSmartAlbum(id: string, name: string): Promise<voi
 export async function setOwnSmartAlbumPublic(id: string, isPublic: boolean): Promise<void> {
   if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
   const userId = await currentUserId();
-  if (!userId) throw new Error('Connecte-toi pour modifier cet album.');
+  if (!userId) throw new Error('Connecte-toi pour modifier cette Vibe.');
   const { error } = await supabase.from('playlists').update({ is_public: isPublic, updated_at: new Date().toISOString() })
     .eq('id', smartAlbumDatabaseId(id)).eq('owner_id', userId).eq('provider', 'KEEP_SMART').eq('is_smart', true);
   if (error) throw error;
