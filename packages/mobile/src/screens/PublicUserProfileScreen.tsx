@@ -198,17 +198,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setLikedTrackIds(next);
   };
 
-  const addCanonicalToMyKeep = async (canonical: CanonicalTrack) => {
+  const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
     if (!viewer || isLocalGuest || isDemoMode) {
       setSwipeOpen(false);
       Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte pour ajouter cette musique à ton KEEP.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
-      return;
+      return false;
     }
-    if (profile && viewer.id === profile.id) return;
+    if (profile && viewer.id === profile.id) return false;
     try {
-      await commitKeep(canonical, [], undefined, { visibility: 'PRIVATE', context: { source: 'public_profile_swipe', sourceProfileId: profile?.id } });
+      await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile_swipe', sourceProfileId: profile?.id } });
+      return true;
     } catch (e: any) {
       if (e?.message === 'CREDITS_EXHAUSTED') {
         setSwipeOpen(false);
@@ -216,7 +217,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           { text: 'Plus tard', style: 'cancel' },
           { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
         ]);
-      } else throw e;
+        return false;
+      }
+      throw e;
     }
   };
 
@@ -325,7 +328,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         visible={swipeOpen}
         tracks={swipeTracks}
         title={`Le KEEP de @${profile.username}`}
-        subtitle="Les extraits disponibles démarrent automatiquement."
+        subtitle="Les extraits démarrent automatiquement. KEEP te laisse choisir : visible sur ton profil ou privé."
+        askVisibilityOnKeep
         onClose={() => setSwipeOpen(false)}
         onKeep={addCanonicalToMyKeep}
       />
