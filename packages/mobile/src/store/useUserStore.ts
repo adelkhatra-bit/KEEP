@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, SocialLink, ProfilePrivateInfo } from '../types';
 import { KeepAuthSession } from '../services/authService';
+import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 function userFromAuthSession(session: KeepAuthSession): User {
   const authUsername = session.username?.trim().replace(/^@+/, '');
@@ -44,15 +45,17 @@ function localGuestUser(guestId: string): User {
   };
 }
 
+// La démo publique doit toujours commencer vierge : aucune musique, aucun faux
+// compteur, aucune bio fictive. L'utilisateur construit lui-même ce qu'il voit.
 const DEMO_USER: User = {
   id: 'demo-user-1',
   username: 'demouser',
-  email: 'demo@keep.app',
-  avatar: 'https://via.placeholder.com/100?text=Avatar',
-  bio: 'Music lover 🎵',
-  playlistCount: 12,
-  followerCount: 342,
-  followingCount: 128,
+  email: '',
+  avatar: '',
+  bio: '',
+  playlistCount: 0,
+  followerCount: 0,
+  followingCount: 0,
   kind: 'USER',
   favoriteGenres: [],
   favoriteArtists: [],
@@ -61,6 +64,12 @@ const DEMO_USER: User = {
   locationOptIn: false,
   privateInfo: {},
 };
+
+function clearLocalMusicIdentity() {
+  // L'historique d'écoute est volontairement local. Il ne doit jamais fuiter
+  // d'un compte vers un autre ni apparaître dans une nouvelle démo.
+  useSessionHistoryStore.getState().clearSessions();
+}
 
 interface UserStore {
   user: User | null;
@@ -90,10 +99,33 @@ export const useUserStore = create<UserStore>((set, get) => ({
   isAnonymous: false,
   isLocalGuest: false,
   setUser: (user) => set((s) => ({ user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest })),
-  enterDemoMode: () => set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false }),
-  enterGuestMode: (guestId) => set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true }),
-  logout: () => set({ user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false }),
-  syncFromAuthSession: (session) =>
+  enterDemoMode: () => {
+    clearLocalMusicIdentity();
+    set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false });
+  },
+  enterGuestMode: (guestId) => {
+    const state = get();
+    if (!state.isLocalGuest || state.user?.id !== guestId) clearLocalMusicIdentity();
+    set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true });
+  },
+  logout: () => {
+    clearLocalMusicIdentity();
+    set({ user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false });
+  },
+  syncFromAuthSession: (session) => {
+    const state = get();
+    const currentIsReal = Boolean(state.user && !state.isDemoMode && !state.isLocalGuest);
+    const currentRealId = currentIsReal ? state.user?.id ?? null : null;
+    const nextRealId = session?.userId ?? null;
+
+    // Passage compte réel -> autre compte / déconnexion : aucune musique locale
+    // du premier utilisateur ne doit pouvoir être affichée ou synchronisée au second.
+    // L'upgrade essai local -> compte réel est l'exception voulue : les KEEP de
+    // l'essai appartiennent précisément à la personne qui vient de créer le compte.
+    if ((currentRealId && currentRealId !== nextRealId) || (state.isDemoMode && nextRealId)) {
+      clearLocalMusicIdentity();
+    }
+
     set((s) => {
       // Le mode démo reste actif seulement si aucune vraie session n'existe.
       if (s.isDemoMode && !session) return s;
@@ -125,7 +157,8 @@ export const useUserStore = create<UserStore>((set, get) => ({
         isAnonymous: session.isAnonymous,
         isLocalGuest: false,
       };
-    }),
+    });
+  },
   profileCompletion: () => {
     const user = get().user;
     if (!user) return 0;
@@ -170,5 +203,5 @@ export const useUserStore = create<UserStore>((set, get) => ({
       },
     };
   }),
-  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
+  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } : s)),
 }));
