@@ -48,6 +48,7 @@ export async function toggleTrackPreview(
   key: string,
   previewUrl: string,
   onStateChange: (playing: boolean) => void,
+  onEnded?: () => void,
 ): Promise<void> {
   return serialize(async () => {
     if (activeKey === key && activeSound) {
@@ -65,7 +66,11 @@ export async function toggleTrackPreview(
       (status: AVPlaybackStatus) => {
         if (!status.isLoaded || !status.didJustFinish || !createdSound) return;
         if (activeSound === createdSound) {
-          void serialize(async () => { await unloadActive(); });
+          void serialize(async () => {
+            if (activeSound !== createdSound) return;
+            await unloadActive();
+            onEnded?.();
+          });
         }
       },
     );
