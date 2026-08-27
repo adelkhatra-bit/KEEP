@@ -26,14 +26,14 @@ export default function SharedMusicHandoff() {
       return;
     }
 
-    const fingerprint = `${source.url}|${source.sharedAt.slice(0, 16)}`;
+    const fingerprint = `${source.url}|${source.rawText ?? ''}|${source.title ?? ''}`;
     if (handledRef.current === fingerprint) return;
     handledRef.current = fingerprint;
 
     const session = useSessionStore.getState();
     if (!session.isActive) session.startSession();
-    // startSession nettoie toute ancienne provenance ; on pose donc la nouvelle
-    // source juste après. Le prochain KEEP de cette session portera cette source.
+    // Le stockage de provenance est sérialisé : même si startSession nettoie
+    // l'ancienne source au même instant, ce partage-ci gagne toujours la course.
     void setSharedMusicSource(source).finally(() => resetShareIntent());
   }, [hasShareIntent, resetShareIntent, shareIntent]);
 
