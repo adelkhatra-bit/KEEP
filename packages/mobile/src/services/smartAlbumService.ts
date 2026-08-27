@@ -1,4 +1,4 @@
-import { buildSmartAlbumSuggestions, type SmartAlbumSuggestion } from '@keep/music';
+import { buildSmartAlbumSuggestions, type CanonicalTrack, type ProviderPlaylist } from '@keep/music';
 import { supabase } from './supabaseClient';
 
 export type SmartAlbumConfig = {
@@ -20,6 +20,8 @@ export type SmartAlbumRecord = {
   matchedGenres: string[];
 };
 
+export const SMART_ALBUM_UI_PREFIX = 'keep-smart:';
+
 const DEFAULT_CONFIG: SmartAlbumConfig = {
   enabled: true,
   autoCreate: true,
@@ -37,6 +39,28 @@ function parseConfig(value: any): SmartAlbumConfig {
     maxAlbums: Math.max(1, Number(value?.max_albums ?? DEFAULT_CONFIG.maxAlbums) || DEFAULT_CONFIG.maxAlbums),
     allowRename: value?.allow_rename !== false,
     taxonomyVersion: Math.max(1, Number(value?.taxonomy_version ?? 1) || 1),
+  };
+}
+
+export function smartAlbumUiId(databaseId: string) {
+  return `${SMART_ALBUM_UI_PREFIX}${databaseId}`;
+}
+
+export function isSmartAlbumUiId(value?: string | null) {
+  return Boolean(value?.startsWith(SMART_ALBUM_UI_PREFIX));
+}
+
+export function smartAlbumDatabaseId(value: string) {
+  return value.startsWith(SMART_ALBUM_UI_PREFIX) ? value.slice(SMART_ALBUM_UI_PREFIX.length) : value;
+}
+
+export function smartAlbumAsProviderPlaylist(album: SmartAlbumRecord): ProviderPlaylist {
+  return {
+    id: smartAlbumUiId(album.id),
+    name: album.name,
+    description: album.description,
+    trackCount: album.trackCount,
+    isKeepManaged: true,
   };
 }
 
@@ -95,13 +119,56 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   }));
 }
 
+export async function loadSmartAlbumTracks(uiOrDatabaseId: string): Promise<CanonicalTrack[]> {
+  if (!supabase) return [];
+  const userId = await currentUserId();
+  if (!userId) return [];
+  const databaseId = smartAlbumDatabaseId(uiOrDatabaseId);
+
+  const { data: playlist, error: playlistError } = await supabase
+    .from('playlists')
+    .select('id')
+    .eq('id', databaseId)
+    .eq('owner_id', userId)
+    .eq('provider', 'KEEP_SMART')
+    .eq('is_smart', true)
+    .maybeSingle();
+  if (playlistError) throw playlistError;
+  if (!playlist) return [];
+
+  const { data, error } = await supabase
+    .from('playlist_tracks')
+    .select('added_at,tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,available_on,external_urls)')
+    .eq('playlist_id', databaseId)
+    .order('added_at', { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => {
+    const track = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks;
+    return {
+      id: String(track.id),
+      isrc: track.isrc ? String(track.isrc) : undefined,
+      title: String(track.title ?? ''),
+      artist: String(track.artist ?? ''),
+      album: track.album ? String(track.album) : undefined,
+      durationSec: track.duration_sec == null ? undefined : Number(track.duration_sec),
+      artworkUrl: track.artwork_url ? String(track.artwork_url) : undefined,
+      genres: Array.isArray(track.genres) ? track.genres.map(String) : [],
+      providerIds: track.provider_ids && typeof track.provider_ids === 'object' ? track.provider_ids : {},
+      previewUrl: track.preview_url ? String(track.preview_url) : undefined,
+      availableOn: Array.isArray(track.available_on) ? track.available_on.map(String) : [],
+      externalUrls: track.external_urls && typeof track.external_urls === 'object' ? track.external_urls : {},
+    } satisfies CanonicalTrack;
+  });
+}
+
 export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   if (!supabase) return [];
   const userId = await currentUserId();
   if (!userId) return [];
 
   const config = await loadSmartAlbumConfig();
-  if (!config.enabled) return loadOwnSmartAlbums();
+  if (!config.enabled || !config.autoCreate) return loadOwnSmartAlbums();
 
   const { data: rows, error: keepError } = await supabase
     .from('keep_decisions')
@@ -188,6 +255,21 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
     });
   }
 
+  const freshIds = new Set(result.map((album) => album.id));
+  for (const row of existingRows ?? []) {
+    const id = String((row as any).id);
+    if (freshIds.has(id)) continue;
+    result.push({
+      id,
+      smartKey: String((row as any).provider_playlist_id ?? '').replace(/^smart:/, ''),
+      name: String((row as any).name ?? 'Album KEEP'),
+      description: String((row as any).description ?? ''),
+      isPublic: Boolean((row as any).is_public),
+      trackCount: 0,
+      matchedGenres: [],
+    });
+  }
+
   return result;
 }
 
@@ -198,7 +280,7 @@ export async function renameOwnSmartAlbum(id: string, name: string): Promise<voi
   const next = name.trim();
   if (next.length < 2) throw new Error('Le nom doit contenir au moins 2 caractères.');
   const { error } = await supabase.from('playlists').update({ name: next, updated_at: new Date().toISOString() })
-    .eq('id', id).eq('owner_id', userId).eq('provider', 'KEEP_SMART').eq('is_smart', true);
+    .eq('id', smartAlbumDatabaseId(id)).eq('owner_id', userId).eq('provider', 'KEEP_SMART').eq('is_smart', true);
   if (error) throw error;
 }
 
@@ -207,6 +289,6 @@ export async function setOwnSmartAlbumPublic(id: string, isPublic: boolean): Pro
   const userId = await currentUserId();
   if (!userId) throw new Error('Connecte-toi pour modifier cet album.');
   const { error } = await supabase.from('playlists').update({ is_public: isPublic, updated_at: new Date().toISOString() })
-    .eq('id', id).eq('owner_id', userId).eq('provider', 'KEEP_SMART').eq('is_smart', true);
+    .eq('id', smartAlbumDatabaseId(id)).eq('owner_id', userId).eq('provider', 'KEEP_SMART').eq('is_smart', true);
   if (error) throw error;
 }
