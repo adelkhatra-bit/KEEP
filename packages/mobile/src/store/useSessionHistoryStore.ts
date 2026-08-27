@@ -148,9 +148,12 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
         track: mergeCanonicalTrack(entry.track, remote.track),
         status: 'kept' as SessionTrackStatus,
         visibility: remote.visibility,
-        sourceProfileId: remote.sourceProfileId ?? entry.sourceProfileId,
-        sourceUsername: remote.sourceUsername ?? entry.sourceUsername,
-        creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : (entry.creditSource ?? 'FREE'),
+        // Supabase est la source d'autorité pour la provenance d'un KEEP.
+        // Si le serveur dit qu'il n'y a PAS de source sociale, il faut effacer
+        // une ancienne étiquette locale au lieu de la conserver avec `??`.
+        sourceProfileId: remote.sourceProfileId,
+        sourceUsername: remote.sourceUsername,
+        creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
         creditLocked: false,
       };
     }),
