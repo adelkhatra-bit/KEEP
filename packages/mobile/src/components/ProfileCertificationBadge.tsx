@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   ring: { borderWidth: 1.5, padding: 1.5, alignItems: 'center', justifyContent: 'center' },
   medallion: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  check: { fontSize: 13, lineHeight: 15, fontWeight: '1000' },
+  check: { fontSize: 13, lineHeight: 15, fontWeight: '900' },
   checkCompact: { fontSize: 10, lineHeight: 12 },
   goldGlint: { position: 'absolute', left: 3, top: 2, width: '46%', height: 3, borderRadius: 3, backgroundColor: 'rgba(255,255,255,.72)', transform: [{ rotate: '-22deg' }] },
   label: { fontSize: 9, fontWeight: '900', letterSpacing: .35 },
