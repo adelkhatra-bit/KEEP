@@ -5,6 +5,11 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
+const ADMIN_LOGIN_ALIASES: Record<string, string> = {
+  'adel.khatra': 'adel.khatra@live.fr',
+  'adelkhatra': 'adel.khatra@live.fr',
+  'adel': 'adel.khatra@live.fr',
+};
 
 function LiveMarker() {
   return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>KEEP LIVE · RECONCILE</div>;
@@ -20,9 +25,15 @@ async function hasActiveAdminRole():Promise<boolean>{
 function friendlyAuthError(message?:string){
   if(!message)return 'Impossible de se connecter pour le moment.';
   if(/rate|security purposes|seconds/i.test(message))return 'Trop de demandes de connexion. Attends quelques instants puis réessaie.';
-  if(/invalid login credentials|invalid credentials/i.test(message))return 'E-mail ou mot de passe incorrect.';
-  if(/not found|signup|user/i.test(message))return 'Cette adresse n’est pas autorisée pour le Super Admin KEEP.';
+  if(/invalid login credentials|invalid credentials/i.test(message))return 'Identifiant ou mot de passe incorrect.';
+  if(/not found|signup|user/i.test(message))return 'Ce compte n’est pas autorisé pour le Super Admin KEEP.';
   return 'Connexion impossible. Vérifie les informations puis réessaie.';
+}
+
+function resolveAdminEmail(identity:string){
+  const normalized=identity.trim().toLowerCase().replace(/^@+/, '');
+  if(/^\S+@\S+\.\S+$/.test(normalized))return normalized;
+  return ADMIN_LOGIN_ALIASES[normalized] ?? '';
 }
 
 async function signInOrBootstrap(email:string,password:string){
@@ -43,7 +54,7 @@ async function signInOrBootstrap(email:string,password:string){
 }
 
 function AdminLogin(){
-  const [email,setEmail]=useState('');
+  const [identity,setIdentity]=useState('');
   const [password,setPassword]=useState('');
   const [showPassword,setShowPassword]=useState(false);
   const [busy,setBusy]=useState(false);
@@ -52,11 +63,11 @@ function AdminLogin(){
   const signIn=async(e:FormEvent)=>{
     e.preventDefault();
     if(!supabase)return;
-    const normalized=email.trim().toLowerCase();
-    if(!/^\S+@\S+\.\S+$/.test(normalized)){setError('Saisis une adresse e-mail valide.');return;}
+    const email=resolveAdminEmail(identity);
+    if(!email){setError('Saisis ton e-mail Super Admin ou ton identifiant KEEP autorisé.');return;}
     if(password.length<8){setError('Saisis ton mot de passe Super Admin.');return;}
     setBusy(true);setError('');
-    const result=await signInOrBootstrap(normalized,password);
+    const result=await signInOrBootstrap(email,password);
     setBusy(false);
     if(!result.ok)setError(result.error);
   };
@@ -66,16 +77,16 @@ function AdminLogin(){
   return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
     <div style={brand}>KEEP</div>
     <h1 style={title}>Super Admin</h1>
-    <p style={muted}>Connexion directe par e-mail + mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
-    <label style={label}>E-mail Super Admin</label>
-    <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} autoComplete="email" style={input}/>
+    <p style={muted}>Connexion directe par identifiant KEEP ou e-mail + mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
+    <label style={label}>Identifiant ou e-mail Super Admin</label>
+    <input type="text" value={identity} onChange={(e)=>setIdentity(e.target.value)} autoComplete="username" placeholder="Adel.Khatra" style={input}/>
     <label style={label}>Mot de passe</label>
     <div style={passwordRow}>
       <input type={showPassword?'text':'password'} value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="current-password" style={passwordInput}/>
       <button type="button" aria-label={showPassword?'Masquer le mot de passe':'Afficher le mot de passe'} onClick={()=>setShowPassword(v=>!v)} style={eyeButton}>{showPassword?'◉':'◎'}</button>
     </div>
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
-    <button type="submit" disabled={busy||!email.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
+    <button type="submit" disabled={busy||!identity.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
     <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. À la première connexion, un mot de passe temporaire valide peut être activé automatiquement une seule fois.</p>
   </form></main>;
 }
