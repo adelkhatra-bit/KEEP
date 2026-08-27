@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { ProfileCertificationTier } from '../services/publicProfileStateService';
+import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -42,6 +44,13 @@ function planLabel(code: string) {
   if (code === 'VENUE_PRO') return 'Venue Pro';
   if (code === 'PREMIUM') return 'Premium';
   return code === 'FREE' ? 'Free' : code.replace(/_/g, ' ');
+}
+
+function certificationTierForPlan(code: string): ProfileCertificationTier {
+  if (code === 'VENUE_PRO') return 'VENUE_PRO';
+  if (code === 'CREATOR_PRO') return 'CREATOR_PRO';
+  if (code === 'PREMIUM') return 'PREMIUM';
+  return 'FREE';
 }
 
 function requiredReason(feature: string, plan: string) {
@@ -102,7 +111,7 @@ export default function OffersScreen({ navigation, route }: any) {
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {focusPlan ? <View style={s.requiredIntro}>
           <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
-          <Text style={s.requiredIntroTitle}>{planLabel(focusPlan)}</Text>
+          <View style={s.requiredPlanRow}><Text style={s.requiredIntroTitle}>{planLabel(focusPlan)}</Text><ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} /></View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan)}</Text>
         </View> : <>
           <View style={s.promiseCard}>
@@ -125,12 +134,16 @@ export default function OffersScreen({ navigation, route }: any) {
           return (
             <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused]}>
               <View style={s.planTop}>
-                <View>
-                  <Text style={s.planName}>{plan.name}</Text>
-                  <Text style={s.planPrice}>{money(plan)}</Text>
+                <View style={s.planIdentity}>
+                  <ProfileCertificationBadge tier={certificationTierForPlan(plan.code)} />
+                  <View>
+                    <Text style={s.planName}>{plan.name}</Text>
+                    <Text style={s.planPrice}>{money(plan)}</Text>
+                  </View>
                 </View>
                 {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>FORMULE REQUISE</Text></View> : null}
               </View>
+              <Text style={s.badgePreview}>Pastille affichée à côté de ton pseudo avec cette formule.</Text>
               {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
               {(BENEFITS[plan.code] || []).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}
               {plan.code !== 'FREE' ? <Text style={s.unlimited}>Fonctions incluses disponibles pendant toute la durée de l’abonnement, sans achat à l’unité.</Text> : null}
@@ -168,7 +181,8 @@ const s = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
   requiredIntro: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', marginTop: 5 },
+  requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
+  requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900' },
   requiredIntroText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 7 },
   promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
@@ -182,9 +196,11 @@ const s = StyleSheet.create({
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
   planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
-  planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  planIdentity: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   planName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
   planPrice: { color: colors.primaryLight, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  badgePreview: { color: colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 9 },
   currentBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.smartBadgeBg },
   currentBadgeText: { color: colors.smartBadgeText, fontSize: 9, fontWeight: '900' },
   requiredBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#3D2860', borderWidth: 1, borderColor: colors.primaryLight },
