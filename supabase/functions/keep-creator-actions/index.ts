@@ -115,14 +115,30 @@ Deno.serve(async (req) => {
       const followerIds = (followers ?? []).map((row: any) => String(row.follower_id));
       if (!followerIds.length) return json({ ok: true, sent: 0, event_id: eventId });
 
+      // Respecte réellement le réglage « DJ & soirées ». Une préférence absente
+      // vaut true, mais un utilisateur qui la coupe ne reçoit ni notification
+      // in-app ni push pour les invitations d'événements.
+      const { data: preferences, error: preferencesError } = await admin
+        .from("notification_preferences")
+        .select("profile_id,dj_enabled")
+        .in("profile_id", followerIds);
+      if (preferencesError) throw preferencesError;
+      const djDisabled = new Set(
+        (preferences ?? [])
+          .filter((row: any) => row.dj_enabled === false)
+          .map((row: any) => String(row.profile_id)),
+      );
+      const eligibleFollowerIds = followerIds.filter((id) => !djDisabled.has(id));
+      if (!eligibleFollowerIds.length) return json({ ok: true, sent: 0, notifications_disabled: true, event_id: eventId });
+
       const { data: alreadySent, error: sentError } = await admin
         .from("event_recommendation_sends")
         .select("profile_id")
         .eq("event_id", eventId)
-        .in("profile_id", followerIds);
+        .in("profile_id", eligibleFollowerIds);
       if (sentError) throw sentError;
       const seen = new Set((alreadySent ?? []).map((row: any) => String(row.profile_id)));
-      const targets = followerIds.filter((id) => !seen.has(id));
+      const targets = eligibleFollowerIds.filter((id) => !seen.has(id));
       if (!targets.length) return json({ ok: true, sent: 0, already_sent: true, event_id: eventId });
 
       const startsLabel = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(event.starts_at));
