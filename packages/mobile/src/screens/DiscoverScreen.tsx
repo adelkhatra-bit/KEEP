@@ -60,6 +60,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const [trialRemaining, setTrialRemaining] = useState<number | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
   const [followNotice, setFollowNotice] = useState('');
+  const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((session) =>
@@ -118,6 +119,9 @@ export default function DiscoverScreen({ navigation }: any) {
           const aCountry = Boolean(user?.countryCode && a.countryCode === user.countryCode);
           const bCountry = Boolean(user?.countryCode && b.countryCode === user.countryCode);
           if (aCountry !== bCountry) return aCountry ? -1 : 1;
+          const aAvatar = Boolean(a.avatarUrl);
+          const bAvatar = Boolean(b.avatarUrl);
+          if (aAvatar !== bAvatar) return aAvatar ? -1 : 1;
           return a.username.localeCompare(b.username);
         });
         setProfiles(normalized);
@@ -127,11 +131,17 @@ export default function DiscoverScreen({ navigation }: any) {
       } finally { if (live) setLoadingProfiles(false); }
     };
     void loadProfiles();
-    return () => { live = false; };
-  }, [user?.id, user?.city, user?.countryCode, isLocalGuest]);
+    const unsubscribe = navigation?.addListener?.('focus', () => { void loadProfiles(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [user?.id, user?.city, user?.countryCode, isLocalGuest, navigation]);
 
   const discoveryUnlocked = isDemoMode || (trialRemaining ?? 0) > 0 || hasFeature(planCode, 'SOCIAL_DISCOVERY');
   const currentProfile = profiles.length ? profiles[profileIndex % profiles.length] : null;
+
+  useEffect(() => {
+    setAvatarFailedFor(null);
+  }, [currentProfile?.id, currentProfile?.avatarUrl]);
+
   const nextProfile = () => {
     setFollowNotice('');
     if (profiles.length) setProfileIndex((value) => (value + 1) % profiles.length);
@@ -202,7 +212,7 @@ export default function DiscoverScreen({ navigation }: any) {
           <>
             <SwipeDeck resetKey={currentProfile.id} enabled={!followBusy} onSwipeLeft={nextProfile} onSwipeRight={followCurrent} leftLabel="PASSER" rightLabel="SUIVRE" hint="Glisse ← pour passer · → pour suivre">
               <View style={styles.swipeCard}>
-                {currentProfile.avatarUrl ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.heroAvatar} resizeMode="cover" /> : <View style={[styles.heroAvatar,styles.heroFallback]}><Text style={styles.heroLetter}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
+                {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.heroAvatar} resizeMode="cover" onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.heroAvatar,styles.heroFallback]}><Text style={styles.heroLetter}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
                 <View style={styles.heroInfo}>
                   <View style={styles.heroNameRow}><Text style={styles.heroName}>@{currentProfile.username}</Text>{compatibility !== null ? <View style={styles.compatBadge}><Text style={styles.compatText}>{compatibility}% ADN</Text></View> : null}</View>
                   {proximity ? <Text style={styles.location}>{proximity}</Text> : <Text style={styles.location}>Localisation non partagée</Text>}
