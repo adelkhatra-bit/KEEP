@@ -6,6 +6,7 @@ import { commitKeep } from '../services/keepTrackAction';
 import { updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
+import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 const RECOGNITION_TICK_MS = 900;
@@ -125,10 +126,6 @@ let lastDetectionAt = 0;
 let consecutiveNoMatches = 0;
 
 function recognitionSampleDurationMs() {
-  // Premier essai court pour la réactivité. Si le titre est difficile (bruit,
-  // remix, extrait TikTok), KEEP allonge automatiquement les fenêtres suivantes
-  // au lieu d'imposer 5 s à chaque tentative. Aucun moteur ni anti-doublon n'est
-  // supprimé : seule la durée de l'échantillon s'adapte au contexte réel.
   if (consecutiveNoMatches >= 3) return 6500;
   if (consecutiveNoMatches >= 1) return 4500;
   return 3500;
@@ -156,6 +153,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startSession: () => {
     clearTimers();
     void cancelAudioCapture();
+    // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
+    // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
+    void clearSharedMusicSource();
     useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
     consecutiveNoMatches = 0;
@@ -234,6 +234,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   requestEndSession: (title) => {
     clearTimers();
     void cancelAudioCapture();
+    void clearSharedMusicSource();
     const s = get();
     if (!s.sessionId || !s.startedAt) return null;
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
@@ -246,7 +247,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const entry = get().tracks.find((t) => t.id === entryId);
     if (!entry || entry.status === 'already_saved' || entry.status !== 'pending') return;
     try {
-      const { targetPlaylistId, keepDecisionId, profileSyncFailed } = await commitKeep(entry.track, entry.recommendations, playlistId, { visibility, context: { sessionId: get().sessionId, detectedAt: entry.detectedAt, source: 'listen' } });
+      const sharedSource = await getSharedMusicSource();
+      const sourceContext = sharedSource ? {
+        source: 'social-share',
+        sourcePlatform: sharedSource.platform,
+        sourceUrl: sharedSource.url,
+        sourceTitle: sharedSource.title ?? null,
+        sourceSharedAt: sharedSource.sharedAt,
+      } : { source: 'listen' };
+      const { targetPlaylistId, keepDecisionId, profileSyncFailed } = await commitKeep(entry.track, entry.recommendations, playlistId, {
+        visibility,
+        context: { sessionId: get().sessionId, detectedAt: entry.detectedAt, ...sourceContext },
+      });
       set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, visibility, keepDecisionId, creditLocked: false } : t), error: profileSyncFailed ? 'Morceau gardé. La visibilité du profil sera resynchronisée à la prochaine connexion.' : null }));
       persistLiveSession(get());
     } catch (e: any) {
