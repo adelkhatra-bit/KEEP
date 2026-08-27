@@ -73,6 +73,15 @@ export async function markAllNotificationsRead(profileId: string): Promise<void>
   if (error) throw error;
 }
 
+export async function deleteAllNotifications(profileId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', profileId);
+  if (error) throw error;
+}
+
 export async function loadNotificationPreferences(profileId: string): Promise<NotificationPreferences> {
   if (!supabase) return DEFAULT_PREFS;
   const { data, error } = await supabase
