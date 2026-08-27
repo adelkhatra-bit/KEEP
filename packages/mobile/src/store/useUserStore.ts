@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { User, SocialLink, ProfilePrivateInfo } from '../types';
 import { KeepAuthSession } from '../services/authService';
+import { musicEngine } from '../services/musicEngine';
+import { usePlaylistStore } from './usePlaylistStore';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 function userFromAuthSession(session: KeepAuthSession): User {
@@ -45,8 +47,6 @@ function localGuestUser(guestId: string): User {
   };
 }
 
-// La démo publique doit toujours commencer vierge : aucune musique, aucun faux
-// compteur, aucune bio fictive. L'utilisateur construit lui-même ce qu'il voit.
 const DEMO_USER: User = {
   id: 'demo-user-1',
   username: 'demouser',
@@ -66,9 +66,12 @@ const DEMO_USER: User = {
 };
 
 function clearLocalMusicIdentity() {
-  // L'historique d'écoute est volontairement local. Il ne doit jamais fuiter
-  // d'un compte vers un autre ni apparaître dans une nouvelle démo.
+  // L'historique, les playlists en mémoire et la session du provider local
+  // appartiennent à UNE identité. Aucun de ces éléments ne doit fuiter vers
+  // le compte suivant ni vers la démo.
   useSessionHistoryStore.getState().clearSessions();
+  usePlaylistStore.setState({ playlists: [], isLoading: false });
+  musicEngine.resetLocalLibrary();
 }
 
 interface UserStore {
@@ -118,25 +121,15 @@ export const useUserStore = create<UserStore>((set, get) => ({
     const currentRealId = currentIsReal ? state.user?.id ?? null : null;
     const nextRealId = session?.userId ?? null;
 
-    // Passage compte réel -> autre compte / déconnexion : aucune musique locale
-    // du premier utilisateur ne doit pouvoir être affichée ou synchronisée au second.
-    // L'upgrade essai local -> compte réel est l'exception voulue : les KEEP de
-    // l'essai appartiennent précisément à la personne qui vient de créer le compte.
     if ((currentRealId && currentRealId !== nextRealId) || (state.isDemoMode && nextRealId)) {
       clearLocalMusicIdentity();
     }
 
     set((s) => {
-      // Le mode démo reste actif seulement si aucune vraie session n'existe.
       if (s.isDemoMode && !session) return s;
-      // Un invité local est volontairement indépendant de Supabase Auth :
-      // un simple getSession() vide ne doit pas le renvoyer à l'onboarding.
       if (s.isLocalGuest && !session) return s;
       if (!session) return { user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
 
-      // Même uid = même personne. Un refresh de token ne doit jamais écraser
-      // le profil déjà chargé/modifié. Le pseudo des métadonnées KEEP peut en
-      // revanche compléter une identité minimale si le profil est encore vide.
       if (s.user && s.user.id === session.userId) {
         const sessionUsername = session.username?.trim().replace(/^@+/, '');
         return {
