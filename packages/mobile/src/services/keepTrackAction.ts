@@ -13,7 +13,6 @@ import { withRetry } from './retry';
 import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
 import { recordKeepDecision } from './keepMusicCoreRecognition';
 import { syncPlaylistTrack } from './keepLibraryService';
-import { supabase } from './supabaseClient';
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
@@ -120,17 +119,9 @@ export async function commitKeep(
     const recorded = await recordKeepDecision(track, visibility, decisionContext);
     keepDecisionId = recorded?.decisionId;
 
-    // Double garde-fou : même si le morceau existait déjà dans le KEEP local,
-    // une action explicite depuis le profil d'un membre doit rester SOCIAL et
-    // ne jamais être comptée dans le quota FREE.
-    if (isSocialCopy && recorded?.decisionId && supabase) {
-      const { error: socialError } = await supabase.rpc('keep_mark_social_origin', {
-        p_decision_id: recorded.decisionId,
-        p_source_profile_id: sourceProfileId,
-      });
-      if (socialError) throw socialError;
-    }
-
+    // L'Edge Function enregistre elle-même l'origine sociale uniquement lors
+    // de la création du KEEP. Si le morceau existait déjà sur ce compte, son
+    // origine historique doit rester intacte : on ne la réécrit jamais ici.
     if (recorded?.trackId) {
       await syncPlaylistTrack({
         provider: session.provider || 'KEEP',
