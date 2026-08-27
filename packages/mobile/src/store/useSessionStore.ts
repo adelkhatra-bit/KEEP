@@ -122,6 +122,17 @@ function applyTrackEnrichment(
 let tickHandle: ReturnType<typeof setInterval> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let lastDetectionAt = 0;
+let consecutiveNoMatches = 0;
+
+function recognitionSampleDurationMs() {
+  // Premier essai court pour la réactivité. Si le titre est difficile (bruit,
+  // remix, extrait TikTok), KEEP allonge automatiquement les fenêtres suivantes
+  // au lieu d'imposer 5 s à chaque tentative. Aucun moteur ni anti-doublon n'est
+  // supprimé : seule la durée de l'échantillon s'adapte au contexte réel.
+  if (consecutiveNoMatches >= 3) return 6500;
+  if (consecutiveNoMatches >= 1) return 4500;
+  return 3500;
+}
 
 function clearTimers() {
   if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }
@@ -147,17 +158,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void cancelAudioCapture();
     useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
+    consecutiveNoMatches = 0;
     set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, locationLabel: undefined, lat: undefined, lng: undefined });
 
     const tick = async () => {
       if (!get().isActive || get().recognizing) return;
       set({ recognizing: true });
       try {
-        const audioSample = musicEngine.isDemoMode ? new ArrayBuffer(0) : await captureAudioSample((level) => { if (get().isActive) set({ micLevel: level }); });
+        const sampleDuration = recognitionSampleDurationMs();
+        const audioSample = musicEngine.isDemoMode
+          ? new ArrayBuffer(0)
+          : await captureAudioSample((level) => { if (get().isActive) set({ micLevel: level }); }, sampleDuration);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
-        if (!recognition) { set({ recognizing: false, micLevel: 0, error: null }); return; }
+        if (!recognition) {
+          consecutiveNoMatches = Math.min(5, consecutiveNoMatches + 1);
+          set({ recognizing: false, micLevel: 0, error: null });
+          return;
+        }
+        consecutiveNoMatches = 0;
 
         const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
         const last = get().tracks[0];
