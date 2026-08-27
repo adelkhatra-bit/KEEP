@@ -5,11 +5,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
-const ADMIN_LOGIN_ALIASES: Record<string, string> = {
-  'adel.khatra': 'adel.khatra@live.fr',
-  'adelkhatra': 'adel.khatra@live.fr',
-  'adel': 'adel.khatra@live.fr',
-};
 
 function LiveMarker() {
   return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>KEEP LIVE · RECONCILE</div>;
@@ -25,15 +20,14 @@ async function hasActiveAdminRole():Promise<boolean>{
 function friendlyAuthError(message?:string){
   if(!message)return 'Impossible de se connecter pour le moment.';
   if(/rate|security purposes|seconds/i.test(message))return 'Trop de demandes de connexion. Attends quelques instants puis réessaie.';
-  if(/invalid login credentials|invalid credentials/i.test(message))return 'Identifiant ou mot de passe incorrect.';
+  if(/invalid login credentials|invalid credentials/i.test(message))return 'Adresse e-mail ou mot de passe incorrect.';
   if(/not found|signup|user/i.test(message))return 'Ce compte n’est pas autorisé pour le Super Admin KEEP.';
   return 'Connexion impossible. Vérifie les informations puis réessaie.';
 }
 
-function resolveAdminEmail(identity:string){
-  const normalized=identity.trim().toLowerCase().replace(/^@+/, '');
-  if(/^\S+@\S+\.\S+$/.test(normalized))return normalized;
-  return ADMIN_LOGIN_ALIASES[normalized] ?? '';
+function normalizeAdminEmail(identity:string){
+  const normalized=identity.trim().toLowerCase();
+  return /^\S+@\S+\.\S+$/.test(normalized) ? normalized : '';
 }
 
 async function signInOrBootstrap(email:string,password:string){
@@ -63,8 +57,8 @@ function AdminLogin(){
   const signIn=async(e:FormEvent)=>{
     e.preventDefault();
     if(!supabase)return;
-    const email=resolveAdminEmail(identity);
-    if(!email){setError('Saisis ton e-mail Super Admin ou ton identifiant KEEP autorisé.');return;}
+    const email=normalizeAdminEmail(identity);
+    if(!email){setError('Saisis l’adresse e-mail de ton compte Super Admin.');return;}
     if(password.length<8){setError('Saisis ton mot de passe Super Admin.');return;}
     setBusy(true);setError('');
     const result=await signInOrBootstrap(email,password);
@@ -77,9 +71,9 @@ function AdminLogin(){
   return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
     <div style={brand}>KEEP</div>
     <h1 style={title}>Super Admin</h1>
-    <p style={muted}>Connexion directe par identifiant KEEP ou e-mail + mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
-    <label style={label}>Identifiant ou e-mail Super Admin</label>
-    <input type="text" value={identity} onChange={(e)=>setIdentity(e.target.value)} autoComplete="username" placeholder="Adel.Khatra" style={input}/>
+    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
+    <label style={label}>Adresse e-mail Super Admin</label>
+    <input type="email" value={identity} onChange={(e)=>setIdentity(e.target.value)} autoComplete="username" placeholder="nom@exemple.com" style={input}/>
     <label style={label}>Mot de passe</label>
     <div style={passwordRow}>
       <input type={showPassword?'text':'password'} value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="current-password" style={passwordInput}/>
