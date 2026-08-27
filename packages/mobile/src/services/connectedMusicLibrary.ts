@@ -1,5 +1,5 @@
 import { CanonicalTrack } from '@keep/music';
-import { getSupabaseAccessToken } from './supabaseClient';
+import { getSupabaseAccessToken, supabase } from './supabaseClient';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -14,13 +14,87 @@ async function authHeaders() {
   return { Authorization: `Bearer ${token}`, 'content-type': 'application/json' };
 }
 
+function normalize(value: string | undefined): string {
+  return (value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Première vérification gratuite : la bibliothèque KEEP du compte lui-même.
+ * Cela évite d'interroger Spotify/Deezer inutilement et permet surtout de dire
+ * immédiatement « déjà dans ta playlist » lorsqu'un morceau a déjà été gardé
+ * depuis un autre téléphone ou navigateur.
+ */
+async function checkOwnKeepLibrary(track: CanonicalTrack): Promise<{
+  exists: boolean;
+  match: { provider: string; playlistId: string; playlistName: string } | null;
+} | null> {
+  if (!supabase) return null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const profileId = sessionData.session?.user?.id;
+  if (!profileId) return null;
+
+  let trackRows: any[] = [];
+  if (track.isrc?.trim()) {
+    const { data } = await supabase
+      .from('tracks')
+      .select('id,isrc,title,artist')
+      .eq('isrc', track.isrc.trim().toUpperCase())
+      .limit(4);
+    trackRows = data ?? [];
+  }
+
+  if (!trackRows.length) {
+    const { data } = await supabase
+      .from('tracks')
+      .select('id,isrc,title,artist')
+      .ilike('title', track.title.trim())
+      .ilike('artist', track.artist.trim())
+      .limit(8);
+    trackRows = (data ?? []).filter((row: any) =>
+      normalize(row.title) === normalize(track.title) && normalize(row.artist) === normalize(track.artist));
+  }
+
+  for (const row of trackRows) {
+    const { data: keep } = await supabase
+      .from('keep_decisions')
+      .select('id,context')
+      .eq('profile_id', profileId)
+      .eq('track_id', row.id)
+      .eq('decision', 'KEPT')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!keep) continue;
+
+    const playlist = keep.context?.playlist ?? {};
+    return {
+      exists: true,
+      match: {
+        provider: String(playlist.provider || 'KEEP'),
+        playlistId: String(playlist.providerPlaylistId || 'keep-profile'),
+        playlistName: String(playlist.name || 'Mes KEEP'),
+      },
+    };
+  }
+
+  return { exists: false, match: null };
+}
+
 export async function checkConnectedLibraries(track: CanonicalTrack): Promise<{
   exists: boolean;
   match: { provider: string; playlistId: string; playlistName: string } | null;
 } | null> {
+  const ownKeep = await checkOwnKeepLibrary(track).catch(() => null);
+  if (ownKeep?.exists) return ownKeep;
+
   const base = usableApiUrl();
   const headers = await authHeaders();
-  if (!base || !headers) return null;
+  if (!base || !headers) return ownKeep;
 
   const response = await fetch(`${base}/api/music/library/check`, {
     method: 'POST',
@@ -30,11 +104,11 @@ export async function checkConnectedLibraries(track: CanonicalTrack): Promise<{
 
   if (!response.ok) {
     // Une panne d'une plateforme ne doit pas bloquer toute la session KEEP.
-    // Le moteur continuera avec le provider principal et affichera l'erreur
-    // seulement dans les écrans de gestion de connexion.
-    return null;
+    return ownKeep;
   }
-  return response.json();
+  const external = await response.json();
+  if (external?.exists) return external;
+  return ownKeep ?? external;
 }
 
 export interface ConnectedPlaylist {
