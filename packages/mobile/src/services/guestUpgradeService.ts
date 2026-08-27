@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types';
+import { KeepSession, User } from '../types';
 
 const PENDING_GUEST_PROFILE_KEY = '@keep/pending-guest-profile-upgrade-v1';
+const PENDING_GUEST_MUSIC_KEY = '@keep/pending-guest-music-upgrade-v1';
 const LOCAL_GUEST_ID_KEY = '@keep/local-guest-id-v1';
 
 type StagedGuestProfile = Pick<
@@ -21,16 +22,7 @@ type StagedGuestProfile = Pick<
   | 'privateInfo'
 >;
 
-/**
- * Conserve le profil préparé par l'utilisateur avant la création du compte.
- * La photo peut être une URL distante OU une URI locale/blob temporaire :
- * profileService la convertit en vraie image Supabase Storage dès que le
- * nouveau compte authentifié existe. Cela évite de perdre la photo au passage
- * essai local -> compte KEEP.
- *
- * L'historique des sessions KEEP est déjà persisté séparément dans
- * AsyncStorage et n'est donc ni dupliqué ni envoyé ici.
- */
+/** Conserve les informations de profil préparées pendant l'essai local. */
 export async function stageGuestProfileForUpgrade(user: User): Promise<void> {
   const staged: StagedGuestProfile = {
     username: user.username,
@@ -48,6 +40,39 @@ export async function stageGuestProfileForUpgrade(user: User): Promise<void> {
     privateInfo: { ...user.privateInfo },
   };
   await AsyncStorage.setItem(PENDING_GUEST_PROFILE_KEY, JSON.stringify(staged));
+}
+
+/**
+ * Snapshot des sessions musicales de l'essai AVANT le changement d'identité.
+ * Les identifiants serveur éventuels sont volontairement supprimés : après la
+ * création du vrai compte, chaque KEEP doit être réécrit sous le nouvel
+ * auth.uid() et ne jamais réutiliser la décision d'un autre profil.
+ */
+export async function stageGuestMusicForUpgrade(sessions: KeepSession[]): Promise<void> {
+  const sanitized: KeepSession[] = sessions.map((session) => ({
+    ...session,
+    tracks: session.tracks.map((track) => ({
+      ...track,
+      keepDecisionId: undefined,
+      creditLocked: false,
+    })),
+  }));
+  await AsyncStorage.setItem(PENDING_GUEST_MUSIC_KEY, JSON.stringify(sanitized));
+}
+
+export async function loadStagedGuestMusic(): Promise<KeepSession[]> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_GUEST_MUSIC_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as KeepSession[] : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function clearStagedGuestMusic(): Promise<void> {
+  await AsyncStorage.removeItem(PENDING_GUEST_MUSIC_KEY).catch(() => {});
 }
 
 export async function loadStagedGuestProfile(): Promise<StagedGuestProfile | null> {
