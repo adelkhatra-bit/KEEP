@@ -74,12 +74,14 @@ async function proveSharedProfileRoute(page, scenarioName) {
 
     const signupTitle = page.getByText('Créer mon compte KEEP', { exact: true }).last();
     const followHint = page.getByText('Après connexion, le profil que tu consultais sera suivi automatiquement.', { exact: true }).last();
-    const signupSubtitle = page.getByText(/Aucun e-mail requis/i).last();
+    const signupSubtitle = page.getByText(/Adresse e-mail obligatoire/i).last();
+    const requiredEmail = page.getByPlaceholder('Adresse e-mail obligatoire').last();
     const continueWithoutSignup = page.getByText('CONTINUER SANS INSCRIPTION', { exact: true }).last();
 
     await signupTitle.waitFor({ state: 'visible', timeout: 20000 });
     await followHint.waitFor({ state: 'visible', timeout: 20000 });
     await signupSubtitle.waitFor({ state: 'visible', timeout: 20000 });
+    await requiredEmail.waitFor({ state: 'visible', timeout: 20000 });
     await continueWithoutSignup.waitFor({ state: 'visible', timeout: 20000 });
 
     const redirectedText = await page.locator('body').innerText().catch(() => '');
@@ -159,7 +161,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       await proveSharedProfileRoute(page, scenario.name);
 
       if (errors.length) throw new Error(`${scenario.name}: ${errors.join(' | ')}`);
-      report.push(`${scenario.name}: PASS — Free/Premium/Creator/Venue controls + reload + shared follow→signup + no overlap + return to free trial; no blank page/no auth signup`);
+      report.push(`${scenario.name}: PASS — Free/Premium/Creator/Venue controls + reload + required email signup + no overlap + return to free trial; no blank page/no auth signup`);
     } catch (error) {
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-FAIL.png`), fullPage: true }).catch(() => {});
       fs.writeFileSync(path.join(OUT, `${scenario.name}-FAIL.txt`), [
