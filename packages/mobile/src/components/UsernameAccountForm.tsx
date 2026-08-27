@@ -155,7 +155,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       style={s.input}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder="Identifiant KEEP, ex. adel4A"
+      placeholder="Identifiant KEEP, ex. musicfan23"
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
