@@ -8,6 +8,7 @@ import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
 import SwipeDeck from '../components/SwipeDeck';
+import ListenEnergyAura from '../components/ListenEnergyAura';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
 
@@ -191,18 +192,20 @@ export default function HomeScreenCompact({ navigation }: any) {
       <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
         <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveText}>{recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
 
-        <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
-          <Animated.View pointerEvents="none" style={[s.signalGlow, { opacity: liveGlowOpacity }]} />
-          <Animated.View pointerEvents="none" style={[s.signalTop, { opacity: topOpacity }]} />
-          <Animated.View pointerEvents="none" style={[s.signalRight, { opacity: rightOpacity }]} />
-          <Animated.View pointerEvents="none" style={[s.signalBottom, { opacity: bottomOpacity }]} />
-          <Animated.View pointerEvents="none" style={[s.signalLeft, { opacity: leftOpacity }]} />
-          <View style={s.stats}>
-            <MiniStat value={elapsed} label="Durée" />
-            <MiniStat value={String(detected)} label="Détectés" />
-            <MiniStat value={String(kept)} label="Gardés" />
-          </View>
-        </Animated.View>
+        <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
+          <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
+            <Animated.View pointerEvents="none" style={[s.signalGlow, { opacity: liveGlowOpacity }]} />
+            <Animated.View pointerEvents="none" style={[s.signalTop, { opacity: topOpacity }]} />
+            <Animated.View pointerEvents="none" style={[s.signalRight, { opacity: rightOpacity }]} />
+            <Animated.View pointerEvents="none" style={[s.signalBottom, { opacity: bottomOpacity }]} />
+            <Animated.View pointerEvents="none" style={[s.signalLeft, { opacity: leftOpacity }]} />
+            <View style={s.stats}>
+              <MiniStat value={elapsed} label="Durée" />
+              <MiniStat value={String(detected)} label="Détectés" />
+              <MiniStat value={String(kept)} label="Gardés" />
+            </View>
+          </Animated.View>
+        </ListenEnergyAura>
 
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text></View> : null}
 
