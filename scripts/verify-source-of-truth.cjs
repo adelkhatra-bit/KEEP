@@ -17,6 +17,7 @@ if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranc
 const mustExist = [
   'CLAUDE.md',
   'AGENTS.md',
+  '.github/copilot-instructions.md',
   'packages/mobile',
   'packages/admin',
   'packages/backend',
@@ -38,6 +39,7 @@ const mustExist = [
   'supabase/functions/keep-admin-control/index.ts',
   'supabase/functions/keep-username-auth/index.ts',
   'supabase/functions/keep-music-core/index.ts',
+  'supabase/functions/keep-music-fallback/index.ts',
   'supabase/functions/keep-public/index.ts',
   'supabase/functions/keep-preview/index.ts',
   'supabase/functions/keep-admin-preview/index.ts',
@@ -56,6 +58,7 @@ for (const forbidden of [
   'START_KEEP_LATEST.bat',
   'FORCE_START_LATEST_KEEP.bat',
   'START_KEEP_PRO.bat',
+  'START_KEEP_PRO.ps1',
   '.github/workflows/admin-preview.yml',
   '.github/workflows/web-public-from-reconcile.yml',
 ]) {
@@ -65,6 +68,14 @@ for (const forbidden of [
 const claudeInstructions = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
 for (const expected of [expectedRepository, expectedBranch, `${expectedPublicRoot}/`, `${expectedPublicRoot}/share-profile/?u=<username>`]) {
   if (!claudeInstructions.includes(expected)) failures.push(`CLAUDE SOURCE MARKER MISSING: ${expected}`);
+}
+if (!/pseudo KEEP[^\n]*mot de passe[^\n]*sans e-mail obligatoire|identifiant KEEP \+ mot de passe sans e-mail obligatoire/i.test(claudeInstructions)) {
+  failures.push('CLAUDE AUTH RULE DOES NOT PRESERVE USERNAME + PASSWORD WITHOUT REQUIRED EMAIL');
+}
+
+const copilotInstructions = fs.readFileSync(path.join(root, '.github/copilot-instructions.md'), 'utf8');
+for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, 'Never create or deploy a second KEEP app']) {
+  if (!copilotInstructions.includes(expected)) failures.push(`COPILOT SOURCE MARKER MISSING: ${expected}`);
 }
 
 const nav = fs.readFileSync(path.join(root, 'packages/mobile/src/navigation/Navigation.tsx'), 'utf8');
@@ -78,12 +89,7 @@ if (!nav.includes('name="Notifications" component={NotificationsScreen}')) failu
 if (!nav.includes(expectedPublicRoot)) failures.push('NAVIGATION PUBLIC PREFIX IS NOT CANONICAL KEEP URL');
 
 const admin = fs.readFileSync(path.join(root, 'packages/admin/pages/_app.tsx'), 'utf8');
-for (const expected of [
-  'KEEP LIVE · RECONCILE',
-  'admin_users',
-  'signInWithPassword',
-  'Aucun lien e-mail n’est envoyé',
-]) {
+for (const expected of ['KEEP LIVE · RECONCILE', 'admin_users', 'signInWithPassword', 'Aucun lien e-mail n’est envoyé']) {
   if (!admin.includes(expected)) failures.push(`ADMIN LOGIN MARKER MISSING: ${expected}`);
 }
 if (/signInWithOtp|Recevoir un lien de secours|emailRedirectTo/i.test(admin)) failures.push('BROKEN ADMIN MAGIC-LINK FLOW REINTRODUCED');
@@ -112,29 +118,30 @@ for (const expected of ['profile_username_aliases', 'keep_guard_reserved_usernam
 }
 
 const freeCreditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260827094000_restore_signup_bonus_twenty.sql'), 'utf8');
-if (!freeCreditMigration.includes("'20'::jsonb") || !freeCreditMigration.includes("signup_bonus_successes") || !freeCreditMigration.includes('signup_bonus integer := 20')) {
+if (!freeCreditMigration.includes("'20'::jsonb") || !freeCreditMigration.includes('signup_bonus_successes') || !freeCreditMigration.includes('signup_bonus integer := 20')) {
   failures.push('FREE SIGNUP BONUS MUST REMAIN +20 (3 guest + 20 account = 23)');
 }
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
-for (const expected of ['keep-username-auth', 'setSession', 'signUpWithEmailIdentity', 'signInWithEmailIdentity', 'signInWithUsername']) {
-  if (!authService.includes(expected)) failures.push(`USER AUTH MARKER MISSING: ${expected}`);
+for (const expected of ['keep-username-auth', 'setSession', 'signUpWithUsername', 'signInWithUsername']) {
+  if (!authService.includes(expected)) failures.push(`USERNAME AUTH MARKER MISSING: ${expected}`);
 }
+if (!authService.includes("username_only: '1'")) failures.push('USERNAME AUTH DOES NOT REQUEST USERNAME-ONLY ACCOUNT FLOW');
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 
 const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
-for (const expected of ['signUpWithEmailIdentity', 'signInWithEmailIdentity', 'signInWithUsername', 'Adresse e-mail obligatoire', 'E-mail ou pseudo KEEP', 'Pseudo KEEP']) {
-  if (!accountForm.includes(expected)) failures.push(`MANDATORY-EMAIL ACCOUNT MARKER MISSING: ${expected}`);
+for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Pseudo KEEP', 'Aucun e-mail, aucun code à attendre.']) {
+  if (!accountForm.includes(expected)) failures.push(`USERNAME/PASSWORD ACCOUNT MARKER MISSING: ${expected}`);
 }
-if (/Aucun e-mail requis|signUpWithUsername\(/i.test(accountForm)) {
-  failures.push('USERNAME-ONLY SIGNUP REINTRODUCED IN PRIMARY ACCOUNT FORM');
+if (/Adresse e-mail obligatoire|emailRequired|signUpWithEmailIdentity\(/i.test(accountForm)) {
+  failures.push('MANDATORY EMAIL REINTRODUCED IN PRIMARY ACCOUNT FORM');
 }
 
 const usernameAuth = fs.readFileSync(path.join(root, 'supabase/functions/keep-username-auth/index.ts'), 'utf8');
-for (const expected of ['email_required', 'validEmail', 'emailFlow', 'usernameFlow']) {
+for (const expected of ['usernameFlow', 'emailFlow', 'syntheticEmail', 'username_only', 'sessionFor']) {
   if (!usernameAuth.includes(expected)) failures.push(`USERNAME AUTH BACKEND MARKER MISSING: ${expected}`);
 }
-if (!usernameAuth.includes('action === "signup" && !email')) failures.push('BACKEND DOES NOT ENFORCE EMAIL ON SIGNUP');
+if (!usernameAuth.includes('@keep.local')) failures.push('SERVER-SIDE SYNTHETIC AUTH IDENTITY MISSING');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 for (const marker of ['QRCode', 'Mon QR KEEP', 'Partager par e-mail']) {
@@ -147,14 +154,25 @@ for (const marker of ['+ Suivre', "from('follows')", 'toggleFollow']) {
 }
 
 const recognition = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepMusicCoreRecognition.ts'), 'utf8');
-for (const marker of ['keep-music-core', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABASE_ANON_KEY']) {
+for (const marker of ['keep-music-core', 'keep-music-fallback', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABASE_ANON_KEY']) {
   if (!recognition.includes(marker)) failures.push(`SECURE RECOGNITION MARKER MISSING: ${marker}`);
 }
-if (recognition.includes('EXPO_PUBLIC_AUDD_API_KEY')) failures.push('AUDD SECRET REINTRODUCED IN MOBILE');
+if (recognition.includes('EXPO_PUBLIC_AUDD_API_KEY') || recognition.includes('EXPO_PUBLIC_ACRCLOUD_ACCESS_SECRET')) {
+  failures.push('MUSIC PROVIDER SECRET REINTRODUCED IN MOBILE');
+}
+
+const musicCore = fs.readFileSync(path.join(root, 'supabase/functions/keep-music-core/index.ts'), 'utf8');
+for (const marker of ['service_get_integration_secret', 'service_allow_recognition', 'AUDD_API_KEY']) {
+  if (!musicCore.includes(marker)) failures.push(`MUSIC CORE SERVER MARKER MISSING: ${marker}`);
+}
+const musicFallback = fs.readFileSync(path.join(root, 'supabase/functions/keep-music-fallback/index.ts'), 'utf8');
+for (const marker of ['ACRCLOUD_ACCESS_KEY', 'ACRCLOUD_ACCESS_SECRET', 'service_allow_recognition']) {
+  if (!musicFallback.includes(marker)) failures.push(`MUSIC FALLBACK SERVER MARKER MISSING: ${marker}`);
+}
 
 const legacyRedirects = [
-  ['supabase/functions/keep-public/index.ts', `${expectedPublicRoot}`],
-  ['supabase/functions/keep-preview/index.ts', `${expectedPublicRoot}`],
+  ['supabase/functions/keep-public/index.ts', expectedPublicRoot],
+  ['supabase/functions/keep-preview/index.ts', expectedPublicRoot],
   ['supabase/functions/keep-admin-preview/index.ts', `${expectedPublicRoot}/admin-preview/`],
 ];
 for (const [rel, canonical] of legacyRedirects) {
@@ -176,9 +194,7 @@ if (/^\s*branch:\s*main\s*$/m.test(render)) failures.push('RENDER MAIN BRANCH RE
 const workflowsDir = path.join(root, '.github', 'workflows');
 for (const filename of fs.readdirSync(workflowsDir).filter((name) => /\.ya?ml$/i.test(name))) {
   const workflow = fs.readFileSync(path.join(workflowsDir, filename), 'utf8');
-  if (/branches\s*:\s*\[[^\]]*(?:^|[,'"\s])main(?:[,'"\s]|$)[^\]]*\]/m.test(workflow)) {
-    failures.push(`WORKFLOW STILL TARGETS MAIN: ${filename}`);
-  }
+  if (/branches\s*:\s*\[[^\]]*(?:^|[,'"\s])main(?:[,'"\s]|$)[^\]]*\]/m.test(workflow)) failures.push(`WORKFLOW STILL TARGETS MAIN: ${filename}`);
   if (/^\s*-\s*main\s*$/m.test(workflow)) failures.push(`WORKFLOW STILL TARGETS MAIN: ${filename}`);
 }
 
@@ -203,9 +219,10 @@ console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('public profile links: permanent aliases reserved per profile');
-console.log('auth user: e-mail obligatoire à la création, connexion par e-mail ou pseudo KEEP + mot de passe');
+console.log('auth user: pseudo KEEP + mot de passe, aucun e-mail obligatoire');
 console.log('free credits: 3 guest + 20 signup bonus = 23');
 console.log('auth admin: direct password session (no magic-link redirect)');
+console.log('music recognition: server-side AudD + optional ACRCloud fallback, no provider secret in mobile');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
 console.log('backend: packages/backend');
