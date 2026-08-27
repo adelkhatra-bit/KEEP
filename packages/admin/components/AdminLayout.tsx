@@ -23,6 +23,14 @@ const NAV: NavItem[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [role, setRole] = useState<AdminRole | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Sur un écran de travail plus étroit, privilégier automatiquement la zone
+    // utile. Le menu reste disponible immédiatement via le bouton hamburger.
+    if (window.innerWidth < 1180) setSidebarOpen(false);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -46,7 +54,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="layout">
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
         <div className="logo">KEEP</div>
         <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>
         <nav>
@@ -72,6 +80,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
       <main className="main">
+        <div className="admin-toolbar">
+          <button
+            className="admin-menu-toggle"
+            type="button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? 'Masquer le menu Super Admin' : 'Afficher le menu Super Admin'}
+            aria-expanded={sidebarOpen}
+          >
+            ☰
+          </button>
+          <span className="admin-toolbar-label">{sidebarOpen ? 'Masquer le menu' : 'Menu Super Admin'}</span>
+        </div>
         {routeAllowed ? children : (
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Accès limité</h2>
