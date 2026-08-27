@@ -34,11 +34,23 @@ export default function CommunityConnectionsPanel({ userId, navigation }: { user
         if (result.error) throw result.error;
         profiles = result.data ?? [];
       }
-      const map = new Map(profiles.map((row: any) => [String(row.id), { id: String(row.id), username: String(row.username || ''), avatarUrl: row.avatar_url || undefined, kind: String(row.kind || 'USER') } as CommunityProfile]));
+      const map = new Map(profiles.map((row: any) => [String(row.id), {
+        id: String(row.id),
+        username: String(row.username || ''),
+        avatarUrl: row.avatar_url || undefined,
+        kind: String(row.kind || 'USER'),
+      } as CommunityProfile]));
       setFollowing(outIds.map((id) => map.get(id)).filter(Boolean) as CommunityProfile[]);
       setFollowers(inIds.map((id) => map.get(id)).filter(Boolean) as CommunityProfile[]);
       setFollowingIds(new Set(outIds));
-    } finally { setLoading(false); }
+    } catch {
+      // Une panne réseau ne doit jamais transformer Découvertes en page blanche.
+      setFollowers([]);
+      setFollowing([]);
+      setFollowingIds(new Set());
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -47,38 +59,88 @@ export default function CommunityConnectionsPanel({ userId, navigation }: { user
     return () => unsubscribe?.();
   }, [navigation, userId]);
 
-  const rows = useMemo(() => mode === 'following' ? following : mode === 'followers' ? followers : [], [followers, following, mode]);
+  const rows = useMemo(
+    () => mode === 'following' ? following : mode === 'followers' ? followers : [],
+    [followers, following, mode],
+  );
 
   const followBack = async (profile: CommunityProfile) => {
     if (!supabase || followingIds.has(profile.id) || busyId) return;
     setBusyId(profile.id);
     try {
-      const { error } = await supabase.from('follows').upsert({ follower_id: userId, followee_id: profile.id }, { onConflict: 'follower_id,followee_id', ignoreDuplicates: true });
+      const { error } = await supabase.from('follows').upsert(
+        { follower_id: userId, followee_id: profile.id },
+        { onConflict: 'follower_id,followee_id', ignoreDuplicates: true },
+      );
       if (error) throw error;
       setFollowingIds((current) => new Set(current).add(profile.id));
       setFollowing((current) => current.some((item) => item.id === profile.id) ? current : [...current, profile]);
-    } finally { setBusyId(null); }
+    } catch {
+      // Garder l'écran utilisable ; l'utilisateur peut réessayer sans rechargement.
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return <View style={s.shell}>
-    <View style={s.header}><View><Text style={s.title}>Ma communauté</Text><Text style={s.hint}>Retrouve tes abonnements et les personnes qui te suivent.</Text></View>{loading ? <ActivityIndicator color={colors.primaryLight}/> : null}</View>
+    <View style={s.header}>
+      <View>
+        <Text style={s.title}>Ma communauté</Text>
+        <Text style={s.hint}>Retrouve tes abonnements et les personnes qui te suivent.</Text>
+      </View>
+      {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
+    </View>
     <View style={s.tabs}>
-      <TouchableOpacity style={[s.tab, mode === 'following' && s.tabOn]} onPress={() => setMode((value) => value === 'following' ? null : 'following')}><Text style={[s.tabText, mode === 'following' && s.tabTextOn]}>Abonnements · {following.length}</Text></TouchableOpacity>
-      <TouchableOpacity style={[s.tab, mode === 'followers' && s.tabOn]} onPress={() => setMode((value) => value === 'followers' ? null : 'followers')}><Text style={[s.tabText, mode === 'followers' && s.tabTextOn]}>Abonnés · {followers.length}</Text></TouchableOpacity>
+      <TouchableOpacity style={[s.tab, mode === 'following' && s.tabOn]} onPress={() => setMode((value) => value === 'following' ? null : 'following')}>
+        <Text style={[s.tabText, mode === 'following' && s.tabTextOn]}>Abonnements · {following.length}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[s.tab, mode === 'followers' && s.tabOn]} onPress={() => setMode((value) => value === 'followers' ? null : 'followers')}>
+        <Text style={[s.tabText, mode === 'followers' && s.tabTextOn]}>Abonnés · {followers.length}</Text>
+      </TouchableOpacity>
     </View>
     {mode ? <View style={s.list}>{rows.length ? rows.map((profile) => {
       const alreadyFollowing = followingIds.has(profile.id);
       return <View key={profile.id} style={s.row}>
         <TouchableOpacity style={s.identity} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}>
-{profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0,1).toUpperCase()}</Text></View>}
-<View style={s.copy}><Text style={s.username}>@{profile.username}</Text><Text style={s.kind}>{profile.kind}</Text></View>
+          {profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0,1).toUpperCase()}</Text></View>}
+          <View style={s.copy}><Text style={s.username}>@{profile.username}</Text><Text style={s.kind}>{profile.kind}</Text></View>
         </TouchableOpacity>
-        {mode === 'followers' ? <TouchableOpacity style={[s.follow, alreadyFollowing && s.followOn]} onPress={() => void followBack(profile)} disabled={alreadyFollowing || busyId === profile.id}><Text style={[s.followText, alreadyFollowing && s.followTextOn]}>{busyId === profile.id ? '…' : alreadyFollowing ? 'ABONNÉ' : '+ SUIVRE'}</Text></TouchableOpacity> : <TouchableOpacity style={s.view} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}><Text style={s.viewText}>VOIR</Text></TouchableOpacity>}
+        {mode === 'followers' ? (
+          <TouchableOpacity style={[s.follow, alreadyFollowing && s.followOn]} onPress={() => void followBack(profile)} disabled={alreadyFollowing || busyId === profile.id}>
+            <Text style={[s.followText, alreadyFollowing && s.followTextOn]}>{busyId === profile.id ? '…' : alreadyFollowing ? 'ABONNÉ' : '+ SUIVRE'}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={s.view} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}><Text style={s.viewText}>VOIR</Text></TouchableOpacity>
+        )}
       </View>;
     }) : <Text style={s.empty}>{mode === 'followers' ? 'Personne ne te suit encore.' : 'Tu ne suis encore aucun profil.'}</Text>}</View> : null}
   </View>;
 }
 
 const s = StyleSheet.create({
-  shell:{marginTop:spacing.lg,padding:12,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},title:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},hint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:2},tabs:{flexDirection:'row',gap:7,marginTop:10},tab:{flex:1,minHeight:36,borderRadius:18,borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center',backgroundColor:'#21182F'},tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},tabText:{color:'#B9AEC6',fontSize:9,fontWeight:'900'},tabTextOn:{color:'#FFF'},list:{marginTop:8,borderTopWidth:1,borderTopColor:'#2C203A'},row:{minHeight:56,flexDirection:'row',alignItems:'center',gap:8,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#30263B'},identity:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingVertical:8},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#241936'},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},copy:{flex:1,minWidth:0,marginLeft:9},username:{color:'#FFF',fontSize:11,fontWeight:'900'},kind:{color:colors.textMuted,fontSize:8,marginTop:2},follow:{minHeight:30,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followOn:{backgroundColor:'#1C3028',borderWidth:1,borderColor:'#3B8061'},followText:{color:'#FFF',fontSize:8,fontWeight:'900'},followTextOn:{color:'#76E3AE'},view:{minHeight:30,paddingHorizontal:11,borderRadius:15,borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},viewText:{color:'#D7C7FF',fontSize:8,fontWeight:'900'},empty:{color:colors.textMuted,fontSize:10,textAlign:'center',paddingVertical:12}
+  shell:{marginTop:spacing.lg,padding:12,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},
+  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
+  title:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},
+  hint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:2},
+  tabs:{flexDirection:'row',gap:7,marginTop:10},
+  tab:{flex:1,minHeight:36,borderRadius:18,borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center',backgroundColor:'#21182F'},
+  tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},
+  tabText:{color:'#B9AEC6',fontSize:9,fontWeight:'900'},
+  tabTextOn:{color:'#FFF'},
+  list:{marginTop:8,borderTopWidth:1,borderTopColor:'#2C203A'},
+  row:{minHeight:56,flexDirection:'row',alignItems:'center',gap:8,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#30263B'},
+  identity:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingVertical:8},
+  avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#241936'},
+  avatarFallback:{alignItems:'center',justifyContent:'center'},
+  avatarText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},
+  copy:{flex:1,minWidth:0,marginLeft:9},
+  username:{color:'#FFF',fontSize:11,fontWeight:'900'},
+  kind:{color:colors.textMuted,fontSize:8,marginTop:2},
+  follow:{minHeight:30,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
+  followOn:{backgroundColor:'#1C3028',borderWidth:1,borderColor:'#3B8061'},
+  followText:{color:'#FFF',fontSize:8,fontWeight:'900'},
+  followTextOn:{color:'#76E3AE'},
+  view:{minHeight:30,paddingHorizontal:11,borderRadius:15,borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},
+  viewText:{color:'#D7C7FF',fontSize:8,fontWeight:'900'},
+  empty:{color:colors.textMuted,fontSize:10,textAlign:'center',paddingVertical:12},
 });
