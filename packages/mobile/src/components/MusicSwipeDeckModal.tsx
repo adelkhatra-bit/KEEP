@@ -26,6 +26,7 @@ type Props = {
   backLabel?: string;
   loop?: boolean;
   askVisibilityOnKeep?: boolean;
+  previewOnly?: boolean;
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
   onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
@@ -40,6 +41,7 @@ export default function MusicSwipeDeckModal({
   backLabel,
   loop = true,
   askVisibilityOnKeep = false,
+  previewOnly = false,
   onClose,
   onKeep,
   onPass,
@@ -138,6 +140,11 @@ export default function MusicSwipeDeckModal({
 
   const requestKeep = () => {
     if (!current || processing) return;
+    if (previewOnly) {
+      actionInFlight.current = true;
+      void advance().finally(() => { actionInFlight.current = false; });
+      return;
+    }
     if (!askVisibilityOnKeep) {
       void confirmKeep('PRIVATE');
       return;
@@ -182,6 +189,13 @@ export default function MusicSwipeDeckModal({
       ? 'Lecture automatique'
       : 'Extrait indisponible';
 
+  const swipeHint = previewOnly
+    ? 'Aperçu de ton profil public · glisse pour parcourir les morceaux visibles par les visiteurs'
+    : askVisibilityOnKeep
+      ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé'
+      : 'Glisse ← pour passer · → pour ajouter à ton KEEP';
+  const rightLabel = previewOnly ? 'SUIVANT' : 'KEEP';
+
   return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -198,8 +212,8 @@ export default function MusicSwipeDeckModal({
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={requestKeep}
               leftLabel="PASSER"
-              rightLabel="KEEP"
-              hint={askVisibilityOnKeep ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé' : 'Glisse ← pour passer · → pour ajouter à ton KEEP'}
+              rightLabel={rightLabel}
+              hint={swipeHint}
             >
               <View style={s.card}>
                 {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
@@ -221,15 +235,15 @@ export default function MusicSwipeDeckModal({
               <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing || keepPromptOpen} accessibilityLabel={resolvedBackLabel}>
                 <Text style={s.backDecisionText}>‹ {resolvedBackLabel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={requestKeep} disabled={processing || keepPromptOpen} accessibilityLabel="Garder cette musique">
-                {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
+              <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={requestKeep} disabled={processing || keepPromptOpen} accessibilityLabel={previewOnly ? 'Morceau suivant' : 'Garder cette musique'}>
+                {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>{previewOnly ? '→ SUIVANT' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
         </>}
       </View>
 
-      <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={cancelKeep}>
+      {!previewOnly ? <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={cancelKeep}>
         <View style={s.keepOverlay}>
           <View style={s.keepPromptCard}>
             <Text style={s.keepPromptEyebrow}>TON KEEP · TA VISIBILITÉ</Text>
@@ -253,7 +267,7 @@ export default function MusicSwipeDeckModal({
             <Text style={s.keepCancelHint}>Si ce morceau ne t’intéresse pas, ferme cette fenêtre puis choisis PASSER.</Text>
           </View>
         </View>
-      </Modal>
+      </Modal> : null}
     </SafeAreaView>
   </Modal>;
 }
