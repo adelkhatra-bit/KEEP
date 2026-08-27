@@ -3,18 +3,18 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 const TOP_FLAMES = 20;
 const SIDE_SPARKS = 7;
-// micLevel est déjà amplifié par micCapture. Ce seuil coupe le bruit de fond
-// sans rendre KEEP insensible à une musique réellement audible.
+// micLevel est déjà amplifié par micCapture. Ces seuils gardent le cadre
+// totalement immobile sur le bruit de fond tout en restant sensible à la musique.
 const SOUND_GATE = 0.34;
 const SOUND_RELEASE = 0.24;
 
 function flameProfile(index: number) {
   const variants = [
-    [0.22, 1.2, 0.42],
-    [0.42, 1.95, 0.3],
-    [0.32, 1.5, 0.72],
-    [0.56, 2.2, 0.36],
-    [0.36, 1.7, 0.2],
+    [0.22, 1.2],
+    [0.42, 1.95],
+    [0.32, 1.5],
+    [0.56, 2.2],
+    [0.36, 1.7],
   ];
   return variants[index % variants.length];
 }
@@ -59,14 +59,10 @@ export default function ListenEnergyAura({
       soundLatchedRef.current = false;
     } else {
       soundLatchedRef.current = true;
-      // Courbe volontairement sensible : dès qu'un vrai signal dépasse le bruit
-      // de fond, le tourbillon réagit fortement et sa vitesse suit le niveau réel.
       const normalized = (raw - gate) / Math.max(0.001, 1 - gate);
       targetEnergyRef.current = Math.min(1, Math.pow(normalized, 0.38) * 1.18);
     }
   }
-
-  const soundActive = active && soundLatchedRef.current;
 
   useEffect(() => {
     if (!active) {
@@ -90,18 +86,17 @@ export default function ListenEnergyAura({
 
       const target = targetEnergyRef.current;
       const current = smoothedEnergyRef.current;
-      // Attaque très rapide, relâchement tout aussi court : couper la musique
-      // immobilise réellement le contour au lieu de laisser une boucle tourner.
-      const coefficient = target > current ? 0.58 : 0.42;
+      // Attaque rapide, relâchement court : le contour suit le micro sans inertie
+      // visible quand le son s'arrête.
+      const coefficient = target > current ? 0.62 : 0.5;
       const next = Math.abs(target - current) < 0.006 ? target : current + (target - current) * coefficient;
       smoothedEnergyRef.current = next;
 
       if (next <= 0.004) {
-        // Zéro énergie = zéro mouvement. On garde seulement la position atteinte.
         energy.setValue(0);
         pulse.setValue(0);
       } else {
-        // 70°/s à faible niveau jusqu'à plus de 1000°/s quand le son est fort.
+        // La vitesse du tourbillon dépend uniquement de l'énergie micro réelle.
         const degreesPerSecond = 70 + Math.pow(next, 1.35) * 980;
         angleRef.current = (angleRef.current + degreesPerSecond * (dt / 1000)) % 360;
         angle2Ref.current = (angle2Ref.current - degreesPerSecond * 0.72 * (dt / 1000) + 360) % 360;
@@ -147,34 +142,18 @@ export default function ListenEnergyAura({
   const rotateB = rotation2.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const auraOpacity = energy.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.42, 1] });
   const orbitScale = energy.interpolate({ inputRange: [0, 1], outputRange: [1.006, 1.07] });
-  const shellScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] });
   const waveScale1 = energy.interpolate({ inputRange: [0, 1], outputRange: [1, 1.085] });
   const waveScale2 = energy.interpolate({ inputRange: [0, 1], outputRange: [1, 1.13] });
   const waveOpacity = energy.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.2, 0.62] });
   const burstOpacity = burst.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 1, 0] });
   const burstScale = burst.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.19] });
-
-  // HomeScreenCompact avait encore une ancienne animation autonome autour des
-  // statistiques. Quand le micro est silencieux on la masque ici pour garantir
-  // visuellement : silence = immobilité totale. Les chiffres restent visibles.
-  const gatedContent = (() => {
-    if (!React.isValidElement(children)) return children;
-    const root = children as React.ReactElement<any>;
-    const nodes = React.Children.toArray(root.props.children).map((node, index) => {
-      if (!React.isValidElement(node) || index >= 5) return node;
-      const element = node as React.ReactElement<any>;
-      return React.cloneElement(element, {
-        style: [element.props.style, !soundActive ? { opacity: 0 } : null],
-      });
-    });
-    return React.cloneElement(root, {
-      style: [root.props.style, !soundActive ? { transform: [{ scale: 1 }] } : null],
-      children: nodes,
-    });
-  })();
+  const flamePulse = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1.08] });
 
   return (
-    <Animated.View style={[s.shell, { transform: [{ scale: shellScale }] }]}>
+    // IMPORTANT : le conteneur et son contenu ne sont jamais transformés.
+    // Durée / Détectés / Gardés restent donc parfaitement fixes ; seules les
+    // couches décoratives autour du cadre réagissent au micro.
+    <View style={s.shell}>
       <Animated.View pointerEvents="none" style={[s.wave, s.wavePurple, { opacity: waveOpacity, transform: [{ scale: waveScale1 }] }]} />
       <Animated.View pointerEvents="none" style={[s.wave, s.waveRed, { opacity: waveOpacity, transform: [{ scale: waveScale2 }] }]} />
 
@@ -197,7 +176,7 @@ export default function ListenEnergyAura({
           const [low, high] = flameProfile(index);
           const scaleY = energy.interpolate({ inputRange: [0, 1], outputRange: [low * 0.18, high * 1.25] });
           const translateY = energy.interpolate({ inputRange: [0, 1], outputRange: [0, -6 - (index % 5) * 1.7] });
-          return <Animated.View key={`t-${index}`} style={[s.flame, index % 7 === 0 ? s.red : index % 5 === 0 ? s.hot : index % 2 === 0 ? s.purple : s.green, { opacity: auraOpacity, transform: [{ scaleY }, { translateY }] }]} />;
+          return <Animated.View key={`t-${index}`} style={[s.flame, index % 7 === 0 ? s.red : index % 5 === 0 ? s.hot : index % 2 === 0 ? s.purple : s.green, { opacity: auraOpacity, transform: [{ scaleY }, { scaleX: flamePulse }, { translateY }] }]} />;
         })}
       </View>
 
@@ -206,7 +185,7 @@ export default function ListenEnergyAura({
           const [low, high] = flameProfile(TOP_FLAMES - index);
           const scaleY = energy.interpolate({ inputRange: [0, 1], outputRange: [low * 0.18, high * 1.18] });
           const translateY = energy.interpolate({ inputRange: [0, 1], outputRange: [0, 6 + (index % 4) * 1.7] });
-          return <Animated.View key={`b-${index}`} style={[s.flame, index % 6 === 0 ? s.red : index % 4 === 0 ? s.hot : index % 2 === 0 ? s.green : s.purple, { opacity: auraOpacity, transform: [{ scaleY }, { translateY }] }]} />;
+          return <Animated.View key={`b-${index}`} style={[s.flame, index % 6 === 0 ? s.red : index % 4 === 0 ? s.hot : index % 2 === 0 ? s.green : s.purple, { opacity: auraOpacity, transform: [{ scaleY }, { scaleX: flamePulse }, { translateY }] }]} />;
         })}
       </View>
 
@@ -218,8 +197,8 @@ export default function ListenEnergyAura({
       </View>
 
       <Animated.View pointerEvents="none" style={[s.burst, { opacity: burstOpacity, transform: [{ scale: burstScale }] }]} />
-      <View style={s.content}>{gatedContent}</View>
-    </Animated.View>
+      <View style={s.content}>{children}</View>
+    </View>
   );
 }
 
