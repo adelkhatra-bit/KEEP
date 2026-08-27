@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
@@ -14,19 +14,56 @@ function shuffle<T>(input: T[]): T[] {
   return next;
 }
 
+type KeepVisibilityChoice = 'PUBLIC' | 'PRIVATE';
+
 type Props = {
   visible: boolean;
   tracks: CanonicalTrack[];
   title?: string;
   subtitle?: string;
+  emptyTitle?: string;
+  loop?: boolean;
+  askVisibilityOnKeep?: boolean;
   onClose: () => void;
-  onKeep?: (track: CanonicalTrack) => void | Promise<void>;
+  onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
+  onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
 };
 
-export default function MusicSwipeDeckModal({ visible, tracks, title = 'Découverte musicale', subtitle, onClose, onKeep }: Props) {
+function chooseVisibility(): Promise<KeepVisibilityChoice | null> {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const showOnProfile = window.confirm('Afficher ce morceau sur ton profil KEEP ?\n\nOK = visible sur ton profil\nAnnuler = garder en privé');
+    return Promise.resolve(showOnProfile ? 'PUBLIC' : 'PRIVATE');
+  }
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Garder ce morceau',
+      'Où veux-tu le ranger ?',
+      [
+        { text: 'Annuler', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'Garder en privé', onPress: () => resolve('PRIVATE') },
+        { text: 'Afficher sur mon profil', onPress: () => resolve('PUBLIC') },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
+}
+
+export default function MusicSwipeDeckModal({
+  visible,
+  tracks,
+  title = 'Découverte musicale',
+  subtitle,
+  emptyTitle = 'Aucun morceau à découvrir.',
+  loop = true,
+  askVisibilityOnKeep = false,
+  onClose,
+  onKeep,
+  onPass,
+}: Props) {
   const [round, setRound] = useState(0);
   const [index, setIndex] = useState(0);
-  const [keeping, setKeeping] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const shuffled = useMemo(() => shuffle(tracks), [tracks, round]);
   const current = shuffled[index];
 
@@ -55,19 +92,36 @@ export default function MusicSwipeDeckModal({ visible, tracks, title = 'Découve
   const advance = () => {
     void stopTrackPreview();
     if (index + 1 >= shuffled.length) {
-      setIndex(0);
-      setRound((value) => value + 1);
+      if (loop) {
+        setIndex(0);
+        setRound((value) => value + 1);
+      } else {
+        setIndex(shuffled.length);
+      }
     } else setIndex((value) => value + 1);
   };
 
   const keep = async () => {
-    if (!current || keeping) return;
-    setKeeping(true);
+    if (!current || processing) return;
+    setProcessing(true);
     try {
-      await onKeep?.(current);
-      advance();
+      const visibility = askVisibilityOnKeep ? await chooseVisibility() : 'PRIVATE';
+      if (!visibility) return;
+      const result = await onKeep?.(current, visibility);
+      if (result !== false) advance();
     } finally {
-      setKeeping(false);
+      setProcessing(false);
+    }
+  };
+
+  const pass = async () => {
+    if (!current || processing) return;
+    setProcessing(true);
+    try {
+      const result = await onPass?.(current);
+      if (result !== false) advance();
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -84,15 +138,15 @@ export default function MusicSwipeDeckModal({ visible, tracks, title = 'Découve
       </View>
 
       <View style={s.body}>
-        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>Aucun morceau à découvrir.</Text><TouchableOpacity style={s.backButton} onPress={close}><Text style={s.backText}>RETOUR AU PROFIL</Text></TouchableOpacity></View> : <>
+        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={close}><Text style={s.backText}>RETOUR</Text></TouchableOpacity></View> : <>
           <SwipeDeck
             resetKey={current.id}
-            enabled={!keeping}
-            onSwipeLeft={advance}
-            onSwipeRight={keep}
+            enabled={!processing}
+            onSwipeLeft={() => { void pass(); }}
+            onSwipeRight={() => { void keep(); }}
             leftLabel="PASSER"
             rightLabel="KEEP"
-            hint="Glisse ← pour passer · → pour ajouter à ton KEEP"
+            hint={askVisibilityOnKeep ? 'Glisse ← pour passer · → pour garder puis choisir public ou privé' : 'Glisse ← pour passer · → pour ajouter à ton KEEP'}
           >
             <View style={s.card}>
               {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
@@ -106,10 +160,10 @@ export default function MusicSwipeDeckModal({ visible, tracks, title = 'Découve
           </SwipeDeck>
 
           <View style={s.actions}>
-            <TouchableOpacity style={[s.round,s.pass]} onPress={advance} disabled={keeping} accessibilityLabel="Passer"><Text style={s.passText}>✕</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.round,s.keep]} onPress={() => void keep()} disabled={keeping} accessibilityLabel="Garder dans KEEP">{keeping ? <ActivityIndicator color="#111"/> : <Text style={s.keepText}>♡</Text>}</TouchableOpacity>
+            <TouchableOpacity style={[s.round,s.pass]} onPress={() => { void pass(); }} disabled={processing} accessibilityLabel="Passer"><Text style={s.passText}>✕</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.round,s.keep]} onPress={() => { void keep(); }} disabled={processing} accessibilityLabel="Garder dans KEEP">{processing ? <ActivityIndicator color="#111"/> : <Text style={s.keepText}>♡</Text>}</TouchableOpacity>
           </View>
-          <TouchableOpacity style={s.profileBack} onPress={close}><Text style={s.profileBackText}>‹ Retour au profil</Text></TouchableOpacity>
+          <TouchableOpacity style={s.profileBack} onPress={close}><Text style={s.profileBackText}>‹ Retour</Text></TouchableOpacity>
         </>}
       </View>
     </SafeAreaView>
@@ -127,5 +181,5 @@ const s = StyleSheet.create({
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#D3C9DE',fontSize:10,fontWeight:'800'},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#A99DB9',fontSize:12,marginTop:3},
   actions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:30,marginTop:18},round:{width:62,height:62,borderRadius:31,alignItems:'center',justifyContent:'center',borderWidth:2},pass:{backgroundColor:'#151020',borderColor:'#FF5F83'},keep:{backgroundColor:'#E5F266',borderColor:'#E5F266'},passText:{color:'#FF5F83',fontSize:28,fontWeight:'700'},keepText:{color:'#17130B',fontSize:28,fontWeight:'900'},
   profileBack:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:10},profileBackText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
-  empty:{alignItems:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
+  empty:{alignItems:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
 });
