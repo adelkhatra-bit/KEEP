@@ -235,13 +235,13 @@ export function createProfileService(client: SupabaseClient) {
     },
 
     async saveOwnProfile(user: User, options: SaveProfileOptions = {}): Promise<void> {
-      // Un essai gratuit local possède volontairement un UUID local mais PAS
-      // de session Supabase. Dans ce cas on ne tente aucune écriture distante :
-      // le store garde les changements sur l'appareil et ils seront migrés à
-      // la création du compte. Cela évite les erreurs RLS et les faux profils.
-      const { data: authState } = await client.auth.getSession();
-      const authenticatedId = authState.session?.user?.id;
-      if (!authenticatedId || authenticatedId !== user.id) return;
+      // Ne jamais écrire un profil à partir d'un token local périmé. `getUser()`
+      // revalide réellement la session côté Supabase ; un compte supprimé ou
+      // un ancien essai local reste alors uniquement sur l'appareil et ne peut
+      // plus provoquer une violation profiles_id_fkey.
+      const { data: authState, error: authError } = await client.auth.getUser();
+      const authenticatedId = authState.user?.id;
+      if (authError || !authenticatedId || authenticatedId !== user.id) return;
 
       const allowClearing = options.allowClearing ?? loadedOwnProfileId !== user.id;
 
