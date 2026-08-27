@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import type { CanonicalTrack } from '@keep/music';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { musicEngine } from '../services/musicEngine';
 import { shareSession } from '../services/sharingService';
 import TrackRow from '../components/TrackRow';
+import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
@@ -26,6 +28,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
   const [titleSaved, setTitleSaved] = useState(false);
+  const [swipeOpen, setSwipeOpen] = useState(false);
 
   useEffect(() => {
     void refreshCreditLocks().catch(() => {});
@@ -34,6 +37,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     });
     return () => unsubscribe?.();
   }, [navigation, refreshCreditLocks]);
+
+  const pendingSwipeTracks = useMemo<CanonicalTrack[]>(() => {
+    if (!session) return [];
+    return session.tracks.filter((entry) => entry.status === 'pending').map((entry) => entry.track);
+  }, [session]);
 
   if (!session) {
     return (
@@ -109,6 +117,31 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' });
   };
 
+  const findPendingEntry = (track: CanonicalTrack) => {
+    const latest = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId);
+    return latest?.tracks.find((entry) => entry.status === 'pending' && entry.track.id === track.id);
+  };
+
+  const handleSwipeKeep = async (track: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
+    const entry = findPendingEntry(track);
+    if (!entry) return true;
+    await refreshCreditLocks().catch(() => {});
+    await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
+    if (refreshed?.creditLocked) {
+      setSwipeOpen(false);
+      await openUnlock();
+      return false;
+    }
+    return true;
+  };
+
+  const handleSwipePass = async (track: CanonicalTrack) => {
+    const entry = findPendingEntry(track);
+    if (entry) passTrackInSession(sessionId, entry.id);
+    return true;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -152,14 +185,6 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
-      {pendingCount > 0 && (
-        <TouchableOpacity style={styles.keepAllButton} onPress={handleKeepAll} disabled={processing}>
-          <Text style={styles.keepAllButtonText}>
-            {processing ? '…' : `✓ ${t('session.keepAll', { count: pendingCount })}`}
-          </Text>
-        </TouchableOpacity>
-      )}
-
       <Text style={styles.visibilityHint}>Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
 
       <FlatList
@@ -178,15 +203,40 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         )}
       />
 
-      <TouchableOpacity style={styles.deleteSessionButton} onPress={handleDelete}>
-        <Text style={styles.deleteSessionText}>Supprimer cette session</Text>
-      </TouchableOpacity>
+      <View style={styles.sessionActionsRow}>
+        {pendingCount > 0 ? (
+          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={() => setSwipeOpen(true)} accessibilityRole="button" accessibilityLabel="Trier la session en swipe">
+            <Text style={styles.swipeActionText}>↔ SWIPE</Text>
+          </TouchableOpacity>
+        ) : null}
+        {pendingCount > 0 ? (
+          <TouchableOpacity style={[styles.compactAction, styles.keepAllButton]} onPress={handleKeepAll} disabled={processing} accessibilityRole="button" accessibilityLabel="Garder tous les morceaux en attente">
+            <Text style={styles.keepAllButtonText}>{processing ? '…' : `✓ GARDER TOUT (${pendingCount})`}</Text>
+          </TouchableOpacity>
+        ) : null}
+        <TouchableOpacity style={[styles.compactAction, styles.deleteSessionButton]} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette session">
+          <Text style={styles.deleteSessionText}>SUPPRIMER</Text>
+        </TouchableOpacity>
+      </View>
 
       {musicEngine.isDemoMode && (
         <View style={styles.demoBadge}>
           <Text style={styles.demoText}>{t('demo.badge')}</Text>
         </View>
       )}
+
+      <MusicSwipeDeckModal
+        visible={swipeOpen}
+        tracks={pendingSwipeTracks}
+        title="Trier cette session"
+        subtitle="Comme un feed : gauche pour passer, droite pour garder."
+        emptyTitle="Session triée. Tu peux revenir à la liste."
+        loop={false}
+        askVisibilityOnKeep
+        onClose={() => setSwipeOpen(false)}
+        onKeep={handleSwipeKeep}
+        onPass={handleSwipePass}
+      />
     </SafeAreaView>
   );
 }
@@ -216,12 +266,16 @@ const styles = StyleSheet.create({
   lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, marginTop: 4 },
-  keepAllButton: { marginHorizontal: spacing.xl, marginTop: spacing.lg, backgroundColor: colors.keep, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
-  keepAllButtonText: { color: colors.black, fontWeight: '700', fontSize: 15 },
   visibilityHint: { color: colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
-  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.md },
-  deleteSessionButton: { minHeight: 42, marginHorizontal: spacing.xl, marginBottom: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
-  deleteSessionText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
+  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
+  compactAction: { flex: 1, minHeight: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  swipeAction: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight },
+  swipeActionText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
+  keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 9, textAlign: 'center' },
+  deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
+  deleteSessionText: { color: colors.danger, fontSize: 9, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
 });
