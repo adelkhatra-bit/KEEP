@@ -63,7 +63,9 @@ function lockPendingFrom(sessions: KeepSession[], sessionId: string, entryId?: s
           ...session,
           tracks: session.tracks.map((track) =>
             track.status === 'pending' && (!entryId || track.id === entryId)
-              ? { ...track, creditLocked: true, visibility: 'PRIVATE' as KeepVisibility }
+              // Un cadenas de crédit est temporaire. Il ne doit JAMAIS écraser
+              // le choix Public/Privé déjà fait par l'utilisateur.
+              ? { ...track, creditLocked: true }
               : track,
           ),
         }
@@ -127,14 +129,6 @@ function remoteEntry(remote: PersistedKeepDecision): SessionTrackEntry {
   };
 }
 
-/**
- * Le serveur est la sauvegarde durable du profil musical, mais l'historique de
- * session complet (PASS, pending, ordre local, titre, lieu) reste sur l'appareil.
- * On fusionne donc les KEEP serveur SANS remplacer ni supprimer l'historique
- * local. Les morceaux serveur qui n'ont plus de session locale sont rangés dans
- * une session technique cachée : le KEEP DNA est restauré sur un nouvel appareil
- * sans inventer une fausse « session d'écoute » dans Mes Sessions.
- */
 function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
   if (!remoteKeeps.length) return sessions;
 
@@ -156,9 +150,6 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
     }),
   }));
 
-  // Si la même décision existe dans une vraie session locale ET dans l'ancienne
-  // session de récupération, la vraie session gagne. On ne supprime jamais une
-  // entrée utilisateur ; on retire uniquement le duplicata technique caché.
   const visibleDecisionIds = new Set<string>();
   for (const session of next) {
     if (isCloudProfileRecoverySession(session)) continue;
@@ -202,8 +193,6 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
     ? next.map((session) => isCloudProfileRecoverySession(session) ? cloudSession : session)
     : [...next, cloudSession];
 
-  // On conserve l'ordre normal des vraies sessions. La session technique est
-  // repoussée à la fin et reste invisible dans l'écran Mes Sessions.
   return next.sort((a, b) => {
     if (isCloudProfileRecoverySession(a)) return 1;
     if (isCloudProfileRecoverySession(b)) return -1;
@@ -225,12 +214,6 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       clearSessions: () => set({ sessions: [] }),
       renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
 
-      // Une session en cours n'existe réellement que dans useSessionStore.
-      // L'historique, lui, est persistant. Si l'app/le navigateur est fermé ou
-      // rechargé brutalement, une ancienne session pouvait rester avec
-      // endedAt=null pendant des jours et afficher à tort « Écoute en cours ».
-      // On ferme uniquement les sessions qui ne correspondent pas à la session
-      // actuellement active et on conserve intégralement leurs morceaux.
       reconcileOrphanedLiveSessions: (activeSessionId = null) => set((state) => ({
         sessions: state.sessions.map((session) =>
           session.endedAt == null && session.id !== activeSessionId
@@ -298,9 +281,6 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           }
         }
 
-        // Le sens retour est aussi indispensable : après mise à jour, réinstallation
-        // ou nouvel appareil, le profil musical se reconstruit depuis les décisions
-        // KEEP durables de Supabase. Un échec réseau ne modifie rien localement.
         try {
           const remoteKeeps = await loadOwnPersistedKeeps();
           if (remoteKeeps.length) set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
