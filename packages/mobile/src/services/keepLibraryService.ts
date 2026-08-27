@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import type { KeepVisibility } from '../types';
+import { isSmartAlbumUiId, smartAlbumDatabaseId, smartAlbumUiId } from './smartAlbumService';
 
 const LOCAL_KEY_PREFIX = '@keep/playlist-preferences-v2';
 
@@ -46,22 +47,27 @@ export async function loadPlaylistPreferences(provider: string): Promise<Prefere
 
   const { data, error } = await supabase
     .from('playlists')
-    .select('provider,provider_playlist_id,name,description,is_public,cover_url')
+    .select('id,provider,provider_playlist_id,name,description,is_public,cover_url,is_smart')
     .eq('owner_id', userId)
-    .eq('provider', provider);
+    .in('provider', [provider, 'KEEP_SMART']);
   if (error) return local;
 
   const merged = { ...local };
   for (const row of data ?? []) {
-    if (!row.provider_playlist_id) continue;
-    merged[mapKey(String(row.provider), String(row.provider_playlist_id))] = {
-      provider: String(row.provider),
-      providerPlaylistId: String(row.provider_playlist_id),
+    const isSmart = String(row.provider) === 'KEEP_SMART' && Boolean(row.is_smart);
+    const providerPlaylistId = isSmart
+      ? smartAlbumUiId(String(row.id))
+      : row.provider_playlist_id ? String(row.provider_playlist_id) : '';
+    if (!providerPlaylistId) continue;
+    const preference: KeepPlaylistPreference = {
+      provider,
+      providerPlaylistId,
       name: String(row.name ?? ''),
       description: String(row.description ?? ''),
       isPublic: Boolean(row.is_public),
       coverUrl: row.cover_url ? String(row.cover_url) : undefined,
     };
+    merged[mapKey(provider, providerPlaylistId)] = preference;
   }
   await writeLocal(userId, merged);
   return merged;
@@ -79,6 +85,22 @@ export async function savePlaylistPreference(preference: KeepPlaylistPreference)
   await writeLocal(userId, local);
 
   if (!supabase || !userId) return;
+
+  if (isSmartAlbumUiId(preference.providerPlaylistId)) {
+    const databaseId = smartAlbumDatabaseId(preference.providerPlaylistId);
+    const { error } = await supabase.from('playlists').update({
+      name: preference.name.trim() || 'Album KEEP',
+      description: preference.description.trim() || null,
+      is_public: preference.isPublic,
+      updated_at: new Date().toISOString(),
+    })
+      .eq('id', databaseId)
+      .eq('owner_id', userId)
+      .eq('provider', 'KEEP_SMART')
+      .eq('is_smart', true);
+    if (error) throw error;
+    return;
+  }
 
   const { data: existing, error: findError } = await supabase
     .from('playlists')
