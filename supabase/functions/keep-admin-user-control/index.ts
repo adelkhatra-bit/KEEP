@@ -32,6 +32,20 @@ async function requireAdmin(req: Request): Promise<Actor> {
 function canManage(role: string) {
   return role === "SUPER_ADMIN" || role === "ADMIN" || role === "SUPPORT";
 }
+function canDestruct(role: string) {
+  return role === "SUPER_ADMIN";
+}
+
+async function audit(actorId: string, action: string, targetId: string, after: unknown) {
+  await admin.from("audit_logs").insert({
+    actor_admin_id: actorId,
+    action,
+    target_type: "profile",
+    target_id: targetId,
+    before: null,
+    after,
+  });
+}
 
 async function getUserSnapshot(profileId: string) {
   const [{ data: profile, error: profileError }, { data: privateInfo }, { data: socials }, { data: requirements }, authResult, keepResult, playlistResult, downloadResult] = await Promise.all([
@@ -47,6 +61,7 @@ async function getUserSnapshot(profileId: string) {
   if (profileError || !profile) throw new Error("profile_not_found");
   const authUser = authResult.data.user ?? null;
   const decisions = keepResult.data ?? [];
+  const realEmail = authUser?.email && !authUser.email.endsWith("@keep.local") ? authUser.email : null;
   return {
     profile,
     privateInfo: privateInfo ?? null,
@@ -54,10 +69,11 @@ async function getUserSnapshot(profileId: string) {
     requirements: Array.isArray(requirements?.requirements) ? requirements.requirements : [],
     requirementsUpdatedAt: requirements?.updated_at ?? null,
     auth: {
-      email: authUser?.email ?? null,
-      emailVerified: Boolean(authUser?.email_confirmed_at),
-      emailConfirmedAt: authUser?.email_confirmed_at ?? null,
+      email: realEmail,
+      emailVerified: Boolean(realEmail && authUser?.email_confirmed_at),
+      emailConfirmedAt: realEmail ? authUser?.email_confirmed_at ?? null : null,
       isAnonymous: Boolean(authUser?.is_anonymous),
+      bannedUntil: authUser?.banned_until ?? null,
     },
     usage: {
       kept: decisions.filter((row: any) => row.decision === "KEPT").length,
@@ -97,15 +113,30 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }, { onConflict: "profile_id" });
       if (error) throw error;
-      await admin.from("audit_logs").insert({
-        actor_admin_id: actor.id,
-        action: "user.requirements.updated",
-        target_type: "profile",
-        target_id: profileId,
-        before: null,
-        after: { requirements },
-      });
+      await audit(actor.id, "user.requirements.updated", profileId, { requirements });
       return json(200, { ok: true, data: await getUserSnapshot(profileId) });
+    }
+
+    if (action === "set_blocked") {
+      const blocked = Boolean(body?.blocked);
+      if (actor.role === "SUPPORT") return json(403, { error: "role_forbidden" });
+      const { data: current, error: currentError } = await admin.auth.admin.getUserById(profileId);
+      if (currentError || !current.user) return json(404, { error: "profile_not_found" });
+      const { error } = await admin.auth.admin.updateUserById(profileId, { ban_duration: blocked ? "876000h" : "none" });
+      if (error) throw error;
+      await audit(actor.id, blocked ? "user.blocked" : "user.unblocked", profileId, { blocked });
+      return json(200, { ok: true, data: await getUserSnapshot(profileId) });
+    }
+
+    if (action === "delete") {
+      if (!canDestruct(actor.role)) return json(403, { error: "role_forbidden" });
+      if (profileId === actor.id) return json(409, { error: "cannot_delete_self" });
+      const { data: existing } = await admin.from("profiles").select("username").eq("id", profileId).maybeSingle();
+      if (!existing) return json(404, { error: "profile_not_found" });
+      await audit(actor.id, "user.deleted", profileId, { username: existing.username });
+      const { error } = await admin.auth.admin.deleteUser(profileId);
+      if (error) throw error;
+      return json(200, { ok: true, deleted: true });
     }
 
     return json(400, { error: "unknown_action" });
