@@ -1,4 +1,4 @@
-/** Auth KEEP réelle (Supabase Auth). La création peut se faire avec pseudo KEEP + mot de passe, sans e-mail visible. */
+/** Auth KEEP réelle (Supabase Auth). Le pseudo reste public ; l'e-mail devient l'identifiant privé vérifié. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KeepAuthSession {
@@ -58,43 +58,35 @@ function visibleEmail(user: any): string | null {
 function mapSignupError(message: string): string {
   const value = message.toLowerCase();
   if (value.includes('already') || value.includes('registered') || value.includes('exists')) return 'email_taken';
+  if (value.includes('email not confirmed') || value.includes('not confirmed')) return 'email_not_confirmed';
   if (value.includes('email')) return 'invalid_email';
   if (value.includes('password')) return 'invalid_password';
-  if (value.includes('profile') || value.includes('username') || value.includes('duplicate')) return 'username_taken';
+  if (value.includes('profile') || value.includes('username') || value.includes('duplicate') || value.includes('unique')) return 'username_taken';
   return message || 'server_error';
 }
 
 export function createAuthService(client: SupabaseClient): AuthService {
-  const invokeAccountAuth = async (body: Record<string, string>): Promise<UsernameAuthResult> => {
+  const invokeLegacyUsernameAuth = async (body: Record<string, string>): Promise<UsernameAuthResult> => {
     const { data: current } = await client.auth.getSession();
     const accessToken = current.session?.access_token;
-
     const { data, error } = await client.functions.invoke('keep-username-auth', {
       body,
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
-
     if (error) return { error: error.message || 'server_error' };
-    if (!data?.ok || !data?.access_token || !data?.refresh_token) {
-      return { error: String(data?.error || 'server_error') };
-    }
+    if (!data?.ok || !data?.access_token || !data?.refresh_token) return { error: String(data?.error || 'server_error') };
 
     const { error: sessionError } = await client.auth.setSession({
       access_token: String(data.access_token),
       refresh_token: String(data.refresh_token),
     });
     if (sessionError) return { error: sessionError.message };
-
     return {
       error: null,
       username: data.username ? String(data.username) : undefined,
       userId: String(data.user_id || ''),
       requiresEmailConfirmation: false,
     };
-  };
-
-  const usernameAuth = async (action: 'signup' | 'login', username: string, password: string): Promise<UsernameAuthResult> => {
-    return invokeAccountAuth({ action, username: normalizeUsername(username), password, username_only: '1' });
   };
 
   return {
@@ -105,20 +97,62 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signUpWithEmailIdentity(email, username, password) {
-      return invokeAccountAuth({
-        action: 'signup',
-        email: normalizeEmail(email),
-        username: normalizeUsername(username),
+      const cleanEmail = normalizeEmail(email);
+      const cleanUsername = normalizeUsername(username);
+      if (!cleanEmail) return { error: 'invalid_email' };
+      if (!cleanUsername) return { error: 'invalid_username' };
+
+      // Vérification précoce du pseudo pour donner une erreur claire avant que
+      // le trigger profile ne tente l'INSERT au moment du signUp.
+      const { data: usernames } = await client
+        .from('profiles')
+        .select('id')
+        .ilike('username', cleanUsername)
+        .limit(1);
+      if (usernames?.length) return { error: 'username_taken' };
+
+      const { data, error } = await client.auth.signUp({
+        email: cleanEmail,
         password,
+        options: {
+          emailRedirectTo: KEEP_PUBLIC_URL,
+          data: { keep_username: cleanUsername, keep_username_only: false },
+        },
       });
+      if (error) return { error: mapSignupError(error.message) };
+
+      // Supabase renvoie parfois un user sans identities pour masquer le fait
+      // qu'un e-mail existe déjà. KEEP ne doit surtout pas afficher « créé ».
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { error: 'email_taken' };
+      }
+
+      if (data.session) {
+        // KEEP exige la validation de l'adresse avant l'accès au compte. Si un
+        // environnement Supabase est configuré sans confirmation obligatoire,
+        // on coupe immédiatement cette session au lieu de contourner la règle.
+        await client.auth.signOut().catch(() => {});
+        return { error: 'email_confirmation_required_config' };
+      }
+
+      return {
+        error: null,
+        username: cleanUsername,
+        userId: data.user?.id,
+        requiresEmailConfirmation: true,
+      };
     },
 
     async signInWithEmailIdentity(email, password) {
-      return invokeAccountAuth({
-        action: 'login',
-        email: normalizeEmail(email),
-        password,
-      });
+      const cleanEmail = normalizeEmail(email);
+      const { data, error } = await client.auth.signInWithPassword({ email: cleanEmail, password });
+      if (error || !data.session) return { error: mapSignupError(error?.message || 'invalid_credentials') };
+      return {
+        error: null,
+        username: usernameFromMetadata(data.user) || undefined,
+        userId: data.user.id,
+        requiresEmailConfirmation: false,
+      };
     },
 
     async resendSignupConfirmation(email) {
@@ -132,12 +166,14 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return { error: error ? mapSignupError(error.message) : null };
     },
 
+    // Compatibilité temporaire des anciens comptes créés avec pseudo seul.
+    // Le nouvel écran d'inscription n'utilise plus ce chemin.
     async signUpWithUsername(username, password) {
-      return usernameAuth('signup', username, password);
+      return invokeLegacyUsernameAuth({ action: 'signup', username: normalizeUsername(username), password, username_only: '1' });
     },
 
     async signInWithUsername(username, password) {
-      return usernameAuth('login', username, password);
+      return invokeLegacyUsernameAuth({ action: 'login', username: normalizeUsername(username), password, username_only: '1' });
     },
 
     async requestEmailMagicLink() {
@@ -152,12 +188,14 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return { error: 'email_flow_disabled' };
     },
 
-    async signUpWithPassword() {
-      return { error: 'email_flow_disabled', sessionCreated: false };
+    async signUpWithPassword(email, password) {
+      const generatedUsername = normalizeEmail(email).split('@')[0] || 'keep-user';
+      const result = await this.signUpWithEmailIdentity(email, generatedUsername, password);
+      return { error: result.error, sessionCreated: !result.requiresEmailConfirmation && !result.error };
     },
 
     async signInWithPassword(email, password) {
-      const result = await invokeAccountAuth({ action: 'login', email: normalizeEmail(email), password });
+      const result = await this.signInWithEmailIdentity(email, password);
       return { error: result.error };
     },
 
