@@ -7,6 +7,7 @@ import { radius } from '../theme/spacing';
 import { GenderOption, User } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
+import { createAuthService } from '../services/authService';
 import { pickAndUploadAvatar } from '../services/avatarService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
@@ -33,6 +34,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [gender, setGender] = useState<GenderOption | undefined>(user?.privateInfo.gender);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sessionBusy, setSessionBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [citySearching, setCitySearching] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -42,9 +44,10 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   // Le Mode Démo reste volontairement lecture seule. L'essai local, lui, est
   // un vrai brouillon de profil : l'utilisateur peut le préparer avant de
-  // donner son e-mail. Le partage public reste bloqué tant que le compte réel
-  // n'est pas créé (ProfilePublicScreen), donc aucune identité publique fantôme.
+  // créer son identifiant KEEP. Le partage public reste bloqué tant que le
+  // compte réel n'est pas créé.
   const accountRequired = isDemoMode;
+  const hasRealAccount = !isDemoMode && !isLocalGuest;
 
   const parsed = useMemo(() => {
     const parts = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -65,6 +68,34 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     setCountryOpen(false);
     setDateOpen(false);
     setAccountOpen(true);
+  };
+
+  const handleSessionAction = () => {
+    if (!hasRealAccount) return requireAccount();
+    Alert.alert(
+      'Se déconnecter de KEEP ?',
+      'Tes données enregistrées dans KEEP restent sur ton compte. Les données locales de cette session seront retirées de cet appareil pour ne jamais être visibles sur un autre compte.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Se déconnecter',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setSessionBusy(true);
+              try {
+                if (supabase) await createAuthService(supabase).signOut();
+                useUserStore.getState().logout();
+              } catch {
+                Alert.alert('Déconnexion', 'Impossible de se déconnecter pour le moment.');
+              } finally {
+                setSessionBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const buildUser = (): User => {
@@ -209,6 +240,17 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
       {error ? <Text style={s.error}>{error}</Text> : null}
       <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : isLocalGuest ? 'Enregistrer sur cet appareil' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
+
+      <TouchableOpacity
+        style={hasRealAccount ? s.disconnectButton : s.connectButton}
+        onPress={handleSessionAction}
+        disabled={sessionBusy}
+        accessibilityRole="button"
+        accessibilityLabel={hasRealAccount ? 'Se déconnecter de KEEP' : 'Se connecter ou créer un compte KEEP'}
+      >
+        {sessionBusy ? <ActivityIndicator color={hasRealAccount ? '#FF7A86' : colors.primaryLight}/> : <Text style={hasRealAccount ? s.disconnectText : s.connectText}>{hasRealAccount ? 'SE DÉCONNECTER' : 'SE CONNECTER / CRÉER UN COMPTE'}</Text>}
+      </TouchableOpacity>
+
       <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
       <TouchableOpacity style={s.advanced} onPress={()=>accountRequired ? requireAccount() : navigation.navigate('AdvancedProfileSettings')}><Text style={s.advancedText}>{accountRequired ? '🔒 Réseaux et réglages avancés' : 'Réglages avancés du profil'}</Text></TouchableOpacity>
     </ScrollView>
@@ -228,5 +270,5 @@ function QuickLink({ label, onPress }: { label:string; onPress:()=>void }) { ret
 function DateColumn({ title, values, selected, onSelect }: { title:string; values:number[]; selected:number; onSelect:(v:number)=>void }) { return <View style={s.dateCol}><Text style={s.dateTitle}>{title}</Text><ScrollView style={s.dateScroll}>{values.map(v=><TouchableOpacity key={v} style={[s.dateOption,selected===v&&s.dateOptionActive]} onPress={()=>onSelect(v)}><Text style={[s.dateText,selected===v&&s.dateTextActive]}>{String(v).padStart(title==='Année'?4:2,'0')}</Text></TouchableOpacity>)}</ScrollView></View>; }
 
 const s=StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted},header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},saveText:{color:colors.primaryLight,fontSize:13,fontWeight:'800',textAlign:'right'},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},content:{padding:18,paddingBottom:38},accountGate:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,borderRadius:radius.lg,padding:14,marginBottom:16},accountGateTitle:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},accountGateText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:4},section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16},sectionTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:12,fontWeight:'700',marginBottom:7},input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:14,backgroundColor:colors.background},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:14},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:colors.backgroundElevated},locationButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},lookupButton:{minHeight:40,marginTop:8,borderRadius:20,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.background},lookupText:{color:colors.textSecondary,fontSize:12,fontWeight:'800'},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderText:{color:colors.textSecondary,fontSize:12,fontWeight:'700'},genderTextActive:{color:colors.white},supportCard:{marginTop:10,marginBottom:4,padding:12,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background},supportLabel:{color:colors.textMuted,fontSize:10,fontWeight:'800',textTransform:'uppercase',letterSpacing:.7},supportNumber:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:5,letterSpacing:.5},quickLink:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},quickLabel:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'800'},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:12,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:14,fontWeight:'900'},playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},playlistsText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},advanced:{minHeight:44,marginTop:8,alignItems:'center',justifyContent:'center'},advancedText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'88%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},continueTrial:{minHeight:40,alignItems:'center',justifyContent:'center',marginTop:6},continueTrialText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:12},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:11,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:42,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},dateTextActive:{color:'#fff',fontWeight:'900'}
+  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted},header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},saveText:{color:colors.primaryLight,fontSize:13,fontWeight:'800',textAlign:'right'},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},content:{padding:18,paddingBottom:38},accountGate:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,borderRadius:radius.lg,padding:14,marginBottom:16},accountGateTitle:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},accountGateText:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:4},section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16},sectionTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:12,fontWeight:'700',marginBottom:7},input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:14,backgroundColor:colors.background},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:14},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:colors.backgroundElevated},locationButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},lookupButton:{minHeight:40,marginTop:8,borderRadius:20,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.background},lookupText:{color:colors.textSecondary,fontSize:12,fontWeight:'800'},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderText:{color:colors.textSecondary,fontSize:12,fontWeight:'700'},genderTextActive:{color:colors.white},supportCard:{marginTop:10,marginBottom:4,padding:12,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background},supportLabel:{color:colors.textMuted,fontSize:10,fontWeight:'800',textTransform:'uppercase',letterSpacing:.7},supportNumber:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:5,letterSpacing:.5},quickLink:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},quickLabel:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'800'},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:12,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:14,fontWeight:'900'},connectButton:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:'#39C98A',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},connectText:{color:'#74F3B6',fontSize:12,fontWeight:'900'},disconnectButton:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:'#C84A58',backgroundColor:'#35161D',alignItems:'center',justifyContent:'center'},disconnectText:{color:'#FF8B96',fontSize:12,fontWeight:'900'},playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},playlistsText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},advanced:{minHeight:44,marginTop:8,alignItems:'center',justifyContent:'center'},advancedText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'88%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},continueTrial:{minHeight:40,alignItems:'center',justifyContent:'center',marginTop:6},continueTrialText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:12},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:11,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:42,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:13,fontWeight:'700'},dateTextActive:{color:'#fff',fontWeight:'900'}
 });
