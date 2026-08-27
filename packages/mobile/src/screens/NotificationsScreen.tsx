@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import {
   KeepNotification,
@@ -165,9 +165,14 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const confirmClearAll = () => {
     if (!items.length || deleting) return;
+    const message = 'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte ni tes préférences.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(message)) void clearAll();
+      return;
+    }
     Alert.alert(
       'Supprimer les notifications',
-      'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte ni tes préférences.',
+      message,
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Tout supprimer', style: 'destructive', onPress: () => void clearAll() },
@@ -176,6 +181,10 @@ export default function NotificationsScreen({ navigation }: any) {
   };
 
   const openActions = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm('Marquer toutes les notifications comme lues ?')) void readAll();
+      return;
+    }
     Alert.alert('Notifications', undefined, [
       { text: 'Tout marquer comme lu', onPress: () => void readAll() },
       { text: 'Tout supprimer', style: 'destructive', onPress: confirmClearAll },
