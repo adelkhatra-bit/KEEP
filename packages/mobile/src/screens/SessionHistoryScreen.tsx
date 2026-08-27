@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -14,6 +14,10 @@ function autoTitle(session: KeepSession): string {
   return session.locationLabel ? `${datePart} — ${session.locationLabel}` : `Session du ${datePart}`;
 }
 
+function pendingTracks(session: KeepSession): number {
+  return session.tracks.filter((track) => track.status === 'pending').length;
+}
+
 export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
   const sessions = useSessionHistoryStore((s) => s.sessions);
@@ -21,7 +25,16 @@ export default function SessionHistoryScreen({ navigation }: any) {
   // mais ne constituent pas un historique complet de session (les PASS/pending
   // ne sont pas sur le serveur). La session technique de récupération reste
   // donc invisible ici pour ne jamais inventer une fausse écoute utilisateur.
-  const visibleSessions = sessions.filter((session) => !isCloudProfileRecoverySession(session));
+  const visibleSessions = useMemo(() => sessions
+    .filter((session) => !isCloudProfileRecoverySession(session))
+    .slice()
+    .sort((a, b) => {
+      const aPending = pendingTracks(a);
+      const bPending = pendingTracks(b);
+      if ((aPending > 0) !== (bPending > 0)) return aPending > 0 ? -1 : 1;
+      if (aPending !== bPending) return bPending - aPending;
+      return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+    }), [sessions]);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
   const refreshCreditLocks = useSessionHistoryStore((s) => s.refreshCreditLocks);
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
@@ -59,7 +72,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
   const renderItem = ({ item }: { item: KeepSession }) => {
     const keptCount = item.tracks.filter((tr) => tr.status === 'kept').length;
-    const pendingCount = item.tracks.filter((tr) => tr.status === 'pending').length;
+    const pendingCount = pendingTracks(item);
     const lockedCount = item.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
     const time = new Date(item.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     // endedAt=null n'est plus suffisant : un crash/reload pouvait laisser ce
@@ -68,7 +81,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
     const isLive = isListening && activeSessionId === item.id && item.endedAt == null;
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
         <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.navigate('SessionRecap', { sessionId: item.id })} disabled={isLive}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
@@ -81,7 +94,14 @@ export default function SessionHistoryScreen({ navigation }: any) {
           {isLive ? <Text style={styles.liveHint}>● Écoute en cours · les titres sont sauvegardés localement au fil de la session</Text> : null}
           {lockedCount > 0 ? <Text style={styles.lockedHint}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente de déblocage</Text> : null}
         </TouchableOpacity>
-        {!isLive ? <TouchableOpacity style={styles.deleteButton} onPress={() => requestDelete(item)} accessibilityRole="button" accessibilityLabel={`Supprimer ${autoTitle(item)}`}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity> : null}
+        {!isLive ? <View style={styles.cardFooter}>
+          {pendingCount > 0 ? (
+            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Trier ${pendingCount} musiques`}>
+              <Text style={styles.sortText}>À TRIER · {pendingCount}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity style={[styles.deleteButton, pendingCount === 0 && styles.deleteButtonFull]} onPress={() => requestDelete(item)} accessibilityRole="button" accessibilityLabel={`Supprimer ${autoTitle(item)}`}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
+        </View> : null}
       </View>
     );
   };
@@ -111,6 +131,7 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textSecondary, fontSize: 14, textAlign: 'center' },
   list: { padding: spacing.xl, gap: spacing.md },
   card: { backgroundColor: colors.backgroundCard, borderRadius: radius.lg, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  cardNeedsSorting: { borderColor: colors.primaryLight },
   cardMain: { padding: spacing.lg },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { ...typography.bodyBold, color: colors.textPrimary, flex: 1, marginRight: spacing.sm, textTransform: 'capitalize' },
@@ -118,6 +139,10 @@ const styles = StyleSheet.create({
   cardStats: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
   liveHint: { color: colors.keep, fontSize: 10, lineHeight: 15, marginTop: 7, fontWeight: '700' },
   lockedHint: { color: colors.primaryLight, fontSize: 10, lineHeight: 15, marginTop: 5, fontWeight: '800' },
-  deleteButton: { minHeight: 38, borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  cardFooter: { minHeight: 42, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
+  sortButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundElevated, borderRightWidth: 1, borderRightColor: colors.border },
+  sortText: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
+  deleteButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center' },
+  deleteButtonFull: { flex: 1 },
   deleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
 });
