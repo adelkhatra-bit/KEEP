@@ -8,6 +8,7 @@ import { Alert, Linking, Platform, Share } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from './planService';
 import { hasFeature } from './entitlementService';
+import { supabase } from './supabaseClient';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
 
@@ -19,6 +20,15 @@ export const isWebShareConfigured = !isPlaceholder(WEB_URL);
 
 function buildLink(path: string): string {
   return isWebShareConfigured ? `${WEB_URL}${path}` : `keep://${path.replace(/^\//, '')}`;
+}
+
+async function trackShare(eventName: 'profile_share' | 'profile_share_email' | 'playlist_share' | 'compare_share' | 'event_share', channel: string) {
+  if (!supabase) return;
+  try {
+    await supabase.rpc('track_keep_event', { p_event_name: eventName, p_channel: channel, p_metadata: {} });
+  } catch {
+    // Les statistiques ne doivent jamais bloquer l'action demandée par l'utilisateur.
+  }
 }
 
 export function buildPublicProfileLink(username: string): string {
@@ -33,6 +43,7 @@ export async function shareProfile(username: string): Promise<void> {
   // (WhatsApp notamment) dupliquent l'URL lorsque React Native reçoit à la fois
   // `message` et `url`. KEEP partage donc toujours exactement UNE URL canonique.
   await Share.share({ title: 'Mon profil KEEP', message });
+  await trackShare('profile_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 /**
@@ -44,6 +55,7 @@ export async function shareProfileTrack(username: string, title: string, artist:
   const link = buildPublicProfileLink(username);
   const message = `Découvre « ${title} » — ${artist} dans mon univers KEEP 🎵 ${link}`;
   await Share.share({ title: `${title} sur KEEP`, message });
+  await trackShare('profile_share', 'track_share');
 }
 
 export async function shareProfileByEmail(username: string): Promise<void> {
@@ -81,6 +93,7 @@ export async function shareProfileByEmail(username: string): Promise<void> {
         throw new Error('email_handler_unavailable');
       }
     }
+    await trackShare('profile_share_email', 'mail_client_web');
     return;
   }
 
@@ -90,10 +103,12 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   const canOpenEmail = await Linking.canOpenURL(mailto).catch(() => false);
   if (canOpenEmail) {
     await Linking.openURL(mailto);
+    await trackShare('profile_share_email', 'mail_client_native');
     return;
   }
 
   await Share.share({ title: subjectText, message: bodyText });
+  await trackShare('profile_share_email', 'mail_fallback_share');
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
@@ -114,12 +129,15 @@ export async function sharePlaylist(playlistId: string, playlistName: string): P
   }
 
   await Share.share({ message: `Ma playlist "${playlistName}" sur KEEP 🎵 ${buildLink(`/s/playlist/${playlistId}`)}` });
+  await trackShare('playlist_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareCompareInvite(username: string): Promise<void> {
   await Share.share({ message: `Compare ton KEEP avec le mien 🎧 ${buildLink(`/s/compare/${username}`)}` });
+  await trackShare('compare_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareEvent(eventId: string, eventName: string): Promise<void> {
   await Share.share({ message: `${eventName} — vu sur KEEP 🎉 ${buildLink(`/s/event/${eventId}`)}` });
+  await trackShare('event_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
