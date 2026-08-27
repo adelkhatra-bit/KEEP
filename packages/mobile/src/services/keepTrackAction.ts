@@ -1,8 +1,8 @@
 /**
  * Action GARDER partagée — chemin unique de téléchargement/rangement.
- * Règle produit : écouter/reconnaître/PASS = 0 crédit. Seul GARDER consomme
- * un crédit gratuit. Quand les crédits sont épuisés, les stores conservent le
- * morceau en attente dans Mes Sessions au lieu de bloquer l'écoute.
+ * Règle produit : écouter/reconnaître/PASS = 0 crédit. Un GARDER issu d'une
+ * écoute consomme un crédit gratuit ; reprendre un morceau depuis le profil
+ * d'un autre membre est une découverte sociale et reste à 0 crédit.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import type { KeepVisibility } from '../types';
@@ -27,15 +27,18 @@ export async function commitKeep(
   track: CanonicalTrack,
   recommendations: RoutingRecommendation[],
   chosenPlaylistId?: string,
-  options?: { visibility?: KeepVisibility; context?: Record<string, unknown> }
+  options?: {
+    visibility?: KeepVisibility;
+    context?: Record<string, unknown>;
+    /** false = découverte sociale : le morceau est gardé sans toucher au quota d'écoute. */
+    consumeCredit?: boolean;
+  }
 ): Promise<CommitKeepResult> {
   const session = await musicEngine.getSession();
   const userState = useUserStore.getState();
-  // Mode démo développeur = illimité pour les tests visuels. Tous les autres
-  // usages réels (invité local ou compte KEEP) suivent le compteur de crédits,
-  // même si la bibliothèque musicale de test est locale. Ainsi le tunnel
-  // 3 crédits invité + 4 après inscription est testable sans fournisseur payant.
-  const consumesCredit = !userState.isDemoMode;
+  // Le mode démo est illimité. Les appels normaux consomment un crédit, sauf
+  // lorsqu'un flux produit explicite `consumeCredit:false` (profil -> profil).
+  const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;
   const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
@@ -96,6 +99,7 @@ export async function commitKeep(
     // par la reconnaissance (extrait promotionnel + deep links fournisseurs).
     const decisionContext = {
       ...(options?.context ?? {}),
+      creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
       playback: {
         previewUrl: track.previewUrl ?? null,
         availableOn: track.availableOn ?? [],
