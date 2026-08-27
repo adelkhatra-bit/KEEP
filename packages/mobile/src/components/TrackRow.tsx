@@ -6,6 +6,8 @@ import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
+import { cancelAudioCapture } from '../services/micCapture';
+import { useSessionStore } from '../store/useSessionStore';
 
 interface Props {
   entry: SessionTrackEntry;
@@ -38,7 +40,13 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
     Alert.alert(t('session.chooseDestination'), undefined, playlists.map((p) => ({ text: p.name, onPress: () => onKeep(entry.id, p.id) })));
   };
 
-  const playSnippet = async (positionMillis: number) => {
+  const stopKeepListening = async () => {
+    const session = useSessionStore.getState();
+    if (session.isActive) session.requestEndSession();
+    await cancelAudioCapture().catch(() => {});
+  };
+
+  const playSnippetNow = async (positionMillis: number) => {
     if (!track.previewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
@@ -50,10 +58,42 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
     }
   };
 
-  const openExternal = async () => {
+  const playSnippet = (positionMillis: number) => {
+    if (!track.previewUrl || previewBusy) return;
+    if (useSessionStore.getState().isActive) {
+      Alert.alert(
+        'Écoute KEEP en cours',
+        'Le micro KEEP est encore actif. Arrête la session avant de lire un extrait afin que KEEP n’identifie pas le son de ton propre téléphone.',
+        [
+          { text: 'Continuer l’écoute', style: 'cancel' },
+          { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await playSnippetNow(positionMillis); })() },
+        ],
+      );
+      return;
+    }
+    void playSnippetNow(positionMillis);
+  };
+
+  const openExternalNow = async () => {
     if (!externalPlayUrl) return;
     try { await Linking.openURL(externalPlayUrl); }
     catch { Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'); }
+  };
+
+  const openExternal = () => {
+    if (!externalPlayUrl) return;
+    if (useSessionStore.getState().isActive) {
+      Alert.alert(
+        'Écoute KEEP en cours',
+        'Le micro KEEP est encore actif. Arrête la session avant d’ouvrir ce morceau sur une plateforme afin d’éviter une fausse détection.',
+        [
+          { text: 'Continuer l’écoute', style: 'cancel' },
+          { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await openExternalNow(); })() },
+        ],
+      );
+      return;
+    }
+    void openExternalNow();
   };
 
   const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
@@ -68,11 +108,11 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
         {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
         {(track.previewUrl || externalPlayUrl) ? <View style={styles.previewRow}>
           {track.previewUrl ? <>
-            <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.previewPill} onPress={() => void playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
           </> : null}
-          {externalPlayUrl ? <TouchableOpacity style={styles.youtubePill} onPress={() => void openExternal()}><Text style={styles.youtubeText}>{track.previewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
+          {externalPlayUrl ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{track.previewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
         </View> : <Text style={styles.audioUnavailable}>Audio indisponible</Text>}
         {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
       </View>
