@@ -24,6 +24,18 @@ const DEFAULT_PREFS: NotificationPreferences = {
   marketingEnabled: false,
 };
 
+function mapNotificationRow(row: any): KeepNotification {
+  return {
+    id: String(row.id),
+    type: String(row.type || ''),
+    title: String(row.title || ''),
+    body: String(row.body || ''),
+    data: row.data && typeof row.data === 'object' ? row.data : null,
+    readAt: row.read_at ?? null,
+    createdAt: String(row.created_at || new Date().toISOString()),
+  };
+}
+
 export async function loadNotifications(profileId: string): Promise<KeepNotification[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -33,15 +45,50 @@ export async function loadNotifications(profileId: string): Promise<KeepNotifica
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    type: row.type,
-    title: row.title,
-    body: row.body,
-    data: row.data ?? null,
-    readAt: row.read_at ?? null,
-    createdAt: row.created_at,
-  }));
+  return (data ?? []).map(mapNotificationRow);
+}
+
+export async function loadUnreadNotificationCount(profileId: string): Promise<number> {
+  if (!supabase) return 0;
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('profile_id', profileId)
+    .is('read_at', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Écoute Supabase Realtime pour que la notification arrive pendant Écouter,
+ * Playlists, Soirées, Profil, etc. La table notifications est publiée dans
+ * supabase_realtime : aucun polling écran par écran n'est nécessaire.
+ */
+export function subscribeToNotifications(
+  profileId: string,
+  onInsert: (notification: KeepNotification) => void,
+): () => void {
+  if (!supabase || !profileId) return () => {};
+
+  const channel = supabase
+    .channel(`keep-notifications-${profileId}-${Math.random().toString(36).slice(2, 8)}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `profile_id=eq.${profileId}`,
+      },
+      (payload) => {
+        if (payload?.new) onInsert(mapNotificationRow(payload.new));
+      },
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 export async function requestSocialLink(targetProfileId: string, platform: string): Promise<void> {
@@ -53,33 +100,29 @@ export async function requestSocialLink(targetProfileId: string, platform: strin
   if (error) throw error;
 }
 
-export async function markNotificationRead(profileId: string, notificationId: string): Promise<void> {
+async function runNotificationAction(action: 'read' | 'read_all' | 'delete' | 'delete_all', notificationId?: string): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase
-    .from('notifications')
-    .update({ read_at: new Date().toISOString() })
-    .eq('profile_id', profileId)
-    .eq('id', notificationId);
+  const { error } = await supabase.rpc('keep_notification_action', {
+    p_action: action,
+    p_notification_id: notificationId ?? null,
+  });
   if (error) throw error;
 }
 
-export async function markAllNotificationsRead(profileId: string): Promise<void> {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from('notifications')
-    .update({ read_at: new Date().toISOString() })
-    .eq('profile_id', profileId)
-    .is('read_at', null);
-  if (error) throw error;
+export async function markNotificationRead(_profileId: string, notificationId: string): Promise<void> {
+  await runNotificationAction('read', notificationId);
 }
 
-export async function deleteAllNotifications(profileId: string): Promise<void> {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from('notifications')
-    .delete()
-    .eq('profile_id', profileId);
-  if (error) throw error;
+export async function markAllNotificationsRead(_profileId: string): Promise<void> {
+  await runNotificationAction('read_all');
+}
+
+export async function deleteNotification(_profileId: string, notificationId: string): Promise<void> {
+  await runNotificationAction('delete', notificationId);
+}
+
+export async function deleteAllNotifications(_profileId: string): Promise<void> {
+  await runNotificationAction('delete_all');
 }
 
 export async function loadNotificationPreferences(profileId: string): Promise<NotificationPreferences> {
