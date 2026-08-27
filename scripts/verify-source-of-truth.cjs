@@ -22,6 +22,7 @@ const mustExist = [
   'packages/backend',
   'packages/music',
   'packages/mobile/src/navigation/Navigation.tsx',
+  'packages/mobile/src/components/UsernameAccountForm.tsx',
   'packages/mobile/src/screens/ProfilePublicScreen.tsx',
   'packages/mobile/src/screens/PublicUserProfileScreen.tsx',
   'packages/mobile/src/services/sharingService.ts',
@@ -90,18 +91,19 @@ if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
-// L'auth utilisateur KEEP conserve la session directe keep-username-auth pour
-// la connexion, et peut vérifier l'adresse lors de la création via Supabase.
-// Toute redirection e-mail autorisée doit revenir UNIQUEMENT sur l'URL KEEP
-// publique canonique : jamais localhost, jamais un ancien HTML ou domaine.
-for (const expected of ['keep-username-auth', 'setSession', 'signUpWithEmailIdentity', 'KEEP_PUBLIC_URL']) {
+// Le moteur d'auth peut conserver un flux e-mail optionnel/compatibilité, mais
+// le parcours utilisateur principal KEEP reste pseudo + mot de passe.
+for (const expected of ['keep-username-auth', 'setSession', 'signUpWithUsername', 'signInWithUsername']) {
   if (!authService.includes(expected)) failures.push(`USER AUTH MARKER MISSING: ${expected}`);
 }
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
-if (!authService.includes(`const KEEP_PUBLIC_URL = '${expectedPublicRoot}/';`)) failures.push('USER AUTH CANONICAL ROOT MISSING');
-const userAuthRedirects = [...authService.matchAll(/emailRedirectTo\s*:\s*([^,\n}]+)/gi)].map((match) => match[1].trim());
-for (const target of userAuthRedirects) {
-  if (target !== 'KEEP_PUBLIC_URL') failures.push(`USER AUTH REDIRECT IS NOT CANONICAL: ${target}`);
+
+const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
+for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Aucun e-mail requis', 'Pseudo KEEP']) {
+  if (!accountForm.includes(expected)) failures.push(`USERNAME-FIRST ACCOUNT MARKER MISSING: ${expected}`);
+}
+if (/signUpWithEmailIdentity|signInWithEmailIdentity|confirmationPending|Adresse e-mail/i.test(accountForm)) {
+  failures.push('MANDATORY EMAIL FLOW REINTRODUCED IN PRIMARY ACCOUNT FORM');
 }
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
@@ -170,7 +172,7 @@ console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
-console.log('auth user: canonical KEEP account session + verified-email creation when enabled');
+console.log('auth user: pseudo KEEP + mot de passe, e-mail non obligatoire');
 console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
