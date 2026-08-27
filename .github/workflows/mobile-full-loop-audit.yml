@@ -172,13 +172,15 @@ jobs:
             }
 
             // Enregistre un réseau en essai : le champ et l'état connecté
-            // doivent survivre au reload complet eux aussi.
+            // doivent survivre au reload complet eux aussi. Le label unique évite
+            // de viser un bouton Enregistrer d'un écran conservé dans la pile.
             const instagram = page.getByPlaceholder('Lien Instagram').last();
             await instagram.scrollIntoViewIfNeeded();
             await instagram.fill('https://instagram.com/keepmobiletest');
-            const firstSave = page.getByText('Enregistrer', { exact: true }).first();
-            await firstSave.scrollIntoViewIfNeeded();
-            await firstSave.click();
+            const instagramSave = page.getByLabel('Enregistrer Instagram').last();
+            await instagramSave.scrollIntoViewIfNeeded();
+            await instagramSave.waitFor({ state: 'visible', timeout: 10000 });
+            await instagramSave.click();
             await page.waitForTimeout(300);
             await textLast('Connecté au profil', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
             await shot('09-advanced-settings-social-saved');
