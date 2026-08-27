@@ -11,7 +11,7 @@ import { useSessionStore } from '../store/useSessionStore';
 
 interface Props {
   entry: SessionTrackEntry;
-  onKeep?: (entryId: string, playlistId?: string) => void;
+  onKeep?: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => void;
   onPass?: (entryId: string) => void;
   onVisibilityChange?: (entryId: string, visibility: KeepVisibility) => void;
   onUnlock?: () => void;
@@ -34,10 +34,34 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
     void stopTrackPreview(previewKey);
   }, [previewKey]);
 
+  const confirmVisibility = (playlistId?: string) => {
+    if (!onKeep) return;
+    Alert.alert(
+      'Où afficher ce KEEP ?',
+      'Choisis Public pour l’afficher sur ton profil, ou Privé pour le garder seulement dans ta bibliothèque.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Privé', onPress: () => onKeep(entry.id, playlistId, 'PRIVATE') },
+        { text: 'Public', onPress: () => onKeep(entry.id, playlistId, 'PUBLIC') },
+      ],
+    );
+  };
+
   const handleKeepPress = () => {
     if (entry.creditLocked) { onUnlock?.(); return; }
-    if (!playlists || playlists.length <= 1 || !onKeep) { onKeep?.(entry.id); return; }
-    Alert.alert(t('session.chooseDestination'), undefined, playlists.map((p) => ({ text: p.name, onPress: () => onKeep(entry.id, p.id) })));
+    if (!onKeep) return;
+    if (!playlists || playlists.length <= 1) {
+      confirmVisibility(playlists?.[0]?.id);
+      return;
+    }
+    Alert.alert(
+      t('session.chooseDestination'),
+      'Choisis d’abord la playlist ou l’album de destination.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        ...playlists.map((p) => ({ text: p.name, onPress: () => confirmVisibility(p.id) })),
+      ],
+    );
   };
 
   const stopKeepListening = async () => {
@@ -120,7 +144,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
       {status === 'pending' && (onKeep || onPass) ? (
         <View style={styles.actions}>
           {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8}><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
-          {onKeep && <TouchableOpacity style={[styles.keepBtn, entry.creditLocked && styles.unlockBtn]} onPress={handleKeepPress} hitSlop={8}><Text style={[styles.keepBtnText, entry.creditLocked && styles.unlockBtnText]}>{entry.creditLocked ? '🔒' : '✓'}</Text></TouchableOpacity>}
+          {onKeep && <TouchableOpacity style={[styles.keepBtn, entry.creditLocked && styles.unlockBtn]} onPress={handleKeepPress} hitSlop={8} accessibilityLabel="Garder ce morceau"><Text style={[styles.keepBtnText, entry.creditLocked && styles.unlockBtnText]}>{entry.creditLocked ? '🔒' : '♡'}</Text></TouchableOpacity>}
         </View>
       ) : (
         <View style={styles.statusBadge}>
@@ -156,7 +180,7 @@ const styles = StyleSheet.create({
   passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
   passBtnText: { color: colors.white, fontWeight: '700', fontSize: 15 },
   keepBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
-  keepBtnText: { color: colors.black, fontWeight: '700', fontSize: 15 },
+  keepBtnText: { color: colors.black, fontWeight: '900', fontSize: 17 },
   unlockBtn: { backgroundColor: '#2B2038', borderWidth: 1, borderColor: colors.primaryLight },
   unlockBtnText: { color: colors.primaryLight, fontSize: 13 },
   statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5, paddingTop: 8 },
