@@ -38,6 +38,9 @@ export async function commitKeep(
   const session = await musicEngine.getSession();
   const userState = useUserStore.getState();
   const sourceProfileId = typeof options?.context?.sourceProfileId === 'string' ? options.context.sourceProfileId.trim() : '';
+  if (sourceProfileId && sourceProfileId === userState.user?.id) {
+    throw new Error('SELF_KEEP_NOT_ALLOWED');
+  }
   const isSocialCopy = Boolean(sourceProfileId && sourceProfileId !== userState.user?.id);
   // Une reprise depuis le profil d'un autre membre est un cadeau communautaire :
   // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/KEEP.
