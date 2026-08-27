@@ -29,10 +29,6 @@ function isPlaceholder(value: string | undefined): boolean {
   return !value || value.startsWith('your_') || value === 'undefined';
 }
 
-/**
- * Le developer token Apple Music ne doit JAMAIS vivre dans l'app mobile.
- * Le backend KEEP le signe côté serveur ; il faut donc une session KEEP réelle.
- */
 async function fetchAppleMusicDeveloperToken(apiUrl: string): Promise<string> {
   const accessToken = await getSupabaseAccessToken();
   if (!accessToken) {
@@ -72,8 +68,6 @@ function createRealMusicProvider(): MusicProviderAdapter {
 }
 
 class MusicEngine {
-  /** Ancien nom conservé pour compatibilité : il décrit maintenant uniquement
-   * la reconnaissance. `false` = micro + reconnaissance serveur réels. */
   readonly isDemoMode = !USE_REAL_RECOGNITION;
   readonly usesRealRecognition = USE_REAL_RECOGNITION;
   readonly usesDemoMusicProvider = USE_DEMO_MUSIC_PROVIDER;
@@ -88,11 +82,6 @@ class MusicEngine {
       ? new KeepMusicCoreRecognitionProvider()
       : new DemoRecognitionProvider();
 
-    // Le provider local part désormais VIDE. Les anciennes playlists fictives
-    // « Piscine / Afro House / Voiture / Chill Evening » et leurs faux compteurs
-    // ne doivent jamais être présentés comme les données d'un utilisateur.
-    // En essai gratuit, seules les musiques réellement gardées sur l'appareil
-    // créent et alimentent les playlists visibles dans « Mes musiques ».
     this.musicProvider = USE_DEMO_MUSIC_PROVIDER
       ? new DemoMusicProvider()
       : createRealMusicProvider();
@@ -119,6 +108,18 @@ class MusicEngine {
 
   resetSession() {
     this.session = null;
+  }
+
+  /**
+   * Isole strictement la bibliothèque locale quand l'identité KEEP change.
+   * Cette méthode ne touche jamais Spotify/Apple Music et n'efface aucune
+   * donnée Supabase : elle vide uniquement la mémoire de test locale.
+   */
+  resetLocalLibrary() {
+    this.resetSession();
+    if (this.musicProvider instanceof DemoMusicProvider) {
+      this.musicProvider.resetLibrary();
+    }
   }
 }
 
