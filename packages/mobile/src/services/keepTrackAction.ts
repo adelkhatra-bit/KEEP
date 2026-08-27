@@ -13,6 +13,7 @@ import { withRetry } from './retry';
 import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
 import { recordKeepDecision } from './keepMusicCoreRecognition';
 import { syncPlaylistTrack } from './keepLibraryService';
+import { supabase } from './supabaseClient';
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
@@ -115,6 +116,18 @@ export async function commitKeep(
     };
     const recorded = await recordKeepDecision(track, visibility, decisionContext);
     keepDecisionId = recorded?.decisionId;
+
+    // Double garde-fou : même si le morceau existait déjà dans le KEEP local,
+    // une action explicite depuis le profil d'un membre doit rester SOCIAL et
+    // ne jamais être comptée dans le quota FREE.
+    if (isSocialCopy && recorded?.decisionId && supabase) {
+      const { error: socialError } = await supabase.rpc('keep_mark_social_origin', {
+        p_decision_id: recorded.decisionId,
+        p_source_profile_id: sourceProfileId,
+      });
+      if (socialError) throw socialError;
+    }
+
     if (recorded?.trackId) {
       await syncPlaylistTrack({
         provider: session.provider || 'KEEP',
@@ -123,6 +136,7 @@ export async function commitKeep(
         playlistDescription: target.description,
         coverUrl: target.coverUrl,
         trackId: recorded.trackId,
+        addedVia: isSocialCopy ? 'SOCIAL' : 'KEEP',
       });
     }
   } catch {
