@@ -6,6 +6,8 @@ import { getSupabaseAccessToken, supabase } from './supabaseClient';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
+const FALLBACK_RECHECK_MS = 5 * 60 * 1000;
+let fallbackUnavailableUntil = 0;
 
 function configured(value: string | undefined): value is string {
   return Boolean(value && value !== 'undefined' && !value.startsWith('your_'));
@@ -229,6 +231,14 @@ function attemptMessage(attempt: RecognitionAttempt): string {
   return String(attempt.payload?.message || attempt.payload?.error || (attempt.status ? `HTTP ${attempt.status}` : 'Reconnaissance indisponible'));
 }
 
+function fallbackKnownUnavailable() {
+  return Date.now() < fallbackUnavailableUntil;
+}
+
+function markFallbackUnavailable() {
+  fallbackUnavailableUntil = Date.now() + FALLBACK_RECHECK_MS;
+}
+
 /**
  * Reconnaissance musicale en cascade :
  * 1. AudD via `keep-music-core` (clé serveur/Vault),
@@ -255,24 +265,32 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       return primary.payload.recognition as RecognitionResult;
     }
 
+    // Si ACRCloud a déjà répondu « non configuré », ne pas répéter à chaque
+    // extrait le même aller-retour 409. On retente périodiquement pour que
+    // l'activation future dans le Super Admin soit prise en compte sans reload.
+    if (fallbackKnownUnavailable()) {
+      if (primary.ok) return null;
+      throw new Error(attemptMessage(primary));
+    }
+
     // Un no-match AudD ou une erreur fournisseur déclenche le second moteur.
     // Le même échantillon est réutilisé : aucune nouvelle capture micro n'est
     // nécessaire et le morceau reste dans la session dès qu'un moteur répond.
     const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
     if (fallback.ok && fallback.payload?.recognition) {
+      fallbackUnavailableUntil = 0;
       return fallback.payload.recognition as RecognitionResult;
     }
 
-    // Fallback non configuré : on conserve le comportement AudD historique.
-    // Un simple no-match n'est jamais transformé en erreur utilisateur.
-    if (primary.ok) return null;
     if (fallback.status === 409 || fallback.payload?.error === 'fallback_not_configured') {
+      markFallbackUnavailable();
+      if (primary.ok) return null;
       throw new Error(attemptMessage(primary));
     }
 
     // Si les deux moteurs ont été tentés mais ne trouvent rien, on évite une
     // fausse erreur rouge : l'écoute continue et réessaiera au prochain extrait.
-    if (fallback.ok) return null;
+    if (primary.ok || fallback.ok) return null;
     throw new Error(attemptMessage(primary));
   }
 }
