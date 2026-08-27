@@ -36,6 +36,7 @@ const mustExist = [
   'packages/admin/pages/integrations.tsx',
   'packages/admin/pages/remote-config.tsx',
   'supabase/functions/keep-admin-control/index.ts',
+  'supabase/functions/keep-username-auth/index.ts',
   'supabase/functions/keep-music-core/index.ts',
   'supabase/functions/keep-public/index.ts',
   'supabase/functions/keep-preview/index.ts',
@@ -116,20 +117,24 @@ if (!freeCreditMigration.includes("'4'::jsonb") || !freeCreditMigration.includes
 }
 
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
-// Le moteur d'auth peut conserver un flux e-mail optionnel/compatibilité, mais
-// le parcours utilisateur principal KEEP reste pseudo + mot de passe.
-for (const expected of ['keep-username-auth', 'setSession', 'signUpWithUsername', 'signInWithUsername']) {
+for (const expected of ['keep-username-auth', 'setSession', 'signUpWithEmailIdentity', 'signInWithEmailIdentity', 'signInWithUsername']) {
   if (!authService.includes(expected)) failures.push(`USER AUTH MARKER MISSING: ${expected}`);
 }
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 
 const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
-for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Aucun e-mail requis', 'Pseudo KEEP', '4 crédits gratuits supplémentaires']) {
-  if (!accountForm.includes(expected)) failures.push(`USERNAME-FIRST ACCOUNT MARKER MISSING: ${expected}`);
+for (const expected of ['signUpWithEmailIdentity', 'signInWithEmailIdentity', 'signInWithUsername', 'Adresse e-mail obligatoire', 'E-mail ou pseudo KEEP', 'Pseudo KEEP']) {
+  if (!accountForm.includes(expected)) failures.push(`MANDATORY-EMAIL ACCOUNT MARKER MISSING: ${expected}`);
 }
-if (/signUpWithEmailIdentity|signInWithEmailIdentity|confirmationPending|Adresse e-mail/i.test(accountForm)) {
-  failures.push('MANDATORY EMAIL FLOW REINTRODUCED IN PRIMARY ACCOUNT FORM');
+if (/Aucun e-mail requis|signUpWithUsername\(/i.test(accountForm)) {
+  failures.push('USERNAME-ONLY SIGNUP REINTRODUCED IN PRIMARY ACCOUNT FORM');
 }
+
+const usernameAuth = fs.readFileSync(path.join(root, 'supabase/functions/keep-username-auth/index.ts'), 'utf8');
+for (const expected of ['email_required', 'validEmail', 'emailFlow', 'usernameFlow']) {
+  if (!usernameAuth.includes(expected)) failures.push(`USERNAME AUTH BACKEND MARKER MISSING: ${expected}`);
+}
+if (!usernameAuth.includes('action === "signup" && !email')) failures.push('BACKEND DOES NOT ENFORCE EMAIL ON SIGNUP');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 for (const marker of ['QRCode', 'Mon QR KEEP', 'Partager par e-mail']) {
@@ -198,7 +203,7 @@ console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('public profile links: permanent aliases reserved per profile');
-console.log('auth user: pseudo KEEP + mot de passe, e-mail non obligatoire');
+console.log('auth user: e-mail obligatoire à la création, connexion par e-mail ou pseudo KEEP + mot de passe');
 console.log('free credits: 3 guest + 4 signup bonus = 7');
 console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('mobile: packages/mobile');
