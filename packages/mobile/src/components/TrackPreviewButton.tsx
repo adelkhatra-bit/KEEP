@@ -28,10 +28,14 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     }
   };
 
-  const stopListeningThenPreview = async () => {
+  const stopKeepListening = async () => {
     const session = useSessionStore.getState();
     if (session.isActive) session.requestEndSession();
     await cancelAudioCapture().catch(() => {});
+  };
+
+  const stopListeningThenPreview = async () => {
+    await stopKeepListening();
     await playOrStopPreview();
   };
 
@@ -49,12 +53,14 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     }
   };
 
+  const stopListeningThenFallback = async () => {
+    await stopKeepListening();
+    await openFallback();
+  };
+
   const toggle = () => {
     if (busy) return;
-    if (!previewUrl) {
-      if (fallbackUrl) void openFallback();
-      return;
-    }
+
     if (playing) {
       void playOrStopPreview();
       return;
@@ -62,17 +68,23 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
     if (useSessionStore.getState().isActive) {
       Alert.alert(
-        'Arrêter l’écoute KEEP ?',
-        'Un morceau ne peut pas être diffusé pendant que KEEP écoute le micro. Souhaites-tu arrêter l’écoute puis lancer cet extrait ?',
+        'Écoute KEEP en cours',
+        'Le micro KEEP est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant de lancer un extrait ou d’ouvrir le morceau sur une plateforme.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
-          { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void stopListeningThenPreview() },
+          previewUrl
+            ? { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void stopListeningThenPreview() }
+            : { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
         ],
       );
       return;
     }
 
-    void playOrStopPreview();
+    if (previewUrl) {
+      void playOrStopPreview();
+      return;
+    }
+    if (fallbackUrl) void openFallback();
   };
 
   if (!previewUrl && !fallbackUrl) {
