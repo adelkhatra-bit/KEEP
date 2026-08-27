@@ -134,7 +134,7 @@ export default function MusicSwipeDeckModal({
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <View style={s.headerText}><Text style={s.eyebrow}>KEEP SWIPE</Text><Text style={s.title}>{title}</Text>{subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}</View>
-        <TouchableOpacity style={s.close} onPress={close} accessibilityLabel="Retour au profil"><Text style={s.closeText}>✕</Text></TouchableOpacity>
+        <TouchableOpacity style={s.close} onPress={close} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
 
       <View style={s.body}>
@@ -159,11 +159,17 @@ export default function MusicSwipeDeckModal({
             </View>
           </SwipeDeck>
 
-          <View style={s.actions}>
-            <TouchableOpacity style={[s.round,s.pass]} onPress={() => { void pass(); }} disabled={processing} accessibilityLabel="Passer"><Text style={s.passText}>✕</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.round,s.keep]} onPress={() => { void keep(); }} disabled={processing} accessibilityLabel="Garder dans KEEP">{processing ? <ActivityIndicator color="#111"/> : <Text style={s.keepText}>♡</Text>}</TouchableOpacity>
+          <View style={s.decisionRow}>
+            <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={() => { void keep(); }} disabled={processing} accessibilityLabel="Garder cette musique">
+              {processing ? <ActivityIndicator color="#111" size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={close} disabled={processing} accessibilityLabel="Revenir sans rester dans le swipe">
+              <Text style={s.backDecisionText}>‹ RETOUR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.decisionButton, s.removeButton]} onPress={() => { void pass(); }} disabled={processing} accessibilityLabel="Supprimer cette musique du swipe">
+              <Text style={s.removeButtonText}>✕ SUPPRIMER</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={s.profileBack} onPress={close}><Text style={s.profileBackText}>‹ Retour</Text></TouchableOpacity>
         </>}
       </View>
     </SafeAreaView>
@@ -179,7 +185,6 @@ const s = StyleSheet.create({
   card:{height:500,maxHeight:'70%',borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#D3C9DE',fontSize:10,fontWeight:'800'},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#A99DB9',fontSize:12,marginTop:3},
-  actions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:30,marginTop:18},round:{width:62,height:62,borderRadius:31,alignItems:'center',justifyContent:'center',borderWidth:2},pass:{backgroundColor:'#151020',borderColor:'#FF5F83'},keep:{backgroundColor:'#E5F266',borderColor:'#E5F266'},passText:{color:'#FF5F83',fontSize:28,fontWeight:'700'},keepText:{color:'#17130B',fontSize:28,fontWeight:'900'},
-  profileBack:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:10},profileBackText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7,marginTop:14},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},keepButton:{backgroundColor:'#E5F266',borderColor:'#E5F266'},keepButtonText:{color:'#17130B',fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:9,fontWeight:'900'},removeButton:{backgroundColor:'#171020',borderColor:'#FF5F83'},removeButtonText:{color:'#FF5F83',fontSize:9,fontWeight:'900'},
   empty:{alignItems:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
 });
