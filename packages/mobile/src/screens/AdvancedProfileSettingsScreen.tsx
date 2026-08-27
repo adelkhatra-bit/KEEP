@@ -7,6 +7,7 @@ import { SocialLink } from '../types';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { createAuthService } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
@@ -21,10 +22,12 @@ const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
 export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
+  const logout = useUserStore((s) => s.logout);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
+  const [signingOut, setSigningOut] = React.useState(false);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
 
@@ -91,6 +94,26 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     setDrafts((prev) => ({ ...prev, [platform]: '' }));
   };
 
+  const signOutNow = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      if (supabase && !isLocalGuest && !isDemoMode) await createAuthService(supabase).signOut();
+      logout();
+    } catch {
+      logout();
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  const confirmSignOut = () => {
+    Alert.alert('Se déconnecter ?', 'Ton profil KEEP reste enregistré. Tu pourras revenir avec ton adresse e-mail et ton mot de passe.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
+    ]);
+  };
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -152,6 +175,14 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
             );
           })}
         </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Compte</Text>
+          <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données KEEP restent enregistrés.</Text>
+          <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut} accessibilityRole="button" accessibilityLabel="Se déconnecter de KEEP">
+            <Text style={s.signOutText}>{signingOut ? 'Déconnexion…' : 'Se déconnecter'}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,4 +200,5 @@ const s = StyleSheet.create({
   label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
   primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
+  signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' },
 });
