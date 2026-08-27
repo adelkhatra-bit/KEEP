@@ -107,6 +107,7 @@ export default function DiscoverScreen({ navigation }: any) {
           .from('profiles')
           .select('id,username,avatar_url,bio,city,country_code,kind,favorite_genres,favorite_artists')
           .eq('is_public', true)
+          .eq('discovery_hidden', false)
           .limit(80);
         if (user?.id && !isLocalGuest) query = query.neq('id', user.id);
         const { data, error } = await query;
