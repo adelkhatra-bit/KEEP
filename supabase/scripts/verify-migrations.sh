@@ -53,6 +53,7 @@ create schema auth;
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
+  email_confirmed_at timestamptz,
   raw_user_meta_data jsonb not null default '{}'::jsonb
 );
 create or replace function auth.uid() returns uuid
@@ -149,7 +150,7 @@ begin
     if sqlerrm like '%doit correspondre%' then
       raise notice 'OK mélange de devise EUR/AED rejeté par le trigger (%)', sqlerrm;
     else
-      raise; -- une autre erreur inattendue : on la laisse remonter comme un vrai échec.
+      raise;
     end if;
   end;
 end;
