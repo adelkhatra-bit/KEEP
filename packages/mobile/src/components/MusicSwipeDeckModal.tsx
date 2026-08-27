@@ -22,6 +22,7 @@ type Props = {
   title?: string;
   subtitle?: string;
   emptyTitle?: string;
+  backLabel?: string;
   loop?: boolean;
   askVisibilityOnKeep?: boolean;
   onClose: () => void;
@@ -55,6 +56,7 @@ export default function MusicSwipeDeckModal({
   title = 'Découverte musicale',
   subtitle,
   emptyTitle = 'Aucun morceau à découvrir.',
+  backLabel = 'REVENIR AU PROFIL',
   loop = true,
   askVisibilityOnKeep = false,
   onClose,
@@ -163,7 +165,7 @@ export default function MusicSwipeDeckModal({
       </View>
 
       <View style={s.body}>
-        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>RETOUR</Text></TouchableOpacity></View> : <>
+        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{backLabel}</Text></TouchableOpacity></View> : <>
           <SwipeDeck
             resetKey={current.id}
             enabled={!processing}
@@ -188,11 +190,11 @@ export default function MusicSwipeDeckModal({
             <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={processing} accessibilityLabel="Passer cette musique">
               <Text style={s.passButtonText}>✕ PASSER</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing} accessibilityLabel="Revenir au profil ou à la session">
-              <Text style={s.backDecisionText}>‹ RETOUR</Text>
+            <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing} accessibilityLabel={backLabel}>
+              <Text style={s.backDecisionText}>‹ {backLabel}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={() => { void keep(); }} disabled={processing} accessibilityLabel="Garder cette musique">
-              {processing ? <ActivityIndicator color="#111" size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
+              {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
             </TouchableOpacity>
           </View>
         </>}
@@ -210,6 +212,6 @@ const s = StyleSheet.create({
   card:{height:500,maxHeight:'70%',borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#D3C9DE',fontSize:10,fontWeight:'800'},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#A99DB9',fontSize:12,marginTop:3},
-  decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7,marginTop:14},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:'#171020',borderColor:'#FF5F83'},passButtonText:{color:'#FF5F83',fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:9,fontWeight:'900'},keepButton:{backgroundColor:'#E5F266',borderColor:'#E5F266'},keepButtonText:{color:'#17130B',fontSize:9,fontWeight:'900'},
+  decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7,marginTop:14},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:8,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:9,fontWeight:'900'},
   empty:{alignItems:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
 });
