@@ -7,7 +7,14 @@
 import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
 
-const SAMPLE_DURATION_MS = 5000;
+const DEFAULT_SAMPLE_DURATION_MS = 4000;
+const MIN_SAMPLE_DURATION_MS = 2500;
+const MAX_SAMPLE_DURATION_MS = 8000;
+
+function safeSampleDuration(durationMs?: number) {
+  if (!Number.isFinite(durationMs)) return DEFAULT_SAMPLE_DURATION_MS;
+  return Math.max(MIN_SAMPLE_DURATION_MS, Math.min(MAX_SAMPLE_DURATION_MS, Math.round(Number(durationMs))));
+}
 
 export class MicPermissionDeniedError extends Error {
   constructor() {
@@ -63,7 +70,7 @@ async function ensurePermission(): Promise<void> {
 function waitForSampleOrCancel(durationMs: number, versionAtStart: number): Promise<void> {
   return new Promise((resolve) => {
     // Couvre la course où ARRÊTER est pressé juste avant que l'attente soit
-    // installée : on ne doit jamais patienter encore cinq secondes.
+    // installée : on ne doit jamais patienter encore plusieurs secondes.
     if (versionAtStart !== cancellationVersion) {
       resolve();
       return;
@@ -96,7 +103,7 @@ async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
 
 // ---- Natif (iOS/Android) ----
 
-async function captureAudioSampleNative(onLevel?: (level: number) => void): Promise<Blob> {
+async function captureAudioSampleNative(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
   // Le numéro doit être capturé AVANT la permission/mise en mode audio. Si
   // ARRÊTER arrive pendant cette phase asynchrone, la capture ne doit surtout
   // pas créer un nouvel Audio.Recording après l'arrêt demandé.
@@ -125,7 +132,7 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void): Prom
     throw new MicCaptureCancelledError();
   }
 
-  await waitForSampleOrCancel(SAMPLE_DURATION_MS, versionAtStart);
+  await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
 
   if (versionAtStart !== cancellationVersion || activeRecording !== recording) {
     if (activeRecording === recording) activeRecording = null;
@@ -200,7 +207,7 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-async function captureAudioSampleWeb(onLevel?: (level: number) => void): Promise<Blob> {
+async function captureAudioSampleWeb(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
   const versionAtStart = cancellationVersion;
   const stream = await ensureWebStream();
 
@@ -240,7 +247,7 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void): Promise
   processor.connect(muteGain);
   muteGain.connect(audioCtx.destination);
 
-  await waitForSampleOrCancel(SAMPLE_DURATION_MS, versionAtStart);
+  await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
 
   processor.disconnect();
   source.disconnect();
@@ -317,6 +324,7 @@ export async function cancelAudioCapture(): Promise<void> {
   }
 }
 
-export async function captureAudioSample(onLevel?: (level: number) => void): Promise<Blob> {
-  return Platform.OS === 'web' ? captureAudioSampleWeb(onLevel) : captureAudioSampleNative(onLevel);
+export async function captureAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+  const duration = safeSampleDuration(durationMs);
+  return Platform.OS === 'web' ? captureAudioSampleWeb(onLevel, duration) : captureAudioSampleNative(onLevel, duration);
 }
