@@ -47,6 +47,13 @@ async function audit(actorId: string, action: string, targetId: string, after: u
   });
 }
 
+async function cleanupAvatarFolder(profileId: string) {
+  const bucket = admin.storage.from("avatars");
+  const { data: files } = await bucket.list(profileId, { limit: 100 });
+  const paths = (files ?? []).filter((file) => file?.name).map((file) => `${profileId}/${file.name}`);
+  if (paths.length) await bucket.remove(paths);
+}
+
 async function getUserSnapshot(profileId: string) {
   const [{ data: profile, error: profileError }, { data: privateInfo }, { data: socials }, { data: requirements }, authResult, keepResult, playlistResult, downloadResult] = await Promise.all([
     admin.from("profiles").select("id,username,display_name,bio,avatar_url,city,country_code,kind,website,is_public,created_at,updated_at").eq("id", profileId).maybeSingle(),
@@ -133,16 +140,24 @@ Deno.serve(async (req) => {
       if (profileId === actor.id) return json(409, { error: "cannot_delete_self" });
       const { data: existing } = await admin.from("profiles").select("username").eq("id", profileId).maybeSingle();
       if (!existing) return json(404, { error: "profile_not_found" });
+
       await audit(actor.id, "user.deleted", profileId, { username: existing.username });
+      await cleanupAvatarFolder(profileId).catch(() => {});
+
       const { error } = await admin.auth.admin.deleteUser(profileId);
       if (error) throw error;
-      return json(200, { ok: true, deleted: true });
+
+      const { data: remainingProfile, error: verifyError } = await admin.from("profiles").select("id").eq("id", profileId).maybeSingle();
+      if (verifyError) throw verifyError;
+      if (remainingProfile) throw new Error("delete_incomplete");
+
+      return json(200, { ok: true, deleted: true, profileId });
     }
 
     return json(400, { error: "unknown_action" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const status = message === "unauthorized" ? 401 : message === "admin_required" || message === "role_forbidden" ? 403 : message === "profile_not_found" ? 404 : 500;
+    const status = message === "unauthorized" ? 401 : message === "admin_required" || message === "role_forbidden" ? 403 : message === "profile_not_found" ? 404 : message === "delete_incomplete" ? 409 : 500;
     return json(status, { error: message });
   }
 });
