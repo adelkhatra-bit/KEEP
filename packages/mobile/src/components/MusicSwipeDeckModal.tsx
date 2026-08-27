@@ -56,7 +56,7 @@ export default function MusicSwipeDeckModal({
   title = 'Découverte musicale',
   subtitle,
   emptyTitle = 'Aucun morceau à découvrir.',
-  backLabel = 'REVENIR AU PROFIL',
+  backLabel,
   loop = true,
   askVisibilityOnKeep = false,
   onClose,
@@ -69,6 +69,7 @@ export default function MusicSwipeDeckModal({
   const actionInFlight = useRef(false);
   const shuffled = useMemo(() => shuffle(tracks), [tracks, round]);
   const current = shuffled[index];
+  const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
 
   const advanceIndex = useCallback(() => {
     if (index + 1 >= shuffled.length) {
@@ -165,37 +166,41 @@ export default function MusicSwipeDeckModal({
       </View>
 
       <View style={s.body}>
-        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{backLabel}</Text></TouchableOpacity></View> : <>
-          <SwipeDeck
-            resetKey={current.id}
-            enabled={!processing}
-            onSwipeLeft={() => { void pass(); }}
-            onSwipeRight={() => { void keep(); }}
-            leftLabel="PASSER"
-            rightLabel="KEEP"
-            hint={askVisibilityOnKeep ? 'Glisse ← pour passer · → pour garder puis choisir profil ou masqué' : 'Glisse ← pour passer · → pour ajouter à ton KEEP'}
-          >
-            <View style={s.card}>
-              {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
-              <View style={s.gradientFake}>
-                <View style={s.autoRow}><View style={[s.dot,current.previewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{current.previewUrl ? 'Lecture automatique' : 'Extrait indisponible'}</Text></View>
-                <Text style={s.trackTitle} numberOfLines={2}>{current.title}</Text>
-                <Text style={s.artist} numberOfLines={1}>{current.artist}</Text>
-                {current.album ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
+          <View style={s.deckArea}>
+            <SwipeDeck
+              resetKey={current.id}
+              enabled={!processing}
+              onSwipeLeft={() => { void pass(); }}
+              onSwipeRight={() => { void keep(); }}
+              leftLabel="PASSER"
+              rightLabel="KEEP"
+              hint={askVisibilityOnKeep ? 'Glisse ← pour passer · → pour garder puis choisir profil ou masqué' : 'Glisse ← pour passer · → pour ajouter à ton KEEP'}
+            >
+              <View style={s.card}>
+                {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                <View style={s.gradientFake}>
+                  <View style={s.autoRow}><View style={[s.dot,current.previewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{current.previewUrl ? 'Lecture automatique' : 'Extrait indisponible'}</Text></View>
+                  <Text style={s.trackTitle} numberOfLines={2}>{current.title}</Text>
+                  <Text style={s.artist} numberOfLines={1}>{current.artist}</Text>
+                  {current.album ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                </View>
               </View>
-            </View>
-          </SwipeDeck>
+            </SwipeDeck>
+          </View>
 
-          <View style={s.decisionRow}>
-            <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={processing} accessibilityLabel="Passer cette musique">
-              <Text style={s.passButtonText}>✕ PASSER</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing} accessibilityLabel={backLabel}>
-              <Text style={s.backDecisionText}>‹ {backLabel}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={() => { void keep(); }} disabled={processing} accessibilityLabel="Garder cette musique">
-              {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
-            </TouchableOpacity>
+          <View style={s.decisionBand}>
+            <View style={s.decisionRow}>
+              <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={processing} accessibilityLabel="Passer cette musique">
+                <Text style={s.passButtonText}>✕ PASSER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={processing} accessibilityLabel={resolvedBackLabel}>
+                <Text style={s.backDecisionText}>‹ {resolvedBackLabel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.decisionButton, s.keepButton]} onPress={() => { void keep(); }} disabled={processing} accessibilityLabel="Garder cette musique">
+                {processing ? <ActivityIndicator color={colors.black} size="small" /> : <Text style={s.keepButtonText}>♡ GARDER</Text>}
+              </TouchableOpacity>
+            </View>
           </View>
         </>}
       </View>
@@ -208,10 +213,10 @@ const s = StyleSheet.create({
   header:{minHeight:78,paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#8F879D',fontSize:10,marginTop:3},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},
-  body:{flex:1,justifyContent:'center',paddingHorizontal:18,paddingBottom:18},
+  body:{flex:1,paddingHorizontal:18},deckArea:{flex:1,justifyContent:'center',paddingBottom:10},
   card:{height:500,maxHeight:'70%',borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#D3C9DE',fontSize:10,fontWeight:'800'},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#A99DB9',fontSize:12,marginTop:3},
-  decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7,marginTop:14},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:8,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:9,fontWeight:'900'},
-  empty:{alignItems:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
+  decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:8,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:9,fontWeight:'900'},
+  empty:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
 });
