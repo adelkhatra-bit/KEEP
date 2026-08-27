@@ -133,27 +133,32 @@ function remoteEntry(remote: PersistedKeepDecision): SessionTrackEntry {
 }
 
 function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
-  if (!remoteKeeps.length) return sessions;
-
   const remoteByDecision = new Map(remoteKeeps.map((item) => [item.decisionId, item]));
+  const remoteDecisionIds = new Set(remoteByDecision.keys());
 
+  // Toute entrée déjà synchronisée doit appartenir au compte actuellement
+  // authentifié. Si son decisionId n'existe pas dans la lecture serveur de ce
+  // compte, elle provient d'une ancienne identité locale (ou a été supprimée)
+  // et ne doit jamais polluer son KEEP, ses compteurs ou son ADN musical.
   let next = sessions.map((session) => ({
     ...session,
-    tracks: session.tracks.map((entry) => {
-      if (!entry.keepDecisionId) return entry;
-      const remote = remoteByDecision.get(entry.keepDecisionId);
-      if (!remote) return entry;
-      return {
-        ...entry,
-        track: mergeCanonicalTrack(entry.track, remote.track),
-        status: 'kept' as SessionTrackStatus,
-        visibility: remote.visibility,
-        sourceProfileId: remote.sourceProfileId,
-        sourceUsername: remote.sourceUsername,
-        creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
-        creditLocked: false,
-      };
-    }),
+    tracks: session.tracks
+      .filter((entry) => !entry.keepDecisionId || remoteDecisionIds.has(entry.keepDecisionId))
+      .map((entry) => {
+        if (!entry.keepDecisionId) return entry;
+        const remote = remoteByDecision.get(entry.keepDecisionId);
+        if (!remote) return entry;
+        return {
+          ...entry,
+          track: mergeCanonicalTrack(entry.track, remote.track),
+          status: 'kept' as SessionTrackStatus,
+          visibility: remote.visibility,
+          sourceProfileId: remote.sourceProfileId,
+          sourceUsername: remote.sourceUsername,
+          creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
+          creditLocked: false,
+        };
+      }),
   }));
 
   const visibleDecisionIds = new Set<string>();
@@ -300,7 +305,11 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
 
         try {
           const remoteKeeps = await loadOwnPersistedKeeps();
-          if (remoteKeeps.length) set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
+          // Une lecture serveur réussie, même vide, est la source de vérité du
+          // compte actif. Elle purge les anciennes décisions synchronisées qui
+          // appartenaient à un autre profil tout en conservant les entrées
+          // locales encore non synchronisées.
+          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
         }
