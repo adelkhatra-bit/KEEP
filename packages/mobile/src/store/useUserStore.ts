@@ -68,8 +68,11 @@ const DEMO_USER: User = {
 function clearLocalMusicIdentity() {
   // L'historique, les playlists en mémoire et la session du provider local
   // appartiennent à UNE identité. Aucun de ces éléments ne doit fuiter vers
-  // le compte suivant ni vers la démo.
+  // le compte suivant ni vers la démo. Supprimer aussi la copie persistée
+  // évite qu'une hydratation AsyncStorage tardive réinjecte les morceaux du
+  // compte précédent après le changement d'identité.
   useSessionHistoryStore.getState().clearSessions();
+  void useSessionHistoryStore.persist.clearStorage();
   usePlaylistStore.setState({ playlists: [], isLoading: false });
   musicEngine.resetLocalLibrary();
 }
