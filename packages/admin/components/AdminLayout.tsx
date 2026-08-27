@@ -11,6 +11,7 @@ const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'M
 const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', roles: ALL_ROLES },
   { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  { href: '/music-brain', label: 'KEEP Music Brain', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
@@ -27,8 +28,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Sur un écran de travail plus étroit, privilégier automatiquement la zone
-    // utile. Le menu reste disponible immédiatement via le bouton hamburger.
     if (window.innerWidth < 1180) setSidebarOpen(false);
   }, []);
 
