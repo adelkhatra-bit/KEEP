@@ -49,7 +49,7 @@ jobs:
           done
           cat /tmp/keep-mobile-loop.log
           exit 1
-      - name: Audit complet mobile 390x844 + fenêtre réduite
+      - name: Audit complet mobile 390x844 + persistance + fenêtre réduite
         run: |
           mkdir -p artifacts/mobile-loop
           cat > mobile-loop.cjs <<'JS'
@@ -72,21 +72,24 @@ jobs:
               if (box.y < 0 || box.y + box.height > viewportBottom) throw new Error(`${label}: nécessite un swipe (${JSON.stringify(box)})`);
             };
             const textLast = (value, options = {}) => page.getByText(value, options).last();
+            const waitFiveTabs = async () => {
+              for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
+                await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+              }
+            };
 
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(1000);
 
-            // Le test complet doit utiliser un vrai essai local éditable. Le
-            // mode démo est volontairement lecture seule et ne doit pas servir
-            // à valider la persistance du profil utilisateur.
+            // Le test complet utilise un vrai essai local éditable. Le mode
+            // démo est volontairement lecture seule et ne valide pas la
+            // persistance d'un profil utilisateur.
             const trial = textLast('ESSAYER GRATUITEMENT', { exact: true });
             await trial.waitFor({ state: 'visible', timeout: 15000 });
             await trial.click();
             await page.waitForTimeout(600);
 
-            for (const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
-              await textLast(label, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
-            }
+            await waitFiveTabs();
             await shot('01-listen-idle');
 
             const start = textLast(/START A SESSION|DÉMARRER|COMMENCER/i);
@@ -122,13 +125,19 @@ jobs:
               await page.getByLabel(network).last().waitFor({ state: 'visible', timeout: 10000 });
             }
 
+            // Prépare un profil d'essai complet et enregistre-le réellement
+            // dans le stockage local de l'appareil avant tout compte Supabase.
             await page.getByLabel('Modifier le profil').last().click();
             await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             const pseudo = page.getByPlaceholder('tonpseudo').last();
             if (!(await pseudo.isEditable())) throw new Error('Pseudo: le profil d’essai doit être éditable');
             await pseudo.fill('keepmobiletest');
+            const city = page.getByPlaceholder('Commence à saisir une ville').last();
+            await city.fill('Paris');
             await textLast('⌖ Utiliser ma position', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await textLast('Rechercher et préremplir', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('Choisir un pays', { exact: true }).click();
+            await textLast('France', { exact: true }).click();
             await textLast('Choisir une date', { exact: true }).click();
             const validateDate = textLast('Valider la date', { exact: true });
             await validateDate.waitFor({ state: 'attached', timeout: 10000 });
@@ -137,23 +146,71 @@ jobs:
             await validateDate.click();
             await shot('08-profile-edit-location-date');
 
+            const saveGuest = textLast('Enregistrer sur cet appareil', { exact: true });
+            await saveGuest.scrollIntoViewIfNeeded();
+            await saveGuest.click();
+            await page.waitForTimeout(500);
+            await textLast('Profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+
+            // Relit immédiatement le brouillon local avant reload.
+            await page.getByLabel('Modifier le profil').last().click();
+            await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            if ((await page.getByPlaceholder('tonpseudo').last().inputValue()) !== 'keepmobiletest') throw new Error('Pseudo local non relu après enregistrement');
+            if ((await page.getByPlaceholder('Commence à saisir une ville').last().inputValue()) !== 'Paris') throw new Error('Ville locale non relue après enregistrement');
+            await textLast('France', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('1990-01-01', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+
             const advanced = textLast('Réglages avancés du profil', { exact: true });
             await advanced.scrollIntoViewIfNeeded();
             await advanced.click();
             await textLast('Réglages avancés', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await page.getByLabel('Retour au profil').last().waitFor({ state: 'visible', timeout: 10000 });
-            const backPlaylists = page.getByLabel('Revenir aux Playlists').last();
-            await backPlaylists.scrollIntoViewIfNeeded();
-            await backPlaylists.waitFor({ state: 'visible', timeout: 10000 });
             for (const network of ['Instagram','TikTok','Snapchat','YouTube','X','Facebook']) {
               const item = textLast(network, { exact: true });
               await item.scrollIntoViewIfNeeded();
               await item.waitFor({ state: 'visible', timeout: 10000 });
             }
-            await shot('09-advanced-settings');
+
+            // Enregistre un réseau en essai : le champ et l'état connecté
+            // doivent survivre au reload complet eux aussi.
+            const instagram = page.getByPlaceholder('Lien Instagram').last();
+            await instagram.scrollIntoViewIfNeeded();
+            await instagram.fill('https://instagram.com/keepmobiletest');
+            const firstSave = page.getByText('Enregistrer', { exact: true }).first();
+            await firstSave.scrollIntoViewIfNeeded();
+            await firstSave.click();
+            await page.waitForTimeout(300);
+            await textLast('Connecté au profil', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
+            await shot('09-advanced-settings-social-saved');
+
+            // Reload complet : pas seulement retour écran. Le même profil
+            // d'essai doit être restauré automatiquement depuis AsyncStorage.
+            await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(800);
+            await waitFiveTabs();
+            await textLast('Profil', { exact: true }).click();
+            await page.getByLabel('Modifier le profil').last().click();
+            await textLast('Modifier le profil', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            if ((await page.getByPlaceholder('tonpseudo').last().inputValue()) !== 'keepmobiletest') throw new Error('Pseudo perdu après reload complet');
+            if ((await page.getByPlaceholder('Commence à saisir une ville').last().inputValue()) !== 'Paris') throw new Error('Ville perdue après reload complet');
+            await textLast('France', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('1990-01-01', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await shot('10-profile-persisted-after-reload');
+
+            const advancedAfterReload = textLast('Réglages avancés du profil', { exact: true });
+            await advancedAfterReload.scrollIntoViewIfNeeded();
+            await advancedAfterReload.click();
+            const instagramAfterReload = page.getByPlaceholder('Lien Instagram').last();
+            await instagramAfterReload.waitFor({ state: 'visible', timeout: 10000 });
+            if ((await instagramAfterReload.inputValue()) !== 'https://instagram.com/keepmobiletest') throw new Error('Instagram perdu après reload complet');
+            await textLast('Connecté au profil', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
+            const backPlaylists = page.getByLabel('Revenir aux Playlists').last();
+            await backPlaylists.scrollIntoViewIfNeeded();
+            await backPlaylists.waitFor({ state: 'visible', timeout: 10000 });
+            await shot('11-advanced-persisted-after-reload');
             await backPlaylists.click();
             await textLast('Playlists', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
-            await shot('10-advanced-to-playlists');
+            await shot('12-advanced-to-playlists');
 
             await page.setViewportSize({ width: 900, height: 700 });
             await textLast('Écouter', { exact: true }).click();
@@ -164,7 +221,7 @@ jobs:
             }
             const dimensions = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
             if (dimensions.scrollWidth > dimensions.width + 1) throw new Error(`Débordement horizontal fenêtre réduite: ${JSON.stringify(dimensions)}`);
-            await shot('11-windowed-900x700');
+            await shot('13-windowed-900x700');
 
             const pageErrors = errors.filter(x => x.startsWith('PAGE:'));
             if (pageErrors.length) throw new Error(`Erreurs page:\n${pageErrors.join('\n')}`);
@@ -177,12 +234,13 @@ jobs:
               'Listen stop returns to idle: PASS',
               'Essential listen actions without swipe: PASS',
               'Profile form scroll/navigation: PASS',
+              'Guest pseudo/city/country/date saved: PASS',
+              'Guest profile survives full reload: PASS',
+              'Guest Instagram survives full reload: PASS',
               'Reduced desktop window/no horizontal overflow: PASS',
               'Notification bell: PASS',
               'Social icons: PASS',
-              'Pseudo field: PASS',
               'Location helpers: PASS',
-              'Birth date selector: PASS',
               'Advanced settings -> Playlists: PASS',
               `Console/page errors captured: ${errors.length}`
             ].join('\n'));
