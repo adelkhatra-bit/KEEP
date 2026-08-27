@@ -10,8 +10,10 @@ import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { hasFeature } from '../services/entitlementService';
 import { loadCurrentPlanCode } from '../services/planService';
+import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import SwipeDeck from '../components/SwipeDeck';
 import CommunityConnectionsPanel from '../components/CommunityConnectionsPanel';
+import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 
 type DiscoveryProfile = {
   id: string;
@@ -23,6 +25,10 @@ type DiscoveryProfile = {
   kind: string;
   favoriteGenres: string[];
   favoriteArtists: string[];
+};
+
+const PROFILE_KIND_LABELS: Record<string, string> = {
+  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
 };
 
 function normalizeProfile(row: any): DiscoveryProfile {
@@ -62,6 +68,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const [followBusy, setFollowBusy] = useState(false);
   const [followNotice, setFollowNotice] = useState('');
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
+  const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((session) =>
@@ -144,6 +151,16 @@ export default function DiscoverScreen({ navigation }: any) {
     setAvatarFailedFor(null);
   }, [currentProfile?.id, currentProfile?.avatarUrl]);
 
+  useEffect(() => {
+    let live = true;
+    setCurrentProfileSnapshot(null);
+    if (!currentProfile?.id) return () => { live = false; };
+    void loadPublicProfileSnapshot(currentProfile.id)
+      .then((snapshot) => { if (live) setCurrentProfileSnapshot(snapshot); })
+      .catch(() => { if (live) setCurrentProfileSnapshot(null); });
+    return () => { live = false; };
+  }, [currentProfile?.id]);
+
   const nextProfile = () => {
     setFollowNotice('');
     if (profiles.length) setProfileIndex((value) => (value + 1) % profiles.length);
@@ -216,9 +233,16 @@ export default function DiscoverScreen({ navigation }: any) {
               <View style={styles.swipeCard}>
                 {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.heroAvatar} resizeMode="cover" onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.heroAvatar,styles.heroFallback]}><Text style={styles.heroLetter}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
                 <View style={styles.heroInfo}>
-                  <View style={styles.heroNameRow}><Text style={styles.heroName}>@{currentProfile.username}</Text>{compatibility !== null ? <View style={styles.compatBadge}><Text style={styles.compatText}>{compatibility}% ADN</Text></View> : null}</View>
+                  <View style={styles.heroNameRow}>
+                    <Text style={styles.heroName}>@{currentProfile.username}</Text>
+                    {currentProfileSnapshot ? <ProfileCertificationBadge tier={currentProfileSnapshot.certificationTier} compact /> : null}
+                    {compatibility !== null ? <View style={styles.compatBadge}><Text style={styles.compatText}>{compatibility}% ADN</Text></View> : null}
+                  </View>
                   {proximity ? <Text style={styles.location}>{proximity}</Text> : <Text style={styles.location}>Localisation non partagée</Text>}
-                  <Text style={styles.kind}>{currentProfile.kind}</Text>
+                  <View style={styles.kindMusicRow}>
+                    <Text style={styles.kind}>{PROFILE_KIND_LABELS[currentProfile.kind] ?? currentProfile.kind}</Text>
+                    {currentProfileSnapshot ? <Text style={styles.musicCount}>{currentProfileSnapshot.totalPublicKeeps} KEEP public{currentProfileSnapshot.totalPublicKeeps > 1 ? 's' : ''}</Text> : null}
+                  </View>
                   {currentProfile.bio ? <Text style={styles.bio} numberOfLines={3}>{currentProfile.bio}</Text> : null}
                   {(currentProfile.favoriteGenres.length || currentProfile.favoriteArtists.length) ? <View style={styles.chips}>{[...currentProfile.favoriteGenres,...currentProfile.favoriteArtists].slice(0,5).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View> : null}
                 </View>
@@ -252,7 +276,7 @@ const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{padding:spacing.xl,flexGrow:1,paddingBottom:spacing.xxxl},title:{...typography.h1,color:colors.textPrimary,marginBottom:spacing.xl},section:{marginTop:spacing.xxl},sectionTitle:{...typography.h3,color:colors.textPrimary},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},
   discoveryHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},lockBadge:{paddingHorizontal:10,paddingVertical:7,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},
   lockCard:{padding:20,borderRadius:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},lockIcon:{fontSize:28},lockTitle:{color:'#FFF',fontSize:17,fontWeight:'900',marginTop:8,textAlign:'center'},lockBody:{color:'#A99DB9',fontSize:12,lineHeight:18,textAlign:'center',marginTop:8},lockCta:{color:'#FFF',fontSize:11,fontWeight:'900',marginTop:15,backgroundColor:colors.primary,paddingHorizontal:18,paddingVertical:11,borderRadius:22,overflow:'hidden'},emptyCard:{padding:22,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
-  swipeCard:{height:430,borderRadius:26,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:82,fontWeight:'900'},heroInfo:{padding:18,paddingTop:90,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:8},heroName:{color:'#FFF',fontSize:26,fontWeight:'900'},compatBadge:{paddingHorizontal:8,paddingVertical:4,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:12,fontWeight:'800',marginTop:5},kind:{color:colors.primaryLight,fontSize:10,fontWeight:'900',marginTop:5},bio:{color:'#C8C0D3',fontSize:12,lineHeight:18,marginTop:8},chips:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:10},chip:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:9,fontWeight:'800'},
+  swipeCard:{height:430,borderRadius:26,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:82,fontWeight:'900'},heroInfo:{padding:18,paddingTop:90,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:8,flexWrap:'wrap'},heroName:{color:'#FFF',fontSize:26,fontWeight:'900'},compatBadge:{paddingHorizontal:8,paddingVertical:4,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:12,fontWeight:'800',marginTop:5},kindMusicRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:5,flexWrap:'wrap'},kind:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},musicCount:{color:'#68F2B1',fontSize:10,fontWeight:'900'},bio:{color:'#C8C0D3',fontSize:12,lineHeight:18,marginTop:8},chips:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:10},chip:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:9,fontWeight:'800'},
   swipeActions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:16,marginTop:14},roundAction:{width:54,height:54,borderRadius:27,alignItems:'center',justifyContent:'center',borderWidth:2},passAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},passActionText:{color:'#FF5F83',fontSize:24,fontWeight:'800'},followAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},followActionText:{color:'#111',fontSize:27,fontWeight:'900'},profileAction:{minHeight:46,paddingHorizontal:18,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},profileActionText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   followNotice:{marginTop:10,alignSelf:'center',paddingHorizontal:12,paddingVertical:8,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',maxWidth:340},followNoticeText:{color:'#C8C0D3',fontSize:10,lineHeight:15,textAlign:'center'},followNoticeCta:{color:colors.primaryLight,fontWeight:'900'},
   locationHint:{marginTop:16,padding:12,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},locationHintText:{color:'#B9AEC6',fontSize:11,lineHeight:16,textAlign:'center'},chipsWrap:{flexDirection:'row',flexWrap:'wrap',gap:spacing.sm,marginTop:spacing.md},trendChip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:spacing.md,paddingVertical:6},trendChipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},footerNote:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center',marginTop:spacing.xxl},
