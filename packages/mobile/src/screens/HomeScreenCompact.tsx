@@ -7,6 +7,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
+import SwipeDeck from '../components/SwipeDeck';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
 
@@ -184,39 +185,49 @@ export default function HomeScreenCompact({ navigation }: any) {
         <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
 
         {current ? (
-          <View style={s.trackCard}>
-            <View style={s.trackHead}>
-              {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
-              <View style={s.trackText}>
-                <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
-                <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>
-                <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
+          <SwipeDeck
+            resetKey={current.id}
+            enabled={Boolean(pending && !keepBusy)}
+            onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
+            onSwipeRight={openKeepChooser}
+            leftLabel="PASSER"
+            rightLabel="GARDER"
+            hint="Swipe facultatif : ← passer · garder → · les boutons restent disponibles"
+          >
+            <View style={s.trackCard}>
+              <View style={s.trackHead}>
+                {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                <View style={s.trackText}>
+                  <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
+                  <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>
+                  <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
+                </View>
               </View>
+              {alreadySaved ? (
+                <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
+              ) : current.status === 'kept' ? (
+                <View style={s.keptState}>
+                  <Text style={s.keptStateText}>✓ Gardé</Text>
+                  <TouchableOpacity
+                    style={[s.privacyPill, currentVisibility === 'PUBLIC' ? s.privacyPublic : s.privacyPrivate]}
+                    onPress={() => { void toggleCurrentVisibility(); }}
+                    disabled={privacyBusy}
+                  >
+                    <Text style={currentVisibility === 'PUBLIC' ? s.privacyPublicText : s.privacyPrivateText}>
+                      {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : current.status === 'passed' ? (
+                <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
+              ) : (
+                <View style={s.actions}>
+                  <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
+                  <TouchableOpacity style={[s.action, s.keep, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepText}>{keepBusy ? '…' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                </View>
+              )}
             </View>
-            {alreadySaved ? (
-              <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
-            ) : current.status === 'kept' ? (
-              <View style={s.keptState}>
-                <Text style={s.keptStateText}>✓ Gardé</Text>
-                <TouchableOpacity
-                  style={[s.privacyPill, currentVisibility === 'PUBLIC' ? s.privacyPublic : s.privacyPrivate]}
-                  onPress={() => { void toggleCurrentVisibility(); }}
-                  disabled={privacyBusy}
-                >
-                  <Text style={currentVisibility === 'PUBLIC' ? s.privacyPublicText : s.privacyPrivateText}>
-                    {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : current.status === 'passed' ? (
-              <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
-            ) : (
-              <View style={s.actions}>
-                <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                <TouchableOpacity style={[s.action, s.keep, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepText}>{keepBusy ? '…' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
-              </View>
-            )}
-          </View>
+          </SwipeDeck>
         ) : (
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
