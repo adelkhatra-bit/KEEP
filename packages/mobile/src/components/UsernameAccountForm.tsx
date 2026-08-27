@@ -9,6 +9,7 @@ import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
+// Source-of-truth auth KEEP : Aucun e-mail, aucun code à attendre.
 export type UsernameAccountMode = 'create' | 'login';
 
 type Props = {
