@@ -27,7 +27,9 @@ const mustExist = [
   'packages/mobile/src/screens/PublicUserProfileScreen.tsx',
   'packages/mobile/src/services/sharingService.ts',
   'packages/mobile/src/services/authService.ts',
+  'packages/mobile/src/services/profileService.ts',
   'packages/mobile/src/services/keepMusicCoreRecognition.ts',
+  'packages/mobile/share-profile.html',
   'packages/admin/pages/_app.tsx',
   'packages/admin/pages/users.tsx',
   'packages/admin/pages/plans.tsx',
@@ -38,6 +40,8 @@ const mustExist = [
   'supabase/functions/keep-public/index.ts',
   'supabase/functions/keep-preview/index.ts',
   'supabase/functions/keep-admin-preview/index.ts',
+  'supabase/migrations/20260827061000_permanent_profile_username_aliases.sql',
+  'supabase/migrations/20260827061500_restore_signup_bonus_four.sql',
   'render.yaml',
   'START_KEEP_LIVE_CLEAN.bat',
 ];
@@ -90,6 +94,27 @@ if (!sharing.includes('/share-profile/?u=')) failures.push('PUBLIC PROFILE LINK 
 if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS NOT CANONICAL KEEP URL');
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
+const sharedProfileHtml = fs.readFileSync(path.join(root, 'packages/mobile/share-profile.html'), 'utf8');
+for (const expected of ['profile_username_aliases', 'followAccountRoute', 'CRÉER MON COMPTE', expectedPublicRoot]) {
+  if (!sharedProfileHtml.includes(expected)) failures.push(`PERMANENT SHARE PROFILE MARKER MISSING: ${expected}`);
+}
+if (/https?:\/\/localhost|raw\.githubusercontent\.com|\/web-preview\//i.test(sharedProfileHtml)) {
+  failures.push('STALE OR LOCAL PUBLIC PROFILE TARGET REINTRODUCED');
+}
+
+const profileService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/profileService.ts'), 'utf8');
+if (!profileService.includes("from('profile_username_aliases')")) failures.push('IN-APP LEGACY PROFILE ALIAS RESOLUTION MISSING');
+
+const aliasMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260827061000_permanent_profile_username_aliases.sql'), 'utf8');
+for (const expected of ['profile_username_aliases', 'keep_guard_reserved_username', 'keep_capture_username_alias']) {
+  if (!aliasMigration.includes(expected)) failures.push(`PROFILE LINK ALIAS MIGRATION MARKER MISSING: ${expected}`);
+}
+
+const freeCreditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260827061500_restore_signup_bonus_four.sql'), 'utf8');
+if (!freeCreditMigration.includes("'4'::jsonb") || !freeCreditMigration.includes("signup_bonus_successes")) {
+  failures.push('FREE SIGNUP BONUS MUST REMAIN +4');
+}
+
 const authService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/authService.ts'), 'utf8');
 // Le moteur d'auth peut conserver un flux e-mail optionnel/compatibilité, mais
 // le parcours utilisateur principal KEEP reste pseudo + mot de passe.
@@ -99,7 +124,7 @@ for (const expected of ['keep-username-auth', 'setSession', 'signUpWithUsername'
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 
 const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
-for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Aucun e-mail requis', 'Pseudo KEEP']) {
+for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Aucun e-mail requis', 'Pseudo KEEP', '4 crédits gratuits supplémentaires']) {
   if (!accountForm.includes(expected)) failures.push(`USERNAME-FIRST ACCOUNT MARKER MISSING: ${expected}`);
 }
 if (/signUpWithEmailIdentity|signInWithEmailIdentity|confirmationPending|Adresse e-mail/i.test(accountForm)) {
@@ -172,7 +197,9 @@ console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
+console.log('public profile links: permanent aliases reserved per profile');
 console.log('auth user: pseudo KEEP + mot de passe, e-mail non obligatoire');
+console.log('free credits: 3 guest + 4 signup bonus = 7');
 console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
