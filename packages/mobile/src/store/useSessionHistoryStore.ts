@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { commitKeep } from '../services/keepTrackAction';
 import { getDownloadCreditStatus } from '../services/creditService';
+import { setAllOwnKeepVisibility } from '../services/keepLibraryService';
 import {
   loadOwnPersistedKeeps,
   PersistedKeepDecision,
@@ -28,6 +29,7 @@ interface SessionHistoryStore {
   keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
+  setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
   keepAllPendingInSession: (sessionId: string) => Promise<void>;
   syncUnsyncedKeeps: () => Promise<void>;
   refreshCreditLocks: () => Promise<void>;
@@ -63,8 +65,6 @@ function lockPendingFrom(sessions: KeepSession[], sessionId: string, entryId?: s
           ...session,
           tracks: session.tracks.map((track) =>
             track.status === 'pending' && (!entryId || track.id === entryId)
-              // Un cadenas de crédit est temporaire. Il ne doit JAMAIS écraser
-              // le choix Public/Privé déjà fait par l'utilisateur.
               ? { ...track, creditLocked: true }
               : track,
           ),
@@ -148,9 +148,6 @@ function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeep
         track: mergeCanonicalTrack(entry.track, remote.track),
         status: 'kept' as SessionTrackStatus,
         visibility: remote.visibility,
-        // Supabase est la source d'autorité pour la provenance d'un KEEP.
-        // Si le serveur dit qu'il n'y a PAS de source sociale, il faut effacer
-        // une ancienne étiquette locale au lieu de la conserver avec `??`.
         sourceProfileId: remote.sourceProfileId,
         sourceUsername: remote.sourceUsername,
         creditSource: remote.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' : 'FREE',
@@ -258,6 +255,17 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         if (!entry || entry.status !== 'kept') return;
         if (entry.keepDecisionId) await updateKeepDecisionVisibility(entry.keepDecisionId, visibility);
         set((s) => ({ sessions: s.sessions.map((sess) => sess.id !== sessionId ? sess : { ...sess, tracks: sess.tracks.map((track) => track.id === entryId ? { ...track, visibility } : track) }) }));
+      },
+
+      setAllKeptVisibility: async (visibility) => {
+        const changed = await setAllOwnKeepVisibility(visibility);
+        set((state) => ({
+          sessions: state.sessions.map((session) => ({
+            ...session,
+            tracks: session.tracks.map((track) => track.status === 'kept' ? { ...track, visibility } : track),
+          })),
+        }));
+        return changed;
       },
 
       keepAllPendingInSession: async (sessionId) => {
