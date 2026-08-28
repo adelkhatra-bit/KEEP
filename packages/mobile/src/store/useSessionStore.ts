@@ -10,12 +10,13 @@ import { clearSharedMusicSource, getSharedMusicSource } from '../services/shared
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
-const RECOGNITION_TICK_MS = 900;
-// Le tick UI reste réactif, mais les appels de fingerprint sont volontairement
-// espacés pour éviter qu'une écoute continue brûle le quota fournisseur.
-const MIN_RECOGNITION_ATTEMPT_GAP_MS = 8000;
-const NEW_MATCH_COOLDOWN_MS = 16000;
-const SAME_TRACK_COOLDOWN_MS = 25000;
+const RECOGNITION_TICK_MS = 700;
+// Le serveur autorise 12 fingerprints/minute par identité. Un départ toutes les
+// 5 secondes exploite cette fenêtre sans la dépasser et retire le trou de 8 s
+// qui faisait rater les changements rapides de morceau.
+const MIN_RECOGNITION_ATTEMPT_GAP_MS = 5000;
+const NEW_MATCH_COOLDOWN_MS = 6000;
+const SAME_TRACK_COOLDOWN_MS = 7000;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
 
@@ -133,9 +134,12 @@ let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
 
 function recognitionSampleDurationMs() {
-  if (consecutiveNoMatches >= 3) return 6500;
-  if (consecutiveNoMatches >= 1) return 4500;
-  return 3500;
+  // Premier essai court = résultat plus vite. Après un no-match, KEEP donne au
+  // fournisseur un extrait plus long pour améliorer la couverture sans rendre
+  // chaque tentative lente par défaut.
+  if (consecutiveNoMatches >= 3) return 7000;
+  if (consecutiveNoMatches >= 1) return 4800;
+  return 3000;
 }
 
 function clearTimers() {
