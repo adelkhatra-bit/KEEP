@@ -42,7 +42,9 @@ async function requireAdmin(req: Request): Promise<AdminActor> {
 async function getSecret(key: string): Promise<string | null> {
   const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
   if (error) throw error;
-  return typeof data === "string" && data.trim() ? data.trim() : null;
+  if (typeof data === "string" && data.trim()) return data.trim();
+  const legacy = Deno.env.get(key);
+  return typeof legacy === "string" && legacy.trim() ? legacy.trim() : null;
 }
 
 function tokenHint(value: string) {
