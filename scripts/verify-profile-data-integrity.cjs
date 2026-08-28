@@ -22,11 +22,34 @@ for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'profileK
   if (!profile.includes(marker)) failures.push(`OWN PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
 if (profile.includes('accessibilityLabel="Modifier mon profil"')) failures.push('DUPLICATE MODIFIER BUTTON REINTRODUCED');
+for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
+  if (!profile.includes(marker)) failures.push(`OWN PROFILE SHARED COUNTER CONTRACT MISSING: ${marker}`);
+}
+if (profile.includes('function Stat({value,label}')) failures.push('OWN PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
 
 const viewedProfile = read('packages/mobile/src/screens/PublicUserProfileScreen.tsx');
 for (const marker of ['loadPublicProfileKeeps', 'canonicalKeeps']) {
   if (!viewedProfile.includes(marker)) failures.push(`PUBLIC PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
+for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
+  if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE SHARED COUNTER CONTRACT MISSING: ${marker}`);
+}
+if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
+
+const counterComponent = read('packages/mobile/src/components/ProfileCounterRow.tsx');
+for (const marker of ["kind?: 'connections' | 'keeps'", "label: { color: '#FFFFFF', fontSize: 11", "value: { color: '#FFFFFF', fontSize: 18"]) {
+  if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER STYLE CONTRACT MISSING: ${marker}`);
+}
+
+const publicShare = read('packages/mobile/share-profile.html');
+for (const marker of ['class="connections"', 'class="stats"', 'followAccountRoute', 'CRÉER MON COMPTE']) {
+  if (!publicShare.includes(marker)) failures.push(`PERMANENT PUBLIC PROFILE COUNTER/FOLLOW CONTRACT MISSING: ${marker}`);
+}
+const connectionsIndex = publicShare.indexOf('class="connections"');
+const keepStatsIndex = publicShare.indexOf('class="stats"');
+if (connectionsIndex < 0 || keepStatsIndex < 0 || connectionsIndex > keepStatsIndex) failures.push('PERMANENT PUBLIC PROFILE COUNTER ORDER CHANGED');
+if (!publicShare.includes('.connection span{display:block;font-size:11px;color:#fff')) failures.push('PERMANENT PUBLIC PROFILE FOLLOW LABELS NOT WHITE/READABLE');
+if (!publicShare.includes('.stat span{display:block;font-size:11px;color:#fff')) failures.push('PERMANENT PUBLIC PROFILE KEEP LABELS NOT WHITE/READABLE');
 
 const account = read('packages/mobile/src/components/UsernameAccountForm.tsx');
 for (const forbidden of ['stageGuestMusicForUpgrade', 'loadStagedGuestMusic']) {
@@ -67,6 +90,7 @@ if (failures.length) {
 console.log('KEEP PROFILE DATA INTEGRITY: PASS');
 console.log('owner list/count: same authenticated server library');
 console.log('public list/count: same public distinct library');
+console.log('profile counters: shared owner/visitor component + permanent public page order enforced');
 console.log('guest/demo music: isolated from authenticated accounts');
 console.log('GPS: native + web foreground location, city/country resolution, approximate coordinates + persisted opt-in contract present');
 console.log('protected shell: App.tsx + Navigation.tsx unchanged');
