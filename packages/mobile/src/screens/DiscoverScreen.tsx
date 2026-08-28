@@ -255,13 +255,13 @@ export default function DiscoverScreen({ navigation }: any) {
 
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
-          {!discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : freeRemaining !== null ? <View style={styles.trialBadge}><Text style={styles.trialText}>{freeRemaining} GRATUIT{freeRemaining > 1 ? 'S' : ''}</Text></View> : null}
+          {!discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
         </View>
 
         {accessLoading || loadingProfiles ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
           <TouchableOpacity style={styles.lockCard} onPress={openPremium}>
             <Text style={styles.lockIcon}>🔒</Text>
-            <Text style={styles.lockTitle}>Tes découvertes gratuites sont utilisées</Text>
+            <Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text>
             <Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant KEEP et en faisant grandir tes abonnés.</Text>
             <Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text>
           </TouchableOpacity>
