@@ -13,6 +13,7 @@ import { withRetry } from './retry';
 import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
 import { recordKeepDecision } from './keepMusicCoreRecognition';
 import { syncPlaylistTrack } from './keepLibraryService';
+import { checkOwnKeepLibrary } from './connectedMusicLibrary';
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
@@ -21,6 +22,7 @@ export interface CommitKeepResult {
   visibility: KeepVisibility;
   keepDecisionId?: string;
   profileSyncFailed: boolean;
+  alreadyKept: boolean;
 }
 
 export async function commitKeep(
@@ -41,10 +43,30 @@ export async function commitKeep(
     throw new Error('SELF_KEEP_NOT_ALLOWED');
   }
   const isSocialCopy = Boolean(sourceProfileId && sourceProfileId !== userState.user?.id);
+  const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
+
+  // Barrière centrale : même si un écran oublie un jour son contrôle visuel,
+  // GARDER un morceau déjà présent reste une action idempotente et gratuite.
+  // On réutilise la décision KEEP existante : aucun crédit, aucun second ajout
+  // fournisseur, aucune nouvelle ligne de profil.
+  if (!userState.isDemoMode && !userState.isLocalGuest) {
+    const existing = await checkOwnKeepLibrary(track).catch(() => null);
+    if (existing?.exists && existing.match) {
+      return {
+        targetPlaylistId: existing.match.playlistId || 'keep-profile',
+        playlistName: existing.match.playlistName || 'Mes KEEP',
+        downloaded: false,
+        visibility: existing.match.visibility ?? visibility,
+        keepDecisionId: existing.match.decisionId,
+        profileSyncFailed: false,
+        alreadyKept: true,
+      };
+    }
+  }
+
   // Une reprise depuis le profil d'un autre membre est un cadeau communautaire :
   // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/KEEP.
   const consumesCredit = !userState.isDemoMode && !isSocialCopy && options?.consumeCredit !== false;
-  const visibility: KeepVisibility = options?.visibility ?? 'PRIVATE';
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
 
@@ -146,5 +168,6 @@ export async function commitKeep(
     visibility,
     keepDecisionId,
     profileSyncFailed,
+    alreadyKept: false,
   };
 }
