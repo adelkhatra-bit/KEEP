@@ -160,7 +160,10 @@ async function openQrLanding(copy: ShareCopy): Promise<void> {
   const separator = copy.link.includes('?') ? '&' : '?';
   const qrLink = `${copy.link}${separator}qr=1`;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.open(qrLink, '_blank', 'noopener,noreferrer');
+    // Safari iOS peut conserver un onglet intermédiaire about:blank lorsqu'un
+    // lien est lancé avec window.open. KEEP reste donc volontairement dans le
+    // même onglet ; le bouton Retour du navigateur revient à l'écran précédent.
+    window.location.assign(qrLink);
     return;
   }
   await Linking.openURL(qrLink);
