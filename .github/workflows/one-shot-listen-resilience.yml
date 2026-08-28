@@ -1,0 +1,58 @@
+name: KEEP — Listening resilience repair
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths: ['.github/workflows/one-shot-listen-resilience.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - run: git pull --ff-only origin reconcile/claude-main-20260825
+      - run: python3 scripts/one_shot_listen_resilience.py
+      - run: rm -f scripts/one_shot_listen_resilience.py .github/workflows/one-shot-listen-resilience.yml
+      - name: Listening regression assertions
+        run: |
+          set -euo pipefail
+          STORE=packages/mobile/src/store/useSessionStore.ts
+          REC=packages/mobile/src/services/keepMusicCoreRecognition.ts
+          MIC=packages/mobile/src/services/micCapture.ts
+          grep -q 'MIN_RECOGNITION_ATTEMPT_GAP_MS = 8000' "$STORE"
+          grep -q 'NEW_MATCH_COOLDOWN_MS = 16000' "$STORE"
+          grep -q 'SAME_TRACK_COOLDOWN_MS = 25000' "$STORE"
+          grep -q 'nextRecognitionAllowedAt' "$STORE"
+          grep -q 'requestEndSession' "$STORE"
+          grep -q 'cancelAudioCapture' "$STORE"
+          grep -q 'PROVIDER_RATE_LIMIT_BACKOFF_MS = 65' "$REC"
+          grep -q 'recognitionBackoffUntil' "$REC"
+          grep -q "primaryRateLimited" "$REC"
+          grep -q 'stopAndUnloadAsync' "$MIC"
+          grep -q 'releaseCaptureResources' "$MIC"
+          grep -q 'webStream.getTracks().forEach' "$MIC"
+          grep -q 'setNativeRecordingMode(false)' "$MIC"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm --workspace packages/mobile run type-check
+      - run: npm --workspace packages/mobile test -- --runInBand
+      - name: Commit only after gates pass
+        run: |
+          set -euo pipefail
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/store/useSessionStore.ts packages/mobile/src/services/keepMusicCoreRecognition.ts scripts/one_shot_listen_resilience.py .github/workflows/one-shot-listen-resilience.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(listen): throttle recognition and recover from rate limits"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
