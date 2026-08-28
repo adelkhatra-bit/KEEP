@@ -46,33 +46,49 @@ jobs:
         run: npm run type-check
       - name: Unit tests
         run: npm test -- --runInBand
-      - name: Live keyless recognition smoke — no private API key
+      - name: Live keyless recognition smoke — text + shared YouTube URL, no private API key
         env:
           KEEP_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
           KEEP_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
         shell: bash
         run: |
           set -euo pipefail
+          common_headers=(
+            -H "apikey: $KEEP_SUPABASE_ANON_KEY"
+            -H "Authorization: Bearer $KEEP_SUPABASE_ANON_KEY"
+            -H 'Content-Type: application/json'
+          )
+
           curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -fsS \
             -X POST "$KEEP_SUPABASE_URL/functions/v1/keep-music-keyless-source" \
-            -H "apikey: $KEEP_SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $KEEP_SUPABASE_ANON_KEY" \
-            -H 'Content-Type: application/json' \
-            -H 'x-keep-device-id: github-ci-keyless-smoke' \
+            "${common_headers[@]}" \
+            -H 'x-keep-device-id: github-ci-keyless-text-smoke' \
             --data '{"rawText":"Rick Astley - Never Gonna Give You Up","title":"Rick Astley - Never Gonna Give You Up","platform":"WEB"}' \
-            -o /tmp/keep-keyless.json
+            -o /tmp/keep-keyless-text.json
+
+          curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -fsS \
+            -X POST "$KEEP_SUPABASE_URL/functions/v1/keep-music-keyless-source" \
+            "${common_headers[@]}" \
+            -H 'x-keep-device-id: github-ci-keyless-youtube-smoke' \
+            --data '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","platform":"YOUTUBE"}' \
+            -o /tmp/keep-keyless-youtube.json
+
           node - <<'NODE'
           const fs = require('fs');
-          const payload = JSON.parse(fs.readFileSync('/tmp/keep-keyless.json', 'utf8'));
-          const r = payload && payload.recognition;
-          if (!payload || payload.provider !== 'KEYLESS_SOURCE') throw new Error(`Unexpected provider: ${JSON.stringify(payload)}`);
-          if (!r || !r.title || !r.artist) throw new Error(`No keyless recognition: ${JSON.stringify(payload)}`);
-          const title = String(r.title).toLowerCase();
-          const artist = String(r.artist).toLowerCase();
-          if (!title.includes('never gonna give you up') || !artist.includes('rick astley')) {
-            throw new Error(`Wrong keyless match: ${r.artist} — ${r.title}`);
+          function assertRick(path, label) {
+            const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const r = payload && payload.recognition;
+            if (!payload || payload.provider !== 'KEYLESS_SOURCE') throw new Error(`${label}: unexpected provider ${JSON.stringify(payload)}`);
+            if (!r || !r.title || !r.artist) throw new Error(`${label}: no keyless recognition ${JSON.stringify(payload)}`);
+            const title = String(r.title).toLowerCase();
+            const artist = String(r.artist).toLowerCase();
+            if (!title.includes('never gonna give you up') || !artist.includes('rick astley')) {
+              throw new Error(`${label}: wrong keyless match ${r.artist} — ${r.title}`);
+            }
+            console.log(`${label} OK: ${r.artist} — ${r.title} (${payload.strategy || 'unknown'})`);
           }
-          console.log(`KEYLESS LIVE OK: ${r.artist} — ${r.title} (${payload.strategy || 'unknown'})`);
+          assertRick('/tmp/keep-keyless-text.json', 'KEYLESS TEXT LIVE');
+          assertRick('/tmp/keep-keyless-youtube.json', 'KEYLESS YOUTUBE LIVE');
           NODE
       - name: Build backend
         run: npm --workspace packages/backend run build
