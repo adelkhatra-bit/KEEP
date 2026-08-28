@@ -24,10 +24,10 @@ export const colors = {
   pass: '#FF5C72', // corail — bouton PASSER (jamais utilisé pour GARDER)
   passPressed: '#E14A5F',
 
-  // Texte
-  textPrimary: '#F5F3FF',
-  textSecondary: '#B4AFCB',
-  textMuted: '#7A7594',
+  // Texte — règle globale KEEP : aucun texte fonctionnel gris sur fond sombre.
+  textPrimary: '#FFFFFF',
+  textSecondary: '#FFFFFF',
+  textMuted: '#FFFFFF',
 
   // États
   success: '#2DE1C2',
