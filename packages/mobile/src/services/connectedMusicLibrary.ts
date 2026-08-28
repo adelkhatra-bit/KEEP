@@ -1,6 +1,12 @@
 import { CanonicalTrack } from '@keep/music';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
-import { keepProviderIdentities, tracksRepresentSameKeep } from './keepTrackIdentity';
+import {
+  buildKeepTrackIdentityIndex,
+  filterTracksNotAlreadyKept,
+  keepProviderIdentities,
+  tracksRepresentSameKeep,
+} from './keepTrackIdentity';
+import { loadOwnProfileKeeps } from './publicProfileStateService';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -29,6 +35,12 @@ type LibraryMatch = {
     trackId?: string;
     visibility?: 'PUBLIC' | 'PRIVATE';
   } | null;
+};
+
+export type OwnKeepPrefilterResult = {
+  tracks: CanonicalTrack[];
+  removedCount: number;
+  verified: boolean;
 };
 
 function keepMatchFromDecision(row: any): LibraryMatch {
@@ -60,6 +72,34 @@ async function latestOwnKeep(profileId: string, trackIds: string[]): Promise<Lib
     .maybeSingle();
   if (error) return null;
   return data ? keepMatchFromDecision(data) : { exists: false, match: null };
+}
+
+/**
+ * Construit la file d'un Swipe social AVANT toute lecture audio.
+ * Un seul chargement de la bibliothèque du visiteur suffit : comparaison par
+ * UUID KEEP, ISRC, identifiants Spotify/Apple/Deezer puis titre/artiste.
+ *
+ * Si le contrôle distant est indisponible, `verified=false` et on rend la liste
+ * d'origine. Le contrôle individuel `checkOwnKeepLibrary` reste alors la
+ * deuxième barrière avant GARDER afin qu'aucun doublon ne soit créé.
+ */
+export async function filterSocialSwipeAgainstOwnKeep(tracks: CanonicalTrack[]): Promise<OwnKeepPrefilterResult> {
+  if (!tracks.length || !supabase) return { tracks, removedCount: 0, verified: false };
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session?.user?.id) return { tracks, removedCount: 0, verified: false };
+
+  try {
+    const ownKeeps = await loadOwnProfileKeeps();
+    const index = buildKeepTrackIdentityIndex(ownKeeps.map((entry) => entry.track));
+    const filtered = filterTracksNotAlreadyKept(tracks, index);
+    return {
+      tracks: filtered,
+      removedCount: Math.max(0, tracks.length - filtered.length),
+      verified: true,
+    };
+  } catch {
+    return { tracks, removedCount: 0, verified: false };
+  }
 }
 
 /**
