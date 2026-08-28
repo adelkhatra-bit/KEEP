@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 const PLAN_OPTIONS = ['ALL', 'FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
 type PlanFilter = typeof PLAN_OPTIONS[number];
 type PaidPlan = 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
+type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'MODERATOR';
 
 type DirectoryUser = {
   id: string;
@@ -94,6 +95,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
 
   const [selected, setSelected] = useState<DirectoryUser | null>(null);
   const [snapshot, setSnapshot] = useState<UserSnapshot | null>(null);
@@ -117,6 +119,16 @@ export default function Users() {
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.rpc('get_my_admin_role').then(
+      ({ data }) => {
+        const role = String(data || '') as AdminRole;
+        setAdminRole(['SUPER_ADMIN','ADMIN','SUPPORT','MODERATOR'].includes(role) ? role : null);
+      },
+      () => setAdminRole(null),
+    );
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -241,6 +253,11 @@ export default function Users() {
   };
 
   const toggleRequirement = (key: string) => setRequirements((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  const canRequirements = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN' || adminRole === 'SUPPORT';
+  const canGrant = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN';
+  const canModerateDiscovery = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN' || adminRole === 'MODERATOR';
+  const canBlock = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN';
+  const canDestruct = adminRole === 'SUPER_ADMIN';
 
   return <AdminLayout>
     <div className="page-title">Utilisateurs</div>
@@ -272,7 +289,7 @@ export default function Users() {
       </table>
     </div>
 
-    <details style={{marginTop:18}}><summary style={{cursor:'pointer',color:'var(--text-muted)'}}>Récupérer un ancien profil de test</summary>
+    <details style={{marginTop:18,display:canRequirements?'block':'none'}}><summary style={{cursor:'pointer',color:'var(--text-muted)'}}>Récupérer un ancien profil de test</summary>
       <div className="card" style={{marginTop:10}}><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
         <input value={legacyUsername} onChange={(e)=>setLegacyUsername(e.target.value)} placeholder="Pseudo KEEP" style={{flex:'1 1 260px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}/>
         <button onClick={()=>void recoverLegacy()} disabled={!legacyUsername.trim()||busy!==null}>Récupérer</button>
@@ -306,14 +323,14 @@ export default function Users() {
             ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10,minWidth:0}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong style={{overflowWrap:'anywhere'}}>{value}</strong></div>)}
           </div>
 
-          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
             <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
             <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
             {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo KEEP ou l’e-mail réel + ce mot de passe.</div></div>}
           </div>
 
-          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>
             <h3 style={{margin:'0 0 4px'}}>À imposer à cet utilisateur</h3>
             <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que KEEP devra lui demander de compléter.</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:7}}>
@@ -322,7 +339,7 @@ export default function Users() {
             <button style={{marginTop:10}} onClick={()=>void saveRequirements()} disabled={busy!==null}>{busy==='requirements'?'Enregistrement…':'Enregistrer les obligations'}</button>
           </div>
 
-          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canGrant?'block':'none'}}>
             <h3 style={{margin:'0 0 10px'}}>Abonnement offert</h3>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
               <select value={plan} onChange={(e)=>setPlan(e.target.value as PaidPlan)} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value="PREMIUM">Premium · 2,99 €</option><option value="CREATOR_PRO">Creator Pro · 9,99 €</option><option value="VENUE_PRO">Venue Pro · 29,99 €</option></select>
@@ -331,15 +348,15 @@ export default function Users() {
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}><button onClick={()=>void grant()} disabled={busy!==null}>Offrir {plan}</button><button onClick={()=>void revoke()} disabled={busy!==null} style={{opacity:.8}}>Arrêter l’offre</button></div>
           </div>
 
-          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16}}>
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canModerateDiscovery?'block':'none'}}>
             <h3 style={{margin:'0 0 5px'}}>Visibilité Découvertes</h3>
             <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Masquer retire uniquement ce profil de l’onglet Découvertes. Son compte, ses données et son lien de profil restent intacts.</div>
             <button onClick={()=>void toggleDiscoveryHidden()} disabled={busy!==null} style={{background:snapshot.profile.discovery_hidden?'#2e7d32':'#5b3f7f'}}>{busy==='discovery'?'Enregistrement…':snapshot.profile.discovery_hidden?'Rendre visible dans Découvertes':'Masquer de Découvertes'}</button>
           </div>
 
-          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:'flex',gap:8,flexWrap:'wrap'}}>
-            <button onClick={()=>void toggleBlocked()} disabled={busy!==null}>{isBanned(snapshot.auth.bannedUntil)?'Débloquer le compte':'Bloquer le compte'}</button>
-            <button onClick={()=>void deleteUser()} disabled={busy!==null} style={{background:'#7a1f2a'}}>Supprimer définitivement</button>
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:(canBlock||canDestruct)?'flex':'none',gap:8,flexWrap:'wrap'}}>
+            <button onClick={()=>void toggleBlocked()} disabled={busy!==null} style={{display:canBlock?'inline-block':'none'}}>{isBanned(snapshot.auth.bannedUntil)?'Débloquer le compte':'Bloquer le compte'}</button>
+            <button onClick={()=>void deleteUser()} disabled={busy!==null} style={{background:'#7a1f2a',display:canDestruct?'inline-block':'none'}}>Supprimer définitivement</button>
           </div>
         </>}
       </div>
