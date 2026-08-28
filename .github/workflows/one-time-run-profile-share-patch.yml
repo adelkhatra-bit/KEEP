@@ -1,4 +1,4 @@
-name: KEEP one-time profile share patch
+name: KEEP one-time profile layout patch
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Apply patch
+      - name: Apply global profile layout patch
         run: python3 scripts/one_time_profile_share_patch.py
 
       - name: Install
@@ -45,13 +45,14 @@ jobs:
         working-directory: packages/mobile
         run: npx expo export --platform web --output-dir dist-web
 
-      - name: Commit validated patch
+      - name: Commit validated patch and cleanup
         run: |
           rm .github/workflows/one-time-run-profile-share-patch.yml
           rm -f .github/workflows/one-time-fix-profile-swipe-sharing.yml
+          rm -f .github/workflows/one-time-profile-counter-design.yml
           rm scripts/one_time_profile_share_patch.py
           git config user.name "KEEP Codex"
           git config user.email "actions@github.com"
           git add -A
-          git commit -m "fix(profile): harden shares and separate social counters"
+          git commit -m "fix(profile): align counters globally and lower KEEP stats"
           git push origin HEAD:reconcile/claude-main-20260825
