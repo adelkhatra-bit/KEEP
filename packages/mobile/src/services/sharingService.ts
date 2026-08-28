@@ -8,7 +8,7 @@
  * n'existaient pas sur le site public et pouvaient produire un 404/400 dans
  * WhatsApp, Messages ou un navigateur externe.
  */
-import { Alert, Linking, Platform, Share } from 'react-native';
+import { Alert, Linking, NativeModules, Platform, Share } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from './planService';
 import { hasFeature } from './entitlementService';
@@ -118,24 +118,52 @@ async function shareEmail(copy: ShareCopy): Promise<void> {
   await shareSystem(copy);
 }
 
-async function copyLink(copy: ShareCopy): Promise<void> {
-  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    // "Copier le lien" copie UNIQUEMENT une URL HTTPS valide. Le texte KEEP,
-    // l'artiste et le slogan restent dans les actions de partage normales.
-    await navigator.clipboard.writeText(copy.link);
-    return;
+/**
+ * « Copier le lien » copie volontairement le message complet KEEP : contexte,
+ * nom du profil ou du morceau, slogan et URL HTTPS. C'est ce texte qui doit
+ * arriver dans WhatsApp quand l'utilisateur fait Coller.
+ */
+async function copyShareText(copy: ShareCopy): Promise<boolean> {
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(copy.message);
+      return true;
+    }
+    if (typeof document !== 'undefined') {
+      const textarea = document.createElement('textarea');
+      textarea.value = copy.message;
+      textarea.setAttribute('readonly', 'true');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand?.('copy') ?? false;
+      textarea.remove();
+      if (copied) return true;
+    }
   }
-  // React Native n'a pas de Clipboard natif dans ce projet. La feuille système
-  // permet néanmoins "Copier" sans ajouter une nouvelle dépendance native.
-  await Share.share({ title: copy.subject, message: copy.link });
+
+  // Certains builds React Native exposent encore le module natif Clipboard.
+  // On l'utilise sans ajouter de dépendance native ; sinon la feuille système
+  // reste le fallback sécurisé et propose elle-même « Copier ».
+  const nativeClipboard = (NativeModules as any)?.Clipboard ?? (NativeModules as any)?.RNCClipboard;
+  if (nativeClipboard?.setString) {
+    nativeClipboard.setString(copy.message);
+    return true;
+  }
+
+  await Share.share({ title: copy.subject, message: copy.message });
+  return false;
 }
 
 async function openQrLanding(copy: ShareCopy): Promise<void> {
+  const separator = copy.link.includes('?') ? '&' : '?';
+  const qrLink = `${copy.link}${separator}qr=1`;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.open(copy.link, '_blank', 'noopener,noreferrer');
+    window.open(qrLink, '_blank', 'noopener,noreferrer');
     return;
   }
-  await Linking.openURL(copy.link);
+  await Linking.openURL(qrLink);
 }
 
 function showWebShareSheet(copy: ShareCopy): Promise<void> {
@@ -176,6 +204,9 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
     link.textContent = copy.link;
     Object.assign(link.style, { marginTop: '13px', padding: '10px', borderRadius: '12px', background: '#0E0A14', border: '1px solid #342641', color: '#B79CFF', fontSize: '10px', lineHeight: '14px', wordBreak: 'break-all' });
 
+    const status = document.createElement('div');
+    Object.assign(status.style, { minHeight: '16px', marginTop: '8px', color: '#68F2B1', fontSize: '10px', fontWeight: '850', textAlign: 'center' });
+
     const finish = () => { overlay.remove(); resolve(); };
     const makeButton = (label: string, primary: boolean, action: () => Promise<void>) => {
       const button = document.createElement('button');
@@ -193,10 +224,32 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
       return button;
     };
 
-    const system = makeButton('PARTAGER SUR MES APPLICATIONS', true, () => shareSystem(copy));
+    const system = makeButton(copy.kind === 'profile' ? 'FAIRE DÉCOUVRIR MON KEEP' : 'PARTAGER SUR MES APPLICATIONS', true, () => shareSystem(copy));
     const email = makeButton('✉  PARTAGER PAR E-MAIL', false, () => shareEmail(copy));
-    const copyButton = makeButton('COPIER LE LIEN KEEP', false, () => copyLink(copy));
-    const qr = makeButton('▦  OUVRIR LA CARTE / QR KEEP', false, () => openQrLanding(copy));
+    const qr = makeButton('▦  MON QR CODE KEEP', false, () => openQrLanding(copy));
+
+    const copyButton = document.createElement('button');
+    copyButton.type = 'button';
+    copyButton.textContent = 'COPIER LE LIEN KEEP';
+    Object.assign(copyButton.style, {
+      width: '100%', minHeight: '48px', marginTop: '10px', borderRadius: '16px', cursor: 'pointer',
+      border: '1px solid #493369', background: '#211A2B', color: '#FFFFFF', fontWeight: '900', fontSize: '12px',
+    });
+    copyButton.onclick = () => {
+      copyButton.disabled = true;
+      void copyShareText(copy)
+        .then((copied) => {
+          if (copied) {
+            copyButton.textContent = '✓ COPIÉ';
+            status.textContent = 'Copié. Le texte contient KEEP, le slogan, le contexte et le lien.';
+          } else {
+            copyButton.textContent = 'COPIER DEPUIS LA FEUILLE OUVERTE';
+            status.textContent = 'Choisis « Copier » dans la feuille de partage.';
+          }
+        })
+        .catch(() => { status.textContent = 'Copie indisponible sur ce navigateur.'; })
+        .finally(() => { copyButton.disabled = false; });
+    };
 
     const cancel = document.createElement('button');
     cancel.type = 'button';
@@ -208,7 +261,8 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
     cancel.onclick = finish;
     overlay.onclick = (event) => { if (event.target === overlay) finish(); };
 
-    sheet.append(handle, brand, heading, slogan, link, system, email, copyButton, qr, cancel);
+    // Même ordre sur profil et morceau : QR, e-mail, découverte/partage, copie.
+    sheet.append(handle, brand, heading, slogan, link, qr, email, system, copyButton, status, cancel);
     overlay.appendChild(sheet);
     document.body.appendChild(overlay);
   });
@@ -216,12 +270,20 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
 
 function showNativeShareSheet(copy: ShareCopy): Promise<void> {
   return new Promise((resolve) => {
+    const doCopy = async () => {
+      try {
+        const copied = await copyShareText(copy);
+        if (copied) Alert.alert('Copié', 'Le texte KEEP, le slogan et le lien ont bien été copiés.');
+      } finally { resolve(); }
+    };
     Alert.alert(
       copy.heading,
-      `${KEEP_SHARE_SLOGAN}\n\nChoisis « Partager » pour WhatsApp, Instagram, TikTok, Messages, Facebook, X, Mail, etc.`,
+      `${KEEP_SHARE_SLOGAN}\n\nQR code · e-mail · partage · copie du lien.`,
       [
         { text: 'Annuler', style: 'cancel', onPress: () => resolve() },
-        { text: 'QR / carte KEEP', onPress: () => { void openQrLanding(copy).catch(() => {}).finally(resolve); } },
+        { text: 'QR KEEP', onPress: () => { void openQrLanding(copy).catch(() => {}).finally(resolve); } },
+        { text: 'E-mail', onPress: () => { void shareEmail(copy).catch(() => {}).finally(resolve); } },
+        { text: 'Copier', onPress: () => { void doCopy(); } },
         { text: 'Partager', onPress: () => { void shareSystem(copy).catch(() => {}).finally(resolve); } },
       ],
       { cancelable: true, onDismiss: resolve },
@@ -240,8 +302,8 @@ function buildProfileCopy(username: string): ShareCopy {
   const own = Boolean(current?.username && cleanUsername(current.username).toLowerCase() === clean.toLowerCase());
   const link = buildPublicProfileLink(clean);
   const identity = own ? [current?.city, current?.countryCode].filter(Boolean).join(' · ') : '';
-  const profileLine = own ? 'Mon univers musical' : `L’univers musical de @${clean}`;
-  const message = `${profileLine} est sur KEEP 🎧\nKEEP DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
+  const profileLine = own ? `Découvre mon profil KEEP @${clean}` : `Découvre le profil KEEP @${clean}`;
+  const message = `${profileLine} 🎧\nKEEP DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'profile',
     heading: own ? 'Partager mon profil KEEP' : `Partager le KEEP de @${clean}`,
@@ -259,14 +321,14 @@ function buildTrackCopy(username: string, title: string, artist: string): ShareC
   const clean = cleanUsername(username);
   const link = buildPublicTrackLink(clean, title, artist);
   const own = cleanUsername(useUserStore.getState().user?.username).toLowerCase() === clean.toLowerCase();
-  const origin = own ? 'dans mon KEEP' : `dans le KEEP de @${clean}`;
-  const message = `🎵 ${title.trim()} — ${artist.trim()}\nCe morceau est ${origin}.\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
+  const origin = own ? `mon profil @${clean}` : `le profil @${clean}`;
+  const message = `🎵 ${title.trim()} — ${artist.trim()}\nRetrouve ce morceau sur ${origin} dans KEEP.\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'track',
     heading: `Partager ${title.trim()} — ${artist.trim()}`,
     subject: `${title.trim()} — ${artist.trim()} · KEEP`,
     message,
-    emailBody: `${message}\n\nDécouvre le morceau puis le reste de cet univers musical sur KEEP.`,
+    emailBody: `${message}\n\nLe lien ouvre le profil KEEP avec le contexte de ce morceau.`,
     link,
     eventName: 'profile_share',
     channel: 'track',
@@ -332,8 +394,16 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   return shareEmail(buildProfileCopy(username));
 }
 
+export async function copyProfileShareText(username: string): Promise<boolean> {
+  return copyShareText(buildProfileCopy(username));
+}
+
 export async function shareProfileTrack(username: string, title: string, artist: string): Promise<void> {
   return presentShare(buildTrackCopy(username, title, artist));
+}
+
+export async function copyProfileTrackShareText(username: string, title: string, artist: string): Promise<boolean> {
+  return copyShareText(buildTrackCopy(username, title, artist));
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
