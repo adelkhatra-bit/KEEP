@@ -1,10 +1,11 @@
-name: KEEP — Patch offre dans Mes Sessions
+name: Patch session plan badge
 
 on:
   push:
-    branches: ['reconcile/claude-main-20260825']
+    branches:
+      - reconcile/claude-main-20260825
     paths:
-      - '.github/workflows/patch-session-plan-badge.yml'
+      - .github/workflows/patch-session-plan-badge.yml
 
 permissions:
   contents: write
@@ -12,17 +13,14 @@ permissions:
 jobs:
   patch:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - name: Checkout exact branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
-
-      - name: Apply minimal badge move
-        shell: python {0}
+      - name: Patch only Listen and Mes Sessions
         run: |
+          python3 - <<'PY'
           from pathlib import Path
           import re
 
@@ -40,32 +38,27 @@ jobs:
           function MiniStat"""
           text, count = pattern.subn(replacement, text, count=1)
           if count != 1:
-            raise SystemExit('HomeScreenCompact TopBar contract not found exactly once')
+            raise SystemExit('TopBar contract missing')
           if 'topBarSpacer:' not in text:
-            marker = "topBar: {"
-            idx = text.find(marker)
-            if idx < 0:
-              raise SystemExit('HomeScreenCompact topBar style not found')
-            style_end = text.find('},', idx)
-            if style_end < 0:
-              raise SystemExit('HomeScreenCompact topBar style end not found')
-            style_end += 2
-            text = text[:style_end] + "\n  topBarSpacer: { width: 42 }," + text[style_end:]
+            anchor = "  topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },"
+            if anchor not in text:
+              raise SystemExit('topBar style contract missing')
+            text = text.replace(anchor, anchor + "\n  topBarSpacer: { width: 44 },", 1)
           home.write_text(text, encoding='utf-8')
 
           history = Path('packages/mobile/src/screens/SessionHistoryScreen.tsx')
           text = history.read_text(encoding='utf-8')
           text = text.replace("import React, { useEffect, useMemo } from 'react';", "import React, { useEffect, useMemo, useState } from 'react';", 1)
-          anchor = "import { spacing, radius, typography } from '../theme/spacing';"
+          import_anchor = "import { spacing, radius, typography } from '../theme/spacing';"
           if "../services/creditService" not in text:
-            if anchor not in text:
-              raise SystemExit('SessionHistory import anchor missing')
-            text = text.replace(anchor, anchor + "\nimport { getDownloadCreditStatus } from '../services/creditService';", 1)
+            if import_anchor not in text:
+              raise SystemExit('history import contract missing')
+            text = text.replace(import_anchor, import_anchor + "\nimport { getDownloadCreditStatus } from '../services/creditService';", 1)
 
           state_anchor = "  const activeSessionId = useSessionStore((s) => s.sessionId);\n"
           if 'const [planBadge' not in text:
             if state_anchor not in text:
-              raise SystemExit('SessionHistory state anchor missing')
+              raise SystemExit('history state contract missing')
             state_block = """  const activeSessionId = useSessionStore((s) => s.sessionId);
   const [planBadge, setPlanBadge] = useState<{ label: string; focusPlan: string; paid: boolean }>({ label: 'FREE', focusPlan: 'PREMIUM', paid: false });
 
@@ -102,7 +95,7 @@ jobs:
           if refresh_anchor in text:
             text = text.replace(refresh_anchor, refresh_replacement, 1)
           elif 'void refreshPlanBadge();' not in text:
-            raise SystemExit('SessionHistory refresh anchor missing')
+            raise SystemExit('history refresh contract missing')
 
           header_anchor = """      <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
@@ -120,14 +113,14 @@ jobs:
         </TouchableOpacity>
       </View>"""
           if header_anchor not in text:
-            raise SystemExit('SessionHistory header anchor missing')
+            raise SystemExit('history header contract missing')
           text = text.replace(header_anchor, header_replacement, 1)
-
           text = text.replace("  title: { ...typography.h2, color: colors.textPrimary },", "  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },", 1)
+
           if 'planBadge:' not in text:
             style_anchor = "  backArrow: { color: colors.textPrimary, fontSize: 22 },\n"
             if style_anchor not in text:
-              raise SystemExit('SessionHistory style anchor missing')
+              raise SystemExit('history style contract missing')
             badge_styles = """  backArrow: { color: colors.textPrimary, fontSize: 22 },
   planBadge: { minHeight: 30, minWidth: 70, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   planBadgeFree: { backgroundColor: '#10271F', borderColor: '#3BCB8B' },
@@ -138,26 +131,15 @@ jobs:
 """
             text = text.replace(style_anchor, badge_styles, 1)
           history.write_text(text, encoding='utf-8')
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck mobile
-        run: npm --workspace packages/mobile run type-check
-
-      - name: Verify forbidden files untouched
-        shell: bash
+          PY
+      - run: npm ci
+      - run: npm --workspace packages/mobile run type-check
+      - name: Guard validated navigation
+        run: git diff --exit-code -- packages/mobile/App.tsx packages/mobile/src/navigation/Navigation.tsx
+      - name: Commit repair
         run: |
-          set -euo pipefail
-          git diff --exit-code -- packages/mobile/App.tsx packages/mobile/src/navigation/Navigation.tsx
-          git diff --name-only
-
-      - name: Commit minimal repair
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'KEEP QA Bot'
-          git config user.email 'actions@users.noreply.github.com'
+          git config user.name "KEEP QA Bot"
+          git config user.email "actions@users.noreply.github.com"
           git add packages/mobile/src/screens/HomeScreenCompact.tsx packages/mobile/src/screens/SessionHistoryScreen.tsx
-          git commit -m 'fix(listen): move plan badge into session history'
+          git commit -m "fix(listen): move plan badge into session history"
           git push origin HEAD:reconcile/claude-main-20260825
