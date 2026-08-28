@@ -61,11 +61,13 @@ function certificationTier(value: unknown): ProfileCertificationTier {
 
 function normalizeKeepRow(row: any, fallbackVisibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC'): PublicProfileKeep {
   const context = row?.context && typeof row.context === 'object' ? row.context : {};
+  const sourceProfileId = row?.source_user_id || context.sourceProfileId
+    ? String(row?.source_user_id || context.sourceProfileId)
+    : undefined;
   const social = Boolean(
-    row?.source_user_id
+    sourceProfileId
     || row?.source_type === 'profile'
-    || context.creditPolicy === 'SOCIAL_ZERO_CREDIT'
-    || context.sourceProfileId,
+    || context.creditPolicy === 'SOCIAL_ZERO_CREDIT',
   );
   return {
     decisionId: String(row?.decision_id || ''),
@@ -86,11 +88,43 @@ function normalizeKeepRow(row: any, fallbackVisibility: 'PUBLIC' | 'PRIVATE' = '
       externalUrls: row?.external_urls && typeof row.external_urls === 'object' ? row.external_urls : {},
     },
     sourceUserId: row?.source_user_id ? String(row.source_user_id) : undefined,
-    sourceProfileId: context.sourceProfileId ? String(context.sourceProfileId) : undefined,
+    sourceProfileId,
     sourceUsername: context.sourceUsername ? String(context.sourceUsername) : undefined,
     sourceType: row?.source_type ? String(row.source_type) : undefined,
     creditSource: social ? 'SOCIAL' : 'LISTEN',
   };
+}
+
+async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
+  if (!supabase || !rows.length) return rows;
+  const ids = Array.from(new Set(rows
+    .filter((row) => !row.sourceUsername)
+    .map((row) => row.sourceProfileId || row.sourceUserId)
+    .filter(Boolean) as string[]));
+  if (!ids.length) return rows;
+
+  const usernames = new Map<string, string>();
+  const chunkSize = 100;
+  for (let start = 0; start < ids.length; start += chunkSize) {
+    const chunk = ids.slice(start, start + chunkSize);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,username')
+      .in('id', chunk)
+      .eq('is_public', true);
+    if (error) continue;
+    for (const profile of data ?? []) {
+      if (profile?.id && profile?.username) usernames.set(String(profile.id), String(profile.username));
+    }
+  }
+
+  if (!usernames.size) return rows;
+  return rows.map((row) => {
+    if (row.sourceUsername) return row;
+    const sourceId = row.sourceProfileId || row.sourceUserId;
+    const sourceUsername = sourceId ? usernames.get(sourceId) : undefined;
+    return sourceUsername ? { ...row, sourceUsername } : row;
+  });
 }
 
 export async function loadPublicProfileSnapshot(profileId: string): Promise<PublicProfileSnapshot> {
@@ -140,7 +174,7 @@ async function loadPagedKeeps(rpcName: 'keep_public_profile_tracks' | 'keep_own_
     for (const row of rows as any[]) result.push(normalizeKeepRow(row));
     if (rows.length < KEEP_PAGE_SIZE) break;
   }
-  return result;
+  return hydrateSourceUsernames(result);
 }
 
 export async function loadPublicProfileKeeps(profileId: string): Promise<PublicProfileKeep[]> {
