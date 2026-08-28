@@ -10,7 +10,7 @@
     "build:ios:local": "eas build --platform ios --local",
     "ios:dev": "expo run:ios --device",
     "android": "expo run:android",
-    "test": "jest",
+    "test": "node scripts/verify-profile-hierarchy.cjs && jest",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "install:all": "npm install && npm run type-check"
