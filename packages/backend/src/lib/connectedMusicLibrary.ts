@@ -203,11 +203,6 @@ export async function getConnectedPlaylistTracks(profileId: string, provider: Pr
   });
 }
 
-/**
- * Lit les titres réellement aimés/enregistrés par l'utilisateur chez le
- * fournisseur. KEEP ne récupère ici que les métadonnées autorisées par OAuth :
- * jamais les octets audio protégés ni un fichier téléchargeable.
- */
 export async function getConnectedSavedTracks(profileId: string, provider: Provider): Promise<LibraryTrack[]> {
   if (provider === 'spotify') {
     const token = await spotifyToken(profileId);
@@ -234,11 +229,6 @@ function chunk<T>(items: T[], size: number): T[][] {
   return output;
 }
 
-/**
- * Miroir metadata-only de la bibliothèque du fournisseur vers KEEP.
- * Les lignes disparues du fournisseur sont soft-delete ; les préférences de
- * visibilité déjà choisies dans KEEP ne sont jamais écrasées lors d'un resync.
- */
 export async function importConnectedSavedLibrary(profileId: string, provider: Provider) {
   const tracks = await getConnectedSavedTracks(profileId, provider);
   const database = db();
@@ -408,10 +398,6 @@ export async function addTrackToConnectedPlaylist(profileId: string, provider: P
   return { added: true, alreadyExists: false, providerTrackId: resolved.id };
 }
 
-/**
- * Réinjecte une playlist/Vibe KEEP déjà triée dans une playlist du fournisseur.
- * On réutilise le dédoublonnage et la résolution ISRC/titre-artiste existants.
- */
 export async function syncKeepPlaylistToConnectedProvider(args: {
   profileId: string;
   keepPlaylistId: string;
@@ -455,7 +441,7 @@ export async function syncKeepPlaylistToConnectedProvider(args: {
     }));
     for (const item of results) {
       if ('error' in item) {
-        failures.push({ title: item.track.title, artist: item.track.artist, error: item.error });
+        failures.push({ title: item.track.title, artist: item.track.artist, error: item.error ?? 'sync_failed' });
       } else if (item.result.added) added += 1;
       else if (item.result.alreadyExists) alreadyExists += 1;
     }
