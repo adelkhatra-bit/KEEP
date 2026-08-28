@@ -68,6 +68,35 @@ jobs:
             { label:'desktop-1440x900', width:1440, height:900 },
           ];
 
+          async function borderedRect(locator, label) {
+            await locator.waitFor({state:'attached',timeout:15000});
+            await locator.scrollIntoViewIfNeeded();
+            const rect = await locator.evaluate((el) => {
+              let node = el;
+              while (node && node !== document.body) {
+                const style = getComputedStyle(node);
+                const leftBorder = Number.parseFloat(style.borderLeftWidth || '0');
+                const rightBorder = Number.parseFloat(style.borderRightWidth || '0');
+                if (leftBorder >= 0.5 && rightBorder >= 0.5) {
+                  const r = node.getBoundingClientRect();
+                  return { left:r.left, right:r.right, width:r.width, top:r.top, bottom:r.bottom };
+                }
+                node = node.parentElement;
+              }
+              return null;
+            });
+            if (!rect) throw new Error(`${label}: bordered container not found`);
+            return rect;
+          }
+
+          function assertBorderAligned(a, b, label) {
+            const leftDiff = Math.abs(a.left - b.left);
+            const rightDiff = Math.abs(a.right - b.right);
+            if (leftDiff > 1 || rightDiff > 1) {
+              throw new Error(`${label}: borders misaligned left=${leftDiff.toFixed(2)}px right=${rightDiff.toFixed(2)}px A=${JSON.stringify(a)} B=${JSON.stringify(b)}`);
+            }
+          }
+
           (async()=>{
             const browser = await chromium.launch({ headless:true });
             const report = [];
@@ -112,10 +141,20 @@ jobs:
               if(!/profil.*dans ce rayon/i.test(discoveryBody)) throw new Error(`${c.label}: compteur de résultats absent`);
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-discover.png`,fullPage:true});
 
-              // Vrai parcours d'un visiteur jusqu'au Swipe d'un autre profil.
+              // Vrai parcours visiteur + contrôle géométrique des cartes profil.
               await profileLink.click();
-              await t(/DÉCOUVRIR SON KEEP EN SWIPE/i).waitFor({state:'visible',timeout:20000});
-              await t(/DÉCOUVRIR SON KEEP EN SWIPE/i).click();
+              const visitorDnaTitle=t('Son empreinte musicale',{exact:true});
+              const visitorKeepLabel=t('KEEP utilisateurs',{exact:true});
+              await visitorDnaTitle.waitFor({state:'visible',timeout:20000});
+              const visitorDnaRect=await borderedRect(visitorDnaTitle, `${c.label} visitor DNA`);
+              const visitorKeepRect=await borderedRect(visitorKeepLabel, `${c.label} visitor KEEP counters`);
+              assertBorderAligned(visitorDnaRect, visitorKeepRect, `${c.label} visitor DNA ↔ KEEP`);
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-visitor-profile-alignment.png`,fullPage:true});
+
+              const visitorSwipe=t(/DÉCOUVRIR SON KEEP EN SWIPE/i);
+              await visitorSwipe.waitFor({state:'visible',timeout:20000});
+              await visitorSwipe.scrollIntoViewIfNeeded();
+              await visitorSwipe.click();
               await t('KEEP SWIPE',{exact:true}).waitFor({state:'visible',timeout:15000});
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-social-swipe.png`,fullPage:true});
               await page.getByLabel('Fermer le swipe').last().click();
@@ -141,11 +180,21 @@ jobs:
               await save.click();
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
+              // Contrôle utilisateur/propriétaire : les contours de Ton empreinte
+              // musicale et KEEP total / KEEP utilisateurs doivent tomber sur les
+              // mêmes verticales, à 1 px maximum, mobile comme desktop.
+              const ownerDnaTitle=t('Ton empreinte musicale',{exact:true});
+              const ownerKeepLabel=t('KEEP total',{exact:true});
+              const ownerDnaRect=await borderedRect(ownerDnaTitle, `${c.label} owner DNA`);
+              const ownerKeepRect=await borderedRect(ownerKeepLabel, `${c.label} owner KEEP counters`);
+              assertBorderAligned(ownerDnaRect, ownerKeepRect, `${c.label} owner DNA ↔ KEEP`);
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-owner-profile-alignment.png`,fullPage:true});
+
               const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
               if(dims.scrollWidth>dims.width+1) throw new Error(`${c.label}: overflow horizontal ${JSON.stringify(dims)}`);
               if(pageErrors.length) throw new Error(`${c.label}: ${pageErrors.join('\n')}`);
 
-              report.push(`${c.label}: PASS — Discover vide avant recherche; GPS recherche 50 km; profil trouvé; Swipe social ouvert; Profil > Modifier > Utiliser ma position; sauvegarde locale; aucun overflow`);
+              report.push(`${c.label}: PASS — Discover vide avant recherche; GPS 50 km; profil trouvé; alignement visiteur DNA↔KEEP ≤1px; Swipe social; Profil > Modifier > GPS; alignement propriétaire DNA↔KEEP ≤1px; aucun overflow`);
               await context.close();
             }
 
