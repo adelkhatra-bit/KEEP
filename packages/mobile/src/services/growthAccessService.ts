@@ -28,6 +28,8 @@ export type CommercialRules = {
   premiumDailyDownloads: number;
   shareDailyCap: number;
   audienceProThreshold: number;
+  shareTiers: [number, number, number];
+  followerTiers: [number, number, number, number, number];
 };
 
 function quota(row: any): QuotaAccess {
@@ -87,6 +89,8 @@ export async function getCommercialRules(): Promise<CommercialRules> {
     premiumDailyDownloads: 40,
     shareDailyCap: 10,
     audienceProThreshold: 1000,
+    shareTiers: [20, 50, 100],
+    followerTiers: [25, 100, 250, 500, 1000],
   };
   if (!supabase) return fallback;
   const keys = [
@@ -94,16 +98,37 @@ export async function getCommercialRules(): Promise<CommercialRules> {
     'premium_sort_trial_runs',
     'premium_daily_download_limit',
     'growth_share_daily_cap',
-    'growth_followers_pro_threshold',
+    'growth_share_tier1_threshold',
+    'growth_share_tier2_threshold',
+    'growth_share_tier3_threshold',
+    'growth_followers_tier1_threshold',
+    'growth_followers_tier2_threshold',
+    'growth_followers_tier3_threshold',
+    'growth_followers_tier4_threshold',
+    'growth_followers_tier5_threshold',
   ];
   const { data, error } = await supabase.from('remote_config').select('key,value').in('key', keys);
   if (error) return fallback;
   const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
+  const num = (key: string, fallbackValue: number) => Number.isFinite(map[key]) ? map[key] : fallbackValue;
+  const followerTiers: [number, number, number, number, number] = [
+    num('growth_followers_tier1_threshold', 25),
+    num('growth_followers_tier2_threshold', 100),
+    num('growth_followers_tier3_threshold', 250),
+    num('growth_followers_tier4_threshold', 500),
+    num('growth_followers_tier5_threshold', 1000),
+  ];
   return {
-    freeDiscoveryProfiles: Number.isFinite(map.free_discovery_profile_limit) ? map.free_discovery_profile_limit : fallback.freeDiscoveryProfiles,
-    premiumSmartSortTrials: Number.isFinite(map.premium_sort_trial_runs) ? map.premium_sort_trial_runs : fallback.premiumSmartSortTrials,
-    premiumDailyDownloads: Number.isFinite(map.premium_daily_download_limit) ? map.premium_daily_download_limit : fallback.premiumDailyDownloads,
-    shareDailyCap: Number.isFinite(map.growth_share_daily_cap) ? map.growth_share_daily_cap : fallback.shareDailyCap,
-    audienceProThreshold: Number.isFinite(map.growth_followers_pro_threshold) ? map.growth_followers_pro_threshold : fallback.audienceProThreshold,
+    freeDiscoveryProfiles: num('free_discovery_profile_limit', fallback.freeDiscoveryProfiles),
+    premiumSmartSortTrials: num('premium_sort_trial_runs', fallback.premiumSmartSortTrials),
+    premiumDailyDownloads: num('premium_daily_download_limit', fallback.premiumDailyDownloads),
+    shareDailyCap: num('growth_share_daily_cap', fallback.shareDailyCap),
+    audienceProThreshold: followerTiers[4],
+    shareTiers: [
+      num('growth_share_tier1_threshold', 20),
+      num('growth_share_tier2_threshold', 50),
+      num('growth_share_tier3_threshold', 100),
+    ],
+    followerTiers,
   };
 }
