@@ -214,6 +214,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const planStyle = planCode === 'FREE' ? (creditsExhausted ? s.planExhausted : s.planFree) : s.planPaid;
   const profileOwnKeepCount = publicSnapshot?.directPublicKeeps ?? localPublicOwnKeepCount;
   const profileUserKeepCount = publicSnapshot?.socialPublicKeeps ?? localPublicUserKeepCount;
+  const profileTotalKeepCount = publicSnapshot?.totalPublicKeeps ?? (localPublicOwnKeepCount + localPublicUserKeepCount);
   const profileFollowerCount = publicSnapshot?.followers ?? user.followerCount;
   const profileFollowingCount = publicSnapshot?.following ?? user.followingCount;
   const fallbackCertification: ProfileCertificationTier = accountRequired
@@ -417,7 +418,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
         {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
         <View style={s.stats}>
-          <Stat value={profileOwnKeepCount} label="KEEP"/>
+          <Stat value={profileTotalKeepCount} label="KEEP total"/>
           <Stat value={profileUserKeepCount} label="KEEP utilisateurs"/>
           <Stat value={profileFollowerCount} label="Abonnés"/>
           <Stat value={profileFollowingCount} label="Abonnements"/>

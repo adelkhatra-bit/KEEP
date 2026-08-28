@@ -206,7 +206,11 @@ function renderPublicMusic(decisions,playlists,ownerProfileId){
 }
 async function init(){
   if(!u)throw new Error('Profil manquant');
-  const profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);
+  let profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);
+  if(!profileRows.length){
+    const aliases=await get(`profile_username_aliases?alias=ilike.${encodeURIComponent(u)}&select=profile_id&limit=1`);
+    if(aliases.length)profileRows=await get(`profiles?id=eq.${encodeURIComponent(aliases[0].profile_id)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);
+  }
   if(!profileRows.length)throw new Error('Profil introuvable');
   const p=profileRows[0];
   const title=`@${p.username} sur KEEP`;
