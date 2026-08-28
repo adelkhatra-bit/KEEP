@@ -6,6 +6,7 @@
  */
 import { Platform } from 'react-native';
 import { Audio, InterruptionModeIOS } from 'expo-av';
+import { ensureBackgroundListeningService, stopBackgroundListeningService } from './backgroundListeningService';
 
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
@@ -119,6 +120,19 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
   const versionAtStart = cancellationVersion;
   await ensurePermission();
   if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
+
+  // Android 14+ n'autorise le micro en arrière-plan que si un foreground
+  // service de type `microphone` a été démarré pendant que KEEP est encore au
+  // premier plan et après l'accord RECORD_AUDIO. Le module est idempotent :
+  // les échantillons suivants réutilisent le même service tant que la session
+  // d'écoute reste active.
+  if (Platform.OS === 'android') {
+    await ensureBackgroundListeningService();
+    if (versionAtStart !== cancellationVersion) {
+      await stopBackgroundListeningService();
+      throw new MicCaptureCancelledError();
+    }
+  }
 
   const preset = Audio.RecordingOptionsPresets.HIGH_QUALITY;
   const recognitionOptions = {
@@ -341,6 +355,10 @@ export async function cancelAudioCapture(): Promise<void> {
   if (Platform.OS === 'web') {
     releaseCaptureResources();
     return;
+  }
+
+  if (Platform.OS === 'android') {
+    await stopBackgroundListeningService();
   }
 
   // Sur iOS, `stopAndUnloadAsync` arrête le fichier mais la session audio peut
