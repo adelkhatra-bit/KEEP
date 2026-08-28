@@ -1,4 +1,11 @@
-import { keepProviderIdentities, normalizeKeepTrackText, tracksRepresentSameKeep } from '../keepTrackIdentity';
+import {
+  buildKeepTrackIdentityIndex,
+  filterTracksNotAlreadyKept,
+  keepProviderIdentities,
+  normalizeKeepTrackText,
+  trackExistsInKeepIndex,
+  tracksRepresentSameKeep,
+} from '../keepTrackIdentity';
 
 const base = {
   id: 'keep-local-a',
@@ -48,5 +55,33 @@ describe('KEEP duplicate track identity', () => {
   it('ignore les identifiants fournisseurs vides', () => {
     expect(keepProviderIdentities({ providerIds: { spotify: '', appleMusic: '123' } } as any))
       .toEqual([{ provider: 'appleMusic', value: '123' }]);
+  });
+
+  it('retire avant le Swipe tous les morceaux déjà possédés', () => {
+    const own = [
+      { id: 'keep-1', title: 'Bad Girl', artist: 'Usher', isrc: 'USAR10400214', providerIds: { spotify: '5rPzPAaOUceS8HiAculegz' } },
+      { id: 'keep-2', title: 'Me gustas tù', artist: 'Josas', providerIds: { appleMusic: '1659483185' } },
+    ] as any[];
+    const candidate = [
+      { id: 'remote-a', title: 'Bad Girl (Album Version)', artist: 'Usher', providerIds: { spotify: '5rPzPAaOUceS8HiAculegz' } },
+      { id: 'remote-b', title: 'Me Gustas Tu - Single Version', artist: 'Josas', providerIds: { appleMusic: '1659483185' } },
+      { id: 'remote-c', title: 'Nouveau morceau', artist: 'Nouvel artiste', providerIds: { spotify: 'new-track' } },
+    ] as any[];
+
+    const index = buildKeepTrackIdentityIndex(own as any);
+    expect(trackExistsInKeepIndex(index, candidate[0])).toBe(true);
+    expect(trackExistsInKeepIndex(index, candidate[1])).toBe(true);
+    expect(filterTracksNotAlreadyKept(candidate as any, index).map((track: any) => track.id)).toEqual(['remote-c']);
+  });
+
+  it('retire aussi un morceau via le filet titre/artiste quand aucun id fournisseur n’est disponible', () => {
+    const index = buildKeepTrackIdentityIndex([
+      { id: 'keep-x', title: "N'tya (Album Version)", artist: 'Kayliah', providerIds: {} },
+    ] as any);
+    const filtered = filterTracksNotAlreadyKept([
+      { id: 'remote-x', title: "N'TYA", artist: 'Kayliah', providerIds: {} },
+      { id: 'remote-y', title: 'Autre', artist: 'Kayliah', providerIds: {} },
+    ] as any, index);
+    expect(filtered.map((track: any) => track.id)).toEqual(['remote-y']);
   });
 });
