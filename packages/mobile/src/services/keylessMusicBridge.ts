@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 
 export type MusicServiceKey = 'apple_music' | 'spotify' | 'deezer' | 'youtube_music' | 'soundcloud' | 'tidal';
@@ -58,6 +58,13 @@ export function buildMusicServiceSearchUrl(service: MusicServiceKey, track?: Key
 
 export async function openMusicService(service: MusicServiceKey, track?: KeylessExportTrack): Promise<void> {
   const url = buildMusicServiceSearchUrl(service, track);
+  // React Native Web peut transformer Linking.openURL en nouvelle fenêtre ;
+  // après une confirmation + RPC navigateur, celle-ci peut être bloquée comme
+  // popup. Une navigation dans l'onglet courant reste toujours autorisée.
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.location.assign(url);
+    return;
+  }
   await Linking.openURL(url);
 }
 
