@@ -22,6 +22,14 @@ export type GrowthRewardStatus = {
   audienceProThreshold: number;
 };
 
+export type CommercialRules = {
+  freeDiscoveryProfiles: number;
+  premiumSmartSortTrials: number;
+  premiumDailyDownloads: number;
+  shareDailyCap: number;
+  audienceProThreshold: number;
+};
+
 function quota(row: any): QuotaAccess {
   return {
     planCode: String(row?.plan_code || 'FREE'),
@@ -69,5 +77,33 @@ export async function getGrowthRewardStatus(): Promise<GrowthRewardStatus> {
     nextShareGoal: row?.next_share_goal == null ? null : Number(row.next_share_goal),
     audienceProUnlocked: Boolean(row?.audience_pro_unlocked),
     audienceProThreshold: Number(row?.audience_pro_threshold || 1000),
+  };
+}
+
+export async function getCommercialRules(): Promise<CommercialRules> {
+  const fallback: CommercialRules = {
+    freeDiscoveryProfiles: 3,
+    premiumSmartSortTrials: 3,
+    premiumDailyDownloads: 40,
+    shareDailyCap: 10,
+    audienceProThreshold: 1000,
+  };
+  if (!supabase) return fallback;
+  const keys = [
+    'free_discovery_profile_limit',
+    'premium_sort_trial_runs',
+    'premium_daily_download_limit',
+    'growth_share_daily_cap',
+    'growth_followers_pro_threshold',
+  ];
+  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', keys);
+  if (error) return fallback;
+  const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
+  return {
+    freeDiscoveryProfiles: Number.isFinite(map.free_discovery_profile_limit) ? map.free_discovery_profile_limit : fallback.freeDiscoveryProfiles,
+    premiumSmartSortTrials: Number.isFinite(map.premium_sort_trial_runs) ? map.premium_sort_trial_runs : fallback.premiumSmartSortTrials,
+    premiumDailyDownloads: Number.isFinite(map.premium_daily_download_limit) ? map.premium_daily_download_limit : fallback.premiumDailyDownloads,
+    shareDailyCap: Number.isFinite(map.growth_share_daily_cap) ? map.growth_share_daily_cap : fallback.shareDailyCap,
+    audienceProThreshold: Number.isFinite(map.growth_followers_pro_threshold) ? map.growth_followers_pro_threshold : fallback.audienceProThreshold,
   };
 }
