@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Synchronize lockfile
@@ -44,7 +44,10 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Typecheck mobile
-        run: npm run mobile:typecheck
+        run: npm run type-check --workspace=packages/mobile
+
+      - name: Typecheck music core
+        run: npm run type-check --workspace=packages/music
 
       - name: Commit generated profile integration
         run: |
