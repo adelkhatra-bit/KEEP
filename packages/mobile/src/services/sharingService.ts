@@ -43,10 +43,207 @@ export function buildPublicProfileLink(username: string): string {
   return `${WEB_URL}/share-profile/?u=${encodeURIComponent(username.trim().replace(/^@/, ''))}`;
 }
 
+type ProfileShareCopy = {
+  cleanUsername: string;
+  link: string;
+  subject: string;
+  message: string;
+  emailBody: string;
+  isOwnProfile: boolean;
+};
+
+function buildProfileShareCopy(username: string): ProfileShareCopy {
+  const cleanUsername = username.trim().replace(/^@/, '');
+  const link = buildPublicProfileLink(cleanUsername);
+  const current = useUserStore.getState().user;
+  const currentUsername = current?.username?.trim().replace(/^@/, '');
+  const isOwnProfile = Boolean(currentUsername && currentUsername.toLowerCase() === cleanUsername.toLowerCase());
+
+  if (isOwnProfile) {
+    const identity = [current?.username ? `@${cleanUsername}` : '', current?.city, current?.countryCode].filter(Boolean).join(' · ');
+    const bio = current?.bio?.trim() ? `\n${current.bio.trim()}\n` : '';
+    const genres = current?.favoriteGenres?.length ? `\nMes styles : ${current.favoriteGenres.slice(0, 5).join(' · ')}\n` : '';
+    const message = `Mon KEEP raconte ce que j’écoute. Découvre mon univers musical, mes Vibes et mon KEEP DNA 🎧 ${link}`;
+    const emailBody = `Mon KEEP raconte ce que j’écoute.\n\n${identity}${bio}${genres}\nEntre dans mon univers : découvre mon KEEP DNA, mes Vibes, mes morceaux gardés et les réseaux que j’ai choisi de partager.\n\n${link}\n\nUn scan, un clic, et tu sais déjà un peu mieux qui je suis.\n\nKEEP — Tes goûts te ressemblent.`;
+    return {
+      cleanUsername,
+      link,
+      subject: `Découvre mon univers musical KEEP — @${cleanUsername}`,
+      message,
+      emailBody,
+      isOwnProfile: true,
+    };
+  }
+
+  const message = `Je te partage le KEEP de @${cleanUsername}. Découvre son univers musical, ses Vibes et son KEEP DNA 🎧 ${link}`;
+  const emailBody = `Je te partage le profil KEEP de @${cleanUsername}.\n\nDécouvre son KEEP DNA, ses Vibes, ses morceaux publics et les réseaux qu’il ou elle a choisi de partager.\n\n${link}\n\nKEEP — Tes goûts te ressemblent.`;
+  return {
+    cleanUsername,
+    link,
+    subject: `Découvre le KEEP de @${cleanUsername}`,
+    message,
+    emailBody,
+    isOwnProfile: false,
+  };
+}
+
+async function shareProfileSystem(copy: ProfileShareCopy): Promise<void> {
+  await shareAndTrack(
+    { title: copy.subject, message: copy.message },
+    'profile_share',
+    Platform.OS === 'web' ? (copy.isOwnProfile ? 'web_share' : 'visitor_web_share') : (copy.isOwnProfile ? 'system_share' : 'visitor_system_share'),
+  );
+}
+
+async function shareProfileEmailCopy(copy: ProfileShareCopy): Promise<void> {
+  const subject = encodeURIComponent(copy.subject);
+  const body = encodeURIComponent(copy.emailBody);
+  const mailto = `mailto:?subject=${subject}&body=${body}`;
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try { window.location.assign(mailto); }
+    catch {
+      if (typeof document !== 'undefined') {
+        const anchor = document.createElement('a');
+        anchor.href = mailto;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      } else throw new Error('email_handler_unavailable');
+    }
+    await trackShare('profile_share_email', copy.isOwnProfile ? 'mail_client_web' : 'visitor_mail_client_web');
+    return;
+  }
+
+  const canOpenEmail = await Linking.canOpenURL(mailto).catch(() => false);
+  if (canOpenEmail) {
+    await Linking.openURL(mailto);
+    await trackShare('profile_share_email', copy.isOwnProfile ? 'mail_client_native' : 'visitor_mail_client_native');
+    return;
+  }
+
+  const result = await Share.share({ title: copy.subject, message: copy.emailBody });
+  if (!result?.action || result.action === Share.sharedAction) {
+    await trackShare('profile_share_email', copy.isOwnProfile ? 'mail_fallback_share' : 'visitor_mail_fallback_share');
+  }
+}
+
+async function copyProfileLink(copy: ProfileShareCopy): Promise<void> {
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(copy.link);
+    return;
+  }
+  await Share.share({ title: copy.subject, message: copy.link });
+}
+
+function showWebProfileShareSheet(copy: ProfileShareCopy): Promise<void> {
+  if (typeof document === 'undefined') return shareProfileSystem(copy);
+
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.setAttribute('data-keep-profile-share', 'true');
+    Object.assign(overlay.style, {
+      position: 'fixed', inset: '0', zIndex: '2147483647', background: 'rgba(5,3,10,.76)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '14px', boxSizing: 'border-box',
+      fontFamily: 'system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    });
+
+    const sheet = document.createElement('div');
+    Object.assign(sheet.style, {
+      width: 'min(430px,100%)', maxHeight: '86vh', overflowY: 'auto', background: '#151020', color: '#F8F6FC',
+      border: '1px solid #493369', borderRadius: '24px', padding: '18px', boxSizing: 'border-box',
+      boxShadow: '0 22px 70px rgba(0,0,0,.55)',
+    });
+
+    const handle = document.createElement('div');
+    Object.assign(handle.style, { width: '42px', height: '4px', borderRadius: '4px', background: '#6E5C80', margin: '0 auto 14px' });
+
+    const heading = document.createElement('div');
+    heading.textContent = copy.isOwnProfile ? 'Partager mon profil KEEP' : `Partager le KEEP de @${copy.cleanUsername}`;
+    Object.assign(heading.style, { fontSize: '18px', lineHeight: '24px', fontWeight: '900', textAlign: 'center' });
+
+    const hint = document.createElement('div');
+    hint.textContent = 'Le bouton principal ouvre les applications disponibles sur ton appareil : Instagram, TikTok, WhatsApp, Messages, Facebook, X, etc.';
+    Object.assign(hint.style, { marginTop: '8px', fontSize: '11px', lineHeight: '16px', color: '#9F93AD', textAlign: 'center' });
+
+    const link = document.createElement('div');
+    link.textContent = copy.link;
+    Object.assign(link.style, { marginTop: '13px', padding: '10px', borderRadius: '12px', background: '#0E0A14', border: '1px solid #342641', color: '#B79CFF', fontSize: '10px', lineHeight: '14px', wordBreak: 'break-all' });
+
+    const finish = () => {
+      overlay.remove();
+      resolve();
+    };
+
+    const makeButton = (label: string, primary: boolean, action: () => Promise<void>) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      Object.assign(button.style, {
+        width: '100%', minHeight: '48px', marginTop: '10px', borderRadius: '16px', cursor: 'pointer',
+        border: primary ? '1px solid #A884FA' : '1px solid #493369',
+        background: primary ? '#5B3F8C' : '#211A2B', color: '#FFFFFF', fontWeight: '900', fontSize: '12px',
+      });
+      button.onclick = () => {
+        button.disabled = true;
+        void action().catch(() => {}).finally(finish);
+      };
+      return button;
+    };
+
+    const shareButton = makeButton('PARTAGER SUR MES APPLICATIONS', true, () => shareProfileSystem(copy));
+    const emailButton = makeButton('✉  PARTAGER PAR E-MAIL', false, () => shareProfileEmailCopy(copy));
+    const copyButton = makeButton('COPIER LE LIEN DU PROFIL', false, () => copyProfileLink(copy));
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Fermer';
+    Object.assign(cancel.style, {
+      width: '100%', minHeight: '42px', marginTop: '8px', border: '0', background: 'transparent', color: '#AFA6BD',
+      cursor: 'pointer', fontWeight: '800', fontSize: '12px',
+    });
+    cancel.onclick = finish;
+    overlay.onclick = (event) => { if (event.target === overlay) finish(); };
+
+    sheet.append(handle, heading, hint, link, shareButton, emailButton, copyButton, cancel);
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+  });
+}
+
+function showNativeProfileShareSheet(copy: ProfileShareCopy): Promise<void> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      copy.isOwnProfile ? 'Partager mon profil KEEP' : `Partager le KEEP de @${copy.cleanUsername}`,
+      'Choisis comment le partager. « Partager » ouvre les applications disponibles sur ton téléphone.',
+      [
+        { text: 'Annuler', style: 'cancel', onPress: () => resolve() },
+        { text: 'E-mail', onPress: () => { void shareProfileEmailCopy(copy).catch(() => {}).finally(() => resolve()); } },
+        { text: 'Partager', onPress: () => { void shareProfileSystem(copy).catch(() => {}).finally(() => resolve()); } },
+      ],
+      { cancelable: true, onDismiss: () => resolve() },
+    );
+  });
+}
+
 export async function shareProfile(username: string): Promise<void> {
-  const link = buildPublicProfileLink(username);
-  const message = `Mon KEEP raconte ce que j’écoute. Découvre mon univers musical, mes Vibes et mon KEEP DNA 🎧 ${link}`;
-  await shareAndTrack({ title: 'Découvre mon KEEP', message }, 'profile_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  const copy = buildProfileShareCopy(username);
+
+  // Sur le profil propriétaire, un modal KEEP est déjà affiché avant cet appel :
+  // on ouvre directement la feuille système pour éviter deux fenêtres successives.
+  if (copy.isOwnProfile) {
+    await shareProfileSystem(copy);
+    return;
+  }
+
+  // Sur le profil d'un autre utilisateur, la petite flèche doit suivre le même
+  // parcours KEEP que les autres partages : popup clair puis choix des apps.
+  if (Platform.OS === 'web') {
+    await showWebProfileShareSheet(copy);
+    return;
+  }
+  await showNativeProfileShareSheet(copy);
 }
 
 type TrackShareCopy = {
@@ -226,43 +423,7 @@ export async function shareProfileTrack(username: string, title: string, artist:
 }
 
 export async function shareProfileByEmail(username: string): Promise<void> {
-  const cleanUsername = username.trim().replace(/^@/, '');
-  const link = buildPublicProfileLink(cleanUsername);
-  const current = useUserStore.getState().user;
-  const sameProfile = current?.username?.trim().replace(/^@/, '') === cleanUsername ? current : null;
-
-  const identity = sameProfile
-    ? [sameProfile.username ? `@${cleanUsername}` : '', sameProfile.city, sameProfile.countryCode].filter(Boolean).join(' · ')
-    : `@${cleanUsername}`;
-  const bio = sameProfile?.bio?.trim() ? `\n${sameProfile.bio.trim()}\n` : '';
-  const genres = sameProfile?.favoriteGenres?.length ? `\nMes styles : ${sameProfile.favoriteGenres.slice(0, 5).join(' · ')}\n` : '';
-
-  const subjectText = `Découvre mon univers musical KEEP — @${cleanUsername}`;
-  const bodyText = `Mon KEEP raconte ce que j’écoute.\n\n${identity}${bio}${genres}\nEntre dans mon univers : découvre mon KEEP DNA, mes Vibes, mes morceaux gardés et les réseaux que j’ai choisi de partager.\n\n${link}\n\nUn scan, un clic, et tu sais déjà un peu mieux qui je suis.\n\nKEEP — Tes goûts te ressemblent.`;
-  const subject = encodeURIComponent(subjectText);
-  const body = encodeURIComponent(bodyText);
-  const mailto = `mailto:?subject=${subject}&body=${body}`;
-
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try { window.location.assign(mailto); }
-    catch {
-      if (typeof document !== 'undefined') {
-        const anchor = document.createElement('a'); anchor.href = mailto; anchor.style.display = 'none'; document.body.appendChild(anchor); anchor.click(); anchor.remove();
-      } else throw new Error('email_handler_unavailable');
-    }
-    await trackShare('profile_share_email', 'mail_client_web');
-    return;
-  }
-
-  const canOpenEmail = await Linking.canOpenURL(mailto).catch(() => false);
-  if (canOpenEmail) {
-    await Linking.openURL(mailto);
-    await trackShare('profile_share_email', 'mail_client_native');
-    return;
-  }
-
-  const result = await Share.share({ title: subjectText, message: bodyText });
-  if (!result?.action || result.action === Share.sharedAction) await trackShare('profile_share_email', 'mail_fallback_share');
+  await shareProfileEmailCopy(buildProfileShareCopy(username));
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
