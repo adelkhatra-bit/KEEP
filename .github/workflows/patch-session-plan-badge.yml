@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply minimal badge move
-        shell: python
+        shell: python {0}
         run: |
           from pathlib import Path
           import re
@@ -46,7 +46,6 @@ jobs:
             idx = text.find(marker)
             if idx < 0:
               raise SystemExit('HomeScreenCompact topBar style not found')
-            # Add a neutral right-side spacer next to the existing top bar styles.
             style_end = text.find('},', idx)
             if style_end < 0:
               raise SystemExit('HomeScreenCompact topBar style end not found')
