@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
 import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
@@ -23,12 +24,25 @@ type DiscoveryProfile = {
   kind: string;
   favoriteGenres: string[];
   favoriteArtists: string[];
+  approxLat?: number;
+  approxLng?: number;
 };
 
 const PROFILE_KIND_LABELS: Record<string, string> = {
   USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
 };
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
+const DISCOVERY_RADII = [10, 50, 100, 300, 1000, 20000] as const;
+
+type SearchPosition = { latitude: number; longitude: number };
+
+function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const rad = (value: number) => value * Math.PI / 180;
+  const dLat = rad(bLat - aLat);
+  const dLng = rad(bLng - aLng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
 
 function normalizeProfile(row: any): DiscoveryProfile {
   return {
@@ -41,6 +55,8 @@ function normalizeProfile(row: any): DiscoveryProfile {
     kind: String(row.kind || 'USER'),
     favoriteGenres: Array.isArray(row.favorite_genres) ? row.favorite_genres : [],
     favoriteArtists: Array.isArray(row.favorite_artists) ? row.favorite_artists : [],
+    approxLat: Number.isFinite(Number(row.approx_lat)) ? Number(row.approx_lat) : undefined,
+    approxLng: Number.isFinite(Number(row.approx_lng)) ? Number(row.approx_lng) : undefined,
   };
 }
 
@@ -70,6 +86,9 @@ export default function DiscoverScreen({ navigation }: any) {
   const [followNotice, setFollowNotice] = useState('');
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(100);
+  const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((session) =>
@@ -114,7 +133,7 @@ export default function DiscoverScreen({ navigation }: any) {
       try {
         let query = supabase
           .from('profiles')
-          .select('id,username,avatar_url,bio,city,country_code,kind,favorite_genres,favorite_artists')
+          .select('id,username,avatar_url,bio,city,country_code,kind,favorite_genres,favorite_artists,approx_lat,approx_lng')
           .eq('is_public', true)
           .eq('discovery_hidden', false)
           .limit(80);
@@ -146,7 +165,25 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [user?.id, user?.city, user?.countryCode, isLocalGuest, navigation]);
 
-  const currentProfile = profiles.length ? profiles[profileIndex % profiles.length] : null;
+  const filteredProfiles = useMemo(() => {
+    if (!searchPosition) return profiles;
+    const ranked = profiles.map((profile) => {
+      const hasCoordinates = Number.isFinite(profile.approxLat) && Number.isFinite(profile.approxLng);
+      const distance = hasCoordinates
+        ? distanceKm(searchPosition.latitude, searchPosition.longitude, profile.approxLat as number, profile.approxLng as number)
+        : null;
+      return { profile, distance };
+    }).filter((item) => radiusKm >= 20000 ? true : item.distance !== null && item.distance <= radiusKm);
+    ranked.sort((a, b) => {
+      if (a.distance === null && b.distance === null) return a.profile.username.localeCompare(b.profile.username);
+      if (a.distance === null) return 1;
+      if (b.distance === null) return -1;
+      return a.distance - b.distance;
+    });
+    return ranked.map((item) => item.profile);
+  }, [profiles, radiusKm, searchPosition]);
+
+  const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
   useEffect(() => {
     let live = true;
@@ -197,9 +234,36 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; };
   }, [currentProfile?.id, discoveryAccess?.allowed]);
 
+  const searchAroundMe = async () => {
+    if (searchBusy) return;
+    setSearchBusy(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Localisation', 'Autorise la localisation pour rechercher les profils autour de toi.');
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      setSearchPosition(next);
+      setProfileIndex(0);
+      if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
+        await supabase.from('profiles').update({
+          approx_lat: Math.round(next.latitude * 1000) / 1000,
+          approx_lng: Math.round(next.longitude * 1000) / 1000,
+          location_opt_in: true,
+        }).eq('id', user.id);
+      }
+    } catch {
+      Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment.');
+    } finally {
+      setSearchBusy(false);
+    }
+  };
+
   const nextProfile = () => {
     setFollowNotice('');
-    if (profiles.length) setProfileIndex((value) => (value + 1) % profiles.length);
+    if (filteredProfiles.length) setProfileIndex((value) => (value + 1) % filteredProfiles.length);
   };
 
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
@@ -236,8 +300,14 @@ export default function DiscoverScreen({ navigation }: any) {
       )
     : null;
 
+  const currentDistance = currentProfile && searchPosition && Number.isFinite(currentProfile.approxLat) && Number.isFinite(currentProfile.approxLng)
+    ? distanceKm(searchPosition.latitude, searchPosition.longitude, currentProfile.approxLat as number, currentProfile.approxLng as number)
+    : null;
+
   const proximity = currentProfile
-    ? user?.city && currentProfile.city && user.city.toLowerCase() === currentProfile.city.toLowerCase()
+    ? currentDistance !== null
+      ? `${currentDistance < 1 ? '< 1' : Math.round(currentDistance)} km · ${[currentProfile.city, currentProfile.countryCode].filter(Boolean).join(' · ') || 'autour de toi'}`
+      : user?.city && currentProfile.city && user.city.toLowerCase() === currentProfile.city.toLowerCase()
       ? `Même ville · ${currentProfile.city}`
       : user?.countryCode && currentProfile.countryCode === user.countryCode
         ? `Même pays · ${currentProfile.countryCode}`
@@ -257,6 +327,22 @@ export default function DiscoverScreen({ navigation }: any) {
           {!discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
         </View>
 
+        <View style={styles.searchPanel}>
+          <View style={styles.searchTopRow}>
+            <TouchableOpacity style={styles.searchButton} onPress={() => void searchAroundMe()} disabled={searchBusy} accessibilityLabel="Rechercher des profils autour de moi">
+              {searchBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.searchButtonText}>⌖ RECHERCHER</Text>}
+            </TouchableOpacity>
+            <View style={styles.radiusValue}><Text style={styles.radiusValueText}>{radiusKm >= 20000 ? 'MONDE' : `${radiusKm} KM`}</Text></View>
+          </View>
+          <View style={styles.radiusTrack}><View style={[styles.radiusFill, { width: `${(DISCOVERY_RADII.indexOf(radiusKm as any) / (DISCOVERY_RADII.length - 1)) * 100}%` }]} /></View>
+          <View style={styles.radiusChoices}>{DISCOVERY_RADII.map((value) => (
+            <TouchableOpacity key={value} style={[styles.radiusChoice, radiusKm === value && styles.radiusChoiceOn]} onPress={() => { setRadiusKm(value); setProfileIndex(0); }}>
+              <Text style={[styles.radiusChoiceText, radiusKm === value && styles.radiusChoiceTextOn]}>{value >= 20000 ? 'Monde' : value}</Text>
+            </TouchableOpacity>
+          ))}</View>
+          <Text style={styles.searchHint}>{searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : 'Choisis un rayon puis appuie sur Rechercher.'}</Text>
+        </View>
+
         {accessLoading || loadingProfiles ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
           <TouchableOpacity style={styles.lockCard} onPress={openPremium}>
             <Text style={styles.lockIcon}>🔒</Text>
@@ -265,7 +351,7 @@ export default function DiscoverScreen({ navigation }: any) {
             <Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text>
           </TouchableOpacity>
         ) : !currentProfile ? (
-          <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun profil public disponible pour le moment.</Text></View>
+          <View style={styles.emptyCard}><Text style={styles.mutedHint}>{searchPosition ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun profil public disponible pour le moment.'}</Text></View>
         ) : (
           <>
             <SwipeDeck resetKey={currentProfile.id} enabled={!followBusy} onSwipeLeft={nextProfile} onSwipeRight={followCurrent} leftLabel="PASSER" rightLabel="SUIVRE" hint="Glisse ← pour passer · → pour suivre">
@@ -282,8 +368,8 @@ export default function DiscoverScreen({ navigation }: any) {
                     <Text style={styles.kind}>{PROFILE_KIND_LABELS[currentProfile.kind] ?? currentProfile.kind}</Text>
                     {currentProfileSnapshot ? <Text style={styles.musicCount}>{currentProfileSnapshot.totalPublicKeeps} KEEP public{currentProfileSnapshot.totalPublicKeeps > 1 ? 's' : ''}</Text> : null}
                   </View>
-                  {currentProfile.bio ? <Text style={styles.bio} numberOfLines={3}>{currentProfile.bio}</Text> : null}
-                  {(currentProfile.favoriteGenres.length || currentProfile.favoriteArtists.length) ? <View style={styles.chips}>{[...currentProfile.favoriteGenres,...currentProfile.favoriteArtists].slice(0,5).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View> : null}
+                  {currentProfile.bio ? <Text style={styles.bio} numberOfLines={2}>{currentProfile.bio}</Text> : null}
+                  {(currentProfile.favoriteGenres.length || currentProfile.favoriteArtists.length) ? <View style={styles.chips}>{[...currentProfile.favoriteGenres,...currentProfile.favoriteArtists].slice(0,4).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View> : null}
                 </View>
               </View>
             </SwipeDeck>
@@ -310,11 +396,12 @@ export default function DiscoverScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},content:{padding:spacing.xl,flexGrow:1,paddingBottom:spacing.xxxl},title:{...typography.h1,color:colors.textPrimary,marginBottom:spacing.xl},section:{marginTop:spacing.xxl},sectionTitle:{...typography.h3,color:colors.textPrimary},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},
-  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},lockBadge:{paddingHorizontal:10,paddingVertical:7,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},
-  lockCard:{padding:20,borderRadius:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},lockIcon:{fontSize:28},lockTitle:{color:'#FFF',fontSize:17,fontWeight:'900',marginTop:8,textAlign:'center'},lockBody:{color:'#A99DB9',fontSize:12,lineHeight:18,textAlign:'center',marginTop:8},lockCta:{color:'#FFF',fontSize:11,fontWeight:'900',marginTop:15,backgroundColor:colors.primary,paddingHorizontal:18,paddingVertical:11,borderRadius:22,overflow:'hidden'},emptyCard:{padding:22,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
-  swipeCard:{height:430,borderRadius:26,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:82,fontWeight:'900'},heroInfo:{padding:18,paddingTop:90,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:8,flexWrap:'wrap'},heroName:{color:'#FFF',fontSize:26,fontWeight:'900'},compatBadge:{paddingHorizontal:8,paddingVertical:4,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:12,fontWeight:'800',marginTop:5},kindMusicRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:5,flexWrap:'wrap'},kind:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},musicCount:{color:'#68F2B1',fontSize:10,fontWeight:'900'},bio:{color:'#C8C0D3',fontSize:12,lineHeight:18,marginTop:8},chips:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:10},chip:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:9,fontWeight:'800'},
-  swipeActions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:16,marginTop:14},roundAction:{width:54,height:54,borderRadius:27,alignItems:'center',justifyContent:'center',borderWidth:2},passAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},passActionText:{color:'#FF5F83',fontSize:24,fontWeight:'800'},followAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},followActionText:{color:'#111',fontSize:27,fontWeight:'900'},profileAction:{minHeight:46,paddingHorizontal:18,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},profileActionText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  container:{flex:1,backgroundColor:colors.background},content:{padding:14,flexGrow:1,paddingBottom:18},title:{...typography.h2,color:colors.textPrimary,marginBottom:8},section:{marginTop:14},sectionTitle:{...typography.h3,color:colors.textPrimary},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},
+  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8},lockBadge:{paddingHorizontal:10,paddingVertical:7,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},
+  searchPanel:{marginBottom:9,padding:9,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},searchTopRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},searchButton:{minHeight:34,paddingHorizontal:14,borderRadius:17,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},searchButtonText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},radiusValue:{minHeight:30,paddingHorizontal:11,borderRadius:15,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},radiusValueText:{color:'#7CF2B9',fontSize:9,fontWeight:'900'},radiusTrack:{height:4,borderRadius:2,backgroundColor:'#332A3C',marginTop:9,overflow:'hidden'},radiusFill:{height:4,borderRadius:2,backgroundColor:'#A884FA'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:6},radiusChoice:{minWidth:31,minHeight:24,paddingHorizontal:4,borderRadius:12,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},radiusChoiceText:{color:'#A99DB9',fontSize:8,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchHint:{color:'#C8C0D3',fontSize:8,textAlign:'center',marginTop:4},
+  lockCard:{padding:16,borderRadius:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},lockIcon:{fontSize:28},lockTitle:{color:'#FFF',fontSize:17,fontWeight:'900',marginTop:8,textAlign:'center'},lockBody:{color:'#A99DB9',fontSize:12,lineHeight:18,textAlign:'center',marginTop:8},lockCta:{color:'#FFF',fontSize:11,fontWeight:'900',marginTop:15,backgroundColor:colors.primary,paddingHorizontal:18,paddingVertical:11,borderRadius:22,overflow:'hidden'},emptyCard:{padding:22,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
+  swipeCard:{height:300,borderRadius:22,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:64,fontWeight:'900'},heroInfo:{padding:12,paddingTop:58,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:8,flexWrap:'wrap'},heroName:{color:'#FFF',fontSize:21,fontWeight:'900'},compatBadge:{paddingHorizontal:8,paddingVertical:4,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:9,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:12,fontWeight:'800',marginTop:5},kindMusicRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:5,flexWrap:'wrap'},kind:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},musicCount:{color:'#68F2B1',fontSize:10,fontWeight:'900'},bio:{color:'#C8C0D3',fontSize:10,lineHeight:14,marginTop:5},chips:{flexDirection:'row',flexWrap:'wrap',gap:4,marginTop:6},chip:{paddingHorizontal:7,paddingVertical:3,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:9,fontWeight:'800'},
+  swipeActions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:12,marginTop:8},roundAction:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:2},passAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},passActionText:{color:'#FF5F83',fontSize:24,fontWeight:'800'},followAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},followActionText:{color:'#111',fontSize:27,fontWeight:'900'},profileAction:{minHeight:40,paddingHorizontal:16,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},profileActionText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   followNotice:{marginTop:10,alignSelf:'center',paddingHorizontal:12,paddingVertical:8,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',maxWidth:340},followNoticeText:{color:'#C8C0D3',fontSize:10,lineHeight:15,textAlign:'center'},followNoticeCta:{color:colors.primaryLight,fontWeight:'900'},
-  locationHint:{marginTop:16,padding:12,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},locationHintText:{color:'#FFFFFF',fontSize:11,lineHeight:16,textAlign:'center',fontWeight:'800'},chipsWrap:{flexDirection:'row',flexWrap:'wrap',gap:spacing.sm,marginTop:spacing.md},trendChip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:spacing.md,paddingVertical:6},trendChipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},footerNote:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center',marginTop:spacing.xxl},
+  locationHint:{marginTop:9,padding:9,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},locationHintText:{color:'#FFFFFF',fontSize:11,lineHeight:16,textAlign:'center',fontWeight:'800'},chipsWrap:{flexDirection:'row',flexWrap:'wrap',gap:spacing.sm,marginTop:spacing.md},trendChip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:spacing.md,paddingVertical:6},trendChipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},footerNote:{color:colors.textMuted,fontSize:8,lineHeight:11,textAlign:'center',marginTop:12},
 });

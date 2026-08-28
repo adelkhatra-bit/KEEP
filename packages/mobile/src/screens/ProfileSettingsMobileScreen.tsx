@@ -153,6 +153,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const places = await Location.reverseGeocodeAsync({ latitude: position.coords.latitude, longitude: position.coords.longitude });
       applyPlace(places[0]);
+      if (supabase && hasRealAccount) {
+        await supabase.from('profiles').update({
+          approx_lat: Math.round(position.coords.latitude * 1000) / 1000,
+          approx_lng: Math.round(position.coords.longitude * 1000) / 1000,
+          location_opt_in: true,
+        }).eq('id', user.id);
+      }
     } catch { Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment.'); }
     finally { setLocating(false); }
   };

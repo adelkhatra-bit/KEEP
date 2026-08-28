@@ -10,7 +10,7 @@ import { Audio } from 'expo-av';
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
 const MAX_SAMPLE_DURATION_MS = 8000;
-const NATIVE_VISUAL_NOISE_FLOOR_DB = -44;
+const NATIVE_VISUAL_NOISE_FLOOR_DB = -52;
 const WEB_VISUAL_RMS_FLOOR = 0.008;
 
 function safeSampleDuration(durationMs?: number) {
@@ -52,7 +52,13 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
     .catch(() => {})
     .then(async () => {
       const target = nativeRecordingModeDesired;
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: target, playsInSilentModeIOS: true });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: target,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: target,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      });
     });
   return nativeAudioModeQueue;
 }
@@ -113,8 +119,16 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
   await ensurePermission();
   if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
 
+  const preset = Audio.RecordingOptionsPresets.HIGH_QUALITY;
+  const recognitionOptions = {
+    ...preset,
+    isMeteringEnabled: true,
+    android: { ...preset.android, sampleRate: 44100, numberOfChannels: 1, bitRate: 128000 },
+    ios: { ...preset.ios, sampleRate: 44100, numberOfChannels: 1, bitRate: 128000 },
+  };
+
   const { recording } = await Audio.Recording.createAsync(
-    { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },
+    recognitionOptions,
     onLevel ? (status) => {
       if (typeof status.metering !== 'number') return;
       const db = Math.max(-160, Math.min(0, status.metering));
@@ -127,9 +141,9 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
       const normalized = (db - NATIVE_VISUAL_NOISE_FLOOR_DB) / Math.abs(NATIVE_VISUAL_NOISE_FLOOR_DB);
       // Courbe sensible au-dessus du plancher : petite musique = réaction visible,
       // musique forte = tourbillon rapide.
-      onLevel(Math.min(1, Math.pow(Math.max(0, normalized), 0.42) * 1.2));
+      onLevel(Math.min(1, Math.pow(Math.max(0, normalized), 0.38) * 1.24));
     } : undefined,
-    50
+    40
   );
   activeRecording = recording;
 

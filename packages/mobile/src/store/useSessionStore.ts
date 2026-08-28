@@ -7,6 +7,7 @@ import { updateKeepDecisionVisibility } from '../services/keepMusicCoreRecogniti
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
+import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 const RECOGNITION_TICK_MS = 900;
@@ -153,6 +154,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startSession: () => {
     clearTimers();
     void cancelAudioCapture();
+    void prepareRecognitionNotifications();
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
     void clearSharedMusicSource();
