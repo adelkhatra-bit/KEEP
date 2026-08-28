@@ -81,18 +81,13 @@ jobs:
       - name: Verify iOS export
         run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
 
-      - name: Commit validated patch and preserve concurrent work
+      - name: Push validated application files
         if: github.event_name == 'push'
         run: |
-          git show c8b5018990b362c740748718476974cb9b841c02:.github/workflows/mobile-ci.yml > .github/workflows/mobile-ci.yml
-          rm -f scripts/one_time_profile_share_patch.py
-          rm -f scripts/one_time_share_contract_fix.py
-          rm -f .github/workflows/one-time-fix-profile-swipe-sharing.yml
-          rm -f .github/workflows/one-time-run-profile-share-patch.yml
           git config user.name "KEEP Codex"
           git config user.email "actions@github.com"
-          git add -A
-          git commit -m "fix(profile): harden shares and separate social counters"
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx packages/mobile/share-profile.html
+          git commit -m "fix(profile): separate social counters and harden public sharing"
           git fetch origin reconcile/claude-main-20260825
           git rebase origin/reconcile/claude-main-20260825
           git push origin HEAD:reconcile/claude-main-20260825
