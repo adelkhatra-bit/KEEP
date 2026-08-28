@@ -30,9 +30,8 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
 
 const styles = StyleSheet.create({
   row: {
-    width: '100%',
-    maxWidth: '100%',
-    alignSelf: 'center',
+    alignSelf: 'stretch',
+    flexShrink: 1,
     flexDirection: 'row',
     backgroundColor: colors.backgroundCard,
     borderRadius: radius.lg,
