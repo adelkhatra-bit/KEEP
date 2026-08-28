@@ -35,8 +35,13 @@ for (const forbidden of ['stageGuestMusicForUpgrade', 'loadStagedGuestMusic']) {
 if (!account.includes('clearSessions()')) failures.push('ACCOUNT SWITCH DOES NOT CLEAR LOCAL MUSIC SESSION');
 
 const settings = read('packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx');
-for (const marker of ['requestForegroundPermissionsAsync', 'getCurrentPositionAsync', 'reverseGeocodeAsync', 'setCity(', 'setCountryCode(', 'setLocationOptIn(true)', 'locationOptIn,']) {
-  if (!settings.includes(marker)) failures.push(`GPS PROFILE MARKER MISSING: ${marker}`);
+for (const marker of ['getCurrentKeepLocation', 'searchKeepCity', 'setCity(', 'setCountryCode(', 'setLocationOptIn(true)', 'locationOptIn,', 'approx_lat', 'approx_lng']) {
+  if (!settings.includes(marker)) failures.push(`GPS PROFILE SETTINGS MARKER MISSING: ${marker}`);
+}
+
+const location = read('packages/mobile/src/services/locationService.ts');
+for (const marker of ['requestForegroundPermissionsAsync', 'getCurrentPositionAsync', 'reverseGeocodeAsync', 'reverse-geocode-client', 'roundKeepCoordinates', "source: 'web-free'", "source: 'native'"]) {
+  if (!location.includes(marker)) failures.push(`GPS SERVICE MARKER MISSING: ${marker}`);
 }
 
 const service = read('packages/mobile/src/services/publicProfileStateService.ts');
@@ -63,5 +68,5 @@ console.log('KEEP PROFILE DATA INTEGRITY: PASS');
 console.log('owner list/count: same authenticated server library');
 console.log('public list/count: same public distinct library');
 console.log('guest/demo music: isolated from authenticated accounts');
-console.log('GPS: city + country reverse geocoding + persisted opt-in contract present');
+console.log('GPS: native + web foreground location, city/country resolution, approximate coordinates + persisted opt-in contract present');
 console.log('protected shell: App.tsx + Navigation.tsx unchanged');
