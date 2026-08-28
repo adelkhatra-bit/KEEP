@@ -1,0 +1,112 @@
+name: KEEP one-time collective profile hierarchy
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/one-time-profile-collective-hierarchy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync latest branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply collective profile hierarchy
+        shell: python
+        run: |
+          from pathlib import Path
+
+          profile = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
+          s = profile.read_text(encoding='utf-8')
+          old = '''        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
+        <View style={s.ownerActions}>
+          <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
+          <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
+        </View>
+        <ProfileCounterRow kind="connections" items={[
+          { value: profileFollowerCount, label: 'Abonnés' },
+          { value: profileFollowingCount, label: 'Abonnements' },
+        ]} />
+        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}'''
+          new = '''        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
+        <ProfileCounterRow kind="connections" items={[
+          { value: profileFollowerCount, label: 'Abonnés' },
+          { value: profileFollowingCount, label: 'Abonnements' },
+        ]} />
+        <View style={s.ownerActions}>
+          <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
+          <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
+        </View>
+        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}'''
+          if s.count(old) != 1:
+              raise SystemExit(f'Owner hierarchy anchor mismatch: {s.count(old)}')
+          s = s.replace(old, new, 1)
+
+          # Permanent source contract: networks -> KEEP counters -> KEEP DNA.
+          markers = [
+              '<Text style={s.socialTitle}>Mes réseaux</Text>',
+              "{ value: profileTotalKeepCount, label: 'KEEP total' }",
+              '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
+          ]
+          positions = [s.find(m) for m in markers]
+          if any(p < 0 for p in positions) or positions != sorted(positions):
+              raise SystemExit(f'Own profile hierarchy invalid: {positions}')
+          profile.write_text(s, encoding='utf-8')
+
+          guardian = Path('.github/workflows/keep-human-guardian.yml')
+          g = guardian.read_text(encoding='utf-8')
+          old_guard = '''            await t('Profil',{exact:true}).click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await t('PARTAGER',{exact:true}).waitFor({state:'visible',timeout:15000});
+            if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
+            await page.getByLabel('Notifications').last().waitFor({state:'visible',timeout:15000});
+            await shot('07-profile');'''
+          new_guard = '''            await t('Profil',{exact:true}).click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            const ownShare=t('PARTAGER',{exact:true});
+            await ownShare.waitFor({state:'visible',timeout:15000});
+            if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
+            await page.getByLabel('Notifications').last().waitFor({state:'visible',timeout:15000});
+            const ownFollowers=t('Abonnés',{exact:true});
+            const ownNetworks=t('Mes réseaux',{exact:true});
+            const ownKeepTotal=t('KEEP total',{exact:true});
+            const ownDna=t('Ton empreinte musicale',{exact:true});
+            for(const [loc,label] of [[ownFollowers,'Abonnés'],[ownNetworks,'Mes réseaux'],[ownKeepTotal,'KEEP total'],[ownDna,'KEEP DNA']]) await loc.waitFor({state:'visible',timeout:15000});
+            const hierarchy=await Promise.all([ownFollowers,ownShare,ownNetworks,ownKeepTotal,ownDna].map(x=>x.boundingBox()));
+            if(hierarchy.some(x=>!x)) throw new Error('Own profile hierarchy bounding boxes unavailable');
+            const [followersBox,shareBox,networksBox,keepBox,dnaBox]=hierarchy;
+            if(!(followersBox.y < shareBox.y)) throw new Error(`Own profile: followers must be above PARTAGER/SWIPE ${JSON.stringify(hierarchy)}`);
+            if(!(networksBox.y < keepBox.y && keepBox.y < dnaBox.y)) throw new Error(`Own profile: Mes réseaux -> KEEP total -> KEEP DNA order invalid ${JSON.stringify(hierarchy)}`);
+            await shot('07-profile');'''
+          if g.count(old_guard) != 1:
+              raise SystemExit(f'Human guardian profile anchor mismatch: {g.count(old_guard)}')
+          g = g.replace(old_guard, new_guard, 1)
+          g = g.replace("              'Own profile menu/share/no self-follow: PASS',", "              'Own profile menu/share/no self-follow: PASS',\n              'Own profile Abonnés/Abonnements above Share/Swipe: PASS',\n              'Own profile Mes réseaux -> KEEP counters -> KEEP DNA: PASS',", 1)
+          guardian.write_text(g, encoding='utf-8')
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+      - name: Verify canonical source
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Commit verified collective hierarchy
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx .github/workflows/keep-human-guardian.yml
+          git rm .github/workflows/one-time-profile-collective-hierarchy.yml
+          git commit -m "fix(profile): enforce collective owner hierarchy"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
