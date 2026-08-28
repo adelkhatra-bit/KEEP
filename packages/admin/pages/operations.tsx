@@ -44,6 +44,15 @@ type PushRecentRow = {
   delivered_at: string | null;
 };
 
+type KeylessHealth = {
+  ok: boolean;
+  provider?: string;
+  apiKeyRequired?: boolean;
+  platforms?: string[];
+  catalogs?: string[];
+  minimumConfidence?: number;
+};
+
 const BILLING_LINKS: Record<string, { label: string; url: string }> = {
   BREVO_API_KEY: { label: 'Brevo — crédits / offre', url: 'https://app.brevo.com/' },
   BREVO_SMTP_KEY: { label: 'Brevo — crédits / offre', url: 'https://app.brevo.com/' },
@@ -113,6 +122,7 @@ export default function Operations() {
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [pushSummary, setPushSummary] = useState<PushSummaryRow[]>([]);
   const [pushRecent, setPushRecent] = useState<PushRecentRow[]>([]);
+  const [keylessHealth, setKeylessHealth] = useState<KeylessHealth | null>(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -122,12 +132,13 @@ export default function Operations() {
     setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const [integrationResult, runtimeResult, usersResult, pushSummaryResult, pushRecentResult] = await Promise.all([
+      const [integrationResult, runtimeResult, usersResult, pushSummaryResult, pushRecentResult, keylessResult] = await Promise.all([
         invokeAdmin({ action: 'integrations.list' }),
         supabase.rpc('admin_integration_runtime_status'),
         supabase.rpc('admin_user_directory'),
         supabase.rpc('admin_push_delivery_summary'),
         supabase.rpc('admin_push_delivery_recent', { p_limit: 50 }),
+        supabase.functions.invoke('keep-keyless-social', { body: { action: 'health' } }),
       ]);
       if (runtimeResult.error) throw runtimeResult.error;
       if (usersResult.error) throw usersResult.error;
@@ -138,6 +149,7 @@ export default function Operations() {
       setUsers((usersResult.data ?? []) as DirectoryUser[]);
       setPushSummary((pushSummaryResult.data ?? []) as PushSummaryRow[]);
       setPushRecent((pushRecentResult.data ?? []) as PushRecentRow[]);
+      setKeylessHealth(!keylessResult.error && keylessResult.data?.ok ? keylessResult.data as KeylessHealth : null);
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les opérations KEEP.');
     } finally {
@@ -153,6 +165,18 @@ export default function Operations() {
     () => integrations.filter((row) => Boolean(BILLING_LINKS[row.key])),
     [integrations],
   );
+  const audd = useMemo(() => integrations.find((row) => row.key === 'AUDD_API_KEY'), [integrations]);
+  const acrCloudComplete = useMemo(() => ['ACRCLOUD_ACCESS_KEY', 'ACRCLOUD_ACCESS_SECRET', 'ACRCLOUD_HOST']
+    .every((key) => integrations.find((row) => row.key === key)?.configured), [integrations]);
+  const acrRuntime = runtimeByKey.get('ACRCLOUD');
+  const acrRaw = `${acrRuntime?.status ?? ''} ${acrRuntime?.last_error ?? ''}`.toUpperCase();
+  const acrState = !acrCloudComplete
+    ? { text: 'NON CONFIGURÉ', tone: '#8f849f' }
+    : /ERROR|FAILED|INVALID|REVOKED|UNAUTHORIZED|403|401/.test(acrRaw)
+      ? { text: 'ERREUR / ACTION REQUISE', tone: '#f59e0b' }
+      : /OK|HEALTHY|ACTIVE|READY/.test(acrRaw)
+        ? { text: 'OPÉRATIONNEL', tone: '#86efac' }
+        : { text: 'CONFIGURÉ · À CONTRÔLER', tone: '#a78bfa' };
   const filteredUsers = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return users;
@@ -168,13 +192,55 @@ export default function Operations() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Paiements API & Support abonnés</div>
-      <div className="page-subtitle">Santé des services, livraison push réelle et support utilisateurs dans une vue unique.</div>
+      <div className="page-title">Santé KEEP & Support abonnés</div>
+      <div className="page-subtitle">Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       <button onClick={() => void load()} disabled={loading} style={{ marginBottom: 18 }}>
         {loading ? 'Analyse…' : 'Actualiser l’analyse'}
       </button>
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — ordre réel de secours</h3>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          KEEP ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. AudD et ACRCloud restent des moteurs supplémentaires automatiquement utilisés lorsqu’ils sont configurés et validés.
+        </p>
+        <table>
+          <thead><tr><th>Moteur</th><th>État</th><th>Clé requise</th><th>Contrôle</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Fallback social KEEP</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>TikTok · Instagram · Snapchat · YouTube · Facebook</div></td>
+              <td><strong style={{ color: keylessHealth?.ok ? '#86efac' : '#f59e0b' }}>{keylessHealth?.ok ? 'OPÉRATIONNEL' : 'INJOIGNABLE / À CONTRÔLER'}</strong></td>
+              <td>Non</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{keylessHealth?.ok ? `Supabase actif · Apple Search + Deezer public · confiance mini ${Math.round((keylessHealth.minimumConfidence ?? 0.72) * 100)} %` : 'Le health Supabase ne répond pas encore.'}</td>
+            </tr>
+            <tr>
+              <td><strong>ShazamKit iOS</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>empreinte audio native Apple</div></td>
+              <td><strong style={{ color: '#93c5fd' }}>INTÉGRÉ · TEST APPAREIL REQUIS</strong></td>
+              <td>Pas de clé AudD/ACRCloud</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>Module natif présent. L’App Service ShazamKit et le comportement réel seront certifiés avec le build iPhone/TestFlight.</td>
+            </tr>
+            <tr>
+              <td><strong>AudD</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>fallback serveur</div></td>
+              <td><strong style={{ color: audd ? statusInfo(audd, runtimeByKey.get('AUDD_API_KEY')).tone : '#8f849f' }}>{audd ? statusInfo(audd, runtimeByKey.get('AUDD_API_KEY')).text : 'NON CONFIGURÉE'}</strong></td>
+              <td>Oui</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{runtimeByKey.get('AUDD_API_KEY')?.last_error ?? 'La clé est testée côté fournisseur au moment de son enregistrement dans Clés & intégrations.'}</td>
+            </tr>
+            <tr>
+              <td><strong>ACRCloud</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>second fallback serveur</div></td>
+              <td><strong style={{ color: acrState.tone }}>{acrState.text}</strong></td>
+              <td>Oui · 3 paramètres</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{acrRuntime?.last_error ?? 'Host + Access Key + Access Secret sont validés ensemble dès que les trois sont renseignés.'}</td>
+            </tr>
+            <tr>
+              <td><strong>Micro Android arrière-plan</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Foreground Service microphone</div></td>
+              <td><strong style={{ color: '#93c5fd' }}>INTÉGRÉ · TEST APPAREIL REQUIS</strong></td>
+              <td>Non</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>Service natif lié à la session KEEP ; il démarre après RECORD_AUDIO et s’arrête avec la session.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Services / clés pouvant générer un coût</h3>
