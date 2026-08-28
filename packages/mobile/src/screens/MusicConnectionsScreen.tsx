@@ -63,7 +63,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     setQueue(null);
     setSelectedService(null);
     setTrackIndex(0);
-    Alert.alert('KEEP', 'La file d’envoi est terminée. Tes Vibes restent rangées dans KEEP.');
+    Alert.alert('KEEP', 'C’est terminé. Tes Vibes restent rangées dans KEEP.');
   };
 
   const nextTrack = async () => {
@@ -82,16 +82,16 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           <Text style={styles.back}>‹ Retour</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Services musicaux</Text>
-        <Text style={styles.subtitle}>KEEP range ta musique dans ses Vibes. Pour l’envoyer ailleurs, ce mode ouvre directement la recherche exacte dans ton service — sans clé API KEEP et sans abonnement technique.</Text>
+        <Text style={styles.subtitle}>KEEP range ta musique. Choisis ensuite ton service préféré et retrouve directement le bon morceau.</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         <View style={styles.keylessCard}>
           <View style={styles.keylessTop}>
-            <View style={styles.keylessBadge}><Text style={styles.keylessBadgeText}>SANS API</Text></View>
-            <Text style={styles.keylessTitle}>Pont musical KEEP</Text>
+            <View style={styles.keylessBadge}><Text style={styles.keylessBadgeText}>SIMPLE</Text></View>
+            <Text style={styles.keylessTitle}>KEEP prépare tout</Text>
           </View>
-          <Text style={styles.keylessText}>Le rangement automatique reste fait par KEEP. Une plateforme externe ne permet pas à une autre app de modifier silencieusement ta bibliothèque sans autorisation officielle : KEEP prépare donc le bon morceau, ouvre le bon service et tu confirmes l’ajout.</Text>
+          <Text style={styles.keylessText}>Tes morceaux restent organisés dans tes Vibes KEEP. Quand tu veux les retrouver ailleurs, KEEP ouvre ton service musical directement sur la bonne recherche.</Text>
         </View>
 
         {queue?.tracks.length ? (
@@ -118,14 +118,14 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.exportHint}>Choisis où tu veux envoyer cette collection. KEEP gardera la file prête pendant que tu passes dans l’autre application.</Text>
+              <Text style={styles.exportHint}>Choisis où tu veux retrouver cette collection. KEEP gardera la file prête pendant que tu passes dans l’autre application.</Text>
             )}
           </View>
         ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{queue?.tracks.length && !selectedService ? 'Choisir la destination' : 'Tes services'}</Text>
-          <Text style={styles.sectionHint}>Le lien HTTPS ouvre l’app installée quand la plateforme le permet, sinon sa version web.</Text>
+          <Text style={styles.sectionHint}>Appuie sur un service pour l’ouvrir.</Text>
         </View>
 
         {KEYLESS_MUSIC_SERVICES.map((provider) => {
@@ -142,10 +142,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 <MusicServiceIcon service={provider.key} size={27} />
               </View>
               <View style={styles.info}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name}>{provider.name}</Text>
-                  <View style={styles.freeBadge}><Text style={styles.freeBadgeText}>SANS API</Text></View>
-                </View>
+                <Text style={styles.name}>{provider.name}</Text>
                 <Text style={styles.description}>{provider.shortDescription}</Text>
               </View>
               <View style={styles.openPill}><Text style={styles.openPillText}>{queue?.tracks.length ? 'CHOISIR' : 'OUVRIR'}</Text></View>
@@ -154,13 +151,13 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         })}
 
         <View style={styles.ruleCard}>
-          <Text style={styles.ruleTitle}>Ce que KEEP fait automatiquement</Text>
-          <Text style={styles.ruleText}>KEEP garde les morceaux, détecte les styles, construit les Vibes, les renomme avec toi et évite de mélanger tes collections. L’envoi vers Apple Music, Spotify, Deezer, YouTube Music, SoundCloud ou TIDAL utilise ensuite ce pont gratuit.</Text>
+          <Text style={styles.ruleTitle}>KEEP range pour toi</Text>
+          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans KEEP. Tu peux renommer tes Vibes, les swiper et choisir ensuite où retrouver chaque morceau.</Text>
         </View>
 
         <View style={styles.limitCard}>
-          <Text style={styles.limitTitle}>Limite réelle du mode sans API</Text>
-          <Text style={styles.limitText}>KEEP peut ouvrir la recherche exacte et guider morceau par morceau. Il ne peut pas appuyer à ta place sur « Ajouter à la playlist » dans une application tierce sans passer par l’autorisation officielle de cette plateforme.</Text>
+          <Text style={styles.limitTitle}>En 3 gestes</Text>
+          <Text style={styles.limitText}>1. KEEP range ta musique · 2. Tu choisis une Vibe et un service · 3. Le bon morceau s’ouvre et tu confirmes son ajout dans ton application musicale.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -205,10 +202,7 @@ const styles = StyleSheet.create({
   cardSelected: { backgroundColor: '#1B1326' },
   logo: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#0E0A14', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   info: { flex: 1, minWidth: 0 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   name: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  freeBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#38D990', alignItems: 'center', justifyContent: 'center' },
-  freeBadgeText: { color: '#8AF3BF', fontSize: 7, fontWeight: '900' },
   description: { color: '#D8D0E2', fontSize: 10, lineHeight: 14, marginTop: 3 },
   openPill: { minHeight: 34, paddingHorizontal: 10, borderRadius: 17, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center' },
   openPillText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' },
