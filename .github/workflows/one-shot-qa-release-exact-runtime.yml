@@ -1,0 +1,210 @@
+name: KEEP — One-shot QA exact runtime release
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths: ['.github/workflows/one-shot-qa-release-exact-runtime.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  repair-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 3
+
+      - name: Lock canonical branch and latest head
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin reconcile/claude-main-20260825
+          test "$(git rev-parse --abbrev-ref HEAD)" = 'reconcile/claude-main-20260825'
+
+      - name: Apply only audited repairs
+        shell: python
+        run: |
+          from pathlib import Path
+          profile = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
+          share = Path('packages/mobile/share-profile.html')
+          loop = Path('.github/workflows/mobile-full-loop-audit.yml')
+          human = Path('.github/workflows/human-smoke-web.yml')
+          p = profile.read_text(encoding='utf-8')
+          h = share.read_text(encoding='utf-8')
+          a = loop.read_text(encoding='utf-8')
+          hs = human.read_text(encoding='utf-8')
+
+          # Server truth for the owner headline: all PUBLIC KEEP, while retaining
+          # the separate social-origin counter below it.
+          count_anchor = "  const profileOwnKeepCount = publicSnapshot?.directPublicKeeps ?? localPublicOwnKeepCount;\n  const profileUserKeepCount = publicSnapshot?.socialPublicKeeps ?? localPublicUserKeepCount;"
+          if 'profileTotalKeepCount' not in p:
+              assert count_anchor in p, 'profile count anchor drifted; abort blind edit'
+              p = p.replace(count_anchor, count_anchor + "\n  const profileTotalKeepCount = publicSnapshot?.totalPublicKeeps ?? (localPublicOwnKeepCount + localPublicUserKeepCount);", 1)
+          if '<Stat value={profileOwnKeepCount} label="KEEP"/>' in p:
+              p = p.replace('<Stat value={profileOwnKeepCount} label="KEEP"/>', '<Stat value={profileTotalKeepCount} label="KEEP total"/>', 1)
+          assert '<Stat value={profileTotalKeepCount} label="KEEP total"/>' in p
+
+          # A shared old username must resolve through permanent aliases.
+          alias_anchor = "  const profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);\n  if(!profileRows.length)throw new Error('Profil introuvable');\n  const p=profileRows[0];"
+          if 'profile_username_aliases?' not in h:
+              assert alias_anchor in h, 'share profile lookup anchor drifted; abort blind edit'
+              alias_replacement = "  let profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);\n  if(!profileRows.length){\n    const aliases=await get(`profile_username_aliases?alias=ilike.${encodeURIComponent(u)}&select=profile_id&limit=1`);\n    if(aliases.length)profileRows=await get(`profiles?id=eq.${encodeURIComponent(aliases[0].profile_id)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);\n  }\n  if(!profileRows.length)throw new Error('Profil introuvable');\n  const p=profileRows[0];"
+              h = h.replace(alias_anchor, alias_replacement, 1)
+          assert 'profile_username_aliases' in h
+
+          # Align existing browser QA with actual compact listen status copy.
+          stale = '/Micro actif · analyse en cours|Session active/i'
+          fresh = '/MICRO · (?:ANALYSE|ACTIF)|Micro actif · analyse en cours|Session active/i'
+          if stale in a: a = a.replace(stale, fresh)
+          if stale in hs: hs = hs.replace(stale, fresh)
+
+          # Permanent product guards for Discover/Profile. Add once only.
+          if '04b-discover-distance-search' not in a:
+              anchor = "            await page.getByLabel('Notifications').last().waitFor({ state: 'visible', timeout: 10000 });"
+              assert anchor in a, 'mobile loop profile guard anchor drifted'
+              guard = """            await textLast('Découvertes', { exact: true }).click();
+            await textLast('1 · DISTANCE', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            const discoverSearch = textLast('2 · ⌖ RECHERCHER', { exact: true });
+            await assertInViewport(discoverSearch, 'Découvertes / Rechercher', 844);
+            await page.getByLabel('Rayon 100 kilomètres').last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByLabel('Rayon Monde').last().waitFor({ state: 'visible', timeout: 10000 });
+            await shot('04b-discover-distance-search');
+
+            await textLast('Profil', { exact: true }).click();
+            await page.getByLabel('Menu du profil').last().waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('PARTAGER', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            if (await textLast('+ Suivre', { exact: true }).isVisible().catch(() => false)) throw new Error('Profil propriétaire: + Suivre affiché');
+
+            await page.getByLabel('Notifications').last().waitFor({ state: 'visible', timeout: 10000 });"""
+              a = a.replace(anchor, guard, 1)
+          a = a.replace("page.getByLabel('Modifier le profil').last().click()", "page.getByLabel(/Modifier (mon|le) profil/).last().click()")
+          report_anchor = "              'Location helpers: PASS',\n              'Advanced settings -> Playlists: PASS',"
+          if 'Discover distance -> search visible 390x844: PASS' not in a:
+              assert report_anchor in a
+              a = a.replace(report_anchor, "              'Location helpers: PASS',\n              'Discover distance -> search visible 390x844: PASS',\n              'Owner profile no self-follow + share/menu visible: PASS',\n              'Advanced settings -> Playlists: PASS',", 1)
+
+          profile.write_text(p, encoding='utf-8')
+          share.write_text(h, encoding='utf-8')
+          loop.write_text(a, encoding='utf-8')
+          human.write_text(hs, encoding='utf-8')
+
+      - name: Remove temporary one-shot workflows before validation
+        run: |
+          rm -f .github/workflows/one-shot-qa-repair-20260828.yml
+          rm -f .github/workflows/one-shot-qa-repair-final.yml
+          rm -f .github/workflows/one-shot-qa-release-exact-runtime.yml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Canonical source-of-truth
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Typecheck all workspaces
+        run: npm run type-check
+      - name: Unit tests
+        run: npm test -- --runInBand
+      - name: Install browser engine
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Start exact KEEP mobile runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-exact-runtime.log 2>&1 &
+          echo $! >/tmp/keep-exact-runtime.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-exact-runtime.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keep-exact-runtime.log
+          exit 1
+
+      - name: Human-like product gate at 390x844
+        run: |
+          cat > keep-qa-exact.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:390,height:844}, deviceScaleFactor:1});
+            const textLast=(v,o={})=>page.getByText(v,o).last();
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('dialog',async d=>d.accept().catch(()=>{}));
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
+            await textLast('ESSAYER GRATUITEMENT',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await textLast('ESSAYER GRATUITEMENT',{exact:true}).click();
+            for(const label of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await textLast(label,{exact:true}).waitFor({state:'visible',timeout:15000});
+
+            // Listen start/stop: click the actual action, never the bottom tab.
+            const start=page.getByLabel('Démarrer une écoute').last();
+            await start.waitFor({state:'visible',timeout:15000});
+            await start.click();
+            await textLast(/MICRO · (?:ANALYSE|ACTIF)/i).waitFor({state:'visible',timeout:15000});
+            await textLast(/Partager/i).waitFor({state:'visible',timeout:15000});
+            const end=textLast(/Terminer la session|Arrêter|End session/i);
+            await end.waitFor({state:'visible',timeout:15000});
+            await end.click();
+            await start.waitFor({state:'visible',timeout:15000});
+
+            // Discover: radius is chosen first, search is visible without scrolling.
+            await textLast('Découvertes',{exact:true}).click();
+            await textLast('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
+            const search=textLast('2 · ⌖ RECHERCHER',{exact:true});
+            await search.waitFor({state:'visible',timeout:15000});
+            const sb=await search.boundingBox();
+            if(!sb || sb.y<0 || sb.y+sb.height>844) throw new Error(`Discover search outside 390x844 viewport: ${JSON.stringify(sb)}`);
+            await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Rayon Monde').last().waitFor({state:'visible',timeout:15000});
+
+            // Playlists and Parties must still be reachable after Discover.
+            await textLast('Playlists',{exact:true}).click();
+            await page.waitForTimeout(250);
+            await textLast('Soirées',{exact:true}).click();
+            await page.waitForTimeout(250);
+
+            // Own profile: menu/share present; self-follow absent.
+            await textLast('Profil',{exact:true}).click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await textLast('PARTAGER',{exact:true}).waitFor({state:'visible',timeout:15000});
+            if(await textLast('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile shows self-follow');
+            const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+            if(dims.scrollWidth>dims.width+1) throw new Error(`Horizontal overflow: ${JSON.stringify(dims)}`);
+            if(errors.length) throw new Error(`Page errors: ${errors.join(' | ')}`);
+            await browser.close();
+            console.log('KEEP EXACT RUNTIME HUMAN QA: PASS');
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node keep-qa-exact.cjs
+          rm keep-qa-exact.cjs
+
+      - name: Guard against unrelated edits
+        run: |
+          set -euo pipefail
+          git diff --name-only
+          test -z "$(git diff --name-only | grep -Ev '^(packages/mobile/src/screens/ProfilePublicScreen.tsx|packages/mobile/share-profile.html|.github/workflows/mobile-full-loop-audit.yml|.github/workflows/human-smoke-web.yml|.github/workflows/one-shot-qa-repair-20260828.yml|.github/workflows/one-shot-qa-repair-final.yml|.github/workflows/one-shot-qa-release-exact-runtime.yml)$' || true)"
+          grep -q 'profileTotalKeepCount' packages/mobile/src/screens/ProfilePublicScreen.tsx
+          grep -q 'profile_username_aliases' packages/mobile/share-profile.html
+          grep -q '2 · ⌖ RECHERCHER' .github/workflows/mobile-full-loop-audit.yml
+
+      - name: Commit verified minimal repair
+        run: |
+          set -euo pipefail
+          git config user.name 'KEEP QA Bot'
+          git config user.email 'keep-qa-bot@users.noreply.github.com'
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/share-profile.html .github/workflows/mobile-full-loop-audit.yml .github/workflows/human-smoke-web.yml .github/workflows/one-shot-qa-repair-20260828.yml .github/workflows/one-shot-qa-repair-final.yml .github/workflows/one-shot-qa-release-exact-runtime.yml
+          git commit -m 'fix(qa): protect profile data and validate mobile release flow'
+          git push origin HEAD:reconcile/claude-main-20260825
