@@ -1,0 +1,111 @@
+name: KEEP — Profile integrity v2
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - .github/workflows/one-shot-profile-integrity-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-profile-integrity-v2
+  cancel-in-progress: true
+
+jobs:
+  repair-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout canonical KEEP branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+
+      - name: Apply isolated profile repair
+        run: python3 scripts/one_shot_profile_integrity_v2.py
+
+      - name: Remove one-shot files
+        run: rm -f scripts/one_shot_profile_integrity_v2.py .github/workflows/one-shot-profile-integrity-v2.yml
+
+      - name: Regression assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=packages/mobile/src/screens/ProfilePublicScreen.tsx
+          PUBLIC_PROFILE=packages/mobile/src/screens/PublicUserProfileScreen.tsx
+          ACCOUNT=packages/mobile/src/components/UsernameAccountForm.tsx
+          SETTINGS=packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx
+          STATE=packages/mobile/src/services/publicProfileStateService.ts
+          MIG=supabase/migrations/20260828114000_public_keep_library_single_source.sql
+
+          grep -q 'loadOwnProfileKeeps' "$PROFILE"
+          grep -q 'loadOwnProfileSnapshot' "$PROFILE"
+          grep -q 'profileKeptTracks.map' "$PROFILE"
+          grep -q 'ownSnapshot?.totalKeeps' "$PROFILE"
+          grep -q 'CONTINUER EN MODE DÉMO' "$PROFILE"
+          if grep -q 'accessibilityLabel="Modifier mon profil"' "$PROFILE"; then
+            echo 'Duplicate Modifier button still visible'; exit 1
+          fi
+
+          grep -q 'loadPublicProfileKeeps' "$PUBLIC_PROFILE"
+          grep -q 'canonicalKeeps' "$PUBLIC_PROFILE"
+
+          if grep -q 'stageGuestMusicForUpgrade' "$ACCOUNT"; then
+            echo 'Guest music can still leak into an authenticated account'; exit 1
+          fi
+          if grep -q 'loadStagedGuestMusic' "$ACCOUNT"; then
+            echo 'Guest music restore still active'; exit 1
+          fi
+
+          grep -q 'requestForegroundPermissionsAsync' "$SETTINGS"
+          grep -q 'getCurrentPositionAsync' "$SETTINGS"
+          grep -q 'reverseGeocodeAsync' "$SETTINGS"
+          grep -q 'setCountryCode' "$SETTINGS"
+          grep -q 'setCity' "$SETTINGS"
+
+          grep -q 'keep_own_profile_tracks' "$STATE"
+          grep -q 'keep_public_profile_tracks' "$STATE"
+          grep -q 'keep_own_profile_snapshot' "$STATE"
+          grep -q 'idx_keep_decisions_owner_track_latest' "$MIG"
+          grep -q 'idx_keep_decisions_public_profile_track_latest' "$MIG"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+
+      - name: Mobile tests
+        run: npm --workspace packages/mobile test -- --runInBand
+
+      - name: Export web
+        working-directory: packages/mobile
+        run: npx expo export --platform web --output-dir dist-web
+
+      - name: Verify web entrypoint
+        run: test -f packages/mobile/dist-web/index.html
+
+      - name: Commit only after gates pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(profile): isolate account music and unify KEEP library"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
