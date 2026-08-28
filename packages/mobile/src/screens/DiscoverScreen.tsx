@@ -90,6 +90,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const [radiusKm, setRadiusKm] = useState<number>(100);
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((session) =>
@@ -125,6 +126,14 @@ export default function DiscoverScreen({ navigation }: any) {
     const unsubscribe = navigation?.addListener?.('focus', () => { void loadPlan(); });
     return () => { live = false; unsubscribe?.(); };
   }, [user?.id, isLocalGuest, isDemoMode, navigation]);
+
+  useEffect(() => {
+    setHasSearched(false);
+    setSearchPosition(null);
+    setProfileIndex(0);
+    setDiscoveryAccess(null);
+    setCurrentProfileSnapshot(null);
+  }, [user?.id]);
 
   useEffect(() => {
     let live = true;
@@ -167,7 +176,7 @@ export default function DiscoverScreen({ navigation }: any) {
   }, [user?.id, user?.city, user?.countryCode, isLocalGuest, navigation]);
 
   const filteredProfiles = useMemo(() => {
-    if (!searchPosition) return profiles;
+    if (!hasSearched || !searchPosition) return [];
     const ranked = profiles.map((profile) => {
       const hasCoordinates = Number.isFinite(profile.approxLat) && Number.isFinite(profile.approxLng);
       const distance = hasCoordinates
@@ -182,7 +191,7 @@ export default function DiscoverScreen({ navigation }: any) {
       return a.distance - b.distance;
     });
     return ranked.map((item) => item.profile);
-  }, [profiles, radiusKm, searchPosition]);
+  }, [profiles, radiusKm, searchPosition, hasSearched]);
 
   const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
@@ -235,9 +244,21 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; };
   }, [currentProfile?.id, discoveryAccess?.allowed]);
 
+  const resetSearchResults = () => {
+    setHasSearched(false);
+    setSearchPosition(null);
+    setProfileIndex(0);
+    setDiscoveryAccess(null);
+    setCurrentProfileSnapshot(null);
+    setFollowNotice('');
+  };
+
   const searchAroundMe = async () => {
     if (searchBusy) return;
     setSearchBusy(true);
+    setHasSearched(false);
+    setDiscoveryAccess(null);
+    setCurrentProfileSnapshot(null);
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== 'granted') {
@@ -248,6 +269,7 @@ export default function DiscoverScreen({ navigation }: any) {
       const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
       setSearchPosition(next);
       setProfileIndex(0);
+      setHasSearched(true);
       if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
         await supabase.from('profiles').update({
           approx_lat: Math.round(next.latitude * 1000) / 1000,
@@ -256,6 +278,7 @@ export default function DiscoverScreen({ navigation }: any) {
         }).eq('id', user.id);
       }
     } catch {
+      resetSearchResults();
       Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment.');
     } finally {
       setSearchBusy(false);
@@ -325,7 +348,7 @@ export default function DiscoverScreen({ navigation }: any) {
 
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
-          {!discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
+          {hasSearched && !discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : hasSearched && freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
         </View>
 
         <View style={styles.searchPanel}>
@@ -335,25 +358,27 @@ export default function DiscoverScreen({ navigation }: any) {
           </View>
           <View style={styles.radiusTrack}><View style={[styles.radiusFill, { width: `${(DISCOVERY_RADII.indexOf(radiusKm as any) / (DISCOVERY_RADII.length - 1)) * 100}%` }]} /></View>
           <View style={styles.radiusChoices}>{DISCOVERY_RADII.map((value) => (
-            <TouchableOpacity key={value} style={[styles.radiusChoice, radiusKm === value && styles.radiusChoiceOn]} onPress={() => { setRadiusKm(value); setProfileIndex(0); }} accessibilityLabel={value >= 20000 ? 'Rayon Monde' : `Rayon ${value} kilomètres`}>
+            <TouchableOpacity key={value} style={[styles.radiusChoice, radiusKm === value && styles.radiusChoiceOn]} onPress={() => { setRadiusKm(value); resetSearchResults(); }} accessibilityLabel={value >= 20000 ? 'Rayon Monde' : `Rayon ${value} kilomètres`}>
               <Text style={[styles.radiusChoiceText, radiusKm === value && styles.radiusChoiceTextOn]}>{value >= 20000 ? 'Monde' : value}</Text>
             </TouchableOpacity>
           ))}</View>
           <TouchableOpacity style={styles.searchButton} onPress={() => void searchAroundMe()} disabled={searchBusy} accessibilityLabel="Rechercher des profils autour de moi">
             {searchBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.searchButtonText}>2 · ⌖ RECHERCHER</Text>}
           </TouchableOpacity>
-          <Text style={styles.searchHint}>{searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : 'Choisis d’abord la distance, puis appuie sur Rechercher.'}</Text>
+          <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : 'Choisis d’abord la distance, puis appuie sur Rechercher.'}</Text>
         </View>
 
-        {accessLoading || loadingProfiles ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
+        {hasSearched && (accessLoading || loadingProfiles) ? <ActivityIndicator color={colors.primaryLight} /> : hasSearched && !discoveryUnlocked && currentProfile ? (
           <TouchableOpacity style={styles.lockCard} onPress={openPremium}>
             <Text style={styles.lockIcon}>🔒</Text>
             <Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text>
             <Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant KEEP et en faisant grandir tes abonnés.</Text>
             <Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text>
           </TouchableOpacity>
+        ) : !hasSearched ? (
+          <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.</Text></View>
         ) : !currentProfile ? (
-          <View style={styles.emptyCard}><Text style={styles.mutedHint}>{searchPosition ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun profil public disponible pour le moment.'}</Text></View>
+          <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.</Text></View>
         ) : (
           <>
             <SwipeDeck resetKey={currentProfile.id} enabled={!followBusy} onSwipeLeft={nextProfile} onSwipeRight={followCurrent} leftLabel="PASSER" rightLabel="SUIVRE" hint="Glisse ← pour passer · → pour suivre">
