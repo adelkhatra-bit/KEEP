@@ -89,5 +89,5 @@ const styles = StyleSheet.create({
   rightBadge:{left:18,borderColor:'#68F2B1',transform:[{rotate:'-7deg'}]},
   leftText:{color:'#FF5F83',fontSize:12,fontWeight:'900',letterSpacing:1},
   rightText:{color:'#68F2B1',fontSize:12,fontWeight:'900',letterSpacing:1},
-  hint:{marginTop:7,color:'#756B84',fontSize:9,fontWeight:'700',textAlign:'center'},
+  hint:{marginTop:7,color:'#FFFFFF',fontSize:9,fontWeight:'700',textAlign:'center'},
 });

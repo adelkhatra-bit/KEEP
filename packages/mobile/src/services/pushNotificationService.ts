@@ -73,7 +73,7 @@ function showWebKeepToast(title: string, body: string) {
   Object.assign(titleNode.style, { fontSize: '14px', fontWeight: '800', lineHeight: '1.25' });
   const bodyNode = doc.createElement('div');
   bodyNode.textContent = body;
-  Object.assign(bodyNode.style, { marginTop: '3px', fontSize: '12px', lineHeight: '1.35', color: '#CFC7DA' });
+  Object.assign(bodyNode.style, { marginTop: '3px', fontSize: '12px', lineHeight: '1.35', color:'#FFFFFF' });
 
   toast.append(brand, titleNode, bodyNode);
   toast.onclick = () => {

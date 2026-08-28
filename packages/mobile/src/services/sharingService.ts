@@ -255,7 +255,7 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
     cancel.type = 'button';
     cancel.textContent = 'Fermer';
     Object.assign(cancel.style, {
-      width: '100%', minHeight: '42px', marginTop: '8px', border: '0', background: 'transparent', color: '#AFA6BD',
+      width: '100%', minHeight: '42px', marginTop: '8px', border: '0', background: 'transparent', color:'#FFFFFF',
       cursor: 'pointer', fontWeight: '800', fontSize: '12px',
     });
     cancel.onclick = finish;

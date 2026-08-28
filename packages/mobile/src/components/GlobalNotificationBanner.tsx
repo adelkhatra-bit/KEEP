@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   eyebrow: { color: '#68F2B1', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  closeHint: { color: '#756B84', fontSize: 8, fontWeight: '700' },
+  closeHint: { color:'#FFFFFF', fontSize: 8, fontWeight: '700' },
   title: { color: '#F8F6FC', fontSize: 13, lineHeight: 18, fontWeight: '900', marginTop: 2 },
-  body: { color: '#BDB4C8', fontSize: 11, lineHeight: 15, marginTop: 2 },
+  body: { color:'#FFFFFF', fontSize: 11, lineHeight: 15, marginTop: 2 },
 });
