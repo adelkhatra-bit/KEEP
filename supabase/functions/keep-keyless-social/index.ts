@@ -47,7 +47,8 @@ function htmlDecode(value: string) {
 }
 
 function jsonStringDecode(value: string) {
-  try { return JSON.parse(`"${value.replace(/"/g, '\\"')}"`); } catch { return value.replace(/\\u002F/g, "/").replace(/\\n/g, " ").replace(/\\"/g, '"'); }
+  try { return JSON.parse(`"${value.replace(/"/g, '\\"')}"`); }
+  catch { return value.replace(/\\u002F/g, "/").replace(/\\n/g, " ").replace(/\\"/g, '"'); }
 }
 
 function allowedUrl(value: string) {
@@ -81,7 +82,7 @@ async function allowRequest(req: Request, userId: string | null) {
     p_limit: 24,
     p_window_seconds: 60,
   });
-  if (error) return true; // Le fallback ne doit pas tomber si le diagnostic DB est momentanément indisponible.
+  if (error) return true;
   return Boolean(data);
 }
 
@@ -170,7 +171,6 @@ type CatalogTrack = {
   title: string;
   artist: string;
   album?: string;
-  isrc?: string;
   artworkUrl?: string;
   previewUrl?: string;
   externalUrl?: string;
@@ -254,9 +254,22 @@ function sameCatalogSong(a: CatalogTrack, b: CatalogTrack) {
 }
 
 async function resolve(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  if (String(body?.action ?? "") === "health") {
+    return json(200, {
+      ok: true,
+      service: "keep-keyless-social",
+      provider: "KEYLESS_SOCIAL",
+      apiKeyRequired: false,
+      platforms: ["TIKTOK", "INSTAGRAM", "SNAPCHAT", "YOUTUBE", "FACEBOOK"],
+      catalogs: ["APPLE_ITUNES_SEARCH", "DEEZER_PUBLIC_SEARCH"],
+      minimumConfidence: 0.72,
+      secretExposed: false,
+    });
+  }
+
   const userId = await optionalUserId(req);
   if (!(await allowRequest(req, userId))) return json(429, { error: "keyless_rate_limited", recognition: null });
-  const body = await req.json().catch(() => ({}));
   const inputUrl = allowedUrl(String(body?.url ?? ""));
   if (!inputUrl) return json(400, { error: "unsupported_social_url", recognition: null });
   const platform = String(body?.platform ?? "UNKNOWN").toUpperCase();
@@ -264,7 +277,7 @@ async function resolve(req: Request) {
   const rawText = String(body?.rawText ?? "").slice(0, 1500);
 
   let page = { url: inputUrl, html: "" };
-  try { page = await fetchSocialPage(inputUrl); } catch { /* oEmbed + supplied metadata can still work. */ }
+  try { page = await fetchSocialPage(inputUrl); } catch {}
   const embedded = await oEmbed(platform, page.url.toString());
   const ogTitle = metaContent(page.html, "og:title");
   const ogDescription = metaContent(page.html, "og:description") || metaContent(page.html, "description");
@@ -293,9 +306,6 @@ async function resolve(req: Request) {
   const corroborating = scored.find((item) => item.track.source !== best.track.source && sameCatalogSong(best.track, item.track));
   if (corroborating) confidence = Math.min(0.99, confidence + 0.12);
   if (explicit && confidence >= 0.62) confidence = Math.max(confidence, 0.86);
-
-  // Sans empreinte audio nous refusons les correspondances faibles : mieux vaut
-  // continuer à écouter qu'ajouter un faux morceau dans la session de l'utilisateur.
   if (confidence < 0.72) return json(200, { ok: true, provider: "KEYLESS_SOCIAL", recognition: null, confidence, reason: "confidence_too_low" });
 
   const providerIds: Record<string, string> = {};
