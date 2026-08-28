@@ -6,6 +6,7 @@ import {
   updateKeepDecisionVisibility,
   type PersistedKeepDecision,
 } from './keepMusicCoreRecognition';
+import { musicEngine } from './musicEngine';
 import { supabase } from './supabaseClient';
 
 function normalize(value: string | undefined): string {
@@ -19,6 +20,19 @@ function normalize(value: string | undefined): string {
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function sameCanonicalTrack(a: CanonicalTrack, b: CanonicalTrack): boolean {
+  const aId = String(a.id || '').trim();
+  const bId = String(b.id || '').trim();
+  if (aId && bId && aId === bId) return true;
+
+  const aIsrc = String(a.isrc || '').trim().toUpperCase();
+  const bIsrc = String(b.isrc || '').trim().toUpperCase();
+  if (aIsrc && bIsrc) return aIsrc === bIsrc;
+
+  return normalize(a.title) === normalize(b.title)
+    && normalize(a.artist) === normalize(b.artist);
 }
 
 function sameTrack(track: CanonicalTrack, keep: PersistedKeepDecision): boolean {
@@ -47,6 +61,32 @@ function newestFirst(a: PersistedKeepDecision, b: PersistedKeepDecision): number
 
 function matchingKeeps(track: CanonicalTrack, keeps: PersistedKeepDecision[]): PersistedKeepDecision[] {
   return keeps.filter((keep) => sameTrack(track, keep)).sort(newestFirst);
+}
+
+/**
+ * Le fournisseur `demo` est la bibliothèque locale KEEP utilisée par la PWA et
+ * par les tests quand aucun service externe n'est connecté. Supprimer seulement
+ * la décision Supabase laissait auparavant la même piste dans `Mes KEEP` : la
+ * ligne disparaissait du profil, mais l'extrait restait visible dans la playlist.
+ *
+ * On purge donc TOUTES les copies de cette piste dans la bibliothèque locale
+ * KEEP. Les bibliothèques Apple Music / Spotify ne sont volontairement jamais
+ * modifiées ici : une suppression KEEP ne doit pas effacer la musique chez un
+ * service tiers sans action explicite de l'utilisateur.
+ */
+async function purgeKeepLocalPlaylistCopies(track: CanonicalTrack): Promise<void> {
+  if (musicEngine.musicProvider.providerId !== 'demo') return;
+
+  const session = await musicEngine.getSession();
+  const playlists = await musicEngine.musicProvider.getPlaylists(session);
+
+  for (const playlist of playlists) {
+    const playlistTracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
+    const matches = playlistTracks.filter((candidate) => sameCanonicalTrack(candidate, track));
+    for (const candidate of matches) {
+      await musicEngine.musicProvider.removeTrackFromPlaylist(session, playlist.id, candidate.id);
+    }
+  }
 }
 
 /**
@@ -123,7 +163,12 @@ export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<num
   const canonicalId = String(track.id || '').trim();
   if (isUuid(canonicalId)) trackIds.add(canonicalId);
 
-  if (!trackIds.size) return 0;
+  if (!trackIds.size) {
+    // Une ancienne version peut n'avoir gardé que la copie locale fournisseur.
+    // Même sans décision distante retrouvée, SUPPRIMER doit retirer l'extrait.
+    await purgeKeepLocalPlaylistCopies(track);
+    return 0;
+  }
 
   let removed = 0;
   for (const trackId of trackIds) {
@@ -131,6 +176,10 @@ export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<num
     if (error) throw new Error('La suppression n’a pas été enregistrée dans Supabase.');
     removed += Number(data || 0);
   }
+
+  // La suppression n'est considérée terminée qu'après avoir retiré aussi la
+  // copie qui alimentait l'extrait dans la playlist locale KEEP.
+  await purgeKeepLocalPlaylistCopies(track);
 
   const remaining = matchingKeeps(track, await loadOwnPersistedKeeps());
   if (remaining.length) throw new Error('La vérification serveur de la suppression a échoué. Réessaie.');
