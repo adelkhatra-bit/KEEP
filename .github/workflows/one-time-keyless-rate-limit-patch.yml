@@ -1,0 +1,39 @@
+name: KEEP — One-time keyless resolver security
+
+on:
+  push:
+    branches: [reconcile/claude-main-20260825]
+    paths:
+      - 'scripts/one_time_keyless_rate_limit_patch.py'
+      - '.github/workflows/one-time-keyless-rate-limit-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - run: git pull --ff-only origin reconcile/claude-main-20260825
+      - run: python3 scripts/one_time_keyless_rate_limit_patch.py
+      - name: Verify resolver contract
+        run: |
+          grep -q "x-keep-device-id" supabase/functions/keep-music-keyless-source/index.ts
+          grep -q "service_allow_recognition" supabase/functions/keep-music-keyless-source/index.ts
+          grep -q "p_limit: 20" supabase/functions/keep-music-keyless-source/index.ts
+          grep -q "keyless_rate_limited" supabase/functions/keep-music-keyless-source/index.ts
+      - name: Commit and clean temporary files
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add supabase/functions/keep-music-keyless-source/index.ts
+          git rm -f scripts/one_time_keyless_rate_limit_patch.py .github/workflows/one-time-keyless-rate-limit-patch.yml
+          git diff --cached --check
+          git commit -m "fix(recognition): secure keyless social resolver"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
