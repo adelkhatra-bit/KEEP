@@ -1,0 +1,127 @@
+name: KEEP — App Store native preflight
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/app.json'
+      - 'packages/mobile/package.json'
+      - 'packages/mobile/eas.json'
+      - 'packages/mobile/src/**'
+      - 'packages/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/verify-app-store-readiness.cjs'
+      - '.github/workflows/app-store-native-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-native-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact workspace dependencies
+        run: npm ci
+      - name: App Store readiness contract
+        run: node scripts/verify-app-store-readiness.cjs
+      - name: Expo configuration resolves
+        working-directory: packages/mobile
+        run: npx expo config --type public --json > /tmp/keep-expo-public.json
+      - name: Generate native iOS project — no Apple account required
+        working-directory: packages/mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Audit generated iOS project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/app-store-native-preflight
+          python - <<'PY'
+          import json, plistlib
+          from pathlib import Path
+
+          ios = Path('packages/mobile/ios')
+          if not ios.exists():
+              raise SystemExit('FAIL: Expo prebuild did not create packages/mobile/ios')
+
+          infos = []
+          main = None
+          extension = None
+          for p in ios.rglob('Info.plist'):
+              if 'Pods' in p.parts:
+                  continue
+              try:
+                  data = plistlib.loads(p.read_bytes())
+              except Exception:
+                  continue
+              infos.append((p, data))
+              if data.get('NSMicrophoneUsageDescription'):
+                  main = (p, data)
+              if data.get('NSExtension'):
+                  extension = (p, data)
+
+          if not main:
+              raise SystemExit('FAIL: no generated main Info.plist with NSMicrophoneUsageDescription')
+          p, data = main
+          required = ['NSMicrophoneUsageDescription', 'NSLocationWhenInUseUsageDescription']
+          for key in required:
+              if not str(data.get(key, '')).strip():
+                  raise SystemExit(f'FAIL: {key} missing from {p}')
+          if data.get('ITSAppUsesNonExemptEncryption') is not False:
+              raise SystemExit('FAIL: ITSAppUsesNonExemptEncryption must be false')
+          modes = data.get('UIBackgroundModes') or []
+          if 'audio' not in modes:
+              raise SystemExit('FAIL: UIBackgroundModes audio missing')
+          if 'NSLocalNetworkUsageDescription' in data:
+              raise SystemExit('FAIL: unjustified NSLocalNetworkUsageDescription generated')
+          if not extension:
+              raise SystemExit('FAIL: expo-share-intent did not generate an iOS NSExtension target')
+
+          pbx = next(iter(ios.rglob('project.pbxproj')), None)
+          if not pbx:
+              raise SystemExit('FAIL: Xcode project.pbxproj not generated')
+          pbx_text = pbx.read_text(encoding='utf-8', errors='ignore')
+          if 'TARGETED_DEVICE_FAMILY = 1;' not in pbx_text and 'TARGETED_DEVICE_FAMILY = "1";' not in pbx_text:
+              raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
+
+          manifests = []
+          for base in [Path('packages/mobile/ios'), Path('node_modules')]:
+              if base.exists():
+                  manifests.extend(str(p) for p in base.rglob('PrivacyInfo.xcprivacy'))
+          if not manifests:
+              raise SystemExit('FAIL: no PrivacyInfo.xcprivacy found in generated app/dependencies')
+
+          report = {
+              'mainInfoPlist': str(main[0]),
+              'shareExtensionInfoPlist': str(extension[0]),
+              'infoPlists': [str(p) for p, _ in infos],
+              'privacyManifestCount': len(manifests),
+              'privacyManifests': manifests[:120],
+              'backgroundModes': modes,
+              'microphoneDescription': data.get('NSMicrophoneUsageDescription'),
+              'locationDescription': data.get('NSLocationWhenInUseUsageDescription'),
+              'targetedDeviceFamilyIPhoneOnly': True,
+          }
+          Path('artifacts/app-store-native-preflight/report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+      - name: Verify no native secrets were generated
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R --exclude-dir=Pods -E 'AUDD_API_KEY|ACRCLOUD_ACCESS_SECRET|BREVO_API_KEY|STRIPE_SECRET_KEY' packages/mobile/ios
+      - name: Upload native App Store preflight report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-app-store-native-preflight
+          path: artifacts/app-store-native-preflight
