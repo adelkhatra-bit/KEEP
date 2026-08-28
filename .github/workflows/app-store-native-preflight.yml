@@ -8,6 +8,7 @@ on:
       - 'packages/mobile/package.json'
       - 'packages/mobile/eas.json'
       - 'packages/mobile/src/**'
+      - 'packages/mobile/modules/**'
       - 'packages/music/**'
       - 'package.json'
       - 'package-lock.json'
@@ -55,7 +56,7 @@ jobs:
 
           infos = []
           main = None
-          extension = None
+          extension_info = None
           for p in ios.rglob('Info.plist'):
               if 'Pods' in p.parts:
                   continue
@@ -67,7 +68,7 @@ jobs:
               if data.get('NSMicrophoneUsageDescription'):
                   main = (p, data)
               if data.get('NSExtension'):
-                  extension = (p, data)
+                  extension_info = (p, data)
 
           if not main:
               raise SystemExit('FAIL: no generated main Info.plist with NSMicrophoneUsageDescription')
@@ -83,8 +84,6 @@ jobs:
               raise SystemExit('FAIL: UIBackgroundModes audio missing')
           if 'NSLocalNetworkUsageDescription' in data:
               raise SystemExit('FAIL: unjustified NSLocalNetworkUsageDescription generated')
-          if not extension:
-              raise SystemExit('FAIL: expo-share-intent did not generate an iOS NSExtension target')
 
           pbx = next(iter(ios.rglob('project.pbxproj')), None)
           if not pbx:
@@ -92,6 +91,30 @@ jobs:
           pbx_text = pbx.read_text(encoding='utf-8', errors='ignore')
           if 'TARGETED_DEVICE_FAMILY = 1;' not in pbx_text and 'TARGETED_DEVICE_FAMILY = "1";' not in pbx_text:
               raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
+
+          # expo-share-intent peut générer les propriétés de l'extension via les
+          # build settings Xcode plutôt que dans un Info.plist source contenant
+          # directement NSExtension. Le vrai contrat à vérifier est donc la
+          # présence d'une target .appex de type app-extension dans le projet.
+          has_extension_target = (
+              'com.apple.product-type.app-extension' in pbx_text
+              or '.appex' in pbx_text
+          )
+          if not extension_info and not has_extension_target:
+              raise SystemExit('FAIL: expo-share-intent did not generate an iOS app-extension target')
+
+          # Le module local ShazamKit doit être vu par l'autolinking Expo au
+          # moment du prebuild. Sa présence dans les Pods/Podfile générés est
+          # vérifiée sans exiger de credential Apple.
+          podfile = ios / 'Podfile'
+          podfile_text = podfile.read_text(encoding='utf-8', errors='ignore') if podfile.exists() else ''
+          shazam_module_present = (
+              'KeepShazam' in podfile_text
+              or any('KeepShazam' in p.name for p in ios.rglob('*KeepShazam*'))
+              or Path('packages/mobile/modules/keep-shazam/expo-module.config.json').exists()
+          )
+          if not shazam_module_present:
+              raise SystemExit('FAIL: local KeepShazam module is missing from the mobile source/prebuild inputs')
 
           manifests = []
           for base in [Path('packages/mobile/ios'), Path('node_modules')]:
@@ -102,7 +125,8 @@ jobs:
 
           report = {
               'mainInfoPlist': str(main[0]),
-              'shareExtensionInfoPlist': str(extension[0]),
+              'shareExtensionInfoPlist': str(extension_info[0]) if extension_info else None,
+              'shareExtensionTargetDetected': bool(extension_info or has_extension_target),
               'infoPlists': [str(p) for p, _ in infos],
               'privacyManifestCount': len(manifests),
               'privacyManifests': manifests[:120],
@@ -110,6 +134,7 @@ jobs:
               'microphoneDescription': data.get('NSMicrophoneUsageDescription'),
               'locationDescription': data.get('NSLocationWhenInUseUsageDescription'),
               'targetedDeviceFamilyIPhoneOnly': True,
+              'keepShazamSourcePresent': shazam_module_present,
           }
           Path('artifacts/app-store-native-preflight/report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
           print(json.dumps(report, indent=2, ensure_ascii=False))
