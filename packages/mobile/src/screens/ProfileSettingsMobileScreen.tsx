@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as Location from 'expo-location';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
@@ -10,6 +9,7 @@ import { createProfileService } from '../services/profileService';
 import { createAuthService } from '../services/authService';
 import { pickAndUploadAvatar } from '../services/avatarService';
 import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { getCurrentKeepLocation, KeepApproximateCoordinates, KeepLocationPermissionError, searchKeepCity } from '../services/locationService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
@@ -29,6 +29,9 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [city, setCity] = useState(user?.city ?? '');
   const [countryCode, setCountryCode] = useState(user?.countryCode ?? '');
   const [locationOptIn, setLocationOptIn] = useState(user?.locationOptIn ?? false);
+  const [pendingCoords, setPendingCoords] = useState<KeepApproximateCoordinates | null>(null);
+  const [locationEdited, setLocationEdited] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('');
   const [website, setWebsite] = useState(user?.website ?? '');
   const [avatar, setAvatar] = useState(user?.avatar ?? '');
   const [birthDate, setBirthDate] = useState(user?.privateInfo.birthDate ?? '');
@@ -122,6 +125,16 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         Alert.alert('Profil enregistré', 'Ton profil d’essai est conservé sur cet appareil. Crée ton compte plus tard pour le synchroniser et le partager publiquement.');
       } else if (supabase && !isDemoMode) {
         await createProfileService(supabase).saveOwnProfile(nextUser);
+        if (locationEdited) {
+          const { error: locationError } = await supabase.from('profiles').update({
+            city: nextUser.city ?? null,
+            country_code: nextUser.countryCode ?? null,
+            approx_lat: pendingCoords?.lat ?? null,
+            approx_lng: pendingCoords?.lng ?? null,
+            location_opt_in: nextUser.locationOptIn,
+          }).eq('id', user.id);
+          if (locationError) throw locationError;
+        }
         Alert.alert('Profil enregistré', 'Tes informations sont sauvegardées dans KEEP.');
       }
       goToTab('Profile');
@@ -140,31 +153,44 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     finally { setAvatarBusy(false); }
   };
 
-  const applyPlace = (place: Location.LocationGeocodedAddress | undefined) => {
-    if (!place) return;
-    setCity(place.city || place.subregion || place.region || city);
-    if (place.isoCountryCode) setCountryCode(place.isoCountryCode.toUpperCase());
+  const handleCityChange = (text: string) => {
+    setCity(text);
+    setPendingCoords(null);
+    setLocationEdited(true);
+    setLocationOptIn(Boolean(text.trim() || countryCode));
+    setLocationStatus(text.trim() ? 'Ville modifiée manuellement · elle sera enregistrée telle quelle.' : '');
+  };
+
+  const handleCountrySelect = (code: string) => {
+    setCountryCode(code);
+    setPendingCoords(null);
+    setLocationEdited(true);
+    setLocationOptIn(Boolean(city.trim() || code));
+    setLocationStatus('Pays modifié manuellement · tu peux encore modifier la ville.');
+    setCountryOpen(false);
   };
 
   const useCurrentLocation = async () => {
     if (accountRequired) return requireAccount();
     setLocating(true);
+    setLocationStatus('');
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') return void Alert.alert('Localisation', 'Autorise la localisation pour préremplir la ville et le pays.');
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const places = await Location.reverseGeocodeAsync({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-      applyPlace(places[0]);
+      const resolved = await getCurrentKeepLocation();
+      if (resolved.city) setCity(resolved.city);
+      if (resolved.countryCode) setCountryCode(resolved.countryCode);
+      setPendingCoords({ lat: resolved.lat, lng: resolved.lng });
+      setLocationEdited(true);
       setLocationOptIn(true);
-      if (supabase && hasRealAccount) {
-        await supabase.from('profiles').update({
-          approx_lat: Math.round(position.coords.latitude * 1000) / 1000,
-          approx_lng: Math.round(position.coords.longitude * 1000) / 1000,
-          location_opt_in: true,
-        }).eq('id', user.id);
+      setLocationStatus(resolved.city || resolved.countryCode
+        ? 'Position trouvée · ville et pays préremplis. Tu peux les modifier avant d’enregistrer.'
+        : 'Position trouvée · choisis ou saisis la ville et le pays avant d’enregistrer.');
+    } catch (e) {
+      if (e instanceof KeepLocationPermissionError) {
+        Alert.alert('Localisation', 'Autorise la localisation pour préremplir automatiquement la ville et le pays. Tu peux aussi les saisir manuellement.');
+      } else {
+        Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment. Tu peux saisir la ville et le pays manuellement.');
       }
-    } catch { Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment.'); }
-    finally { setLocating(false); }
+    } finally { setLocating(false); }
   };
 
   const searchCity = async () => {
@@ -172,13 +198,28 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     const query = city.trim();
     if (query.length < 2) return void Alert.alert('Ville', 'Saisis au moins 2 caractères.');
     setCitySearching(true);
+    setLocationStatus('');
     try {
-      const matches = await Location.geocodeAsync(query);
-      if (!matches.length) return void Alert.alert('Ville', 'Aucune localisation trouvée.');
-      const places = await Location.reverseGeocodeAsync(matches[0]);
-      applyPlace(places[0]);
-    } catch { Alert.alert('Ville', 'Impossible de rechercher cette localisation.'); }
-    finally { setCitySearching(false); }
+      const resolved = await searchKeepCity(query);
+      if (!resolved) {
+        setPendingCoords(null);
+        setLocationEdited(true);
+        setLocationOptIn(Boolean(query || countryCode));
+        if (Platform.OS === 'web') {
+          setLocationStatus(countryCode ? 'Ville prête à enregistrer · la saisie manuelle est utilisée sur le Web.' : 'Ville prête à enregistrer · choisis maintenant le pays.');
+          return;
+        }
+        return void Alert.alert('Ville', 'Aucune localisation trouvée. Tu peux conserver la ville saisie et choisir le pays manuellement.');
+      }
+      setCity(resolved.city || query);
+      if (resolved.countryCode) setCountryCode(resolved.countryCode);
+      setPendingCoords({ lat: resolved.lat, lng: resolved.lng });
+      setLocationEdited(true);
+      setLocationOptIn(true);
+      setLocationStatus('Ville vérifiée · pays prérempli lorsque disponible.');
+    } catch {
+      Alert.alert('Ville', 'Impossible de rechercher cette localisation. La saisie manuelle reste disponible.');
+    } finally { setCitySearching(false); }
   };
 
   const confirmDate = () => {
@@ -219,9 +260,11 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
       <Section title="Localisation" subtitle="Facultatif · KEEP peut préremplir automatiquement la ville et le pays.">
         <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Utiliser ma position' : '⌖ Utiliser ma position'}</Text>}</TouchableOpacity>
-        <Field label="Ville" value={city} onChangeText={setCity} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
-        <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>Rechercher et préremplir</Text>}</TouchableOpacity>
+        <Field label="Ville" value={city} onChangeText={handleCityChange} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
+        <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>{Platform.OS === 'web' ? 'Valider cette ville' : 'Rechercher et préremplir'}</Text>}</TouchableOpacity>
         <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} />
+        {locationStatus ? <Text style={[s.hint,{color:'#74F3B6'}]}>{locationStatus}</Text> : null}
+        <Text style={s.hint}>Confidentialité : KEEP n’affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d’environ 1 km sont conservés pour la découverte locale.</Text>
         <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
@@ -262,7 +305,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
     <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></Modal>
 
-    <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>{setCountryCode(code);setCountryOpen(false);}}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></Modal>
+    <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>handleCountrySelect(code)}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></Modal>
 
     <Modal visible={dateOpen} transparent animationType="slide" onRequestClose={()=>setDateOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={()=>setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View><View style={s.dateColumns}><DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))}/><DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))}/><DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))}/></View><TouchableOpacity style={s.primary} onPress={confirmDate}><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity></View></View></Modal>
   </SafeAreaView>;
