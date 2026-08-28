@@ -35,7 +35,7 @@ for (const forbidden of ['stageGuestMusicForUpgrade', 'loadStagedGuestMusic']) {
 if (!account.includes('clearSessions()')) failures.push('ACCOUNT SWITCH DOES NOT CLEAR LOCAL MUSIC SESSION');
 
 const settings = read('packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx');
-for (const marker of ['requestForegroundPermissionsAsync', 'getCurrentPositionAsync', 'reverseGeocodeAsync', 'setCity(', 'setCountryCode(']) {
+for (const marker of ['requestForegroundPermissionsAsync', 'getCurrentPositionAsync', 'reverseGeocodeAsync', 'setCity(', 'setCountryCode(', 'setLocationOptIn(true)', 'locationOptIn,']) {
   if (!settings.includes(marker)) failures.push(`GPS PROFILE MARKER MISSING: ${marker}`);
 }
 
@@ -63,5 +63,5 @@ console.log('KEEP PROFILE DATA INTEGRITY: PASS');
 console.log('owner list/count: same authenticated server library');
 console.log('public list/count: same public distinct library');
 console.log('guest/demo music: isolated from authenticated accounts');
-console.log('GPS: city + country reverse geocoding contract present');
+console.log('GPS: city + country reverse geocoding + persisted opt-in contract present');
 console.log('protected shell: App.tsx + Navigation.tsx unchanged');
