@@ -76,12 +76,13 @@ export default function SupportCenterAdmin() {
   useEffect(() => { void loadMessages(selectedId); }, [loadMessages, selectedId]);
 
   useEffect(() => {
-    if (!supabase) return undefined;
-    const channel = supabase.channel('admin-support-live')
+    const client = supabase;
+    if (!client) return undefined;
+    const channel = client.channel('admin-support-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => { void refresh(); })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' }, () => { void refresh(); })
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => { void client.removeChannel(channel); };
   }, [refresh]);
 
   const selected = useMemo(() => tickets.find((ticket) => ticket.id === selectedId) ?? null, [selectedId, tickets]);
