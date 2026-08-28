@@ -49,7 +49,7 @@ jobs:
           )
           once(
               "  useEffect(() => { void load(); }, []);",
-              "  useEffect(() => { void load(); }, []);\n  useEffect(() => {\n    if (!supabase) return;\n    void supabase.rpc('get_my_admin_role')\n      .then(({ data }) => {\n        const role = String(data || '') as AdminRole;\n        setAdminRole(['SUPER_ADMIN','ADMIN','SUPPORT','MODERATOR'].includes(role) ? role : null);\n      })\n      .catch(() => setAdminRole(null));\n  }, []);",
+              "  useEffect(() => { void load(); }, []);\n  useEffect(() => {\n    if (!supabase) return;\n    void supabase.rpc('get_my_admin_role').then(\n      ({ data }) => {\n        const role = String(data || '') as AdminRole;\n        setAdminRole(['SUPER_ADMIN','ADMIN','SUPPORT','MODERATOR'].includes(role) ? role : null);\n      },\n      () => setAdminRole(null),\n    );\n  }, []);",
           )
           once(
               "  const toggleRequirement = (key: string) => setRequirements((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);\n\n  return <AdminLayout>",
