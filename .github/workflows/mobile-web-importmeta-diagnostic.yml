@@ -112,12 +112,61 @@ jobs:
               fullPage: true,
             });
 
+            if (!bodyText || bodyText.length < 10) {
+              throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
+            }
+            if (!rootHtml || rootHtml.trim().length < 20) {
+              throw new Error('Visual audit failed: #root is empty or effectively blank');
+            }
+            if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) {
+              throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
+            }
+
+            // Régression critique signalée sur 390×844 : après Vibes/Albums,
+            // revenir sur KEEP ne devait plus nécessiter un refresh navigateur.
+            // On reproduit le parcours réel dans le même viewport mobile.
+            const profileBottomTab = page.getByText('Profil', { exact: true }).last();
+            if (await profileBottomTab.count() === 0) throw new Error('Profile tab not found in mobile navigation');
+            await profileBottomTab.click();
+            await page.waitForTimeout(700);
+
+            const vibesTab = page.getByText('Vibes', { exact: true }).first();
+            const albumsTab = page.getByText('Albums', { exact: true }).first();
+            const keepTab = page.getByText('KEEP', { exact: true }).last();
+            if (await vibesTab.count() === 0 || await albumsTab.count() === 0 || await keepTab.count() === 0) {
+              throw new Error('Profile music tabs not found');
+            }
+
+            await vibesTab.click();
+            await page.waitForTimeout(250);
+            if (await page.getByText(/KEEP construit ton univers/i).count()) {
+              throw new Error('Vibes tab kept KEEP content mounted');
+            }
+
+            await albumsTab.click();
+            await page.waitForTimeout(250);
+            if (await page.getByText(/KEEP construit ton univers/i).count()) {
+              throw new Error('Albums tab kept KEEP content mounted');
+            }
+
+            await keepTab.click();
+            await page.waitForTimeout(250);
+            if (await page.getByText(/KEEP construit ton univers/i).count() === 0) {
+              throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
+            }
+
+            await page.screenshot({
+              path: 'artifacts/real-browser/keep-profile-tabs-390x844.png',
+              fullPage: true,
+            });
+
             const report = [
               `URL: ${page.url()}`,
               `TITLE: ${await page.title()}`,
               `BODY_LENGTH: ${bodyText.length}`,
               `ROOT_HTML_LENGTH: ${rootHtml.length}`,
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
+              'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
               `ERROR_COUNT: ${errors.length}`,
               `HTTP_FAILURE_COUNT: ${httpFailures.length}`,
               '',
@@ -132,15 +181,6 @@ jobs:
             ].join('\n');
             fs.writeFileSync('artifacts/real-browser/report.txt', report);
 
-            if (!bodyText || bodyText.length < 10) {
-              throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
-            }
-            if (!rootHtml || rootHtml.trim().length < 20) {
-              throw new Error('Visual audit failed: #root is empty or effectively blank');
-            }
-            if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) {
-              throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
-            }
             if (errors.length > 0 || httpFailures.length > 0) {
               throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
             }
