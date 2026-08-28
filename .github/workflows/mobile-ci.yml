@@ -9,6 +9,7 @@ on:
       - 'supabase/migrations/**'
       - 'scripts/verify-profile-data-integrity.cjs'
       - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
@@ -20,6 +21,7 @@ on:
       - 'supabase/migrations/**'
       - 'scripts/verify-profile-data-integrity.cjs'
       - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
@@ -49,6 +51,9 @@ jobs:
 
       - name: KEEP profile data integrity contract
         run: node scripts/verify-profile-data-integrity.cjs
+
+      - name: KEEP mobile text contrast contract
+        run: node scripts/verify-mobile-text-contrast.cjs
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
