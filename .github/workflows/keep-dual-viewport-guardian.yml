@@ -107,15 +107,40 @@ jobs:
               const search=page.getByLabel('Rechercher des profils autour de moi').last();
               await search.click();
               await page.getByLabel('Voir le profil').last().waitFor({state:'visible',timeout:20000});
-              const body=await page.locator('body').innerText();
-              if(!/profil.*dans ce rayon/i.test(body)) throw new Error(`${c.label}: compteur de résultats absent`);
+              const discoveryBody=await page.locator('body').innerText();
+              if(!/profil.*dans ce rayon/i.test(discoveryBody)) throw new Error(`${c.label}: compteur de résultats absent`);
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-discover.png`,fullPage:true});
+
+              // Le mode démo verrouille volontairement l'édition du profil.
+              // Pour tester le vrai bouton GPS sans compte de production, on
+              // bascule uniquement le store de test vers un invité local.
+              await page.evaluate((label) => {
+                const stores = globalThis.__keepStores;
+                if (!stores?.useUserStore) throw new Error('KEEP dev store unavailable');
+                stores.useUserStore.getState().enterGuestMode(`guardian-${label}`);
+              }, c.label);
+
+              await t('Profil',{exact:true}).click();
+              await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+              await page.getByLabel('Menu du profil').last().click();
+              await t('Modifier le profil',{exact:true}).waitFor({state:'visible',timeout:15000});
+
+              const locate=t(/Utiliser ma position/i);
+              await locate.waitFor({state:'visible',timeout:15000});
+              await locate.click();
+              await t(/Position trouvée/i).waitFor({state:'visible',timeout:20000});
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-profile-location.png`,fullPage:true});
+
+              const save=t('Enregistrer sur cet appareil',{exact:true});
+              await save.waitFor({state:'visible',timeout:15000});
+              await save.click();
+              await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
               const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
               if(dims.scrollWidth>dims.width+1) throw new Error(`${c.label}: overflow horizontal ${JSON.stringify(dims)}`);
               if(pageErrors.length) throw new Error(`${c.label}: ${pageErrors.join('\n')}`);
 
-              await page.screenshot({path:`artifacts/dual-viewport/${c.label}.png`,fullPage:true});
-              report.push(`${c.label}: PASS — aucun profil avant recherche, GPS autorisé, recherche 50 km, profil trouvé, aucun overflow`);
+              report.push(`${c.label}: PASS — Discover vide avant recherche; GPS recherche 50 km; profil trouvé; Profil > Modifier > Utiliser ma position; sauvegarde locale; aucun overflow`);
               await context.close();
             }
 
