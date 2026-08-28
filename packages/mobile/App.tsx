@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import * as Location from 'expo-location';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
@@ -38,7 +37,6 @@ if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' && !useUserStore.getState().use
 export default function App() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
-  const updateUser = useUserStore((s) => s.updateUser);
 
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
@@ -46,40 +44,11 @@ export default function App() {
     if (!state.user) state.enterDemoMode();
   }, []);
 
-  useEffect(() => {
-    if (!user || isDemoMode || (user.city && user.countryCode)) return;
-    let cancelled = false;
-
-    const autoFillLocation = async () => {
-      try {
-        let permission = await Location.getForegroundPermissionsAsync();
-        if (permission.status !== 'granted' && permission.canAskAgain) {
-          permission = await Location.requestForegroundPermissionsAsync();
-        }
-        if (cancelled || permission.status !== 'granted') return;
-
-        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (cancelled) return;
-        const places = await Location.reverseGeocodeAsync({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        if (cancelled || !places[0]) return;
-
-        const place = places[0];
-        const city = place.city || place.subregion || place.region || user.city;
-        const countryCode = place.isoCountryCode?.toUpperCase() || user.countryCode;
-        if (city !== user.city || countryCode !== user.countryCode) {
-          updateUser({ city: city || undefined, countryCode: countryCode || undefined, locationOptIn: true });
-        }
-      } catch (error) {
-        if (__DEV__) console.warn('[KEEP] automatic location unavailable', error);
-      }
-    };
-
-    void autoFillLocation();
-    return () => { cancelled = true; };
-  }, [isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
+  // La localisation n'est plus demandée automatiquement au démarrage.
+  // Source de vérité unique : Profil > Modifier > « Utiliser ma position ».
+  // Cela évite les doubles demandes de permission et garantit le même chemin
+  // iPhone / Android / Web mobile, avec possibilité de modifier ville/pays
+  // manuellement avant l'enregistrement.
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
