@@ -1,0 +1,209 @@
+name: KEEP — One-shot QA repair 2026-08-28
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/one-shot-qa-repair-20260828.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - name: Checkout canonical branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 2
+
+      - name: Refuse stale runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin reconcile/claude-main-20260825
+          test "$(git rev-parse --abbrev-ref HEAD)" = 'reconcile/claude-main-20260825'
+
+      - name: Apply minimal QA repairs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          profile = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
+          share = Path('packages/mobile/share-profile.html')
+          loop = Path('.github/workflows/mobile-full-loop-audit.yml')
+          human = Path('.github/workflows/human-smoke-web.yml')
+
+          p = profile.read_text(encoding='utf-8')
+          h = share.read_text(encoding='utf-8')
+          a = loop.read_text(encoding='utf-8')
+          hs = human.read_text(encoding='utf-8')
+
+          # 1) Profil propriétaire: le premier compteur doit représenter toute la
+          # musique publique visible, y compris les KEEP provenant d'un profil.
+          old = "  const profileOwnKeepCount = publicSnapshot?.directPublicKeeps ?? localPublicOwnKeepCount;\n  const profileUserKeepCount = publicSnapshot?.socialPublicKeeps ?? localPublicUserKeepCount;"
+          new = "  const profileOwnKeepCount = publicSnapshot?.directPublicKeeps ?? localPublicOwnKeepCount;\n  const profileUserKeepCount = publicSnapshot?.socialPublicKeeps ?? localPublicUserKeepCount;\n  const profileTotalKeepCount = publicSnapshot?.totalPublicKeeps ?? (localPublicOwnKeepCount + localPublicUserKeepCount);"
+          if old not in p:
+              raise SystemExit('Profile count anchor missing: refusing blind edit')
+          p = p.replace(old, new, 1)
+          old = '<Stat value={profileOwnKeepCount} label="KEEP"/>'
+          new = '<Stat value={profileTotalKeepCount} label="KEEP total"/>'
+          if old not in p:
+              raise SystemExit('Profile stat anchor missing: refusing blind edit')
+          p = p.replace(old, new, 1)
+
+          # 2) Les liens publics sont permanents: si le pseudo actuel ne matche
+          # plus, résoudre l'ancien pseudo via profile_username_aliases.
+          old = "  const profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);\n  if(!profileRows.length)throw new Error('Profil introuvable');\n  const p=profileRows[0];"
+          new = "  let profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);\n  if(!profileRows.length){\n    const aliases=await get(`profile_username_aliases?alias=ilike.${encodeURIComponent(u)}&select=profile_id&limit=1`);\n    if(aliases.length)profileRows=await get(`profiles?id=eq.${encodeURIComponent(aliases[0].profile_id)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);\n  }\n  if(!profileRows.length)throw new Error('Profil introuvable');\n  const p=profileRows[0];"
+          if old not in h:
+              raise SystemExit('Public share alias anchor missing: refusing blind edit')
+          h = h.replace(old, new, 1)
+
+          # 3) Les audits doivent suivre le texte réellement affiché par l'écran
+          # d'écoute, sinon ils signalent un faux incident après chaque refonte.
+          stale = '/Micro actif · analyse en cours|Session active/i'
+          fresh = '/MICRO · (?:ANALYSE|ACTIF)|Micro actif · analyse en cours|Session active/i'
+          if stale not in a or stale not in hs:
+              raise SystemExit('Listening QA anchor missing: refusing blind edit')
+          a = a.replace(stale, fresh)
+          hs = hs.replace(stale, fresh)
+
+          # 4) Renforcer l'audit permanent: Découvertes doit avoir distance puis
+          # recherche visibles; le profil propriétaire ne doit jamais se suivre.
+          anchor = """            await page.getByLabel('Notifications').last().waitFor({ state: 'visible', timeout: 10000 });"""
+          guard = """            await textLast('Découvertes', { exact: true }).click();
+            await textLast('1 · DISTANCE', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            const discoverSearch = textLast('2 · ⌖ RECHERCHER', { exact: true });
+            await assertInViewport(discoverSearch, 'Découvertes / Rechercher', 844);
+            await page.getByLabel('Rayon 100 kilomètres').last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByLabel('Rayon Monde').last().waitFor({ state: 'visible', timeout: 10000 });
+            await shot('04b-discover-distance-search');
+
+            await textLast('Profil', { exact: true }).click();
+            await page.getByLabel('Menu du profil').last().waitFor({ state: 'visible', timeout: 10000 });
+            await textLast('PARTAGER', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            if (await textLast('+ Suivre', { exact: true }).isVisible().catch(() => false)) throw new Error('Profil propriétaire: + Suivre affiché');
+
+            await page.getByLabel('Notifications').last().waitFor({ state: 'visible', timeout: 10000 });"""
+          if anchor not in a:
+              raise SystemExit('Permanent audit profile anchor missing')
+          a = a.replace(anchor, guard, 1)
+          a = a.replace("page.getByLabel('Modifier le profil').last().click()", "page.getByLabel(/Modifier (mon|le) profil/).last().click()")
+
+          report_anchor = "              'Location helpers: PASS',\n              'Advanced settings -> Playlists: PASS',"
+          report_new = "              'Location helpers: PASS',\n              'Discover distance -> search visible 390x844: PASS',\n              'Owner profile no self-follow + share/menu visible: PASS',\n              'Advanced settings -> Playlists: PASS',"
+          if report_anchor not in a:
+              raise SystemExit('Permanent audit report anchor missing')
+          a = a.replace(report_anchor, report_new, 1)
+
+          profile.write_text(p, encoding='utf-8')
+          share.write_text(h, encoding='utf-8')
+          loop.write_text(a, encoding='utf-8')
+          human.write_text(hs, encoding='utf-8')
+
+      - name: Remove one-shot workflow before validation
+        run: rm .github/workflows/one-shot-qa-repair-20260828.yml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Source-of-truth gate
+        run: node scripts/verify-source-of-truth.cjs
+
+      - name: Typecheck all workspaces
+        run: npm run type-check
+
+      - name: Unit tests
+        run: npm test -- --runInBand
+
+      - name: Export mobile web
+        working-directory: packages/mobile
+        run: npx expo export --platform web --output-dir dist-qa-repair
+
+      - name: Fix web bootstrap
+        working-directory: packages/mobile
+        run: node scripts/fix-web-export.cjs dist-qa-repair
+
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Human-style mobile smoke 390x844
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/mobile/dist-qa-repair
+          python3 -m http.server 4174 >/tmp/keep-qa-repair-web.log 2>&1 &
+          cd ../../..
+          for i in {1..30}; do curl -fsS http://127.0.0.1:4174 >/dev/null && break || sleep 1; done
+          cat > /tmp/keep-qa-repair.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:390,height:844}});
+            const textLast=(v,o={})=>page.getByText(v,o).last();
+            await page.goto('http://127.0.0.1:4174',{waitUntil:'networkidle',timeout:60000});
+            await textLast('ESSAYER GRATUITEMENT',{exact:true}).click();
+            for(const x of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await textLast(x,{exact:true}).waitFor({state:'visible'});
+            await textLast(/ÉCOUTER|START A SESSION|DÉMARRER|COMMENCER/i).click();
+            await textLast(/MICRO · (?:ANALYSE|ACTIF)|Session active/i).waitFor({state:'visible',timeout:15000});
+            await textLast(/Partager/i).waitFor({state:'visible'});
+            await textLast(/Terminer la session|Arrêter|End session/i).waitFor({state:'visible'});
+            await textLast('Découvertes',{exact:true}).click();
+            await textLast('1 · DISTANCE',{exact:true}).waitFor({state:'visible'});
+            const search=textLast('2 · ⌖ RECHERCHER',{exact:true});
+            await search.waitFor({state:'visible'});
+            const box=await search.boundingBox();
+            if(!box || box.y<0 || box.y+box.height>844) throw new Error('Discover search requires vertical swipe on 390x844');
+            await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible'});
+            await page.getByLabel('Rayon Monde').last().waitFor({state:'visible'});
+            await textLast('Profil',{exact:true}).click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible'});
+            await textLast('PARTAGER',{exact:true}).waitFor({state:'visible'});
+            if(await textLast('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Owner self-follow visible');
+            const dims=await page.evaluate(()=>({w:innerWidth,sw:document.documentElement.scrollWidth}));
+            if(dims.sw>dims.w+1) throw new Error('Horizontal overflow');
+            await browser.close();
+            console.log('KEEP QA REPAIR HUMAN SMOKE: PASS');
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node /tmp/keep-qa-repair.cjs
+
+      - name: Assert guarded files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only
+          test -z "$(git diff --name-only | grep -Ev '^(packages/mobile/src/screens/ProfilePublicScreen.tsx|packages/mobile/share-profile.html|.github/workflows/mobile-full-loop-audit.yml|.github/workflows/human-smoke-web.yml|.github/workflows/one-shot-qa-repair-20260828.yml)$' || true)"
+          grep -q 'profileTotalKeepCount' packages/mobile/src/screens/ProfilePublicScreen.tsx
+          grep -q 'profile_username_aliases' packages/mobile/share-profile.html
+          grep -q '2 · ⌖ RECHERCHER' .github/workflows/mobile-full-loop-audit.yml
+
+      - name: Commit only after all gates pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'KEEP QA Bot'
+          git config user.email 'keep-qa-bot@users.noreply.github.com'
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/share-profile.html .github/workflows/mobile-full-loop-audit.yml .github/workflows/human-smoke-web.yml .github/workflows/one-shot-qa-repair-20260828.yml
+          git commit -m 'fix(qa): restore profile integrity and align human audits'
+          git push origin HEAD:reconcile/claude-main-20260825
