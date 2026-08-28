@@ -28,7 +28,7 @@ export function roundKeepCoordinates(latitude: number, longitude: number): KeepA
   };
 }
 
-async function reverseGeocodeWeb(latitude: number, longitude: number): Promise<{ city?: string; countryCode?: string }> {
+async function reverseGeocodeBigDataCloud(latitude: number, longitude: number): Promise<{ city?: string; countryCode?: string }> {
   const url = new URL('https://api.bigdatacloud.net/data/reverse-geocode-client');
   url.searchParams.set('latitude', String(latitude));
   url.searchParams.set('longitude', String(longitude));
@@ -43,53 +43,65 @@ async function reverseGeocodeWeb(latitude: number, longitude: number): Promise<{
   };
 }
 
-const webCityCache = new Map<string, KeepResolvedLocation | null>();
-
-async function geocodeWeb(query: string): Promise<KeepResolvedLocation | null> {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return null;
-  if (webCityCache.has(normalized)) return webCityCache.get(normalized) ?? null;
-
-  // Recherche explicite uniquement. Nominatim/OSM est utilisé comme fallback
-  // sans clé afin que la PWA puisse transformer une ville PUBLIQUE en centre de
-  // ville approximatif. Aucune position GPS privée d'un autre utilisateur n'est
-  // créée ou enregistrée ici.
-  const url = new URL('https://nominatim.openstreetmap.org/search');
-  url.searchParams.set('q', query.trim());
+async function reverseGeocodeNominatim(latitude: number, longitude: number): Promise<{ city?: string; countryCode?: string }> {
+  const url = new URL('https://nominatim.openstreetmap.org/reverse');
   url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('lat', String(latitude));
+  url.searchParams.set('lon', String(longitude));
+  url.searchParams.set('zoom', '10');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('accept-language', 'fr');
+
+  const response = await fetch(url.toString(), { method: 'GET', headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`web_reverse_geocode_fallback_${response.status}`);
+  const data = await response.json() as any;
+  const address = data?.address || {};
+  return {
+    city: address.city || address.town || address.village || address.municipality || address.county || undefined,
+    countryCode: typeof address.country_code === 'string' ? address.country_code.toUpperCase() : undefined,
+  };
+}
+
+async function reverseGeocodeWeb(latitude: number, longitude: number): Promise<{ city?: string; countryCode?: string }> {
+  try {
+    return await reverseGeocodeBigDataCloud(latitude, longitude);
+  } catch {
+    try {
+      return await reverseGeocodeNominatim(latitude, longitude);
+    } catch {
+      // La position GPS reste exploitable pour Découvertes même si les deux
+      // services gratuits de ville/pays sont momentanément indisponibles.
+      return {};
+    }
+  }
+}
+
+async function geocodeWebCity(query: string): Promise<KeepResolvedLocation | null> {
+  const clean = query.trim();
+  if (!clean) return null;
+
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('q', clean);
   url.searchParams.set('limit', '1');
   url.searchParams.set('addressdetails', '1');
   url.searchParams.set('accept-language', 'fr');
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error(`web_geocode_${response.status}`);
+  const response = await fetch(url.toString(), { method: 'GET', headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`web_city_geocode_${response.status}`);
   const rows = await response.json() as any[];
-  const first = rows?.[0];
-  if (!first) {
-    webCityCache.set(normalized, null);
-    return null;
-  }
-
-  const latitude = Number(first.lat);
-  const longitude = Number(first.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    webCityCache.set(normalized, null);
-    return null;
-  }
-
+  const match = rows?.[0];
+  const latitude = Number(match?.lat);
+  const longitude = Number(match?.lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const address = match?.address || {};
   const approx = roundKeepCoordinates(latitude, longitude);
-  const address = first.address || {};
-  const result: KeepResolvedLocation = {
+  return {
     ...approx,
-    city: address.city || address.town || address.village || address.municipality || query.trim(),
+    city: address.city || address.town || address.village || address.municipality || clean,
     countryCode: typeof address.country_code === 'string' ? address.country_code.toUpperCase() : undefined,
     source: 'web-free',
   };
-  webCityCache.set(normalized, result);
-  return result;
 }
 
 export async function getCurrentKeepLocation(): Promise<KeepResolvedLocation> {
@@ -106,30 +118,47 @@ export async function getCurrentKeepLocation(): Promise<KeepResolvedLocation> {
     return { ...approx, ...place, source: 'web-free' };
   }
 
-  const places = await Location.reverseGeocodeAsync({ latitude, longitude });
-  const place = places[0];
-  return {
-    ...approx,
-    city: place?.city || place?.subregion || place?.region || undefined,
-    countryCode: place?.isoCountryCode?.toUpperCase() || undefined,
-    source: 'native',
-  };
+  // iOS/Android : le GPS doit rester utilisable même si le reverse geocoding
+  // natif échoue momentanément. Dans ce cas on conserve les coordonnées
+  // approximatives et l'utilisateur peut compléter ville/pays manuellement.
+  try {
+    const places = await Location.reverseGeocodeAsync({ latitude, longitude });
+    const place = places[0];
+    return {
+      ...approx,
+      city: place?.city || place?.subregion || place?.region || undefined,
+      countryCode: place?.isoCountryCode?.toUpperCase() || undefined,
+      source: 'native',
+    };
+  } catch {
+    return { ...approx, source: 'native' };
+  }
 }
 
 export async function searchKeepCity(query: string): Promise<KeepResolvedLocation | null> {
-  if (Platform.OS === 'web') return geocodeWeb(query);
+  if (Platform.OS === 'web') {
+    try {
+      return await geocodeWebCity(query);
+    } catch {
+      return null;
+    }
+  }
 
   const matches = await Location.geocodeAsync(query);
   if (!matches.length) return null;
   const match = matches[0];
-  const places = await Location.reverseGeocodeAsync(match);
-  const place = places[0];
   const approx = roundKeepCoordinates(match.latitude, match.longitude);
 
-  return {
-    ...approx,
-    city: place?.city || place?.subregion || place?.region || query.trim() || undefined,
-    countryCode: place?.isoCountryCode?.toUpperCase() || undefined,
-    source: 'native',
-  };
+  try {
+    const places = await Location.reverseGeocodeAsync(match);
+    const place = places[0];
+    return {
+      ...approx,
+      city: place?.city || place?.subregion || place?.region || query.trim() || undefined,
+      countryCode: place?.isoCountryCode?.toUpperCase() || undefined,
+      source: 'native',
+    };
+  } catch {
+    return { ...approx, city: query.trim() || undefined, source: 'native' };
+  }
 }
