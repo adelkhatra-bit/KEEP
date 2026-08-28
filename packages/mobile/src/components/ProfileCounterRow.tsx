@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 
+// Source de vérité visuelle commune aux compteurs de profil propriétaire, visité et partagé.
 export type ProfileCounterItem = {
   label: string;
   value: number;
