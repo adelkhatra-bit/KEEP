@@ -1,8 +1,11 @@
 name: KEEP — Build iOS (EAS) + TestFlight
 
-# Objectif : à chaque changement du code mobile sur la branche KEEP unique,
-# produire un build iOS via EAS Build et le soumettre automatiquement à TestFlight.
-# Aucun secret en clair : tout passe par les Repository secrets GitHub.
+# Pipeline Apple :
+# - vérifie toujours le contrat App Store sans credential externe ;
+# - lance EAS dès que EXPO_TOKEN existe ;
+# - ajoute --auto-submit uniquement lorsque les credentials App Store Connect
+#   nécessaires sont réellement présents.
+# Aucun identifiant Apple factice n'est conservé dans le repo.
 
 on:
   push:
@@ -10,6 +13,7 @@ on:
     paths:
       - "packages/mobile/**"
       - "packages/music/**"
+      - "scripts/verify-app-store-readiness.cjs"
       - ".github/workflows/eas-build-ios.yml"
   workflow_dispatch:
     inputs:
@@ -39,48 +43,136 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Vérifier les secrets indispensables
+      - name: Vérifier le contrat App Store contrôlé par le code
+        working-directory: .
+        run: node scripts/verify-app-store-readiness.cjs
+
+      - name: Déterminer les accès externes disponibles
+        id: gate
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          INPUT_PROFILE: ${{ github.event.inputs.profile }}
+          INPUT_AUTO_SUBMIT: ${{ github.event.inputs.auto_submit }}
+        shell: bash
         run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Secret GitHub EXPO_TOKEN manquant. Configure-le dans Settings > Secrets and variables > Actions."
-            exit 1
+          set -euo pipefail
+          profile="${INPUT_PROFILE:-production}"
+          requested_auto_submit="${INPUT_AUTO_SUBMIT:-true}"
+          build_ready=false
+          submit_ready=false
+          has_p8=false
+
+          if [ -n "${EXPO_TOKEN:-}" ]; then build_ready=true; fi
+          if [ -n "${ASC_API_KEY_P8_BASE64:-}" ]; then has_p8=true; fi
+          if [ "$profile" = "production" ] && [ "$requested_auto_submit" != "false" ] \
+             && [ -n "${EXPO_TOKEN:-}" ] \
+             && [ -n "${ASC_API_KEY_P8_BASE64:-}" ] \
+             && [ -n "${ASC_KEY_ID:-}" ] \
+             && [ -n "${ASC_ISSUER_ID:-}" ] \
+             && [ -n "${APPLE_TEAM_ID:-}" ] \
+             && [ -n "${ASC_APP_ID:-}" ]; then
+            submit_ready=true
+          fi
+
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+          echo "requested_auto_submit=$requested_auto_submit" >> "$GITHUB_OUTPUT"
+          echo "build_ready=$build_ready" >> "$GITHUB_OUTPUT"
+          echo "submit_ready=$submit_ready" >> "$GITHUB_OUTPUT"
+          echo "has_p8=$has_p8" >> "$GITHUB_OUTPUT"
+
+          if [ "$build_ready" != "true" ]; then
+            echo "::warning::EXPO_TOKEN absent : build EAS non lancé. Le préflight code reste valide et le workflow s'activera automatiquement dès que le secret sera ajouté."
+          fi
+          if [ "$requested_auto_submit" != "false" ] && [ "$submit_ready" != "true" ]; then
+            echo "::warning::Auto-soumission TestFlight non armée : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID ou ASC_APP_ID."
           fi
 
       - name: Setup EAS CLI
+        if: steps.gate.outputs.build_ready == 'true'
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies (workspace root)
+        if: steps.gate.outputs.build_ready == 'true'
         working-directory: .
         run: npm ci
 
       - name: Écrire la clé API App Store Connect
+        if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
         env:
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
-        if: ${{ env.ASC_API_KEY_P8_BASE64 != '' }}
+        shell: bash
         run: |
+          set -euo pipefail
           echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
+          chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
           echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
 
-      - name: Build iOS (non-interactif, credentials gérés par EAS)
+      - name: Injecter les identifiants de soumission uniquement dans le runner
+        if: steps.gate.outputs.submit_ready == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const file = 'eas.json';
+          const eas = JSON.parse(fs.readFileSync(file, 'utf8'));
+          eas.submit ||= {};
+          eas.submit.production ||= {};
+          eas.submit.production.ios ||= {};
+          eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID;
+          eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID;
+          fs.writeFileSync(file, JSON.stringify(eas, null, 2) + '\n');
+          console.log('EAS submit config injected in runner only.');
+          NODE
+
+      - name: Build iOS EAS
+        if: steps.gate.outputs.build_ready == 'true'
         env:
           EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
         run: |
-          PROFILE="${{ github.event.inputs.profile || 'production' }}"
-          AUTO_SUBMIT_FLAG=""
-          if [ "${{ github.event.inputs.auto_submit }}" != "false" ]; then
-            AUTO_SUBMIT_FLAG="--auto-submit"
+          set -euo pipefail
+          profile='${{ steps.gate.outputs.profile }}'
+          args=(build --platform ios --profile "$profile" --non-interactive --no-wait)
+          if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
+            args+=(--auto-submit-with-profile production)
+            echo 'Build + auto-submit TestFlight armé.'
+          else
+            echo 'Build EAS armé sans auto-submit TestFlight.'
           fi
-          eas build --platform ios --profile "$PROFILE" --non-interactive --no-wait $AUTO_SUBMIT_FLAG
+          eas "${args[@]}"
+
+      - name: Résumé pipeline Apple
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '### KEEP — pipeline iOS'
+            echo
+            echo "- Profil : ${{ steps.gate.outputs.profile || 'production' }}"
+            echo "- Build EAS armé : ${{ steps.gate.outputs.build_ready || 'false' }}"
+            echo "- Auto-submit TestFlight armé : ${{ steps.gate.outputs.submit_ready || 'false' }}"
+            if [ '${{ steps.gate.outputs.build_ready }}' != 'true' ]; then
+              echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
+            fi
+            if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
+              echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Nettoyage clé API
         if: always()
