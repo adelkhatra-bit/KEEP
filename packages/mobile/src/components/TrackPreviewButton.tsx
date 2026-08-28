@@ -10,9 +10,10 @@ type Props = {
   previewUrl?: string;
   fallbackUrl?: string;
   compact?: boolean;
+  fullWidth?: boolean;
 };
 
-export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false }: Props) {
+export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
 
@@ -88,12 +89,12 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   };
 
   if (!previewUrl && !fallbackUrl) {
-    return compact ? <Text style={styles.unavailable}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
+    return compact ? <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
   }
 
   return (
     <TouchableOpacity
-      style={[styles.button, compact && styles.compact]}
+      style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth]}
       onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
@@ -117,7 +118,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   compact: { minHeight: 28, paddingHorizontal: 9, borderRadius: 14 },
+  fullWidth: { alignSelf: 'stretch', width: '100%' },
   text: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
   compactText: { fontSize: 9 },
   unavailable: { color: colors.textMuted, fontSize: 10 },
+  unavailableFullWidth: { width: '100%', textAlign: 'center' },
 });
