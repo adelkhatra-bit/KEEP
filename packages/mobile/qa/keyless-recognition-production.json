@@ -1,0 +1,20 @@
+{
+  "certifiedAt": "2026-08-28T19:35:00Z",
+  "sourceSha": "c5f0a127b4c57d88a9fbe7f5dfb87da4c66ab132",
+  "modeWithoutApi": "social-share-metadata-plus-public-itunes-catalog",
+  "providersWhenConfigured": ["AudD", "ACRCloud"],
+  "auddCredentialPolicy": "provider-validated-before-vault-save",
+  "invalidAuddPlaceholderRemoved": true,
+  "keylessResolver": {
+    "edgeFunction": "keep-music-keyless-source",
+    "publicGuestCompatible": true,
+    "hostAllowlist": true,
+    "rateLimitPerDeviceIpPerMinute": 20
+  },
+  "tests": {
+    "mobileTypecheck": "pass",
+    "adminTypecheck": "pass",
+    "mobileTests": "13/13 pass",
+    "adminProductionBuild": "pass"
+  }
+}
