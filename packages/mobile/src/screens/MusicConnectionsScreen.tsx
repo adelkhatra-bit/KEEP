@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
 import {
   clearKeylessMusicExport,
@@ -39,6 +39,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
   const [selectedService, setSelectedService] = useState<MusicServiceKey | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [activatingService, setActivatingService] = useState<MusicServiceKey | null>(null);
 
   const refresh = useCallback(async () => {
     const [nextQueue, nextSelection] = await Promise.all([
@@ -86,29 +87,70 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     void openProvider(service);
   };
 
+  const openOffers = () => navigation.navigate('Offers', { focusPlan: nextPlan(selection.plan), sourceFeature: 'MUSIC_SERVICES' });
+
   const showUpgrade = () => {
     if (selection.plan === 'VENUE_PRO') {
-      Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par KEEP.');
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert('Tous tes services sont déjà disponibles avec Venue Pro.');
+      else Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par KEEP.');
       return;
     }
-    Alert.alert(
-      'Tous tes emplacements sont utilisés',
-      `${musicServicePlanLabel(selection.plan)} permet ${selection.limit} service${selection.limit > 1 ? 's' : ''}.\n\n${nextPlanLabel(selection.plan)}.`,
-      [
-        { text: 'Plus tard', style: 'cancel' },
-        { text: 'Voir la formule', onPress: () => navigation.navigate('Offers', { focusPlan: nextPlan(selection.plan), sourceFeature: 'MUSIC_SERVICES' }) },
-      ],
-    );
+
+    const message = `${musicServicePlanLabel(selection.plan)} permet ${selection.limit} service${selection.limit > 1 ? 's' : ''}.\n\n${nextPlanLabel(selection.plan)}.`;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`${message}\n\nVoir la formule ?`)) openOffers();
+      return;
+    }
+    Alert.alert('Tous tes emplacements sont utilisés', message, [
+      { text: 'Plus tard', style: 'cancel' },
+      { text: 'Voir la formule', onPress: openOffers },
+    ]);
+  };
+
+  const activateService = async (service: MusicServiceKey, name: string) => {
+    if (activatingService || busy) return;
+    setActivatingService(service);
+    try {
+      const result = await claimMusicService(service);
+      const nextSelection = { services: result.services, used: result.used, limit: result.limit, plan: result.plan };
+      setSelection(nextSelection);
+      if (!result.ok && result.error === 'SERVICE_LIMIT_REACHED') {
+        showUpgrade();
+        return;
+      }
+      if (!result.ok) throw new Error(result.error || 'ACTIVATION_FAILED');
+
+      // Relire Supabase avant d'annoncer l'activation : le bouton ACTIF ne doit
+      // jamais être seulement cosmétique.
+      const verified = await loadMusicServiceSelections();
+      setSelection(verified);
+      if (!verified.services.includes(service)) throw new Error('ACTIVATION_NOT_PERSISTED');
+
+      useConnectedService(service);
+    } catch (e: any) {
+      const text = e?.message?.includes('AUTH_REQUIRED')
+        ? 'Connecte ton compte KEEP pour choisir tes services musicaux.'
+        : 'Impossible d’activer ce service pour le moment.';
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(text);
+      else Alert.alert('KEEP', text);
+    } finally {
+      setActivatingService(null);
+    }
   };
 
   const confirmService = (service: MusicServiceKey, name: string) => {
     const alreadyClaimed = selection.services.includes(service);
     if (alreadyClaimed) {
       if (!activeServices.has(service)) {
-        Alert.alert('Service réservé', `${name} reste associé à ton compte, mais ta formule actuelle ne permet d’utiliser que ${selection.limit} service${selection.limit > 1 ? 's' : ''}.`, [
-          { text: 'Fermer', style: 'cancel' },
-          { text: 'Voir les offres', onPress: () => navigation.navigate('Offers', { focusPlan: nextPlan(selection.plan), sourceFeature: 'MUSIC_SERVICES' }) },
-        ]);
+        const message = `${name} reste associé à ton compte, mais ta formule actuelle ne permet d’utiliser que ${selection.limit} service${selection.limit > 1 ? 's' : ''}.`;
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          if (window.confirm(`${message}\n\nVoir les offres ?`)) openOffers();
+        } else {
+          Alert.alert('Service réservé', message, [
+            { text: 'Fermer', style: 'cancel' },
+            { text: 'Voir les offres', onPress: openOffers },
+          ]);
+        }
         return;
       }
       useConnectedService(service);
@@ -121,32 +163,21 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     }
 
     const remainingAfter = selection.limit - selection.used - 1;
-    Alert.alert(
-      `Choisir ${name} ?`,
-      `Ce service prendra 1 emplacement de ta formule ${musicServicePlanLabel(selection.plan)}.\n\nUne fois confirmé, ce choix reste associé à ton compte KEEP : tu ne pourras pas le remplacer par un autre service.\n\nIl te restera ${remainingAfter} emplacement${remainingAfter > 1 ? 's' : ''}.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'CONFIRMER',
-          onPress: async () => {
-            setBusy(true);
-            try {
-              const result = await claimMusicService(service);
-              setSelection({ services: result.services, used: result.used, limit: result.limit, plan: result.plan });
-              if (!result.ok && result.error === 'SERVICE_LIMIT_REACHED') {
-                showUpgrade();
-                return;
-              }
-              useConnectedService(service);
-            } catch (e: any) {
-              Alert.alert('KEEP', e?.message?.includes('AUTH_REQUIRED') ? 'Connecte ton compte KEEP pour choisir tes services musicaux.' : 'Impossible d’activer ce service pour le moment.');
-            } finally {
-              setBusy(false);
-            }
-          },
-        },
-      ],
-    );
+    const message = `Ce service prendra 1 emplacement de ta formule ${musicServicePlanLabel(selection.plan)}.\n\nUne fois confirmé, ce choix reste associé à ton compte KEEP.\n\nIl te restera ${remainingAfter} emplacement${remainingAfter > 1 ? 's' : ''}.`;
+
+    // react-native-web Alert.alert n'exécute pas de manière fiable les boutons
+    // multi-actions. C'était la raison du « ACTIVER ne fait rien » sur ordinateur
+    // et sur le site ouvert depuis un téléphone. Le navigateur utilise donc son
+    // dialogue natif, puis la même RPC Supabase que l'app iOS/Android.
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`Choisir ${name} ?\n\n${message}`)) void activateService(service, name);
+      return;
+    }
+
+    Alert.alert(`Choisir ${name} ?`, message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'CONFIRMER', onPress: () => { void activateService(service, name); } },
+    ]);
   };
 
   const finishExport = async () => {
@@ -226,11 +257,13 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           const slotFull = !claimed && selection.used >= selection.limit;
           const reserved = claimed && !active;
           const selected = selectedService === provider.key;
+          const activating = activatingService === provider.key;
           return (
             <TouchableOpacity
               key={provider.key}
               style={[styles.card, { borderColor: active ? brandColor : selected ? brandColor : colors.border }, (selected || active) && styles.cardSelected]}
               onPress={() => confirmService(provider.key, provider.name)}
+              disabled={Boolean(activatingService)}
               accessibilityLabel={`${active ? 'Ouvrir' : 'Choisir'} ${provider.name}`}
             >
               <View style={[styles.logo, { borderColor: brandColor }]}>
@@ -244,7 +277,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 </View>
                 <Text style={styles.description}>{active ? provider.shortDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte KEEP.'}</Text>
               </View>
-              <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill]}><Text style={styles.openPillText}>{active ? (queue?.tracks.length ? 'CHOISIR' : 'OUVRIR') : slotFull || reserved ? '🔒' : 'ACTIVER'}</Text></View>
+              <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill, activating && styles.activatingPill]}><Text style={styles.openPillText}>{activating ? 'ACTIVATION…' : active ? (queue?.tracks.length ? 'CHOISIR' : 'OUVRIR') : slotFull || reserved ? '🔒' : 'ACTIVER'}</Text></View>
             </TouchableOpacity>
           );
         })}
@@ -310,6 +343,7 @@ const styles = StyleSheet.create({
   description: { color: '#D8D0E2', fontSize: 10, lineHeight: 14, marginTop: 3 },
   openPill: { minHeight: 34, paddingHorizontal: 10, borderRadius: 17, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center' },
   lockPill: { backgroundColor: '#21182F', borderColor: '#6E4BA5' },
+  activatingPill: { backgroundColor: '#123D2C', borderColor: '#38D990' },
   openPillText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' },
   ruleCard: { backgroundColor: '#10251B', borderRadius: radius.lg, borderWidth: 1, borderColor: '#38D990', padding: spacing.lg, marginTop: spacing.sm },
   ruleTitle: { color: '#8AF3BF', fontSize: 13, fontWeight: '900' },
