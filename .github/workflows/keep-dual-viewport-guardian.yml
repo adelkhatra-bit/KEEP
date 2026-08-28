@@ -28,7 +28,7 @@ jobs:
       CI: true
       EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
-      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_DEMO_MODE: 'false'
       EXPO_PUBLIC_KEEP_PREVIEW: '0'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
@@ -141,7 +141,7 @@ jobs:
               if(!/profil.*dans ce rayon/i.test(discoveryBody)) throw new Error(`${c.label}: compteur de résultats absent`);
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-discover.png`,fullPage:true});
 
-              // Vrai parcours visiteur + contrôle géométrique des cartes profil.
+              // Profil visité : mesure réelle DNA ↔ compteurs KEEP.
               await profileLink.click();
               const visitorDnaTitle=t('Son empreinte musicale',{exact:true});
               const visitorKeepLabel=t('KEEP utilisateurs',{exact:true});
@@ -161,14 +161,21 @@ jobs:
               await page.getByLabel('Retour').last().click();
               await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
 
-              // ESSAYER GRATUITEMENT est déjà un vrai compte invité local.
-              // Aucun accès à un store interne n'est utilisé : le test agit
-              // uniquement avec les boutons accessibles à un utilisateur.
+              // Profil propriétaire : le contrôle d'alignement est volontairement
+              // effectué AVANT toute action GPS afin qu'une panne de géocodage
+              // externe ne puisse jamais masquer une régression visuelle.
               await t('Profil',{exact:true}).click();
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+              const ownerDnaTitle=t('Ton empreinte musicale',{exact:true});
+              const ownerKeepLabel=t('KEEP total',{exact:true});
+              const ownerDnaRect=await borderedRect(ownerDnaTitle, `${c.label} owner DNA`);
+              const ownerKeepRect=await borderedRect(ownerKeepLabel, `${c.label} owner KEEP counters`);
+              assertBorderAligned(ownerDnaRect, ownerKeepRect, `${c.label} owner DNA ↔ KEEP`);
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-owner-profile-alignment.png`,fullPage:true});
+
+              // Invité local hors mode démo : vrai bouton GPS + vraie sauvegarde locale.
               await page.getByLabel('Menu du profil').last().click();
               await t('Modifier le profil',{exact:true}).waitFor({state:'visible',timeout:15000});
-
               const locate=t(/Utiliser ma position/i);
               await locate.waitFor({state:'visible',timeout:15000});
               await locate.click();
@@ -180,21 +187,11 @@ jobs:
               await save.click();
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
-              // Contrôle utilisateur/propriétaire : les contours de Ton empreinte
-              // musicale et KEEP total / KEEP utilisateurs doivent tomber sur les
-              // mêmes verticales, à 1 px maximum, mobile comme desktop.
-              const ownerDnaTitle=t('Ton empreinte musicale',{exact:true});
-              const ownerKeepLabel=t('KEEP total',{exact:true});
-              const ownerDnaRect=await borderedRect(ownerDnaTitle, `${c.label} owner DNA`);
-              const ownerKeepRect=await borderedRect(ownerKeepLabel, `${c.label} owner KEEP counters`);
-              assertBorderAligned(ownerDnaRect, ownerKeepRect, `${c.label} owner DNA ↔ KEEP`);
-              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-owner-profile-alignment.png`,fullPage:true});
-
               const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
               if(dims.scrollWidth>dims.width+1) throw new Error(`${c.label}: overflow horizontal ${JSON.stringify(dims)}`);
               if(pageErrors.length) throw new Error(`${c.label}: ${pageErrors.join('\n')}`);
 
-              report.push(`${c.label}: PASS — Discover vide avant recherche; GPS 50 km; profil trouvé; alignement visiteur DNA↔KEEP ≤1px; Swipe social; Profil > Modifier > GPS; alignement propriétaire DNA↔KEEP ≤1px; aucun overflow`);
+              report.push(`${c.label}: PASS — hors mode démo; Discover vide avant recherche; GPS recherche 50 km; profil trouvé; visiteur DNA↔KEEP ≤1px; Swipe social; propriétaire DNA↔KEEP ≤1px; Modifier > GPS > sauvegarde locale; aucun overflow`);
               await context.close();
             }
 
