@@ -23,20 +23,49 @@ function normalize(value: string | undefined): string {
     .trim();
 }
 
-/**
- * Première vérification gratuite : la bibliothèque KEEP du compte lui-même.
- * Cela évite d'interroger Spotify/Deezer inutilement et permet surtout de dire
- * immédiatement « déjà dans ta playlist » lorsqu'un morceau a déjà été gardé
- * depuis un autre téléphone ou navigateur.
- */
-async function checkOwnKeepLibrary(track: CanonicalTrack): Promise<{
+type LibraryMatch = {
   exists: boolean;
   match: { provider: string; playlistId: string; playlistName: string } | null;
-} | null> {
+};
+
+function keepMatchFromContext(context: any): LibraryMatch {
+  const playlist = context?.playlist ?? {};
+  return {
+    exists: true,
+    match: {
+      provider: String(playlist.provider || 'KEEP'),
+      playlistId: String(playlist.providerPlaylistId || 'keep-profile'),
+      playlistName: String(playlist.name || 'Mes KEEP'),
+    },
+  };
+}
+
+/**
+ * Vérification gratuite de la bibliothèque KEEP du compte lui-même.
+ * Le track_id exact est contrôlé en premier, puis ISRC / titre-artiste servent
+ * de filet de sécurité pour les anciens morceaux ou les imports fournisseurs.
+ * Cette fonction est exportée afin que le Swipe puisse bloquer un doublon AVANT
+ * d'ouvrir le choix Public/Privé ou de consommer une action utilisateur.
+ */
+export async function checkOwnKeepLibrary(track: CanonicalTrack): Promise<LibraryMatch | null> {
   if (!supabase) return null;
   const { data: sessionData } = await supabase.auth.getSession();
   const profileId = sessionData.session?.user?.id;
   if (!profileId) return null;
+
+  const directTrackId = String(track.id || '').trim();
+  if (directTrackId) {
+    const { data: directKeep } = await supabase
+      .from('keep_decisions')
+      .select('id,context')
+      .eq('profile_id', profileId)
+      .eq('track_id', directTrackId)
+      .eq('decision', 'KEPT')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (directKeep) return keepMatchFromContext(directKeep.context);
+  }
 
   let trackRows: any[] = [];
   if (track.isrc?.trim()) {
@@ -69,26 +98,13 @@ async function checkOwnKeepLibrary(track: CanonicalTrack): Promise<{
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!keep) continue;
-
-    const playlist = keep.context?.playlist ?? {};
-    return {
-      exists: true,
-      match: {
-        provider: String(playlist.provider || 'KEEP'),
-        playlistId: String(playlist.providerPlaylistId || 'keep-profile'),
-        playlistName: String(playlist.name || 'Mes KEEP'),
-      },
-    };
+    if (keep) return keepMatchFromContext(keep.context);
   }
 
   return { exists: false, match: null };
 }
 
-export async function checkConnectedLibraries(track: CanonicalTrack): Promise<{
-  exists: boolean;
-  match: { provider: string; playlistId: string; playlistName: string } | null;
-} | null> {
+export async function checkConnectedLibraries(track: CanonicalTrack): Promise<LibraryMatch | null> {
   const ownKeep = await checkOwnKeepLibrary(track).catch(() => null);
   if (ownKeep?.exists) return ownKeep;
 
