@@ -106,20 +106,25 @@ jobs:
               await page.getByLabel('Rayon 50 kilomètres').last().click();
               const search=page.getByLabel('Rechercher des profils autour de moi').last();
               await search.click();
-              await page.getByLabel('Voir le profil').last().waitFor({state:'visible',timeout:20000});
+              const profileLink=page.getByLabel('Voir le profil').last();
+              await profileLink.waitFor({state:'visible',timeout:20000});
               const discoveryBody=await page.locator('body').innerText();
               if(!/profil.*dans ce rayon/i.test(discoveryBody)) throw new Error(`${c.label}: compteur de résultats absent`);
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-discover.png`,fullPage:true});
 
-              // Le mode démo verrouille volontairement l'édition du profil.
-              // Pour tester le vrai bouton GPS sans compte de production, on
-              // bascule uniquement le store de test vers un invité local.
-              await page.evaluate((label) => {
-                const stores = globalThis.__keepStores;
-                if (!stores?.useUserStore) throw new Error('KEEP dev store unavailable');
-                stores.useUserStore.getState().enterGuestMode(`guardian-${label}`);
-              }, c.label);
+              // Vrai parcours d'un visiteur jusqu'au Swipe d'un autre profil.
+              await profileLink.click();
+              await t(/DÉCOUVRIR SON KEEP EN SWIPE/i).waitFor({state:'visible',timeout:20000});
+              await t(/DÉCOUVRIR SON KEEP EN SWIPE/i).click();
+              await t('KEEP SWIPE',{exact:true}).waitFor({state:'visible',timeout:15000});
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-social-swipe.png`,fullPage:true});
+              await page.getByLabel('Fermer le swipe').last().click();
+              await page.getByLabel('Retour').last().click();
+              await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
 
+              // ESSAYER GRATUITEMENT est déjà un vrai compte invité local.
+              // Aucun accès à un store interne n'est utilisé : le test agit
+              // uniquement avec les boutons accessibles à un utilisateur.
               await t('Profil',{exact:true}).click();
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               await page.getByLabel('Menu du profil').last().click();
@@ -140,7 +145,7 @@ jobs:
               if(dims.scrollWidth>dims.width+1) throw new Error(`${c.label}: overflow horizontal ${JSON.stringify(dims)}`);
               if(pageErrors.length) throw new Error(`${c.label}: ${pageErrors.join('\n')}`);
 
-              report.push(`${c.label}: PASS — Discover vide avant recherche; GPS recherche 50 km; profil trouvé; Profil > Modifier > Utiliser ma position; sauvegarde locale; aucun overflow`);
+              report.push(`${c.label}: PASS — Discover vide avant recherche; GPS recherche 50 km; profil trouvé; Swipe social ouvert; Profil > Modifier > Utiliser ma position; sauvegarde locale; aucun overflow`);
               await context.close();
             }
 
