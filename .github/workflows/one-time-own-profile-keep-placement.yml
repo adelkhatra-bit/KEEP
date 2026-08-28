@@ -2,9 +2,10 @@ name: KEEP one-time own profile KEEP placement
 
 on:
   push:
-    branches: ['reconcile/claude-main-20260825']
+    branches:
+      - reconcile/claude-main-20260825
     paths:
-      - '.github/workflows/one-time-own-profile-keep-placement.yml'
+      - .github/workflows/one-time-own-profile-keep-placement.yml
 
 permissions:
   contents: write
@@ -24,44 +25,44 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Move own KEEP counters below Mes réseaux
-        shell: python
         run: |
+          python - <<'PY'
           from pathlib import Path
           p = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
           s = p.read_text(encoding='utf-8')
-          old = '''        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
-        <ProfileCounterRow kind="keeps" items={[
+          old = """        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
+        <ProfileCounterRow kind=\"keeps\" items={[
           { value: profileTotalKeepCount, label: 'KEEP total' },
           { value: profileUserKeepCount, label: 'KEEP utilisateurs' },
         ]} />
       </View>
 
-      <View style={s.dna}>'''
-          new = '''        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
+      <View style={s.dna}>"""
+          new = """        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
       </View>
 
-      <View style={s.dna}>'''
+      <View style={s.dna}>"""
           if s.count(old) != 1:
               raise SystemExit(f'Expected old KEEP block exactly once, got {s.count(old)}')
           s = s.replace(old, new, 1)
-          anchor = '''      <View style={s.socialHub}>
+          anchor = """      <View style={s.socialHub}>
         <View style={s.socialHeader}><Text style={s.socialTitle}>Mes réseaux</Text><TouchableOpacity onPress={() => navigation.navigate('MusicConnections')}><Text style={s.musicLink}>♫ Services musicaux</Text></TouchableOpacity></View>
         <View style={s.socialRow}>{SOCIALS.map((item) => {
           const configured = !!publicLinks.find((link) => link.platform === item.platform && link.url.trim());
           return <TouchableOpacity key={item.platform} style={[s.socialButton, configured && s.socialButtonOn]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#AFA6BD'}/></TouchableOpacity>;
         })}</View>
       </View>
-'''
-          insert = anchor + '''
-      <ProfileCounterRow kind="keeps" items={[
+"""
+          insert = anchor + """
+      <ProfileCounterRow kind=\"keeps\" items={[
         { value: profileTotalKeepCount, label: 'KEEP total' },
         { value: profileUserKeepCount, label: 'KEEP utilisateurs' },
       ]} />
-'''
+"""
           if s.count(anchor) != 1:
               raise SystemExit(f'Expected Mes réseaux block exactly once, got {s.count(anchor)}')
-          s = s.replace(anchor, insert, 1)
-          p.write_text(s, encoding='utf-8')
+          p.write_text(s.replace(anchor, insert, 1), encoding='utf-8')
+          PY
       - name: Verify mobile typecheck
         run: npm --workspace packages/mobile run type-check
       - name: Verify source contract
