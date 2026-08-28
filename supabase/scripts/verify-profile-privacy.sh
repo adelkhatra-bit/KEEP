@@ -28,7 +28,7 @@ pg -d "$DB" <<'SQL'
 do $$
 declare
   uid uuid := gen_random_uuid();
-  track_id uuid := gen_random_uuid();
+  v_track_id uuid := gen_random_uuid();
   private_count int;
   owner_profile_rows int;
   public_profile_rows int;
@@ -37,33 +37,33 @@ begin
   insert into auth.users(id) values(uid);
   insert into public.profiles(id, username, is_public) values(uid, 'privacy_ci_user', true);
   insert into public.tracks(id, title, artist, genres, provider_ids, external_urls, available_on)
-  values(track_id, 'Privacy Regression Track', 'KEEP CI', array['test'], '{}'::jsonb, '{}'::jsonb, array[]::text[]);
+  values(v_track_id, 'Privacy Regression Track', 'KEEP CI', array['test'], '{}'::jsonb, '{}'::jsonb, array[]::text[]);
 
   -- Historique qui reproduit le bug : une ancienne ligne PUBLIC existe encore.
   insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
-  values(uid, track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '2 minutes');
+  values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '2 minutes');
   insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
-  values(uid, track_id, 'KEPT', 'PRIVATE', 'listen', now() - interval '1 minute');
+  values(uid, v_track_id, 'KEPT', 'PRIVATE', 'listen', now() - interval '1 minute');
 
   perform set_config('request.jwt.claim.sub', uid::text, true);
 
   select count(*) into private_count
-  from public.keep_decisions
-  where profile_id=uid and track_id=track_id and decision='KEPT' and visibility='PRIVATE';
+  from public.keep_decisions kd
+  where kd.profile_id=uid and kd.track_id=v_track_id and kd.decision='KEPT' and kd.visibility='PRIVATE';
   if private_count < 1 then
     raise exception 'FAIL setup : aucune décision PRIVATE';
   end if;
 
   select count(*) into owner_profile_rows
   from public.keep_own_profile_tracks(500,0) x
-  where x.track_id = track_id;
+  where x.track_id = v_track_id;
   if owner_profile_rows <> 0 then
     raise exception 'FAIL confidentialité : profil propriétaire expose % ligne(s) PRIVATE', owner_profile_rows;
   end if;
 
   select count(*) into public_profile_rows
   from public.keep_public_profile_tracks(uid,500,0) x
-  where x.track_id = track_id;
+  where x.track_id = v_track_id;
   if public_profile_rows <> 0 then
     raise exception 'FAIL confidentialité : profil public expose % ligne(s) PRIVATE', public_profile_rows;
   end if;
@@ -78,18 +78,18 @@ begin
 
   -- Retour PUBLIC : la piste doit redevenir visible exactement une fois.
   insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
-  values(uid, track_id, 'KEPT', 'PUBLIC', 'listen', now());
+  values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now());
 
   select count(*) into owner_profile_rows
   from public.keep_own_profile_tracks(500,0) x
-  where x.track_id = track_id;
+  where x.track_id = v_track_id;
   if owner_profile_rows <> 1 then
     raise exception 'FAIL retour PUBLIC : profil propriétaire attend 1 ligne, obtenu %', owner_profile_rows;
   end if;
 
   select count(*) into public_profile_rows
   from public.keep_public_profile_tracks(uid,500,0) x
-  where x.track_id = track_id;
+  where x.track_id = v_track_id;
   if public_profile_rows <> 1 then
     raise exception 'FAIL retour PUBLIC : profil public attend 1 ligne, obtenu %', public_profile_rows;
   end if;
