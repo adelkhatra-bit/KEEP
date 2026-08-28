@@ -113,6 +113,22 @@ async function statusHandler(req: KeepAuthedRequest, res: Response) {
   });
 }
 
+function wantsJson(req: KeepAuthedRequest): boolean {
+  return String(req.query.response || '').toLowerCase() === 'json' || req.accepts(['json', 'html']) === 'json';
+}
+
+function sendAuthorization(req: KeepAuthedRequest, res: Response, provider: Provider, authorizationUrl: string) {
+  if (wantsJson(req)) {
+    return res.json({
+      provider,
+      authorizationUrl,
+      expiresInSeconds: 600,
+      callbackScheme: 'keep://music-connections',
+    });
+  }
+  return res.redirect(authorizationUrl);
+}
+
 async function startHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
   if (!['spotify', 'deezer'].includes(provider)) return res.status(404).json({ error: 'provider_not_supported' });
@@ -131,7 +147,7 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
       scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read user-library-modify',
       show_dialog: 'false',
     });
-    return res.redirect(`https://accounts.spotify.com/authorize?${query.toString()}`);
+    return sendAuthorization(req, res, provider, `https://accounts.spotify.com/authorize?${query.toString()}`);
   }
 
   const query = new URLSearchParams({
@@ -140,7 +156,7 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
     perms: 'basic_access,email,manage_library,delete_library,listening_history',
     state,
   });
-  return res.redirect(`https://connect.deezer.com/oauth/auth.php?${query.toString()}`);
+  return sendAuthorization(req, res, provider, `https://connect.deezer.com/oauth/auth.php?${query.toString()}`);
 }
 
 async function callbackHandler(req: KeepAuthedRequest, res: Response) {
