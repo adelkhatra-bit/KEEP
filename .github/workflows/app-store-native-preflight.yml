@@ -92,10 +92,6 @@ jobs:
           if 'TARGETED_DEVICE_FAMILY = 1;' not in pbx_text and 'TARGETED_DEVICE_FAMILY = "1";' not in pbx_text:
               raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
 
-          # expo-share-intent peut générer les propriétés de l'extension via les
-          # build settings Xcode plutôt que dans un Info.plist source contenant
-          # directement NSExtension. Le vrai contrat à vérifier est donc la
-          # présence d'une target .appex de type app-extension dans le projet.
           has_extension_target = (
               'com.apple.product-type.app-extension' in pbx_text
               or '.appex' in pbx_text
@@ -103,9 +99,6 @@ jobs:
           if not extension_info and not has_extension_target:
               raise SystemExit('FAIL: expo-share-intent did not generate an iOS app-extension target')
 
-          # Le module local ShazamKit doit être vu par l'autolinking Expo au
-          # moment du prebuild. Sa présence dans les Pods/Podfile générés est
-          # vérifiée sans exiger de credential Apple.
           podfile = ios / 'Podfile'
           podfile_text = podfile.read_text(encoding='utf-8', errors='ignore') if podfile.exists() else ''
           shazam_module_present = (
@@ -150,3 +143,64 @@ jobs:
         with:
           name: keep-app-store-native-preflight
           path: artifacts/app-store-native-preflight
+
+  ios-simulator-compile:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact workspace dependencies
+        run: npm ci
+      - name: Generate iOS project
+        working-directory: packages/mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Install CocoaPods
+        working-directory: packages/mobile
+        run: npx pod-install ios
+      - name: Resolve Xcode workspace and scheme
+        id: xcode
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(xcodebuild -workspace "$workspace" -list -json | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("workspace",{}).get("schemes",[]); print("KEEP" if "KEEP" in s else (s[0] if s else ""))')"
+          test -n "$scheme"
+          echo "workspace=$workspace" >> "$GITHUB_OUTPUT"
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
+          echo "Xcode workspace: $workspace"
+          echo "Xcode scheme: $scheme"
+      - name: Compile iOS Simulator — ShazamKit + share extension
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ../../artifacts/ios-simulator-compile
+          xcodebuild \
+            -workspace '${{ steps.xcode.outputs.workspace }}' \
+            -scheme '${{ steps.xcode.outputs.scheme }}' \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ../../artifacts/ios-simulator-compile/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build | tee ../../artifacts/ios-simulator-compile/xcodebuild.log
+      - name: Assert local Shazam module compiled
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -E 'KeepShazam|KeepShazamModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
+      - name: Upload native compile log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-ios-simulator-compile
+          path: artifacts/ios-simulator-compile/xcodebuild.log
