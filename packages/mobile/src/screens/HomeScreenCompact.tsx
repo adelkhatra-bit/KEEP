@@ -331,8 +331,8 @@ function MiniStat({ value, label }: { value: string; label: string }) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
-  round: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: '#120D1B' },
-  roundText: { color: C.text, fontSize: 17 },
+  round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: '#120D1B' },
+  roundText: { color: C.text, fontSize: 28, lineHeight: 30, fontWeight: '700' },
   brand: { color: C.text, fontSize: 24, fontWeight: '900', letterSpacing: 5 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   planFree: { borderColor: '#2C8A60', backgroundColor: 'rgba(104,242,177,0.12)' },
