@@ -78,16 +78,20 @@ export async function loadProviderConnectionStates(): Promise<ProviderConnection
 /**
  * Demande au backend KEEP une URL OAuth signée pour le compte connecté, puis
  * ouvre le fournisseur. Le secret Spotify/Deezer ne transite jamais dans le
- * mobile. Le callback revient ensuite via keep://music-connections.
+ * mobile. Le backend encode aussi la surface de départ dans le state signé :
+ * web -> retour HTTPS KEEP, natif -> keep://music-connections.
  */
 export async function startProviderConnection(provider: SyncProvider): Promise<void> {
-  const response = await fetch(`${baseUrl()}/api/music/connections/start/${provider}?response=json`, {
+  const client = Platform.OS === 'web' ? 'web' : 'native';
+  const response = await fetch(`${baseUrl()}/api/music/connections/start/${provider}?response=json&client=${client}`, {
     headers: await headers(false),
   });
   const payload = await readJson(response);
   const url = String(payload?.authorizationUrl || '');
   if (!/^https:\/\//i.test(url)) throw new Error('URL OAuth fournisseur invalide.');
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // Navigation dans l'onglet courant : Safari iOS revient ensuite sur KEEP
+    // au lieu de conserver un onglet intermédiaire about:blank.
     window.location.assign(url);
     return;
   }
