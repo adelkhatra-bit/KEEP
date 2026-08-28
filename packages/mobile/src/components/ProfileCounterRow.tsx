@@ -31,15 +31,18 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
 const styles = StyleSheet.create({
   row: {
     width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'center',
     flexDirection: 'row',
     backgroundColor: colors.backgroundCard,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
   connections: { marginTop: 8 },
   keeps: { marginTop: 10 },
-  item: { flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 2 },
-  value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  label: { color: '#FFFFFF', fontSize: 11, lineHeight: 14, marginTop: 3, textAlign: 'center', fontWeight: '700' },
+  item: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6 },
+  value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  label: { width: '100%', color: '#FFFFFF', fontSize: 11, lineHeight: 14, marginTop: 3, textAlign: 'center', fontWeight: '700' },
 });
