@@ -59,8 +59,25 @@ s = replace_once(
 s = s.replace("swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13", "swipeLaunchText:{color:'#FFFFFF',fontSize:10,lineHeight:14", 1)
 p.write_text(s, encoding='utf-8')
 
-# 3) Test public permanent : profil + morceau + Vibe + session + comparaison + soirée,
-# avec caractères spéciaux et interdiction explicite des pages HTTP 400/noires.
+# 3) Landing partagé déjà refondu : conserver les marqueurs permanents historiques
+# tout en gardant le schéma actuel (follows/social_links/RPC). Le public peut voir
+# le profil sans compte ; suivre demande ensuite la création/connexion.
+p = Path('packages/mobile/share-profile.html')
+s = p.read_text(encoding='utf-8')
+if 'function followAccountRoute' not in s:
+    s = replace_once(
+        s,
+        "  const routeCreate=(u='')=>`${KEEP_ROOT}?__keep_auth=create${u?`&__keep_follow=${encodeURIComponent(u)}`:''}`;",
+        "  const routeCreate=(u='')=>`${KEEP_ROOT}?__keep_auth=create${u?`&__keep_follow=${encodeURIComponent(u)}`:''}`;\n  function followAccountRoute(u=''){return routeCreate(u);}",
+        'share follow compatibility alias',
+    )
+s = s.replace("button.onclick=()=>{location.href=routeCreate(p.username);};", "button.onclick=()=>{location.href=followAccountRoute(p.username);};", 1)
+if 'CRÉER MON COMPTE' not in s:
+    s = s.replace('DÉCOUVRIR KEEP EN DÉMO', 'CRÉER MON COMPTE KEEP', 1)
+p.write_text(s, encoding='utf-8')
+
+# 4) Test public permanent : profil + morceau + Vibe + session + comparaison + soirée,
+# caractères spéciaux et interdiction explicite HTTP 400 / Bad Request.
 p = Path('.github/workflows/web-preview-pages.yml')
 s = p.read_text(encoding='utf-8')
 s = replace_once(
