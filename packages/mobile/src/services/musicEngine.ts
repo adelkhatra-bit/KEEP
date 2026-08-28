@@ -20,6 +20,7 @@ import {
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
 import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
+import { NotifyingRecognitionProvider } from './notifyingRecognitionProvider';
 import { isSmartAlbumUiId, loadSmartAlbumTracks } from './smartAlbumService';
 
 const USE_DEMO_MUSIC_PROVIDER = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
@@ -79,9 +80,10 @@ class MusicEngine {
   private session: { provider: string; userId: string; accessToken: string } | null = null;
 
   constructor() {
-    this.recognitionProvider = USE_REAL_RECOGNITION
+    const baseRecognitionProvider: MusicRecognitionProvider = USE_REAL_RECOGNITION
       ? new KeepMusicCoreRecognitionProvider()
       : new DemoRecognitionProvider();
+    this.recognitionProvider = new NotifyingRecognitionProvider(baseRecognitionProvider);
 
     this.musicProvider = USE_DEMO_MUSIC_PROVIDER
       ? new DemoMusicProvider()
