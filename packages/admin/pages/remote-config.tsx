@@ -9,7 +9,7 @@ interface RemoteConfigRow {
   updated_at?: string | null;
 }
 
-type GroupKey = 'GROWTH' | 'PLANS' | 'LISTEN' | 'VIBES' | 'OTHER';
+type GroupKey = 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
 
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'KEEP offerts avant inscription',
@@ -32,6 +32,10 @@ const FRIENDLY_LABELS: Record<string, string> = {
   growth_followers_reward_500_discovery: 'Bonus Découvertes · abonnés palier 4',
   growth_followers_reward_500_sort: 'Essais Vibes · abonnés palier 4',
   growth_followers_reward_1000_credits: 'Bonus crédits · Audience Pro',
+  music_services_limit_free: 'Services musicaux · FREE',
+  music_services_limit_premium: 'Services musicaux · Premium 2,99 €',
+  music_services_limit_creator: 'Services musicaux · Creator Pro 9,99 €',
+  music_services_limit_venue: 'Services musicaux · Venue Pro 29,99 €',
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
@@ -44,6 +48,7 @@ function editableValue(row: RemoteConfigRow) {
 
 function groupFor(key: string): GroupKey {
   if (key.startsWith('growth_')) return 'GROWTH';
+  if (key.startsWith('music_services_')) return 'SERVICES';
   if (key.startsWith('guest_') || key.startsWith('signup_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
   if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
@@ -53,6 +58,7 @@ function groupFor(key: string): GroupKey {
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
   { key: 'GROWTH', title: 'Croissance Free · paliers & cadeaux', subtitle: 'Transforme partages et abonnés en bonus sans modifier l’application. Les règles serveur utilisent ces valeurs.' },
   { key: 'PLANS', title: 'Essai, crédits & limites', subtitle: 'Réglages transversaux. Les limites propres à chaque formule se gèrent aussi dans Abonnements, Prix & Quotas.' },
+  { key: 'SERVICES', title: 'Services musicaux · emplacements par formule', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },
   { key: 'LISTEN', title: 'Écouter & compte', subtitle: 'Textes et comportement à distance de l’écran Écouter.' },
   { key: 'VIBES', title: 'KEEP Vibes', subtitle: 'Configuration du rangement musical intelligent.' },
   { key: 'OTHER', title: 'Configuration avancée', subtitle: 'Autres réglages distants.' },
@@ -101,7 +107,7 @@ export default function RemoteConfig() {
 
   return <AdminLayout>
     <div className="page-title">Textes, Paliers & Règles KEEP</div>
-    <div className="page-subtitle">Pilote les cadeaux Free, la croissance communautaire, Écouter et KEEP Vibes directement depuis Supabase.</div>
+    <div className="page-subtitle">Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et KEEP Vibes directement depuis Supabase.</div>
 
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {!error && !loading && <div className="demo-banner">● MODE RÉEL — chaque changement est audité et appliqué sans republier l’application.</div>}
