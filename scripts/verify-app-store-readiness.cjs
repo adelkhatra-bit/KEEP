@@ -34,6 +34,17 @@ check('Splash configuré', app.splash && app.splash.image === './assets/splash.p
 check('Identifiant projet EAS présent', Boolean(app.extra?.eas?.projectId));
 check('Runtime version stable', app.runtimeVersion?.policy === 'appVersion');
 
+const sharePlugin = (app.plugins || []).find((entry) => Array.isArray(entry) && entry[0] === 'expo-share-intent');
+const shareConfig = Array.isArray(sharePlugin) ? (sharePlugin[1] || {}) : {};
+check('Extension de partage iOS a une cible native distincte', shareConfig.iosShareExtensionName === 'KEEPShareExtension', String(shareConfig.iosShareExtensionName || 'absente'));
+check('Extension de partage accepte les URL web', Number(shareConfig.iosActivationRules?.NSExtensionActivationSupportsWebURLWithMaxCount || 0) >= 1);
+
+const shazamSwift = 'packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift';
+check('Module ShazamKit natif présent', exists(shazamSwift) && contains(shazamSwift, 'import ShazamKit'));
+check('ShazamKit utilise SHSignatureGenerator', exists(shazamSwift) && contains(shazamSwift, 'SHSignatureGenerator'));
+check('ShazamKit utilise SHSession', exists(shazamSwift) && contains(shazamSwift, 'SHSession'));
+check('Aucun faux entitlement local ShazamKit', !read('packages/mobile/app.json').includes('com.apple.developer.shazamkit'));
+
 const mic = 'packages/mobile/src/services/micCapture.ts';
 check('Micro réellement actif en arrière-plan iOS', contains(mic, 'staysActiveInBackground: target'));
 check('ARRÊTER libère Audio.Recording', contains(mic, 'stopAndUnloadAsync'));
@@ -86,6 +97,7 @@ check('Dossier de soumission App Store préparé', exists('docs/APP_STORE_SUBMIS
 check('Préflight iOS natif sans credential présent', exists('.github/workflows/app-store-native-preflight.yml'));
 
 external.push('GitHub Secret EXPO_TOKEN requis pour déclencher le build EAS iOS réel.');
+external.push('Dans Apple Developer > Identifiers > App Services, activer ShazamKit pour com.adelkhatra.keep. ShazamKit est un App Service côté App ID, pas un entitlement local à ajouter au projet.');
 external.push('APPLE_TEAM_ID et ASC_APP_ID numériques requis pour armer la soumission TestFlight automatique.');
 external.push('Clé App Store Connect : ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID requise pour la soumission automatisée.');
 external.push('Validation physique iPhone/TestFlight requise pour microphone arrière-plan, share extension, notifications et comportement inter-apps.');
