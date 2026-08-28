@@ -1,0 +1,57 @@
+name: KEEP — One-time Profile Vibes v2
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - .github/workflows/one-time-profile-vibes-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-profile-vibes-v2
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+
+      - name: Apply profile Vibes patch
+        run: python3 scripts/profile_vibes_patch_v2.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck mobile
+        run: npm run mobile:typecheck
+
+      - name: Commit generated profile integration
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "feat(profile): surface automatic Vibes with swipe"
+            git pull --rebase origin reconcile/claude-main-20260825
+            git push origin HEAD:reconcile/claude-main-20260825
+          fi
