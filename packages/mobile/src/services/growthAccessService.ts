@@ -32,6 +32,16 @@ export type CommercialRules = {
   followerTiers: [number, number, number, number, number];
 };
 
+const FALLBACK_RULES: CommercialRules = {
+  freeDiscoveryProfiles: 3,
+  premiumSmartSortTrials: 3,
+  premiumDailyDownloads: 40,
+  shareDailyCap: 10,
+  audienceProThreshold: 1000,
+  shareTiers: [20, 50, 100],
+  followerTiers: [25, 100, 250, 500, 1000],
+};
+
 function quota(row: any): QuotaAccess {
   return {
     planCode: String(row?.plan_code || 'FREE'),
@@ -83,52 +93,21 @@ export async function getGrowthRewardStatus(): Promise<GrowthRewardStatus> {
 }
 
 export async function getCommercialRules(): Promise<CommercialRules> {
-  const fallback: CommercialRules = {
-    freeDiscoveryProfiles: 3,
-    premiumSmartSortTrials: 3,
-    premiumDailyDownloads: 40,
-    shareDailyCap: 10,
-    audienceProThreshold: 1000,
-    shareTiers: [20, 50, 100],
-    followerTiers: [25, 100, 250, 500, 1000],
-  };
-  if (!supabase) return fallback;
-  const keys = [
-    'free_discovery_profile_limit',
-    'premium_sort_trial_runs',
-    'premium_daily_download_limit',
-    'growth_share_daily_cap',
-    'growth_share_tier1_threshold',
-    'growth_share_tier2_threshold',
-    'growth_share_tier3_threshold',
-    'growth_followers_tier1_threshold',
-    'growth_followers_tier2_threshold',
-    'growth_followers_tier3_threshold',
-    'growth_followers_tier4_threshold',
-    'growth_followers_tier5_threshold',
-  ];
-  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', keys);
-  if (error) return fallback;
-  const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
-  const num = (key: string, fallbackValue: number) => Number.isFinite(map[key]) ? map[key] : fallbackValue;
-  const followerTiers: [number, number, number, number, number] = [
-    num('growth_followers_tier1_threshold', 25),
-    num('growth_followers_tier2_threshold', 100),
-    num('growth_followers_tier3_threshold', 250),
-    num('growth_followers_tier4_threshold', 500),
-    num('growth_followers_tier5_threshold', 1000),
-  ];
+  if (!supabase) return FALLBACK_RULES;
+  const { data, error } = await supabase.rpc('keep_commercial_rules');
+  if (error || !data || typeof data !== 'object') return FALLBACK_RULES;
+  const row: any = data;
+  const share = Array.isArray(row.share_tiers) ? row.share_tiers.map(Number) : FALLBACK_RULES.shareTiers;
+  const followers = Array.isArray(row.follower_tiers) ? row.follower_tiers.map(Number) : FALLBACK_RULES.followerTiers;
+  const shareTiers: [number, number, number] = [share[0] || 20, share[1] || 50, share[2] || 100];
+  const followerTiers: [number, number, number, number, number] = [followers[0] || 25, followers[1] || 100, followers[2] || 250, followers[3] || 500, followers[4] || 1000];
   return {
-    freeDiscoveryProfiles: num('free_discovery_profile_limit', fallback.freeDiscoveryProfiles),
-    premiumSmartSortTrials: num('premium_sort_trial_runs', fallback.premiumSmartSortTrials),
-    premiumDailyDownloads: num('premium_daily_download_limit', fallback.premiumDailyDownloads),
-    shareDailyCap: num('growth_share_daily_cap', fallback.shareDailyCap),
+    freeDiscoveryProfiles: Number(row.free_discovery_profiles ?? FALLBACK_RULES.freeDiscoveryProfiles),
+    premiumSmartSortTrials: Number(row.premium_smart_sort_trials ?? FALLBACK_RULES.premiumSmartSortTrials),
+    premiumDailyDownloads: Number(row.premium_daily_downloads ?? FALLBACK_RULES.premiumDailyDownloads),
+    shareDailyCap: Number(row.share_daily_cap ?? FALLBACK_RULES.shareDailyCap),
     audienceProThreshold: followerTiers[4],
-    shareTiers: [
-      num('growth_share_tier1_threshold', 20),
-      num('growth_share_tier2_threshold', 50),
-      num('growth_share_tier3_threshold', 100),
-    ],
+    shareTiers,
     followerTiers,
   };
 }
