@@ -39,13 +39,13 @@ export async function loadPlans(): Promise<KeepPlan[]> {
 }
 
 export async function loadCreditFunnel(): Promise<CreditFunnel> {
-  if (!supabase) return { guestSuccessLimit: 3, signupBonusSuccesses: 4 };
+  if (!supabase) return { guestSuccessLimit: 3, signupBonusSuccesses: 20 };
   const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['guest_success_limit', 'signup_bonus_successes']);
   if (error) throw error;
   const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
   return {
     guestSuccessLimit: Number.isFinite(map.guest_success_limit) ? map.guest_success_limit : 3,
-    signupBonusSuccesses: Number.isFinite(map.signup_bonus_successes) ? map.signup_bonus_successes : 4,
+    signupBonusSuccesses: Number.isFinite(map.signup_bonus_successes) ? map.signup_bonus_successes : 20,
   };
 }
 
@@ -54,13 +54,6 @@ export interface SessionScreenCopy {
   emptySubtitle: string | null;
 }
 
-/**
- * Texte de l'écran Écouter au repos, éditable depuis le Super Admin (demande
- * explicite du 26/08/2026 -- "je veux pouvoir la changer dans le super
- * admin"). Même table/pattern que loadCreditFunnel ci-dessus -- jamais une
- * deuxième source de config. `null` = pas encore configuré en base, le
- * composant appelant garde alors sa valeur i18n par défaut.
- */
 export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
   if (!supabase) return { emptyTitle: null, emptySubtitle: null };
   const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['session_empty_title', 'session_empty_subtitle']);
@@ -72,12 +65,6 @@ export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
   };
 }
 
-/**
- * Délai avant de proposer la fin d'une session silencieuse. Il reste piloté
- * depuis `remote_config` afin que le Super Admin puisse l'ajuster sans publier
- * une nouvelle version de l'application. KEEP ne coupe jamais la session tout
- * seul : ce délai ne fait qu'ouvrir la proposition utilisateur.
- */
 export async function loadSessionSilenceTimeoutMinutes(): Promise<number> {
   if (!supabase) return 15;
   const { data, error } = await supabase
@@ -93,12 +80,6 @@ export async function loadSessionSilenceTimeoutMinutes(): Promise<number> {
 
 export async function loadCurrentPlanCode(profileId: string): Promise<string> {
   if (!supabase) return 'FREE';
-
-  // Les profils Démo/Invité sont volontairement locaux et n'ont jamais de
-  // ligne `subscriptions` Supabase. La colonne profile_id est un UUID : envoyer
-  // "demo-user-1" provoquait un HTTP 400 dans le navigateur alors que l'app
-  // était parfaitement rendue. Un identifiant non UUID est donc, par contrat,
-  // un profil local Free et ne doit jamais déclencher une requête distante.
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId)) return 'FREE';
 
   const now = new Date().toISOString();
