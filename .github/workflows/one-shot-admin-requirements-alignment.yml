@@ -1,0 +1,71 @@
+name: KEEP — One-shot admin requirements alignment
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - .github/workflows/one-shot-admin-requirements-alignment.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-one-shot-admin-requirements-alignment
+  cancel-in-progress: true
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout canonical KEEP branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+
+      - name: Remove unsupported mandatory e-mail option only
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('packages/admin/pages/users.tsx')
+          s = p.read_text(encoding='utf-8')
+          old = "  ['EMAIL_VERIFIED', 'E-mail vérifié'], ['BIRTH_DATE', 'Date de naissance'], ['GENDER', 'Genre'],"
+          new = "  ['BIRTH_DATE', 'Date de naissance'], ['GENDER', 'Genre'],"
+          if old not in s:
+              raise SystemExit('Expected requirements line not found; refusing broad edit')
+          s2 = s.replace(old, new, 1)
+          if s2.count("EMAIL_VERIFIED") != 0:
+              raise SystemExit('EMAIL_VERIFIED still present in users.tsx; refusing partial release')
+          p.write_text(s2, encoding='utf-8')
+
+      - name: Remove one-shot workflow before release commit
+        run: rm -f .github/workflows/one-shot-admin-requirements-alignment.yml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck all workspaces
+        run: npm run type-check
+
+      - name: Commit aligned Super Admin option
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/admin/pages/users.tsx .github/workflows/one-shot-admin-requirements-alignment.yml
+          git diff --cached --check
+          git commit -m "fix(admin): keep mandatory profile fields email-free"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
