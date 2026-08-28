@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
+import MusicServiceActivationModal from '../components/MusicServiceActivationModal';
 import {
   clearKeylessMusicExport,
   KEYLESS_MUSIC_SERVICES,
@@ -19,6 +20,8 @@ import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
 const EMPTY_SELECTION: MusicServiceSelectionState = { services: [], used: 0, limit: 1, plan: 'FREE' };
+
+type ActivationPrompt = { service: MusicServiceKey; name: string };
 
 function nextPlan(plan: MusicServiceSelectionState['plan']) {
   if (plan === 'FREE') return 'PREMIUM';
@@ -40,6 +43,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
   const [trackIndex, setTrackIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [activatingService, setActivatingService] = useState<MusicServiceKey | null>(null);
+  const [activationPrompt, setActivationPrompt] = useState<ActivationPrompt | null>(null);
 
   const refresh = useCallback(async () => {
     const [nextQueue, nextSelection] = await Promise.all([
@@ -107,8 +111,8 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     ]);
   };
 
-  const activateService = async (service: MusicServiceKey, name: string) => {
-    if (activatingService || busy) return;
+  const activateService = async (service: MusicServiceKey, name: string): Promise<boolean> => {
+    if (activatingService || busy) return false;
     setActivatingService(service);
     try {
       const result = await claimMusicService(service);
@@ -116,7 +120,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       setSelection(nextSelection);
       if (!result.ok && result.error === 'SERVICE_LIMIT_REACHED') {
         showUpgrade();
-        return;
+        return false;
       }
       if (!result.ok) throw new Error(result.error || 'ACTIVATION_FAILED');
 
@@ -127,12 +131,14 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       if (!verified.services.includes(service)) throw new Error('ACTIVATION_NOT_PERSISTED');
 
       useConnectedService(service);
+      return true;
     } catch (e: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
         ? 'Connecte ton compte KEEP pour choisir tes services musicaux.'
         : 'Impossible d’activer ce service pour le moment.';
       if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(text);
       else Alert.alert('KEEP', text);
+      return false;
     } finally {
       setActivatingService(null);
     }
@@ -162,22 +168,9 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       return;
     }
 
-    const remainingAfter = selection.limit - selection.used - 1;
-    const message = `Ce service prendra 1 emplacement de ta formule ${musicServicePlanLabel(selection.plan)}.\n\nUne fois confirmé, ce choix reste associé à ton compte KEEP.\n\nIl te restera ${remainingAfter} emplacement${remainingAfter > 1 ? 's' : ''}.`;
-
-    // react-native-web Alert.alert n'exécute pas de manière fiable les boutons
-    // multi-actions. C'était la raison du « ACTIVER ne fait rien » sur ordinateur
-    // et sur le site ouvert depuis un téléphone. Le navigateur utilise donc son
-    // dialogue natif, puis la même RPC Supabase que l'app iOS/Android.
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Choisir ${name} ?\n\n${message}`)) void activateService(service, name);
-      return;
-    }
-
-    Alert.alert(`Choisir ${name} ?`, message, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'CONFIRMER', onPress: () => { void activateService(service, name); } },
-    ]);
+    // Un même popup KEEP est utilisé sur Web, iOS et Android. Le choix n'est
+    // enregistré qu'après confirmation explicite de l'utilisateur.
+    setActivationPrompt({ service, name });
   };
 
   const finishExport = async () => {
@@ -195,6 +188,14 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       return;
     }
     setTrackIndex((value) => value + 1);
+  };
+
+  const confirmActivationPrompt = () => {
+    if (!activationPrompt || activatingService) return;
+    const pending = activationPrompt;
+    void activateService(pending.service, pending.name).then((ok) => {
+      if (ok) setActivationPrompt(null);
+    });
   };
 
   return (
@@ -292,6 +293,17 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           <Text style={styles.limitText}>FREE : 1 service · Premium 2,99 € : 3 · Creator Pro 9,99 € : 5 · Venue Pro 29,99 € : tous les services. Un service confirmé garde sa place sur ton compte.</Text>
         </View>
       </ScrollView>
+
+      <MusicServiceActivationModal
+        visible={Boolean(activationPrompt)}
+        service={activationPrompt?.service ?? null}
+        name={activationPrompt?.name ?? ''}
+        planLabel={musicServicePlanLabel(selection.plan)}
+        remainingAfter={Math.max(0, selection.limit - selection.used - 1)}
+        busy={Boolean(activationPrompt && activatingService === activationPrompt.service)}
+        onCancel={() => { if (!activatingService) setActivationPrompt(null); }}
+        onConfirm={confirmActivationPrompt}
+      />
     </SafeAreaView>
   );
 }
