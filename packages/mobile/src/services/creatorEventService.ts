@@ -67,6 +67,7 @@ export async function createCreatorEvent(input: {
   if (error && !data) throw error;
   if (!data?.ok) {
     if (data?.error === 'creator_plan_required') throw new Error('CREATOR_PRO_REQUIRED');
+    if (data?.error === 'event_followers_required') throw new Error(`EVENT_FOLLOWERS_REQUIRED:${Number(data?.followers || 0)}:${Number(data?.min_followers || 500)}`);
     if (data?.error === 'event_monthly_limit_reached') throw new Error('VENUE_PRO_EVENT_LIMIT');
     throw new Error(String(data?.error || error?.message || 'EVENT_CREATE_FAILED'));
   }
