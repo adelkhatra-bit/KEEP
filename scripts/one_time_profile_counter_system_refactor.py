@@ -60,11 +60,23 @@ s = replace_once(
 )
 p.write_text(s, encoding='utf-8')
 
-# Public permanent share page: same hierarchy and readable white labels.
+# Public permanent share page: same hierarchy, readable labels and the canonical account-follow route.
 p = Path('packages/mobile/share-profile.html')
 s = p.read_text(encoding='utf-8')
 s = replace_once(s, ".connection span{display:block;font-size:10px;color:#fff;font-weight:800;margin-top:2px}", ".connection span{display:block;font-size:11px;color:#fff;font-weight:800;margin-top:2px}", 'public follower label')
 s = replace_once(s, ".stat span{display:block;font-size:10px;color:#fff;font-weight:800;margin-top:2px}", ".stat span{display:block;font-size:11px;color:#fff;font-weight:800;margin-top:2px}", 'public keep label')
+s = replace_once(
+    s,
+    "  const routeCreate=(u='')=>`${KEEP_ROOT}?__keep_auth=create${u?`&__keep_follow=${encodeURIComponent(u)}`:''}`;",
+    "  const followAccountRoute=(u='')=>`${KEEP_ROOT}?__keep_auth=create${u?`&__keep_follow=${encodeURIComponent(u)}`:''}`;",
+    'public follow account route',
+)
+s = replace_once(
+    s,
+    "    if(!session){button.textContent='+ SUIVRE';button.onclick=()=>{location.href=routeCreate(p.username);};return;}",
+    "    if(!session){button.textContent='CRÉER MON COMPTE POUR SUIVRE';button.onclick=()=>{location.href=followAccountRoute(p.username);};return;}",
+    'public unauthenticated follow action',
+)
 p.write_text(s, encoding='utf-8')
 
 print('PROFILE_COUNTER_SYSTEM_OK')
