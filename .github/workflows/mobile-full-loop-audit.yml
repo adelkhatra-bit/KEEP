@@ -110,7 +110,7 @@ jobs:
             await waitFiveTabs();
             await shot('01-listen-idle');
 
-            const start = textLast(/START A SESSION|DÉMARRER|COMMENCER/i);
+            const start = textLast(/ÉCOUTER|START A SESSION|DÉMARRER|COMMENCER/i);
             await assertInViewport(start, 'Démarrer écoute', 844);
             await start.click();
 
