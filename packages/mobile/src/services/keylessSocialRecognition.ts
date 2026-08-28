@@ -6,7 +6,7 @@ import type { SharedMusicSource } from './sharedMusicSourceService';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
-const MIN_CONFIDENCE = 0.72;
+const MIN_CONFIDENCE = 0.68;
 
 function configured(value: string | undefined): value is string {
   return Boolean(value && value !== 'undefined' && !value.startsWith('your_'));
@@ -21,10 +21,12 @@ async function getDeviceId() {
 }
 
 /**
- * Fallback sans clé de reconnaissance : le lien reçu depuis TikTok, YouTube,
- * Instagram, Snapchat ou Facebook est analysé côté Edge puis recoupé avec des
- * catalogues publics (Apple Search + Deezer public). Une correspondance faible
- * est volontairement ignorée pour ne jamais inventer un morceau.
+ * Fallback sans clé de reconnaissance.
+ *
+ * IMPORTANT : `keep-music-keyless-source` est l'unique resolver serveur
+ * canonique. Le partage direct ET le fallback de la boucle micro doivent
+ * passer par lui pour éviter deux algorithmes concurrents avec des scores
+ * différents. Il analyse les métadonnées publiques puis recoupe Apple/Deezer.
  */
 export async function resolveKeylessSocialMusic(source: SharedMusicSource): Promise<RecognitionResult | null> {
   if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
@@ -32,7 +34,7 @@ export async function resolveKeylessSocialMusic(source: SharedMusicSource): Prom
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
-    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-keyless-social`, {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
