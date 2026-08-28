@@ -54,6 +54,8 @@ const linking = {
 const TAB = {
   bg: '#0E0A14',
   border: '#2B2038',
+  // Règle KEEP : les 5 libellés restent blancs pour ne jamais disparaître
+  // visuellement sur le fond sombre, actif ou non.
   active: '#FFFFFF',
   inactive: '#FFFFFF',
 };
