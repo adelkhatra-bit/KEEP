@@ -1,5 +1,6 @@
 import { CanonicalTrack } from '@keep/music';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
+import { keepProviderIdentities, tracksRepresentSameKeep } from './keepTrackIdentity';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -14,94 +15,137 @@ async function authHeaders() {
   return { Authorization: `Bearer ${token}`, 'content-type': 'application/json' };
 }
 
-function normalize(value: string | undefined): string {
-  return (value || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+function validUuid(value: string | undefined | null): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 }
 
 type LibraryMatch = {
   exists: boolean;
-  match: { provider: string; playlistId: string; playlistName: string } | null;
+  match: {
+    provider: string;
+    playlistId: string;
+    playlistName: string;
+    decisionId?: string;
+    trackId?: string;
+    visibility?: 'PUBLIC' | 'PRIVATE';
+  } | null;
 };
 
-function keepMatchFromContext(context: any): LibraryMatch {
-  const playlist = context?.playlist ?? {};
+function keepMatchFromDecision(row: any): LibraryMatch {
+  const playlist = row?.context?.playlist ?? {};
   return {
     exists: true,
     match: {
       provider: String(playlist.provider || 'KEEP'),
       playlistId: String(playlist.providerPlaylistId || 'keep-profile'),
       playlistName: String(playlist.name || 'Mes KEEP'),
+      decisionId: row?.id ? String(row.id) : undefined,
+      trackId: row?.track_id ? String(row.track_id) : undefined,
+      visibility: row?.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE',
     },
   };
 }
 
+async function latestOwnKeep(profileId: string, trackIds: string[]): Promise<LibraryMatch | null> {
+  const ids = [...new Set(trackIds.filter(validUuid))];
+  if (!ids.length || !supabase) return { exists: false, match: null };
+  const { data, error } = await supabase
+    .from('keep_decisions')
+    .select('id,track_id,visibility,context,created_at')
+    .eq('profile_id', profileId)
+    .in('track_id', ids)
+    .eq('decision', 'KEPT')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data ? keepMatchFromDecision(data) : { exists: false, match: null };
+}
+
 /**
  * Vérification gratuite de la bibliothèque KEEP du compte lui-même.
- * Le track_id exact est contrôlé en premier, puis ISRC / titre-artiste servent
- * de filet de sécurité pour les anciens morceaux ou les imports fournisseurs.
- * Cette fonction est exportée afin que le Swipe puisse bloquer un doublon AVANT
- * d'ouvrir le choix Public/Privé ou de consommer une action utilisateur.
+ *
+ * L'identité d'un morceau n'est jamais limitée au seul `track.id` : selon le
+ * chemin (reconnaissance, Swipe, Apple/Spotify, ancien KEEP), cet id peut être
+ * un UUID KEEP OU un identifiant fournisseur. On vérifie donc, dans cet ordre :
+ * UUID KEEP, identifiants fournisseur, ISRC, puis titre/artiste normalisés.
+ *
+ * `null` signifie « vérification impossible » et ne doit PAS être interprété
+ * comme « morceau absent » par l'UI : on préfère bloquer temporairement GARDER
+ * plutôt que fabriquer silencieusement un doublon.
  */
 export async function checkOwnKeepLibrary(track: CanonicalTrack): Promise<LibraryMatch | null> {
   if (!supabase) return null;
-  const { data: sessionData } = await supabase.auth.getSession();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) return null;
   const profileId = sessionData.session?.user?.id;
   if (!profileId) return null;
 
   const directTrackId = String(track.id || '').trim();
-  if (directTrackId) {
-    const { data: directKeep } = await supabase
-      .from('keep_decisions')
-      .select('id,context')
-      .eq('profile_id', profileId)
-      .eq('track_id', directTrackId)
-      .eq('decision', 'KEPT')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (directKeep) return keepMatchFromContext(directKeep.context);
+  if (validUuid(directTrackId)) {
+    const direct = await latestOwnKeep(profileId, [directTrackId]);
+    if (direct?.exists) return direct;
+    if (direct === null) return null;
   }
 
-  let trackRows: any[] = [];
-  if (track.isrc?.trim()) {
-    const { data } = await supabase
-      .from('tracks')
-      .select('id,isrc,title,artist')
-      .eq('isrc', track.isrc.trim().toUpperCase())
-      .limit(4);
-    trackRows = data ?? [];
-  }
+  const candidates = new Map<string, any>();
+  let lookupFailed = false;
 
-  if (!trackRows.length) {
-    const { data } = await supabase
+  // Cas critique : certains catalogues n'ont pas d'ISRC dans la réponse mais
+  // possèdent un identifiant Spotify/Apple stable. C'était le trou principal
+  // du blocage de doublons dans le Swipe.
+  for (const identity of keepProviderIdentities(track)) {
+    const { data, error } = await supabase
       .from('tracks')
-      .select('id,isrc,title,artist')
-      .ilike('title', track.title.trim())
-      .ilike('artist', track.artist.trim())
+      .select('id,isrc,title,artist,provider_ids')
+      .contains('provider_ids', { [identity.provider]: identity.value })
       .limit(8);
-    trackRows = (data ?? []).filter((row: any) =>
-      normalize(row.title) === normalize(track.title) && normalize(row.artist) === normalize(track.artist));
+    if (error) {
+      lookupFailed = true;
+      continue;
+    }
+    for (const row of data ?? []) candidates.set(String(row.id), row);
   }
 
-  for (const row of trackRows) {
-    const { data: keep } = await supabase
-      .from('keep_decisions')
-      .select('id,context')
-      .eq('profile_id', profileId)
-      .eq('track_id', row.id)
-      .eq('decision', 'KEPT')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (keep) return keepMatchFromContext(keep.context);
+  if (track.isrc?.trim()) {
+    const { data, error } = await supabase
+      .from('tracks')
+      .select('id,isrc,title,artist,provider_ids')
+      .eq('isrc', track.isrc.trim().toUpperCase())
+      .limit(8);
+    if (error) lookupFailed = true;
+    else for (const row of data ?? []) candidates.set(String(row.id), row);
   }
 
-  return { exists: false, match: null };
+  // Dernier filet : métadonnées textuelles. On garde une comparaison locale
+  // normalisée pour absorber accents/casse et mentions « Album Version ».
+  if (!candidates.size && track.title?.trim() && track.artist?.trim()) {
+    const { data, error } = await supabase
+      .from('tracks')
+      .select('id,isrc,title,artist,provider_ids')
+      .ilike('artist', track.artist.trim())
+      .limit(30);
+    if (error) lookupFailed = true;
+    else {
+      for (const row of data ?? []) {
+        if (tracksRepresentSameKeep(track, {
+          id: String(row.id),
+          isrc: row.isrc || undefined,
+          title: String(row.title || ''),
+          artist: String(row.artist || ''),
+          providerIds: row.provider_ids && typeof row.provider_ids === 'object' ? row.provider_ids : {},
+        })) candidates.set(String(row.id), row);
+      }
+    }
+  }
+
+  if (candidates.size) {
+    const ownKeep = await latestOwnKeep(profileId, [...candidates.keys()]);
+    if (ownKeep?.exists) return ownKeep;
+    if (ownKeep === null) return null;
+  }
+
+  return lookupFailed ? null : { exists: false, match: null };
 }
 
 export async function checkConnectedLibraries(track: CanonicalTrack): Promise<LibraryMatch | null> {
