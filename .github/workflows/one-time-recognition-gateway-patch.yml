@@ -1,0 +1,56 @@
+name: KEEP — One-time recognition gateway hardening
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'scripts/one_time_recognition_gateway_patch.py'
+      - '.github/workflows/one-time-recognition-gateway-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync latest source branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply deterministic recognition patch
+        run: python3 scripts/one_time_recognition_gateway_patch.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck mobile backend music
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/backend run type-check --if-present
+          npm --workspace packages/music run type-check --if-present
+      - name: Mobile tests
+        run: npm --workspace packages/mobile test -- --runInBand
+      - name: Verify patch contract
+        run: |
+          grep -q "keep-music-recognition-v2" packages/mobile/src/services/keepMusicCoreRecognition.ts
+          grep -q "InterruptionModeIOS.MixWithOthers" packages/mobile/src/services/micCapture.ts
+          grep -q "return 4500" packages/mobile/src/store/useSessionStore.ts
+          grep -q "ACRCLOUD_ACCESS_KEY" packages/backend/src/routes/adminIntegrations.ts
+          grep -q "FOREGROUND_SERVICE_MICROPHONE" packages/mobile/app.json
+      - name: Commit verified code
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          rm -f scripts/one_time_recognition_gateway_patch.py
+          git add packages/mobile/src/services/keepMusicCoreRecognition.ts \
+                  packages/mobile/src/services/micCapture.ts \
+                  packages/mobile/src/store/useSessionStore.ts \
+                  packages/mobile/app.json \
+                  packages/backend/src/routes/adminIntegrations.ts \
+                  scripts/one_time_recognition_gateway_patch.py
+          git diff --cached --check
+          git commit -m "fix(recognition): harden mobile music detection pipeline"
+          git push origin HEAD:reconcile/claude-main-20260825
