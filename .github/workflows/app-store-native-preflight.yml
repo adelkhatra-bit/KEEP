@@ -92,10 +92,7 @@ jobs:
           if 'TARGETED_DEVICE_FAMILY = 1;' not in pbx_text and 'TARGETED_DEVICE_FAMILY = "1";' not in pbx_text:
               raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
 
-          has_extension_target = (
-              'com.apple.product-type.app-extension' in pbx_text
-              or '.appex' in pbx_text
-          )
+          has_extension_target = ('com.apple.product-type.app-extension' in pbx_text or '.appex' in pbx_text)
           if not extension_info and not has_extension_target:
               raise SystemExit('FAIL: expo-share-intent did not generate an iOS app-extension target')
 
@@ -108,6 +105,17 @@ jobs:
           )
           if not shazam_module_present:
               raise SystemExit('FAIL: local KeepShazam module is missing from the mobile source/prebuild inputs')
+
+          iap_module_present = (
+              'KeepIAP' in podfile_text
+              or any('KeepIAP' in p.name for p in ios.rglob('*KeepIAP*'))
+              or Path('packages/mobile/modules/keep-iap/expo-module.config.json').exists()
+          )
+          if not iap_module_present:
+              raise SystemExit('FAIL: local KeepIAP StoreKit module is missing from the mobile source/prebuild inputs')
+          iap_swift = Path('packages/mobile/modules/keep-iap/ios/KeepIAPModule.swift')
+          if not iap_swift.exists() or 'import StoreKit' not in iap_swift.read_text(encoding='utf-8', errors='ignore'):
+              raise SystemExit('FAIL: KeepIAP StoreKit 2 Swift implementation is missing')
 
           manifests = []
           for base in [Path('packages/mobile/ios'), Path('node_modules')]:
@@ -128,6 +136,7 @@ jobs:
               'locationDescription': data.get('NSLocationWhenInUseUsageDescription'),
               'targetedDeviceFamilyIPhoneOnly': True,
               'keepShazamSourcePresent': shazam_module_present,
+              'keepIAPSourcePresent': iap_module_present,
           }
           Path('artifacts/app-store-native-preflight/report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
           print(json.dumps(report, indent=2, ensure_ascii=False))
@@ -177,7 +186,7 @@ jobs:
           echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
           echo "Xcode workspace: $workspace"
           echo "Xcode scheme: $scheme"
-      - name: Compile iOS Simulator — ShazamKit + share extension
+      - name: Compile iOS Simulator — ShazamKit + StoreKit + share extension
         working-directory: packages/mobile
         shell: bash
         run: |
@@ -193,11 +202,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             build | tee ../../artifacts/ios-simulator-compile/xcodebuild.log
-      - name: Assert local Shazam module compiled
+      - name: Assert local native modules compiled
         shell: bash
         run: |
           set -euo pipefail
           grep -E 'KeepShazam|KeepShazamModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
+          grep -E 'KeepIAP|KeepIAPModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
       - name: Upload native compile log
         if: always()
         uses: actions/upload-artifact@v4
