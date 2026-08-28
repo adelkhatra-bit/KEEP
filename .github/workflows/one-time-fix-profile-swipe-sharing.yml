@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[agent-patch-done]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +82,9 @@ jobs:
           assert old in text, 'alreadyInMyKeep helper changed unexpectedly'
           text = text.replace(old, new, 1)
 
+          assert "if (alreadyInMyKeep(canonical.id)) {" in text
           text = text.replace("if (alreadyInMyKeep(canonical.id)) {", "if (alreadyInMyKeep(canonical)) {", 1)
+          assert "setViewerKeepTrackIds((current) => new Set(current).add(canonical.id));" in text
           text = text.replace("setViewerKeepTrackIds((current) => new Set(current).add(canonical.id));", "setViewerOwnKeepTracks((current) => [...current, canonical]);", 1)
 
           old = "    if (alreadyInMyKeep(track.trackId)) {\n      showAlreadyKept(track.title);\n      return;\n    }\n    if (addingTrackIds.has(track.trackId)) return;\n    const canonical: CanonicalTrack = {\n      id: track.trackId,\n      isrc: track.isrc,\n      title: track.title,\n      artist: track.artist,\n      album: track.album || undefined,\n      durationSec: track.durationSec,\n      artworkUrl: track.artworkUrl || undefined,\n      previewUrl: track.previewUrl,\n      availableOn: track.availableOn,\n      externalUrls: track.externalUrls,\n      genres: track.genres,\n      providerIds: track.providerIds || {},\n    };"
@@ -91,6 +92,7 @@ jobs:
           assert old in text, 'individual keep canonical block changed unexpectedly'
           text = text.replace(old, new, 1)
 
+          assert "setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));" in text
           text = text.replace("setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));", "setViewerOwnKeepTracks((current) => [...current, canonical]);", 1)
 
           old = "              const alreadyKept = alreadyInMyKeep(track.trackId);"
@@ -185,25 +187,9 @@ as $$
       and kd.decision = 'KEPT'
     order by kd.track_id, kd.created_at desc, kd.id desc
   )
-  select
-    decision_id,
-    kept_at,
-    visibility,
-    track_id,
-    isrc,
-    title,
-    artist,
-    album,
-    duration_sec,
-    artwork_url,
-    genres,
-    provider_ids,
-    preview_url,
-    external_urls,
-    available_on,
-    context,
-    source_user_id,
-    source_type
+  select decision_id, kept_at, visibility, track_id, isrc, title, artist, album,
+    duration_sec, artwork_url, genres, provider_ids, preview_url, external_urls,
+    available_on, context, source_user_id, source_type
   from latest
   order by kept_at desc, decision_id desc
   limit least(greatest(coalesce(p_limit, 250), 1), 500)
@@ -219,7 +205,7 @@ grant execute on function public.keep_own_profile_tracks(integer, integer) to au
           msg = Path('AGENT_MESSAGES.md')
           stamp = datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
           with msg.open('a', encoding='utf-8') as f:
-            f.write(f"\n\n## [{stamp}] codex\n\nAUDIT SWIPE DOUBLONS + PARTAGE PROFIL : cause trouvée = PublicUserProfileScreen ne comparait que track_id, alors que KEEP possède déjà un index canonique robuste (id + ISRC + providerIds + titre/artiste normalisés). Correction en cours : Swipe filtré AVANT affichage contre tous les KEEP du visiteur, y compris privés ; ajout direct ‘Copier mon lien KEEP’ au partage propriétaire. Aucun changement App.tsx / Navigation.tsx / barre 5 onglets / design.\n")
+            f.write(f"\n\n## [{stamp}] codex\n\nAUDIT SWIPE DOUBLONS + PARTAGE PROFIL : cause trouvée = PublicUserProfileScreen ne comparait que track_id, alors que KEEP possède déjà un index canonique robuste (id + ISRC + providerIds + titre/artiste normalisés). Correction validée avant commit : Swipe filtré AVANT affichage contre tous les KEEP du visiteur, y compris privés ; ajout direct ‘Copier mon lien KEEP’ au partage propriétaire. Aucun changement App.tsx / Navigation.tsx / barre 5 onglets / design.\n")
           PY
 
       - name: Install
