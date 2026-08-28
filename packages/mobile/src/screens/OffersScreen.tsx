@@ -43,7 +43,7 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Premium débloque les Vibes publiques et la visibilité musicale étendue.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro débloque les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return 'Creator Pro permet une soirée par mois. Venue Pro passe les soirées en illimité.';
+  if (feature === 'CREATE_EVENT') return 'Creator Pro permet une soirée par mois. Venue Pro inclut les soirées en illimité : les deux formules sont affichées ci-dessous pour comparer directement.';
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
   return `${planLabel(plan)} est la formule requise pour cette fonction.`;
 }
@@ -85,6 +85,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const focusPlan = String(route?.params?.focusPlan || '').toUpperCase();
   const sourceFeature = String(route?.params?.sourceFeature || '').toUpperCase();
+  const isEventChoice = sourceFeature === 'CREATE_EVENT';
   const [plans, setPlans] = useState<KeepPlan[]>([]);
   const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
   const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
@@ -121,7 +122,10 @@ export default function OffersScreen({ navigation, route }: any) {
   }, [user?.id, isLocalGuest, isDemoMode]);
 
   const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses + (growth?.bonusFreeCredits ?? 0), [funnel, growth?.bonusFreeCredits]);
-  const visiblePlans = useMemo(() => focusPlan ? plans.filter((plan) => plan.code === focusPlan) : plans, [focusPlan, plans]);
+  const visiblePlans = useMemo(() => {
+    if (isEventChoice) return plans.filter((plan) => plan.code === 'CREATOR_PRO' || plan.code === 'VENUE_PRO');
+    return focusPlan ? plans.filter((plan) => plan.code === focusPlan) : plans;
+  }, [focusPlan, isEventChoice, plans]);
   const [f1, f2, f3, f4, f5] = rules.followerTiers;
   const [s1, s2, s3] = rules.shareTiers;
 
@@ -131,7 +135,7 @@ export default function OffersScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Retour"><Text style={s.back}>‹</Text></TouchableOpacity>
         <View style={s.headerText}>
           <Text style={s.title}>Offre & crédits</Text>
-          <Text style={s.subtitle}>{focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
+          <Text style={s.subtitle}>{isEventChoice ? 'Soirées : choisis ta formule' : focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
         </View>
         <View style={s.headerSpacer} />
       </View>
@@ -139,8 +143,12 @@ export default function OffersScreen({ navigation, route }: any) {
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {focusPlan ? <View style={s.requiredIntro}>
           <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
-          <View style={s.requiredPlanRow}><Text style={s.requiredIntroTitle}>{planLabel(focusPlan)}</Text><ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} /></View>
+          <View style={s.requiredPlanRow}>
+            <Text style={s.requiredIntroTitle}>{isEventChoice ? 'Creator Pro ou Venue Pro' : planLabel(focusPlan)}</Text>
+            <ProfileCertificationBadge tier={certificationTierForPlan(isEventChoice ? 'CREATOR_PRO' : focusPlan)} />
+          </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
+          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>9,99 € : 1 soirée / mois  ·  29,99 € : soirées illimitées</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
@@ -172,8 +180,9 @@ export default function OffersScreen({ navigation, route }: any) {
         {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
           const active = plan.code === currentPlan;
           const focused = !!focusPlan && plan.code === focusPlan;
+          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO';
           return (
-            <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused]}>
+            <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused, venueUnlimited && s.planCardUnlimited]}>
               <View style={s.planTop}>
                 <View style={s.planIdentity}>
                   <ProfileCertificationBadge tier={certificationTierForPlan(plan.code)} />
@@ -182,14 +191,14 @@ export default function OffersScreen({ navigation, route }: any) {
                     <Text style={s.planPrice}>{money(plan)}</Text>
                   </View>
                 </View>
-                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>REQUIS</Text></View> : null}
+                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>REQUIS</Text></View> : null}
               </View>
               {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
               <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
               {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               {!active && plan.code !== 'FREE' ? (
-                <TouchableOpacity style={s.cta} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
-                  <Text style={s.ctaText}>Voir {planLabel(plan.code)}</Text>
+                <TouchableOpacity style={[s.cta, venueUnlimited && s.ctaUnlimited]} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
+                  <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -201,7 +210,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <Text style={s.subscriptionText}>Free gagne des options par paliers. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et le profil DJ/Artiste. Venue Pro retire les limites de soirées et ouvre les outils professionnels.</Text>
         </View>
 
-        {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
+        {focusPlan && !isEventChoice ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
           <Text style={s.allPlansText}>Voir toutes les formules</Text>
         </TouchableOpacity> : null}
       </ScrollView>
@@ -221,8 +230,10 @@ const s = StyleSheet.create({
   requiredIntro: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
-  requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900' },
+  requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', flexShrink: 1 },
   requiredIntroText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 7 },
+  eventChoiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36', paddingHorizontal: 10, paddingVertical: 8 },
+  eventChoiceHintText: { color: '#F3D776', fontSize: 10, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
   promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
@@ -246,6 +257,7 @@ const s = StyleSheet.create({
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
   planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
+  planCardUnlimited: { borderColor: '#D6AA36', borderWidth: 2, backgroundColor: '#1A1710' },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   planIdentity: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   planName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
@@ -254,11 +266,14 @@ const s = StyleSheet.create({
   currentBadgeText: { color: colors.smartBadgeText, fontSize: 9, fontWeight: '900' },
   requiredBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#3D2860', borderWidth: 1, borderColor: colors.primaryLight },
   requiredBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
+  unlimitedBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#2B2410', borderWidth: 1, borderColor: '#D6AA36' },
+  unlimitedBadgeText: { color: '#F3D776', fontSize: 9, fontWeight: '900' },
   planDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 9 },
   benefitBox: { marginTop: 8, gap: 2 },
   benefit: { color: colors.textSecondary, fontSize: 11, lineHeight: 17 },
   trial: { color: colors.keep, fontSize: 11, fontWeight: '800', marginTop: 8 },
   cta: { minHeight: 42, borderRadius: 21, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  ctaUnlimited: { backgroundColor: '#8A6A12' },
   ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
