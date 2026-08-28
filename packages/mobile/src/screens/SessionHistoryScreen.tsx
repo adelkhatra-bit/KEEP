@@ -111,15 +111,15 @@ export default function SessionHistoryScreen({ navigation }: any) {
           </View>
           <Text style={styles.cardStats}>
             {t('session.detected', { count: item.tracks.length })} · {t('session.kept', { count: keptCount })}
-            {pendingCount > 0 ? ` · ${pendingCount} à trier` : ''}
+            {pendingCount > 0 ? ` · ${pendingCount} à swiper` : ''}
           </Text>
           {isLive ? <Text style={styles.liveHint}>● Écoute en cours · les titres sont sauvegardés localement au fil de la session</Text> : null}
           {lockedCount > 0 ? <Text style={styles.lockedHint}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente de déblocage</Text> : null}
         </TouchableOpacity>
         {!isLive ? <View style={styles.cardFooter}>
           {pendingCount > 0 ? (
-            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Trier ${pendingCount} musiques`}>
-              <Text style={styles.sortText}>À TRIER · {pendingCount}</Text>
+            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
+              <Text style={styles.sortText}>SWIPER · {pendingCount}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={[styles.deleteButton, pendingCount === 0 && styles.deleteButtonFull]} onPress={() => requestDelete(item)} accessibilityRole="button" accessibilityLabel={`Supprimer ${autoTitle(item)}`}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
