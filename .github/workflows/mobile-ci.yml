@@ -8,6 +8,7 @@ on:
       - 'packages/music/**'
       - 'supabase/migrations/**'
       - 'scripts/verify-profile-data-integrity.cjs'
+      - 'scripts/verify-source-of-truth.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
@@ -18,13 +19,14 @@ on:
       - 'packages/music/**'
       - 'supabase/migrations/**'
       - 'scripts/verify-profile-data-integrity.cjs'
+      - 'scripts/verify-source-of-truth.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify-mobile:
@@ -32,19 +34,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Apply validated profile/share patch
-        run: |
-          python3 scripts/one_time_profile_share_patch.py
-          python3 scripts/one_time_share_contract_fix.py
 
       - name: Install dependencies
         run: npm ci
@@ -80,14 +75,3 @@ jobs:
 
       - name: Verify iOS export
         run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
-
-      - name: Push validated application files
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "KEEP Codex"
-          git config user.email "actions@github.com"
-          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx packages/mobile/share-profile.html
-          git commit -m "fix(profile): separate social counters and harden public sharing"
-          git fetch origin reconcile/claude-main-20260825
-          git rebase origin/reconcile/claude-main-20260825
-          git push origin HEAD:reconcile/claude-main-20260825
