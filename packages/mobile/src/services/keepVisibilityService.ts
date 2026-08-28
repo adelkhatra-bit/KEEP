@@ -17,17 +17,23 @@ function normalize(value: string | undefined): string {
     .trim();
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function sameTrack(track: CanonicalTrack, keep: PersistedKeepDecision): boolean {
   const localId = String(track.id || '').trim();
   const remoteId = String(keep.track.id || '').trim();
-  // Quand les deux côtés possèdent un identifiant canonique, il est prioritaire.
-  // On ne retombe jamais sur titre/artiste si les IDs sont différents : cela
-  // évite de modifier par erreur deux versions homonymes d'un morceau.
-  if (localId && remoteId) return localId === remoteId;
+  if (localId && remoteId && localId === remoteId) return true;
 
   const localIsrc = String(track.isrc || '').trim().toUpperCase();
   const remoteIsrc = String(keep.track.isrc || '').trim().toUpperCase();
   if (localIsrc && remoteIsrc) return localIsrc === remoteIsrc;
+
+  // Deux UUID différents désignent deux pistes canoniques différentes. En
+  // revanche un ID fournisseur local (Spotify/Apple/etc.) peut légitimement
+  // différer de l'UUID Supabase : dans ce cas titre + artiste servent de repli.
+  if (localId && remoteId && isUuid(localId) && isUuid(remoteId)) return false;
 
   return normalize(track.title) === normalize(keep.track.title)
     && normalize(track.artist) === normalize(keep.track.artist);
@@ -77,9 +83,6 @@ export async function persistOwnTrackVisibility(
     });
     if (!created?.decisionId) throw new Error('Impossible de synchroniser ce KEEP avec ton profil.');
   } else {
-    // Répare également les doublons hérités. Ainsi aucune ancienne décision
-    // PUBLIC ne peut refaire apparaître la piste après un refresh ou via le lien
-    // de profil partagé.
     for (const match of matches) {
       if (match.visibility === visibility) continue;
       const updated = await updateKeepDecisionVisibility(match.decisionId, visibility);
@@ -96,4 +99,32 @@ export async function persistOwnTrackVisibility(
   }
 
   return { decisionId: newest.decisionId, visibility: newest.visibility };
+}
+
+/**
+ * Retire définitivement une piste de la bibliothèque KEEP du compte actif.
+ * Toutes les décisions historiques de cette piste sont supprimées côté serveur
+ * afin qu'une ancienne décision PUBLIC ne puisse jamais la faire réapparaître
+ * sur le profil après un rechargement.
+ */
+export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<number> {
+  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.user?.id) throw new Error('Connecte ton compte KEEP pour supprimer ce morceau.');
+
+  const keeps = await loadOwnPersistedKeeps();
+  const matches = matchingKeeps(track, keeps);
+  if (!matches.length) return 0;
+
+  const trackIds = Array.from(new Set(matches.map((keep) => String(keep.track.id || '').trim()).filter(Boolean)));
+  let removed = 0;
+  for (const trackId of trackIds) {
+    const { data, error } = await supabase.rpc('keep_remove_track', { p_track_id: trackId });
+    if (error) throw new Error('La suppression n’a pas été enregistrée dans Supabase.');
+    removed += Number(data || 0);
+  }
+
+  const remaining = matchingKeeps(track, await loadOwnPersistedKeeps());
+  if (remaining.length) throw new Error('La vérification serveur de la suppression a échoué. Réessaie.');
+  return removed;
 }
