@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Image, Modal, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Image, Modal, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, CanonicalTrack, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -8,12 +8,20 @@ import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import { sharePlaylist } from '../services/sharingService';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
+import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
+import {
+  isSmartAlbumUiId,
+  loadOwnSmartAlbums,
+  loadSmartAlbumTracks,
+  refreshOwnSmartAlbums,
+  smartAlbumAsProviderPlaylist,
+  SmartAlbumRecord,
+} from '../services/smartAlbumService';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
-
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
 
 function trackIdentity(track: CanonicalTrack) {
@@ -24,10 +32,20 @@ function trackIdentity(track: CanonicalTrack) {
   return `meta:${title}|${artist}`;
 }
 
+function sortGateLabel(access: QuotaAccess | null) {
+  if (!access) return 'VIBES KEEP';
+  if (access.unlimited) return 'VIBES AUTO · ILLIMITÉ';
+  if (access.allowed && (access.remaining ?? 0) > 0) return `TESTER VIBES AUTO · ${access.remaining} RESTANT${access.remaining === 1 ? '' : 'S'}`;
+  return '🔒 VIBES AUTOMATIQUES';
+}
+
 export default function MyMusicScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { playlists, isLoading, refresh } = usePlaylistStore();
-  const userId = useUserStore((s) => s.user?.id ?? '');
+  const user = useUserStore((s) => s.user);
+  const userId = user?.id ?? '';
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const setTrackVisibilityInSession = useSessionHistoryStore((s) => s.setTrackVisibilityInSession);
   const setAllKeptVisibility = useSessionHistoryStore((s) => s.setAllKeptVisibility);
@@ -39,6 +57,8 @@ export default function MyMusicScreen({ navigation }: any) {
   const [tracksByPlaylist, setTracksByPlaylist] = useState<Record<string, CanonicalTrack[]>>({});
   const [loadingPlaylist, setLoadingPlaylist] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<Record<string, KeepPlaylistPreference>>({});
+  const [smartAlbums, setSmartAlbums] = useState<SmartAlbumRecord[]>([]);
+  const [sortAccess, setSortAccess] = useState<QuotaAccess | null>(null);
   const [editing, setEditing] = useState<ProviderPlaylist | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -64,9 +84,27 @@ export default function MyMusicScreen({ navigation }: any) {
   const privateKeepCount = localKeptEntries.length - publicKeepCount;
   const providerId = musicEngine.musicProvider.providerId || 'KEEP';
 
+  const refreshSmartState = async () => {
+    if (!userId || isLocalGuest || isDemoMode) {
+      setSortAccess(null);
+      setSmartAlbums([]);
+      return;
+    }
+    try {
+      const gate = await getSmartSortAccess(false);
+      setSortAccess(gate);
+      const albums = gate.unlimited ? await refreshOwnSmartAlbums() : await loadOwnSmartAlbums();
+      setSmartAlbums(albums);
+    } catch {
+      setSortAccess(null);
+      setSmartAlbums(await loadOwnSmartAlbums().catch(() => []));
+    }
+  };
+
   const refreshLibrary = async () => {
     await syncUnsyncedKeeps().catch(() => {});
     await refresh().catch(() => {});
+    await refreshSmartState().catch(() => {});
   };
 
   useEffect(() => {
@@ -74,19 +112,21 @@ export default function MyMusicScreen({ navigation }: any) {
     setExpandedId(null);
     setAnalysis(null);
     setPreferences({});
+    setSmartAlbums([]);
+    setSortAccess(null);
   }, [userId]);
 
   useEffect(() => {
     void refreshLibrary();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshLibrary(); });
     return () => unsubscribe?.();
-  }, [navigation, refresh, syncUnsyncedKeeps, userId]);
+  }, [navigation, refresh, syncUnsyncedKeeps, userId, isLocalGuest, isDemoMode]);
 
   useEffect(() => {
     let live = true;
     void loadPlaylistPreferences(providerId).then((next) => { if (live) setPreferences(next); });
     return () => { live = false; };
-  }, [providerId, playlists.length, userId]);
+  }, [providerId, playlists.length, smartAlbums.length, userId]);
 
   const basePlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = [];
@@ -94,14 +134,15 @@ export default function MyMusicScreen({ navigation }: any) {
       result.push({
         id: ALL_KEEP_VIEW_ID,
         name: 'Toute ma musique',
-        description: 'Tous tes titres KEEP, avec leur vraie visibilité Public ou Privé. Les services connectés restent disponibles juste dessous.',
+        description: 'Tous tes KEEP au même endroit.',
         trackCount: localKeptTracks.length,
         isKeepManaged: true,
       });
     }
+    for (const album of smartAlbums) result.push(smartAlbumAsProviderPlaylist(album));
     for (const playlist of playlists) result.push(playlist);
     return result;
-  }, [localKeptTracks.length, playlists]);
+  }, [localKeptTracks.length, playlists, smartAlbums]);
 
   const displayPlaylists = useMemo(() => basePlaylists.map((playlist) => {
     if (playlist.id === ALL_KEEP_VIEW_ID) return playlist;
@@ -124,7 +165,9 @@ export default function MyMusicScreen({ navigation }: any) {
     }
     setLoadingPlaylist(playlist.id);
     try {
-      return await loadProviderTracks(playlist);
+      const tracks = isSmartAlbumUiId(playlist.id) ? await loadSmartAlbumTracks(playlist.id) : await loadProviderTracks(playlist);
+      setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
+      return tracks;
     } finally {
       setLoadingPlaylist(null);
     }
@@ -142,34 +185,47 @@ export default function MyMusicScreen({ navigation }: any) {
     if (!needsChange || bulkVisibilityBusy) return;
     setBulkVisibilityBusy(visibility);
     try {
-      const changed = await setAllKeptVisibility(visibility);
-      const target = visibility === 'PUBLIC' ? 'public' : 'privé';
-      const already = visibility === 'PUBLIC' ? 'publics' : 'privés';
-      Alert.alert('Visibilité', changed > 0
-        ? `${changed} morceau${changed > 1 ? 'x' : ''} passé${changed > 1 ? 's' : ''} en ${target}.`
-        : `Tous tes morceaux sont déjà ${already}.`);
+      await setAllKeptVisibility(visibility);
     } catch (e: any) {
-      Alert.alert('Visibilité', e?.message ?? `Impossible de rendre tous les morceaux ${visibility === 'PUBLIC' ? 'publics' : 'privés'} pour le moment.`);
+      Alert.alert('Visibilité', e?.message ?? 'Impossible de modifier toute la bibliothèque pour le moment.');
     } finally {
       setBulkVisibilityBusy(null);
     }
   };
 
+  const analyzeCurrentLibrary = async () => {
+    const withTracks: PlaylistWithTracks[] = [];
+    for (const playlist of basePlaylists.filter((item) => !isSmartAlbumUiId(item.id))) {
+      withTracks.push({ playlist, tracks: await loadTracks(playlist) });
+    }
+    const nextRaw = analyzeLibrary(withTracks);
+    const next = nextRaw.totalTracks <= 1
+      ? { ...nextRaw, unclassifiedCount: 0, duplicateGroups: [], duplicateCount: 0 }
+      : nextRaw;
+    setAnalysis(next);
+    setAnalysisExpanded(false);
+  };
+
   const runOrganizeAnalysis = async () => {
+    if (!userId || isLocalGuest || isDemoMode) {
+      navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'SMART_SORTING' });
+      return;
+    }
     setAnalyzing(true);
     try {
-      const withTracks: PlaylistWithTracks[] = [];
-      for (const playlist of basePlaylists) {
-        withTracks.push({ playlist, tracks: await loadTracks(playlist) });
+      const gate = await getSmartSortAccess(true);
+      setSortAccess(gate);
+      if (!gate.allowed && !gate.unlimited) {
+        navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'SMART_SORTING' });
+        return;
       }
-      const nextRaw = analyzeLibrary(withTracks);
-      const next = nextRaw.totalTracks <= 1
-        ? { ...nextRaw, unclassifiedCount: 0, duplicateGroups: [], duplicateCount: 0 }
-        : nextRaw;
-      setAnalysis(next);
-      setAnalysisExpanded(false);
+      const albums = await refreshOwnSmartAlbums();
+      setSmartAlbums(albums);
+      await analyzeCurrentLibrary();
+      const nextGate = await getSmartSortAccess(false).catch(() => gate);
+      setSortAccess(nextGate);
     } catch (e: any) {
-      Alert.alert('Ranger ma musique', e?.message ?? 'Impossible d’analyser la bibliothèque pour le moment.');
+      Alert.alert('Vibes KEEP', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
     } finally {
       setAnalyzing(false);
     }
@@ -184,9 +240,7 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const genreSummary = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const track of allKnownTracks) {
-      for (const genre of track.genres ?? []) counts.set(genre, (counts.get(genre) ?? 0) + 1);
-    }
+    for (const track of allKnownTracks) for (const genre of track.genres ?? []) counts.set(genre, (counts.get(genre) ?? 0) + 1);
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [allKnownTracks]);
 
@@ -194,10 +248,8 @@ export default function MyMusicScreen({ navigation }: any) {
     ? analysis.totalTracks === 0
       ? 'Aucun morceau à analyser pour le moment.'
       : analysis.totalTracks === 1
-        ? '1 morceau trouvé · rien à trier pour le moment.'
-        : analysis.duplicateCount === 0 && analysis.unclassifiedCount === 0
-          ? `${analysis.totalTracks} morceaux trouvés · rien à corriger pour le moment.`
-          : `${analysis.totalTracks} morceaux analysés · KEEP te propose des corrections, jamais une suppression automatique.`
+        ? '1 morceau trouvé · KEEP attend davantage de matière.'
+        : `${analysis.totalTracks} morceaux analysés · ${smartAlbums.length} Vibe${smartAlbums.length > 1 ? 's' : ''} KEEP disponible${smartAlbums.length > 1 ? 's' : ''}.`
     : null;
 
   const openEdit = (playlist: ProviderPlaylist) => {
@@ -222,9 +274,10 @@ export default function MyMusicScreen({ navigation }: any) {
     try {
       await savePlaylistPreference(preference);
       setPreferences((state) => ({ ...state, [`${providerId}:${editing.id}`]: preference }));
+      setSmartAlbums((rows) => rows.map((row) => `keep-smart:${row.id}` === editing.id ? { ...row, name: preference.name, description: preference.description, isPublic: preference.isPublic } : row));
       setEditing(null);
     } catch (e: any) {
-      Alert.alert('Playlist', e?.message ?? 'Impossible d’enregistrer les modifications.');
+      Alert.alert('Vibe KEEP', e?.message ?? 'Impossible d’enregistrer les modifications.');
     } finally {
       setSavingEdit(false);
     }
@@ -234,7 +287,7 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const toggleTrackVisibility = async (track: CanonicalTrack) => {
     const entry = localEntryForTrack(track);
-    if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’un service connecté. Utilise la visibilité de la playlist pour contrôler son affichage public.');
+    if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’une Vibe ou d’un service connecté. Modifie la visibilité de sa collection.');
     const next = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
     try { await setTrackVisibilityInSession(entry.sessionId, entry.id, next); }
     catch { Alert.alert('Visibilité', 'Impossible de modifier la visibilité de ce morceau pour le moment.'); }
@@ -242,51 +295,38 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const renderTrack = (track: CanonicalTrack) => {
     const localEntry = localEntryForTrack(track);
-    const available = track.availableOn?.length ? track.availableOn.join(' · ') : Object.keys(track.providerIds ?? {}).join(' · ');
     return <View key={trackIdentity(track)} style={styles.trackRow}>
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
       <View style={styles.trackInfo}>
         <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
         <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text>
-        {available ? <Text style={styles.trackAvailable} numberOfLines={1}>Disponible : {available}</Text> : null}
-        <View style={styles.trackActions}>
-          <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact />
-          {localEntry ? <TouchableOpacity style={styles.smallAction} onPress={() => void toggleTrackVisibility(track)}>
-            <Text style={styles.smallActionText}>{localEntry.visibility === 'PUBLIC' ? '👁 Public' : '🔒 Privé'}</Text>
-          </TouchableOpacity> : <View style={styles.smallAction}><Text style={styles.smallActionText}>Service connecté</Text></View>}
-        </View>
       </View>
+      <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact />
+      {localEntry ? <TouchableOpacity style={styles.visibilityDot} onPress={() => void toggleTrackVisibility(track)}><Text style={styles.visibilityDotText}>{localEntry.visibility === 'PUBLIC' ? '◉' : '●'}</Text></TouchableOpacity> : null}
     </View>;
   };
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => {
     const isAllKeepView = item.id === ALL_KEEP_VIEW_ID;
+    const isSmart = isSmartAlbumUiId(item.id);
     const pref = isAllKeepView ? null : preferenceFor(preferences, providerId, item.id);
     const expanded = expandedId === item.id;
-    const tracks = isAllKeepView
-      ? (tracksByPlaylist[ALL_KEEP_VIEW_ID] ?? localKeptTracks)
-      : (tracksByPlaylist[item.id] ?? []);
+    const tracks = isAllKeepView ? (tracksByPlaylist[ALL_KEEP_VIEW_ID] ?? localKeptTracks) : (tracksByPlaylist[item.id] ?? []);
     const actualCount = isAllKeepView ? localKeptTracks.length : item.trackCount;
-    const status = isAllKeepView
-      ? `${publicKeepCount} public${publicKeepCount > 1 ? 's' : ''} · ${privateKeepCount} privé${privateKeepCount > 1 ? 's' : ''}`
-      : `Playlist ${pref?.isPublic ? 'publique' : 'privée'}`;
-    return <View style={styles.playlistBlock}>
+    const visibility = isAllKeepView ? `${publicKeepCount} public · ${privateKeepCount} privé` : (pref?.isPublic ? 'Public' : 'Privé');
+    return <View style={[styles.playlistBlock, isSmart && styles.smartBlock]}>
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
-        {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>♪</Text></View>}
+        {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>{isSmart ? '✦' : '♪'}</Text></View>}
         <View style={styles.playlistInfo}>
-          <Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>
-          {item.description ? <Text style={styles.playlistDesc} numberOfLines={2}>{item.description}</Text> : null}
-          <Text style={styles.songCount}>{actualCount} {actualCount > 1 ? 'morceaux' : 'morceau'} · {status}</Text>
+          <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>VIBE</Text></View> : null}</View>
+          <Text style={styles.songCount}>{actualCount} morceau{actualCount > 1 ? 'x' : ''} · {visibility}</Text>
         </View>
+        {!isAllKeepView ? <TouchableOpacity style={styles.miniEdit} onPress={() => openEdit(item)}><Text style={styles.miniEditText}>✎</Text></TouchableOpacity> : null}
         <Text style={styles.chevron}>{expanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity>
-      {!isAllKeepView ? <View style={styles.playlistActions}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => openEdit(item)}><Text style={styles.actionText}>✎ Modifier</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Le partage de cette playlist est indisponible pour le moment.'))}><Text style={styles.actionText}>↗ Partager</Text></TouchableOpacity>
-      </View> : null}
       {expanded ? <View style={styles.tracksPanel}>
-        <Text style={styles.panelHint}>Touchez un morceau pour pré-écouter l’extrait disponible. KEEP ne stocke pas l’audio : il utilise l’extrait du catalogue ou ouvre la plateforme liée.</Text>
-        {loadingPlaylist === item.id ? <Text style={styles.loadingText}>Chargement…</Text> : tracks.length ? tracks.map(renderTrack) : <Text style={styles.loadingText}>Aucun morceau dans cette playlist.</Text>}
+        {loadingPlaylist === item.id ? <Text style={styles.loadingText}>Chargement…</Text> : tracks.length ? tracks.map(renderTrack) : <Text style={styles.loadingText}>Aucun morceau dans cette collection.</Text>}
+        {!isAllKeepView ? <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity> : null}
       </View> : null}
     </View>;
   };
@@ -295,47 +335,35 @@ export default function MyMusicScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title} numberOfLines={1}>{t('myMusic.title')}</Text>
-          <Text style={styles.headerSubtitle} numberOfLines={2}>Ta bibliothèque KEEP complète + tes services connectés</Text>
+          <Text style={styles.title} numberOfLines={1}>Mes musiques</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>KEEP · Vibes · services</Text>
         </View>
-        <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux">
-          <Text style={styles.servicesButtonText}>＋ Services</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux"><Text style={styles.servicesButtonText}>＋ Services</Text></TouchableOpacity>
       </View>
 
-      {localKeptEntries.length ? <View style={styles.visibilitySummary}>
-        <View style={styles.visibilityCopy}>
-          <Text style={styles.visibilityTitle}>Visibilité de tes KEEP</Text>
-          <Text style={styles.visibilityCounts}>Public {publicKeepCount} · Privé {privateKeepCount} · Total {localKeptEntries.length}</Text>
-        </View>
-        <View style={styles.bulkVisibilityActions}>
-          <TouchableOpacity style={[styles.bulkVisibilityButton, styles.bulkPublicButton, privateKeepCount === 0 && styles.bulkVisibilityButtonDisabled]} onPress={() => void setWholeLibraryVisibility('PUBLIC')} disabled={privateKeepCount === 0 || bulkVisibilityBusy !== null}>
-            <Text style={styles.bulkPublicText}>{bulkVisibilityBusy === 'PUBLIC' ? '…' : privateKeepCount === 0 ? 'TOUT EST PUBLIC' : 'TOUT METTRE EN PUBLIC'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.bulkVisibilityButton, styles.bulkPrivateButton, publicKeepCount === 0 && styles.bulkVisibilityButtonDisabled]} onPress={() => void setWholeLibraryVisibility('PRIVATE')} disabled={publicKeepCount === 0 || bulkVisibilityBusy !== null}>
-            <Text style={styles.bulkPrivateText}>{bulkVisibilityBusy === 'PRIVATE' ? '…' : publicKeepCount === 0 ? 'TOUT EST PRIVÉ' : 'TOUT METTRE EN PRIVÉ'}</Text>
-          </TouchableOpacity>
+      {localKeptEntries.length ? <View style={styles.libraryStrip}>
+        <View style={styles.stat}><Text style={styles.statValue}>{publicKeepCount}</Text><Text style={styles.statLabel}>PUBLIC</Text></View>
+        <View style={styles.stat}><Text style={styles.statValue}>{privateKeepCount}</Text><Text style={styles.statLabel}>PRIVÉ</Text></View>
+        <View style={styles.stat}><Text style={styles.statValue}>{localKeptEntries.length}</Text><Text style={styles.statLabel}>TOTAL</Text></View>
+        <View style={styles.visibilityTools}>
+          <TouchableOpacity style={styles.visibilityMini} onPress={() => void setWholeLibraryVisibility('PUBLIC')} disabled={privateKeepCount === 0 || bulkVisibilityBusy !== null}><Text style={styles.visibilityMiniText}>◉ Public</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.visibilityMini} onPress={() => void setWholeLibraryVisibility('PRIVATE')} disabled={publicKeepCount === 0 || bulkVisibilityBusy !== null}><Text style={styles.visibilityMiniText}>● Privé</Text></TouchableOpacity>
         </View>
       </View> : null}
 
-      <TouchableOpacity style={styles.organizeButton} onPress={runOrganizeAnalysis} disabled={analyzing}>
-        <Text style={styles.organizeButtonText}>{analyzing ? '…' : `🧹 ${t('myMusic.organizeMyMusic')}`}</Text>
+      <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
+        <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'KEEP RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
+        <Text style={styles.vibeArrow}>{sortAccess?.allowed || sortAccess?.unlimited ? '✦' : '🔒'}</Text>
       </TouchableOpacity>
 
-      {analysis ? <>
-        <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)} accessibilityRole="button" accessibilityLabel="Afficher ou masquer le détail du rangement">
-          <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text>
-          <Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
-        </TouchableOpacity>
-        {analysisExpanded ? <View style={styles.analysisCard}>
-          <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
-          <Text style={styles.analysisLine}>{t('myMusic.suggestions', { count: analysis.unclassifiedCount })}</Text>
-          <Text style={styles.analysisLine}>{t('myMusic.duplicates', { count: analysis.duplicateCount })}</Text>
-          {genreSummary.length ? <Text style={styles.genreLine}>Styles détectés : {genreSummary.map(([genre, count]) => `${genre} (${count})`).join(' · ')}</Text> : null}
-          <Text style={styles.analysisHelp}>Le rangement intelligent utilise les styles fournis par les catalogues et apprend tes corrections. Rien n’est déplacé ou supprimé sans validation.</Text>
-          {(analysis.duplicateCount > 0 || analysis.unclassifiedCount > 0) ? <TouchableOpacity style={styles.viewSuggestionsButton} onPress={() => Alert.alert(t('myMusic.viewSuggestions'), analysis.duplicateGroups.map((g) => `• ${g[0].title} — ${g[0].artist} (${g.length}x)`).join('\n') || 'Des morceaux sans style sont à classer manuellement.')}><Text style={styles.viewSuggestionsText}>{t('myMusic.viewSuggestions')}</Text></TouchableOpacity> : null}
-        </View> : null}
-      </> : null}
+      {analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
+        <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text><Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
+      </TouchableOpacity> : null}
+      {analysis && analysisExpanded ? <View style={styles.analysisCard}>
+        <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
+        {genreSummary.length ? <Text style={styles.genreLine}>Styles : {genreSummary.map(([genre, count]) => `${genre} ${count}`).join(' · ')}</Text> : null}
+        <Text style={styles.analysisHelp}>KEEP crée les Vibes par style sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
+      </View> : null}
 
       <FlatList
         data={displayPlaylists}
@@ -344,105 +372,32 @@ export default function MyMusicScreen({ navigation }: any) {
         contentContainerStyle={styles.list}
         refreshing={isLoading}
         onRefresh={() => { void refreshLibrary(); }}
-        ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Dès que tu fais GARDER pendant une écoute, le morceau apparaît ici. Connecte Apple Music, Spotify ou Deezer pour réunir aussi tes bibliothèques externes.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.emptyButtonText}>GÉRER MES SERVICES</Text></TouchableOpacity></View>}
+        ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : KEEP construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
       />
 
-      {musicEngine.isDemoMode ? <View style={styles.demoBadge}><Text style={styles.demoText}>{t('demo.badge')}</Text></View> : null}
-
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
-        <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
-            <View style={styles.editCard}>
-              <Text style={styles.editTitle}>Modifier la playlist</Text>
-              <Text style={styles.editHint}>Le nom, la description et la visibilité sont ceux affichés dans KEEP. Les morceaux restent chez leurs plateformes d’origine.</Text>
-              <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Nom de la playlist" placeholderTextColor={colors.textMuted} />
-              <TextInput style={[styles.input, styles.multiline]} value={editDescription} onChangeText={setEditDescription} placeholder="Description" placeholderTextColor={colors.textMuted} multiline />
-              <TouchableOpacity style={styles.visibilityButton} onPress={() => setEditPublic((v) => !v)}><Text style={styles.visibilityText}>{editPublic ? '👁 Visible sur mon profil' : '🔒 Masquée sur mon profil'}</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={() => void saveEdit()} disabled={savingEdit}><Text style={styles.saveText}>{savingEdit ? 'Enregistrement…' : 'ENREGISTRER'}</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setEditing(null)}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
+        <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
+          <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer ma Vibe' : 'Modifier la collection'}</Text>
+          <Text style={styles.editHint}>Le nom et la visibilité restent entièrement sous ton contrôle.</Text>
+          <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Nom" placeholderTextColor={colors.textMuted} />
+          <TextInput style={[styles.input, styles.multiline]} value={editDescription} onChangeText={setEditDescription} placeholder="Description" placeholderTextColor={colors.textMuted} multiline />
+          <TouchableOpacity style={styles.visibilityButton} onPress={() => setEditPublic((v) => !v)}><Text style={styles.visibilityText}>{editPublic ? '◉ Visible sur mon profil' : '● Privée'}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.saveButton} onPress={() => void saveEdit()} disabled={savingEdit}>{savingEdit ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>ENREGISTRER</Text>}</TouchableOpacity>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => setEditing(null)}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
+        </View></ScrollView></View>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  headerCopy: { flex: 1, minWidth: 0 },
-  title: { ...typography.h1, color: colors.textPrimary },
-  headerSubtitle: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
-  servicesButton: { flexShrink: 0, backgroundColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: 12, minHeight: 38, maxWidth: 116, alignItems: 'center', justifyContent: 'center' },
-  servicesButtonText: { color: colors.white, fontSize: 11, fontWeight: '800' },
-  visibilitySummary: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  visibilityCopy: { flex: 1, minWidth: 0 },
-  visibilityTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
-  visibilityCounts: { color: colors.textSecondary, fontSize: 10, marginTop: 4 },
-  bulkVisibilityActions: { width: 142, gap: 6 },
-  bulkVisibilityButton: { minHeight: 34, paddingHorizontal: 9, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  bulkPublicButton: { backgroundColor: colors.keep, borderColor: colors.keep },
-  bulkPrivateButton: { backgroundColor: colors.backgroundElevated, borderColor: colors.primary },
-  bulkVisibilityButtonDisabled: { opacity: 0.45 },
-  bulkPublicText: { color: colors.background, fontSize: 8, fontWeight: '900', textAlign: 'center' },
-  bulkPrivateText: { color: colors.primaryLight, fontSize: 8, fontWeight: '900', textAlign: 'center' },
-  organizeButton: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingVertical: spacing.md, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
-  organizeButtonText: { color: colors.primaryLight, fontWeight: '700', fontSize: 14 },
-  analysisSummary: { marginHorizontal: spacing.xl, marginTop: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  analysisSummaryText: { flex: 1, color: colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '800' },
-  analysisChevron: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
-  analysisCard: { marginHorizontal: spacing.xl, marginTop: spacing.xs, backgroundColor: colors.backgroundElevated, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
-  analysisLine: { color: colors.textSecondary, fontSize: 13 },
-  genreLine: { color: colors.primaryLight, fontSize: 12, lineHeight: 17, marginTop: 4 },
-  analysisHelp: { color: colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 5 },
-  viewSuggestionsButton: { marginTop: spacing.sm, alignSelf: 'flex-start' },
-  viewSuggestionsText: { color: colors.primaryLight, fontSize: 13, fontWeight: '700' },
-  list: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, flexGrow: 1 },
-  playlistBlock: { backgroundColor: colors.backgroundCard, borderRadius: radius.md, marginVertical: spacing.sm, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
-  playlistCard: { flexDirection: 'row', minHeight: 90 },
-  playlistCover: { width: 90, height: 90, backgroundColor: colors.backgroundElevated },
-  playlistCoverFallback: { alignItems: 'center', justifyContent: 'center' },
-  playlistCoverText: { color: colors.primaryLight, fontSize: 26, fontWeight: '900' },
-  playlistInfo: { flex: 1, padding: spacing.md, justifyContent: 'center' },
-  playlistName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  playlistDesc: { fontSize: 12, color: colors.textMuted, marginTop: spacing.xs, lineHeight: 16 },
-  songCount: { fontSize: 12, color: colors.keep, marginTop: spacing.xs, fontWeight: '600' },
-  chevron: { color: colors.primaryLight, fontSize: 20, alignSelf: 'center', paddingHorizontal: spacing.md },
-  playlistActions: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  actionButton: { minHeight: 34, paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  actionText: { color: colors.textSecondary, fontSize: 11, fontWeight: '800' },
-  tracksPanel: { borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, gap: spacing.sm, backgroundColor: colors.backgroundElevated },
-  panelHint: { color: colors.textMuted, fontSize: 10, lineHeight: 15, marginBottom: 2 },
-  loadingText: { color: colors.textSecondary, fontSize: 12, paddingVertical: spacing.md, textAlign: 'center' },
-  trackRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  trackCover: { width: 54, height: 54, borderRadius: 8, backgroundColor: colors.backgroundCard },
-  trackFallback: { color: colors.primaryLight, fontSize: 18 },
-  trackInfo: { flex: 1 },
-  trackTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
-  trackArtist: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
-  trackAvailable: { color: colors.textMuted, fontSize: 9, marginTop: 3 },
-  trackActions: { flexDirection: 'row', gap: 7, marginTop: 7, alignItems: 'center', flexWrap: 'wrap' },
-  smallAction: { minHeight: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 9, justifyContent: 'center' },
-  smallActionText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
-  emptyCard: { margin: spacing.lg, padding: spacing.xl, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  emptyTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '800' },
-  emptyText: { color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: spacing.sm, lineHeight: 18 },
-  emptyButton: { marginTop: spacing.md, backgroundColor: colors.primary, borderRadius: radius.pill, minHeight: 40, paddingHorizontal: spacing.lg, alignItems: 'center', justifyContent: 'center' },
-  emptyButtonText: { color: colors.white, fontSize: 11, fontWeight: '900' },
-  demoBadge: { backgroundColor: colors.demoBadgeBg, borderTopWidth: 1, borderTopColor: colors.demoBadgeBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center' },
-  demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.76)', justifyContent: 'center' },
-  modalScroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl },
-  editCard: { backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
-  editTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900' },
-  editHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginBottom: 4 },
-  input: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, paddingHorizontal: spacing.md, color: colors.textPrimary, fontSize: 14 },
-  multiline: { minHeight: 86, paddingTop: spacing.md, textAlignVertical: 'top' },
-  visibilityButton: { minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
-  visibilityText: { color: colors.primaryLight, fontSize: 12, fontWeight: '800' },
-  saveButton: { minHeight: 48, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs },
-  saveText: { color: colors.white, fontSize: 12, fontWeight: '900' },
-  cancelButton: { minHeight: 38, alignItems: 'center', justifyContent: 'center' },
-  cancelText: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+  container:{flex:1,backgroundColor:colors.background},
+  header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:36,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  libraryStrip:{marginHorizontal:14,marginTop:10,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:48,alignItems:'center',justifyContent:'center',paddingHorizontal:4},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:31,paddingHorizontal:7,borderRadius:16,borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},visibilityMiniText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
+  vibeBar:{marginHorizontal:14,marginTop:8,minHeight:50,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:8,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},vibeBarHint:{color:colors.textMuted,fontSize:8,lineHeight:12,marginTop:2},vibeArrow:{fontSize:16},
+  analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreLine:{color:colors.primaryLight,fontSize:10,lineHeight:15},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
+  list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
+  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:48,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:4},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackInfo:{flex:1},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},visibilityDot:{width:28,height:28,borderRadius:14,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},visibilityDotText:{color:colors.primaryLight,fontSize:10},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},shareMini:{alignSelf:'flex-end',minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},shareMiniText:{color:colors.textSecondary,fontSize:8,fontWeight:'900'},
+  emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:38,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:42,borderRadius:12,borderWidth:1,borderColor:colors.primary,justifyContent:'center',alignItems:'center'},visibilityText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:34,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},
 });
