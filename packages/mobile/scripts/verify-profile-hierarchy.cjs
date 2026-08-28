@@ -17,6 +17,10 @@ function assertOrdered(source, markers, label) {
   }
 }
 
+function assertIncludes(source, marker, label) {
+  if (!source.includes(marker)) throw new Error(`${label}: missing ${marker}`);
+}
+
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
   '{user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}',
@@ -37,6 +41,9 @@ if ((owner.match(/accessibilityLabel="Prévisualiser mon KEEP en Swipe"/g) || []
   throw new Error('Owner profile must expose exactly one SWIPE action');
 }
 
+assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
+assertIncludes(owner, 'keepCounters:{marginHorizontal:18}', 'Owner KEEP counter frame');
+
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
   "{ value: followerCount, label: 'Abonnés' }",
@@ -48,4 +55,13 @@ assertOrdered(visitor, [
   '<View style={styles.publicMusicSection}>',
 ], 'Visited profile collective hierarchy');
 
-console.log('KEEP profile hierarchy contract: PASS');
+assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
+assertIncludes(visitor, 'visitorKeepCounters:{marginHorizontal:18}', 'Visited KEEP counter frame');
+
+const sharedCounters = read('src/components/ProfileCounterRow.tsx');
+assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
+if (sharedCounters.includes("width: '100%',\n    maxWidth: '100%'")) {
+  throw new Error('Shared counter must not force 100% width plus border; it can overflow its profile frame');
+}
+
+console.log('KEEP profile hierarchy + alignment contract: PASS');
