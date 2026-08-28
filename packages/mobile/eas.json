@@ -30,10 +30,7 @@
   },
   "submit": {
     "production": {
-      "ios": {
-        "appleTeamId": "REMPLACER_APRES_INSCRIPTION_APPLE_DEVELOPER",
-        "ascAppId": "REMPLACER_APRES_CREATION_FICHE_APP_STORE_CONNECT"
-      }
+      "ios": {}
     }
   }
 }
