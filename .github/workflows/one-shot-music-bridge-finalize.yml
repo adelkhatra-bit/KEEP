@@ -1,10 +1,7 @@
-name: KEEP — One-shot music bridge finalize
+name: KEEP music bridge finalize
 
 on:
   push:
-    branches: [reconcile/claude-main-20260825]
-    paths:
-      - .github/workflows/one-shot-music-bridge-finalize.yml
 
 permissions:
   contents: write
@@ -18,21 +15,21 @@ jobs:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
 
-      - name: Patch keyless export and native mic
+      - name: Patch files
+        shell: bash
         run: |
-          python3 - <<'PY'
+          python3 <<'PY'
           from pathlib import Path
 
           music = Path('packages/mobile/src/screens/MyMusicScreen.tsx')
           text = music.read_text()
           needle = "import { sharePlaylist } from '../services/sharingService';\n"
-          replacement = needle + "import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';\n"
           if "prepareKeylessMusicExport" not in text:
               if needle not in text:
                   raise SystemExit('MyMusic import anchor not found')
-              text = text.replace(needle, replacement, 1)
+              text = text.replace(needle, needle + "import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';\n", 1)
 
-          old = """        {!isAllKeepView ? <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity> : null}"""
+          old = "        {!isAllKeepView ? <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity> : null}"
           new = """        {!isAllKeepView ? <View style={styles.collectionActions}>
           <TouchableOpacity style={styles.serviceMini} onPress={async () => {
             try {
@@ -62,13 +59,8 @@ jobs:
           mic = Path('packages/mobile/src/services/micCapture.ts')
           text = mic.read_text()
           text = text.replace('const NATIVE_VISUAL_NOISE_FLOOR_DB = -44;', 'const NATIVE_VISUAL_NOISE_FLOOR_DB = -52;', 1)
-          anchor = """  const { recording } = await Audio.Recording.createAsync(
-    { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },"""
-          replacement = """  // Sur téléphone on privilégie un canal mono haute qualité : pour une
-  // reconnaissance ambiante il n'y a aucun bénéfice au stéréo, et tout le
-  // débit AAC sert ainsi au signal utile. Le seuil visuel natif est aussi plus
-  // sensible qu'avant tout en conservant un vrai 0 sous le plancher de bruit.
-  const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
+          anchor = "  const { recording } = await Audio.Recording.createAsync(\n    { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },"
+          replacement = """  const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
   const nativeRecognitionOptions = {
     ...highQuality,
     isMeteringEnabled: true,
@@ -85,8 +77,7 @@ jobs:
           text = text.replace('    50\n  );', '    40\n  );', 1)
           mic.write_text(text)
 
-          workflow = Path('.github/workflows/one-shot-music-bridge-finalize.yml')
-          workflow.unlink()
+          Path('.github/workflows/one-shot-music-bridge-finalize.yml').unlink()
           PY
 
       - uses: actions/setup-node@v4
@@ -94,16 +85,14 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install
-        run: npm ci
+      - run: npm ci
+      - run: npm run -w packages/mobile type-check
 
-      - name: Typecheck mobile
-        run: npm run -w packages/mobile type-check
-
-      - name: Commit final changes
+      - name: Commit
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/mobile/src/screens/MyMusicScreen.tsx packages/mobile/src/services/micCapture.ts .github/workflows/one-shot-music-bridge-finalize.yml
+          git add -A
           git commit -m "feat(music): export KEEP collections without API and tune native mic"
           git push origin HEAD:reconcile/claude-main-20260825
