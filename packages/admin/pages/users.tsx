@@ -48,7 +48,7 @@ type UserSnapshot = {
 type LegacyRecovery = { username: string; temporaryPassword: string; message?: string };
 
 const REQUIREMENTS = [
-  ['EMAIL_VERIFIED', 'E-mail vérifié'], ['BIRTH_DATE', 'Date de naissance'], ['GENDER', 'Genre'],
+  ['BIRTH_DATE', 'Date de naissance'], ['GENDER', 'Genre'],
   ['AVATAR', 'Photo'], ['CITY', 'Ville'], ['COUNTRY', 'Pays'], ['BIO', 'Bio'],
   ['SOCIAL_LINK', 'Au moins un réseau'], ['WEBSITE', 'Site web'],
 ] as const;
