@@ -145,11 +145,12 @@ export async function replyToSupportTicket(profileId: string, ticketId: string, 
 }
 
 export function subscribeOwnSupport(profileId: string, onChange: () => void) {
-  if (!supabase) return () => {};
-  const channel = supabase
+  const client = supabase;
+  if (!client) return () => {};
+  const channel = client
     .channel(`support:${profileId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets', filter: `profile_id=eq.${profileId}` }, onChange)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' }, onChange)
     .subscribe();
-  return () => { void supabase.removeChannel(channel); };
+  return () => { void client.removeChannel(channel); };
 }
