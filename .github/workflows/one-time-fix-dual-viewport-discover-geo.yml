@@ -1,0 +1,35 @@
+name: KEEP — One-time Dual Viewport Discover Geo Fix
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'KEEP QA Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync latest branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply deterministic patch
+        run: python3 scripts/one_time_fix_dual_viewport_discover_geo.py
+      - name: Remove temporary automation
+        run: |
+          rm -f scripts/one_time_fix_dual_viewport_discover_geo.py
+          rm -f .github/workflows/one-time-fix-dual-viewport-discover-geo.yml
+      - name: Commit and push
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "test(profile): restore Discover location in alignment guardian"
+          git push origin HEAD:reconcile/claude-main-20260825
