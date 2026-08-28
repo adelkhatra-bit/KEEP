@@ -197,15 +197,19 @@ jobs:
             });
             await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
             const page = await context.newPage();
+            const dialogs=[];
+            page.on('dialog', async d => { dialogs.push(d.message()); await d.accept().catch(()=>{}); });
             const t=(v,o={})=>page.getByText(v,o).last();
 
             // Le GPS du navigateur reste réel. Seul le reverse-geocoding HTTP
             // est déterministe pour éviter qu'un service gratuit externe lent
-            // rende la CI aléatoire.
+            // rende la CI aléatoire. Les réponses simulées incluent CORS pour
+            // reproduire une vraie réponse accessible depuis l'app Web.
             await page.route('https://api.bigdatacloud.net/**', async route => {
               await route.fulfill({
                 status:200,
                 contentType:'application/json',
+                headers:{'access-control-allow-origin':'*'},
                 body:JSON.stringify({ city:'Saint-Jean-de-Thurigneux', locality:'Saint-Jean-de-Thurigneux', countryCode:'FR' }),
               });
             });
@@ -213,6 +217,7 @@ jobs:
               await route.fulfill({
                 status:200,
                 contentType:'application/json',
+                headers:{'access-control-allow-origin':'*'},
                 body:JSON.stringify({ address:{ village:'Saint-Jean-de-Thurigneux', country_code:'fr' } }),
               });
             });
@@ -236,19 +241,32 @@ jobs:
             await page.getByLabel('Menu du profil').last().click();
             await t('Modifier le profil',{exact:true}).waitFor({state:'visible',timeout:15000});
 
+            const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
+            await cityInput.waitFor({state:'visible',timeout:15000});
             const locate=t(/Utiliser ma position/i);
             await locate.waitFor({state:'visible',timeout:15000});
             await locate.click();
-            await t(/Position trouvée/i).waitFor({state:'visible',timeout:15000});
-            await t('Saint-Jean-de-Thurigneux',{exact:true}).waitFor({state:'visible',timeout:15000});
+
+            await page.waitForFunction(() => {
+              const field=[...document.querySelectorAll('input,textarea')].find((el)=>el.getAttribute('placeholder')==='Commence à saisir une ville');
+              return Boolean(field && String(field.value || '').includes('Saint-Jean-de-Thurigneux'));
+            }, null, {timeout:15000});
+            const cityValue=await cityInput.inputValue();
+            if(cityValue!=='Saint-Jean-de-Thurigneux') throw new Error(`Ville GPS inattendue: ${cityValue}`);
+            await t('France',{exact:true}).waitFor({state:'visible',timeout:15000});
+            const statusVisible=await t(/Position trouvée/i).isVisible().catch(()=>false);
+            if(!statusVisible) throw new Error('GPS prérempli mais confirmation « Position trouvée » absente');
+            if(dialogs.length) throw new Error(`Dialogue inattendu pendant GPS: ${dialogs.join(' | ')}`);
             await page.screenshot({path:'artifacts/dual-viewport/mobile-390x844-profile-location.png',fullPage:true});
 
             const save=t('Enregistrer sur cet appareil',{exact:true});
             await save.waitFor({state:'visible',timeout:15000});
             await save.click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await t(/Saint-Jean-de-Thurigneux/i).waitFor({state:'visible',timeout:15000});
+            await page.screenshot({path:'artifacts/dual-viewport/mobile-390x844-profile-location-saved.png',fullPage:true});
 
-            fs.writeFileSync('artifacts/dual-viewport/gps-report.txt', 'mobile-390x844: PASS — browser GPS réel; ville/pays préremplis; sauvegarde locale; retour profil');
+            fs.writeFileSync('artifacts/dual-viewport/gps-report.txt', `mobile-390x844: PASS — browser GPS réel ${rawPosition.latitude},${rawPosition.longitude}; ville=${cityValue}; pays=FR; sauvegarde locale; retour profil`);
             await context.close();
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
