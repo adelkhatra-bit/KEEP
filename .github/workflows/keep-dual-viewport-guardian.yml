@@ -56,10 +56,11 @@ jobs:
           done
           cat /tmp/keep-dual-runtime.log
           exit 1
-      - name: Test mobile 390x844 + desktop 1440x900
+
+      - name: Test profile alignment — mobile 390x844 + desktop 1440x900
         run: |
           mkdir -p artifacts/dual-viewport
-          cat > keep-dual-viewport.cjs <<'JS'
+          cat > keep-profile-alignment.cjs <<'JS'
           const { chromium } = require('playwright');
           const fs = require('fs');
 
@@ -95,6 +96,7 @@ jobs:
             if (leftDiff > 1 || rightDiff > 1) {
               throw new Error(`${label}: borders misaligned left=${leftDiff.toFixed(2)}px right=${rightDiff.toFixed(2)}px A=${JSON.stringify(a)} B=${JSON.stringify(b)}`);
             }
+            return { leftDiff, rightDiff };
           }
 
           (async()=>{
@@ -102,12 +104,7 @@ jobs:
             const report = [];
 
             for (const c of cases) {
-              const context = await browser.newContext({
-                viewport:{ width:c.width, height:c.height },
-                deviceScaleFactor:1,
-                geolocation:{ latitude:45.95, longitude:4.884 },
-              });
-              await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
+              const context = await browser.newContext({ viewport:{ width:c.width, height:c.height }, deviceScaleFactor:1 });
               const page = await context.newPage();
               const pageErrors=[];
               page.on('pageerror',e=>pageErrors.push(String(e)));
@@ -123,32 +120,27 @@ jobs:
 
               await t('Découvertes',{exact:true}).click();
               await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
-
-              // Règle produit : aucun profil ne doit apparaître avant RECHERCHER.
               await t(/Aucun profil n’est affiché par défaut/i).waitFor({state:'visible',timeout:15000});
               if (await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) {
                 throw new Error(`${c.label}: profil visible avant recherche`);
               }
 
-              // Recherche réelle dans un rayon qui doit contenir le profil Lyon
-              // depuis Saint-Jean-de-Thurigneux (~21 km).
               await page.getByLabel('Rayon 50 kilomètres').last().click();
-              const search=page.getByLabel('Rechercher des profils autour de moi').last();
-              await search.click();
+              await page.getByLabel('Rechercher des profils autour de moi').last().click();
               const profileLink=page.getByLabel('Voir le profil').last();
               await profileLink.waitFor({state:'visible',timeout:20000});
               const discoveryBody=await page.locator('body').innerText();
               if(!/profil.*dans ce rayon/i.test(discoveryBody)) throw new Error(`${c.label}: compteur de résultats absent`);
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-discover.png`,fullPage:true});
 
-              // Profil visité : mesure réelle DNA ↔ compteurs KEEP.
+              // Profil visité : Ses réseaux → DNA → CTA Swipe → compteurs KEEP.
               await profileLink.click();
               const visitorDnaTitle=t('Son empreinte musicale',{exact:true});
               const visitorKeepLabel=t('KEEP utilisateurs',{exact:true});
               await visitorDnaTitle.waitFor({state:'visible',timeout:20000});
               const visitorDnaRect=await borderedRect(visitorDnaTitle, `${c.label} visitor DNA`);
               const visitorKeepRect=await borderedRect(visitorKeepLabel, `${c.label} visitor KEEP counters`);
-              assertBorderAligned(visitorDnaRect, visitorKeepRect, `${c.label} visitor DNA ↔ KEEP`);
+              const visitorDiff=assertBorderAligned(visitorDnaRect, visitorKeepRect, `${c.label} visitor DNA ↔ KEEP`);
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-visitor-profile-alignment.png`,fullPage:true});
 
               const visitorSwipe=t(/DÉCOUVRIR SON KEEP EN SWIPE/i);
@@ -161,45 +153,103 @@ jobs:
               await page.getByLabel('Retour').last().click();
               await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
 
-              // Profil propriétaire : le contrôle d'alignement est volontairement
-              // effectué AVANT toute action GPS afin qu'une panne de géocodage
-              // externe ne puisse jamais masquer une régression visuelle.
+              // Profil propriétaire : Mes réseaux → PARTAGER/SWIPE → DNA → compteurs KEEP.
               await t('Profil',{exact:true}).click();
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               const ownerDnaTitle=t('Ton empreinte musicale',{exact:true});
               const ownerKeepLabel=t('KEEP total',{exact:true});
               const ownerDnaRect=await borderedRect(ownerDnaTitle, `${c.label} owner DNA`);
               const ownerKeepRect=await borderedRect(ownerKeepLabel, `${c.label} owner KEEP counters`);
-              assertBorderAligned(ownerDnaRect, ownerKeepRect, `${c.label} owner DNA ↔ KEEP`);
+              const ownerDiff=assertBorderAligned(ownerDnaRect, ownerKeepRect, `${c.label} owner DNA ↔ KEEP`);
               await page.screenshot({path:`artifacts/dual-viewport/${c.label}-owner-profile-alignment.png`,fullPage:true});
-
-              // Invité local hors mode démo : vrai bouton GPS + vraie sauvegarde locale.
-              await page.getByLabel('Menu du profil').last().click();
-              await t('Modifier le profil',{exact:true}).waitFor({state:'visible',timeout:15000});
-              const locate=t(/Utiliser ma position/i);
-              await locate.waitFor({state:'visible',timeout:15000});
-              await locate.click();
-              await t(/Position trouvée/i).waitFor({state:'visible',timeout:20000});
-              await page.screenshot({path:`artifacts/dual-viewport/${c.label}-profile-location.png`,fullPage:true});
-
-              const save=t('Enregistrer sur cet appareil',{exact:true});
-              await save.waitFor({state:'visible',timeout:15000});
-              await save.click();
-              await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
               const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
               if(dims.scrollWidth>dims.width+1) throw new Error(`${c.label}: overflow horizontal ${JSON.stringify(dims)}`);
               if(pageErrors.length) throw new Error(`${c.label}: ${pageErrors.join('\n')}`);
 
-              report.push(`${c.label}: PASS — hors mode démo; Discover vide avant recherche; GPS recherche 50 km; profil trouvé; visiteur DNA↔KEEP ≤1px; Swipe social; propriétaire DNA↔KEEP ≤1px; Modifier > GPS > sauvegarde locale; aucun overflow`);
+              report.push(`${c.label}: PASS — visitor left=${visitorDiff.leftDiff.toFixed(2)} right=${visitorDiff.rightDiff.toFixed(2)}; owner left=${ownerDiff.leftDiff.toFixed(2)} right=${ownerDiff.rightDiff.toFixed(2)}; aucun overflow`);
               await context.close();
             }
 
-            fs.writeFileSync('artifacts/dual-viewport/report.txt', report.join('\n'));
+            fs.writeFileSync('artifacts/dual-viewport/alignment-report.txt', report.join('\n'));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           JS
-          node keep-dual-viewport.cjs
+          node keep-profile-alignment.cjs
+
+      - name: Test GPS + profile save independently — mobile 390x844
+        run: |
+          cat > keep-gps-profile.cjs <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          (async()=>{
+            const browser = await chromium.launch({ headless:true });
+            const context = await browser.newContext({
+              viewport:{ width:390, height:844 },
+              deviceScaleFactor:1,
+              geolocation:{ latitude:45.95, longitude:4.884 },
+            });
+            await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
+            const page = await context.newPage();
+            const t=(v,o={})=>page.getByText(v,o).last();
+
+            // Le GPS du navigateur reste réel. Seul le reverse-geocoding HTTP
+            // est déterministe pour éviter qu'un service gratuit externe lent
+            // rende la CI aléatoire.
+            await page.route('https://api.bigdatacloud.net/**', async route => {
+              await route.fulfill({
+                status:200,
+                contentType:'application/json',
+                body:JSON.stringify({ city:'Saint-Jean-de-Thurigneux', locality:'Saint-Jean-de-Thurigneux', countryCode:'FR' }),
+              });
+            });
+            await page.route('https://nominatim.openstreetmap.org/**', async route => {
+              await route.fulfill({
+                status:200,
+                contentType:'application/json',
+                body:JSON.stringify({ address:{ village:'Saint-Jean-de-Thurigneux', country_code:'fr' } }),
+              });
+            });
+
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
+            const rawPosition = await page.evaluate(() => new Promise((resolve,reject) => {
+              navigator.geolocation.getCurrentPosition(
+                p => resolve({ latitude:p.coords.latitude, longitude:p.coords.longitude }),
+                e => reject(new Error(`browser_geolocation_${e.code}_${e.message}`)),
+                { enableHighAccuracy:false, timeout:10000 }
+              );
+            }));
+            if (!rawPosition || Math.abs(rawPosition.latitude-45.95)>0.01 || Math.abs(rawPosition.longitude-4.884)>0.01) {
+              throw new Error(`Playwright browser geolocation mismatch: ${JSON.stringify(rawPosition)}`);
+            }
+
+            await t('ESSAYER GRATUITEMENT',{exact:true}).click();
+            await t('Profil',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await t('Profil',{exact:true}).click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Menu du profil').last().click();
+            await t('Modifier le profil',{exact:true}).waitFor({state:'visible',timeout:15000});
+
+            const locate=t(/Utiliser ma position/i);
+            await locate.waitFor({state:'visible',timeout:15000});
+            await locate.click();
+            await t(/Position trouvée/i).waitFor({state:'visible',timeout:15000});
+            await t('Saint-Jean-de-Thurigneux',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await page.screenshot({path:'artifacts/dual-viewport/mobile-390x844-profile-location.png',fullPage:true});
+
+            const save=t('Enregistrer sur cet appareil',{exact:true});
+            await save.waitFor({state:'visible',timeout:15000});
+            await save.click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+
+            fs.writeFileSync('artifacts/dual-viewport/gps-report.txt', 'mobile-390x844: PASS — browser GPS réel; ville/pays préremplis; sauvegarde locale; retour profil');
+            await context.close();
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node keep-gps-profile.cjs
+
       - name: Runtime log on failure
         if: failure()
         run: cat /tmp/keep-dual-runtime.log || true
