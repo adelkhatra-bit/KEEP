@@ -306,21 +306,11 @@ export default function HomeScreenCompact({ navigation }: any) {
   );
 }
 
-function TopBar({ navigation, planCode, creditRemaining, creditUnlimited }: any) {
-  const isPaidPlan = planCode && planCode !== 'FREE';
-  const creditsExhausted = !creditUnlimited && creditRemaining === 0;
-  const paidLabel = planCode === 'PREMIUM' ? '♛ Premium' : planCode === 'CREATOR_PRO' ? 'Creator Pro' : planCode === 'VENUE_PRO' ? 'Venue Pro' : planCode;
-  const freeLabel = creditRemaining == null ? 'FREE' : `FREE · ${creditRemaining}`;
+function TopBar({ navigation }: any) {
   return <View style={s.topBar}>
     <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')}><Text style={s.roundText}>☰</Text></TouchableOpacity>
     <Text style={s.brand}>KEEP</Text>
-    <TouchableOpacity
-      style={[s.premium, isPaidPlan ? s.planPaid : creditsExhausted ? s.planExhausted : s.planFree]}
-      onPress={() => navigation.navigate('Offers', { focusPlan: isPaidPlan ? planCode : 'PREMIUM', sourceFeature: 'LISTEN_PLAN_BADGE' })}
-      accessibilityLabel="Voir mon offre KEEP"
-    >
-      <Text style={[s.premiumText, !isPaidPlan && (creditsExhausted ? s.planExhaustedText : s.planFreeText)]}>{isPaidPlan ? paidLabel : freeLabel}</Text>
-    </TouchableOpacity>
+    <View style={s.topBarSpacer} />
   </View>;
 }
 
@@ -331,6 +321,7 @@ function MiniStat({ value, label }: { value: string; label: string }) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
+  topBarSpacer: { width: 44 },
   round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: '#120D1B' },
   roundText: { color: C.text, fontSize: 28, lineHeight: 30, fontWeight: '700' },
   brand: { color: C.text, fontSize: 24, fontWeight: '900', letterSpacing: 5 },
