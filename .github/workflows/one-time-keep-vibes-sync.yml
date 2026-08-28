@@ -1,0 +1,88 @@
+name: KEEP — One-time collective profile hierarchy
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - .github/workflows/one-time-keep-vibes-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-profile-collective-hierarchy
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Apply owner hierarchy
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
+          s = p.read_text(encoding='utf-8')
+          old = '''        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
+        <View style={s.ownerActions}>
+          <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
+          <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
+        </View>
+        <ProfileCounterRow kind="connections" items={[
+          { value: profileFollowerCount, label: 'Abonnés' },
+          { value: profileFollowingCount, label: 'Abonnements' },
+        ]} />
+        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}'''
+          new = '''        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
+        <ProfileCounterRow kind="connections" items={[
+          { value: profileFollowerCount, label: 'Abonnés' },
+          { value: profileFollowingCount, label: 'Abonnements' },
+        ]} />
+        <View style={s.ownerActions}>
+          <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
+          <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
+        </View>
+        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}'''
+          if s.count(old) != 1:
+              raise SystemExit(f'Owner hierarchy anchor mismatch: {s.count(old)}')
+          s = s.replace(old, new, 1)
+          markers = [
+            '<Text style={s.socialTitle}>Mes réseaux</Text>',
+            "{ value: profileTotalKeepCount, label: 'KEEP total' }",
+            '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
+          ]
+          pos = [s.find(x) for x in markers]
+          if any(x < 0 for x in pos) or pos != sorted(pos):
+              raise SystemExit(f'Mes réseaux / KEEP / DNA hierarchy invalid: {pos}')
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+      - name: Verify source contract
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Commit verified hierarchy and cleanup
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx
+          git rm .github/workflows/one-time-keep-vibes-sync.yml
+          git rm -f .github/workflows/one-time-profile-collective-hierarchy.yml || true
+          git commit -m "fix(profile): put followers above owner actions globally"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
