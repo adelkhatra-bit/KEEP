@@ -33,7 +33,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,7 +41,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Apply one-time validated profile/share patch v4
+      - name: Apply validated profile/share patch
         run: |
           python3 scripts/one_time_profile_share_patch.py
           python3 scripts/one_time_share_contract_fix.py
@@ -81,10 +81,10 @@ jobs:
       - name: Verify iOS export
         run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
 
-      - name: Commit validated patch and restore normal CI
+      - name: Commit validated patch and preserve concurrent work
         if: github.event_name == 'push'
         run: |
-          git checkout HEAD^ -- .github/workflows/mobile-ci.yml
+          git show c8b5018990b362c740748718476974cb9b841c02:.github/workflows/mobile-ci.yml > .github/workflows/mobile-ci.yml
           rm -f scripts/one_time_profile_share_patch.py
           rm -f scripts/one_time_share_contract_fix.py
           rm -f .github/workflows/one-time-fix-profile-swipe-sharing.yml
@@ -93,4 +93,6 @@ jobs:
           git config user.email "actions@github.com"
           git add -A
           git commit -m "fix(profile): harden shares and separate social counters"
+          git fetch origin reconcile/claude-main-20260825
+          git rebase origin/reconcile/claude-main-20260825
           git push origin HEAD:reconcile/claude-main-20260825
