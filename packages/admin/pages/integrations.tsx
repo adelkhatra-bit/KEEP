@@ -115,6 +115,10 @@ export default function Integrations() {
       setValues((prev) => ({ ...prev, [row.key]: '' }));
       if (row.key === 'AUDD_API_KEY' && result?.validation?.valid) {
         setMessage(`Clé AudD vérifiée par le fournisseur puis enregistrée dans Supabase Vault. État : ${result.validation.status}.`);
+      } else if (row.key.startsWith('ACRCLOUD_') && result?.validation?.valid) {
+        setMessage(`ACRCloud vérifié par le fournisseur : Host + Access Key + Access Secret sont compatibles. État : ${result.validation.status}. Le fallback est actif immédiatement.`);
+      } else if (row.key.startsWith('ACRCLOUD_')) {
+        setMessage(`${row.label} enregistré. ACRCloud sera automatiquement testé dès que Host + Access Key + Access Secret seront tous renseignés.`);
       } else {
         setMessage(`${row.label} enregistré dans Supabase Vault. La valeur précédente est remplacée sans être affichée.`);
       }

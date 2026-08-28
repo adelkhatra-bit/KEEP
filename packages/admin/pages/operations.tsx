@@ -186,7 +186,7 @@ export default function Operations() {
           <tbody>
             {!loading && paidIntegrations.length === 0 && <tr><td colSpan={5}>Aucun service payant détecté.</td></tr>}
             {paidIntegrations.map((row) => {
-              const live = runtimeByKey.get(row.key);
+              const live = row.key.startsWith('ACRCLOUD_') ? runtimeByKey.get('ACRCLOUD') : runtimeByKey.get(row.key);
               const state = statusInfo(row, live);
               const billing = BILLING_LINKS[row.key];
               return <tr key={row.key}>
