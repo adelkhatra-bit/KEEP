@@ -1,0 +1,65 @@
+name: KEEP — One-time Profile Counter Alignment
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    if: github.actor != 'KEEP QA Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: |
+          git pull --ff-only origin reconcile/claude-main-20260825
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply counter alignment
+        run: python3 scripts/one_time_profile_counter_alignment.py
+
+      - name: Install clean dependencies
+        run: npm ci
+
+      - name: Verify hierarchy contract
+        run: node packages/mobile/scripts/verify-profile-hierarchy.cjs
+
+      - name: Verify profile data integrity
+        run: node scripts/verify-profile-data-integrity.cjs
+
+      - name: Typecheck mobile
+        run: npm run type-check --workspace=packages/mobile
+
+      - name: Mobile tests
+        run: npm test --workspace=packages/mobile -- --runInBand
+
+      - name: Remove temporary automation
+        run: |
+          rm -f scripts/one_time_profile_counter_alignment.py
+          rm -f .github/workflows/one-time-profile-counter-alignment.yml
+
+      - name: Commit verified alignment
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(profile): align KEEP counters inside profile frame"
+          git push origin HEAD:reconcile/claude-main-20260825
