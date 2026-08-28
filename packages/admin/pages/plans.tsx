@@ -142,7 +142,7 @@ export default function Plans() {
       {plans.map((plan)=><tr key={`limits-${plan.code}`}><td>{plan.code}</td>{LIMIT_COLUMNS.map((column)=>{const hasValue=column.key in (limits[plan.code]??{});const value=limits[plan.code]?.[column.key];return <td key={`${plan.code}-${column.key}`}>{hasValue?<input type="number" min="0" placeholder="∞" value={value==null?'':value} onChange={(e)=>updateLimit(plan.code,column.key,parseNullableNumber(e.target.value))} title={column.help} style={{width:86}}/>:<span style={{color:'#665f70'}}>—</span>}</td>;})}</tr>)}
     </tbody></table></div>
 
-    <button onClick={()=>void handleSave()} disabled={loading||saving||plans.length===0} style={{marginTop:20,background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:700,cursor:saving?'wait':'pointer',opacity:saving?.65:1}}>{saving?'Enregistrement…':'Enregistrer tous les réglages dans Supabase'}</button>
+    <button onClick={()=>void handleSave()} disabled={loading||saving||plans.length===0} style={{marginTop:20,background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:700,cursor:saving?'wait':'pointer',opacity:saving?0.65:1}}>{saving?'Enregistrement…':'Enregistrer tous les réglages dans Supabase'}</button>
     {savedAt&&<p className="save-hint">Enregistré réellement à {savedAt}. Les valeurs ont été relues depuis Supabase.</p>}
   </AdminLayout>;
 }
