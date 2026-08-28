@@ -2,9 +2,10 @@ name: KEEP one-time collective profile hierarchy
 
 on:
   push:
-    branches: ['reconcile/claude-main-20260825']
+    branches:
+      - reconcile/claude-main-20260825
     paths:
-      - '.github/workflows/one-time-profile-collective-hierarchy.yml'
+      - .github/workflows/one-time-profile-collective-hierarchy.yml
 
 permissions:
   contents: write
@@ -14,20 +15,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source branch
+        uses: actions/checkout@v4
         with:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
       - name: Sync latest branch
         run: git pull --ff-only origin reconcile/claude-main-20260825
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
       - name: Apply collective profile hierarchy
-        shell: python
         run: |
+          python3 - <<'PY'
           from pathlib import Path
 
           profile = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
@@ -55,8 +59,6 @@ jobs:
           if s.count(old) != 1:
               raise SystemExit(f'Owner hierarchy anchor mismatch: {s.count(old)}')
           s = s.replace(old, new, 1)
-
-          # Permanent source contract: networks -> KEEP counters -> KEEP DNA.
           markers = [
               '<Text style={s.socialTitle}>Mes réseaux</Text>',
               "{ value: profileTotalKeepCount, label: 'KEEP total' }",
@@ -85,18 +87,19 @@ jobs:
             const ownNetworks=t('Mes réseaux',{exact:true});
             const ownKeepTotal=t('KEEP total',{exact:true});
             const ownDna=t('Ton empreinte musicale',{exact:true});
-            for(const [loc,label] of [[ownFollowers,'Abonnés'],[ownNetworks,'Mes réseaux'],[ownKeepTotal,'KEEP total'],[ownDna,'KEEP DNA']]) await loc.waitFor({state:'visible',timeout:15000});
+            for(const loc of [ownFollowers,ownNetworks,ownKeepTotal,ownDna]) await loc.waitFor({state:'visible',timeout:15000});
             const hierarchy=await Promise.all([ownFollowers,ownShare,ownNetworks,ownKeepTotal,ownDna].map(x=>x.boundingBox()));
             if(hierarchy.some(x=>!x)) throw new Error('Own profile hierarchy bounding boxes unavailable');
-            const [followersBox,shareBox,networksBox,keepBox,dnaBox]=hierarchy;
-            if(!(followersBox.y < shareBox.y)) throw new Error(`Own profile: followers must be above PARTAGER/SWIPE ${JSON.stringify(hierarchy)}`);
-            if(!(networksBox.y < keepBox.y && keepBox.y < dnaBox.y)) throw new Error(`Own profile: Mes réseaux -> KEEP total -> KEEP DNA order invalid ${JSON.stringify(hierarchy)}`);
+            const followersBox=hierarchy[0], shareBox=hierarchy[1], networksBox=hierarchy[2], keepBox=hierarchy[3], dnaBox=hierarchy[4];
+            if(!(followersBox.y < shareBox.y)) throw new Error('Own profile followers must be above Share/Swipe');
+            if(!(networksBox.y < keepBox.y && keepBox.y < dnaBox.y)) throw new Error('Own profile Mes réseaux -> KEEP counters -> KEEP DNA order invalid');
             await shot('07-profile');'''
           if g.count(old_guard) != 1:
               raise SystemExit(f'Human guardian profile anchor mismatch: {g.count(old_guard)}')
           g = g.replace(old_guard, new_guard, 1)
           g = g.replace("              'Own profile menu/share/no self-follow: PASS',", "              'Own profile menu/share/no self-follow: PASS',\n              'Own profile Abonnés/Abonnements above Share/Swipe: PASS',\n              'Own profile Mes réseaux -> KEEP counters -> KEEP DNA: PASS',", 1)
           guardian.write_text(g, encoding='utf-8')
+          PY
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
       - name: Verify canonical source
