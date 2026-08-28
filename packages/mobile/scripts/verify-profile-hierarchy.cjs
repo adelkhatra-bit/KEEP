@@ -25,6 +25,7 @@ assertOrdered(owner, [
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
   'accessibilityLabel="Partager mon profil"',
   '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
+  '<View style={s.keepCounters}>',
   "{ value: profileTotalKeepCount, label: 'KEEP total' }",
   '<View style={s.tabs}>',
 ], 'Owner profile collective hierarchy');
@@ -42,6 +43,7 @@ assertOrdered(visitor, [
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
   '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text>',
+  '<View style={styles.visitorKeepCounters}>',
   "{ value: directKeepCount, label: 'KEEP' }",
   '<View style={styles.publicMusicSection}>',
 ], 'Visited profile collective hierarchy');
