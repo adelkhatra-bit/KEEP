@@ -12,7 +12,8 @@ import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
-// Source-of-truth auth KEEP : aucun e-mail ni code reçu par e-mail n'est requis.
+// Source-of-truth auth KEEP : pseudo + mot de passe restent suffisants ; un
+// e-mail vérifié, lorsqu'il existe, sert aussi de récupération sécurisée.
 export type UsernameAccountMode = 'create' | 'login';
 
 type Props = {
@@ -25,6 +26,8 @@ function errorText(code: string) {
   if (code === 'invalid_username') return 'Ce pseudo KEEP ne peut pas être utilisé.';
   if (code === 'invalid_password') return 'Choisis un autre mot de passe.';
   if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
+  if (code === 'rate_limited') return 'Trop de demandes rapprochées. Attends un instant puis réessaie.';
+  if (code === 'email_link_invalid') return 'Ce lien e-mail est expiré ou invalide. Demande un nouveau lien.';
   if (code === 'username_taken') return 'Ce pseudo KEEP est déjà utilisé. Choisis-en un autre.';
   if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support KEEP doit le régulariser.';
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
@@ -160,6 +163,36 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     }
   };
 
+  const requestRecoveryLink = async () => {
+    if (!supabase) return setError('Connexion KEEP indisponible pour le moment.');
+    const email = username.trim().toLowerCase();
+    if (!email.includes('@')) {
+      Alert.alert(
+        'Récupération du compte',
+        'Entre d’abord ton adresse e-mail de récupération vérifiée dans le champ « Pseudo KEEP ou e-mail », puis appuie de nouveau sur « Mot de passe oublié ? ». Pour un ancien compte sans e-mail, le Super Admin KEEP peut toujours rétablir l’accès.',
+      );
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    try {
+      const result = await createAuthService(supabase).requestEmailMagicLink(email);
+      if (result.error) {
+        setError(errorText(result.error));
+        return;
+      }
+      Alert.alert(
+        'Lien KEEP envoyé',
+        'Si cette adresse est liée à un compte KEEP, ouvre l’e-mail reçu puis touche « OUVRIR KEEP ». Le lien est personnel et temporaire.',
+      );
+    } catch {
+      setError('Impossible d’envoyer le lien de récupération pour le moment. Réessaie dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const passwordAutocomplete = mode === 'create' ? 'new-password' : 'current-password';
 
   return <ScrollView
@@ -244,10 +277,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       {busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>{mode === 'create' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>}
     </TouchableOpacity>
 
-    {mode === 'login' ? <TouchableOpacity style={s.forgot} onPress={() => Alert.alert(
-      'Mot de passe oublié',
-      'Pendant les tests, le Super Admin KEEP peut générer immédiatement un mot de passe temporaire pour ce compte, sans envoyer d’e-mail.',
-    )}><Text style={s.forgotText}>Mot de passe oublié ?</Text></TouchableOpacity> : null}
+    {mode === 'login' ? <TouchableOpacity style={s.forgot} onPress={requestRecoveryLink} disabled={busy}>
+      <Text style={s.forgotText}>Mot de passe oublié ?</Text>
+    </TouchableOpacity> : null}
 
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
