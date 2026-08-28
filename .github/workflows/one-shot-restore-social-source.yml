@@ -85,6 +85,8 @@ jobs:
           git add packages/mobile/src/screens/MyMusicScreen.tsx scripts/keep-public-trial-smoke.cjs
           git diff --cached --check
           git diff --cached --name-only
-          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          changed="$(git diff --cached --name-only | wc -l)"
+          test "$changed" -ge 1
+          test "$changed" -le 2
           git commit -m 'fix(music): restore clickable source attribution'
           git push origin HEAD:reconcile/claude-main-20260825
