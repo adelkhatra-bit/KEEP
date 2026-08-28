@@ -271,6 +271,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
     setProfileSwipeOpen(true);
   };
 
+  const switchProfileTab = (tab: ProfileTab) => {
+    if (tab === activeTab) return;
+    setExpandedPlaylistId(null);
+    setLoadingPlaylistId(null);
+    setSelectionSwipe(null);
+    setActiveTab(tab);
+  };
+
   const openSourceProfile = (sourceUsername: string) => {
     setSourceQuickUsername(sourceUsername.replace(/^@+/, ''));
   };
@@ -466,8 +474,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         })}</View>
       </View>
 
-      <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>setActiveTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
-      {tabContent()}
+      <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
+      <View key={`profile-tab-${activeTab}`}>{tabContent()}</View>
     </ScrollView>
 
     <MusicSwipeDeckModal
