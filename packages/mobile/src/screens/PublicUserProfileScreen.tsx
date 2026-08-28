@@ -384,14 +384,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ]} />
         </View>
 
-        <View style={styles.dna}>
-          <View style={styles.dnaHeader}><View><Text style={styles.dnaEyebrow}>KEEP DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View><Text style={styles.publicCount}>{tracks.length}</Text></View>
-          {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0)
-            ? <View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View>
-            : <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>}
-          {albums.length > 0 ? <Text style={styles.albumSummaryText} numberOfLines={2}>Albums : {albums.slice(0,5).join(' · ')}</Text> : null}
-        </View>
-
         <View style={styles.socialHub}>
           <Text style={styles.socialTitle}>Ses réseaux</Text>
           <View style={styles.socialRow}>
@@ -400,6 +392,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               return <TouchableOpacity key={item.platform} style={[styles.socialButton, configured && styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#5C5468'} /></TouchableOpacity>;
             })}
           </View>
+        </View>
+
+        <View style={styles.dna}>
+          <View style={styles.dnaHeader}><View><Text style={styles.dnaEyebrow}>KEEP DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View><Text style={styles.publicCount}>{tracks.length}</Text></View>
+          {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0)
+            ? <View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View>
+            : <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>}
+          {albums.length > 0 ? <Text style={styles.albumSummaryText} numberOfLines={2}>Albums : {albums.slice(0,5).join(' · ')}</Text> : null}
         </View>
 
         {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · KEEP te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}

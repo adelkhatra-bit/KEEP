@@ -458,15 +458,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           { value: profileFollowingCount, label: 'Abonnements' },
         ]} />
         {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
-        <ProfileCounterRow kind="keeps" items={[
-          { value: profileTotalKeepCount, label: 'KEEP total' },
-          { value: profileUserKeepCount, label: 'KEEP utilisateurs' },
-        ]} />
-      </View>
-
-      <View style={s.dna}>
-        <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>KEEP DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
-        {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session KEEP pour construire ton ADN musical.</Text>}
       </View>
 
       <View style={s.socialHub}>
@@ -475,6 +466,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
           const configured = !!publicLinks.find((link) => link.platform === item.platform && link.url.trim());
           return <TouchableOpacity key={item.platform} style={[s.socialButton, configured && s.socialButtonOn]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#AFA6BD'}/></TouchableOpacity>;
         })}</View>
+      </View>
+
+      <ProfileCounterRow kind="keeps" items={[
+        { value: profileTotalKeepCount, label: 'KEEP total' },
+        { value: profileUserKeepCount, label: 'KEEP utilisateurs' },
+      ]} />
+
+      <View style={s.dna}>
+        <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>KEEP DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
+        {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session KEEP pour construire ton ADN musical.</Text>}
       </View>
 
       <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
