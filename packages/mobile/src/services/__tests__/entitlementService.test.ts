@@ -1,3 +1,7 @@
+jest.mock('../planService', () => ({
+  loadCurrentPlanCode: jest.fn(async () => 'FREE'),
+}));
+
 import { hasFeature, requiredPlan } from '../entitlementService';
 
 describe('KEEP entitlements', () => {
