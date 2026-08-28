@@ -24,6 +24,15 @@ type RuntimeStatusRow = {
   last_error: string | null;
 };
 
+type RecognitionProviderResult = {
+  provider: 'KEYLESS_SOURCE' | 'AUDD' | 'ACRCLOUD';
+  status: Exclude<IntegrationStatus, 'UNKNOWN'>;
+  configured: boolean;
+  message: string;
+  checkedAt: string;
+  providerCode?: number;
+};
+
 const CATEGORY_LABELS: Record<string, string> = {
   email: 'E-mail',
   music: 'Musique',
@@ -58,6 +67,14 @@ async function invokeAdmin(body: Record<string, unknown>) {
   return data;
 }
 
+async function invokeRecognitionTest() {
+  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+  const { data, error } = await supabase.functions.invoke('keep-recognition-admin-test', { body: { action: 'test' } });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || 'Test des moteurs impossible.');
+  return data as { ok: true; testedAt: string; recognitionReady: boolean; providers: RecognitionProviderResult[] };
+}
+
 export default function Integrations() {
   const [rows, setRows] = useState<IntegrationRow[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -66,6 +83,8 @@ export default function Integrations() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState('');
+  const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
+  const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -80,8 +99,10 @@ export default function Integrations() {
         if (!runtimeError) statusRows = (runtime ?? []) as RuntimeStatusRow[];
       }
       const runtimeByKey = new Map(statusRows.map((item) => [item.key, item]));
+      setKeylessRuntime(runtimeByKey.get('KEYLESS_SOURCE') ?? null);
       setRows(baseRows.map((row) => {
-        const runtime = runtimeByKey.get(row.key);
+        const runtimeKey = row.key.startsWith('ACRCLOUD_') ? 'ACRCLOUD' : row.key;
+        const runtime = runtimeByKey.get(runtimeKey);
         return {
           ...row,
           runtimeStatus: runtime?.status ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED'),
@@ -143,6 +164,21 @@ export default function Integrations() {
     }
   };
 
+  const testRecognition = async () => {
+    setBusy('RECOGNITION_TEST'); setError(null); setMessage(null);
+    try {
+      const result = await invokeRecognitionTest();
+      setLastRecognitionTest(result.providers ?? []);
+      const summary = (result.providers ?? []).map((item) => `${item.provider}: ${STATUS_LABELS[item.status]}`).join(' · ');
+      setMessage(`Test réel terminé — ${summary}. Aucune clé secrète n’a été exposée.`);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? 'Test des moteurs de reconnaissance impossible.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const sendTest = async () => {
     setBusy('EMAIL_TEST'); setError(null); setMessage(null);
     try {
@@ -155,6 +191,8 @@ export default function Integrations() {
     }
   };
 
+  const keylessStatus = keylessRuntime?.status ?? 'UNKNOWN';
+
   return (
     <AdminLayout>
       <div className="page-title">Intégrations</div>
@@ -163,6 +201,40 @@ export default function Integrations() {
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — santé réelle</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
+          KEEP fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
+        </p>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginTop: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <strong>Fallback gratuit — Apple + Deezer publics</strong>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+                Utilisé pour les liens partagés TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques quand aucun moteur audio payant n’est disponible.
+              </div>
+            </div>
+            <div style={{ color: STATUS_COLORS[keylessStatus], fontWeight: 800 }}>● {STATUS_LABELS[keylessStatus]}</div>
+          </div>
+          {keylessRuntime?.last_checked_at && <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8 }}>Dernier contrôle réel : {new Date(keylessRuntime.last_checked_at).toLocaleString('fr-FR')}</div>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          <button onClick={() => void testRecognition()} disabled={busy === 'RECOGNITION_TEST'} style={{ fontWeight: 800 }}>
+            {busy === 'RECOGNITION_TEST' ? 'Test en cours…' : 'Tester tous les moteurs maintenant'}
+          </button>
+          <button onClick={() => void load()} disabled={loading}>Actualiser les statuts</button>
+        </div>
+        {lastRecognitionTest.length > 0 && (
+          <div style={{ display: 'grid', gap: 6, marginTop: 12 }}>
+            {lastRecognitionTest.map((item) => (
+              <div key={item.provider} style={{ fontSize: 12, color: STATUS_COLORS[item.status] }}>
+                <strong>{item.provider}</strong> — {STATUS_LABELS[item.status]} · {item.message}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Services à quota / payants</h3>
@@ -190,7 +262,7 @@ export default function Integrations() {
               <a href={AUDD_DOCS} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '9px 13px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
                 Documentation AudD
               </a>
-              <button onClick={() => void load()} disabled={loading}>Actualiser le statut</button>
+              <button onClick={() => void testRecognition()} disabled={busy === 'RECOGNITION_TEST'}>Tester AudD / ACRCloud</button>
             </div>
           </div>;
         })}
@@ -245,6 +317,12 @@ export default function Integrations() {
                     {row.configured ? `● Configuré ${row.hint ? `(${row.hint})` : ''}` : '○ Non configuré'}
                   </div>
                 </div>
+                {row.category === 'recognition' && (
+                  <div style={{ color: STATUS_COLORS[row.runtimeStatus ?? 'UNKNOWN'], fontSize: 12, marginBottom: 8 }}>
+                    ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
+                    {row.lastCheckedAt ? ` · contrôle ${new Date(row.lastCheckedAt).toLocaleString('fr-FR')}` : ''}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <input
                     type={row.secret ? 'password' : 'text'}
