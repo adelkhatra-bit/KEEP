@@ -54,8 +54,8 @@ const linking = {
 const TAB = {
   bg: '#0E0A14',
   border: '#2B2038',
-  active: '#A884FA',
-  inactive: '#756B84',
+  active: '#FFFFFF',
+  inactive: '#FFFFFF',
 };
 
 function MainTabs() {

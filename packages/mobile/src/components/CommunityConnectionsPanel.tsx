@@ -91,10 +91,10 @@ export default function CommunityConnectionsPanel({ userId, navigation }: { user
       {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
     </View>
     <View style={s.tabs}>
-      <TouchableOpacity style={[s.tab, mode === 'following' && s.tabOn]} onPress={() => setMode((value) => value === 'following' ? null : 'following')}>
+      <TouchableOpacity style={[s.tab, s.tabPurple, mode === 'following' && s.tabOn]} onPress={() => setMode((value) => value === 'following' ? null : 'following')}>
         <Text style={[s.tabText, mode === 'following' && s.tabTextOn]}>Abonnements · {following.length}</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.tab, mode === 'followers' && s.tabOn]} onPress={() => setMode((value) => value === 'followers' ? null : 'followers')}>
+      <TouchableOpacity style={[s.tab, s.tabGreen, mode === 'followers' && s.tabOn]} onPress={() => setMode((value) => value === 'followers' ? null : 'followers')}>
         <Text style={[s.tabText, mode === 'followers' && s.tabTextOn]}>Abonnés · {followers.length}</Text>
       </TouchableOpacity>
     </View>
@@ -118,15 +118,17 @@ export default function CommunityConnectionsPanel({ userId, navigation }: { user
 }
 
 const s = StyleSheet.create({
-  shell:{marginTop:spacing.lg,padding:12,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},
+  shell:{marginTop:10,padding:10,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},
   header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
   title:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},
   hint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:2},
-  tabs:{flexDirection:'row',gap:7,marginTop:10},
-  tab:{flex:1,minHeight:36,borderRadius:18,borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center',backgroundColor:'#21182F'},
-  tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},
-  tabText:{color:'#B9AEC6',fontSize:9,fontWeight:'900'},
-  tabTextOn:{color:'#FFF'},
+  tabs:{flexDirection:'row',gap:7,marginTop:8},
+  tab:{flex:1,minHeight:34,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},
+  tabPurple:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
+  tabGreen:{backgroundColor:'#123D2C',borderColor:'#38D990'},
+  tabOn:{borderWidth:2},
+  tabText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},
+  tabTextOn:{color:'#FFFFFF'},
   list:{marginTop:8,borderTopWidth:1,borderTopColor:'#2C203A'},
   row:{minHeight:56,flexDirection:'row',alignItems:'center',gap:8,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#30263B'},
   identity:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingVertical:8},
@@ -140,7 +142,7 @@ const s = StyleSheet.create({
   followOn:{backgroundColor:'#1C3028',borderWidth:1,borderColor:'#3B8061'},
   followText:{color:'#FFF',fontSize:8,fontWeight:'900'},
   followTextOn:{color:'#76E3AE'},
-  view:{minHeight:30,paddingHorizontal:11,borderRadius:15,borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},
-  viewText:{color:'#D7C7FF',fontSize:8,fontWeight:'900'},
+  view:{minHeight:30,paddingHorizontal:11,borderRadius:15,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},
+  viewText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   empty:{color:colors.textMuted,fontSize:10,textAlign:'center',paddingVertical:12},
 });
