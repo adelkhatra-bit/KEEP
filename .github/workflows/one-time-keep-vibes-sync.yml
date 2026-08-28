@@ -1,0 +1,67 @@
+name: KEEP — One-time Vibes Sync
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - .github/workflows/one-time-keep-vibes-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-vibes-one-time-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Apply system-wide text contrast cleanup
+        run: python3 scripts/one_time_mobile_text_contrast_fix.py
+
+      - name: Verify no forbidden gray text remains
+        run: node scripts/verify-mobile-text-contrast.cjs
+
+      - name: Validate clean install
+        run: npm ci --ignore-scripts
+
+      - name: Verify protected shell unchanged
+        run: node scripts/verify-source-of-truth.cjs
+
+      - name: Verify profile hierarchy contract
+        run: node packages/mobile/scripts/verify-profile-hierarchy.cjs
+
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+
+      - name: Mobile tests
+        run: npm --workspace packages/mobile test -- --runInBand
+
+      - name: Commit verified cleanup
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src
+          git rm .github/workflows/one-time-keep-vibes-sync.yml
+          git rm scripts/one_time_mobile_text_contrast_fix.py
+          git commit -m "fix(ui): enforce readable text contrast system-wide"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
