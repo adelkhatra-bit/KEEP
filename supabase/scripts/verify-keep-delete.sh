@@ -4,7 +4,8 @@
 # Précondition : verify-migrations.sh a créé keep_verify_ci et appliqué toutes
 # les migrations. Le scénario reproduit la boucle utilisateur complète côté
 # données : morceau KEEP présent -> suppression -> plus aucune décision -> plus
-# aucune apparition profil propriétaire -> plus aucune apparition profil public.
+# aucune apparition profil propriétaire -> plus aucune apparition profil public
+# -> le crédit FREE déjà consommé reste consommé.
 set -euo pipefail
 
 DB=keep_verify_ci
@@ -20,7 +21,7 @@ else
   }
 fi
 
-echo "== Suppression KEEP : bibliothèque -> profil -> rechargement =="
+echo "== Suppression KEEP : bibliothèque -> profil -> rechargement -> crédits =="
 pg -d "$DB" <<'SQL'
 \set ON_ERROR_STOP on
 
@@ -34,6 +35,10 @@ declare
   owner_rows int;
   public_rows int;
   playlist_rows int;
+  credit_before int;
+  credit_after int;
+  remaining_before int;
+  remaining_after int;
 begin
   insert into auth.users(id) values(uid);
   insert into public.profiles(id, username, is_public) values(uid, 'delete_ci_user', true);
@@ -45,17 +50,29 @@ begin
   insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
   values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '1 minute');
 
-  -- Reproduit aussi l'association créée automatiquement par KEEP dans une
-  -- playlist. La suppression ne doit pas laisser de ligne orpheline.
+  -- Reproduit exactement l'association écrite par l'app : added_via='KEEP'.
+  -- Une ancienne fonction testait uniquement 'keep' en minuscules et laissait
+  -- alors l'extrait orphelin dans la playlist.
   insert into public.playlists(id, owner_id, name, visibility)
   values(v_playlist_id, uid, 'Delete CI Playlist', 'PRIVATE');
   insert into public.playlist_tracks(playlist_id, track_id, position, added_via)
-  values(v_playlist_id, v_track_id, 1, 'keep');
+  values(v_playlist_id, v_track_id, 1, 'KEEP');
+
+  -- Le crédit représente une consommation historique. Il ne doit jamais être
+  -- recalculé à la baisse à partir du nombre de morceaux encore présents.
+  insert into public.download_credit_usage(profile_id, consumed_count, updated_at)
+  values(uid, 1, now());
 
   perform set_config('request.jwt.claim.sub', uid::text, true);
 
   if not exists (select 1 from public.keep_own_profile_tracks(500,0) x where x.track_id=v_track_id) then
     raise exception 'FAIL setup suppression : piste absente avant suppression';
+  end if;
+
+  select s.consumed, s.remaining into credit_before, remaining_before
+  from public.keep_download_credit_status() s;
+  if credit_before <> 1 then
+    raise exception 'FAIL setup crédits : 1 crédit consommé attendu, obtenu %', credit_before;
   end if;
 
   select public.keep_remove_track(v_track_id) into removed;
@@ -72,7 +89,7 @@ begin
 
   select count(*) into playlist_rows
   from public.playlist_tracks pt
-  where pt.playlist_id=v_playlist_id and pt.track_id=v_track_id and pt.added_via='keep';
+  where pt.playlist_id=v_playlist_id and pt.track_id=v_track_id and upper(coalesce(pt.added_via,''))='KEEP';
   if playlist_rows <> 0 then
     raise exception 'FAIL suppression : % association(s) playlist KEEP restante(s)', playlist_rows;
   end if;
@@ -92,9 +109,18 @@ begin
     raise exception 'FAIL suppression : profil public recharge encore % ligne(s)', public_rows;
   end if;
 
-  raise notice 'OK suppression : décisions=0, playlist KEEP=0, profil propriétaire=0, profil public=0';
+  select s.consumed, s.remaining into credit_after, remaining_after
+  from public.keep_download_credit_status() s;
+  if credit_after <> credit_before then
+    raise exception 'FAIL crédits : suppression a recrédité FREE (% -> % consommés)', credit_before, credit_after;
+  end if;
+  if remaining_after <> remaining_before then
+    raise exception 'FAIL crédits : suppression a changé le solde restant (% -> %)', remaining_before, remaining_after;
+  end if;
+
+  raise notice 'OK suppression : décisions=0, playlist KEEP=0, profils=0, crédit consommé reste %', credit_after;
 end;
 $$;
 SQL
 
-echo "TEST SUPPRESSION KEEP : OK"
+echo "TEST SUPPRESSION KEEP + NON-REMBOURSEMENT CRÉDIT : OK"
