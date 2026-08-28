@@ -46,6 +46,7 @@ check('Politique de confidentialité accessible dans l’app', contains(settings
 check('Choix de confidentialité accessibles dans l’app', contains(settings, 'Choix de confidentialité'));
 check('CGU accessibles dans l’app', contains(settings, 'Conditions d’utilisation'));
 check('Support accessible dans l’app', contains(settings, 'Support KEEP'));
+check('Liens légaux ouvrables via Linking', contains(settings, 'Linking.openURL'));
 
 for (const [file, marker, label] of [
   ['packages/mobile/legal/privacy.html', 'Politique de confidentialité KEEP', 'Politique de confidentialité publique'],
@@ -70,23 +71,25 @@ check('Profil EAS production existe', Boolean(eas.build?.production));
 check('Build number auto-incrémenté', eas.build?.production?.autoIncrement === true);
 check('Canal EAS production', eas.build?.production?.channel === 'production');
 check('Build production non simulateur', eas.build?.production?.ios?.simulator !== true);
+check('Aucun faux identifiant Apple dans eas.json', !read('packages/mobile/eas.json').includes('REMPLACER_'));
 
 const iosWorkflow = '.github/workflows/eas-build-ios.yml';
 check('Workflow iOS/TestFlight présent', exists(iosWorkflow));
-check('Workflow iOS exige EXPO_TOKEN', contains(iosWorkflow, 'EXPO_TOKEN'));
-check('Workflow utilise EAS production', contains(iosWorkflow, 'eas build --platform ios'));
+check('Workflow iOS gère EXPO_TOKEN', contains(iosWorkflow, 'EXPO_TOKEN'));
+check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') && contains(iosWorkflow, 'eas "${args[@]}"'));
+check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
+check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
+check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
 
-const submit = eas.submit?.production?.ios || {};
-if (!submit.appleTeamId || String(submit.appleTeamId).startsWith('REMPLACER_')) {
-  external.push('APPLE_TEAM_ID / appleTeamId à fournir après inscription Apple Developer.');
-}
-if (!submit.ascAppId || String(submit.ascAppId).startsWith('REMPLACER_')) {
-  external.push('ASC_APP_ID / ascAppId numérique à fournir après création de la fiche App Store Connect.');
-}
+check('Dossier de soumission App Store préparé', exists('docs/APP_STORE_SUBMISSION_READY.md'));
+check('Préflight iOS natif sans credential présent', exists('.github/workflows/app-store-native-preflight.yml'));
+
 external.push('GitHub Secret EXPO_TOKEN requis pour déclencher le build EAS iOS réel.');
-external.push('Clé App Store Connect (ASC_KEY_ID + ASC_ISSUER_ID + clé .p8) requise pour soumission automatisée si elle n’est pas déjà gérée par EAS.');
+external.push('APPLE_TEAM_ID et ASC_APP_ID numériques requis pour armer la soumission TestFlight automatique.');
+external.push('Clé App Store Connect : ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID requise pour la soumission automatisée.');
 external.push('Validation physique iPhone/TestFlight requise pour microphone arrière-plan, share extension, notifications et comportement inter-apps.');
 external.push('Produits StoreKit / achats intégrés réels à finaliser côté Apple avant activation commerciale.');
+external.push('App Privacy, Age Rating, Content Rights, DSA/trader et contact App Review doivent être validés dans App Store Connect par le compte Apple autorisé.');
 
 console.log('\nKEEP — APP STORE READINESS CONTRACT');
 for (const item of passes) console.log(`PASS  ${item}`);
