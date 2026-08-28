@@ -1,0 +1,61 @@
+name: KEEP — One-shot Discover coordinate repair
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/one-shot-discovery-null-coordinates.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-one-shot-discovery-coordinate
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout canonical branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync latest branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply coordinate fix
+        run: python scripts/one_shot_discovery_null_coordinates.py
+      - name: Remove one-shot files before release commit
+        run: rm -f scripts/one_shot_discovery_null_coordinates.py .github/workflows/one-shot-discovery-null-coordinates.yml
+      - name: Install
+        run: npm ci
+      - name: Typecheck all workspaces
+        run: npm run type-check
+      - name: Unit tests
+        run: npm test -- --runInBand
+      - name: Verify exact regression guard
+        run: |
+          grep -q "normalizeOptionalCoordinate(row.approx_lat)" packages/mobile/src/screens/DiscoverScreen.tsx
+          grep -q "normalizeOptionalCoordinate(row.approx_lng)" packages/mobile/src/screens/DiscoverScreen.tsx
+          test -f packages/mobile/src/services/discoveryCoordinate.ts
+          test -f packages/mobile/src/services/__tests__/discoveryCoordinate.test.ts
+          ! grep -q "Number.isFinite(Number(row.approx_lat))" packages/mobile/src/screens/DiscoverScreen.tsx
+      - name: Commit validated repair
+        run: |
+          git config user.name 'KEEP QA Bot'
+          git config user.email 'keep-qa-bot@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Nothing to commit'
+            exit 0
+          fi
+          git commit -m 'fix(discover): never map missing GPS coordinates to zero'
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
