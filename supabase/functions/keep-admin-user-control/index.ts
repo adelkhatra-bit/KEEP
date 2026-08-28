@@ -12,8 +12,12 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+// Seules les informations que l'application utilisateur sait réellement
+// demander et enregistrer sont acceptées ici. L'e-mail reste facultatif dans
+// KEEP : le Super Admin ne peut donc pas créer une obligation silencieuse que
+// l'app mobile ignorerait.
 const ALLOWED = new Set([
-  "EMAIL_VERIFIED", "BIRTH_DATE", "GENDER", "AVATAR", "CITY", "COUNTRY", "BIO", "SOCIAL_LINK", "WEBSITE",
+  "BIRTH_DATE", "GENDER", "AVATAR", "CITY", "COUNTRY", "BIO", "SOCIAL_LINK", "WEBSITE",
 ]);
 
 type Actor = { id: string; role: string };
@@ -29,8 +33,17 @@ async function requireAdmin(req: Request): Promise<Actor> {
   return { id: auth.user.id, role: String(row.role) };
 }
 
-function canManage(role: string) {
+function canRead(role: string) {
+  return role === "SUPER_ADMIN" || role === "ADMIN" || role === "SUPPORT" || role === "MODERATOR";
+}
+function canRequireProfileInfo(role: string) {
   return role === "SUPER_ADMIN" || role === "ADMIN" || role === "SUPPORT";
+}
+function canBlockAccount(role: string) {
+  return role === "SUPER_ADMIN" || role === "ADMIN";
+}
+function canModerateDiscovery(role: string) {
+  return role === "SUPER_ADMIN" || role === "ADMIN" || role === "MODERATOR";
 }
 function canDestruct(role: string) {
   return role === "SUPER_ADMIN";
@@ -112,7 +125,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
   try {
     const actor = await requireAdmin(req);
-    if (!canManage(actor.role)) return json(403, { error: "role_forbidden" });
+    if (!canRead(actor.role)) return json(403, { error: "role_forbidden" });
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     const profileId = String(body?.profileId ?? "").trim();
@@ -123,6 +136,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "set_requirements") {
+      if (!canRequireProfileInfo(actor.role)) return json(403, { error: "role_forbidden" });
       const input = Array.isArray(body?.requirements) ? body.requirements : [];
       const requirements = Array.from(new Set(input.map((item: unknown) => String(item).trim().toUpperCase()).filter(Boolean)));
       if (requirements.some((item) => !ALLOWED.has(item))) return json(400, { error: "invalid_requirement" });
@@ -140,8 +154,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === "set_blocked") {
+      if (!canBlockAccount(actor.role)) return json(403, { error: "role_forbidden" });
       const blocked = Boolean(body?.blocked);
-      if (actor.role === "SUPPORT") return json(403, { error: "role_forbidden" });
       const { data: current, error: currentError } = await admin.auth.admin.getUserById(profileId);
       if (currentError || !current.user) return json(404, { error: "profile_not_found" });
       const { error } = await admin.auth.admin.updateUserById(profileId, { ban_duration: blocked ? "876000h" : "none" });
@@ -151,7 +165,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "set_discovery_hidden") {
-      if (actor.role === "SUPPORT") return json(403, { error: "role_forbidden" });
+      if (!canModerateDiscovery(actor.role)) return json(403, { error: "role_forbidden" });
       const hidden = Boolean(body?.hidden);
       const { data: profile, error } = await admin.from("profiles").update({ discovery_hidden: hidden }).eq("id", profileId).select("id").maybeSingle();
       if (error) throw error;
