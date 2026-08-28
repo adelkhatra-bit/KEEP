@@ -35,8 +35,6 @@ async function shareAndTrack(
   channel: string,
 ) {
   const result = await Share.share(payload);
-  // iOS distingue explicitement Partagé / Annulé. Sur Android et certaines
-  // implémentations web, React Native renvoie sharedAction après ouverture.
   if (!result?.action || result.action === Share.sharedAction) await trackShare(eventName, channel);
   return result;
 }
@@ -47,14 +45,14 @@ export function buildPublicProfileLink(username: string): string {
 
 export async function shareProfile(username: string): Promise<void> {
   const link = buildPublicProfileLink(username);
-  const message = `Découvre mon univers musical sur KEEP 🎵 ${link}`;
-  await shareAndTrack({ title: 'Mon profil KEEP', message }, 'profile_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  const message = `Mon KEEP raconte ce que j’écoute. Découvre mon univers musical, mes Vibes et mon KEEP DNA 🎧 ${link}`;
+  await shareAndTrack({ title: 'Découvre mon KEEP', message }, 'profile_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareProfileTrack(username: string, title: string, artist: string): Promise<void> {
   const link = buildPublicProfileLink(username);
-  const message = `Découvre « ${title} » — ${artist} dans mon univers KEEP 🎵 ${link}`;
-  await shareAndTrack({ title: `${title} sur KEEP`, message }, 'profile_share', 'track_share');
+  const message = `Ce morceau fait partie de mon KEEP : « ${title} » — ${artist}. Découvre le reste de mon univers musical 🎵 ${link}`;
+  await shareAndTrack({ title: `${title} · mon KEEP`, message }, 'profile_share', 'track_share');
 }
 
 export async function shareProfileByEmail(username: string): Promise<void> {
@@ -69,8 +67,8 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   const bio = sameProfile?.bio?.trim() ? `\n${sameProfile.bio.trim()}\n` : '';
   const genres = sameProfile?.favoriteGenres?.length ? `\nMes styles : ${sameProfile.favoriteGenres.slice(0, 5).join(' · ')}\n` : '';
 
-  const subjectText = `Découvre mon univers KEEP — @${cleanUsername}`;
-  const bodyText = `Je partage mon profil KEEP avec toi.\n\n${identity}${bio}${genres}\nDécouvre mon KEEP DNA, mes morceaux gardés et les réseaux que j’ai choisi de rendre publics :\n\n${link}\n\nOuvre simplement le lien ci-dessus pour accéder directement à mon profil public KEEP.\n\nTes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.`;
+  const subjectText = `Découvre mon univers musical KEEP — @${cleanUsername}`;
+  const bodyText = `Mon KEEP raconte ce que j’écoute.\n\n${identity}${bio}${genres}\nEntre dans mon univers : découvre mon KEEP DNA, mes Vibes, mes morceaux gardés et les réseaux que j’ai choisi de partager.\n\n${link}\n\nUn scan, un clic, et tu sais déjà un peu mieux qui je suis.\n\nKEEP — Tes goûts te ressemblent.`;
   const subject = encodeURIComponent(subjectText);
   const body = encodeURIComponent(bodyText);
   const mailto = `mailto:?subject=${subject}&body=${body}`;
@@ -98,7 +96,8 @@ export async function shareProfileByEmail(username: string): Promise<void> {
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
-  await Share.share({ message: `${title} — ${keptCount} morceaux gardés sur KEEP 🎵 ${buildLink(`/s/session/${sessionId}`)}` });
+  const message = `J’ai capté ${keptCount} morceau${keptCount > 1 ? 'x' : ''} avec KEEP dans « ${title} ». Découvre la session et entre dans mon univers musical 🎧 ${buildLink(`/s/session/${sessionId}`)}`;
+  await Share.share({ title: `${title} · KEEP`, message });
 }
 
 export async function sharePlaylist(playlistId: string, playlistName: string): Promise<void> {
@@ -114,13 +113,14 @@ export async function sharePlaylist(playlistId: string, playlistName: string): P
     return;
   }
 
-  await shareAndTrack({ message: `Ma Vibe "${playlistName}" sur KEEP 🎵 ${buildLink(`/s/playlist/${playlistId}`)}` }, 'playlist_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  const message = `Cette Vibe me ressemble : « ${playlistName} ». Swipe-la sur KEEP et dis-moi ce que tu aurais gardé 🎵 ${buildLink(`/s/playlist/${playlistId}`)}`;
+  await shareAndTrack({ title: `${playlistName} · KEEP`, message }, 'playlist_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareCompareInvite(username: string): Promise<void> {
-  await shareAndTrack({ message: `Compare ton KEEP avec le mien 🎧 ${buildLink(`/s/compare/${username}`)}` }, 'compare_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  await shareAndTrack({ message: `On écoute vraiment la même chose ? Compare ton KEEP DNA avec le mien 🎧 ${buildLink(`/s/compare/${username}`)}` }, 'compare_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareEvent(eventId: string, eventName: string): Promise<void> {
-  await shareAndTrack({ message: `${eventName} — vu sur KEEP 🎉 ${buildLink(`/s/event/${eventId}`)}` }, 'event_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  await shareAndTrack({ message: `Tu viens ? « ${eventName} » est sur KEEP. Découvre l’ambiance et rejoins-nous 🎉 ${buildLink(`/s/event/${eventId}`)}` }, 'event_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
