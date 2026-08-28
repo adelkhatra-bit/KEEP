@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
 import MusicServiceActivationModal from '../components/MusicServiceActivationModal';
 import {
@@ -16,12 +16,27 @@ import {
   musicServicePlanLabel,
   MusicServiceSelectionState,
 } from '../services/musicServiceSelectionService';
+import {
+  importProviderFavorites,
+  loadProviderConnectionStates,
+  ProviderConnectionMap,
+  startProviderConnection,
+  SyncProvider,
+} from '../services/musicProviderSyncService';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
 const EMPTY_SELECTION: MusicServiceSelectionState = { services: [], used: 0, limit: 1, plan: 'FREE' };
+const EMPTY_PROVIDER_CONNECTIONS: ProviderConnectionMap = {
+  spotify: { configured: false, connected: false, connection: null },
+  deezer: { configured: false, connected: false, connection: null },
+};
 
 type ActivationPrompt = { service: MusicServiceKey; name: string };
+
+function isSyncProvider(service: MusicServiceKey): service is SyncProvider {
+  return service === 'spotify' || service === 'deezer';
+}
 
 function nextPlan(plan: MusicServiceSelectionState['plan']) {
   if (plan === 'FREE') return 'PREMIUM';
@@ -35,23 +50,32 @@ function nextPlanLabel(plan: MusicServiceSelectionState['plan']) {
   return 'Venue Pro 29,99 € · tous les services';
 }
 
+function showMessage(title: string, message: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(`${title}\n\n${message}`);
+  else Alert.alert(title, message);
+}
+
 export default function MusicConnectionsScreen({ navigation }: any) {
   const [queue, setQueue] = useState<KeylessExportQueue | null>(null);
   const [selection, setSelection] = useState<MusicServiceSelectionState>(EMPTY_SELECTION);
+  const [providerConnections, setProviderConnections] = useState<ProviderConnectionMap>(EMPTY_PROVIDER_CONNECTIONS);
   const [selectionLoading, setSelectionLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<MusicServiceKey | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [providerBusy, setProviderBusy] = useState<SyncProvider | null>(null);
   const [activatingService, setActivatingService] = useState<MusicServiceKey | null>(null);
   const [activationPrompt, setActivationPrompt] = useState<ActivationPrompt | null>(null);
 
   const refresh = useCallback(async () => {
-    const [nextQueue, nextSelection] = await Promise.all([
+    const [nextQueue, nextSelection, nextConnections] = await Promise.all([
       loadKeylessMusicExport(),
       loadMusicServiceSelections().catch(() => EMPTY_SELECTION),
+      loadProviderConnectionStates().catch(() => EMPTY_PROVIDER_CONNECTIONS),
     ]);
     setQueue(nextQueue);
     setSelection(nextSelection);
+    setProviderConnections(nextConnections);
     setSelectionLoading(false);
     if (!nextQueue?.tracks.length) {
       setSelectedService(null);
@@ -64,7 +88,13 @@ export default function MusicConnectionsScreen({ navigation }: any) {
   useEffect(() => {
     void refresh();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refresh(); });
-    return () => unsubscribe?.();
+    const linkSubscription = Linking.addEventListener('url', ({ url }) => {
+      if (/^keep:\/\/music-connections/i.test(url)) void refresh();
+    });
+    return () => {
+      unsubscribe?.();
+      linkSubscription.remove();
+    };
   }, [navigation, refresh]);
 
   const currentTrack = useMemo(() => queue?.tracks[trackIndex] ?? null, [queue, trackIndex]);
@@ -89,6 +119,38 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       return;
     }
     void openProvider(service);
+  };
+
+  const connectProvider = async (provider: SyncProvider, name: string) => {
+    if (providerBusy || busy) return;
+    setProviderBusy(provider);
+    try {
+      const state = providerConnections[provider];
+      if (!state.configured) {
+        showMessage('Connexion fournisseur', `${name} n’est pas encore configuré dans le Super Admin KEEP.`);
+        return;
+      }
+      await startProviderConnection(provider);
+    } catch (error: any) {
+      const message = String(error?.message || 'Connexion impossible.');
+      showMessage('Connexion fournisseur', message.includes('AUTH_REQUIRED') ? 'Connecte d’abord ton compte KEEP.' : message);
+    } finally {
+      setProviderBusy(null);
+    }
+  };
+
+  const importFavorites = async (provider: SyncProvider, name: string) => {
+    if (providerBusy || busy) return;
+    setProviderBusy(provider);
+    try {
+      const result = await importProviderFavorites(provider);
+      showMessage('Bibliothèque KEEP', `${result.imported} favori${result.imported > 1 ? 's' : ''} ${name} synchronisé${result.imported > 1 ? 's' : ''}. Ils restent privés par défaut tant que tu ne choisis pas de les partager.`);
+      await refresh();
+    } catch (error: any) {
+      showMessage('Import impossible', String(error?.message || 'Impossible d’importer cette bibliothèque.'));
+    } finally {
+      setProviderBusy(null);
+    }
   };
 
   const openOffers = () => navigation.navigate('Offers', { focusPlan: nextPlan(selection.plan), sourceFeature: 'MUSIC_SERVICES' });
@@ -124,11 +186,25 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       }
       if (!result.ok) throw new Error(result.error || 'ACTIVATION_FAILED');
 
-      // Relire Supabase avant d'annoncer l'activation : le bouton ACTIF ne doit
-      // jamais être seulement cosmétique.
       const verified = await loadMusicServiceSelections();
       setSelection(verified);
       if (!verified.services.includes(service)) throw new Error('ACTIVATION_NOT_PERSISTED');
+
+      if (isSyncProvider(service)) {
+        const state = providerConnections[service];
+        if (state.configured && !state.connected) {
+          try {
+            await startProviderConnection(service);
+          } catch (oauthError: any) {
+            showMessage('Service KEEP activé', `${name} est bien réservé dans KEEP. La connexion du compte fournisseur n’a pas pu démarrer : ${String(oauthError?.message || 'réessaie plus tard')}`);
+          }
+        } else if (state.connected) {
+          showMessage('Service déjà connecté', `${name} est actif et ton compte fournisseur est déjà relié à KEEP.`);
+        } else {
+          showMessage('Service KEEP activé', `${name} est actif dans KEEP. Ajoute ses identifiants dans le Super Admin pour permettre la connexion OAuth et l’import automatique.`);
+        }
+        return true;
+      }
 
       useConnectedService(service);
       return true;
@@ -159,6 +235,19 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         }
         return;
       }
+
+      if (isSyncProvider(service)) {
+        const providerState = providerConnections[service];
+        if (!providerState.connected) {
+          void connectProvider(service, name);
+          return;
+        }
+        if (!queue?.tracks.length) {
+          void importFavorites(service, name);
+          return;
+        }
+      }
+
       useConnectedService(service);
       return;
     }
@@ -168,8 +257,6 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       return;
     }
 
-    // Un même popup KEEP est utilisé sur Web, iOS et Android. Le choix n'est
-    // enregistré qu'après confirmation explicite de l'utilisateur.
     setActivationPrompt({ service, name });
   };
 
@@ -248,7 +335,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{queue?.tracks.length && !selectedService ? 'Choisir la destination' : 'Tes services'}</Text>
-          <Text style={styles.sectionHint}>Actif = déjà choisi · cadenas = ta formule doit évoluer ou l’emplacement est déjà utilisé.</Text>
+          <Text style={styles.sectionHint}>ACTIF = réservé par ta formule · CONNECTÉ = compte fournisseur OAuth réellement relié.</Text>
         </View>
 
         {KEYLESS_MUSIC_SERVICES.map((provider) => {
@@ -259,13 +346,32 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           const reserved = claimed && !active;
           const selected = selectedService === provider.key;
           const activating = activatingService === provider.key;
+          const syncProvider = isSyncProvider(provider.key) ? provider.key : null;
+          const providerState = syncProvider ? providerConnections[syncProvider] : null;
+          const connected = Boolean(providerState?.connected);
+          const providerActionBusy = syncProvider === providerBusy;
+          const activeDescription = connected
+            ? (queue?.tracks.length ? `${provider.name} connecté · sélectionne-le comme destination.` : `${provider.name} connecté · touche pour importer ou actualiser tes favoris dans KEEP.`)
+            : syncProvider && providerState?.configured
+              ? `${provider.shortDescription} · touche pour connecter ton compte ${provider.name}.`
+              : syncProvider
+                ? `${provider.shortDescription} · configuration fournisseur requise dans le Super Admin.`
+                : provider.shortDescription;
+          const actionLabel = activating || providerActionBusy
+            ? 'PATIENTER…'
+            : active
+              ? connected
+                ? (queue?.tracks.length ? 'CHOISIR' : 'IMPORTER')
+                : syncProvider ? 'CONNECTER' : (queue?.tracks.length ? 'CHOISIR' : 'OUVRIR')
+              : slotFull || reserved ? '🔒' : 'ACTIVER';
+
           return (
             <TouchableOpacity
               key={provider.key}
               style={[styles.card, { borderColor: active ? brandColor : selected ? brandColor : colors.border }, (selected || active) && styles.cardSelected]}
               onPress={() => confirmService(provider.key, provider.name)}
-              disabled={Boolean(activatingService)}
-              accessibilityLabel={`${active ? 'Ouvrir' : 'Choisir'} ${provider.name}`}
+              disabled={Boolean(activatingService || providerBusy)}
+              accessibilityLabel={`${active ? actionLabel : 'Choisir'} ${provider.name}`}
             >
               <View style={[styles.logo, { borderColor: brandColor }]}>
                 <MusicServiceIcon service={provider.key} size={27} />
@@ -274,18 +380,19 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 <View style={styles.nameRow}>
                   <Text style={styles.name}>{provider.name}</Text>
                   {active ? <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>ACTIF</Text></View> : null}
+                  {connected ? <View style={styles.connectedBadge}><Text style={styles.connectedBadgeText}>CONNECTÉ</Text></View> : null}
                   {reserved ? <View style={styles.lockBadge}><Text style={styles.lockBadgeText}>🔒 RÉSERVÉ</Text></View> : null}
                 </View>
-                <Text style={styles.description}>{active ? provider.shortDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte KEEP.'}</Text>
+                <Text style={styles.description}>{active ? activeDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte KEEP.'}</Text>
               </View>
-              <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill, activating && styles.activatingPill]}><Text style={styles.openPillText}>{activating ? 'ACTIVATION…' : active ? (queue?.tracks.length ? 'CHOISIR' : 'OUVRIR') : slotFull || reserved ? '🔒' : 'ACTIVER'}</Text></View>
+              <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill, (activating || providerActionBusy) && styles.activatingPill]}><Text style={styles.openPillText}>{actionLabel}</Text></View>
             </TouchableOpacity>
           );
         })}
 
         <View style={styles.ruleCard}>
           <Text style={styles.ruleTitle}>KEEP range pour toi</Text>
-          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans KEEP. Tu peux renommer tes Vibes, les swiper et choisir ensuite où retrouver chaque morceau.</Text>
+          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans KEEP. Pour Spotify et Deezer connectés, tes favoris peuvent être importés en métadonnées privées puis tes playlists KEEP peuvent être resynchronisées vers ton compte fournisseur.</Text>
         </View>
 
         <View style={styles.limitCard}>
@@ -350,6 +457,8 @@ const styles = StyleSheet.create({
   name: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   activeBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#38D990', alignItems: 'center', justifyContent: 'center' },
   activeBadgeText: { color: '#8AF3BF', fontSize: 7, fontWeight: '900' },
+  connectedBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#172A45', borderWidth: 1, borderColor: '#75B7FF', alignItems: 'center', justifyContent: 'center' },
+  connectedBadgeText: { color: '#FFFFFF', fontSize: 7, fontWeight: '900' },
   lockBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#2B2038', borderWidth: 1, borderColor: '#6E4BA5', alignItems: 'center', justifyContent: 'center' },
   lockBadgeText: { color: '#D9C7FF', fontSize: 7, fontWeight: '900' },
   description: { color:'#FFFFFF', fontSize: 10, lineHeight: 14, marginTop: 3 },
