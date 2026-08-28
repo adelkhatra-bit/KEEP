@@ -7,7 +7,9 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 5 * 60 * 1000;
+const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 let fallbackUnavailableUntil = 0;
+let recognitionBackoffUntil = 0;
 
 function configured(value: string | undefined): value is string {
   return Boolean(value && value !== 'undefined' && !value.startsWith('your_'));
@@ -258,10 +260,15 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
 
     const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample], { type: 'audio/wav' });
     if (!blob.size) return null;
+    // Un 429 précédent ne doit ni afficher une erreur rouge ni relancer le
+    // serveur à chaque échantillon. L'écoute reste active et reprend seule.
+    if (Date.now() < recognitionBackoffUntil) return null;
 
     const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
     const primary = await recognitionAttempt('keep-music-core', blob, accessToken, deviceId);
+    const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
     if (primary.ok && primary.payload?.recognition) {
+      recognitionBackoffUntil = 0;
       return primary.payload.recognition as RecognitionResult;
     }
 
@@ -269,6 +276,10 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // extrait le même aller-retour 409. On retente périodiquement pour que
     // l'activation future dans le Super Admin soit prise en compte sans reload.
     if (fallbackKnownUnavailable()) {
+      if (primaryRateLimited) {
+        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
+        return null;
+      }
       if (primary.ok) return null;
       throw new Error(attemptMessage(primary));
     }
@@ -279,11 +290,21 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
     if (fallback.ok && fallback.payload?.recognition) {
       fallbackUnavailableUntil = 0;
+      recognitionBackoffUntil = 0;
       return fallback.payload.recognition as RecognitionResult;
+    }
+
+    if (fallback.status === 429 || fallback.payload?.error === 'fallback_rate_limited') {
+      recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
+      return null;
     }
 
     if (fallback.status === 409 || fallback.payload?.error === 'fallback_not_configured') {
       markFallbackUnavailable();
+      if (primaryRateLimited) {
+        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
+        return null;
+      }
       if (primary.ok) return null;
       throw new Error(attemptMessage(primary));
     }

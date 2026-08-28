@@ -11,6 +11,11 @@ import { prepareRecognitionNotifications } from '../services/recognitionNotifica
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 
 const RECOGNITION_TICK_MS = 900;
+// Le tick UI reste réactif, mais les appels de fingerprint sont volontairement
+// espacés pour éviter qu'une écoute continue brûle le quota fournisseur.
+const MIN_RECOGNITION_ATTEMPT_GAP_MS = 8000;
+const NEW_MATCH_COOLDOWN_MS = 16000;
+const SAME_TRACK_COOLDOWN_MS = 25000;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
 
@@ -124,6 +129,7 @@ function applyTrackEnrichment(
 let tickHandle: ReturnType<typeof setInterval> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let lastDetectionAt = 0;
+let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
 
 function recognitionSampleDurationMs() {
@@ -160,11 +166,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void clearSharedMusicSource();
     useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
+    nextRecognitionAllowedAt = 0;
     consecutiveNoMatches = 0;
     set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, locationLabel: undefined, lat: undefined, lng: undefined });
 
     const tick = async () => {
       if (!get().isActive || get().recognizing) return;
+      const now = Date.now();
+      if (now < nextRecognitionAllowedAt) return;
+      nextRecognitionAllowedAt = now + MIN_RECOGNITION_ATTEMPT_GAP_MS;
       set({ recognizing: true });
       try {
         const sampleDuration = recognitionSampleDurationMs();
@@ -185,6 +195,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const last = get().tracks[0];
         if (last && sameTrack(last.track, track)) {
           lastDetectionAt = Date.now();
+          nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
           set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null });
           return;
         }
@@ -200,6 +211,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           detectedAt: new Date().toISOString(),
         };
         lastDetectionAt = Date.now();
+        nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
         set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null }));
         persistLiveSession(get());
 
