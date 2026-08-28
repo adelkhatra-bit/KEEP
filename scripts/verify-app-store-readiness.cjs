@@ -20,6 +20,7 @@ function contains(file, needle) {
 
 const app = json('packages/mobile/app.json').expo;
 const ios = app.ios || {};
+const android = app.android || {};
 const plist = ios.infoPlist || {};
 
 check('Bundle ID KEEP figé', ios.bundleIdentifier === 'com.adelkhatra.keep', String(ios.bundleIdentifier || 'absent'));
@@ -50,6 +51,21 @@ check('Micro réellement actif en arrière-plan iOS', contains(mic, 'staysActive
 check('ARRÊTER libère Audio.Recording', contains(mic, 'stopAndUnloadAsync'));
 check('ARRÊTER désactive le mode enregistrement iOS', contains(mic, 'setNativeRecordingMode(false)'));
 check('Course STOP/START micro protégée', contains(mic, 'cancellationVersion'));
+
+const androidManifest = 'packages/mobile/modules/keep-background-listening/android/src/main/AndroidManifest.xml';
+const androidService = 'packages/mobile/modules/keep-background-listening/android/src/main/java/expo/modules/keepbackground/KeepMicrophoneForegroundService.kt';
+const androidModule = 'packages/mobile/modules/keep-background-listening/android/src/main/java/expo/modules/keepbackground/KeepBackgroundListeningModule.kt';
+const androidPermissions = Array.isArray(android.permissions) ? android.permissions : [];
+check('Android RECORD_AUDIO déclaré', androidPermissions.includes('android.permission.RECORD_AUDIO'));
+check('Android FOREGROUND_SERVICE déclaré', androidPermissions.includes('android.permission.FOREGROUND_SERVICE'));
+check('Android FOREGROUND_SERVICE_MICROPHONE déclaré', androidPermissions.includes('android.permission.FOREGROUND_SERVICE_MICROPHONE'));
+check('Manifest service microphone natif présent', exists(androidManifest) && contains(androidManifest, 'KeepMicrophoneForegroundService'));
+check('Manifest service foreground type microphone', exists(androidManifest) && contains(androidManifest, 'android:foregroundServiceType="microphone"'));
+check('Service Android démarre réellement en foreground', exists(androidService) && contains(androidService, 'ServiceCompat.startForeground'));
+check('Service Android utilise le type MICROPHONE', exists(androidService) && contains(androidService, 'FOREGROUND_SERVICE_TYPE_MICROPHONE'));
+check('Module Android exige RECORD_AUDIO avant service', exists(androidModule) && contains(androidModule, 'Manifest.permission.RECORD_AUDIO'));
+check('Capture Android démarre le foreground service', contains(mic, 'ensureBackgroundListeningService()'));
+check('ARRÊTER coupe le foreground service Android', contains(mic, 'stopBackgroundListeningService()'));
 
 const settings = 'packages/mobile/src/screens/AdvancedProfileSettingsScreen.tsx';
 check('Suppression de compte accessible dans l’app', contains(settings, 'Supprimer définitivement mon compte'));
@@ -101,6 +117,7 @@ external.push('Dans Apple Developer > Identifiers > App Services, activer Shazam
 external.push('APPLE_TEAM_ID et ASC_APP_ID numériques requis pour armer la soumission TestFlight automatique.');
 external.push('Clé App Store Connect : ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID requise pour la soumission automatisée.');
 external.push('Validation physique iPhone/TestFlight requise pour microphone arrière-plan, share extension, notifications et comportement inter-apps.');
+external.push('Validation physique Android requise pour confirmer le maintien microphone avec une autre app au premier plan malgré les politiques constructeur/batterie.');
 external.push('Produits StoreKit / achats intégrés réels à finaliser côté Apple avant activation commerciale.');
 external.push('App Privacy, Age Rating, Content Rights, DSA/trader et contact App Review doivent être validés dans App Store Connect par le compte Apple autorisé.');
 
