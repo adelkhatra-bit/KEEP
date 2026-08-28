@@ -8,6 +8,16 @@ import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
+const DEFAULT_RULES: CommercialRules = {
+  freeDiscoveryProfiles: 3,
+  premiumSmartSortTrials: 3,
+  premiumDailyDownloads: 40,
+  shareDailyCap: 10,
+  audienceProThreshold: 1000,
+  shareTiers: [20, 50, 100],
+  followerTiers: [25, 100, 250, 500, 1000],
+};
+
 function money(plan: KeepPlan) {
   if (plan.monthlyAmount === 0) return 'Gratuit';
   return `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`;
@@ -27,9 +37,9 @@ function certificationTierForPlan(code: string): ProfileCertificationTier {
   return 'FREE';
 }
 
-function requiredReason(feature: string, plan: string) {
-  if (feature === 'SOCIAL_DISCOVERY') return 'Les 3 premiers profils sont offerts en Free. Ensuite Premium débloque Découvertes sans limite.';
-  if (feature === 'SMART_SORTING') return 'Le rangement automatique KEEP Vibes est inclus à partir de Creator Pro. Premium garde quelques essais pour le découvrir.';
+function requiredReason(feature: string, plan: string, rules: CommercialRules) {
+  if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium débloque Découvertes sans limite.`;
+  if (feature === 'SMART_SORTING') return `Le rangement automatique KEEP Vibes est inclus à partir de Creator Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Premium débloque les Vibes publiques et la visibilité musicale étendue.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro débloque les profils DJ, Artiste, Créateur et Producteur.';
@@ -77,7 +87,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const sourceFeature = String(route?.params?.sourceFeature || '').toUpperCase();
   const [plans, setPlans] = useState<KeepPlan[]>([]);
   const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
-  const [rules, setRules] = useState<CommercialRules>({ freeDiscoveryProfiles: 3, premiumSmartSortTrials: 3, premiumDailyDownloads: 40, shareDailyCap: 10, audienceProThreshold: 1000 });
+  const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
   const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
   const [currentPlan, setCurrentPlan] = useState('FREE');
   const [loading, setLoading] = useState(true);
@@ -112,6 +122,8 @@ export default function OffersScreen({ navigation, route }: any) {
 
   const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses + (growth?.bonusFreeCredits ?? 0), [funnel, growth?.bonusFreeCredits]);
   const visiblePlans = useMemo(() => focusPlan ? plans.filter((plan) => plan.code === focusPlan) : plans, [focusPlan, plans]);
+  const [f1, f2, f3, f4, f5] = rules.followerTiers;
+  const [s1, s2, s3] = rules.shareTiers;
 
   return (
     <SafeAreaView style={s.container}>
@@ -128,12 +140,12 @@ export default function OffersScreen({ navigation, route }: any) {
         {focusPlan ? <View style={s.requiredIntro}>
           <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
           <View style={s.requiredPlanRow}><Text style={s.requiredIntroTitle}>{planLabel(focusPlan)}</Text><ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} /></View>
-          <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan)}</Text>
+          <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
-            <Text style={s.promiseTitle}>Tu peux aussi gagner des options sans payer.</Text>
-            <Text style={s.promiseBody}>Plus tu partages ton univers et plus ta communauté grandit, plus KEEP débloque des bonus sur le compte Free. Les partages sont plafonnés par jour pour éviter le spam : il faut faire grandir une vraie communauté.</Text>
+            <Text style={s.promiseTitle}>Ton compte Free peut évoluer avec toi.</Text>
+            <Text style={s.promiseBody}>Partage ton univers, trouve des musiques, construis tes collections et fais grandir ta communauté. À certains paliers, KEEP te récompense automatiquement avec de nouvelles options. Les partages comptés sont plafonnés à {rules.shareDailyCap} par jour pour privilégier une vraie communauté.</Text>
           </View>
 
           <View style={s.creditCard}>
@@ -147,12 +159,12 @@ export default function OffersScreen({ navigation, route }: any) {
             </View> : null}
             <View style={s.ladder}>
               <Text style={s.ladderTitle}>PALIERS COMMUNAUTÉ</Text>
-              <Text style={s.ladderLine}>25 abonnés → +3 profils Découvertes</Text>
-              <Text style={s.ladderLine}>100 abonnés → 1 essai KEEP Vibes</Text>
-              <Text style={s.ladderLine}>250 abonnés → +5 crédits</Text>
-              <Text style={s.ladderLine}>500 abonnés → +5 Découvertes + 1 essai Vibes</Text>
-              <Text style={s.ladderLine}>1000 abonnés → +20 crédits + éligibilité Audience Pro</Text>
-              <Text style={s.ladderHint}>Des bonus existent aussi à 20, 50 et 100 partages qualifiés. Les seuils sont réglables depuis le Super Admin.</Text>
+              <Text style={s.ladderLine}>{f1} abonnés → plus de Découvertes</Text>
+              <Text style={s.ladderLine}>{f2} abonnés → essai KEEP Vibes automatique</Text>
+              <Text style={s.ladderLine}>{f3} abonnés → crédits KEEP supplémentaires</Text>
+              <Text style={s.ladderLine}>{f4} abonnés → nouveaux bonus Découvertes + Vibes</Text>
+              <Text style={s.ladderLine}>{f5} abonnés → crédits bonus + éligibilité Audience Pro</Text>
+              <Text style={s.ladderHint}>Des cadeaux se débloquent aussi à {s1}, {s2} et {s3} partages qualifiés. Tous les seuils et quotas sont réglables depuis le Super Admin.</Text>
             </View>
           </View>
         </>}
@@ -186,7 +198,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Règles simples</Text>
-          <Text style={s.subscriptionText}>Free peut gagner des bonus. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et le profil DJ/Artiste. Venue Pro retire les limites d’événements et ouvre les outils professionnels.</Text>
+          <Text style={s.subscriptionText}>Free gagne des options par paliers. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et le profil DJ/Artiste. Venue Pro retire les limites de soirées et ouvre les outils professionnels.</Text>
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
