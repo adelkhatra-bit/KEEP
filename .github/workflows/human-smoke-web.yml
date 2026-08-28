@@ -90,7 +90,7 @@ jobs:
             }
             await dump('01-five-tabs');
 
-            await textLast(/START A SESSION|DÉMARRER|COMMENCER/i).click();
+            await textLast(/ÉCOUTER|START A SESSION|DÉMARRER|COMMENCER/i).click();
             await textLast(/Micro actif · analyse en cours|Session active/i).waitFor({ state: 'visible', timeout: 15000 });
             await textLast(/PASS|PASSER/i).waitFor({ state: 'visible', timeout: 15000 });
             await textLast(/KEEP|GARDER/i).waitFor({ state: 'visible', timeout: 15000 });
