@@ -29,7 +29,18 @@ jobs:
         run: git pull --ff-only origin reconcile/claude-main-20260825
 
       - name: Apply discovery finish
-        run: python3 scripts/one_shot_discovery_finish.py
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/one_shot_discovery_finish.py
+          script_code=$?
+          set -e
+          echo "patch script exit=$script_code"
+          grep -q "RECHERCHER" packages/mobile/src/screens/DiscoverScreen.tsx
+          grep -q "DISCOVERY_RADII" packages/mobile/src/screens/DiscoverScreen.tsx
+          grep -q "approx_lat" packages/mobile/src/screens/DiscoverScreen.tsx
+          grep -q "backgroundColor:'#0E0A14'" packages/mobile/src/screens/ProfilePublicScreen.tsx
+          grep -q "NATIVE_VISUAL_NOISE_FLOOR_DB = -52" packages/mobile/src/services/micCapture.ts
 
       - name: Remove one-shot files
         run: rm -f scripts/one_shot_discovery_finish.py .github/workflows/one-shot-discovery-finish.yml scripts/one_shot_mobile_polish.py .github/workflows/one-shot-mobile-polish.yml
