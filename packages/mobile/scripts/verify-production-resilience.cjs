@@ -35,7 +35,7 @@ pass('Share intent lance la résolution sans clé', contains('packages/mobile/sr
 pass('Share intent injecte le morceau résolu dans la session', contains('packages/mobile/src/components/SharedMusicHandoff.tsx', 'ingestExternalRecognition(recognition)'));
 
 const recognition = 'packages/mobile/src/services/keepMusicCoreRecognition.ts';
-pass('Absence AudD/ACRCloud ne casse plus la session', contains(recognition, 'recognition_not_configured') && contains(recognition, 'return null'));
+pass('Absence AudD/ACRCloud ne casse plus la session', contains(recognition, "fallback.payload?.error === 'fallback_not_configured'") && contains(recognition, 'markFallbackUnavailable();') && contains(recognition, 'return null;'));
 pass('AudD et ACRCloud restent en cascade serveur', contains(recognition, 'keep-music-recognition-v2') && contains(recognition, 'keep-music-fallback'));
 
 const adminControl = 'supabase/functions/keep-admin-control/index.ts';
