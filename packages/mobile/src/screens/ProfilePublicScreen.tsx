@@ -15,7 +15,7 @@ import { loadNotifications } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
-import { loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { loadOwnProfileKeeps, loadOwnProfileSnapshot, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -51,6 +51,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
   const [planCode, setPlanCode] = useState('FREE');
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
+  const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
+  const [serverOwnKeeps, setServerOwnKeeps] = useState<PublicProfileKeep[]>([]);
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -80,20 +82,36 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   useEffect(() => {
     let live = true;
-    const refreshPublicSnapshot = async () => {
+    const refreshCanonicalProfileState = async () => {
       if (!user || accountRequired) {
-        if (live) setPublicSnapshot(null);
+        if (live) {
+          setPublicSnapshot(null);
+          setOwnSnapshot(null);
+          setServerOwnKeeps([]);
+        }
         return;
       }
       try {
-        const snapshot = await loadPublicProfileSnapshot(user.id);
-        if (live) setPublicSnapshot(snapshot);
+        const [publicState, ownState, ownKeeps] = await Promise.all([
+          loadPublicProfileSnapshot(user.id),
+          loadOwnProfileSnapshot(),
+          loadOwnProfileKeeps(),
+        ]);
+        if (live) {
+          setPublicSnapshot(publicState);
+          setOwnSnapshot(ownState);
+          setServerOwnKeeps(ownKeeps);
+        }
       } catch {
-        if (live) setPublicSnapshot(null);
+        if (live) {
+          setPublicSnapshot(null);
+          setOwnSnapshot(null);
+          setServerOwnKeeps([]);
+        }
       }
     };
-    void refreshPublicSnapshot();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPublicSnapshot(); });
+    void refreshCanonicalProfileState();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCanonicalProfileState(); });
     return () => { live = false; unsubscribe?.(); };
   }, [accountRequired, navigation, user?.id]);
 
@@ -183,7 +201,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
     return Array.from(unique.values()).sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
   }, [sessions]);
-  const publicKeptTracks = useMemo(() => keptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [keptTracks]);
+  const canonicalOwnKeeps = useMemo(() => serverOwnKeeps.map((entry) => ({
+    id: entry.decisionId,
+    track: entry.track,
+    status: 'kept' as const,
+    visibility: entry.visibility,
+    detectedAt: entry.keptAt,
+    creditSource: entry.creditSource,
+    sourceProfileId: entry.sourceProfileId,
+    sourceUsername: entry.sourceUsername,
+  })), [serverOwnKeeps]);
+  const profileKeptTracks = accountRequired ? keptTracks : canonicalOwnKeeps;
+  const publicKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [profileKeptTracks]);
   const localPublicOwnKeepCount = useMemo(() => publicKeptTracks.filter((entry) => entry.creditSource !== 'SOCIAL' && !entry.sourceProfileId && !entry.sourceUsername).length, [publicKeptTracks]);
   const localPublicUserKeepCount = useMemo(() => publicKeptTracks.filter((entry) => entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId || !!entry.sourceUsername).length, [publicKeptTracks]);
   const publicSwipeTracks = useMemo<CanonicalTrack[]>(() => publicKeptTracks.map((entry) => entry.track), [publicKeptTracks]);
@@ -212,9 +241,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const creditsExhausted = !creditUnlimited && creditRemaining === 0;
   const planLabel = planCode === 'FREE' && creditRemaining != null ? `FREE · ${creditRemaining}` : planCode;
   const planStyle = planCode === 'FREE' ? (creditsExhausted ? s.planExhausted : s.planFree) : s.planPaid;
-  const profileOwnKeepCount = publicSnapshot?.directPublicKeeps ?? localPublicOwnKeepCount;
-  const profileUserKeepCount = publicSnapshot?.socialPublicKeeps ?? localPublicUserKeepCount;
-  const profileTotalKeepCount = publicSnapshot?.totalPublicKeeps ?? (localPublicOwnKeepCount + localPublicUserKeepCount);
+  const profileOwnKeepCount = ownSnapshot?.directKeeps ?? localPublicOwnKeepCount;
+  const profileUserKeepCount = ownSnapshot?.socialKeeps ?? localPublicUserKeepCount;
+  const profileTotalKeepCount = ownSnapshot?.totalKeeps ?? profileKeptTracks.length;
   const profileFollowerCount = publicSnapshot?.followers ?? user.followerCount;
   const profileFollowingCount = publicSnapshot?.following ?? user.followingCount;
   const fallbackCertification: ProfileCertificationTier = accountRequired
@@ -343,10 +372,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const tabContent = () => {
     if (activeTab === 'KEEP') {
-      if (!keptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
+      if (!profileKeptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
       return <View style={s.keepList}>
         <Text style={s.ownerKeepHint}>KEEP construit ton univers : Vibes, artistes et albums. Tu gardes le contrôle du Public/Privé et des noms.</Text>
-        {keptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null))}
+        {profileKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null))}
       </View>;
     }
 
@@ -412,7 +441,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant KEEP et ton mot de passe. Aucun e-mail n’est obligatoire.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <View style={s.ownerActions}>
-          <TouchableOpacity style={s.ownerEditButton} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Modifier mon profil"><Text style={s.ownerActionText}>MODIFIER</Text></TouchableOpacity>
           <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
           <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
         </View>
@@ -476,10 +504,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={() => { setAccountOpen(false); setPendingFollowUsername(''); }}>
       <View style={s.modalBackdrop}>
-        <View style={s.shareSheet}>
+        <View style={[s.shareSheet, s.accountSheet]}>
           <View style={s.sheetHandle} />
           <UsernameAccountForm initialMode={accountMode} followUsername={pendingFollowUsername} onSuccess={() => { setAccountOpen(false); setPendingFollowUsername(''); }} />
-          <TouchableOpacity style={s.cancelShare} onPress={() => { setAccountOpen(false); setPendingFollowUsername(''); }}><Text style={s.cancelShareText}>Plus tard</Text></TouchableOpacity>
+          <TouchableOpacity style={s.cancelShare} onPress={() => { setAccountOpen(false); setPendingFollowUsername(''); }}><Text style={s.cancelShareText}>CONTINUER EN MODE DÉMO</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -539,6 +567,6 @@ const s=StyleSheet.create({
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:9,lineHeight:13,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},originInline:{flexDirection:'row',alignItems:'center',gap:4},originLabel:{color:'#FFFFFF',fontSize:8,fontWeight:'800',letterSpacing:.2},originUserLink:{minHeight:23,paddingHorizontal:8,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},originUserText:{color:'#7CF2B9',fontSize:9,fontWeight:'900'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:10,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:11,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:12,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:9,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelShareText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:11,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:12,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:9,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelShareText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
   qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:34,height:34,borderRadius:17,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:9,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:10,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:10,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:11,lineHeight:16,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:9,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:9,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:12,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:8,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#A99EBA',fontSize:10,lineHeight:15,textAlign:'center',marginTop:10,paddingHorizontal:10},
 });

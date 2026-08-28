@@ -3,8 +3,6 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { createAuthService } from '../services/authService';
 import {
   clearStagedGuestMusic,
-  loadStagedGuestMusic,
-  stageGuestMusicForUpgrade,
   stageGuestProfileForUpgrade,
 } from '../services/guestUpgradeService';
 import { importStagedGuestCreditsForAuthenticatedAccount, stageLocalGuestCreditsForUpgrade } from '../services/creditService';
@@ -108,13 +106,11 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const finishAuthenticatedFlow = async () => {
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
 
-    const stagedMusic = await loadStagedGuestMusic().catch(() => []);
+    // Isolation stricte : une identité authentifiée ne récupère jamais les morceaux
+    // d'un essai/d'une autre identité locale. Le serveur applique la même règle.
     useSessionHistoryStore.getState().clearSessions();
-    for (const session of stagedMusic) useSessionHistoryStore.getState().upsertSession(session);
-
-    await useSessionHistoryStore.getState().syncUnsyncedKeeps().catch(() => {});
-    await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
     await clearStagedGuestMusic().catch(() => {});
+    await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
 
     const followed = await applyFollowIntent();
     if (followUsername) {
@@ -145,7 +141,6 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       if (mode === 'create' && isLocalGuest && currentUser) {
         await Promise.all([
           stageGuestProfileForUpgrade({ ...currentUser, username: normalizedUsername }),
-          stageGuestMusicForUpgrade(useSessionHistoryStore.getState().sessions),
           stageLocalGuestCreditsForUpgrade(),
         ]);
       }
@@ -257,7 +252,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
     </TouchableOpacity>
-    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Les musiques d’essai restent sur cet appareil jusqu’à ce que tu crées ton compte ; elles sont alors rattachées uniquement à ce compte KEEP.</Text>
+    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, KEEP charge uniquement la musique de cette identité.</Text>
   </ScrollView>;
 }
 

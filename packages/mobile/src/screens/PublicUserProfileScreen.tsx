@@ -4,7 +4,7 @@ import { CanonicalTrack } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { requestSocialLink } from '../services/notificationService';
-import { loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import { useUserStore } from '../store/useUserStore';
 import { ProfileKind, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
@@ -101,43 +101,25 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           setIsFollowing(false);
         }
 
-        const allRows: any[] = [];
-        for (let from = 0; ; from += KEEP_PAGE_SIZE) {
-          const { data: page, error: keepError } = await supabase
-            .from('keep_decisions')
-            .select('id, created_at, context, source_user_id, source_type, tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids)')
-            .eq('profile_id', result.id)
-            .eq('decision', 'KEPT')
-            .eq('visibility', 'PUBLIC')
-            .order('created_at', { ascending: false })
-            .range(from, from + KEEP_PAGE_SIZE - 1);
-          if (keepError) throw keepError;
-          if (cancelled) return;
-          const rows = page ?? [];
-          allRows.push(...rows);
-          if (rows.length < KEEP_PAGE_SIZE) break;
-        }
-
-        const normalized = allRows.map((row: any) => {
-          const playback = row.context?.playback ?? {};
-          return {
-            id: row.id,
-            trackId: String(row.tracks?.id ?? row.id),
-            title: row.tracks?.title ?? 'Titre inconnu',
-            artist: row.tracks?.artist ?? 'Artiste inconnu',
-            album: row.tracks?.album ?? null,
-            artworkUrl: row.tracks?.artwork_url ?? null,
-            previewUrl: playback.previewUrl || undefined,
-            availableOn: Array.isArray(playback.availableOn) ? playback.availableOn : [],
-            externalUrls: playback.externalUrls && typeof playback.externalUrls === 'object' ? playback.externalUrls : {},
-            isrc: row.tracks?.isrc || undefined,
-            durationSec: row.tracks?.duration_sec || undefined,
-            genres: Array.isArray(row.tracks?.genres) ? row.tracks.genres : [],
-            providerIds: row.tracks?.provider_ids && typeof row.tracks.provider_ids === 'object' ? row.tracks.provider_ids : {},
-            sourceUserId: row.source_user_id ? String(row.source_user_id) : undefined,
-            sourceProfileId: row.context?.sourceProfileId ? String(row.context.sourceProfileId) : undefined,
-          } as PublicKeepTrack;
-        });
+        const canonicalKeeps = await loadPublicProfileKeeps(result.id);
+        if (cancelled) return;
+        const normalized = canonicalKeeps.map((entry) => ({
+          id: entry.decisionId,
+          trackId: entry.track.id,
+          title: entry.track.title,
+          artist: entry.track.artist,
+          album: entry.track.album ?? null,
+          artworkUrl: entry.track.artworkUrl ?? null,
+          previewUrl: entry.track.previewUrl,
+          availableOn: entry.track.availableOn ?? [],
+          externalUrls: entry.track.externalUrls ?? {},
+          isrc: entry.track.isrc,
+          durationSec: entry.track.durationSec,
+          genres: entry.track.genres ?? [],
+          providerIds: entry.track.providerIds ?? {},
+          sourceUserId: entry.sourceUserId,
+          sourceProfileId: entry.sourceProfileId,
+        } as PublicKeepTrack));
 
         if (cancelled) return;
         setTracks(normalized);
