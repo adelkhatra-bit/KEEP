@@ -3,9 +3,8 @@
  *
  * La reconnaissance et le service musical sont volontairement découplés :
  * KEEP peut identifier un morceau avec le micro même si l'utilisateur n'a
- * encore connecté ni Apple Music ni Spotify. La clé du fournisseur de
- * reconnaissance ne vit jamais dans l'application : elle reste dans
- * Supabase Vault et `keep-music-core` fait l'appel serveur.
+ * encore connecté ni Apple Music ni Spotify. Sur iOS, ShazamKit est tenté en
+ * premier ; les clés AudD/ACRCloud restent uniquement dans Supabase Vault.
  */
 import {
   AppleMusicProvider,
@@ -20,6 +19,7 @@ import {
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
 import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
+import { NativeFirstRecognitionProvider } from './nativeFirstRecognitionProvider';
 import { NotifyingRecognitionProvider } from './notifyingRecognitionProvider';
 import { isSmartAlbumUiId, loadSmartAlbumTracks } from './smartAlbumService';
 
@@ -80,9 +80,15 @@ class MusicEngine {
   private session: { provider: string; userId: string; accessToken: string } | null = null;
 
   constructor() {
-    const baseRecognitionProvider: MusicRecognitionProvider = USE_REAL_RECOGNITION
+    const serverRecognitionProvider: MusicRecognitionProvider = USE_REAL_RECOGNITION
       ? new KeepMusicCoreRecognitionProvider()
       : new DemoRecognitionProvider();
+    // En Mode Réel, iOS tente ShazamKit avant de consommer AudD/ACRCloud.
+    // Le module est optionnel : web et Android continuent directement vers le
+    // provider serveur sans divergence de navigation ou d'interface.
+    const baseRecognitionProvider: MusicRecognitionProvider = USE_REAL_RECOGNITION
+      ? new NativeFirstRecognitionProvider(serverRecognitionProvider)
+      : serverRecognitionProvider;
     this.recognitionProvider = new NotifyingRecognitionProvider(baseRecognitionProvider);
 
     this.musicProvider = USE_DEMO_MUSIC_PROVIDER
