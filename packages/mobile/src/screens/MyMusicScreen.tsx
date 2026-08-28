@@ -6,6 +6,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
+import { supabase } from '../services/supabaseClient';
 import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
@@ -294,6 +295,31 @@ export default function MyMusicScreen({ navigation }: any) {
     catch { Alert.alert('Visibilité', 'Impossible de modifier la visibilité de ce morceau pour le moment.'); }
   };
 
+  const openSourceProfile = (sourceUsername?: string) => {
+    const clean = sourceUsername?.trim().replace(/^@+/, '');
+    if (!clean) return;
+    navigation.navigate('PublicProfile', { username: clean });
+  };
+
+  const followSource = async (sourceProfileId?: string, sourceUsername?: string) => {
+    const clean = sourceUsername?.trim().replace(/^@+/, '');
+    if (!sourceProfileId || !clean) return openSourceProfile(sourceUsername);
+    if (!user || isLocalGuest || isDemoMode || !supabase) {
+      Alert.alert('Compte KEEP requis', `Crée ton compte KEEP pour suivre @${clean}.`, [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Voir son profil', onPress: () => openSourceProfile(clean) },
+      ]);
+      return;
+    }
+    if (sourceProfileId === user.id) return;
+    const { error } = await supabase.from('follows').upsert(
+      { follower_id: user.id, followee_id: sourceProfileId },
+      { onConflict: 'follower_id,followee_id', ignoreDuplicates: true },
+    );
+    if (error) Alert.alert('Suivre', 'Impossible de suivre ce profil pour le moment.');
+    else Alert.alert('Suivre', `Tu suis maintenant @${clean}.`);
+  };
+
   const renderTrack = (track: CanonicalTrack) => {
     const localEntry = localEntryForTrack(track);
     return <View key={trackIdentity(track)} style={styles.trackRow}>
@@ -301,6 +327,15 @@ export default function MyMusicScreen({ navigation }: any) {
       <View style={styles.trackInfo}>
         <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
         <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text>
+        {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
+          <Text style={styles.trackSourceLabel}>Donné par</Text>
+          <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de @${localEntry.sourceUsername}`}>
+            <Text style={styles.trackSourceLink}>@{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
+          </TouchableOpacity>
+          {localEntry.sourceProfileId && localEntry.sourceProfileId !== user?.id ? <TouchableOpacity style={styles.trackSourceFollow} onPress={() => void followSource(localEntry.sourceProfileId, localEntry.sourceUsername)} accessibilityRole="button" accessibilityLabel={`Suivre @${localEntry.sourceUsername}`}>
+            <Text style={styles.trackSourceFollowText}>+ Suivre</Text>
+          </TouchableOpacity> : null}
+        </View> : null}
       </View>
       <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact />
       {localEntry ? <TouchableOpacity style={styles.visibilityDot} onPress={() => void toggleTrackVisibility(track)}><Text style={styles.visibilityDotText}>{localEntry.visibility === 'PUBLIC' ? '◉' : '●'}</Text></TouchableOpacity> : null}
@@ -410,7 +445,7 @@ const styles = StyleSheet.create({
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:48,alignItems:'center',justifyContent:'center',paddingHorizontal:4},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:31,paddingHorizontal:7,borderRadius:16,borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},visibilityMiniText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreLine:{color:colors.primaryLight,fontSize:10,lineHeight:15},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
-  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:48,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:4},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackInfo:{flex:1},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},visibilityDot:{width:28,height:28,borderRadius:14,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},visibilityDotText:{color:colors.primaryLight,fontSize:10},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
+  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:48,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:4},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackInfo:{flex:1},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackSourceFollow:{minHeight:20,paddingHorizontal:7,borderRadius:10,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},trackSourceFollowText:{color:colors.primaryLight,fontSize:7,fontWeight:'900'},visibilityDot:{width:28,height:28,borderRadius:14,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},visibilityDotText:{color:colors.primaryLight,fontSize:10},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:38,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:42,borderRadius:12,borderWidth:1,borderColor:colors.primary,justifyContent:'center',alignItems:'center'},visibilityText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:34,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},
 });
