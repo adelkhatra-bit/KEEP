@@ -111,9 +111,13 @@ export default function Integrations() {
     if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
     setBusy(row.key); setError(null); setMessage(null);
     try {
-      await invokeAdmin({ action: 'integrations.set', key: row.key, value });
+      const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value });
       setValues((prev) => ({ ...prev, [row.key]: '' }));
-      setMessage(`${row.label} enregistré dans Supabase Vault. La valeur précédente est remplacée sans être affichée.`);
+      if (row.key === 'AUDD_API_KEY' && result?.validation?.valid) {
+        setMessage(`Clé AudD vérifiée par le fournisseur puis enregistrée dans Supabase Vault. État : ${result.validation.status}.`);
+      } else {
+        setMessage(`${row.label} enregistré dans Supabase Vault. La valeur précédente est remplacée sans être affichée.`);
+      }
       await load();
     } catch (e: any) {
       setError(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
@@ -167,8 +171,8 @@ export default function Integrations() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
                 <strong>AudD — reconnaissance musicale</strong>
-                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
-                  Clé de test actuelle : 10 requêtes/jour. Un compte AudD réel bénéficie d’un quota gratuit initial, puis d’une facturation fournisseur.
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+                  Sans clé, KEEP exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
                 </div>
               </div>
               <div style={{ color: STATUS_COLORS[status], fontWeight: 800 }}>● {STATUS_LABELS[status]}</div>

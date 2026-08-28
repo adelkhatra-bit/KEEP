@@ -63,6 +63,47 @@ function existingEdgeSecret(key: string): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function plausibleAuddToken(value: string | null | undefined): value is string {
+  if (!value) return false;
+  const clean = value.trim();
+  if (clean.length < 16 || clean.length > 256 || /\s/.test(clean)) return false;
+  if (/^(test|demo|null|none|todo|fake|key|token|1234)$/i.test(clean)) return false;
+  return true;
+}
+
+type AuddValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string };
+
+async function validateAuddToken(value: string): Promise<AuddValidation> {
+  if (!plausibleAuddToken(value)) {
+    return { valid: false, status: "ERROR", message: "Clé AudD invalide : le token est trop court ou ressemble à une valeur de test." };
+  }
+
+  const form = new FormData();
+  form.append("api_token", value);
+  let response: Response;
+  try {
+    response = await fetch("https://api.audd.io/", { method: "POST", body: form });
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre AudD pour valider la clé. Réessaie sans enregistrer une clé non vérifiée." };
+  }
+
+  const payload = await response.json().catch(() => null);
+  const code = Number(payload?.error?.error_code ?? payload?.error?.code ?? 0);
+  const providerMessage = String(payload?.error?.error_message || payload?.error?.message || payload?.message || `AudD HTTP ${response.status}`);
+  if (code === 900 || code === 901 || /invalid\s+(?:api\s*)?(?:key|token)|authorization|no api[_ -]?token/i.test(providerMessage)) {
+    return { valid: false, status: "ERROR", message: "AudD a refusé ce token. Rien n'a été enregistré." };
+  }
+  if (response.status === 402 || /quota|credit|balance|limit\s+(?:reached|exceeded)|payment|subscription|exhaust/i.test(providerMessage)) {
+    return { valid: true, status: "EXHAUSTED", message: "Token AudD authentifié, mais quota/crédit fournisseur épuisé." };
+  }
+  // AudD #700 = authentification acceptée, fichier audio absent. C'est le test
+  // volontaire utilisé ici pour valider le token sans consommer une reconnaissance.
+  if (code === 700 || payload?.status === "success") {
+    return { valid: true, status: "ACTIVE", message: "Token AudD vérifié par le fournisseur." };
+  }
+  return { valid: false, status: "ERROR", message: `AudD n'a pas confirmé le token (${providerMessage.slice(0, 160)}). Rien n'a été enregistré.` };
+}
+
 function generateTemporaryPassword() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(14));
@@ -241,6 +282,11 @@ Deno.serve(async (req) => {
       const meta = CATALOG[key];
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
+      const providerValidation = key === "AUDD_API_KEY" ? await validateAuddToken(value) : null;
+      if (providerValidation && !providerValidation.valid) {
+        await resetIntegrationRuntimeStatus(key, false);
+        return json(400, { error: "invalid_audd_token", message: providerValidation.message, validation: providerValidation });
+      }
       const valueHint = hint(value);
       const { error } = await admin.rpc("service_set_integration_secret", {
         p_key: key,
@@ -250,9 +296,20 @@ Deno.serve(async (req) => {
         p_updated_by: actor.id,
       });
       if (error) throw error;
-      await resetIntegrationRuntimeStatus(key, true);
-      await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint });
-      return json(200, { ok: true, key, configured: true, hint: valueHint });
+      if (key === "AUDD_API_KEY" && providerValidation) {
+        const now = new Date().toISOString();
+        await admin.from("integration_runtime_status").upsert({
+          key,
+          status: providerValidation.status,
+          last_checked_at: now,
+          last_error: providerValidation.status === "ACTIVE" ? null : providerValidation.message,
+          updated_at: now,
+        }, { onConflict: "key" });
+      } else {
+        await resetIntegrationRuntimeStatus(key, true);
+      }
+      await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint, validation: providerValidation });
+      return json(200, { ok: true, key, configured: true, hint: valueHint, validation: providerValidation });
     }
 
     if (action === "integrations.delete") {

@@ -2,14 +2,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
+import { getSharedMusicSource } from './sharedMusicSourceService';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 5 * 60 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
+const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
+let lastKeylessSourceSignature = '';
+let lastKeylessSourceAttemptAt = 0;
 
 function configured(value: string | undefined): value is string {
   return Boolean(value && value !== 'undefined' && !value.startsWith('your_'));
@@ -229,12 +233,37 @@ async function recognitionAttempt(
   }
 }
 
-function attemptMessage(attempt: RecognitionAttempt): string {
-  const code = String(attempt.payload?.error || '');
-  if (code === 'recognition_not_configured') return 'Reconnaissance musicale indisponible : configure une clé AudD valide ou ACRCloud dans le Super Admin KEEP.';
-  if (code === 'recognition_quota_exhausted') return 'Quota AudD épuisé : KEEP utilisera ACRCloud dès qu’il est configuré.';
-  if (code === 'recognition_network_error' || code === 'recognition_gateway_error') return 'Reconnaissance temporairement indisponible. KEEP continue d’écouter et réessaiera automatiquement.';
-  return String(attempt.payload?.message || attempt.payload?.error || (attempt.status ? `HTTP ${attempt.status}` : 'Reconnaissance indisponible'));
+async function keylessSourceRecognition(accessToken: string | null): Promise<RecognitionResult | null> {
+  const source = await getSharedMusicSource();
+  if (!source) return null;
+
+  const signature = `${source.sharedAt}|${source.url}|${source.title ?? ''}|${source.rawText ?? ''}`;
+  const now = Date.now();
+  if (signature === lastKeylessSourceSignature && now - lastKeylessSourceAttemptAt < KEYLESS_SOURCE_RECHECK_MS) return null;
+  lastKeylessSourceSignature = signature;
+  lastKeylessSourceAttemptAt = now;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: source.url,
+        rawText: source.rawText ?? null,
+        title: source.title ?? null,
+        platform: source.platform,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.recognition) return null;
+    return payload.recognition as RecognitionResult;
+  } catch {
+    // Le mode sans clé est best-effort et ne doit jamais interrompre le micro.
+    return null;
+  }
 }
 
 function fallbackKnownUnavailable() {
@@ -249,7 +278,8 @@ function markFallbackUnavailable() {
  * Reconnaissance musicale en cascade :
  * 1. AudD via `keep-music-recognition-v2` (clé serveur/Vault validée),
  * 2. ACRCloud via `keep-music-fallback` uniquement si AudD ne reconnaît pas
- *    le morceau ou rencontre un incident.
+ *    le morceau ou rencontre un incident,
+ * 3. sans clé : métadonnées publiques du partage social + catalogue iTunes.
  *
  * Spotify/YouTube/Deezer/Apple servent ensuite à enrichir le morceau reconnu ;
  * ils ne sont jamais présentés comme des moteurs d'empreinte audio eux-mêmes.
@@ -280,12 +310,15 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // extrait le même aller-retour 409. On retente périodiquement pour que
     // l'activation future dans le Super Admin soit prise en compte sans reload.
     if (fallbackKnownUnavailable()) {
-      if (primaryRateLimited) {
-        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-        return null;
+      const keyless = await keylessSourceRecognition(accessToken);
+      if (keyless) {
+        recognitionBackoffUntil = 0;
+        return keyless;
       }
-      if (primary.ok) return null;
-      throw new Error(attemptMessage(primary));
+      if (primaryRateLimited) recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
+      // AudD/ACRCloud absents ou indisponibles ne deviennent jamais une erreur
+      // rouge utilisateur : KEEP continue d'écouter et le partage social reste actif.
+      return null;
     }
 
     // Un no-match AudD ou une erreur fournisseur déclenche le second moteur.
@@ -296,6 +329,12 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       fallbackUnavailableUntil = 0;
       recognitionBackoffUntil = 0;
       return fallback.payload.recognition as RecognitionResult;
+    }
+
+    const keyless = await keylessSourceRecognition(accessToken);
+    if (keyless) {
+      recognitionBackoffUntil = 0;
+      return keyless;
     }
 
     if (fallback.status === 429 || fallback.payload?.error === 'fallback_rate_limited') {
@@ -309,14 +348,13 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
         return null;
       }
-      if (primary.ok) return null;
-      throw new Error(attemptMessage(primary));
+      return null;
     }
 
-    // Si les deux moteurs ont été tentés mais ne trouvent rien, on évite une
-    // fausse erreur rouge : l'écoute continue et réessaiera au prochain extrait.
-    if (primary.ok || fallback.ok) return null;
-    throw new Error(attemptMessage(primary));
+    // Avec ou sans fournisseur payant, une panne de reconnaissance ne coupe
+    // jamais la session. Le micro continue et le moteur sans clé sera retenté
+    // dès qu'un nouveau partage social fournit des métadonnées exploitables.
+    return null;
   }
 }
 
