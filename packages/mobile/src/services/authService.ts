@@ -42,6 +42,10 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function validRecoveryEmail(email: string) {
+  return /^\S+@\S+\.\S+$/.test(email) && !/@keep\.local$/i.test(email);
+}
+
 function usernameFromMetadata(user: any): string | null {
   const value = user?.user_metadata?.keep_username;
   if (typeof value !== 'string') return null;
@@ -57,12 +61,27 @@ function visibleEmail(user: any): string | null {
 
 function mapSignupError(message: string): string {
   const value = message.toLowerCase();
+  if (value.includes('rate') && value.includes('limit')) return 'rate_limited';
+  if (value.includes('expired') || value.includes('otp')) return 'email_link_invalid';
   if (value.includes('already') || value.includes('registered') || value.includes('exists')) return 'email_taken';
   if (value.includes('email not confirmed') || value.includes('not confirmed')) return 'email_not_confirmed';
   if (value.includes('email')) return 'invalid_email';
   if (value.includes('password')) return 'invalid_password';
   if (value.includes('profile') || value.includes('username') || value.includes('duplicate') || value.includes('unique')) return 'username_taken';
   return message || 'server_error';
+}
+
+async function requestMagicLink(client: SupabaseClient, email: string) {
+  const cleanEmail = normalizeEmail(email);
+  if (!validRecoveryEmail(cleanEmail)) return { error: 'invalid_email' };
+  const { error } = await client.auth.signInWithOtp({
+    email: cleanEmail,
+    options: {
+      emailRedirectTo: KEEP_PUBLIC_URL,
+      shouldCreateUser: false,
+    },
+  });
+  return { error: error ? mapSignupError(error.message) : null };
 }
 
 export function createAuthService(client: SupabaseClient): AuthService {
@@ -172,16 +191,25 @@ export function createAuthService(client: SupabaseClient): AuthService {
       return invokeLegacyUsernameAuth({ action: 'login', username: normalizeUsername(username), password, username_only: '1' });
     },
 
-    async requestEmailMagicLink() {
-      return { error: 'email_flow_disabled' };
+    async requestEmailMagicLink(email) {
+      return requestMagicLink(client, email);
     },
 
-    async requestEmailLink() {
-      return { error: 'email_flow_disabled' };
+    async requestEmailLink(email) {
+      return requestMagicLink(client, email);
     },
 
-    async verifyEmailLink() {
-      return { error: 'email_flow_disabled' };
+    async verifyEmailLink(email, code) {
+      const cleanEmail = normalizeEmail(email);
+      const cleanCode = code.trim();
+      if (!validRecoveryEmail(cleanEmail)) return { error: 'invalid_email' };
+      if (!cleanCode) return { error: 'email_link_invalid' };
+      const { error } = await client.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanCode,
+        type: 'email',
+      });
+      return { error: error ? mapSignupError(error.message) : null };
     },
 
     async signUpWithPassword(email, password) {
