@@ -20,7 +20,7 @@ import adminRoutes from './routes/admin';
 import adminIntegrationsRoutes from './routes/adminIntegrations';
 import emailRoutes from './routes/email';
 import notificationsRoutes from './routes/notifications';
-import { processPendingPushNotifications } from './lib/pushNotifications';
+import { processExpoPushReceipts, processPendingPushNotifications } from './lib/pushNotifications';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,13 +44,26 @@ app.listen(PORT, () => {
   console.log(`KEEP Backend running on port ${PORT}`);
 });
 
-// Boucle notifications push (demande explicite du 26/08/2026 -- "boucle
-// complète") : les notifications elles-mêmes sont créées instantanément par
-// des triggers SQL (ex. notify_on_follow, migration 0024) -- ce poll ne fait
-// que la livraison push réelle (API Expo) pour celles pas encore poussées.
-// Jamais bloquant pour le reste du serveur -- une erreur reste locale à ce
-// cycle, voir processPendingPushNotifications.
+// Boucle push complète :
+// 1) création -> ticket Expo (SENT / NO_DEVICE / FAILED)
+// 2) ticket -> reçu Expo (DELIVERED / FAILED)
+// Les deux opérations sont sérialisées pour éviter deux cycles concurrents si
+// un appel Expo ou Supabase prend exceptionnellement plus de 15 secondes.
 const PUSH_POLL_INTERVAL_MS = 15000;
-setInterval(() => {
-  processPendingPushNotifications().catch((e) => console.warn('[KEEP][push] cycle échoué:', e?.message));
-}, PUSH_POLL_INTERVAL_MS);
+let pushCycleRunning = false;
+
+async function runPushCycle() {
+  if (pushCycleRunning) return;
+  pushCycleRunning = true;
+  try {
+    await processPendingPushNotifications();
+    await processExpoPushReceipts();
+  } catch (e: any) {
+    console.warn('[KEEP][push] cycle échoué:', e?.message);
+  } finally {
+    pushCycleRunning = false;
+  }
+}
+
+void runPushCycle();
+setInterval(() => { void runPushCycle(); }, PUSH_POLL_INTERVAL_MS);
