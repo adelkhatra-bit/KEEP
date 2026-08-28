@@ -81,8 +81,17 @@ export async function consumeWebAuthAndOpenNative(client: SupabaseClient): Promi
   if (!ok) return false;
 
   const current = new URL(currentUrl.replace('#', '?'));
-  const accessToken = current.searchParams.get('access_token');
-  const refreshToken = current.searchParams.get('refresh_token');
+  let accessToken = current.searchParams.get('access_token');
+  let refreshToken = current.searchParams.get('refresh_token');
+
+  // Avec nos templates token_hash, verifyOtp vient de créer la session web.
+  // On la récupère afin de pouvoir transférer immédiatement cette session dans
+  // l'app native installée, sans demander un deuxième login à l'utilisateur.
+  if ((!accessToken || !refreshToken) && hasHashToken) {
+    const { data } = await client.auth.getSession();
+    accessToken = data.session?.access_token ?? null;
+    refreshToken = data.session?.refresh_token ?? null;
+  }
 
   // Nettoie immédiatement tous les secrets de connexion de la barre d'adresse.
   const cleanParams = new URLSearchParams(current.searchParams);
@@ -90,9 +99,6 @@ export async function consumeWebAuthAndOpenNative(client: SupabaseClient): Promi
   const cleanQuery = cleanParams.toString();
   window.history.replaceState({}, document.title, window.location.pathname + (cleanQuery ? `?${cleanQuery}` : ''));
 
-  // Pour les anciennes redirections qui fournissent directement les deux
-  // jetons, on peut encore ouvrir l'app native. Avec token_hash, la session
-  // web est déjà créée et persistée, ce qui suffit pour les tests web/PWA.
   if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && accessToken && refreshToken) {
     const deepLink = `keep://auth/callback?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
     window.setTimeout(() => {
