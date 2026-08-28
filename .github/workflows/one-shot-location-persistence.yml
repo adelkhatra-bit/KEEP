@@ -1,0 +1,45 @@
+name: KEEP — GPS persistence repair
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths: ['.github/workflows/one-shot-location-persistence.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - run: git pull --ff-only origin reconcile/claude-main-20260825
+      - run: python3 scripts/one_shot_location_persistence.py
+      - run: rm -f scripts/one_shot_location_persistence.py .github/workflows/one-shot-location-persistence.yml
+      - name: Assertions
+        run: |
+          set -euo pipefail
+          FILE=packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx
+          grep -q 'setLocationOptIn(true)' "$FILE"
+          grep -q 'locationOptIn,' "$FILE"
+          grep -q 'reverseGeocodeAsync' "$FILE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm --workspace packages/mobile run type-check
+      - name: Commit guarded patch only
+        run: |
+          set -euo pipefail
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx scripts/one_shot_location_persistence.py .github/workflows/one-shot-location-persistence.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(profile): persist GPS opt-in with saved location"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
