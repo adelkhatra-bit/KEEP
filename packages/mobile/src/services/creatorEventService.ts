@@ -64,10 +64,11 @@ export async function createCreatorEvent(input: {
 }): Promise<{ id: string; name: string }> {
   if (!supabase) throw new Error('Connexion KEEP indisponible.');
   const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.create', ...input } });
-  if (error) throw error;
+  if (error && !data) throw error;
   if (!data?.ok) {
     if (data?.error === 'creator_plan_required') throw new Error('CREATOR_PRO_REQUIRED');
-    throw new Error(String(data?.error || 'EVENT_CREATE_FAILED'));
+    if (data?.error === 'event_monthly_limit_reached') throw new Error('VENUE_PRO_EVENT_LIMIT');
+    throw new Error(String(data?.error || error?.message || 'EVENT_CREATE_FAILED'));
   }
   return { id: String(data.event.id), name: String(data.event.name) };
 }
@@ -75,10 +76,10 @@ export async function createCreatorEvent(input: {
 export async function broadcastEventToFollowers(eventId: string, message?: string): Promise<number> {
   if (!supabase) throw new Error('Connexion KEEP indisponible.');
   const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.broadcast', eventId, message } });
-  if (error) throw error;
+  if (error && !data) throw error;
   if (!data?.ok) {
     if (data?.error === 'creator_plan_required') throw new Error('CREATOR_PRO_REQUIRED');
-    throw new Error(String(data?.error || 'EVENT_BROADCAST_FAILED'));
+    throw new Error(String(data?.error || error?.message || 'EVENT_BROADCAST_FAILED'));
   }
   return Number(data.sent || 0);
 }
