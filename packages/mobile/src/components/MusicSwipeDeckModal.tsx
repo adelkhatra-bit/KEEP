@@ -4,7 +4,7 @@ import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
+import { checkOwnKeepLibrary, filterSocialSwipeAgainstOwnKeep } from '../services/connectedMusicLibrary';
 import { colors } from '../theme/colors';
 
 function shuffle<T>(input: T[]): T[] {
@@ -52,6 +52,9 @@ export default function MusicSwipeDeckModal({
   const [index, setIndex] = useState(0);
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [preparingDeck, setPreparingDeck] = useState(false);
+  const [prefilterRemovedCount, setPrefilterRemovedCount] = useState(0);
+  const [prefilterVerified, setPrefilterVerified] = useState(false);
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
   const [previewInfoOpen, setPreviewInfoOpen] = useState(false);
   const [alreadyKeepInfoOpen, setAlreadyKeepInfoOpen] = useState(false);
@@ -61,16 +64,24 @@ export default function MusicSwipeDeckModal({
   const actionInFlight = useRef(false);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
+  const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
+  // Le Swipe social est le seul mode interactif qui boucle par défaut et demande
+  // Public/Privé. On le prépare avant toute lecture pour ne proposer que les
+  // morceaux que le visiteur n'a pas déjà dans son KEEP.
+  const socialDiscoveryMode = !previewOnly && askVisibilityOnKeep && loop;
 
   const advanceIndex = useCallback(() => {
     setIndex((currentIndex) => {
       if (currentIndex + 1 >= deckTracks.length) {
+        // Découverte sociale = un seul passage des nouveautés. Une fois la file
+        // terminée, on ne rejoue jamais les mêmes extraits dans la même visite.
+        if (socialDiscoveryMode) return deckTracks.length;
         if (loop) {
-          const nextRound = shuffle(tracksRef.current);
+          const nextRound = shuffle(preparedTracksRef.current);
           setDeckTracks(nextRound);
           setRound((value) => value + 1);
           return nextRound.length ? 0 : nextRound.length;
@@ -79,23 +90,51 @@ export default function MusicSwipeDeckModal({
       }
       return currentIndex + 1;
     });
-  }, [deckTracks.length, loop]);
+  }, [deckTracks.length, loop, socialDiscoveryMode]);
 
   useEffect(() => {
+    let alive = true;
     if (!visible) {
       wasVisible.current = false;
-      return;
+      setPreparingDeck(false);
+      return () => { alive = false; };
     }
-    if (wasVisible.current) return;
+    if (wasVisible.current) return () => { alive = false; };
     wasVisible.current = true;
     actionInFlight.current = false;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setAlreadyKeepInfoOpen(false);
     setIndex(0);
-    setDeckTracks(loop ? shuffle(tracksRef.current) : [...tracksRef.current]);
-    setRound((value) => value + 1);
-  }, [visible, loop]);
+    setPrefilterRemovedCount(0);
+    setPrefilterVerified(false);
+
+    const prepare = async () => {
+      const inputTracks = [...tracksRef.current];
+      if (!socialDiscoveryMode) {
+        preparedTracksRef.current = inputTracks;
+        setDeckTracks(loop ? shuffle(inputTracks) : inputTracks);
+        setRound((value) => value + 1);
+        return;
+      }
+
+      // Important : deck vide pendant ce contrôle. Aucun extrait ne peut donc
+      // démarrer avant que la bibliothèque du visiteur ait été comparée.
+      setPreparingDeck(true);
+      setDeckTracks([]);
+      const result = await filterSocialSwipeAgainstOwnKeep(inputTracks);
+      if (!alive) return;
+      preparedTracksRef.current = result.tracks;
+      setPrefilterRemovedCount(result.removedCount);
+      setPrefilterVerified(result.verified);
+      setDeckTracks(shuffle(result.tracks));
+      setRound((value) => value + 1);
+      setPreparingDeck(false);
+    };
+
+    void prepare();
+    return () => { alive = false; };
+  }, [visible, loop, socialDiscoveryMode]);
 
   useEffect(() => {
     let alive = true;
@@ -295,17 +334,25 @@ export default function MusicSwipeDeckModal({
         ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé'
         : 'Glisse ← pour passer · → pour ajouter à ton KEEP';
 
-  const controlsLocked = processing || keepPromptOpen || previewInfoOpen || alreadyKeepInfoOpen;
+  const controlsLocked = processing || preparingDeck || keepPromptOpen || previewInfoOpen || alreadyKeepInfoOpen;
+  const resolvedSubtitle = prefilterRemovedCount > 0
+    ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ton KEEP ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
+    : subtitle;
+  const resolvedEmptyTitle = socialDiscoveryMode && prefilterVerified && prefilterRemovedCount > 0
+    ? prefilterRemovedCount >= tracksRef.current.length
+      ? 'Tu as déjà tous les morceaux publics de ce profil dans ton KEEP.'
+      : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
+    : emptyTitle;
 
   return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <View style={s.headerText}><Text style={s.eyebrow}>KEEP SWIPE</Text><Text style={s.title}>{title}</Text>{subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}</View>
+        <View style={s.headerText}><Text style={s.eyebrow}>KEEP SWIPE</Text><Text style={s.title}>{title}</Text>{resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}</View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
 
       <View style={s.body}>
-        {!current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{emptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
+        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>KEEP retire d’abord les morceaux déjà présents dans tes musiques.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
@@ -422,7 +469,7 @@ const s = StyleSheet.create({
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#D3C9DE',fontSize:10,fontWeight:'800'},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#A99DB9',fontSize:12,marginTop:3},
   decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:8,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:9,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#B9B0C3',fontSize:7.5},
-  empty:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
+  empty:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},preparingHint:{color:'#8F879D',fontSize:10,lineHeight:15,textAlign:'center',marginTop:7,maxWidth:300},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
   keepOverlay:{flex:1,backgroundColor:'rgba(4,3,8,.82)',alignItems:'center',justifyContent:'center',paddingHorizontal:22},
   keepPromptCard:{width:'100%',maxWidth:390,borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:20,shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:10},elevation:16},
   keepPromptEyebrow:{color:'#B79CFF',fontSize:9,fontWeight:'900',letterSpacing:1.3,textAlign:'center'},keepPromptTitle:{color:'#FFF',fontSize:22,fontWeight:'900',textAlign:'center',marginTop:6},keepPromptTrack:{color:'#D8CFE3',fontSize:12,fontWeight:'800',textAlign:'center',marginTop:5},keepPromptBody:{color:'#9E94AA',fontSize:11,lineHeight:16,textAlign:'center',marginTop:10,marginBottom:14},
