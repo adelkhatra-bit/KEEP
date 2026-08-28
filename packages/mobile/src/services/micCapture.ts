@@ -5,7 +5,7 @@
  * `onLevel` (optionnel, 0-1) pilote l'animation avec le niveau micro réel.
  */
 import { Platform } from 'react-native';
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS } from 'expo-av';
 
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
@@ -56,6 +56,7 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
         allowsRecordingIOS: target,
         playsInSilentModeIOS: true,
         staysActiveInBackground: target,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
         shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false,
       });

@@ -206,7 +206,7 @@ type RecognitionAttempt = {
 };
 
 async function recognitionAttempt(
-  functionName: 'keep-music-core' | 'keep-music-fallback',
+  functionName: 'keep-music-core' | 'keep-music-recognition-v2' | 'keep-music-fallback',
   blob: Blob,
   accessToken: string | null,
   deviceId: string,
@@ -230,6 +230,10 @@ async function recognitionAttempt(
 }
 
 function attemptMessage(attempt: RecognitionAttempt): string {
+  const code = String(attempt.payload?.error || '');
+  if (code === 'recognition_not_configured') return 'Reconnaissance musicale indisponible : configure une clé AudD valide ou ACRCloud dans le Super Admin KEEP.';
+  if (code === 'recognition_quota_exhausted') return 'Quota AudD épuisé : KEEP utilisera ACRCloud dès qu’il est configuré.';
+  if (code === 'recognition_network_error' || code === 'recognition_gateway_error') return 'Reconnaissance temporairement indisponible. KEEP continue d’écouter et réessaiera automatiquement.';
   return String(attempt.payload?.message || attempt.payload?.error || (attempt.status ? `HTTP ${attempt.status}` : 'Reconnaissance indisponible'));
 }
 
@@ -243,7 +247,7 @@ function markFallbackUnavailable() {
 
 /**
  * Reconnaissance musicale en cascade :
- * 1. AudD via `keep-music-core` (clé serveur/Vault),
+ * 1. AudD via `keep-music-recognition-v2` (clé serveur/Vault validée),
  * 2. ACRCloud via `keep-music-fallback` uniquement si AudD ne reconnaît pas
  *    le morceau ou rencontre un incident.
  *
@@ -251,7 +255,7 @@ function markFallbackUnavailable() {
  * ils ne sont jamais présentés comme des moteurs d'empreinte audio eux-mêmes.
  */
 export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvider {
-  readonly providerId = 'keep-music-core';
+  readonly providerId = 'keep-music-recognition-v2';
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
     if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
@@ -265,7 +269,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     if (Date.now() < recognitionBackoffUntil) return null;
 
     const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
-    const primary = await recognitionAttempt('keep-music-core', blob, accessToken, deviceId);
+    const primary = await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
     const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
     if (primary.ok && primary.payload?.recognition) {
       recognitionBackoffUntil = 0;

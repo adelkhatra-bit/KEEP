@@ -28,6 +28,9 @@ const ALLOWED_KEYS: Record<string, string> = {
   APPLE_MUSICKIT_KEY_ID: 'music',
   APPLE_MUSICKIT_PRIVATE_KEY: 'music',
   AUDD_API_KEY: 'recognition',
+  ACRCLOUD_ACCESS_KEY: 'recognition',
+  ACRCLOUD_ACCESS_SECRET: 'recognition',
+  ACRCLOUD_HOST: 'recognition',
 };
 
 async function audit(req: AdminAuthedRequest, action: string, targetId: string, after: unknown) {

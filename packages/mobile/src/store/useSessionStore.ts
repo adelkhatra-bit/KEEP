@@ -137,9 +137,9 @@ function recognitionSampleDurationMs() {
   // Premier essai court = résultat plus vite. Après un no-match, KEEP donne au
   // fournisseur un extrait plus long pour améliorer la couverture sans rendre
   // chaque tentative lente par défaut.
-  if (consecutiveNoMatches >= 3) return 7000;
-  if (consecutiveNoMatches >= 1) return 4800;
-  return 3000;
+  if (consecutiveNoMatches >= 3) return 7500;
+  if (consecutiveNoMatches >= 1) return 6000;
+  return 4500;
 }
 
 function clearTimers() {
