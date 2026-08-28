@@ -91,6 +91,13 @@ jobs:
             page.on('requestfailed', request => {
               httpFailures.push(`REQUEST FAILED ${request.method()} ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`);
             });
+            // React Native Web ne sait pas exécuter les callbacks multi-boutons
+            // d'Alert.alert comme iOS/Android. KEEP utilise window.confirm pour
+            // la suppression Web : ce handler simule le vrai clic utilisateur.
+            page.on('dialog', async dialog => {
+              if (dialog.type() === 'confirm') await dialog.accept();
+              else await dialog.dismiss();
+            });
 
             const response = await page.goto('http://127.0.0.1:8081', {
               waitUntil: 'networkidle',
@@ -124,7 +131,6 @@ jobs:
 
             // Régression critique signalée sur 390×844 : après Vibes/Albums,
             // revenir sur KEEP ne devait plus nécessiter un refresh navigateur.
-            // On reproduit le parcours réel dans le même viewport mobile.
             const profileBottomTab = page.getByText('Profil', { exact: true }).last();
             if (await profileBottomTab.count() === 0) throw new Error('Profile tab not found in mobile navigation');
             await profileBottomTab.click();
@@ -160,6 +166,58 @@ jobs:
               fullPage: true,
             });
 
+            // Boucle complète SUPPRIMER : Playlists -> bouton -> confirmation ->
+            // disparition -> Profil -> reload -> toujours absent.
+            const playlistsBottomTab = page.getByText('Playlists', { exact: true }).last();
+            if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
+            await playlistsBottomTab.click();
+            await page.waitForTimeout(500);
+
+            const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
+            if (await allMusic.count() === 0) throw new Error('Delete audit fixture missing: Toute ma musique');
+            await allMusic.click();
+            await page.waitForTimeout(400);
+
+            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
+            const beforeDeleteCount = await deleteButtons.count();
+            if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
+            const deleteButton = deleteButtons.first();
+            const trackBody = deleteButton.locator('xpath=../..');
+            const trackBodyText = (await trackBody.innerText()).trim();
+            const deletedTitle = trackBodyText.split('\n').map(v => v.trim()).find(Boolean) || '';
+            if (!deletedTitle) throw new Error('Unable to identify track title before delete');
+
+            await deleteButton.click();
+            await page.waitForTimeout(800);
+            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de KEEP').count();
+            if (afterDeleteCount !== beforeDeleteCount - 1) {
+              throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
+            }
+            if (await page.getByText(deletedTitle, { exact: true }).count()) {
+              throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
+            }
+
+            await page.getByText('Profil', { exact: true }).last().click();
+            await page.waitForTimeout(500);
+            if (await page.getByText(deletedTitle, { exact: true }).count()) {
+              throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
+            }
+
+            await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(900);
+            const profileAfterReload = page.getByText('Profil', { exact: true }).last();
+            if (await profileAfterReload.count() === 0) throw new Error('Profile tab missing after reload');
+            await profileAfterReload.click();
+            await page.waitForTimeout(400);
+            if (await page.getByText(deletedTitle, { exact: true }).count()) {
+              throw new Error(`Deleted track returned after full reload: ${deletedTitle}`);
+            }
+
+            await page.screenshot({
+              path: 'artifacts/real-browser/keep-delete-loop-390x844.png',
+              fullPage: true,
+            });
+
             const report = [
               `URL: ${page.url()}`,
               `TITLE: ${await page.title()}`,
@@ -167,6 +225,8 @@ jobs:
               `ROOT_HTML_LENGTH: ${rootHtml.length}`,
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
+              `DELETE_TRACK: ${deletedTitle}`,
+              'DELETE_PLAYLIST_TO_PROFILE_TO_RELOAD: PASS',
               `ERROR_COUNT: ${errors.length}`,
               `HTTP_FAILURE_COUNT: ${httpFailures.length}`,
               '',
