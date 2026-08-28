@@ -1,4 +1,4 @@
-name: KEEP — One-time collective profile hierarchy
+name: KEEP — One-time Vibes Sync
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: keep-profile-collective-hierarchy
+  group: keep-vibes-one-time-sync
   cancel-in-progress: true
 
 jobs:
@@ -24,65 +24,36 @@ jobs:
         with:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
+
       - name: Sync latest branch head
         run: git pull --ff-only origin reconcile/claude-main-20260825
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-      - name: Apply owner hierarchy
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
-          s = p.read_text(encoding='utf-8')
-          old = '''        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
-        <View style={s.ownerActions}>
-          <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
-          <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
-        </View>
-        <ProfileCounterRow kind="connections" items={[
-          { value: profileFollowerCount, label: 'Abonnés' },
-          { value: profileFollowingCount, label: 'Abonnements' },
-        ]} />
-        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}'''
-          new = '''        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
-        <ProfileCounterRow kind="connections" items={[
-          { value: profileFollowerCount, label: 'Abonnés' },
-          { value: profileFollowingCount, label: 'Abonnements' },
-        ]} />
-        <View style={s.ownerActions}>
-          <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
-          <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
-        </View>
-        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}'''
-          if s.count(old) != 1:
-              raise SystemExit(f'Owner hierarchy anchor mismatch: {s.count(old)}')
-          s = s.replace(old, new, 1)
-          markers = [
-            '<Text style={s.socialTitle}>Mes réseaux</Text>',
-            "{ value: profileTotalKeepCount, label: 'KEEP total' }",
-            '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
-          ]
-          pos = [s.find(x) for x in markers]
-          if any(x < 0 for x in pos) or pos != sorted(pos):
-              raise SystemExit(f'Mes réseaux / KEEP / DNA hierarchy invalid: {pos}')
-          p.write_text(s, encoding='utf-8')
-          PY
-      - name: Install dependencies
-        run: npm ci
+
+      - name: Apply collective profile hierarchy
+        run: python3 scripts/profile_collective_hierarchy_patch.py
+
+      - name: Validate clean install
+        run: npm ci --ignore-scripts
+
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
-      - name: Verify source contract
+
+      - name: Verify canonical source
         run: node scripts/verify-source-of-truth.cjs
-      - name: Commit verified hierarchy and cleanup
+
+      - name: Commit verified hierarchy
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
           git add packages/mobile/src/screens/ProfilePublicScreen.tsx
           git rm .github/workflows/one-time-keep-vibes-sync.yml
           git rm -f .github/workflows/one-time-profile-collective-hierarchy.yml || true
-          git commit -m "fix(profile): put followers above owner actions globally"
+          git rm scripts/profile_collective_hierarchy_patch.py
+          git commit -m "fix(profile): finalize collective owner hierarchy"
           git pull --rebase origin reconcile/claude-main-20260825
           git push origin HEAD:reconcile/claude-main-20260825
