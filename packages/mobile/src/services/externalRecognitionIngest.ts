@@ -2,6 +2,7 @@ import type { CanonicalTrack, RecognitionResult } from '@keep/music';
 import type { SessionTrackEntry } from '../types';
 import { musicEngine } from './musicEngine';
 import { checkConnectedLibraries } from './connectedMusicLibrary';
+import { notifyRecognitionOutsideKeep } from './recognitionNotificationService';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 
@@ -65,6 +66,12 @@ export async function ingestExternalRecognition(recognition: RecognitionResult):
     error: null,
   }));
   persistCurrentSession();
+
+  // Le fallback social ne passe pas par NotifyingRecognitionProvider. Sans cet
+  // appel, un titre résolu après que l'utilisateur est retourné dans TikTok,
+  // Instagram ou une autre app était bien ajouté à la session mais restait
+  // silencieux. La fonction est elle-même no-op quand KEEP est au premier plan.
+  void notifyRecognitionOutsideKeep(recognition);
 
   void (async () => {
     try {
