@@ -28,11 +28,17 @@ replace_once(path, "  readonly providerId = 'keep-music-core';", "  readonly pro
 
 # 2) iOS : PlayAndRecord reste actif, mais en MixWithOthers pour que l'audio de
 # l'autre app ne soit pas interrompu par KEEP quand le build natif est utilisé.
+# expo-av exporte l'enum au niveau du module, pas sous l'objet Audio.
 path = 'packages/mobile/src/services/micCapture.ts'
 replace_once(
     path,
+    "import { Audio } from 'expo-av';",
+    "import { Audio, InterruptionModeIOS } from 'expo-av';",
+)
+replace_once(
+    path,
     "        staysActiveInBackground: target,\n        shouldDuckAndroid: false,",
-    "        staysActiveInBackground: target,\n        interruptionModeIOS: Audio.InterruptionModeIOS.MixWithOthers,\n        shouldDuckAndroid: false,",
+    "        staysActiveInBackground: target,\n        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,\n        shouldDuckAndroid: false,",
 )
 
 # 3) Empreinte audio : 3 secondes est souvent trop court avec haut-parleur de
