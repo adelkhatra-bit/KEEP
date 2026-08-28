@@ -1,0 +1,137 @@
+name: KEEP — Mobile + Desktop Guardian
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - '.github/workflows/keep-dual-viewport-guardian.yml'
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - '.github/workflows/keep-dual-viewport-guardian.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '41 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  dual-viewport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run type-check
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start KEEP Web runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-dual-runtime.log 2>&1 &
+          echo $! >/tmp/keep-dual-runtime.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-dual-runtime.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keep-dual-runtime.log
+          exit 1
+      - name: Test mobile 390x844 + desktop 1440x900
+        run: |
+          mkdir -p artifacts/dual-viewport
+          cat > keep-dual-viewport.cjs <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          const cases = [
+            { label:'mobile-390x844', width:390, height:844 },
+            { label:'desktop-1440x900', width:1440, height:900 },
+          ];
+
+          (async()=>{
+            const browser = await chromium.launch({ headless:true });
+            const report = [];
+
+            for (const c of cases) {
+              const context = await browser.newContext({
+                viewport:{ width:c.width, height:c.height },
+                deviceScaleFactor:1,
+                geolocation:{ latitude:45.95, longitude:4.884 },
+              });
+              await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
+              const page = await context.newPage();
+              const pageErrors=[];
+              page.on('pageerror',e=>pageErrors.push(String(e)));
+              page.on('dialog',async d=>d.accept().catch(()=>{}));
+              const t=(v,o={})=>page.getByText(v,o).last();
+
+              await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
+              await t('ESSAYER GRATUITEMENT',{exact:true}).waitFor({state:'visible',timeout:15000});
+              await t('ESSAYER GRATUITEMENT',{exact:true}).click();
+              for(const tab of ['Écouter','Découvertes','Playlists','Soirées','Profil']) {
+                await t(tab,{exact:true}).waitFor({state:'visible',timeout:15000});
+              }
+
+              await t('Découvertes',{exact:true}).click();
+              await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
+
+              // Règle produit : aucun profil ne doit apparaître avant RECHERCHER.
+              await t(/Aucun profil n’est affiché par défaut/i).waitFor({state:'visible',timeout:15000});
+              if (await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) {
+                throw new Error(`${c.label}: profil visible avant recherche`);
+              }
+
+              // Recherche réelle dans un rayon qui doit contenir le profil Lyon
+              // depuis Saint-Jean-de-Thurigneux (~21 km).
+              await page.getByLabel('Rayon 50 kilomètres').last().click();
+              const search=page.getByLabel('Rechercher des profils autour de moi').last();
+              await search.click();
+              await page.getByLabel('Voir le profil').last().waitFor({state:'visible',timeout:20000});
+              const body=await page.locator('body').innerText();
+              if(!/profil.*dans ce rayon/i.test(body)) throw new Error(`${c.label}: compteur de résultats absent`);
+
+              const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+              if(dims.scrollWidth>dims.width+1) throw new Error(`${c.label}: overflow horizontal ${JSON.stringify(dims)}`);
+              if(pageErrors.length) throw new Error(`${c.label}: ${pageErrors.join('\n')}`);
+
+              await page.screenshot({path:`artifacts/dual-viewport/${c.label}.png`,fullPage:true});
+              report.push(`${c.label}: PASS — aucun profil avant recherche, GPS autorisé, recherche 50 km, profil trouvé, aucun overflow`);
+              await context.close();
+            }
+
+            fs.writeFileSync('artifacts/dual-viewport/report.txt', report.join('\n'));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node keep-dual-viewport.cjs
+      - name: Runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-dual-runtime.log || true
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-dual-viewport-${{ github.run_id }}
+          path: artifacts/dual-viewport
+          if-no-files-found: ignore
+          retention-days: 3
