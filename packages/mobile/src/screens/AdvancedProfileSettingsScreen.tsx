@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
@@ -21,6 +21,13 @@ const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
   { platform: 'facebook', label: 'Facebook' },
 ];
 
+const LEGAL_URLS = {
+  privacy: 'https://adelkhatra-bit.github.io/KEEP/privacy/',
+  privacyChoices: 'https://adelkhatra-bit.github.io/KEEP/privacy-choices/',
+  terms: 'https://adelkhatra-bit.github.io/KEEP/terms/',
+  support: 'https://adelkhatra-bit.github.io/KEEP/support/',
+} as const;
+
 export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
@@ -36,6 +43,11 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
 
   const goToTab = (screen: 'MyMusic' | 'Profile') => navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
   const linkFor = (platform: SocialLink['platform']) => user.socialLinks.find((l) => l.platform === platform);
+  const openExternal = (url: string) => {
+    void Linking.openURL(url).catch(() => {
+      Alert.alert('Lien indisponible', 'Impossible d’ouvrir cette page pour le moment.');
+    });
+  };
 
   const persistSocialLinks = async (links: SocialLink[], platform: SocialLink['platform'], successMessage: string) => {
     const nextUser = { ...user, socialLinks: links };
@@ -221,6 +233,14 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
               </View>
             );
           })}
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Informations & confidentialité</Text>
+          <Action label="Politique de confidentialité" onPress={() => openExternal(LEGAL_URLS.privacy)} />
+          <Action label="Choix de confidentialité" onPress={() => openExternal(LEGAL_URLS.privacyChoices)} />
+          <Action label="Conditions d’utilisation" onPress={() => openExternal(LEGAL_URLS.terms)} />
+          <Action label="Support KEEP" onPress={() => openExternal(LEGAL_URLS.support)} />
         </View>
 
         <View style={s.section}>
