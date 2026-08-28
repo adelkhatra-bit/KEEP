@@ -207,11 +207,11 @@ function showNativeTrackShareSheet(copy: TrackShareCopy): Promise<void> {
       'Partager ce morceau KEEP',
       `${copy.title} — ${copy.artist}\n\nChoisis comment le partager.`,
       [
-        { text: 'Annuler', style: 'cancel', onPress: resolve },
-        { text: 'E-mail', onPress: () => { void shareTrackEmail(copy).catch(() => {}).finally(resolve); } },
-        { text: 'Partager', onPress: () => { void shareTrackSystem(copy).catch(() => {}).finally(resolve); } },
+        { text: 'Annuler', style: 'cancel', onPress: () => resolve() },
+        { text: 'E-mail', onPress: () => { void shareTrackEmail(copy).catch(() => {}).finally(() => resolve()); } },
+        { text: 'Partager', onPress: () => { void shareTrackSystem(copy).catch(() => {}).finally(() => resolve()); } },
       ],
-      { cancelable: true, onDismiss: resolve },
+      { cancelable: true, onDismiss: () => resolve() },
     );
   });
 }
