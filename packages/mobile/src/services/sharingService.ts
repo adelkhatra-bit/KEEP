@@ -1,8 +1,9 @@
 /**
  * Partage KEEP — le partage est déclenché par l'utilisateur depuis son propre
- * téléphone/ordinateur. KEEP n'envoie aucun e-mail de partage côté serveur.
- * Cela évite de consommer un quota d'e-mails KEEP et sépare strictement :
- * 1) e-mail d'authentification ; 2) partage public du profil.
+ * téléphone/ordinateur. Les récompenses communautaires ne comptent que les
+ * actions de partage réellement validées par la feuille système quand la
+ * plateforme expose cette information. Le serveur applique en plus un plafond
+ * quotidien pour empêcher qu'un spam de partages fabrique des récompenses.
  */
 import { Alert, Linking, Platform, Share } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
@@ -24,11 +25,20 @@ function buildLink(path: string): string {
 
 async function trackShare(eventName: 'profile_share' | 'profile_share_email' | 'playlist_share' | 'compare_share' | 'event_share', channel: string) {
   if (!supabase) return;
-  try {
-    await supabase.rpc('track_keep_event', { p_event_name: eventName, p_channel: channel, p_metadata: {} });
-  } catch {
-    // Les statistiques ne doivent jamais bloquer l'action demandée par l'utilisateur.
-  }
+  try { await supabase.rpc('track_keep_event', { p_event_name: eventName, p_channel: channel, p_metadata: {} }); }
+  catch { /* une statistique ne bloque jamais le partage */ }
+}
+
+async function shareAndTrack(
+  payload: Parameters<typeof Share.share>[0],
+  eventName: 'profile_share' | 'playlist_share' | 'compare_share' | 'event_share',
+  channel: string,
+) {
+  const result = await Share.share(payload);
+  // iOS distingue explicitement Partagé / Annulé. Sur Android et certaines
+  // implémentations web, React Native renvoie sharedAction après ouverture.
+  if (!result?.action || result.action === Share.sharedAction) await trackShare(eventName, channel);
+  return result;
 }
 
 export function buildPublicProfileLink(username: string): string {
@@ -38,24 +48,13 @@ export function buildPublicProfileLink(username: string): string {
 export async function shareProfile(username: string): Promise<void> {
   const link = buildPublicProfileLink(username);
   const message = `Découvre mon univers musical sur KEEP 🎵 ${link}`;
-
-  // Un seul champ `message` sur toutes les plateformes. Certaines apps iOS
-  // (WhatsApp notamment) dupliquent l'URL lorsque React Native reçoit à la fois
-  // `message` et `url`. KEEP partage donc toujours exactement UNE URL canonique.
-  await Share.share({ title: 'Mon profil KEEP', message });
-  await trackShare('profile_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  await shareAndTrack({ title: 'Mon profil KEEP', message }, 'profile_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
-/**
- * Partage un morceau sans héberger ni recopier l'audio : le destinataire arrive
- * sur le profil public qui porte ce KEEP. Le lien reste donc stable même si le
- * catalogue musical change de fournisseur.
- */
 export async function shareProfileTrack(username: string, title: string, artist: string): Promise<void> {
   const link = buildPublicProfileLink(username);
   const message = `Découvre « ${title} » — ${artist} dans mon univers KEEP 🎵 ${link}`;
-  await Share.share({ title: `${title} sur KEEP`, message });
-  await trackShare('profile_share', 'track_share');
+  await shareAndTrack({ title: `${title} sur KEEP`, message }, 'profile_share', 'track_share');
 }
 
 export async function shareProfileByEmail(username: string): Promise<void> {
@@ -68,9 +67,7 @@ export async function shareProfileByEmail(username: string): Promise<void> {
     ? [sameProfile.username ? `@${cleanUsername}` : '', sameProfile.city, sameProfile.countryCode].filter(Boolean).join(' · ')
     : `@${cleanUsername}`;
   const bio = sameProfile?.bio?.trim() ? `\n${sameProfile.bio.trim()}\n` : '';
-  const genres = sameProfile?.favoriteGenres?.length
-    ? `\nMes styles : ${sameProfile.favoriteGenres.slice(0, 5).join(' · ')}\n`
-    : '';
+  const genres = sameProfile?.favoriteGenres?.length ? `\nMes styles : ${sameProfile.favoriteGenres.slice(0, 5).join(' · ')}\n` : '';
 
   const subjectText = `Découvre mon univers KEEP — @${cleanUsername}`;
   const bodyText = `Je partage mon profil KEEP avec toi.\n\n${identity}${bio}${genres}\nDécouvre mon KEEP DNA, mes morceaux gardés et les réseaux que j’ai choisi de rendre publics :\n\n${link}\n\nOuvre simplement le lien ci-dessus pour accéder directement à mon profil public KEEP.\n\nTes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.`;
@@ -79,27 +76,16 @@ export async function shareProfileByEmail(username: string): Promise<void> {
   const mailto = `mailto:?subject=${subject}&body=${body}`;
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try {
-      window.location.assign(mailto);
-    } catch {
+    try { window.location.assign(mailto); }
+    catch {
       if (typeof document !== 'undefined') {
-        const anchor = document.createElement('a');
-        anchor.href = mailto;
-        anchor.style.display = 'none';
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-      } else {
-        throw new Error('email_handler_unavailable');
-      }
+        const anchor = document.createElement('a'); anchor.href = mailto; anchor.style.display = 'none'; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      } else throw new Error('email_handler_unavailable');
     }
     await trackShare('profile_share_email', 'mail_client_web');
     return;
   }
 
-  // Sur iOS/Android, ne laisse jamais l'utilisateur sur une action morte :
-  // si aucun gestionnaire mail n'est installé/configuré, on retombe sur la
-  // feuille de partage système avec le même contenu et la même URL canonique.
   const canOpenEmail = await Linking.canOpenURL(mailto).catch(() => false);
   if (canOpenEmail) {
     await Linking.openURL(mailto);
@@ -107,8 +93,8 @@ export async function shareProfileByEmail(username: string): Promise<void> {
     return;
   }
 
-  await Share.share({ title: subjectText, message: bodyText });
-  await trackShare('profile_share_email', 'mail_fallback_share');
+  const result = await Share.share({ title: subjectText, message: bodyText });
+  if (!result?.action || result.action === Share.sharedAction) await trackShare('profile_share_email', 'mail_fallback_share');
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
@@ -124,20 +110,17 @@ export async function sharePlaylist(playlistId: string, playlistName: string): P
 
   const planCode = await loadCurrentPlanCode(state.user.id).catch(() => 'FREE');
   if (!hasFeature(planCode, 'PUBLIC_PLAYLISTS')) {
-    Alert.alert('Premium requis', 'Le partage de playlists est inclus à partir de KEEP Premium (2,99 €/mois). Tu peux arrêter à tout moment.');
+    Alert.alert('Premium requis', 'Le partage de Vibes publiques est inclus à partir de KEEP Premium (2,99 €/mois).');
     return;
   }
 
-  await Share.share({ message: `Ma playlist "${playlistName}" sur KEEP 🎵 ${buildLink(`/s/playlist/${playlistId}`)}` });
-  await trackShare('playlist_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  await shareAndTrack({ message: `Ma Vibe "${playlistName}" sur KEEP 🎵 ${buildLink(`/s/playlist/${playlistId}`)}` }, 'playlist_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareCompareInvite(username: string): Promise<void> {
-  await Share.share({ message: `Compare ton KEEP avec le mien 🎧 ${buildLink(`/s/compare/${username}`)}` });
-  await trackShare('compare_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  await shareAndTrack({ message: `Compare ton KEEP avec le mien 🎧 ${buildLink(`/s/compare/${username}`)}` }, 'compare_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
 
 export async function shareEvent(eventId: string, eventName: string): Promise<void> {
-  await Share.share({ message: `${eventName} — vu sur KEEP 🎉 ${buildLink(`/s/event/${eventId}`)}` });
-  await trackShare('event_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
+  await shareAndTrack({ message: `${eventName} — vu sur KEEP 🎉 ${buildLink(`/s/event/${eventId}`)}` }, 'event_share', Platform.OS === 'web' ? 'web_share' : 'system_share');
 }
