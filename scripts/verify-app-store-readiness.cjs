@@ -68,11 +68,15 @@ check('Capture Android démarre le foreground service', contains(mic, 'ensureBac
 check('ARRÊTER coupe le foreground service Android', contains(mic, 'stopBackgroundListeningService()'));
 
 const settings = 'packages/mobile/src/screens/AdvancedProfileSettingsScreen.tsx';
+const supportPanel = 'packages/mobile/src/components/SupportTicketPanel.tsx';
 check('Suppression de compte accessible dans l’app', contains(settings, 'Supprimer définitivement mon compte'));
 check('Politique de confidentialité accessible dans l’app', contains(settings, 'Politique de confidentialité'));
 check('Choix de confidentialité accessibles dans l’app', contains(settings, 'Choix de confidentialité'));
 check('CGU accessibles dans l’app', contains(settings, 'Conditions d’utilisation'));
-check('Support accessible dans l’app', contains(settings, 'Support KEEP'));
+check(
+  'Support accessible dans l’app',
+  contains(settings, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support KEEP') && contains(supportPanel, 'Envoyer à KEEP'),
+);
 check('Liens légaux ouvrables via Linking', contains(settings, 'Linking.openURL'));
 
 for (const [file, marker, label] of [
