@@ -5,262 +5,132 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07070d" />
   <meta name="robots" content="index,follow" />
-  <meta name="description" content="Découvre ce profil musical, son KEEP DNA et ses goûts musicaux sur KEEP." />
-  <meta property="og:type" content="profile" />
+  <meta name="description" content="Découvre un univers musical sur KEEP — KEEP DNA, Vibes, artistes et morceaux." />
+  <meta property="og:type" content="website" />
   <meta property="og:site_name" content="KEEP" />
-  <meta property="og:title" content="Découvre mon univers musical sur KEEP" />
-  <meta property="og:description" content="KEEP DNA, Vibes, artistes et morceaux : entre dans mon univers musical." />
+  <meta property="og:title" content="KEEP — Tes goûts te ressemblent" />
+  <meta property="og:description" content="Entre dans un univers musical KEEP. Découvre son KEEP DNA, ses morceaux et ses réseaux." />
   <meta property="og:image" content="https://adelkhatra-bit.github.io/KEEP/keep-share.png" />
   <meta property="og:image:secure_url" content="https://adelkhatra-bit.github.io/KEEP/keep-share.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:alt" content="KEEP — Tes goûts te ressemblent" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Découvre mon univers musical sur KEEP" />
-  <meta name="twitter:description" content="KEEP DNA, Vibes, artistes et morceaux : entre dans mon univers musical." />
+  <meta name="twitter:title" content="KEEP — Tes goûts te ressemblent" />
+  <meta name="twitter:description" content="Entre dans un univers musical KEEP." />
   <meta name="twitter:image" content="https://adelkhatra-bit.github.io/KEEP/keep-share.png" />
-  <meta name="twitter:image:alt" content="KEEP — Tes goûts te ressemblent" />
   <link rel="icon" href="https://adelkhatra-bit.github.io/KEEP/keep-share.png" />
-  <title>Profil KEEP</title>
+  <link rel="canonical" href="https://adelkhatra-bit.github.io/KEEP/share-profile/" />
+  <title>KEEP — Profil musical</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#07070d;color:#fff;font-family:Inter,Arial,sans-serif;min-height:100vh;display:flex;justify-content:center}.shell{width:min(100%,620px);padding:28px 18px 48px}.logo{text-align:center;font-size:34px;font-weight:900;letter-spacing:9px;margin:10px 0 28px}.card{background:#151021;border:1px solid #382a55;border-radius:26px;padding:24px}.avatar{width:78px;height:78px;border-radius:50%;background:#241936;object-fit:cover;display:block;margin:0 auto 12px}.fallback{display:flex;align-items:center;justify-content:center;font-size:31px;font-weight:900;color:#a884fa}.nameRow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.name{text-align:center;font-size:25px;font-weight:900}.follow{appearance:none;border:0;border-radius:999px;padding:9px 14px;background:#7f5cff;color:#fff;font-size:12px;font-weight:900;cursor:pointer}.follow.on{background:#211a2b;border:1px solid #514562;color:#d9d0e4}.follow:disabled{opacity:.65;cursor:default}.meta{text-align:center;color:#a99db9;margin-top:6px}.bio{text-align:center;color:#d2c9dc;line-height:1.55;margin:18px 0}.dna{margin-top:18px;padding:16px;border-radius:18px;background:#0f0b16;border:1px solid #2b2038}.eyebrow{font-size:11px;color:#a884fa;font-weight:900;letter-spacing:1.5px}.dna h2{font-size:17px;margin:4px 0 0}.genres{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap}.genre{font-size:11px;color:#d7cdf0;background:#211831;border:1px solid #392a54;border-radius:999px;padding:6px 9px}.socials{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px}.socials a{color:#fff;text-decoration:none;background:#211a2b;border:1px solid #40354e;padding:9px 12px;border-radius:999px;font-size:12px;font-weight:800}.musicSection{margin-top:18px;padding:16px;border-radius:18px;background:#0f0b16;border:1px solid #2b2038}.musicTitle{font-size:17px;font-weight:900;margin:4px 0 3px}.musicHelp{font-size:11px;line-height:1.45;color:#82788e;margin-bottom:12px}.trackList,.playlistList{display:grid;gap:9px}.track{display:flex;gap:10px;align-items:center;padding:9px;border-radius:14px;background:#171020;border:1px solid #30223e}.trackArt{width:48px;height:48px;border-radius:9px;object-fit:cover;background:#241936;flex:none}.trackArtFallback{display:flex;align-items:center;justify-content:center;color:#a884fa;font-weight:900}.trackMain{min-width:0;flex:1}.trackName{font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.trackArtist{font-size:10px;color:#a99db9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.trackPlatforms{font-size:9px;color:#756b82;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.trackActions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;max-width:210px}.playBtn,.trackAction{appearance:none;border:1px solid #61479a;background:#211831;color:#d8c8ff;border-radius:999px;min-height:34px;padding:7px 9px;font-size:10px;font-weight:900;cursor:pointer;white-space:nowrap}.playBtn{min-width:74px}.trackAction{border-color:#443650;color:#e7dff0}.trackAction.like.on{background:#4b1831;border-color:#e04d87;color:#ffd6e7}.trackAction.keep.on{background:#173b2b;border-color:#50d394;color:#c9ffe3}.trackAction:disabled,.playBtn:disabled{opacity:.55;cursor:default}.playlist{padding:10px 11px;border-radius:13px;background:#171020;border:1px solid #30223e}.playlistName{font-size:12px;font-weight:900}.playlistDesc{font-size:10px;color:#968ba5;line-height:1.4;margin-top:3px}.sectionDivider{height:1px;background:#2b2038;margin:14px 0}.cta{display:block;margin:14px auto 0;text-align:center;background:#7f5cff;color:#fff;text-decoration:none;padding:15px 20px;border-radius:999px;font-weight:900}.cta.secondary{background:#211a2b;border:1px solid #40354e;color:#e6deef}.followHint{text-align:center;color:#8f849f;font-size:11px;line-height:1.5;margin-top:10px;min-height:17px}.tagline{text-align:center;color:#a884fa;font-weight:800;margin-top:24px}.small{text-align:center;color:#786f84;font-size:11px;margin-top:8px}.error{padding:22px;text-align:center;color:#c9bfd9}.hidden{display:none}@media(max-width:520px){.track{align-items:flex-start}.trackActions{max-width:128px}.playBtn,.trackAction{min-height:31px;padding:6px 8px;font-size:9px}.playBtn{min-width:64px}}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#07070d;color:#fff;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{display:flex;justify-content:center}.shell{width:min(100%,640px);padding:24px 16px 52px}.brand{text-align:center;font-size:34px;font-weight:1000;letter-spacing:9px;margin:8px 0 4px}.slogan{text-align:center;color:#b79cff;font-size:12px;font-weight:900;margin-bottom:22px}.card{background:#151020;border:1px solid #3f3154;border-radius:26px;padding:20px;box-shadow:0 20px 70px rgba(0,0,0,.35)}.hidden{display:none!important}.context{margin-bottom:16px;padding:12px 14px;border:1px solid #493369;border-radius:16px;background:#211831}.contextEyebrow{font-size:9px;font-weight:1000;letter-spacing:1.4px;color:#b79cff}.contextTitle{font-size:15px;font-weight:900;margin-top:4px}.contextText{font-size:11px;line-height:16px;color:#fff;margin-top:4px}.avatar{display:block;width:82px;height:82px;border-radius:50%;object-fit:cover;background:#241936;margin:2px auto 10px}.avatarFallback{display:flex;align-items:center;justify-content:center;color:#b79cff;font-size:30px;font-weight:1000}.name{text-align:center;font-size:25px;font-weight:1000}.kind{text-align:center;margin-top:4px;color:#82efbd;font-size:10px;font-weight:900}.location{text-align:center;margin-top:4px;color:#fff;font-size:11px;font-weight:800}.bio{text-align:center;margin:14px auto 0;color:#fff;font-size:13px;line-height:19px;max-width:480px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.btn{appearance:none;border:1px solid #493369;background:#211a2b;color:#fff;border-radius:14px;min-height:44px;padding:10px 12px;font-size:11px;font-weight:1000;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;cursor:pointer}.btn.primary{background:#5b3f8c;border-color:#a884fa}.btn.follow.on{background:#173529;border-color:#38d990}.connections{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.connection{background:#0f0b16;border:1px solid #30223e;border-radius:14px;padding:10px;text-align:center}.connection strong{display:block;font-size:17px}.connection span{display:block;font-size:10px;color:#fff;font-weight:800;margin-top:2px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.stat{background:#0f0b16;border:1px solid #30223e;border-radius:14px;padding:10px;text-align:center}.stat strong{display:block;font-size:17px}.stat span{display:block;font-size:10px;color:#fff;font-weight:800;margin-top:2px}.section{margin-top:14px;padding:14px;border-radius:18px;background:#0f0b16;border:1px solid #30223e}.eyebrow{font-size:9px;font-weight:1000;letter-spacing:1.2px;color:#b79cff}.sectionTitle{font-size:15px;font-weight:900;margin-top:4px}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{border-radius:999px;background:#211831;border:1px solid #392a54;padding:6px 9px;font-size:10px;color:#fff;font-weight:700}.socials{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.socials a{color:#fff;text-decoration:none;background:#211a2b;border:1px solid #493369;border-radius:999px;padding:8px 11px;font-size:10px;font-weight:900}.tracks{display:grid;gap:8px;margin-top:10px}.track{display:flex;gap:9px;align-items:center;padding:9px;border-radius:14px;background:#171020;border:1px solid #30223e}.art{width:48px;height:48px;border-radius:9px;object-fit:cover;background:#241936;flex:none}.artFallback{display:flex;align-items:center;justify-content:center;color:#b79cff;font-weight:1000}.trackInfo{min-width:0;flex:1}.trackName{font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.trackArtist{font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.trackActions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.mini{appearance:none;border:1px solid #493369;background:#211a2b;color:#fff;border-radius:999px;padding:6px 8px;font-size:9px;font-weight:900;text-decoration:none;cursor:pointer}.hint{text-align:center;color:#fff;font-size:11px;line-height:16px;margin-top:12px}.footer{text-align:center;color:#b79cff;font-size:11px;font-weight:900;margin-top:20px}.small{text-align:center;color:#fff;font-size:10px;line-height:15px;margin-top:5px}.status{padding:26px 18px;text-align:center;color:#fff;font-size:13px;line-height:20px}.retry{margin:12px auto 0}.errorCode{font-size:10px;color:#b79cff;margin-top:6px}@media(max-width:440px){.shell{padding:18px 12px 44px}.card{padding:16px}.brand{font-size:30px}.actions{grid-template-columns:1fr}.track{align-items:flex-start}}
   </style>
 </head>
 <body>
   <main class="shell">
-    <div class="logo">KEEP</div>
+    <div class="brand">KEEP</div>
+    <div class="slogan">Tes goûts te ressemblent.</div>
     <section id="card" class="card hidden">
-      <div id="avatarFallback" class="avatar fallback">K</div>
-      <img id="avatar" class="avatar hidden" alt="Avatar" />
-      <div class="nameRow">
-        <div id="name" class="name"></div>
-        <button id="follow" class="follow" type="button">+ Suivre</button>
-      </div>
-      <div id="meta" class="meta"></div>
-      <div id="bio" class="bio"></div>
-      <div class="dna">
-        <div class="eyebrow">KEEP DNA</div>
-        <h2>Son univers musical</h2>
-        <div id="genres" class="genres"></div>
-      </div>
-      <div id="socials" class="socials"></div>
-      <section id="musicSection" class="musicSection hidden">
-        <div class="eyebrow">SES MUSIQUES PUBLIQUES</div>
-        <div class="musicTitle">À écouter sur KEEP</div>
-        <div class="musicHelp">Écoute l’extrait disponible, aime le morceau ou ajoute-le à tes propres KEEP. KEEP ne stocke aucun fichier audio.</div>
-        <div id="publicTracks" class="trackList"></div>
-        <div id="playlistDivider" class="sectionDivider hidden"></div>
-        <div id="publicPlaylists" class="playlistList"></div>
-      </section>
-      <div id="followHint" class="followHint">Crée un compte KEEP pour suivre ce profil.</div>
-      <a id="openKeep" class="cta" href="https://adelkhatra-bit.github.io/KEEP/">CRÉER MON COMPTE</a>
-      <a id="discoverKeep" class="cta secondary" href="https://adelkhatra-bit.github.io/KEEP/">DÉCOUVRIR KEEP</a>
-      <div class="tagline">Tes goûts te ressemblent. Fais grandir ta communauté.</div>
-      <div class="small">Lien public permanent · aucun code ni jeton de connexion n’est partagé.</div>
+      <div id="context" class="context hidden"><div class="contextEyebrow" id="contextEyebrow">PARTAGE KEEP</div><div id="contextTitle" class="contextTitle"></div><div id="contextText" class="contextText"></div></div>
+      <div id="avatarFallback" class="avatar avatarFallback">K</div><img id="avatar" class="avatar hidden" alt="Photo du profil KEEP" />
+      <div id="name" class="name"></div><div id="kind" class="kind"></div><div id="location" class="location"></div><div id="bio" class="bio"></div>
+      <div class="actions"><a id="openKeep" class="btn primary" href="https://adelkhatra-bit.github.io/KEEP/">OUVRIR DANS KEEP</a><button id="follow" class="btn follow" type="button">+ SUIVRE</button></div>
+      <div class="connections"><div class="connection"><strong id="followers">0</strong><span>Abonnés</span></div><div class="connection"><strong id="following">0</strong><span>Abonnements</span></div></div>
+      <div class="stats"><div class="stat"><strong id="directKeeps">0</strong><span>KEEP</span></div><div class="stat"><strong id="socialKeeps">0</strong><span>KEEP utilisateurs</span></div></div>
+      <section class="section"><div class="eyebrow">KEEP DNA</div><div class="sectionTitle">Son empreinte musicale</div><div id="genres" class="chips"></div></section>
+      <section id="socialSection" class="section hidden"><div class="eyebrow">RÉSEAUX</div><div class="sectionTitle">Retrouve cette personne</div><div id="socials" class="socials"></div></section>
+      <section id="musicSection" class="section hidden"><div class="eyebrow">KEEP PUBLICS</div><div class="sectionTitle">À écouter sur KEEP</div><div id="tracks" class="tracks"></div></section>
+      <div id="followHint" class="hint">Tu peux découvrir ce profil sans compte. Un compte KEEP est requis uniquement pour suivre et interagir.</div>
+      <a id="discoverKeep" class="btn" href="https://adelkhatra-bit.github.io/KEEP/" style="margin-top:10px">DÉCOUVRIR KEEP EN DÉMO</a>
+      <div class="footer">KEEP — Tes goûts te ressemblent.</div><div class="small">Lien public permanent · aucun mot de passe, code ou jeton de connexion n’est partagé.</div>
     </section>
-    <div id="status" class="error">Chargement du profil…</div>
+    <div id="status" class="status">Ouverture du profil KEEP…</div>
   </main>
 <script>
-const SUPABASE_URL='https://rrhqsqzcplvmwxizqnla.supabase.co';
-const PROJECT_REF='rrhqsqzcplvmwxizqnla';
-const ANON_KEY='sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru';
-const KEEP_ROOT='https://adelkhatra-bit.github.io/KEEP/';
-const u=(new URLSearchParams(location.search).get('u')||'').replace(/^@/,'').trim();
-const publicHeaders={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`};
-const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-async function get(path,headers=publicHeaders){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
-async function publicCount(path){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:{...publicHeaders,Prefer:'count=exact',Range:'0-0'}});if(!r.ok)return 0;const range=r.headers.get('content-range')||'';const total=Number(range.split('/')[1]);return Number.isFinite(total)?total:0}
-function routeIntoKeep(username){return `${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+username)}`}
-function createAccountRoute(){return `${KEEP_ROOT}?__keep_auth=create`}
-function followAccountRoute(username){return `${KEEP_ROOT}?__keep_auth=create&__keep_follow=${encodeURIComponent(username)}`}
-function setMeta(selectorType,key,value){
-  let node=document.head.querySelector(`meta[${selectorType}="${key}"]`);
-  if(!node){node=document.createElement('meta');node.setAttribute(selectorType,key);document.head.appendChild(node)}
-  node.setAttribute('content',value);
-}
-function setCanonical(url){
-  let node=document.head.querySelector('link[rel="canonical"]');
-  if(!node){node=document.createElement('link');node.setAttribute('rel','canonical');document.head.appendChild(node)}
-  node.setAttribute('href',url);
-}
-function readSession(){
-  try{
-    const key=Object.keys(localStorage).find(k=>k===`sb-${PROJECT_REF}-auth-token` || (k.startsWith(`sb-${PROJECT_REF}`)&&k.endsWith('-auth-token')));
-    if(!key)return null;
-    const raw=JSON.parse(localStorage.getItem(key)||'null');
-    const s=raw?.currentSession||raw?.session||raw;
-    return s?.access_token&&s?.user?.id?s:null;
-  }catch{return null}
-}
-async function authedRequest(path,method='GET',body){
-  const session=readSession(); if(!session) throw new Error('NO_SESSION');
-  const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{
-    method,
-    headers:{apikey:ANON_KEY,Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json',Prefer:'return=minimal'},
-    body:body?JSON.stringify(body):undefined
-  });
-  if(!r.ok)throw new Error('HTTP '+r.status);
-  if(method==='GET')return r.json();
-  return null;
-}
-function requireAccount(message){
-  const hint=document.getElementById('followHint');
-  if(hint)hint.textContent=message||'Crée ton compte KEEP pour utiliser cette fonction.';
-  location.href=createAccountRoute();
-}
-let activeAudio=null;
-let activePlayButton=null;
-function resetAudio(){
-  if(activeAudio){try{activeAudio.pause();activeAudio.currentTime=0}catch{}}
-  if(activePlayButton)activePlayButton.textContent=activePlayButton.dataset.idleLabel||'▶ Écouter';
-  activeAudio=null;activePlayButton=null;
-}
-function trackPlayback(decision){
-  const track=decision?.track||{};
-  const playback=decision?.context?.playback||{};
-  return {
-    previewUrl:track.preview_url||playback.previewUrl||'',
-    availableOn:Array.isArray(track.available_on)&&track.available_on.length?track.available_on:(Array.isArray(playback.availableOn)?playback.availableOn:[]),
-    externalUrls:(track.external_urls&&typeof track.external_urls==='object'&&Object.keys(track.external_urls).length?track.external_urls:playback.externalUrls)||{}
-  };
-}
-function preferredExternal(playback){
-  const urls=playback.externalUrls||{};
-  return urls.appleMusic||urls.spotify||urls.universal||urls.youtubeSearch||'';
-}
-async function hydrateTrackSocial(trackId,ownerProfileId,likeButton,keepButton){
-  const session=readSession();
-  let likeCount=await publicCount(`track_likes?track_id=eq.${encodeURIComponent(trackId)}&select=profile_id`);
-  let liked=false;
-  let kept=false;
-  if(session){
-    try{
-      const ownLikes=await authedRequest(`track_likes?profile_id=eq.${encodeURIComponent(session.user.id)}&track_id=eq.${encodeURIComponent(trackId)}&select=track_id&limit=1`);
-      liked=Array.isArray(ownLikes)&&ownLikes.length>0;
-      const ownKeeps=await authedRequest(`keep_decisions?profile_id=eq.${encodeURIComponent(session.user.id)}&track_id=eq.${encodeURIComponent(trackId)}&decision=eq.KEPT&select=id&limit=1`);
-      kept=Array.isArray(ownKeeps)&&ownKeeps.length>0;
-    }catch{}
+(() => {
+  'use strict';
+  const SUPABASE_URL='https://rrhqsqzcplvmwxizqnla.supabase.co';
+  const PROJECT_REF='rrhqsqzcplvmwxizqnla';
+  const ANON_KEY='sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru';
+  const KEEP_ROOT='https://adelkhatra-bit.github.io/KEEP/';
+  const params=new URLSearchParams(location.search);
+  const username=(params.get('u')||'').replace(/^@+/,'').trim();
+  const shareKind=(params.get('share')||'profile').toLowerCase();
+  const headers={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`,'Content-Type':'application/json'};
+  const $=id=>document.getElementById(id);
+  const safe=value=>String(value||'').trim();
+  const routeProfile=u=>`${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+u)}`;
+  const routeCreate=(u='')=>`${KEEP_ROOT}?__keep_auth=create${u?`&__keep_follow=${encodeURIComponent(u)}`:''}`;
+
+  function setContext(){
+    const title=safe(params.get('title')), artist=safe(params.get('artist')), label=safe(params.get('label'));
+    let heading='', text='';
+    if(shareKind==='track'&&title){heading=`${title}${artist?` — ${artist}`:''}`;text=`Ce morceau a été partagé depuis le profil KEEP @${username}.`;}
+    else if(shareKind==='vibe'){heading=label||'Une Vibe KEEP';text='Une sélection musicale à découvrir morceau après morceau.';}
+    else if(shareKind==='session'){heading=label||'Une session KEEP';text='Une session d’écoute partagée depuis KEEP.';}
+    else if(shareKind==='compare'){heading=label?`Compare ton KEEP DNA avec @${label}`:'Compare vos KEEP DNA';text='Découvrez ce que vos univers musicaux ont en commun.';}
+    else if(shareKind==='event'){heading=label||'Un événement KEEP';text='Découvre cette ambiance partagée sur KEEP.';}
+    if(!heading)return;
+    $('contextTitle').textContent=heading;$('contextText').textContent=text;$('context').classList.remove('hidden');
   }
-  const paint=()=>{
-    likeButton.textContent=`♥ ${likeCount}`;
-    likeButton.classList.toggle('on',liked);
-    keepButton.textContent=kept?'✓ Ajouté':'+ KEEP';
-    keepButton.classList.toggle('on',kept);
-  };
-  paint();
-  likeButton.addEventListener('click',async()=>{
-    const session=readSession();if(!session)return requireAccount('Crée ton compte KEEP pour aimer ce morceau.');
-    likeButton.disabled=true;
-    try{
-      if(liked){await authedRequest(`track_likes?profile_id=eq.${encodeURIComponent(session.user.id)}&track_id=eq.${encodeURIComponent(trackId)}`,'DELETE');liked=false;likeCount=Math.max(0,likeCount-1)}
-      else{await authedRequest('track_likes','POST',{profile_id:session.user.id,track_id:trackId});liked=true;likeCount+=1}
-      paint();
-    }catch{document.getElementById('followHint').textContent='Action indisponible pour le moment.'}
-    finally{likeButton.disabled=false}
-  });
-  keepButton.addEventListener('click',async()=>{
-    const session=readSession();if(!session)return requireAccount('Crée ton compte KEEP pour garder ce morceau dans ton profil.');
-    if(session.user.id===ownerProfileId){document.getElementById('followHint').textContent='Ce morceau est déjà dans ton propre univers KEEP.';return}
-    keepButton.disabled=true;
-    try{
-      if(!kept){
-        const result=await authedRequest('rpc/keep_public_profile_track','POST',{p_track_id:trackId,p_source_profile_id:ownerProfileId});
-        kept=Array.isArray(result)?Boolean(result[0]):true;
-      }
-      paint();
-    }catch{document.getElementById('followHint').textContent='KEEP impossible pour le moment.'}
-    finally{keepButton.disabled=false}
-  });
-}
-function renderPublicMusic(decisions,playlists,ownerProfileId){
-  const section=document.getElementById('musicSection');
-  const trackList=document.getElementById('publicTracks');
-  const playlistList=document.getElementById('publicPlaylists');
-  const divider=document.getElementById('playlistDivider');
-  const unique=new Map();
-  (decisions||[]).forEach(d=>{const t=d.track;if(!t?.id)return;const key=t.isrc||t.id;if(!unique.has(key))unique.set(key,d)});
-  const tracks=[...unique.values()];
-  if(!tracks.length&&!(playlists||[]).length){section.classList.add('hidden');return}
-  section.classList.remove('hidden');
-  trackList.innerHTML='';
-  tracks.forEach(decision=>{
-    const t=decision.track||{};
-    const playback=trackPlayback(decision);
-    const row=document.createElement('div');row.className='track';
-    if(t.artwork_url){const img=document.createElement('img');img.className='trackArt';img.src=t.artwork_url;img.alt='';row.appendChild(img)}else{const art=document.createElement('div');art.className='trackArt trackArtFallback';art.textContent='K';row.appendChild(art)}
-    const main=document.createElement('div');main.className='trackMain';main.innerHTML=`<div class="trackName">${esc(t.title)}</div><div class="trackArtist">${esc(t.artist)}</div>${playback.availableOn.length?`<div class="trackPlatforms">Disponible : ${esc(playback.availableOn.join(' · '))}</div>`:''}`;row.appendChild(main);
-    const actions=document.createElement('div');actions.className='trackActions';
-    const play=document.createElement('button');play.className='playBtn';play.dataset.idleLabel=playback.previewUrl?'▶ Écouter':'↗ Ouvrir';play.textContent=play.dataset.idleLabel;
-    play.addEventListener('click',()=>{
-      if(playback.previewUrl){
-        if(activeAudio&&activePlayButton===play){resetAudio();return}
-        resetAudio();const audio=new Audio(playback.previewUrl);activeAudio=audio;activePlayButton=play;play.textContent='■ Stop';audio.addEventListener('ended',resetAudio,{once:true});audio.addEventListener('error',()=>{resetAudio();const external=preferredExternal(playback);if(external)window.open(external,'_blank','noopener')},{once:true});audio.play().catch(()=>{resetAudio();const external=preferredExternal(playback);if(external)window.open(external,'_blank','noopener')});
-      }else{const external=preferredExternal(playback);if(external)window.open(external,'_blank','noopener');else document.getElementById('followHint').textContent='Aucun extrait public disponible pour ce morceau.'}
-    });
-    const like=document.createElement('button');like.className='trackAction like';like.textContent='♥ 0';
-    const keep=document.createElement('button');keep.className='trackAction keep';keep.textContent='+ KEEP';
-    actions.append(play,like,keep);row.appendChild(actions);trackList.appendChild(row);
-    hydrateTrackSocial(t.id,ownerProfileId,like,keep).catch(()=>{});
-  });
-  playlistList.innerHTML='';
-  if((playlists||[]).length){divider.classList.remove('hidden');(playlists||[]).forEach(p=>{const el=document.createElement('div');el.className='playlist';el.innerHTML=`<div class="playlistName">${esc(p.name||'Vibe KEEP')}</div>${p.description?`<div class="playlistDesc">${esc(p.description)}</div>`:''}`;playlistList.appendChild(el)})}else divider.classList.add('hidden');
-}
-async function init(){
-  if(!u)throw new Error('Profil manquant');
-  let profileRows=await get(`profiles?username=ilike.${encodeURIComponent(u)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);
-  if(!profileRows.length){
-    const aliases=await get(`profile_username_aliases?alias=ilike.${encodeURIComponent(u)}&select=profile_id&limit=1`);
-    if(aliases.length)profileRows=await get(`profiles?id=eq.${encodeURIComponent(aliases[0].profile_id)}&select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url&limit=1`);
+
+  async function rest(path,options={}){
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...options,headers:{...headers,...(options.headers||{})}});
+    if(!response.ok){const body=await response.text().catch(()=> '');throw new Error(`SUPABASE_${response.status}:${body.slice(0,120)}`);}
+    if(response.status===204)return null;return response.json();
   }
-  if(!profileRows.length)throw new Error('Profil introuvable');
-  const p=profileRows[0];
-  const title=`@${p.username} sur KEEP`;
-  const description=[p.bio||'',Array.isArray(p.favorite_genres)&&p.favorite_genres.length?`Styles : ${p.favorite_genres.slice(0,4).join(', ')}`:'','Découvre son univers musical sur KEEP.'].filter(Boolean).join(' · ');
-  document.title=title;
-  setMeta('name','description',description);
-  setMeta('property','og:title',title);
-  setMeta('property','og:description',description);
-  setMeta('name','twitter:title',title);
-  setMeta('name','twitter:description',description);
-  setCanonical(location.href);
-  const [followerCount,followingCount,decisionRows,playlistRows]=await Promise.all([
-    publicCount(`profile_follows?followed_id=eq.${encodeURIComponent(p.id)}&select=follower_id`),
-    publicCount(`profile_follows?follower_id=eq.${encodeURIComponent(p.id)}&select=followed_id`),
-    get(`keep_decisions?profile_id=eq.${encodeURIComponent(p.id)}&decision=eq.KEPT&visibility=eq.PUBLIC&select=id,track_id,created_at,context,track:tracks(id,isrc,title,artist,album,artwork_url,preview_url,available_on,external_urls)&order=created_at.desc&limit=100`),
-    get(`playlist_prefs?profile_id=eq.${encodeURIComponent(p.id)}&is_public=eq.true&select=name,description,cover_url&order=updated_at.desc&limit=20`).catch(()=>[]),
-  ]);
-  document.getElementById('name').textContent='@'+p.username;
-  document.getElementById('meta').textContent=[p.city,p.country_code,`${followerCount} abonnés`,`${followingCount} abonnements`].filter(Boolean).join(' · ');
-  document.getElementById('bio').textContent=p.bio||'Mon univers musical, en un profil.';
-  const genres=document.getElementById('genres');genres.innerHTML='';(p.favorite_genres||[]).slice(0,8).forEach(g=>{const d=document.createElement('span');d.className='genre';d.textContent=g;genres.appendChild(d)});
-  if(p.avatar_url){const img=document.getElementById('avatar');img.src=p.avatar_url;img.classList.remove('hidden');document.getElementById('avatarFallback').classList.add('hidden')}
-  const socials=document.getElementById('socials');socials.innerHTML='';(p.social_links||[]).filter(x=>x?.visibility==='PUBLIC'&&x?.url).forEach(x=>{const a=document.createElement('a');a.href=/^https?:\/\//i.test(x.url)?x.url:'https://'+x.url;a.target='_blank';a.rel='noopener';a.textContent=x.platform;socials.appendChild(a)});
-  renderPublicMusic(decisionRows,playlistRows,p.id);
-  document.getElementById('openKeep').href=routeIntoKeep(p.username);
-  const session=readSession();
-  const follow=document.getElementById('follow');
-  const hint=document.getElementById('followHint');
-  async function hydrateFollow(){
-    if(!session){follow.textContent='+ Suivre';hint.textContent='Crée un compte KEEP pour suivre ce profil.';return}
-    if(session.user.id===p.id){follow.style.display='none';hint.textContent='Ceci est ton profil public.';return}
-    try{const rows=await authedRequest(`profile_follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followed_id=eq.${encodeURIComponent(p.id)}&select=followed_id&limit=1`);const on=Array.isArray(rows)&&rows.length>0;follow.classList.toggle('on',on);follow.textContent=on?'Abonné(e)':'+ Suivre';hint.textContent=on?'Tu suis ce profil.':'Tu peux suivre ce profil directement.'}catch{hint.textContent='Connexion active, suivi momentanément indisponible.'}
-  }
-  follow.addEventListener('click',async()=>{
-    if(!session){location.href=followAccountRoute(p.username);return}
-    if(session.user.id===p.id)return;
-    follow.disabled=true;
+  async function rpc(name,body,authHeaders=headers){return rest(`rpc/${name}`,{method:'POST',headers:authHeaders,body:JSON.stringify(body)});}
+  function readSession(){
     try{
-      const rows=await authedRequest(`profile_follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followed_id=eq.${encodeURIComponent(p.id)}&select=followed_id&limit=1`);
-      const on=Array.isArray(rows)&&rows.length>0;
-      if(on)await authedRequest(`profile_follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followed_id=eq.${encodeURIComponent(p.id)}`,'DELETE');
-      else await authedRequest('profile_follows','POST',{follower_id:session.user.id,followed_id:p.id});
-      await hydrateFollow();
-    }catch{hint.textContent='Impossible de modifier le suivi pour le moment.'}
-    finally{follow.disabled=false}
-  });
-  await hydrateFollow();
-  document.getElementById('card').classList.remove('hidden');document.getElementById('status').classList.add('hidden');
-}
-init().catch(e=>{document.getElementById('status').textContent=e.message||'Profil indisponible'});
+      const key=Object.keys(localStorage).find(k=>k===`sb-${PROJECT_REF}-auth-token`||(k.startsWith(`sb-${PROJECT_REF}`)&&k.endsWith('-auth-token')));
+      if(!key)return null;const raw=JSON.parse(localStorage.getItem(key)||'null');const s=raw?.currentSession||raw?.session||raw;return s?.access_token&&s?.user?.id?s:null;
+    }catch{return null;}
+  }
+  function authHeaders(){const s=readSession();return s?{apikey:ANON_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json'}:null;}
+  async function authed(path,options={}){const h=authHeaders();if(!h)throw new Error('NO_SESSION');return rest(path,{...options,headers:{...h,...(options.headers||{})}});}
+
+  async function loadProfile(){
+    if(!username)throw new Error('Profil manquant dans le lien.');
+    let rows=await rest(`profiles?username=ilike.${encodeURIComponent(username)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,country_code,city,kind,favorite_genres,favorite_artists&limit=1`);
+    if(!rows.length){
+      const aliases=await rest(`profile_username_aliases?alias=ilike.${encodeURIComponent(username)}&select=profile_id&limit=1`).catch(()=>[]);
+      if(aliases.length)rows=await rest(`profiles?id=eq.${encodeURIComponent(aliases[0].profile_id)}&is_public=eq.true&select=id,username,display_name,bio,avatar_url,country_code,city,kind,favorite_genres,favorite_artists&limit=1`);
+    }
+    if(!rows.length)throw new Error('Profil privé ou introuvable.');
+    return rows[0];
+  }
+
+  function renderProfile(p,snapshot,socialLinks,tracks){
+    document.title=`@${p.username} sur KEEP`;
+    $('name').textContent=`@${p.username}`;$('kind').textContent=safe(p.kind)||'Utilisateur';$('location').textContent=[p.city,p.country_code].filter(Boolean).join(' · ');$('bio').textContent=safe(p.bio)||'Mon univers musical, en un profil.';
+    if(p.avatar_url){$('avatar').src=p.avatar_url;$('avatar').classList.remove('hidden');$('avatarFallback').classList.add('hidden');}
+    $('followers').textContent=String(snapshot?.followers??0);$('following').textContent=String(snapshot?.following??0);$('directKeeps').textContent=String(snapshot?.direct_public_keeps??0);$('socialKeeps').textContent=String(snapshot?.social_public_keeps??0);
+    const genres=[...(Array.isArray(p.favorite_genres)?p.favorite_genres:[]),...(Array.isArray(p.favorite_artists)?p.favorite_artists:[])].slice(0,10);$('genres').innerHTML='';if(!genres.length){const x=document.createElement('span');x.className='chip';x.textContent='KEEP DNA en construction';$('genres').appendChild(x);}else genres.forEach(g=>{const x=document.createElement('span');x.className='chip';x.textContent=g;$('genres').appendChild(x);});
+    $('socials').innerHTML='';(socialLinks||[]).forEach(link=>{if(!link?.url)return;const a=document.createElement('a');a.href=/^https?:\/\//i.test(link.url)?link.url:`https://${link.url}`;a.target='_blank';a.rel='noopener noreferrer';a.textContent=String(link.platform||'Réseau');$('socials').appendChild(a);});if((socialLinks||[]).length)$('socialSection').classList.remove('hidden');
+    $('tracks').innerHTML='';(tracks||[]).forEach(row=>{const t=row||{};const item=document.createElement('div');item.className='track';if(t.artwork_url){const img=document.createElement('img');img.className='art';img.src=t.artwork_url;img.alt='';item.appendChild(img);}else{const art=document.createElement('div');art.className='art artFallback';art.textContent='K';item.appendChild(art);}const info=document.createElement('div');info.className='trackInfo';const name=document.createElement('div');name.className='trackName';name.textContent=safe(t.title)||'Morceau KEEP';const artist=document.createElement('div');artist.className='trackArtist';artist.textContent=safe(t.artist);const actions=document.createElement('div');actions.className='trackActions';if(t.preview_url){const play=document.createElement('button');play.type='button';play.className='mini';play.textContent='▶ Écouter';let audio=null;play.onclick=()=>{if(audio){audio.pause();audio=null;play.textContent='▶ Écouter';return;}audio=new Audio(t.preview_url);play.textContent='■ Stop';audio.onended=()=>{audio=null;play.textContent='▶ Écouter';};audio.onerror=()=>{audio=null;play.textContent='▶ Écouter';};audio.play().catch(()=>{audio=null;play.textContent='▶ Écouter';});};actions.appendChild(play);}const open=document.createElement('a');open.className='mini';open.href=routeProfile(p.username);open.textContent='Ouvrir dans KEEP';actions.appendChild(open);info.append(name,artist,actions);item.appendChild(info);$('tracks').appendChild(item);});if((tracks||[]).length)$('musicSection').classList.remove('hidden');
+    $('openKeep').href=routeProfile(p.username);$('discoverKeep').href=KEEP_ROOT;
+  }
+
+  async function hydrateFollow(p){
+    const button=$('follow'),hint=$('followHint'),session=readSession();
+    if(!session){button.textContent='+ SUIVRE';button.onclick=()=>{location.href=routeCreate(p.username);};return;}
+    if(session.user.id===p.id){button.classList.add('hidden');hint.textContent='Ceci est ton profil public.';return;}
+    async function state(){const rows=await authed(`follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}&select=follower_id&limit=1`);return Array.isArray(rows)&&rows.length>0;}
+    async function paint(){const on=await state();button.classList.toggle('on',on);button.textContent=on?'ABONNÉ(E)':'+ SUIVRE';hint.textContent=on?'Tu suis ce profil.':'Tu peux suivre ce profil directement.';return on;}
+    button.onclick=async()=>{button.disabled=true;try{const on=await state();if(on)await authed(`follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}`,{method:'DELETE'});else await authed('follows',{method:'POST',body:JSON.stringify({follower_id:session.user.id,followee_id:p.id}),headers:{Prefer:'return=minimal'}});await paint();}catch{$('followHint').textContent='Suivi momentanément indisponible.';}finally{button.disabled=false;}};
+    await paint().catch(()=>{$('followHint').textContent='Connexion active · suivi momentanément indisponible.';});
+  }
+
+  async function init(){
+    setContext();const p=await loadProfile();
+    const [snapshotRows,socialLinks,tracks]=await Promise.all([
+      rpc('keep_public_profile_snapshot',{p_profile_id:p.id}).catch(()=>[]),
+      rest(`social_links?profile_id=eq.${encodeURIComponent(p.id)}&visibility=eq.PUBLIC&select=platform,url,visibility&order=created_at.asc`).catch(()=>[]),
+      rpc('keep_public_profile_tracks',{p_profile_id:p.id,p_limit:100,p_offset:0}).catch(()=>[]),
+    ]);
+    renderProfile(p,Array.isArray(snapshotRows)?snapshotRows[0]:null,socialLinks,tracks);await hydrateFollow(p);$('card').classList.remove('hidden');$('status').classList.add('hidden');
+  }
+  init().catch(error=>{console.error('[KEEP share]',error);$('status').innerHTML='Impossible d’ouvrir ce partage KEEP pour le moment.<div class="errorCode">'+String(error?.message||error).replace(/[<>]/g,'')+'</div><button class="btn retry" onclick="location.reload()">RÉESSAYER</button>';});
+})();
 </script>
 </body>
 </html>
