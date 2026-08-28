@@ -28,6 +28,29 @@ export function roundKeepCoordinates(latitude: number, longitude: number): KeepA
   };
 }
 
+async function getBrowserCoordinates(): Promise<{ latitude: number; longitude: number }> {
+  const geolocation = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
+  if (!geolocation) throw new Error('web_geolocation_unavailable');
+
+  return new Promise((resolve, reject) => {
+    geolocation.getCurrentPosition(
+      (position) => resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      }),
+      (error) => {
+        if (error.code === 1) reject(new KeepLocationPermissionError());
+        else reject(new Error(`web_geolocation_${error.code}_${error.message || 'unavailable'}`));
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 12000,
+        maximumAge: 60_000,
+      },
+    );
+  });
+}
+
 async function reverseGeocodeBigDataCloud(latitude: number, longitude: number): Promise<{ city?: string; countryCode?: string }> {
   const url = new URL('https://api.bigdatacloud.net/data/reverse-geocode-client');
   url.searchParams.set('latitude', String(latitude));
@@ -105,6 +128,16 @@ async function geocodeWebCity(query: string): Promise<KeepResolvedLocation | nul
 }
 
 export async function getCurrentKeepLocation(): Promise<KeepResolvedLocation> {
+  // Sur le Web, utiliser directement l'API standard du navigateur. Le wrapper
+  // expo-location ajoutait une seconde couche de permission qui pouvait échouer
+  // alors que navigator.geolocation avait déjà reçu l'autorisation.
+  if (Platform.OS === 'web') {
+    const position = await getBrowserCoordinates();
+    const approx = roundKeepCoordinates(position.latitude, position.longitude);
+    const place = await reverseGeocodeWeb(position.latitude, position.longitude);
+    return { ...approx, ...place, source: 'web-free' };
+  }
+
   const permission = await Location.requestForegroundPermissionsAsync();
   if (permission.status !== 'granted') throw new KeepLocationPermissionError();
 
@@ -112,11 +145,6 @@ export async function getCurrentKeepLocation(): Promise<KeepResolvedLocation> {
   const latitude = position.coords.latitude;
   const longitude = position.coords.longitude;
   const approx = roundKeepCoordinates(latitude, longitude);
-
-  if (Platform.OS === 'web') {
-    const place = await reverseGeocodeWeb(latitude, longitude);
-    return { ...approx, ...place, source: 'web-free' };
-  }
 
   // iOS/Android : le GPS doit rester utilisable même si le reverse geocoding
   // natif échoue momentanément. Dans ce cas on conserve les coordonnées
