@@ -106,6 +106,11 @@ export async function persistOwnTrackVisibility(
  * Toutes les décisions historiques de cette piste sont supprimées côté serveur
  * afin qu'une ancienne décision PUBLIC ne puisse jamais la faire réapparaître
  * sur le profil après un rechargement.
+ *
+ * Les Vibes automatiques renvoient l'ID canonique Supabase de la piste. On
+ * l'utilise donc directement en plus de la recherche historique locale : la
+ * suppression reste fonctionnelle après redémarrage de l'app, même si la
+ * session locale n'a plus l'entrée qui avait créé le KEEP.
  */
 export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<number> {
   if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
@@ -114,9 +119,12 @@ export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<num
 
   const keeps = await loadOwnPersistedKeeps();
   const matches = matchingKeeps(track, keeps);
-  if (!matches.length) return 0;
+  const trackIds = new Set(matches.map((keep) => String(keep.track.id || '').trim()).filter(Boolean));
+  const canonicalId = String(track.id || '').trim();
+  if (isUuid(canonicalId)) trackIds.add(canonicalId);
 
-  const trackIds = Array.from(new Set(matches.map((keep) => String(keep.track.id || '').trim()).filter(Boolean)));
+  if (!trackIds.size) return 0;
+
   let removed = 0;
   for (const trackId of trackIds) {
     const { data, error } = await supabase.rpc('keep_remove_track', { p_track_id: trackId });
