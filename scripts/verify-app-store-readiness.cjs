@@ -71,6 +71,7 @@ check('Profil EAS production existe', Boolean(eas.build?.production));
 check('Build number auto-incrémenté', eas.build?.production?.autoIncrement === true);
 check('Canal EAS production', eas.build?.production?.channel === 'production');
 check('Build production non simulateur', eas.build?.production?.ios?.simulator !== true);
+check('Image EAS production compatible Xcode 26', eas.build?.production?.ios?.image === 'sdk-54', String(eas.build?.production?.ios?.image || 'absente'));
 check('Aucun faux identifiant Apple dans eas.json', !read('packages/mobile/eas.json').includes('REMPLACER_'));
 
 const iosWorkflow = '.github/workflows/eas-build-ios.yml';
