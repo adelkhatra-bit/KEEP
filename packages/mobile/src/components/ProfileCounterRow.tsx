@@ -44,5 +44,5 @@ const styles = StyleSheet.create({
   keeps: { marginTop: 10 },
   item: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6 },
   value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  label: { width: '100%', color: '#FFFFFF', fontSize: 11, lineHeight: 14, marginTop: 3, textAlign: 'center', fontWeight: '700' },
+  label: { color: '#FFFFFF', fontSize: 11, width: '100%', lineHeight: 14, marginTop: 3, textAlign: 'center', fontWeight: '700' },
 });
