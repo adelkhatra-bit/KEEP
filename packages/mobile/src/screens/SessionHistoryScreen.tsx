@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -6,6 +6,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { getDownloadCreditStatus } from '../services/creditService';
 
 function autoTitle(session: KeepSession): string {
   if (session.title) return session.title;
@@ -40,8 +41,28 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
   const isListening = useSessionStore((s) => s.isActive);
   const activeSessionId = useSessionStore((s) => s.sessionId);
+  const [planBadge, setPlanBadge] = useState<{ label: string; focusPlan: string; paid: boolean }>({ label: 'FREE', focusPlan: 'PREMIUM', paid: false });
   const realActiveSessionId = isListening ? activeSessionId : null;
   const hasOrphanedLiveSession = visibleSessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
+
+  const refreshPlanBadge = async () => {
+    try {
+      const status = await getDownloadCreditStatus();
+      const rawCode = String(status.planCode || 'FREE').toUpperCase();
+      const code = rawCode === 'GUEST' || rawCode === 'DEMO' ? 'FREE' : rawCode;
+      const paid = code !== 'FREE';
+      const label = code === 'PREMIUM'
+        ? '♛ Premium'
+        : code === 'CREATOR_PRO'
+          ? 'Creator Pro'
+          : code === 'VENUE_PRO'
+            ? 'Venue Pro'
+            : status.remaining == null ? 'FREE' : `FREE · ${status.remaining}`;
+      setPlanBadge({ label, focusPlan: paid ? code : 'PREMIUM', paid });
+    } catch {
+      setPlanBadge({ label: 'FREE', focusPlan: 'PREMIUM', paid: false });
+    }
+  };
 
   useEffect(() => {
     // AsyncStorage se réhydrate après le premier rendu. Cette dépendance passe à
@@ -54,6 +75,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
     const refresh = () => {
       reconcileOrphanedLiveSessions(realActiveSessionId);
       void refreshCreditLocks().catch(() => {});
+      void refreshPlanBadge();
     };
     refresh();
     const unsubscribe = navigation?.addListener?.('focus', refresh);
@@ -111,6 +133,13 @@ export default function SessionHistoryScreen({ navigation }: any) {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
         <Text style={styles.title}>{t('history.title')}</Text>
+        <TouchableOpacity
+          style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
+          onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
+          accessibilityLabel="Voir mon offre KEEP"
+        >
+          <Text style={[styles.planBadgeText, planBadge.paid ? styles.planBadgePaidText : styles.planBadgeFreeText]}>{planBadge.label}</Text>
+        </TouchableOpacity>
       </View>
       {visibleSessions.length === 0 ? (
         <View style={styles.centered}><Text style={styles.emptyEmoji}>🕐</Text><Text style={styles.emptyText}>{t('history.empty')}</Text></View>
@@ -125,7 +154,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   backArrow: { color: colors.textPrimary, fontSize: 22 },
-  title: { ...typography.h2, color: colors.textPrimary },
+  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
+  planBadge: { minHeight: 30, minWidth: 70, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  planBadgeFree: { backgroundColor: '#10271F', borderColor: '#3BCB8B' },
+  planBadgePaid: { backgroundColor: '#25183B', borderColor: colors.primaryLight },
+  planBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: .3 },
+  planBadgeFreeText: { color: '#68F2B1' },
+  planBadgePaidText: { color: colors.primaryLight },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyEmoji: { fontSize: 40, marginBottom: spacing.md },
   emptyText: { color: colors.textSecondary, fontSize: 14, textAlign: 'center' },
