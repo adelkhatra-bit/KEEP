@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import { ProviderPlaylist } from '@keep/music';
 import { musicEngine } from '../services/musicEngine';
-import { refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist } from '../services/smartAlbumService';
 
 /**
- * Source unique de la bibliothèque visible : services musicaux connectés +
- * collections intelligentes KEEP persistées dans Supabase. Les collections
- * KEEP sont recalculées automatiquement après chaque GARDER et à chaque focus
- * de la bibliothèque/profil ; aucune action de classement n'est imposée.
+ * Source des playlists du fournisseur musical connecté.
+ *
+ * Les Vibes intelligentes KEEP sont gérées séparément par les écrans qui les
+ * affichent (`MyMusicScreen` et `ProfilePublicScreen`) via `smartAlbumService`.
+ * Les injecter aussi ici créait exactement le même smart album deux fois :
+ * une fois via ce store, puis une seconde fois via `smartAlbums` dans l'écran.
+ * Résultat visible : Vibes/Albums mélangés et listes qui semblaient rester
+ * affichées après un changement d'onglet.
  */
 interface PlaylistStore {
   playlists: ProviderPlaylist[];
@@ -22,14 +25,8 @@ export const usePlaylistStore = create<PlaylistStore>((set) => ({
     set({ isLoading: true });
     try {
       const session = await musicEngine.getSession();
-      const [providerPlaylists, smartAlbums] = await Promise.all([
-        musicEngine.musicProvider.getPlaylists(session).catch(() => [] as ProviderPlaylist[]),
-        refreshOwnSmartAlbums().catch(() => []),
-      ]);
-      const smartPlaylists = smartAlbums
-        .filter((album) => album.trackCount > 0)
-        .map(smartAlbumAsProviderPlaylist);
-      set({ playlists: [...smartPlaylists, ...providerPlaylists], isLoading: false });
+      const providerPlaylists = await musicEngine.musicProvider.getPlaylists(session).catch(() => [] as ProviderPlaylist[]);
+      set({ playlists: providerPlaylists, isLoading: false });
     } catch {
       set({ playlists: [], isLoading: false });
     }
