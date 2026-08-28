@@ -11,6 +11,7 @@ import { supabase } from '../services/supabaseClient';
 import { loadCurrentPlanCode } from '../services/planService';
 import { DiscoveryAccess, getDiscoveryAccess } from '../services/growthAccessService';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { normalizeOptionalCoordinate } from '../services/discoveryCoordinate';
 import SwipeDeck from '../components/SwipeDeck';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 
@@ -55,8 +56,8 @@ function normalizeProfile(row: any): DiscoveryProfile {
     kind: String(row.kind || 'USER'),
     favoriteGenres: Array.isArray(row.favorite_genres) ? row.favorite_genres : [],
     favoriteArtists: Array.isArray(row.favorite_artists) ? row.favorite_artists : [],
-    approxLat: Number.isFinite(Number(row.approx_lat)) ? Number(row.approx_lat) : undefined,
-    approxLng: Number.isFinite(Number(row.approx_lng)) ? Number(row.approx_lng) : undefined,
+    approxLat: normalizeOptionalCoordinate(row.approx_lat),
+    approxLng: normalizeOptionalCoordinate(row.approx_lng),
   };
 }
 
