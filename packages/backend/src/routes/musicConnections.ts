@@ -10,6 +10,8 @@ const router = Router();
 const verifier = createSupabaseTokenVerifier();
 
 type Provider = 'spotify' | 'deezer';
+type OAuthClient = 'web' | 'native';
+type OAuthState = { userId: string; provider: Provider; exp: number; client: OAuthClient };
 
 function serviceClient() {
   const url = process.env.SUPABASE_URL;
@@ -30,7 +32,7 @@ function signState(payload: object): string {
   return `${body}.${sig}`;
 }
 
-function verifyState(value: string): { userId: string; provider: Provider; exp: number } | null {
+function verifyState(value: string): OAuthState | null {
   const secret = stateSecret();
   if (!secret) return null;
   const [body, sig] = value.split('.');
@@ -41,11 +43,39 @@ function verifyState(value: string): { userId: string; provider: Provider; exp: 
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
   if (!data?.userId || !data?.provider || !data?.exp || Date.now() > data.exp) return null;
-  return data;
+  if (!['spotify', 'deezer'].includes(String(data.provider))) return null;
+  return {
+    userId: String(data.userId),
+    provider: data.provider as Provider,
+    exp: Number(data.exp),
+    // Legacy signed states created before this change stay native-safe.
+    client: data.client === 'web' ? 'web' : 'native',
+  };
 }
 
 function backendBaseUrl(req: KeepAuthedRequest): string {
   return process.env.PUBLIC_BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+function clientFromRequest(req: KeepAuthedRequest): OAuthClient {
+  return String(req.query.client || '').toLowerCase() === 'web' ? 'web' : 'native';
+}
+
+function webReturnBase(): string {
+  const configured = String(process.env.KEEP_WEB_URL || process.env.PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').trim();
+  try {
+    const parsed = new URL(configured);
+    if (parsed.protocol !== 'https:') throw new Error('KEEP_WEB_URL must be https');
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return 'https://adelkhatra-bit.github.io/KEEP';
+  }
+}
+
+function connectionReturnUrl(state: OAuthState, provider: Provider, values: Record<string, string>): string {
+  const query = new URLSearchParams({ provider, ...values }).toString();
+  if (state.client === 'web') return `${webReturnBase()}/music-connections/?${query}`;
+  return `keep://music-connections?${query}`;
 }
 
 async function credentials(provider: Provider) {
@@ -117,13 +147,13 @@ function wantsJson(req: KeepAuthedRequest): boolean {
   return String(req.query.response || '').toLowerCase() === 'json' || req.accepts(['json', 'html']) === 'json';
 }
 
-function sendAuthorization(req: KeepAuthedRequest, res: Response, provider: Provider, authorizationUrl: string) {
+function sendAuthorization(req: KeepAuthedRequest, res: Response, provider: Provider, authorizationUrl: string, client: OAuthClient) {
   if (wantsJson(req)) {
     return res.json({
       provider,
       authorizationUrl,
       expiresInSeconds: 600,
-      callbackScheme: 'keep://music-connections',
+      callbackScheme: client === 'web' ? `${webReturnBase()}/music-connections/` : 'keep://music-connections',
     });
   }
   return res.redirect(authorizationUrl);
@@ -135,7 +165,8 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
   const { id, secret } = await credentials(provider);
   if (!id || !secret) return res.status(501).json({ error: `${provider}_not_configured` });
 
-  const state = signState({ userId: req.keepUserId, provider, exp: Date.now() + 10 * 60 * 1000 });
+  const client = clientFromRequest(req);
+  const state = signState({ userId: req.keepUserId, provider, client, exp: Date.now() + 10 * 60 * 1000 });
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;
 
   if (provider === 'spotify') {
@@ -147,7 +178,7 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
       scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read user-library-modify',
       show_dialog: 'false',
     });
-    return sendAuthorization(req, res, provider, `https://accounts.spotify.com/authorize?${query.toString()}`);
+    return sendAuthorization(req, res, provider, `https://accounts.spotify.com/authorize?${query.toString()}`, client);
   }
 
   const query = new URLSearchParams({
@@ -156,7 +187,7 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
     perms: 'basic_access,email,manage_library,delete_library,listening_history',
     state,
   });
-  return sendAuthorization(req, res, provider, `https://connect.deezer.com/oauth/auth.php?${query.toString()}`);
+  return sendAuthorization(req, res, provider, `https://connect.deezer.com/oauth/auth.php?${query.toString()}`, client);
 }
 
 async function callbackHandler(req: KeepAuthedRequest, res: Response) {
@@ -164,7 +195,7 @@ async function callbackHandler(req: KeepAuthedRequest, res: Response) {
   const state = verifyState(String(req.query.state || ''));
   if (!state || state.provider !== provider) return res.status(400).send('KEEP: état OAuth invalide ou expiré.');
   const code = String(req.query.code || '');
-  if (!code) return res.redirect('keep://music-connections?error=access_denied');
+  if (!code) return res.redirect(connectionReturnUrl(state, provider, { error: 'access_denied' }));
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;
 
   try {
@@ -207,10 +238,10 @@ async function callbackHandler(req: KeepAuthedRequest, res: Response) {
         expiresIn: Number(tokenRes.data.expires || 0) || undefined,
       });
     }
-    return res.redirect(`keep://music-connections?provider=${provider}&connected=1`);
+    return res.redirect(connectionReturnUrl(state, provider, { connected: '1' }));
   } catch (error: any) {
-    const detail = encodeURIComponent(error?.response?.data?.error?.message || error?.message || 'oauth_failed');
-    return res.redirect(`keep://music-connections?provider=${provider}&error=${detail}`);
+    const detail = String(error?.response?.data?.error?.message || error?.message || 'oauth_failed');
+    return res.redirect(connectionReturnUrl(state, provider, { error: detail.slice(0, 300) }));
   }
 }
 
