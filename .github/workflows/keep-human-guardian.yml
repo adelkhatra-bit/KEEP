@@ -98,15 +98,27 @@ jobs:
             await end.click();
             await start.waitFor({state:'visible',timeout:15000});
 
-            // Découvertes : reproduire le vrai geste utilisateur.
-            // 1) choisir le rayon, 2) rechercher, 3) attendre le résultat,
-            // 4) garantir que les trois actions restent utilisables sans swipe up.
+            // Découvertes : aucun profil ne doit apparaître à l'ouverture.
+            // L'utilisateur doit d'abord choisir sa distance puis appuyer sur
+            // RECHERCHER. Cette assertion empêche le retour d'un profil par
+            // défaut qui consommerait aussi une découverte Free sans action.
             await t('Découvertes',{exact:true}).click();
             await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await t('Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.',{exact:true}).waitFor({state:'visible',timeout:15000});
+            if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
+            if(await page.getByLabel('Passer ce profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed Pass before search');
+            if(await page.getByLabel('Suivre ce profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed Follow before search');
+            await shot('03-discover-before-search-empty');
+
+            // Vrai geste utilisateur : choisir le rayon, rechercher, attendre le
+            // résultat, puis garantir que les actions restent utilisables.
             await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
             const world=page.getByLabel('Rayon Monde').last();
             await world.waitFor({state:'visible',timeout:15000});
             await world.click();
+            // Le changement de distance doit lui aussi vider les anciens
+            // résultats jusqu'au prochain clic sur RECHERCHER.
+            if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover kept a stale profile after radius change');
             const search=page.getByLabel('Rechercher des profils autour de moi').last();
             await inViewport(search,'Discover search');
             await search.click();
@@ -117,26 +129,23 @@ jobs:
             await inViewport(page.getByLabel('Suivre ce profil').last(),'Discover follow');
             const discoverBody=await page.locator('body').innerText();
             if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
-            // L'identité de démo n'a volontairement aucun ADN musical. On ne
-            // force donc pas un faux pourcentage : la présence des trois actions
-            // prouve qu'un vrai profil Supabase a été chargé après la recherche.
-            await shot('03-discover-after-search');
+            await shot('04-discover-after-search');
 
             await t('Playlists',{exact:true}).click();
             await page.waitForTimeout(300);
-            await shot('04-playlists');
+            await shot('05-playlists');
 
             await t('Soirées',{exact:true}).click();
             await page.waitForTimeout(300);
             await t(/Creator Pro|Venue Pro|CRÉER|ILLIMITÉ|abonnés/i).waitFor({state:'visible',timeout:15000});
-            await shot('05-parties');
+            await shot('06-parties');
 
             await t('Profil',{exact:true}).click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
             await t('PARTAGER',{exact:true}).waitFor({state:'visible',timeout:15000});
             if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
             await page.getByLabel('Notifications').last().waitFor({state:'visible',timeout:15000});
-            await shot('06-profile');
+            await shot('07-profile');
 
             const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
             if(dims.scrollWidth>dims.width+1) throw new Error(`Horizontal overflow ${JSON.stringify(dims)}`);
@@ -147,9 +156,11 @@ jobs:
               'Viewport 390x844: PASS',
               'Five tabs: PASS',
               'Listen start/stop/share: PASS',
-              'Discover distance then search: PASS',
+              'Discover default profile before search: ABSENT',
+              'Discover radius change clears stale result: PASS',
+              'Discover distance then explicit search: PASS',
               'Discover GPS permission simulation: PASS',
-              'Discover real profile loaded after search: PASS',
+              'Discover real profile loaded only after search: PASS',
               'Discover Pass / Voir profil / Suivre without swipe-up: PASS',
               'Playlists reachable: PASS',
               'Parties entitlement UI reachable: PASS',
