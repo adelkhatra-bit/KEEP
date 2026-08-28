@@ -1,0 +1,54 @@
+name: KEEP — One-time keyless recognition integration
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'scripts/one_time_keyless_recognition_patch.py'
+      - '.github/workflows/one-time-keyless-recognition-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync latest branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply deterministic patch
+        run: python3 scripts/one_time_keyless_recognition_patch.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+      - name: Typecheck Super Admin
+        run: npm --workspace packages/admin run type-check
+      - name: Mobile tests
+        run: npm --workspace packages/mobile test -- --runInBand
+      - name: Build Super Admin
+        run: npm --workspace packages/admin run build
+      - name: Verify keyless and API validation contracts
+        run: |
+          grep -q "keep-music-keyless-source" packages/mobile/src/services/keepMusicCoreRecognition.ts
+          grep -q "getSharedMusicSource" packages/mobile/src/services/keepMusicCoreRecognition.ts
+          grep -q "invalid_audd_token" supabase/functions/keep-admin-control/index.ts
+          grep -q "validateAuddToken" supabase/functions/keep-admin-control/index.ts
+          grep -q "Sans clé, KEEP exploite déjà" packages/admin/pages/integrations.tsx
+          test -f supabase/functions/keep-music-keyless-source/index.ts
+      - name: Commit verified feature and clean one-time files
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          rm -f scripts/one_time_keyless_recognition_patch.py .github/workflows/one-time-keyless-recognition-patch.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "feat(recognition): add keyless social fallback and validate AudD"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
