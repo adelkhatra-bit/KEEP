@@ -7,9 +7,8 @@ import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { supabase } from '../services/supabaseClient';
-import { getDownloadCreditStatus } from '../services/creditService';
-import { hasFeature } from '../services/entitlementService';
 import { loadCurrentPlanCode } from '../services/planService';
+import { DiscoveryAccess, getDiscoveryAccess } from '../services/growthAccessService';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import SwipeDeck from '../components/SwipeDeck';
 import CommunityConnectionsPanel from '../components/CommunityConnectionsPanel';
@@ -30,6 +29,7 @@ type DiscoveryProfile = {
 const PROFILE_KIND_LABELS: Record<string, string> = {
   USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
 };
+const FREE_LOCAL_DISCOVERY_LIMIT = 3;
 
 function normalizeProfile(row: any): DiscoveryProfile {
   return {
@@ -64,7 +64,9 @@ export default function DiscoverScreen({ navigation }: any) {
   const [profileIndex, setProfileIndex] = useState(0);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [planCode, setPlanCode] = useState('FREE');
-  const [trialRemaining, setTrialRemaining] = useState<number | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [discoveryAccess, setDiscoveryAccess] = useState<DiscoveryAccess | null>(null);
+  const [guestSeenIds, setGuestSeenIds] = useState<string[]>([]);
   const [followBusy, setFollowBusy] = useState(false);
   const [followNotice, setFollowNotice] = useState('');
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
@@ -90,17 +92,18 @@ export default function DiscoverScreen({ navigation }: any) {
 
   useEffect(() => {
     let live = true;
-    const loadAccess = async () => {
-      try {
-        const credit = await getDownloadCreditStatus();
-        if (live) setTrialRemaining(credit.unlimited ? 1 : credit.remaining ?? 0);
-      } catch { if (live) setTrialRemaining(0); }
-      if (user && !isLocalGuest && !isDemoMode) {
-        try { const code = await loadCurrentPlanCode(user.id); if (live) setPlanCode(code || 'FREE'); } catch {}
+    const loadPlan = async () => {
+      if (!user || isLocalGuest || isDemoMode) {
+        if (live) setPlanCode(isDemoMode ? 'DEMO' : 'FREE');
+        return;
       }
+      try {
+        const code = await loadCurrentPlanCode(user.id);
+        if (live) setPlanCode(code || 'FREE');
+      } catch { if (live) setPlanCode('FREE'); }
     };
-    void loadAccess();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void loadAccess(); });
+    void loadPlan();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void loadPlan(); });
     return () => { live = false; unsubscribe?.(); };
   }, [user?.id, isLocalGuest, isDemoMode, navigation]);
 
@@ -144,8 +147,42 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [user?.id, user?.city, user?.countryCode, isLocalGuest, navigation]);
 
-  const discoveryUnlocked = isDemoMode || (trialRemaining ?? 0) > 0 || hasFeature(planCode, 'SOCIAL_DISCOVERY');
   const currentProfile = profiles.length ? profiles[profileIndex % profiles.length] : null;
+
+  useEffect(() => {
+    let live = true;
+    const check = async () => {
+      if (!currentProfile) { if (live) setDiscoveryAccess(null); return; }
+      setAccessLoading(true);
+      try {
+        if (isDemoMode) {
+          if (live) setDiscoveryAccess({ planCode: 'DEMO', allowed: true, used: 0, limit: null, remaining: null, unlimited: true, newlyCounted: false });
+          return;
+        }
+        if (!user || isLocalGuest) {
+          const alreadySeen = guestSeenIds.includes(currentProfile.id);
+          const allowed = alreadySeen || guestSeenIds.length < FREE_LOCAL_DISCOVERY_LIMIT;
+          if (allowed && !alreadySeen && live) setGuestSeenIds((ids) => [...ids, currentProfile.id]);
+          if (live) setDiscoveryAccess({
+            planCode: 'FREE',
+            allowed,
+            used: alreadySeen ? guestSeenIds.length : Math.min(guestSeenIds.length + (allowed ? 1 : 0), FREE_LOCAL_DISCOVERY_LIMIT),
+            limit: FREE_LOCAL_DISCOVERY_LIMIT,
+            remaining: Math.max(FREE_LOCAL_DISCOVERY_LIMIT - guestSeenIds.length - (!alreadySeen && allowed ? 1 : 0), 0),
+            unlimited: false,
+            newlyCounted: allowed && !alreadySeen,
+          });
+          return;
+        }
+        const access = await getDiscoveryAccess(currentProfile.id);
+        if (live) setDiscoveryAccess(access);
+      } catch {
+        if (live) setDiscoveryAccess({ planCode, allowed: planCode !== 'FREE', used: 0, limit: planCode === 'FREE' ? 3 : null, remaining: planCode === 'FREE' ? 0 : null, unlimited: planCode !== 'FREE', newlyCounted: false });
+      } finally { if (live) setAccessLoading(false); }
+    };
+    void check();
+    return () => { live = false; };
+  }, [currentProfile?.id, user?.id, isLocalGuest, isDemoMode, planCode]);
 
   useEffect(() => {
     setAvatarFailedFor(null);
@@ -154,12 +191,12 @@ export default function DiscoverScreen({ navigation }: any) {
   useEffect(() => {
     let live = true;
     setCurrentProfileSnapshot(null);
-    if (!currentProfile?.id) return () => { live = false; };
+    if (!currentProfile?.id || discoveryAccess?.allowed === false) return () => { live = false; };
     void loadPublicProfileSnapshot(currentProfile.id)
       .then((snapshot) => { if (live) setCurrentProfileSnapshot(snapshot); })
       .catch(() => { if (live) setCurrentProfileSnapshot(null); });
     return () => { live = false; };
-  }, [currentProfile?.id]);
+  }, [currentProfile?.id, discoveryAccess?.allowed]);
 
   const nextProfile = () => {
     setFollowNotice('');
@@ -167,11 +204,11 @@ export default function DiscoverScreen({ navigation }: any) {
   };
 
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
-  const openCurrentProfile = () => { if (currentProfile) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
+  const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
   const openAccount = () => navigation.navigate('Main', { screen: 'Profile' });
 
   const followCurrent = async () => {
-    if (!currentProfile || followBusy) return;
+    if (!currentProfile || followBusy || !discoveryAccess?.allowed) return;
     if (!user || isLocalGuest || isDemoMode || !supabase) {
       setFollowNotice('Crée ton compte KEEP pour pouvoir suivre cet utilisateur.');
       Alert.alert('Compte KEEP requis', 'Crée ton compte KEEP pour pouvoir suivre cet utilisateur.', [
@@ -208,6 +245,9 @@ export default function DiscoverScreen({ navigation }: any) {
         : [currentProfile.city, currentProfile.countryCode].filter(Boolean).join(' · ')
     : '';
 
+  const discoveryUnlocked = isDemoMode || discoveryAccess?.allowed === true;
+  const freeRemaining = discoveryAccess?.planCode === 'FREE' ? discoveryAccess.remaining : null;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -215,17 +255,17 @@ export default function DiscoverScreen({ navigation }: any) {
 
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
-          {!discoveryUnlocked ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : trialRemaining !== null && planCode === 'FREE' ? <View style={styles.trialBadge}><Text style={styles.trialText}>ESSAI ACTIF</Text></View> : null}
+          {!discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : freeRemaining !== null ? <View style={styles.trialBadge}><Text style={styles.trialText}>{freeRemaining} GRATUIT{freeRemaining > 1 ? 'S' : ''}</Text></View> : null}
         </View>
 
-        {!discoveryUnlocked ? (
+        {accessLoading || loadingProfiles ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
           <TouchableOpacity style={styles.lockCard} onPress={openPremium}>
             <Text style={styles.lockIcon}>🔒</Text>
-            <Text style={styles.lockTitle}>Débloquer les découvertes sociales</Text>
-            <Text style={styles.lockBody}>Premium 2,99 €/mois permet de découvrir les profils autour de toi et d’explorer leurs univers musicaux. Pendant tes crédits de bienvenue, cette fonction reste testable gratuitement.</Text>
+            <Text style={styles.lockTitle}>Tes découvertes gratuites sont utilisées</Text>
+            <Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant KEEP et en faisant grandir tes abonnés.</Text>
             <Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text>
           </TouchableOpacity>
-        ) : loadingProfiles ? <ActivityIndicator color={colors.primaryLight} /> : !currentProfile ? (
+        ) : !currentProfile ? (
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun profil public disponible pour le moment.</Text></View>
         ) : (
           <>
