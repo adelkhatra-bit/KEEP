@@ -11,6 +11,7 @@ const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'M
 const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', roles: ALL_ROLES },
   { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   { href: '/music-brain', label: 'KEEP Music Brain', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },

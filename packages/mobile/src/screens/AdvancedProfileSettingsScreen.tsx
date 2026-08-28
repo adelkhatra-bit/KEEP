@@ -6,6 +6,7 @@ import { radius } from '../theme/spacing';
 import { SocialLink } from '../types';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import SupportCenterPanel from '../components/SupportCenterPanel';
 import { createProfileService } from '../services/profileService';
 import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { createAuthService } from '../services/authService';
@@ -116,8 +117,6 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
       if (supabase && !isLocalGuest && !isDemoMode) await createAuthService(supabase).signOut();
       await clearLocalGuestMarker();
     } catch {
-      // Même si Supabase est momentanément indisponible, on ferme l'identité
-      // locale de l'appareil pour que le bouton Déconnexion fonctionne.
       await clearLocalGuestMarker();
     } finally {
       logout();
@@ -235,12 +234,14 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           })}
         </View>
 
+        <SupportCenterPanel profileId={user.id} username={user.username} enabled={!isLocalGuest && !isDemoMode} />
+
         <View style={s.section}>
           <Text style={s.sectionTitle}>Informations & confidentialité</Text>
           <Action label="Politique de confidentialité" onPress={() => openExternal(LEGAL_URLS.privacy)} />
           <Action label="Choix de confidentialité" onPress={() => openExternal(LEGAL_URLS.privacyChoices)} />
           <Action label="Conditions d’utilisation" onPress={() => openExternal(LEGAL_URLS.terms)} />
-          <Action label="Support KEEP" onPress={() => openExternal(LEGAL_URLS.support)} />
+          <Action label="Centre d’aide public" onPress={() => openExternal(LEGAL_URLS.support)} />
         </View>
 
         <View style={s.section}>
