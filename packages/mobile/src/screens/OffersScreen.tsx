@@ -18,6 +18,8 @@ const DEFAULT_RULES: CommercialRules = {
   followerTiers: [25, 100, 250, 500, 1000],
 };
 
+const PAID_PLAN_ORDER = ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
+
 function money(plan: KeepPlan) {
   if (plan.monthlyAmount === 0) return 'Gratuit';
   return `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`;
@@ -37,15 +39,23 @@ function certificationTierForPlan(code: string): ProfileCertificationTier {
   return 'FREE';
 }
 
+function compatiblePlanCodes(feature: string, focusPlan: string): string[] {
+  if (feature === 'CREATE_EVENT' || feature === 'SMART_SORTING' || feature === 'CREATOR_KIND') return ['CREATOR_PRO', 'VENUE_PRO'];
+  if (feature === 'SOCIAL_DISCOVERY' || feature === 'PUBLIC_PLAYLISTS') return ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'];
+  if (feature === 'VENUE_KIND') return ['VENUE_PRO'];
+  const start = PAID_PLAN_ORDER.indexOf(focusPlan as (typeof PAID_PLAN_ORDER)[number]);
+  return start >= 0 ? PAID_PLAN_ORDER.slice(start) : focusPlan ? [focusPlan] : [];
+}
+
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
-  if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium débloque Découvertes sans limite.`;
-  if (feature === 'SMART_SORTING') return `Le rangement automatique KEEP Vibes est inclus à partir de Creator Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
+  if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
+  if (feature === 'SMART_SORTING') return `Le rangement automatique KEEP Vibes est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
-  if (feature === 'PUBLIC_PLAYLISTS') return 'Premium débloque les Vibes publiques et la visibilité musicale étendue.';
-  if (feature === 'CREATOR_KIND') return 'Creator Pro débloque les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return 'Creator Pro permet une soirée par mois. Venue Pro inclut les soirées en illimité : les deux formules sont affichées ci-dessous pour comparer directement.';
+  if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
+  if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
+  if (feature === 'CREATE_EVENT') return 'Creator Pro permet une soirée par mois. Venue Pro inclut les soirées en illimité : compare directement les deux formules ci-dessous.';
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
-  return `${planLabel(plan)} est la formule requise pour cette fonction.`;
+  return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
 
 function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
@@ -85,7 +95,9 @@ export default function OffersScreen({ navigation, route }: any) {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const focusPlan = String(route?.params?.focusPlan || '').toUpperCase();
   const sourceFeature = String(route?.params?.sourceFeature || '').toUpperCase();
+  const compatibleCodes = useMemo(() => compatiblePlanCodes(sourceFeature, focusPlan), [focusPlan, sourceFeature]);
   const isEventChoice = sourceFeature === 'CREATE_EVENT';
+  const isUpgradeChoice = Boolean(focusPlan && compatibleCodes.length > 1);
   const [plans, setPlans] = useState<KeepPlan[]>([]);
   const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
   const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
@@ -123,9 +135,10 @@ export default function OffersScreen({ navigation, route }: any) {
 
   const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses + (growth?.bonusFreeCredits ?? 0), [funnel, growth?.bonusFreeCredits]);
   const visiblePlans = useMemo(() => {
-    if (isEventChoice) return plans.filter((plan) => plan.code === 'CREATOR_PRO' || plan.code === 'VENUE_PRO');
-    return focusPlan ? plans.filter((plan) => plan.code === focusPlan) : plans;
-  }, [focusPlan, isEventChoice, plans]);
+    if (!focusPlan) return plans;
+    const allowed = new Set(compatibleCodes);
+    return plans.filter((plan) => allowed.has(plan.code));
+  }, [compatibleCodes, focusPlan, plans]);
   const [f1, f2, f3, f4, f5] = rules.followerTiers;
   const [s1, s2, s3] = rules.shareTiers;
 
@@ -135,7 +148,7 @@ export default function OffersScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Retour"><Text style={s.back}>‹</Text></TouchableOpacity>
         <View style={s.headerText}>
           <Text style={s.title}>Offre & crédits</Text>
-          <Text style={s.subtitle}>{isEventChoice ? 'Soirées : choisis ta formule' : focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
+          <Text style={s.subtitle}>{isEventChoice ? 'Soirées : choisis ta formule' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
         </View>
         <View style={s.headerSpacer} />
       </View>
@@ -144,11 +157,12 @@ export default function OffersScreen({ navigation, route }: any) {
         {focusPlan ? <View style={s.requiredIntro}>
           <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
           <View style={s.requiredPlanRow}>
-            <Text style={s.requiredIntroTitle}>{isEventChoice ? 'Creator Pro ou Venue Pro' : planLabel(focusPlan)}</Text>
-            <ProfileCertificationBadge tier={certificationTierForPlan(isEventChoice ? 'CREATOR_PRO' : focusPlan)} />
+            <Text style={s.requiredIntroTitle}>{isEventChoice ? 'Creator Pro ou Venue Pro' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : planLabel(focusPlan)}</Text>
+            <ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} />
           </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
           {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>9,99 € : 1 soirée / mois  ·  29,99 € : soirées illimitées</Text></View> : null}
+          {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
@@ -191,7 +205,7 @@ export default function OffersScreen({ navigation, route }: any) {
                     <Text style={s.planPrice}>{money(plan)}</Text>
                   </View>
                 </View>
-                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>REQUIS</Text></View> : null}
+                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>MINIMUM</Text></View> : null}
               </View>
               {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
               <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
@@ -210,7 +224,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <Text style={s.subscriptionText}>Free gagne des options par paliers. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et le profil DJ/Artiste. Venue Pro retire les limites de soirées et ouvre les outils professionnels.</Text>
         </View>
 
-        {focusPlan && !isEventChoice ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
+        {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
           <Text style={s.allPlansText}>Voir toutes les formules</Text>
         </TouchableOpacity> : null}
       </ScrollView>
@@ -234,6 +248,8 @@ const s = StyleSheet.create({
   requiredIntroText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 7 },
   eventChoiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36', paddingHorizontal: 10, paddingVertical: 8 },
   eventChoiceHintText: { color: '#F3D776', fontSize: 10, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
+  choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', paddingHorizontal: 10, paddingVertical: 8 },
+  choiceHintText: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, fontWeight: '700', textAlign: 'center' },
   promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
