@@ -56,7 +56,7 @@
       [
         "expo-share-intent",
         {
-          "iosShareExtensionName": "KEEP",
+          "iosShareExtensionName": "KEEPShareExtension",
           "iosHideView": true,
           "iosActivationRules": {
             "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
