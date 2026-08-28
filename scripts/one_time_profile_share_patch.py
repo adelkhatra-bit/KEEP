@@ -6,7 +6,7 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
         raise SystemExit(f'PATCH FAILED: {label}')
     return text.replace(old, new, 1)
 
-# 1) Profil propriétaire : séparer abonnés/abonnements + ajouter copie lien.
+# 1) Profil propriétaire : abonnés/abonnements séparés + copie du lien.
 p = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
 s = p.read_text(encoding='utf-8')
 s = replace_once(
@@ -41,7 +41,7 @@ s = replace_once(
 )
 p.write_text(s, encoding='utf-8')
 
-# 2) Profil visiteur : même séparation visuelle, labels blancs et plus lisibles.
+# 2) Profil d'un autre utilisateur : même séparation et lisibilité.
 p = Path('packages/mobile/src/screens/PublicUserProfileScreen.tsx')
 s = p.read_text(encoding='utf-8')
 s = replace_once(
@@ -59,31 +59,8 @@ s = replace_once(
 s = s.replace("swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13", "swipeLaunchText:{color:'#FFFFFF',fontSize:10,lineHeight:14", 1)
 p.write_text(s, encoding='utf-8')
 
-# 3) Landing public : schéma Supabase actuel, aucune requête vers anciennes tables/colonnes.
-p = Path('packages/mobile/share-profile.html')
-s = p.read_text(encoding='utf-8')
-s = s.replace('select=id,username,bio,city,country_code,favorite_genres,social_links,avatar_url', 'select=id,username,bio,city,country_code,favorite_genres,avatar_url')
-s = s.replace('profile_follows?', 'follows?')
-s = s.replace('followed_id', 'followee_id')
-s = s.replace('playlist_prefs?profile_id=eq.', 'playlists?owner_id=eq.')
-old = "const [followerCount,followingCount,decisionRows,playlistRows]=await Promise.all([\n    publicCount(`follows?followee_id=eq.${encodeURIComponent(p.id)}&select=follower_id`),\n    publicCount(`follows?follower_id=eq.${encodeURIComponent(p.id)}&select=followee_id`),\n    get(`keep_decisions?profile_id=eq.${encodeURIComponent(p.id)}&decision=eq.KEPT&visibility=eq.PUBLIC&select=id,track_id,created_at,context,track:tracks(id,isrc,title,artist,album,artwork_url,preview_url,available_on,external_urls)&order=created_at.desc&limit=100`),\n    get(`playlists?owner_id=eq.${encodeURIComponent(p.id)}&is_public=eq.true&select=name,description,cover_url&order=updated_at.desc&limit=20`).catch(()=>[]),\n  ]);"
-new = "const [followerCount,followingCount,decisionRows,playlistRows,socialRows]=await Promise.all([\n    publicCount(`follows?followee_id=eq.${encodeURIComponent(p.id)}&select=follower_id`),\n    publicCount(`follows?follower_id=eq.${encodeURIComponent(p.id)}&select=followee_id`),\n    get(`keep_decisions?profile_id=eq.${encodeURIComponent(p.id)}&decision=eq.KEPT&visibility=eq.PUBLIC&select=id,track_id,created_at,context,track:tracks(id,isrc,title,artist,album,artwork_url,preview_url,available_on,external_urls)&order=created_at.desc&limit=100`).catch(()=>[]),\n    get(`playlists?owner_id=eq.${encodeURIComponent(p.id)}&is_public=eq.true&select=name,description,cover_url&order=updated_at.desc&limit=20`).catch(()=>[]),\n    get(`social_links?profile_id=eq.${encodeURIComponent(p.id)}&visibility=eq.PUBLIC&select=platform,url&order=created_at.asc`).catch(()=>[]),\n  ]);"
-s = replace_once(s, old, new, 'share landing parallel data')
-s = replace_once(
-    s,
-    "const socials=document.getElementById('socials');socials.innerHTML='';(p.social_links||[]).filter(x=>x?.visibility==='PUBLIC'&&x?.url).forEach(x=>",
-    "const socials=document.getElementById('socials');socials.innerHTML='';(socialRows||[]).filter(x=>x?.url).forEach(x=>",
-    'share landing social links',
-)
-s = replace_once(
-    s,
-    "init().catch(e=>{document.getElementById('status').textContent=e.message||'Profil indisponible'});",
-    "init().catch(()=>{const status=document.getElementById('status');status.innerHTML='<strong>Ce partage KEEP est momentanément indisponible.</strong><br><span style=\"display:block;margin-top:8px;color:#a99db9\">Réessaie ou ouvre directement KEEP.</span><a href=\"https://adelkhatra-bit.github.io/KEEP/\" style=\"display:inline-block;margin-top:14px;color:#fff;background:#7f5cff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:900\">OUVRIR KEEP</a>';});",
-    'share friendly failure',
-)
-p.write_text(s, encoding='utf-8')
-
-# 4) CI web : tester de vrais liens de partage et interdire HTTP 400/page noire dans le navigateur.
+# 3) Test public permanent : profil + morceau + Vibe + session + comparaison + soirée,
+# avec caractères spéciaux et interdiction explicite des pages HTTP 400/noires.
 p = Path('.github/workflows/web-preview-pages.yml')
 s = p.read_text(encoding='utf-8')
 s = replace_once(
@@ -95,7 +72,7 @@ s = replace_once(
 s = replace_once(
     s,
     "          const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');",
-    "          const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');\n          const badShare = text => /HTTP\\s*400|KEEP_DATA_400|Bad Request/i.test(text || '');",
+    "          const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');\n          const badShare = text => /HTTP\\s*400|SUPABASE_400|KEEP_DATA_400|Bad Request/i.test(text || '');",
     'share bad response matcher',
 )
 s = replace_once(
