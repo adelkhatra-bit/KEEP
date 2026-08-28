@@ -33,6 +33,16 @@ pass('Webhook Brevo sécurisé présent', exists('supabase/functions/keep-brevo-
 pass('Auto-configuration webhook Brevo présente', exists('supabase/functions/keep-email-admin/index.ts') && contains('supabase/functions/keep-email-admin/index.ts', 'ensure_webhook'));
 pass('Super Admin affiche la délivrabilité Brevo', contains('packages/admin/pages/email-test.tsx', 'Délivrabilité réelle'));
 
+const authService = 'packages/mobile/src/services/authService.ts';
+const authHandoff = 'packages/mobile/src/services/authLinkHandoff.ts';
+const accountForm = 'packages/mobile/src/components/UsernameAccountForm.tsx';
+pass('Récupération e-mail Supabase est active', contains(authService, 'signInWithOtp') && !contains(authService, "return { error: 'email_flow_disabled' }"));
+pass('Récupération e-mail ne crée jamais un nouveau compte', contains(authService, 'shouldCreateUser: false'));
+pass('Lien e-mail token_hash est vérifié réellement', contains(authHandoff, 'verifyOtp') && contains(authHandoff, 'token_hash'));
+pass('Lien e-mail peut revenir dans l’app native', contains(authHandoff, 'keep://auth/callback') && contains(authHandoff, 'getSession()'));
+pass('Lifecycle auth e-mail est monté hors navigation', contains('packages/mobile/index.js', 'AuthEmailLinkLifecycle'));
+pass('Mot de passe oublié utilise le vrai flux e-mail', contains(accountForm, 'requestEmailMagicLink(email)') && !contains(accountForm, 'Pendant les tests, le Super Admin KEEP peut générer'));
+
 if (failures.length) {
   console.error('\nKEEP production resilience failures:');
   for (const label of failures) console.error(`FAIL  ${label}`);
