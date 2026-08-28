@@ -2,37 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-
-const BENEFITS: Record<string, string[]> = {
-  FREE: [
-    'Écoute et reconnaissance sans limite de durée : les morceaux détectés restent dans Mes Sessions',
-    '3 KEEP avant inscription, puis +4 KEEP offerts après création du compte',
-    'Profil public limité aux morceaux réellement acquis avec tes crédits gratuits',
-    'Extraits et tri de session disponibles même lorsque tes crédits sont épuisés',
-  ],
-  PREMIUM: [
-    'Débloque tes playlists publiques et une visibilité musicale étendue',
-    'KEEP et fonctions de communauté sans quota mensuel prévu pendant l’abonnement',
-    'Partage plus complet de ton univers musical et de tes playlists',
-    'Jusqu’à 3 services musicaux connectés',
-  ],
-  CREATOR_PRO: [
-    'Inclut toutes les fonctions Premium',
-    'Profils DJ, Artiste, Créateur ou Producteur',
-    'Création d’événements et notifications aux abonnés',
-    'Analytics et fonctions créateur avancées',
-  ],
-  VENUE_PRO: [
-    'Inclut les fonctions Creator Pro disponibles pour les lieux',
-    'Profil Lieu / établissement',
-    'Événements, communauté, QR et visibilité professionnelle',
-    'Outils et analytics dédiés aux établissements',
-  ],
-};
 
 function money(plan: KeepPlan) {
   if (plan.monthlyAmount === 0) return 'Gratuit';
@@ -54,20 +28,57 @@ function certificationTierForPlan(code: string): ProfileCertificationTier {
 }
 
 function requiredReason(feature: string, plan: string) {
-  if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. En Free, seuls tes KEEP acquis sont visibles ; Premium étend la visibilité de tes playlists.';
-  if (feature === 'PUBLIC_PLAYLISTS') return 'Premium débloque les playlists publiques et la visibilité musicale étendue.';
-  if (feature === 'CREATOR_KIND') return 'Cette formule débloque les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return 'Cette formule débloque la création d’événements et les notifications à tes abonnés.';
-  if (feature === 'VENUE_KIND') return 'Cette formule débloque le profil Lieu / établissement et ses outils professionnels.';
+  if (feature === 'SOCIAL_DISCOVERY') return 'Les 3 premiers profils sont offerts en Free. Ensuite Premium débloque Découvertes sans limite.';
+  if (feature === 'SMART_SORTING') return 'Le rangement automatique KEEP Vibes est inclus à partir de Creator Pro. Premium garde quelques essais pour le découvrir.';
+  if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
+  if (feature === 'PUBLIC_PLAYLISTS') return 'Premium débloque les Vibes publiques et la visibilité musicale étendue.';
+  if (feature === 'CREATOR_KIND') return 'Creator Pro débloque les profils DJ, Artiste, Créateur et Producteur.';
+  if (feature === 'CREATE_EVENT') return 'Creator Pro permet une soirée par mois. Venue Pro passe les soirées en illimité.';
+  if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
   return `${planLabel(plan)} est la formule requise pour cette fonction.`;
+}
+
+function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
+  if (planCode === 'FREE') return [
+    'Écoute et reconnaissance illimitées : tes sessions continuent même sans crédit.',
+    `${rules.freeDiscoveryProfiles} profils Découvertes offerts, puis Premium ou bonus gagnés avec ta communauté.`,
+    `${funnel.guestSuccessLimit} KEEP avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
+    'Pas de rangement automatique par défaut : des essais peuvent se débloquer en partageant et en gagnant des abonnés.',
+  ];
+  if (planCode === 'PREMIUM') return [
+    'Écoute illimitée et profil musical étendu en illimité.',
+    `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
+    'Découvertes de profils en illimité.',
+    `${rules.premiumSmartSortTrials} essais de KEEP Vibes automatique, puis Creator Pro pour le rangement illimité.`,
+    'Profil reste « Utilisateur » : DJ / Artiste / Créateur se débloquent avec Creator Pro.',
+  ];
+  if (planCode === 'CREATOR_PRO') return [
+    'Tout Premium + téléchargements illimités.',
+    'KEEP Vibes automatique en illimité : styles, albums intelligents et renommage libre.',
+    'Choisis ton profil : DJ, Artiste, Créateur ou Producteur.',
+    '1 soirée créée par mois + notifications aux abonnés.',
+    'Analytics et fonctions créateur avancées.',
+  ];
+  if (planCode === 'VENUE_PRO') return [
+    'Tout Creator Pro + téléchargements et KEEP Vibes illimités.',
+    'Profil Lieu / établissement et outils professionnels.',
+    'Soirées et événements en illimité.',
+    'QR, communauté et analytics avancés.',
+    `Les fonctions Audience Pro demandent aussi une vraie communauté : seuil actuel ${rules.audienceProThreshold} abonnés.`,
+  ];
+  return [];
 }
 
 export default function OffersScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const focusPlan = String(route?.params?.focusPlan || '').toUpperCase();
   const sourceFeature = String(route?.params?.sourceFeature || '').toUpperCase();
   const [plans, setPlans] = useState<KeepPlan[]>([]);
-  const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 4 });
+  const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
+  const [rules, setRules] = useState<CommercialRules>({ freeDiscoveryProfiles: 3, premiumSmartSortTrials: 3, premiumDailyDownloads: 40, shareDailyCap: 10, audienceProThreshold: 1000 });
+  const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
   const [currentPlan, setCurrentPlan] = useState('FREE');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -76,15 +87,20 @@ export default function OffersScreen({ navigation, route }: any) {
     let cancelled = false;
     (async () => {
       try {
-        const [livePlans, liveFunnel, planCode] = await Promise.all([
+        const canLoadGrowth = Boolean(user && !isLocalGuest && !isDemoMode);
+        const [livePlans, liveFunnel, planCode, liveRules, liveGrowth] = await Promise.all([
           loadPlans(),
           loadCreditFunnel(),
           user ? loadCurrentPlanCode(user.id) : Promise.resolve('FREE'),
+          getCommercialRules(),
+          canLoadGrowth ? getGrowthRewardStatus().catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setPlans(livePlans);
         setFunnel(liveFunnel);
         setCurrentPlan(planCode || 'FREE');
+        setRules(liveRules);
+        setGrowth(liveGrowth);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Impossible de charger les offres.');
       } finally {
@@ -92,9 +108,9 @@ export default function OffersScreen({ navigation, route }: any) {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, isLocalGuest, isDemoMode]);
 
-  const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses, [funnel]);
+  const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses + (growth?.bonusFreeCredits ?? 0), [funnel, growth?.bonusFreeCredits]);
   const visiblePlans = useMemo(() => focusPlan ? plans.filter((plan) => plan.code === focusPlan) : plans, [focusPlan, plans]);
 
   return (
@@ -116,15 +132,28 @@ export default function OffersScreen({ navigation, route }: any) {
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
-            <Text style={s.promiseTitle}>Partage tes goûts musicaux. Crée ta communauté.</Text>
-            <Text style={s.promiseBody}>Tu peux laisser KEEP écouter et construire tes sessions sans limite de durée. Les crédits servent au moment où tu choisis réellement de GARDER un morceau. Le compte Free reste utilisable ; les formules payantes débloquent davantage de visibilité et d’outils.</Text>
+            <Text style={s.promiseTitle}>Tu peux aussi gagner des options sans payer.</Text>
+            <Text style={s.promiseBody}>Plus tu partages ton univers et plus ta communauté grandit, plus KEEP débloque des bonus sur le compte Free. Les partages sont plafonnés par jour pour éviter le spam : il faut faire grandir une vraie communauté.</Text>
           </View>
 
           <View style={s.creditCard}>
-            <Text style={s.sectionTitle}>Essai gratuit</Text>
-            <Text style={s.creditBig}>{funnel.guestSuccessLimit} + {funnel.signupBonusSuccesses} = {freeTotal}</Text>
-            <Text style={s.creditText}>{funnel.guestSuccessLimit} KEEP avant inscription, puis {funnel.signupBonusSuccesses} supplémentaires offerts après création du compte.</Text>
-            <Text style={s.creditRule}>Détecter, reconnaître, écouter un extrait et PASSER ne consomment aucun crédit. Si le quota est épuisé, le morceau reste en attente dans Mes Sessions. Seul GARDER réellement un morceau consomme un crédit.</Text>
+            <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes cadeaux Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
+            <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés` : ''}.</Text>
+            <Text style={s.creditRule}>Écouter, reconnaître, pré-écouter et PASSER ne consomment rien. Un téléchargement réel consomme un crédit Free.</Text>
+            {growth ? <View style={s.growthGrid}>
+              <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
+              <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
+              <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusDiscoveryProfiles}</Text><Text style={s.growthLabel}>Découvertes gagnées</Text></View>
+            </View> : null}
+            <View style={s.ladder}>
+              <Text style={s.ladderTitle}>PALIERS COMMUNAUTÉ</Text>
+              <Text style={s.ladderLine}>25 abonnés → +3 profils Découvertes</Text>
+              <Text style={s.ladderLine}>100 abonnés → 1 essai KEEP Vibes</Text>
+              <Text style={s.ladderLine}>250 abonnés → +5 crédits</Text>
+              <Text style={s.ladderLine}>500 abonnés → +5 Découvertes + 1 essai Vibes</Text>
+              <Text style={s.ladderLine}>1000 abonnés → +20 crédits + éligibilité Audience Pro</Text>
+              <Text style={s.ladderHint}>Des bonus existent aussi à 20, 50 et 100 partages qualifiés. Les seuils sont réglables depuis le Super Admin.</Text>
+            </View>
           </View>
         </>}
 
@@ -141,16 +170,14 @@ export default function OffersScreen({ navigation, route }: any) {
                     <Text style={s.planPrice}>{money(plan)}</Text>
                   </View>
                 </View>
-                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>FORMULE REQUISE</Text></View> : null}
+                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>REQUIS</Text></View> : null}
               </View>
-              <Text style={s.badgePreview}>Pastille affichée à côté de ton pseudo avec cette formule.</Text>
               {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
-              {(BENEFITS[plan.code] || []).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}
-              {plan.code !== 'FREE' ? <Text style={s.unlimited}>Fonctions incluses disponibles pendant toute la durée de l’abonnement, sans achat à l’unité.</Text> : null}
+              <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
               {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               {!active && plan.code !== 'FREE' ? (
-                <TouchableOpacity style={s.cta} onPress={() => {}} accessibilityRole="button">
-                  <Text style={s.ctaText}>{focused ? `Choisir ${planLabel(plan.code)}` : 'En savoir plus'}</Text>
+                <TouchableOpacity style={s.cta} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
+                  <Text style={s.ctaText}>Voir {planLabel(plan.code)}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -158,8 +185,8 @@ export default function OffersScreen({ navigation, route }: any) {
         })}
 
         <View style={s.subscriptionCard}>
-          <Text style={s.subscriptionTitle}>Sans engagement</Text>
-          <Text style={s.subscriptionText}>Abonnement mensuel. Tu peux arrêter à tout moment. Les avantages restent actifs jusqu’à la fin de la période déjà payée, puis les fonctions payantes se reverrouillent automatiquement. Ton compte, ton profil, tes sessions et tes données restent conservés.</Text>
+          <Text style={s.subscriptionTitle}>Règles simples</Text>
+          <Text style={s.subscriptionText}>Free peut gagner des bonus. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et le profil DJ/Artiste. Venue Pro retire les limites d’événements et ouvre les outils professionnels.</Text>
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
@@ -189,10 +216,21 @@ const s = StyleSheet.create({
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
   promiseBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 8 },
   creditCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primary },
+  creditTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   sectionTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
-  creditBig: { color: colors.primaryLight, fontSize: 28, fontWeight: '900', marginTop: 8 },
+  creditBig: { color: colors.primaryLight, fontSize: 28, fontWeight: '900', marginTop: 3 },
+  freePill: { borderRadius: 999, borderWidth: 1, borderColor: colors.keep, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#13251C' },
+  freePillText: { color: colors.keep, fontSize: 9, fontWeight: '900' },
   creditText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
-  creditRule: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
+  creditRule: { color: colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 7 },
+  growthGrid: { flexDirection: 'row', gap: 7, marginTop: 12 },
+  growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  growthValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  growthLabel: { color: colors.textMuted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2 },
+  ladder: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#493369', paddingTop: 10 },
+  ladderTitle: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  ladderLine: { color: colors.textSecondary, fontSize: 10, lineHeight: 16, marginTop: 2 },
+  ladderHint: { color: colors.textMuted, fontSize: 9, lineHeight: 14, marginTop: 6 },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
   planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
@@ -200,17 +238,16 @@ const s = StyleSheet.create({
   planIdentity: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   planName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
   planPrice: { color: colors.primaryLight, fontSize: 13, fontWeight: '800', marginTop: 3 },
-  badgePreview: { color: colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 9 },
   currentBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.smartBadgeBg },
   currentBadgeText: { color: colors.smartBadgeText, fontSize: 9, fontWeight: '900' },
   requiredBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#3D2860', borderWidth: 1, borderColor: colors.primaryLight },
   requiredBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
-  planDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 10, marginBottom: 6 },
-  benefit: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
-  unlimited: { color: colors.keep, fontSize: 10, lineHeight: 15, fontWeight: '800', marginTop: 10 },
+  planDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 9 },
+  benefitBox: { marginTop: 8, gap: 2 },
+  benefit: { color: colors.textSecondary, fontSize: 11, lineHeight: 17 },
   trial: { color: colors.keep, fontSize: 11, fontWeight: '800', marginTop: 8 },
-  cta: { minHeight: 44, borderRadius: 22, marginTop: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
-  ctaText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  cta: { minHeight: 42, borderRadius: 21, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   subscriptionText: { color: colors.textMuted, fontSize: 10, lineHeight: 16, marginTop: 5 },
