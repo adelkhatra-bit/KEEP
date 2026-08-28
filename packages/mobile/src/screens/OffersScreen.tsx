@@ -21,7 +21,7 @@ const DEFAULT_RULES: CommercialRules = {
 const PAID_PLAN_ORDER = ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
 
 function money(plan: KeepPlan) {
-  if (plan.monthlyAmount === 0) return 'Gratuit';
+  if (plan.monthlyAmount === 0) return 'Free';
   return `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`;
 }
 
@@ -48,17 +48,19 @@ function compatiblePlanCodes(feature: string, focusPlan: string): string[] {
 }
 
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
+  const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
   if (feature === 'SMART_SORTING') return `Le rangement automatique KEEP Vibes est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return 'Creator Pro permet une soirée par mois. Venue Pro inclut les soirées en illimité : compare directement les deux formules ci-dessous.';
+  if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro permet ensuite 1 soirée par mois ; Venue Pro passe les soirées en illimité.`;
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
 
 function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
+  const eventFollowers = rules.followerTiers[3] || 500;
   if (planCode === 'FREE') return [
     'Écoute et reconnaissance illimitées : tes sessions continuent même sans crédit.',
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts, puis Premium ou bonus gagnés avec ta communauté.`,
@@ -76,13 +78,13 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     'Tout Premium + téléchargements illimités.',
     'KEEP Vibes automatique en illimité : styles, albums intelligents et renommage libre.',
     'Choisis ton profil : DJ, Artiste, Créateur ou Producteur.',
-    '1 soirée créée par mois + notifications aux abonnés.',
+    `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois + notifications aux abonnés.`,
     'Analytics et fonctions créateur avancées.',
   ];
   if (planCode === 'VENUE_PRO') return [
     'Tout Creator Pro + téléchargements et KEEP Vibes illimités.',
     'Profil Lieu / établissement et outils professionnels.',
-    'Soirées et événements en illimité.',
+    `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
     'QR, communauté et analytics avancés.',
     `Les fonctions Audience Pro demandent aussi une vraie communauté : seuil actuel ${rules.audienceProThreshold} abonnés.`,
   ];
@@ -161,7 +163,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} />
           </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
-          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>9,99 € : 1 soirée / mois  ·  29,99 € : soirées illimitées</Text></View> : null}
+          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : 1 soirée / mois · 29,99 € : soirées illimitées</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
@@ -171,7 +173,7 @@ export default function OffersScreen({ navigation, route }: any) {
           </View>
 
           <View style={s.creditCard}>
-            <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes cadeaux Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
+            <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes avantages Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
             <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés` : ''}.</Text>
             <Text style={s.creditRule}>Écouter, reconnaître, pré-écouter et PASSER ne consomment rien. Un téléchargement réel consomme un crédit Free.</Text>
             {growth ? <View style={s.growthGrid}>
@@ -184,9 +186,9 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.ladderLine}>{f1} abonnés → plus de Découvertes</Text>
               <Text style={s.ladderLine}>{f2} abonnés → essai KEEP Vibes automatique</Text>
               <Text style={s.ladderLine}>{f3} abonnés → crédits KEEP supplémentaires</Text>
-              <Text style={s.ladderLine}>{f4} abonnés → nouveaux bonus Découvertes + Vibes</Text>
+              <Text style={s.ladderLine}>{f4} abonnés → création d’événements disponible selon la formule + bonus Découvertes / Vibes</Text>
               <Text style={s.ladderLine}>{f5} abonnés → crédits bonus + éligibilité Audience Pro</Text>
-              <Text style={s.ladderHint}>Des cadeaux se débloquent aussi à {s1}, {s2} et {s3} partages qualifiés. Tous les seuils et quotas sont réglables depuis le Super Admin.</Text>
+              <Text style={s.ladderHint}>Des avantages se débloquent aussi à {s1}, {s2} et {s3} partages qualifiés. Tous les seuils et quotas sont réglables depuis le Super Admin.</Text>
             </View>
           </View>
         </>}
@@ -221,7 +223,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Règles simples</Text>
-          <Text style={s.subscriptionText}>Free gagne des options par paliers. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et le profil DJ/Artiste. Venue Pro retire les limites de soirées et ouvre les outils professionnels.</Text>
+          <Text style={s.subscriptionText}>Free gagne des options par paliers. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et 1 soirée par mois à partir de {f4} abonnés. Venue Pro passe les soirées en illimité à partir du même seuil et ouvre les outils professionnels.</Text>
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
@@ -245,31 +247,31 @@ const s = StyleSheet.create({
   requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
   requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', flexShrink: 1 },
-  requiredIntroText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 7 },
+  requiredIntroText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 7, fontWeight: '700' },
   eventChoiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36', paddingHorizontal: 10, paddingVertical: 8 },
-  eventChoiceHintText: { color: '#F3D776', fontSize: 10, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
+  eventChoiceHintText: { color: '#FFF4C2', fontSize: 10, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
   choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', paddingHorizontal: 10, paddingVertical: 8 },
-  choiceHintText: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, fontWeight: '700', textAlign: 'center' },
+  choiceHintText: { color: '#F8F6FC', fontSize: 10, lineHeight: 15, fontWeight: '800', textAlign: 'center' },
   promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
-  promiseBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 8 },
+  promiseBody: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 8, fontWeight: '700' },
   creditCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primary },
   creditTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   sectionTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
   creditBig: { color: colors.primaryLight, fontSize: 28, fontWeight: '900', marginTop: 3 },
   freePill: { borderRadius: 999, borderWidth: 1, borderColor: colors.keep, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#13251C' },
   freePillText: { color: colors.keep, fontSize: 9, fontWeight: '900' },
-  creditText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
-  creditRule: { color: colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 7 },
+  creditText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700' },
+  creditRule: { color: '#D8D0E2', fontSize: 10, lineHeight: 15, marginTop: 7, fontWeight: '700' },
   growthGrid: { flexDirection: 'row', gap: 7, marginTop: 12 },
   growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   growthValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
-  growthLabel: { color: colors.textMuted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2 },
+  growthLabel: { color: '#E9E3F0', fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2, fontWeight: '700' },
   ladder: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#493369', paddingTop: 10 },
   ladderTitle: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  ladderLine: { color: colors.textSecondary, fontSize: 10, lineHeight: 16, marginTop: 2 },
-  ladderHint: { color: colors.textMuted, fontSize: 9, lineHeight: 14, marginTop: 6 },
+  ladderLine: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 2, fontWeight: '700' },
+  ladderHint: { color: '#D8D0E2', fontSize: 9, lineHeight: 14, marginTop: 6, fontWeight: '700' },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
   planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
@@ -277,23 +279,23 @@ const s = StyleSheet.create({
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   planIdentity: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   planName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
-  planPrice: { color: colors.primaryLight, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  planPrice: { color: '#F8F6FC', fontSize: 13, fontWeight: '900', marginTop: 3 },
   currentBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.smartBadgeBg },
   currentBadgeText: { color: colors.smartBadgeText, fontSize: 9, fontWeight: '900' },
   requiredBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#3D2860', borderWidth: 1, borderColor: colors.primaryLight },
   requiredBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
   unlimitedBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#2B2410', borderWidth: 1, borderColor: '#D6AA36' },
-  unlimitedBadgeText: { color: '#F3D776', fontSize: 9, fontWeight: '900' },
-  planDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 9 },
+  unlimitedBadgeText: { color: '#FFF4C2', fontSize: 9, fontWeight: '900' },
+  planDescription: { color: '#F8F6FC', fontSize: 12, lineHeight: 17, marginTop: 9, fontWeight: '700' },
   benefitBox: { marginTop: 8, gap: 2 },
-  benefit: { color: colors.textSecondary, fontSize: 11, lineHeight: 17 },
-  trial: { color: colors.keep, fontSize: 11, fontWeight: '800', marginTop: 8 },
+  benefit: { color: '#F8F6FC', fontSize: 11, lineHeight: 17, fontWeight: '700' },
+  trial: { color: colors.keep, fontSize: 11, fontWeight: '900', marginTop: 8 },
   cta: { minHeight: 42, borderRadius: 21, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   ctaUnlimited: { backgroundColor: '#8A6A12' },
   ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
-  subscriptionText: { color: colors.textMuted, fontSize: 10, lineHeight: 16, marginTop: 5 },
+  subscriptionText: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 5, fontWeight: '700' },
   allPlans: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   allPlansText: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   error: { color: colors.danger, textAlign: 'center', paddingVertical: 20 },
