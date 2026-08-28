@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { broadcastEventToFollowers, createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
-import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
+import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
@@ -23,6 +23,8 @@ export default function PartiesScreen({ navigation }: any) {
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [eventAccess, setEventAccess] = useState<QuotaAccess | null>(null);
+  const [followers, setFollowers] = useState(0);
+  const [minEventFollowers, setMinEventFollowers] = useState(500);
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
@@ -33,9 +35,17 @@ export default function PartiesScreen({ navigation }: any) {
   const [message, setMessage] = useState('');
 
   const reloadAccess = async () => {
-    if (!user || isLocalGuest || isDemoMode) { setEventAccess(null); return; }
-    try { setEventAccess(await getEventCreationAccess()); }
-    catch { setEventAccess(null); }
+    if (!user || isLocalGuest || isDemoMode) { setEventAccess(null); setFollowers(0); setMinEventFollowers(500); return; }
+    try {
+      const [access, growth, rules] = await Promise.all([
+        getEventCreationAccess(),
+        getGrowthRewardStatus().catch(() => null),
+        getCommercialRules().catch(() => null),
+      ]);
+      setEventAccess(access);
+      setFollowers(growth?.followers ?? 0);
+      setMinEventFollowers(rules?.followerTiers?.[3] || 500);
+    } catch { setEventAccess(null); }
   };
 
   const reload = async () => {
@@ -52,7 +62,8 @@ export default function PartiesScreen({ navigation }: any) {
 
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
   const currentEvent = events.length ? events[eventIndex % events.length] : null;
-  const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited);
+  const audienceReady = followers >= minEventFollowers;
+  const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited) && audienceReady;
   const nextEvent = () => { if (events.length) setEventIndex((value) => (value + 1) % events.length); };
 
   const requireAccount = () => Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour répondre aux soirées.', [
@@ -72,10 +83,27 @@ export default function PartiesScreen({ navigation }: any) {
       navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'CREATE_EVENT' });
       return;
     }
-    const access = await getEventCreationAccess().catch(() => eventAccess);
+    const [access, growth, rules] = await Promise.all([
+      getEventCreationAccess().catch(() => eventAccess),
+      getGrowthRewardStatus().catch(() => null),
+      getCommercialRules().catch(() => null),
+    ]);
     if (access) setEventAccess(access);
-    if (!access || (!access.allowed && !access.unlimited)) {
-      navigation.navigate('Offers', { focusPlan: access?.planCode === 'CREATOR_PRO' ? 'VENUE_PRO' : 'CREATOR_PRO', sourceFeature: 'CREATE_EVENT' });
+    const liveFollowers = growth?.followers ?? followers;
+    const liveMinimum = rules?.followerTiers?.[3] || minEventFollowers || 500;
+    setFollowers(liveFollowers);
+    setMinEventFollowers(liveMinimum);
+
+    if (!access || !['CREATOR_PRO', 'VENUE_PRO'].includes(access.planCode)) {
+      navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'CREATE_EVENT' });
+      return;
+    }
+    if (liveFollowers < liveMinimum) {
+      Alert.alert('500 abonnés requis', `La création d’événements s’ouvre à partir de ${liveMinimum} abonnés. Tu en as actuellement ${liveFollowers}.`);
+      return;
+    }
+    if (!access.allowed && !access.unlimited) {
+      navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
       return;
     }
     setCreateOpen(true);
@@ -100,7 +128,10 @@ export default function PartiesScreen({ navigation }: any) {
       Alert.alert('Soirée publiée', notifyFollowers ? `${sent} abonné(s) ont reçu l’invitation KEEP.` : 'La soirée est maintenant visible dans KEEP.');
     } catch (e: any) {
       const code = String(e?.message || '');
-      if (code.includes('VENUE_PRO_EVENT_LIMIT')) navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
+      if (code.includes('EVENT_FOLLOWERS_REQUIRED')) {
+        const [, current, minimum] = code.split(':');
+        Alert.alert('Audience requise', `La création d’événements demande au moins ${Number(minimum || 500)} abonnés. Tu en as actuellement ${Number(current || 0)}.`);
+      } else if (code.includes('VENUE_PRO_EVENT_LIMIT')) navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
       else if (code.includes('CREATOR_PRO_REQUIRED')) navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'CREATE_EVENT' });
       else Alert.alert('Soirée', code || 'Impossible de créer la soirée pour le moment.');
     } finally { setCreateBusy(false); }
@@ -108,7 +139,10 @@ export default function PartiesScreen({ navigation }: any) {
 
   const dateText = currentEvent ? new Date(currentEvent.startsAt).toLocaleString('fr-FR', { weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit' }) : '';
   const currentRsvp = currentEvent ? rsvps[currentEvent.id] : undefined;
-  const createLabel = eventAccess?.unlimited ? '＋ ILLIMITÉ' : eventAccess?.planCode === 'CREATOR_PRO' ? (canCreate ? '＋ 1 / MOIS' : '🔒 LIMITE') : '🔒 CRÉER';
+  const createLabel = !audienceReady && eventAccess && ['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode)
+    ? `🔒 ${followers}/${minEventFollowers}`
+    : eventAccess?.unlimited && canCreate ? '＋ ILLIMITÉ'
+      : eventAccess?.planCode === 'CREATOR_PRO' ? (canCreate ? '＋ 1 / MOIS' : '🔒 LIMITE') : '🔒 CRÉER';
 
   return <SafeAreaView style={styles.container}>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -116,7 +150,10 @@ export default function PartiesScreen({ navigation }: any) {
         <View style={{flex:1}}><Text style={styles.title}>Soirées</Text><Text style={styles.subtitle}>Découvre, participe et garde le plaisir du swipe.</Text></View>
         <TouchableOpacity style={[styles.createButton,!canCreate&&styles.createButtonLocked]} onPress={() => void openCreate()}><Text style={styles.createButtonText}>{createLabel}</Text></TouchableOpacity>
       </View>
-      {!eventAccess || (!eventAccess.unlimited && eventAccess.planCode !== 'CREATOR_PRO') ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Créer une soirée : Creator Pro 9,99 € · 1 par mois. Venue Pro 29,99 € · illimité.</Text></TouchableOpacity> : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? 'Creator Pro : ta création du mois est disponible.' : 'Limite du mois atteinte · Venue Pro débloque les soirées en illimité.'}</Text></TouchableOpacity> : null}
+      {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro 9,99 € · 1 soirée/mois. Venue Pro 29,99 € · soirées illimitées.</Text></TouchableOpacity>
+        : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
+          : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les soirées en illimité.'}</Text></TouchableOpacity>
+            : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : soirées illimitées · seuil {minEventFollowers} abonnés atteint.</Text></View>}
 
       {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -139,5 +176,5 @@ export default function PartiesScreen({ navigation }: any) {
 }
 
 const styles=StyleSheet.create({
-container:{flex:1,backgroundColor:'#090610'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#8F879D',fontSize:12,lineHeight:17,marginTop:3},createButton:{minHeight:40,paddingHorizontal:12,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#B79CFF',fontSize:10,lineHeight:15,textAlign:'center',fontWeight:'700'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{height:420,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end',overflow:'hidden'},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)',marginBottom:10},badgeText:{color:'#B79CFF',fontSize:9,fontWeight:'900',letterSpacing:1},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#A99DB9',fontSize:12,marginTop:5},dj:{color:'#B79CFF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#D0C6D9',fontSize:12,lineHeight:18,marginTop:14},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:10,fontWeight:'900'},rsvpRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:18,marginTop:16},roundAction:{width:58,height:58,borderRadius:29,alignItems:'center',justifyContent:'center',borderWidth:2},noAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},yesAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},noText:{color:'#FF5F83',fontSize:26,fontWeight:'800'},yesText:{color:'#17130B',fontSize:25,fontWeight:'900'},maybeAction:{minHeight:44,paddingHorizontal:15,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#D9CFE5',fontSize:9,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#B9AEC6',fontSize:10,fontWeight:'800'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#B79CFF',fontSize:11,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:11,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#A99DB9',fontSize:10,fontWeight:'800'}
+container:{flex:1,backgroundColor:'#090610'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#D8D0E2',fontSize:12,lineHeight:17,marginTop:3,fontWeight:'700'},createButton:{minHeight:40,paddingHorizontal:12,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:10,lineHeight:15,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{height:420,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end',overflow:'hidden'},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)',marginBottom:10},badgeText:{color:'#B79CFF',fontSize:9,fontWeight:'900',letterSpacing:1},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#D8D0E2',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:10,fontWeight:'900'},rsvpRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:18,marginTop:16},roundAction:{width:58,height:58,borderRadius:29,alignItems:'center',justifyContent:'center',borderWidth:2},noAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},yesAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},noText:{color:'#FF5F83',fontSize:26,fontWeight:'800'},yesText:{color:'#17130B',fontSize:25,fontWeight:'900'},maybeAction:{minHeight:44,paddingHorizontal:15,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:9,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:10,fontWeight:'800'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:11,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:11,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:10,fontWeight:'800'}
 });
