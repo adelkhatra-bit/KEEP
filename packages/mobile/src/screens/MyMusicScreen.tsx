@@ -11,7 +11,7 @@ import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
-import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
+import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import {
   isSmartAlbumUiId,
   loadOwnSmartAlbums,
@@ -68,6 +68,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [bulkVisibilityBusy, setBulkVisibilityBusy] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
   const [trackVisibilityBusy, setTrackVisibilityBusy] = useState<string | null>(null);
+  const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
 
   const localKeptEntries = useMemo(() => {
     const all = sessions.flatMap((session) => session.tracks
@@ -189,8 +190,6 @@ export default function MyMusicScreen({ navigation }: any) {
     setBulkVisibilityBusy(visibility);
     try {
       await setAllKeptVisibility(visibility);
-      // Relire immédiatement la source de vérité distante. Le compteur et le
-      // profil ne peuvent plus afficher une ancienne valeur après refresh.
       await syncUnsyncedKeeps();
     } catch (e: any) {
       Alert.alert('Visibilité', e?.message ?? 'Impossible de modifier toute la bibliothèque pour le moment.');
@@ -295,21 +294,36 @@ export default function MyMusicScreen({ navigation }: any) {
     const entry = localEntryForTrack(track);
     if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’une Vibe ou d’un service connecté. Modifie la visibilité de sa collection.');
     const key = trackIdentity(track);
-    if (trackVisibilityBusy === key) return;
+    if (trackVisibilityBusy === key || trackDeleteBusy === key) return;
     const next = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
     setTrackVisibilityBusy(key);
     try {
+      if (isLocalGuest || isDemoMode) {
+        useSessionHistoryStore.setState((state) => ({
+          sessions: state.sessions.map((session) => ({
+            ...session,
+            tracks: session.tracks.map((item) => item.status === 'kept' && trackIdentity(item.track) === key ? { ...item, visibility: next } : item),
+          })),
+        }));
+        return;
+      }
+
       const persisted = await persistOwnTrackVisibility(track, next);
-      // Mise à jour locale seulement APRÈS confirmation Supabase.
+      // Toutes les occurrences locales du même morceau prennent la même valeur
+      // AVANT la resynchronisation. Ainsi une vieille occurrence non synchronisée
+      // ne peut pas recréer une décision PUBLIC juste après un passage en PRIVÉ.
       useSessionHistoryStore.setState((state) => ({
-        sessions: state.sessions.map((session) => session.id !== entry.sessionId
-          ? session
-          : {
-              ...session,
-              tracks: session.tracks.map((item) => item.id === entry.id
-                ? { ...item, visibility: persisted.visibility, keepDecisionId: persisted.decisionId }
-                : item),
-            }),
+        sessions: state.sessions.map((session) => ({
+          ...session,
+          tracks: session.tracks.map((item) => {
+            if (item.status !== 'kept' || trackIdentity(item.track) !== key) return item;
+            return {
+              ...item,
+              visibility: persisted.visibility,
+              keepDecisionId: item.id === entry.id ? persisted.decisionId : item.keepDecisionId,
+            };
+          }),
+        })),
       }));
       await syncUnsyncedKeeps();
     } catch (e: any) {
@@ -317,6 +331,47 @@ export default function MyMusicScreen({ navigation }: any) {
     } finally {
       setTrackVisibilityBusy(null);
     }
+  };
+
+  const removeTrackNow = async (track: CanonicalTrack) => {
+    const key = trackIdentity(track);
+    if (trackDeleteBusy === key || trackVisibilityBusy === key) return;
+    setTrackDeleteBusy(key);
+    try {
+      if (!isLocalGuest && !isDemoMode) await removeOwnTrackFromKeep(track);
+
+      // La suppression serveur est confirmée avant de retirer toutes les copies
+      // locales de la piste. Aucun refresh ne peut donc la restaurer ensuite.
+      useSessionHistoryStore.setState((state) => ({
+        sessions: state.sessions
+          .map((session) => ({
+            ...session,
+            tracks: session.tracks.filter((item) => !(item.status === 'kept' && trackIdentity(item.track) === key)),
+          }))
+          .filter((session) => session.tracks.length > 0),
+      }));
+      setTracksByPlaylist((state) => Object.fromEntries(
+        Object.entries(state).map(([playlistId, tracks]) => [playlistId, tracks.filter((item) => trackIdentity(item) !== key)]),
+      ) as Record<string, CanonicalTrack[]>);
+      setAnalysis(null);
+      await refreshSmartState().catch(() => {});
+      await refresh().catch(() => {});
+    } catch (e: any) {
+      Alert.alert('Supprimer', e?.message ?? 'Impossible de supprimer ce morceau pour le moment.');
+    } finally {
+      setTrackDeleteBusy(null);
+    }
+  };
+
+  const confirmRemoveTrack = (track: CanonicalTrack) => {
+    Alert.alert(
+      'Supprimer ce morceau ?',
+      `${track.title} sera retiré de KEEP et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer', style: 'destructive', onPress: () => void removeTrackNow(track) },
+      ],
+    );
   };
 
   const openSourceProfile = (sourceUsername?: string) => {
@@ -348,31 +403,45 @@ export default function MyMusicScreen({ navigation }: any) {
     const localEntry = localEntryForTrack(track);
     const key = trackIdentity(track);
     const publicTrack = localEntry?.visibility === 'PUBLIC';
-    const busy = trackVisibilityBusy === key;
+    const visibilityBusy = trackVisibilityBusy === key;
+    const deleteBusy = trackDeleteBusy === key;
+    const busy = visibilityBusy || deleteBusy;
     return <View key={key} style={styles.trackRow}>
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
-      <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
-        <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text>
-        {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
-          <Text style={styles.trackSourceLabel}>Donné par</Text>
-          <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de @${localEntry.sourceUsername}`}>
-            <Text style={styles.trackSourceLink}>@{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
-          </TouchableOpacity>
-          {localEntry.sourceProfileId && localEntry.sourceProfileId !== user?.id ? <TouchableOpacity style={styles.trackSourceFollow} onPress={() => void followSource(localEntry.sourceProfileId, localEntry.sourceUsername)} accessibilityRole="button" accessibilityLabel={`Suivre @${localEntry.sourceUsername}`}>
-            <Text style={styles.trackSourceFollowText}>+ Suivre</Text>
+      <View style={styles.trackBody}>
+        <View style={styles.trackInfo}>
+          <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
+          <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text>
+          {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
+            <Text style={styles.trackSourceLabel}>Donné par</Text>
+            <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de @${localEntry.sourceUsername}`}>
+              <Text style={styles.trackSourceLink}>@{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
+            </TouchableOpacity>
+            {localEntry.sourceProfileId && localEntry.sourceProfileId !== user?.id ? <TouchableOpacity style={styles.trackSourceFollow} onPress={() => void followSource(localEntry.sourceProfileId, localEntry.sourceUsername)} accessibilityRole="button" accessibilityLabel={`Suivre @${localEntry.sourceUsername}`}>
+              <Text style={styles.trackSourceFollowText}>+ Suivre</Text>
+            </TouchableOpacity> : null}
+          </View> : null}
+        </View>
+        <View style={styles.trackActions}>
+          <View style={styles.trackActionSlot}><TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact fullWidth /></View>
+          {localEntry ? <TouchableOpacity
+            style={[styles.visibilityTrackButton, publicTrack ? styles.visibilityTrackPublic : styles.visibilityTrackPrivate]}
+            onPress={() => void toggleTrackVisibility(track)}
+            disabled={busy}
+            accessibilityLabel={publicTrack ? 'Musique publique, appuyer pour la passer en privé' : 'Musique privée, appuyer pour la passer en public'}
+          >
+            {visibilityBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.visibilityTrackText}>{publicTrack ? 'PUBLIC' : 'PRIVÉ'}</Text>}
           </TouchableOpacity> : null}
-        </View> : null}
+          {localEntry ? <TouchableOpacity
+            style={styles.deleteTrackButton}
+            onPress={() => confirmRemoveTrack(track)}
+            disabled={busy}
+            accessibilityLabel="Supprimer ce morceau de KEEP"
+          >
+            {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
+          </TouchableOpacity> : null}
+        </View>
       </View>
-      <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact />
-      {localEntry ? <TouchableOpacity
-        style={[styles.visibilityTrackButton, publicTrack ? styles.visibilityTrackPublic : styles.visibilityTrackPrivate]}
-        onPress={() => void toggleTrackVisibility(track)}
-        disabled={busy}
-        accessibilityLabel={publicTrack ? 'Musique publique, appuyer pour la passer en privé' : 'Musique privée, appuyer pour la passer en public'}
-      >
-        {busy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.visibilityTrackText}>{publicTrack ? 'PUBLIC' : 'PRIVÉ'}</Text>}
-      </TouchableOpacity> : null}
     </View>;
   };
 
@@ -483,7 +552,7 @@ const styles = StyleSheet.create({
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreLine:{color:colors.primaryLight,fontSize:10,lineHeight:15},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
-  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:52,flexDirection:'row',alignItems:'center',gap:7,paddingVertical:4},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackSourceFollow:{minHeight:20,paddingHorizontal:7,borderRadius:10,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},trackSourceFollowText:{color:colors.primaryLight,fontSize:7,fontWeight:'900'},visibilityTrackButton:{minWidth:58,minHeight:30,paddingHorizontal:7,borderRadius:15,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
+  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:72,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:6},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackBody:{flex:1,minWidth:0,gap:6},trackInfo:{minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackSourceFollow:{minHeight:20,paddingHorizontal:7,borderRadius:10,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},trackSourceFollowText:{color:colors.primaryLight,fontSize:7,fontWeight:'900'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},trackActionSlot:{flex:1,minWidth:0},visibilityTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:38,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:42,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:34,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},
 });
