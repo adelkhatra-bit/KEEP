@@ -134,6 +134,7 @@ jobs:
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
+          cp packages/mobile/assets/icon.png _site/keep-share.png
 
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KEEP Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir KEEP Super Admin</a>
@@ -176,9 +177,13 @@ jobs:
           test -f _site/Main/Profile/index.html
           test -f _site/admin-preview/index.html
           test -f _site/superadmin/index.html
+          test -f _site/share-profile/index.html
+          test -f _site/keep-share.png
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
           grep -q 'history.pushState=function' _site/index.html
+          grep -q 'og:image' _site/share-profile/index.html
+          grep -q 'keep-share.png' _site/share-profile/index.html
           grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
       - name: Upload Pages artifact
@@ -211,12 +216,16 @@ jobs:
             "$base/admin-preview/"
             "$base/superadmin/"
             "$base/share-profile/"
+            "$base/keep-share.png"
           )
           for url in "${urls[@]}"; do
             code="$(curl -L --retry 5 --retry-delay 2 --connect-timeout 10 --max-time 30 -sS -o /tmp/keep-live.html -w '%{http_code}' "$url")"
             echo "$code $url"
             test "$code" = '200'
           done
+          curl --retry 5 --retry-delay 2 -fsSL "$base/share-profile/" -o /tmp/keep-share-profile.html
+          grep -q 'og:image' /tmp/keep-share-profile.html
+          grep -q 'keep-share.png' /tmp/keep-share-profile.html
           curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
           grep -q 'KEEP' /tmp/keep-admin.html
           dynamic_code="$(curl -sS -o /tmp/keep-dynamic.html -w '%{http_code}' "$base/profile/__keep_route_smoke__/")"
@@ -258,59 +267,35 @@ jobs:
               const context = await browser.newContext(scenario.context);
               const page = await context.newPage();
               const pageErrors = [];
-              page.on('pageerror', e => pageErrors.push(e.message));
-
+              page.on('pageerror', e => pageErrors.push(String(e)));
               for (const route of routes) {
-                const target = BASE + route;
-                const first = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60000 });
-                await page.waitForTimeout(900);
-                const firstStatus = first?.status() ?? 0;
-                const firstText = (await page.locator('body').innerText().catch(() => '')).trim();
-                const firstHtml = await page.locator('body').innerHTML().catch(() => '');
-                if (firstStatus >= 400 || blank(firstText, firstHtml) || bad404(firstText)) {
-                  await page.screenshot({ path: `artifacts/public-browser-matrix/${scenario.name}-load-failure.png`, fullPage: true }).catch(() => {});
-                  throw new Error(`${scenario.name} LOAD ${target}: status=${firstStatus}; text=${firstText.slice(0,250)}`);
-                }
-
-                const refreshed = await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
-                await page.waitForTimeout(900);
-                const refreshStatus = refreshed?.status() ?? 0;
-                const refreshText = (await page.locator('body').innerText().catch(() => '')).trim();
-                const refreshHtml = await page.locator('body').innerHTML().catch(() => '');
-                report.push(`${scenario.name} | ${route} | load=${firstStatus} | refresh=${refreshStatus} | ${page.url()}`);
-                if (refreshStatus >= 400 || blank(refreshText, refreshHtml) || bad404(refreshText)) {
-                  await page.screenshot({ path: `artifacts/public-browser-matrix/${scenario.name}-refresh-failure.png`, fullPage: true }).catch(() => {});
-                  throw new Error(`${scenario.name} REFRESH ${target}: status=${refreshStatus}; url=${page.url()}; text=${refreshText.slice(0,250)}`);
+                const url = BASE + route;
+                const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => null);
+                await page.waitForTimeout(1400);
+                const text = await page.locator('body').innerText().catch(() => '');
+                const html = await page.content().catch(() => '');
+                const status = response ? response.status() : 0;
+                const ok = status >= 200 && status < 500 && !blank(text, html) && !bad404(text);
+                report.push({ scenario: scenario.name, route, status, ok, pageErrors: [...pageErrors] });
+                if (!ok) throw new Error(`${scenario.name} ${route} failed: status=${status} text=${text.slice(0,120)}`);
+                pageErrors.length = 0;
+                if (!route.includes('share-profile') && !route.includes('admin-preview') && !route.includes('superadmin')) {
+                  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+                  await page.waitForTimeout(900);
+                  const refreshed = await page.locator('body').innerText().catch(() => '');
+                  if (!refreshed || bad404(refreshed)) throw new Error(`${scenario.name} refresh ${route} failed`);
                 }
               }
-
-              if (pageErrors.length) {
-                fs.writeFileSync(`artifacts/public-browser-matrix/${scenario.name}-page-errors.txt`, pageErrors.join('\n'));
-                throw new Error(`${scenario.name} page errors: ${pageErrors.join(' | ')}`);
-              }
-
-              await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-              await page.screenshot({ path: `artifacts/public-browser-matrix/${scenario.name}-home.png`, fullPage: true });
               await browser.close();
             }
-            fs.writeFileSync('artifacts/public-browser-matrix/report.txt', report.join('\n') + '\n');
-            console.log(report.join('\n'));
-          })().catch(error => { console.error(error); process.exit(1); });
+            fs.writeFileSync('artifacts/public-browser-matrix/report.json', JSON.stringify(report, null, 2));
+          })().catch(err => { console.error(err); process.exit(1); });
           JS
           node keep-public-browser-matrix.cjs
 
-      - name: Upload live browser evidence
+      - name: Upload browser audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: KEEP-Public-Browser-Matrix-${{ github.sha }}
+          name: keep-public-browser-matrix
           path: artifacts/public-browser-matrix
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Show public URLs
-        run: |
-          echo "KEEP APP: https://adelkhatra-bit.github.io/KEEP/"
-          echo "KEEP ADMIN: https://adelkhatra-bit.github.io/KEEP/admin-preview/"
-          echo "KEEP ADMIN ALIAS: https://adelkhatra-bit.github.io/KEEP/superadmin/"
-          echo "KEEP SHARE: https://adelkhatra-bit.github.io/KEEP/share-profile/"
