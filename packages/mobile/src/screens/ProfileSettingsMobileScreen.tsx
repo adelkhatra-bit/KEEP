@@ -28,6 +28,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [bio, setBio] = useState(user?.bio ?? '');
   const [city, setCity] = useState(user?.city ?? '');
   const [countryCode, setCountryCode] = useState(user?.countryCode ?? '');
+  const [locationOptIn, setLocationOptIn] = useState(user?.locationOptIn ?? false);
   const [website, setWebsite] = useState(user?.website ?? '');
   const [avatar, setAvatar] = useState(user?.avatar ?? '');
   const [birthDate, setBirthDate] = useState(user?.privateInfo.birthDate ?? '');
@@ -103,6 +104,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       city: city.trim() || undefined,
       countryCode: countryCode || undefined,
       website: website.trim() || undefined,
+      locationOptIn,
       privateInfo: { ...user.privateInfo, birthDate: birthDate || undefined, gender },
     };
   };
@@ -153,6 +155,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const places = await Location.reverseGeocodeAsync({ latitude: position.coords.latitude, longitude: position.coords.longitude });
       applyPlace(places[0]);
+      setLocationOptIn(true);
       if (supabase && hasRealAccount) {
         await supabase.from('profiles').update({
           approx_lat: Math.round(position.coords.latitude * 1000) / 1000,
