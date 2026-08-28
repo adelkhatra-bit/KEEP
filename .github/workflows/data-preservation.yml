@@ -1,0 +1,25 @@
+name: KEEP — Data preservation contract
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+
+permissions:
+  contents: read
+
+jobs:
+  preserve-user-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Protect existing user data
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        run: node scripts/verify-data-preservation.cjs
