@@ -14,6 +14,7 @@ import { getDownloadCreditStatus } from '../services/creditService';
 import { loadNotifications } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
+import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -28,7 +29,7 @@ type AccountMode = 'create' | 'login';
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
 const TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'KEEP', label: 'KEEP' }, { key: 'PLAYLISTS', label: 'Playlists' }, { key: 'ARTISTS', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
+  { key: 'KEEP', label: 'KEEP' }, { key: 'PLAYLISTS', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
 ];
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' }, { platform: 'tiktok', label: 'TikTok' }, { platform: 'snapchat', label: 'Snapchat' }, { platform: 'youtube', label: 'YouTube' }, { platform: 'x', label: 'X' }, { platform: 'facebook', label: 'Facebook' },
@@ -56,6 +57,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [qrOpen, setQrOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
+  const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[] } | null>(null);
+  const [smartAlbums, setSmartAlbums] = useState<SmartAlbumRecord[]>([]);
   const [accountMode, setAccountMode] = useState<AccountMode>('create');
   const [pendingFollowUsername, setPendingFollowUsername] = useState('');
   const [sourceQuickUsername, setSourceQuickUsername] = useState('');
@@ -137,7 +140,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
     void refreshPreferences();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPreferences(); });
     return () => { live = false; unsubscribe?.(); };
-  }, [navigation, providerId, providerPlaylists.length]);
+  }, [navigation, providerId, providerPlaylists.length, smartAlbums.length]);
+
+  useEffect(() => {
+    let live = true;
+    const refreshSmart = async () => {
+      if (accountRequired) { if (live) setSmartAlbums([]); return; }
+      try {
+        const rows = planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO'
+          ? await refreshOwnSmartAlbums()
+          : await loadOwnSmartAlbums();
+        if (live) setSmartAlbums(rows);
+      } catch { if (live) setSmartAlbums([]); }
+    };
+    void refreshSmart();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshSmart(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [accountRequired, navigation, planCode, user?.id]);
 
   useEffect(() => {
     let live = true;
@@ -175,13 +194,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))), [publicKeptTracks]);
   const albums = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])), [publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
-    if (providerPlaylists.length) {
-      return providerPlaylists.filter((playlist) => preferenceFor(playlistPreferences, providerId, playlist.id)?.isPublic === true);
+    const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
+    if (providerPlaylists.length) result.push(...providerPlaylists);
+    if (!result.length && publicKeptTracks.length) {
+      const localPreference = preferenceFor(playlistPreferences, providerId, LOCAL_PROFILE_PLAYLIST_ID);
+      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes KEEP', description: localPreference?.description || 'Morceaux publics gardés avec KEEP', trackCount: publicKeptTracks.length, isKeepManaged: true });
     }
-    const localPreference = preferenceFor(playlistPreferences, providerId, LOCAL_PROFILE_PLAYLIST_ID);
-    if (!publicKeptTracks.length || localPreference?.isPublic !== true) return [];
-    return [{ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference.name || 'Mes KEEP', description: localPreference.description || 'Morceaux publics gardés sur cet appareil', trackCount: publicKeptTracks.length, isKeepManaged: true }];
-  }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length]);
+    return result;
+  }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length, smartAlbums]);
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil KEEP</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
@@ -257,21 +277,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
     setQrOpen(true);
   };
 
-  const loadPlaylistTracks = async (playlist: ProviderPlaylist) => {
+  const loadPlaylistTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
     if (playlist.id === LOCAL_PROFILE_PLAYLIST_ID) {
       const localTracks = publicKeptTracks.map((entry) => entry.track);
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: localTracks }));
-      return;
+      return localTracks;
     }
-    if (playlistTracks[playlist.id]) return;
+    if (playlistTracks[playlist.id]) return playlistTracks[playlist.id];
     setLoadingPlaylistId(playlist.id);
     try {
+      if (isSmartAlbumUiId(playlist.id)) {
+        const tracks = await loadSmartAlbumTracks(playlist.id);
+        setPlaylistTracks((current) => ({ ...current, [playlist.id]: tracks }));
+        return tracks;
+      }
       const session = await musicEngine.getSession();
       const tracks = await musicEngine.musicProvider.getPlaylistTracks(session, playlist.id);
       const visibleTracks = musicEngine.usesDemoMusicProvider ? tracks.filter((track) => publicTrackIds.has(track.id)) : tracks;
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
+      return visibleTracks;
     } catch {
-      Alert.alert('Playlist', 'Impossible de charger les morceaux de cette playlist pour le moment.');
+      Alert.alert('Vibe KEEP', 'Impossible de charger les morceaux de cette collection pour le moment.');
+      return [];
     } finally {
       setLoadingPlaylistId(null);
     }
@@ -281,6 +308,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (expandedPlaylistId === playlist.id) { setExpandedPlaylistId(null); return; }
     setExpandedPlaylistId(playlist.id);
     await loadPlaylistTracks(playlist);
+  };
+
+  const openPlaylistSwipe = async (playlist: ProviderPlaylist) => {
+    const tracks = await loadPlaylistTracks(playlist);
+    if (!tracks.length) return Alert.alert('Vibe KEEP', 'Cette collection ne contient pas encore de morceau à swiper.');
+    setSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection KEEP, morceau après morceau.', tracks });
   };
 
   const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null) => (
@@ -310,24 +343,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (activeTab === 'KEEP') {
       if (!keptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
       return <View style={s.keepList}>
-        <Text style={s.ownerKeepHint}>Le profil reste volontairement épuré. Gère Public/Privé et le rangement depuis tes sessions ou tes playlists.</Text>
+        <Text style={s.ownerKeepHint}>KEEP construit ton univers : Vibes, artistes et albums. Tu gardes le contrôle du Public/Privé et des noms.</Text>
         {keptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null))}
       </View>;
     }
 
     if (activeTab === 'PLAYLISTS') {
-      if (!displayPlaylists.length) return <Empty text="Tes playlists publiques apparaîtront ici." />;
+      if (!displayPlaylists.length) return <Empty text="Tes Vibes KEEP apparaîtront ici automatiquement." />;
       return <View style={s.list}>{displayPlaylists.map((playlist) => {
         const expanded = expandedPlaylistId === playlist.id;
         const tracks = playlistTracks[playlist.id] ?? [];
+        const preference = preferenceFor(playlistPreferences, providerId, playlist.id);
+        const smart = smartAlbums.find((album) => `keep-smart:${album.id}` === playlist.id);
+        const isPublic = preference?.isPublic ?? smart?.isPublic ?? false;
         return <View key={playlist.id} style={s.playlistBlock}>
           <TouchableOpacity style={s.listRow} onPress={() => void togglePlaylist(playlist)} accessibilityLabel={`Ouvrir ${playlist.name}`}>
             {playlist.coverUrl ? <Image source={{ uri: playlist.coverUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
-            <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{playlist.name}</Text><Text style={s.playlistCount}>{playlist.trackCount} {playlist.trackCount > 1 ? 'morceaux' : 'morceau'}</Text></View>
+            <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{playlist.name}</Text><Text style={s.playlistCount}>{playlist.trackCount} {playlist.trackCount > 1 ? 'morceaux' : 'morceau'} · {isPublic ? 'Public' : 'Privé'}</Text></View>
             <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           <View style={s.playlistButtons}>
-            <TouchableOpacity style={s.playlistShareButton} onPress={() => void sharePlaylist(playlist.id, playlist.name)}><Text style={s.playlistShareText}>↗ Partager</Text></TouchableOpacity>
+            <TouchableOpacity style={s.playlistShareButton} onPress={() => void openPlaylistSwipe(playlist)}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
+            {isPublic ? <TouchableOpacity style={s.playlistShareButton} onPress={() => void sharePlaylist(playlist.id, playlist.name)}><Text style={s.playlistShareText}>↗ Partager</Text></TouchableOpacity> : null}
           </View>
           {expanded ? <View style={s.playlistTracks}>{loadingPlaylistId === playlist.id ? <Text style={s.muted}>Chargement…</Text> : tracks.length ? tracks.map((track) => renderCompactTrack(track, `${playlist.id}-${track.id}`)) : <Text style={s.muted}>Aucun morceau dans cette playlist.</Text>}</View> : null}
         </View>;
@@ -336,7 +373,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     const items = activeTab === 'ARTISTS' ? artists : albums;
     if (!items.length) return <Empty text={activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
-    return <View style={s.list}>{items.map((item) => <View key={item} style={s.listRow}><View style={s.note}><Text style={s.noteText}>♪</Text></View><Text style={s.listText} numberOfLines={1}>{item}</Text></View>)}</View>;
+    return <View style={s.list}>{items.map((item) => {
+      const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item : track.album === item);
+      return <TouchableOpacity key={item} style={s.listRow} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ton KEEP.' : 'Cet album dans ton KEEP, prêt à swiper.', tracks: selected })}>
+        <View style={s.note}><Text style={s.noteText}>♪</Text></View>
+        <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'} · ▶ SWIPE</Text></View>
+        <Text style={s.chevron}>›</Text>
+      </TouchableOpacity>;
+    })}</View>;
   };
 
   return <SafeAreaView style={s.container}>
@@ -402,6 +446,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
       backLabel="REVENIR AU PROFIL"
       previewOnly
       onClose={() => setProfileSwipeOpen(false)}
+    />
+
+    <MusicSwipeDeckModal
+      visible={Boolean(selectionSwipe)}
+      tracks={selectionSwipe?.tracks ?? []}
+      title={selectionSwipe?.title ?? 'Vibe KEEP'}
+      subtitle={selectionSwipe?.subtitle ?? 'Ta sélection KEEP.'}
+      emptyTitle="Aucun morceau dans cette sélection."
+      backLabel="REVENIR AU PROFIL"
+      previewOnly
+      onClose={() => setSelectionSwipe(null)}
     />
 
     <SourceProfileQuickView
