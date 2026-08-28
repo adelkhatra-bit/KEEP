@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Image, Modal, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Image, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, CanonicalTrack, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -309,9 +309,6 @@ export default function MyMusicScreen({ navigation }: any) {
       }
 
       const persisted = await persistOwnTrackVisibility(track, next);
-      // Toutes les occurrences locales du même morceau prennent la même valeur
-      // AVANT la resynchronisation. Ainsi une vieille occurrence non synchronisée
-      // ne peut pas recréer une décision PUBLIC juste après un passage en PRIVÉ.
       useSessionHistoryStore.setState((state) => ({
         sessions: state.sessions.map((session) => ({
           ...session,
@@ -340,8 +337,6 @@ export default function MyMusicScreen({ navigation }: any) {
     try {
       if (!isLocalGuest && !isDemoMode) await removeOwnTrackFromKeep(track);
 
-      // La suppression serveur est confirmée avant de retirer toutes les copies
-      // locales de la piste. Aucun refresh ne peut donc la restaurer ensuite.
       useSessionHistoryStore.setState((state) => ({
         sessions: state.sessions
           .map((session) => ({
@@ -364,9 +359,15 @@ export default function MyMusicScreen({ navigation }: any) {
   };
 
   const confirmRemoveTrack = (track: CanonicalTrack) => {
+    const message = `${track.title} sera retiré de KEEP et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`;
+    if (Platform.OS === 'web') {
+      const confirmFn = typeof globalThis !== 'undefined' ? (globalThis as any).confirm : undefined;
+      if (typeof confirmFn === 'function' && confirmFn(`Supprimer ce morceau ?\n\n${message}`)) void removeTrackNow(track);
+      return;
+    }
     Alert.alert(
       'Supprimer ce morceau ?',
-      `${track.title} sera retiré de KEEP et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`,
+      message,
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Supprimer', style: 'destructive', onPress: () => void removeTrackNow(track) },
