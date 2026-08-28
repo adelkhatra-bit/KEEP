@@ -46,8 +46,12 @@ jobs:
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
-          rm -f scripts/one_time_keyless_recognition_patch.py .github/workflows/one-time-keyless-recognition-patch.yml
-          git add -A
+          rm -rf packages/admin/.next
+          git checkout -- packages/admin/tsconfig.json || true
+          git add packages/mobile/src/services/keepMusicCoreRecognition.ts \
+                  packages/admin/pages/integrations.tsx \
+                  supabase/functions/keep-admin-control/index.ts
+          git rm -f scripts/one_time_keyless_recognition_patch.py .github/workflows/one-time-keyless-recognition-patch.yml
           git diff --cached --check
           git commit -m "feat(recognition): add keyless social fallback and validate AudD"
           git pull --rebase origin reconcile/claude-main-20260825
