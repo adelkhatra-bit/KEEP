@@ -67,7 +67,13 @@ jobs:
           const fs = require('fs');
           (async()=>{
             const browser = await chromium.launch({ headless:true });
-            const page = await browser.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:1 });
+            const context = await browser.newContext({
+              viewport:{width:390,height:844},
+              deviceScaleFactor:1,
+              geolocation:{latitude:45.764,longitude:4.8357},
+            });
+            await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
+            const page = await context.newPage();
             const errors=[];
             page.on('pageerror',e=>errors.push(`PAGE: ${String(e)}`));
             page.on('console',m=>{ if(m.type()==='error') errors.push(`CONSOLE: ${m.text()}`); });
@@ -92,12 +98,27 @@ jobs:
             await end.click();
             await start.waitFor({state:'visible',timeout:15000});
 
+            // Découvertes : reproduire le vrai geste utilisateur.
+            // 1) choisir le rayon, 2) rechercher, 3) attendre le résultat,
+            // 4) garantir que les trois actions restent utilisables sans swipe up.
             await t('Découvertes',{exact:true}).click();
             await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Rayon Monde').last().waitFor({state:'visible',timeout:15000});
-            await inViewport(t('2 · ⌖ RECHERCHER',{exact:true}),'Discover search');
-            await shot('03-discover');
+            const world=page.getByLabel('Rayon Monde').last();
+            await world.waitFor({state:'visible',timeout:15000});
+            await world.click();
+            const search=page.getByLabel('Rechercher des profils autour de moi').last();
+            await inViewport(search,'Discover search');
+            await search.click();
+            const seeProfile=page.getByLabel('Voir le profil').last();
+            await seeProfile.waitFor({state:'visible',timeout:15000});
+            await inViewport(page.getByLabel('Passer ce profil').last(),'Discover pass');
+            await inViewport(seeProfile,'Discover profile');
+            await inViewport(page.getByLabel('Suivre ce profil').last(),'Discover follow');
+            const discoverBody=await page.locator('body').innerText();
+            if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
+            if(!/% ADN|KEEP public/i.test(discoverBody)) throw new Error('Discover profile musical context missing');
+            await shot('03-discover-after-search');
 
             await t('Playlists',{exact:true}).click();
             await page.waitForTimeout(300);
@@ -125,7 +146,10 @@ jobs:
               'Five tabs: PASS',
               'Listen start/stop/share: PASS',
               'Discover distance then search: PASS',
-              'Discover search in initial viewport: PASS',
+              'Discover GPS permission simulation: PASS',
+              'Discover real profile loaded after search: PASS',
+              'Discover Pass / Voir profil / Suivre without swipe-up: PASS',
+              'Discover musical context visible: PASS',
               'Playlists reachable: PASS',
               'Parties entitlement UI reachable: PASS',
               'Own profile menu/share/no self-follow: PASS',
