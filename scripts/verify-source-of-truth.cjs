@@ -97,7 +97,10 @@ if (admin.includes("const DEMO_PASSWORD = '1234'")) failures.push('DEMO ADMIN PA
 
 const sharing = fs.readFileSync(path.join(root, 'packages/mobile/src/services/sharingService.ts'), 'utf8');
 if (!sharing.includes('shareProfileByEmail')) failures.push('USER-OWNED EMAIL SHARE MISSING');
-if (!sharing.includes('/share-profile/?u=')) failures.push('PUBLIC PROFILE LINK MISSING');
+const hasCanonicalProfileBuilder = sharing.includes('buildPublicProfileLink')
+  && sharing.includes("buildShareLanding({ u: cleanUsername(username), share: 'profile' })")
+  && sharing.includes('/share-profile/');
+if (!hasCanonicalProfileBuilder) failures.push('PUBLIC PROFILE LINK MISSING');
 if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS NOT CANONICAL KEEP URL');
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
