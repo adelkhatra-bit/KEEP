@@ -21,8 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Sync latest branch head
-        run: |
-          git pull --rebase origin reconcile/claude-main-20260825
+        run: git pull --rebase origin reconcile/claude-main-20260825
 
       - name: Apply profile music clarity patch
         run: python3 scripts/one_time_profile_music_clarity.py
@@ -38,48 +37,51 @@ jobs:
       - name: Typecheck mobile
         run: npm run typecheck --workspace @keep/mobile
 
-      - name: Verify clarity contract
+      - name: Verify clarity and provenance contract
         run: |
           python3 - <<'PY'
           from pathlib import Path
           own = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
           public = Path('packages/mobile/src/screens/PublicUserProfileScreen.tsx').read_text()
-          required_own = [
-            'Vibes (ambiances & styles)',
-            'Ce ne sont ni des albums ni des événements.',
-            'Artistes (interprètes)',
-            'Albums (un artiste + un album)',
-            'const albumGroups = useMemo',
-            'const displayPlaylists = useMemo<ProviderPlaylist[]>(() => smartAlbums.map(smartAlbumAsProviderPlaylist), [smartAlbums]);',
-            'Tes écoutes et tes partages de liens = tes propres découvertes.',
-            'Découvert via',
-            '@{sourceUsername}',
+          state = Path('packages/mobile/src/services/publicProfileStateService.ts').read_text()
+          required = [
+            (own, 'Vibes (ambiances & styles)'),
+            (own, 'Ce ne sont ni des albums ni des événements.'),
+            (own, 'Artistes (interprètes)'),
+            (own, 'Albums (un artiste + un album)'),
+            (own, 'const albumGroups = useMemo'),
+            (own, 'const displayPlaylists = useMemo<ProviderPlaylist[]>(() => smartAlbums.map(smartAlbumAsProviderPlaylist), [smartAlbums]);'),
+            (own, 'Tes écoutes et tes partages de liens = tes propres découvertes.'),
+            (own, 'Découvert par'),
+            (own, 'via @'),
+            (public, 'Une musique trouvée directement par cette personne est sa découverte.'),
+            (public, 'Découvert par'),
+            (public, 'via @'),
+            (public, "navigation.navigate('PublicProfile', { username: sourceUsername.replace(/^@+/, '') })"),
+            (state, 'originUserId?: string;'),
+            (state, 'originUsername?: string;'),
+            (state, 'sourceProfileId?: string;'),
+            (state, 'sourceUsername?: string;'),
+            (state, 'contextSourceProfileId'),
           ]
-          required_public = [
-            'sourceUsername?: string;',
-            'sourceUsername: entry.sourceUsername',
-            'Découvert via',
-            'Une musique trouvée par cette personne lui appartient comme découverte.',
-            "navigation.navigate('PublicProfile', { username: sourceUsername.replace(/^@+/, '') })",
-          ]
-          missing = [x for x in required_own if x not in own] + [x for x in required_public if x not in public]
+          missing = [needle for haystack, needle in required if needle not in haystack]
           if missing:
-            raise SystemExit('Missing profile music/provenance clarity contract: ' + repr(missing))
+            raise SystemExit('Missing music/provenance contract: ' + repr(missing))
           if 'result.push(...providerPlaylists)' in own:
             raise SystemExit('Provider playlists must not be mixed into Vibes')
           if 'sourceUsername.slice(0, 4)' in own:
             raise SystemExit('Source username must never be truncated')
           PY
 
-      - name: Commit source patch
+      - name: Commit verified source patch
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
-          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
+          git add packages/mobile/src/services/publicProfileStateService.ts packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
           if git diff --cached --quiet; then
             echo "No source change required"
             exit 0
           fi
-          git commit -m "fix(profile): clarify music collections and provenance"
+          git commit -m "fix(profile): clarify collections and discovery provenance"
           git pull --rebase origin reconcile/claude-main-20260825
           git push origin HEAD:reconcile/claude-main-20260825
