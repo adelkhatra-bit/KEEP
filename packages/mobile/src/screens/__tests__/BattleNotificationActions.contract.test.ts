@@ -7,6 +7,7 @@ describe('KEEP Battle challenge UX', () => {
   const parties = fs.readFileSync(path.resolve(__dirname, '..', 'PartiesScreen.tsx'), 'utf8');
   const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const push = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'pushNotificationService.ts'), 'utf8');
+  const backendPush = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'backend', 'src', 'lib', 'pushNotifications.ts'), 'utf8');
   const migration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260829124200_keep_battle_in_app_invites_only.sql'), 'utf8');
 
   it('keeps the incoming challenge inside the Battle card between artwork and question', () => {
@@ -41,5 +42,7 @@ describe('KEEP Battle challenge UX', () => {
     expect(notifications).toContain('respondBattleChallenge(challengeId, accept)');
     expect(parties).toContain('initialArenaId={route?.params?.arenaId}');
     expect(push).not.toContain(".then(() => Linking.openURL('keep://notifications'))");
+    expect(backendPush).not.toContain('categoryId: BATTLE_CATEGORY');
+    expect(backendPush).not.toContain("const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'");
   });
 });
