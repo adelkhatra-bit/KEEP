@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: keep-discovery-impact-ui-v2
+  group: keep-discovery-impact-ui-v3
   cancel-in-progress: true
 
 jobs:
@@ -35,10 +35,10 @@ jobs:
           p = Path('scripts/one_time_discovery_impact_ui.py')
           s = p.read_text(encoding='utf-8')
           old = "    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one match, got {count}')\n    return text.replace(old, new, 1)"
-          new = "    if count == 0:\n        raise SystemExit(f'{label}: expected a match, got 0')\n    if count > 1 and label != 'owner reset':\n        raise SystemExit(f'{label}: expected exactly one match, got {count}')\n    return text.replace(old, new, 1)"
-          if old in s:
-              s = s.replace(old, new, 1)
-          p.write_text(s, encoding='utf-8')
+          new = "    if count == 0:\n        raise SystemExit(f'{label}: expected a match, got 0')\n    if label == 'owner reset':\n        if count != 2:\n            raise SystemExit(f'{label}: expected exactly two original reset blocks, got {count}')\n        return text.replace(old, new, 1)\n    if label == 'owner catch reset':\n        idx = text.rfind(old)\n        if idx < 0:\n            raise SystemExit(f'{label}: final reset block not found')\n        return text[:idx] + new + text[idx + len(old):]\n    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one match, got {count}')\n    return text.replace(old, new, 1)"
+          if old not in s:
+              raise SystemExit('replace_once guard signature changed')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
           PY
       - run: python scripts/one_time_discovery_impact_ui.py
       - run: node scripts/verify-source-of-truth.cjs
