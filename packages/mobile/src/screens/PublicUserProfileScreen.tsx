@@ -133,7 +133,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         const impacts = await impactPromise;
         if (cancelled) return;
         setDiscoveryImpacts(impacts);
-        const localSocialCount = normalized.filter((track) => Boolean(track.sourceUserId || track.sourceProfileId)).length;
+        const localDiscoveryImpactCount = Object.values(impacts).reduce((total, impact) => total + (impact.originProfileId === result.id ? impact.recoveryCount : 0), 0);
         const snapshot = await snapshotPromise;
         if (cancelled) return;
         if (snapshot) {
@@ -142,8 +142,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           setSocialKeepCount(snapshot.socialPublicKeeps);
           setFollowerCount(snapshot.followers);
         } else {
-          setSocialKeepCount(localSocialCount);
-          setDirectKeepCount(Math.max(0, normalized.length - localSocialCount));
+          setSocialKeepCount(localDiscoveryImpactCount);
+          setDirectKeepCount(normalized.length);
         }
 
         const ids = Array.from(new Set(normalized.map((track) => track.trackId).filter(Boolean)));

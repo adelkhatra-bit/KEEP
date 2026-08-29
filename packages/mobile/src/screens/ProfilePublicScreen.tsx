@@ -221,7 +221,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const profileKeptTracks = accountRequired ? keptTracks : canonicalOwnKeeps;
   const publicKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [profileKeptTracks]);
   const localPublicOwnKeepCount = useMemo(() => publicKeptTracks.filter((entry) => entry.creditSource !== 'SOCIAL' && !entry.sourceProfileId && !entry.sourceUsername).length, [publicKeptTracks]);
-  const localPublicUserKeepCount = useMemo(() => publicKeptTracks.filter((entry) => entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId || !!entry.sourceUsername).length, [publicKeptTracks]);
+  const localDiscoveryImpactCount = useMemo(() => {
+    if (!user?.id) return 0;
+    return Object.values(discoveryImpacts).reduce((total, impact) => total + (impact.originProfileId === user.id ? impact.recoveryCount : 0), 0);
+  }, [discoveryImpacts, user?.id]);
   const publicSwipeTracks = useMemo<CanonicalTrack[]>(() => publicKeptTracks.map((entry) => entry.track), [publicKeptTracks]);
   const publicTrackIds = useMemo(() => new Set(publicKeptTracks.map((entry) => entry.track.id)), [publicKeptTracks]);
   const dna = useMemo(() => {
@@ -249,7 +252,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const planLabel = planCode === 'FREE' && creditRemaining != null ? `FREE · ${creditRemaining}` : planCode;
   const planStyle = planCode === 'FREE' ? (creditsExhausted ? s.planExhausted : s.planFree) : s.planPaid;
   const profileOwnKeepCount = ownSnapshot?.directKeeps ?? localPublicOwnKeepCount;
-  const profileUserKeepCount = ownSnapshot?.socialKeeps ?? localPublicUserKeepCount;
+  const profileUserKeepCount = ownSnapshot?.socialKeeps ?? localDiscoveryImpactCount;
   const profileTotalKeepCount = ownSnapshot?.totalKeeps ?? profileKeptTracks.length;
   const profileFollowerCount = publicSnapshot?.followers ?? user.followerCount;
   const profileFollowingCount = publicSnapshot?.following ?? user.followingCount;
