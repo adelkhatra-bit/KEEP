@@ -1,3 +1,19 @@
+-- Une reconstruction complète doit disposer du helper avant de compiler
+-- keep_commercial_rules. Sur les bases déjà migrées, CREATE OR REPLACE est neutre.
+create or replace function public.keep_plan_limit(p_plan_code text, p_limit_key text)
+returns integer
+language sql
+stable
+security definer
+set search_path to 'public'
+as $function$
+  select ul.limit_value
+  from public.usage_limits ul
+  join public.plans p on p.id = ul.plan_id
+  where p.code::text = p_plan_code and ul.limit_key = p_limit_key
+  limit 1;
+$function$;
+
 create or replace function public.keep_commercial_rules()
 returns jsonb
 language sql
