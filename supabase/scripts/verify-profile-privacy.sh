@@ -6,6 +6,11 @@
 # Le contrat actuel impose une seule décision KEPT par profil/morceau. Le test
 # reproduit donc le vrai parcours : KEEP PUBLIC -> passage PRIVATE -> retour
 # PUBLIC sur la même décision, sans fabriquer un doublon désormais interdit.
+#
+# keep_own_profile_tracks est la bibliothèque canonique privée du propriétaire :
+# elle doit conserver PUBLIC + PRIVATE pour l'anti-doublon. L'écran Profil filtre
+# ensuite visibility='PUBLIC'. La sécurité serveur à vérifier ici est qu'aucune
+# piste PRIVATE ne sorte du RPC public ni du snapshot public.
 set -euo pipefail
 
 DB=keep_verify_ci
@@ -31,7 +36,8 @@ declare
   v_track_id uuid := gen_random_uuid();
   v_decision_id uuid;
   private_count int;
-  owner_profile_rows int;
+  owner_rows int;
+  owner_public_rows int;
   public_profile_rows int;
   snapshot_public int;
 begin
@@ -44,8 +50,6 @@ begin
   values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '2 minutes')
   returning id into v_decision_id;
 
-  -- Le passage en privé modifie la décision canonique existante. Il ne crée
-  -- jamais un second KEEP concurrent pour le même profil/morceau.
   update public.keep_decisions
   set visibility='PRIVATE', created_at=now() - interval '1 minute'
   where id=v_decision_id;
@@ -59,11 +63,20 @@ begin
     raise exception 'FAIL setup : décision PRIVATE canonique attendue 1, obtenu %', private_count;
   end if;
 
-  select count(*) into owner_profile_rows
+  -- La bibliothèque propriétaire garde la ligne PRIVATE pour l'anti-doublon.
+  select count(*) into owner_rows
   from public.keep_own_profile_tracks(500,0) x
   where x.track_id = v_track_id;
-  if owner_profile_rows <> 0 then
-    raise exception 'FAIL confidentialité : profil propriétaire expose % ligne(s) PRIVATE', owner_profile_rows;
+  if owner_rows <> 1 then
+    raise exception 'FAIL bibliothèque propriétaire : attend 1 ligne PRIVATE, obtenu %', owner_rows;
+  end if;
+
+  -- Mais la couche utilisée par l'écran Profil ne doit afficher aucun PRIVATE.
+  select count(*) into owner_public_rows
+  from public.keep_own_profile_tracks(500,0) x
+  where x.track_id = v_track_id and x.visibility = 'PUBLIC';
+  if owner_public_rows <> 0 then
+    raise exception 'FAIL confidentialité propriétaire : % ligne(s) PRIVATE considérée(s) PUBLIC', owner_public_rows;
   end if;
 
   select count(*) into public_profile_rows
@@ -79,18 +92,18 @@ begin
     raise exception 'FAIL confidentialité : snapshot public compte encore le morceau PRIVATE (%)', snapshot_public;
   end if;
 
-  raise notice 'OK PUBLIC -> PRIVÉ : piste absente du profil propriétaire, du profil public et du snapshot';
+  raise notice 'OK PUBLIC -> PRIVÉ : piste owner-only, absente du RPC public et du snapshot';
 
   -- Retour PUBLIC : la même décision doit redevenir visible exactement une fois.
   update public.keep_decisions
   set visibility='PUBLIC', created_at=now()
   where id=v_decision_id;
 
-  select count(*) into owner_profile_rows
+  select count(*) into owner_rows
   from public.keep_own_profile_tracks(500,0) x
-  where x.track_id = v_track_id;
-  if owner_profile_rows <> 1 then
-    raise exception 'FAIL retour PUBLIC : profil propriétaire attend 1 ligne, obtenu %', owner_profile_rows;
+  where x.track_id = v_track_id and x.visibility = 'PUBLIC';
+  if owner_rows <> 1 then
+    raise exception 'FAIL retour PUBLIC : bibliothèque propriétaire attend 1 ligne PUBLIC, obtenu %', owner_rows;
   end if;
 
   select count(*) into public_profile_rows
@@ -98,6 +111,12 @@ begin
   where x.track_id = v_track_id;
   if public_profile_rows <> 1 then
     raise exception 'FAIL retour PUBLIC : profil public attend 1 ligne, obtenu %', public_profile_rows;
+  end if;
+
+  select total_public_keeps into snapshot_public
+  from public.keep_public_profile_snapshot(uid);
+  if coalesce(snapshot_public,0) <> 1 then
+    raise exception 'FAIL retour PUBLIC : snapshot public attend 1, obtenu %', snapshot_public;
   end if;
 
   raise notice 'OK PRIVÉ -> PUBLIC : piste visible exactement une fois';
