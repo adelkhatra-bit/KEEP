@@ -5,6 +5,8 @@ import { useSessionStore } from '../store/useSessionStore';
 import { buildSharedMusicSource, setSharedMusicSource } from '../services/sharedMusicSourceService';
 import { resolveKeylessSocialMusic } from '../services/keylessSocialRecognition';
 import { ingestExternalRecognition } from '../services/externalRecognitionIngest';
+import { claimPendingReferral, stageReferralFromUrl } from '../services/referralService';
+import { supabase } from '../services/supabaseClient';
 
 /**
  * TikTok / Instagram / Snapchat / YouTube -> Partager -> KEEP.
@@ -18,6 +20,30 @@ import { ingestExternalRecognition } from '../services/externalRecognitionIngest
 export default function SharedMusicHandoff() {
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const handledRef = useRef('');
+
+  // Profile/referral deep links must keep their attribution even when iOS/Android
+  // hands the URL directly to the already-running app. Navigation consumes the
+  // profile path; this listener only persists/claims the referral context.
+  useEffect(() => {
+    let alive = true;
+    const stage = async (url?: string | null) => {
+      if (!alive || !url) return;
+      const code = await stageReferralFromUrl(url).catch(() => '');
+      if (code) await claimPendingReferral().catch(() => false);
+    };
+    void Linking.getInitialURL().then(stage).catch(() => {});
+    const linkSub = Linking.addEventListener('url', ({ url }) => { void stage(url); });
+    const authSub = supabase?.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        void claimPendingReferral().catch(() => false);
+      }
+    });
+    return () => {
+      alive = false;
+      linkSub.remove();
+      authSub?.data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasShareIntent) return;

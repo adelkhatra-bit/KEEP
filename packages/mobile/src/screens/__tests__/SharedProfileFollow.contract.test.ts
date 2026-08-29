@@ -24,6 +24,12 @@ describe('KEEP shared profile follow handoff', () => {
     expect(share).toContain("button.textContent='UN INSTANT…'");
   });
 
+  it('opens the native app directly on the shared profile and preserves referral context', () => {
+    expect(share).toContain('keep://profile/${encodeURIComponent(clean)}');
+    expect(share).toContain('?u=${encodeURIComponent(clean)}&share=profile');
+    expect(share).not.toContain('__keep_route');
+  });
+
   it('preserves the shared profile context across login', () => {
     expect(share).toContain('&share=profile');
     expect(share).toContain('&u=${encodeURIComponent(u)}');

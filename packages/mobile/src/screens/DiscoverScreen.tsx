@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
-import { getDiscoveryAccess, loadDiscoveryEntitlement, DiscoveryAccess } from '../services/growthAccessService';
+import { getDiscoveryAccess, DiscoveryAccess } from '../services/growthAccessService';
+import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
@@ -127,8 +128,8 @@ export default function DiscoverScreen({ navigation }: any) {
       if (isDemoMode) { if (live) setPlanCode('DEMO'); return; }
       if (!user || isLocalGuest) { if (live) setPlanCode('FREE'); return; }
       try {
-        const entitlement = await loadDiscoveryEntitlement();
-        if (live) setPlanCode(entitlement.planCode || 'FREE');
+        const code = await loadCurrentPlanCode(user.id);
+        if (live) setPlanCode(code || 'FREE');
       } catch { if (live) setPlanCode('FREE'); }
     };
     void loadPlan();

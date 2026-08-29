@@ -58,7 +58,7 @@
   const headers={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`,'Content-Type':'application/json'};
   const $=id=>document.getElementById(id);
   const safe=value=>String(value||'').trim();
-  const routeProfile=u=>`${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+u)}`;
+  const routeProfile=u=>{const clean=String(u||'').replace(/^@+/,'').trim();return `keep://profile/${encodeURIComponent(clean)}?u=${encodeURIComponent(clean)}&share=profile`;};
   const followAccountRoute=(u='',mode='login')=>`${KEEP_ROOT}?__keep_auth=${encodeURIComponent(mode)}${u?`&__keep_follow=${encodeURIComponent(u)}`:''}&u=${encodeURIComponent(u)}&share=profile`;
 
   function setContext(){

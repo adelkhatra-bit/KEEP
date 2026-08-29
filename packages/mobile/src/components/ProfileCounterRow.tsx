@@ -12,6 +12,7 @@ export type ProfileCounterItem = {
 type Props = {
   items: ProfileCounterItem[];
   kind?: 'connections' | 'keeps';
+  compact?: boolean;
   style?: ViewStyle;
 };
 
