@@ -62,10 +62,20 @@ delete from public.track_likes tl
 using _keep_track_merge m
 where tl.track_id = m.old_id::text;
 
-update public.keep_fingerprints kf
-set track_id = m.canonical_id
-from _keep_track_merge m
-where kf.track_id = m.old_id;
+-- Certaines installations historiques ont keep_fingerprints, les installations
+-- neuves non. La fusion ne doit jamais empêcher de reconstruire toute la base.
+do $$
+begin
+  if to_regclass('public.keep_fingerprints') is not null then
+    execute $sql$
+      update public.keep_fingerprints kf
+      set track_id = m.canonical_id
+      from _keep_track_merge m
+      where kf.track_id = m.old_id
+    $sql$;
+  end if;
+end;
+$$;
 
 update public.keep_decisions kd
 set track_id = m.canonical_id
