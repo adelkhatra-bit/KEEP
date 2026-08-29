@@ -1,4 +1,4 @@
-name: KEEP — One-time Lock Sync
+name: KEEP — One-time Discovery Attribution UI
 
 on:
   push:
@@ -11,34 +11,49 @@ permissions:
   contents: write
 
 concurrency:
-  group: keep-lock-sync
+  group: keep-discovery-attribution-ui
   cancel-in-progress: true
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source branch
+        uses: actions/checkout@v4
         with:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
-      - run: git pull --ff-only origin reconcile/claude-main-20260825
-      - uses: actions/setup-node@v4
+      - name: Sync latest branch head
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - name: Synchronize package lock
-        run: npm install --package-lock-only --ignore-scripts
-      - name: Commit lockfile
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply discovery impact UI
+        run: python scripts/one_time_discovery_impact_ui.py
+      - name: Verify KEEP source of truth
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+      - name: Test mobile
+        run: npm --workspace packages/mobile test -- --runInBand
+      - name: Commit verified discovery attribution UI
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
-          git add package-lock.json
+          git add \
+            packages/mobile/src/services/publicProfileStateService.ts \
+            packages/mobile/src/screens/ProfilePublicScreen.tsx \
+            packages/mobile/src/screens/PublicUserProfileScreen.tsx \
+            packages/mobile/src/components/DiscoveryImpactLabel.tsx
           if git diff --cached --quiet; then
-            echo "Lockfile already synchronized"
+            echo "Discovery attribution UI already applied"
           else
-            git commit -m "chore(deps): synchronize package lock"
+            git commit -m "feat(profile): show discovery viral impact"
             git pull --rebase origin reconcile/claude-main-20260825
             git push origin HEAD:reconcile/claude-main-20260825
           fi
