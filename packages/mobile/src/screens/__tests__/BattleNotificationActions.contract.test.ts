@@ -32,17 +32,21 @@ describe('KEEP Battle notification actions', () => {
     expect(push).toContain("buttonTitle: 'ACCEPTER'");
     expect(push).toContain('setNotificationCategoryAsync(BATTLE_CATEGORY');
     expect(push).toContain('respondBattleChallenge(challengeId, accept)');
+    expect(push).toContain('respondBattleChallenge(challengeId, accept).catch(() => {})');
+    expect(push).not.toContain(".then(() => Linking.openURL('keep://notifications'))");
     expect(backendPush).toContain("categoryId: BATTLE_CATEGORY");
     expect(backendPush).toContain("const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'");
   });
 
   it('keeps the incoming challenge compact directly under Qui chante', () => {
-    const question = battle.indexOf("<Text style={s.question}>Qui chante ?</Text>");
+    const visual = battle.indexOf('<View style={s.visual}>');
     const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
+    const question = battle.indexOf("<Text style={s.question}>Qui chante ?</Text>");
     const answers = battle.indexOf('<View style={s.answers}>');
-    expect(question).toBeGreaterThan(-1);
-    expect(invite).toBeGreaterThan(question);
-    expect(answers).toBeGreaterThan(invite);
+    expect(visual).toBeGreaterThan(-1);
+    expect(invite).toBeGreaterThan(visual);
+    expect(question).toBeGreaterThan(invite);
+    expect(answers).toBeGreaterThan(question);
     expect(battle).toContain("size={24}");
     expect(battle).toContain("<Text style={s.noText}>REFUSER</Text>");
     expect(battle).toContain("<Text style={s.yesText}>ACCEPTER</Text>");

@@ -48,9 +48,7 @@ function installBattleNotificationTapRouter() {
     const action = response.actionIdentifier;
     if ((action === BATTLE_REFUSE_ACTION || action === BATTLE_ACCEPT_ACTION) && challengeId) {
       const accept = action === BATTLE_ACCEPT_ACTION;
-      void respondBattleChallenge(challengeId, accept)
-        .then(() => Linking.openURL('keep://notifications'))
-        .catch(() => Linking.openURL('keep://notifications'));
+      void respondBattleChallenge(challengeId, accept).catch(() => {});
       return;
     }
     void Linking.openURL('keep://notifications');
@@ -159,7 +157,7 @@ async function ensureBattleChallengeCategory(): Promise<void> {
     {
       identifier: BATTLE_REFUSE_ACTION,
       buttonTitle: 'REFUSER',
-      options: { opensAppToForeground: true, isAuthenticationRequired: false, isDestructive: true },
+      options: { opensAppToForeground: false, isAuthenticationRequired: false, isDestructive: true },
     },
     {
       identifier: BATTLE_ACCEPT_ACTION,
