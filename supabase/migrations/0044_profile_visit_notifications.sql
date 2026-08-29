@@ -51,4 +51,5 @@ end;
 $$;
 
 revoke all on function public.notify_profile_view(uuid) from public;
+revoke execute on function public.notify_profile_view(uuid) from anon;
 grant execute on function public.notify_profile_view(uuid) to authenticated;
