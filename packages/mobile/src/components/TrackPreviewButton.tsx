@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import type { CanonicalTrack } from '@keep/music';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { supabase } from '../services/supabaseClient';
 import { useSessionStore } from '../store/useSessionStore';
 import { colors } from '../theme/colors';
 
@@ -13,17 +16,85 @@ type Props = {
   fullWidth?: boolean;
 };
 
+function firstExternalUrl(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const urls = value as Record<string, unknown>;
+  const priority = ['spotify', 'appleMusic', 'apple_music', 'youtube', 'deezer', 'url'];
+  for (const key of priority) {
+    const candidate = urls[key];
+    if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim())) return candidate.trim();
+  }
+  for (const candidate of Object.values(urls)) {
+    if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim())) return candidate.trim();
+  }
+  return '';
+}
+
 export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
+  const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
+  const [resolvedFallbackUrl, setResolvedFallbackUrl] = useState(fallbackUrl?.trim() || '');
+  const [resolving, setResolving] = useState(!previewUrl && !fallbackUrl);
 
   useEffect(() => () => { if (playing) void stopTrackPreview(trackKey); }, [playing, trackKey]);
 
+  useEffect(() => {
+    setResolvedPreviewUrl(previewUrl?.trim() || '');
+    setResolvedFallbackUrl(fallbackUrl?.trim() || '');
+    if (previewUrl || fallbackUrl) {
+      setResolving(false);
+      return undefined;
+    }
+    if (!supabase || !trackKey) {
+      setResolving(false);
+      return undefined;
+    }
+
+    let live = true;
+    setResolving(true);
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tracks')
+          .select('id,title,artist,preview_url,external_urls')
+          .eq('id', trackKey)
+          .maybeSingle();
+        if (error || !data || !live) return;
+
+        const directPreview = typeof (data as any).preview_url === 'string' ? String((data as any).preview_url).trim() : '';
+        const external = firstExternalUrl((data as any).external_urls);
+        if (directPreview) {
+          setResolvedPreviewUrl(directPreview);
+          setResolvedFallbackUrl(external);
+          return;
+        }
+
+        const candidate = {
+          id: String((data as any).id || trackKey),
+          title: String((data as any).title || ''),
+          artist: String((data as any).artist || ''),
+        } as CanonicalTrack;
+        const publicPreview = candidate.title && candidate.artist ? await resolveTrackPreviewUrl(candidate) : null;
+        if (!live) return;
+        setResolvedPreviewUrl(publicPreview || '');
+        setResolvedFallbackUrl(external);
+      } finally {
+        if (live) setResolving(false);
+      }
+    })();
+
+    return () => { live = false; };
+  }, [fallbackUrl, previewUrl, trackKey]);
+
   const playOrStopPreview = async () => {
-    if (!previewUrl || busy) return;
+    if (!resolvedPreviewUrl || busy) return;
     setBusy(true);
     try {
-      await toggleTrackPreview(trackKey, previewUrl, setPlaying);
+      await toggleTrackPreview(trackKey, resolvedPreviewUrl, setPlaying);
+    } catch {
+      setPlaying(false);
+      Alert.alert('Lecture indisponible', 'L’extrait audio ne peut pas être lu pour le moment. Tu peux ouvrir le morceau sur sa plateforme si un lien est disponible.');
     } finally {
       setBusy(false);
     }
@@ -41,12 +112,12 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   };
 
   const openFallback = async () => {
-    if (!fallbackUrl || busy) return;
+    if (!resolvedFallbackUrl || busy) return;
     setBusy(true);
     try {
-      const canOpen = await Linking.canOpenURL(fallbackUrl).catch(() => true);
+      const canOpen = await Linking.canOpenURL(resolvedFallbackUrl).catch(() => true);
       if (!canOpen) throw new Error('unavailable');
-      await Linking.openURL(fallbackUrl);
+      await Linking.openURL(resolvedFallbackUrl);
     } catch {
       Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.');
     } finally {
@@ -60,7 +131,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   };
 
   const toggle = () => {
-    if (busy) return;
+    if (busy || resolving) return;
 
     if (playing) {
       void playOrStopPreview();
@@ -73,7 +144,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
         'Le micro KEEP est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant de lancer un extrait ou d’ouvrir le morceau sur une plateforme.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
-          previewUrl
+          resolvedPreviewUrl
             ? { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void stopListeningThenPreview() }
             : { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
         ],
@@ -81,14 +152,18 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       return;
     }
 
-    if (previewUrl) {
+    if (resolvedPreviewUrl) {
       void playOrStopPreview();
       return;
     }
-    if (fallbackUrl) void openFallback();
+    if (resolvedFallbackUrl) void openFallback();
   };
 
-  if (!previewUrl && !fallbackUrl) {
+  if (resolving) {
+    return <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Recherche audio…</Text>;
+  }
+
+  if (!resolvedPreviewUrl && !resolvedFallbackUrl) {
     return compact ? <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
   }
 
@@ -98,9 +173,9 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
-      accessibilityLabel={previewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
+      accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
     >
-      <Text style={[styles.text, compact && styles.compactText]}>{busy ? '…' : previewUrl ? (playing ? '■ Stop' : '▶ Extrait') : '▶ Écouter'}</Text>
+      <Text style={[styles.text, compact && styles.compactText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
     </TouchableOpacity>
   );
 }
