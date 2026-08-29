@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
 import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
@@ -91,6 +91,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [profileQuery, setProfileQuery] = useState('');
 
   const myDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = sessions.flatMap((session) =>
@@ -133,6 +134,7 @@ export default function DiscoverScreen({ navigation }: any) {
     setProfileIndex(0);
     setDiscoveryAccess(null);
     setCurrentProfileSnapshot(null);
+    setProfileQuery('');
   }, [user?.id]);
 
   useEffect(() => {
@@ -176,8 +178,16 @@ export default function DiscoverScreen({ navigation }: any) {
   }, [user?.id, user?.city, user?.countryCode, isLocalGuest, navigation]);
 
   const filteredProfiles = useMemo(() => {
-    if (!hasSearched || !searchPosition) return [];
-    const ranked = profiles.map((profile) => {
+    const needle = profileQuery.trim().replace(/^@/, '').toLowerCase();
+    const candidates = needle
+      ? profiles.filter((profile) => profile.username.toLowerCase().includes(needle))
+      : profiles;
+
+    // Découvertes doit être utile dès l'ouverture : le GPS affine le classement,
+    // il ne doit jamais être une condition pour voir ou retrouver un profil public.
+    if (!hasSearched || !searchPosition) return candidates;
+
+    const ranked = candidates.map((profile) => {
       const hasCoordinates = Number.isFinite(profile.approxLat) && Number.isFinite(profile.approxLng);
       const distance = hasCoordinates
         ? distanceKm(searchPosition.latitude, searchPosition.longitude, profile.approxLat as number, profile.approxLng as number)
@@ -191,7 +201,7 @@ export default function DiscoverScreen({ navigation }: any) {
       return a.distance - b.distance;
     });
     return ranked.map((item) => item.profile);
-  }, [profiles, radiusKm, searchPosition, hasSearched]);
+  }, [profiles, profileQuery, radiusKm, searchPosition, hasSearched]);
 
   const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
@@ -362,7 +372,22 @@ export default function DiscoverScreen({ navigation }: any) {
 
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
-          {hasSearched && !discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : hasSearched && freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
+          {currentProfile && !discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : currentProfile && freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
+        </View>
+
+        <View style={styles.usernameSearch}>
+          <Text style={styles.usernameSearchIcon}>⌕</Text>
+          <TextInput
+            value={profileQuery}
+            onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }}
+            placeholder="Rechercher un pseudo KEEP"
+            placeholderTextColor="#8E849A"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.usernameSearchInput}
+            accessibilityLabel="Rechercher un utilisateur KEEP par pseudo"
+          />
+          {profileQuery ? <TouchableOpacity style={styles.usernameClear} onPress={() => { setProfileQuery(''); setProfileIndex(0); }} accessibilityLabel="Effacer la recherche"><Text style={styles.usernameClearText}>×</Text></TouchableOpacity> : null}
         </View>
 
         <View style={styles.searchPanel}>
@@ -379,20 +404,18 @@ export default function DiscoverScreen({ navigation }: any) {
           <TouchableOpacity style={styles.searchButton} onPress={() => void searchAroundMe()} disabled={searchBusy} accessibilityLabel="Rechercher des profils autour de moi">
             {searchBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.searchButtonText}>2 · ⌖ RECHERCHER</Text>}
           </TouchableOpacity>
-          <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : 'Choisis d’abord la distance, puis appuie sur Rechercher.'}</Text>
+          <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} disponible${filteredProfiles.length > 1 ? 's' : ''} · le GPS affine ensuite la proximité`}</Text>
         </View>
 
-        {hasSearched && (accessLoading || loadingProfiles) ? <ActivityIndicator color={colors.primaryLight} /> : hasSearched && !discoveryUnlocked && currentProfile ? (
+        {loadingProfiles || (currentProfile && accessLoading) ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
           <TouchableOpacity style={styles.lockCard} onPress={openPremium}>
             <Text style={styles.lockIcon}>🔒</Text>
             <Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text>
             <Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant KEEP et en faisant grandir tes abonnés.</Text>
             <Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text>
           </TouchableOpacity>
-        ) : !hasSearched ? (
-          <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.</Text></View>
         ) : !currentProfile ? (
-          <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.</Text></View>
+          <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à @${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun autre profil public disponible pour le moment.'}</Text></View>
         ) : (
           <>
             <SwipeDeck resetKey={currentProfile.id} enabled={!followBusy} onSwipeLeft={nextProfile} onSwipeRight={followCurrent} leftLabel="PASSER" rightLabel="SUIVRE" hint="Glisse ← pour passer · → pour suivre">
@@ -438,7 +461,7 @@ export default function DiscoverScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingHorizontal:11,paddingTop:8,flexGrow:1,paddingBottom:10},title:{...typography.h2,color:colors.textPrimary,marginBottom:4},section:{marginTop:8},sectionTitle:{...typography.h3,color:colors.textPrimary},mutedHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},
-  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},lockBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},trialBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},
+  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},usernameSearchIcon:{color:'#D9C8F7',fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:44,color:'#FFFFFF',fontSize:15,fontWeight:'700'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#241A2F'},usernameClearText:{color:'#FFFFFF',fontSize:22,lineHeight:24,fontWeight:'700'},lockBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},trialBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},
   searchPanel:{marginBottom:6,padding:7,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},radiusLabel:{color:'#D9C8F7',fontSize:9,fontWeight:'900',letterSpacing:.4},radiusValue:{minHeight:26,paddingHorizontal:10,borderRadius:13,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},radiusValueText:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},radiusTrack:{height:4,borderRadius:2,backgroundColor:'#332A3C',marginTop:6,overflow:'hidden'},radiusFill:{height:4,borderRadius:2,backgroundColor:'#A884FA'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:5},radiusChoice:{minWidth:29,minHeight:21,paddingHorizontal:3,borderRadius:11,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},radiusChoiceText:{color:'#FFFFFF',fontSize:7,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{height:32,marginTop:6,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},searchButtonText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},searchHint:{color:'#FFFFFF',fontSize:8,textAlign:'center',marginTop:3},
   lockCard:{padding:13,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},lockIcon:{fontSize:24},lockTitle:{color:'#FFF',fontSize:15,fontWeight:'900',marginTop:6,textAlign:'center'},lockBody:{color:'#FFFFFF',fontSize:11,lineHeight:16,textAlign:'center',marginTop:6},lockCta:{color:'#FFF',fontSize:10,fontWeight:'900',marginTop:10,backgroundColor:colors.primary,paddingHorizontal:16,paddingVertical:9,borderRadius:20,overflow:'hidden'},emptyCard:{padding:14,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   swipeCard:{height:228,borderRadius:20,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:52,fontWeight:'900'},heroInfo:{padding:9,paddingTop:40,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap'},heroName:{color:'#FFF',fontSize:18,fontWeight:'900'},compatBadge:{paddingHorizontal:7,paddingVertical:3,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:10,fontWeight:'800',marginTop:3},kindMusicRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:3,flexWrap:'wrap'},kind:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},musicCount:{color:'#68F2B1',fontSize:9,fontWeight:'900'},bio:{color:'#FFFFFF',fontSize:9,lineHeight:12,marginTop:3},chips:{flexDirection:'row',flexWrap:'wrap',gap:3,marginTop:4},chip:{paddingHorizontal:6,paddingVertical:2,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:8,fontWeight:'800'},
