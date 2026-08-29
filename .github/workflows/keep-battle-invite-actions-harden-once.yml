@@ -1,0 +1,40 @@
+name: KEEP Battle invite actions hardening
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_keep_battle_invite_buttons_and_accept_retry.py'
+      - '.github/workflows/keep-battle-invite-actions-harden-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply invitation action hardening
+        run: python3 scripts/patch_keep_battle_invite_buttons_and_accept_retry.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Battle mobile
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand BattleNotificationActions.contract.test.ts KeepBattleMobileGameV3.compact.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(battle): enlarge invite actions and retry accepted arena"
+          git push origin HEAD:reconcile/claude-main-20260825
