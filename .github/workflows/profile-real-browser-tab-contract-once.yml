@@ -21,6 +21,11 @@ jobs:
         run: git pull --ff-only origin reconcile/claude-main-20260825
       - name: Apply profile browser contract repair
         run: python3 scripts/fix_profile_real_browser_tab_contract.py
+      - name: Verify patch before commit
+        run: |
+          grep -F 'accessibilityLabel={`Profil ${tab.label}`}' packages/mobile/src/screens/ProfilePublicScreen.tsx
+          grep -F "getByLabel('Profil KEEP')" .github/workflows/mobile-web-importmeta-diagnostic.yml
+          grep -F "aria-selected" .github/workflows/mobile-web-importmeta-diagnostic.yml
       - name: Commit repair
         run: |
           git config user.name "KEEP Guardian"
