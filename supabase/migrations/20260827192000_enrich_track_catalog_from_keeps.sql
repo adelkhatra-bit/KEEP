@@ -2,6 +2,12 @@
 -- Chaque KEEP enrichit le catalogue interne avec les métadonnées déjà obtenues
 -- lors de la reconnaissance. Aucun fichier audio n'est stocké.
 
+-- Ces deux colonnes existent sur la base distante et sont consommées par le
+-- trigger ci-dessous. Elles doivent aussi être présentes lors d'un rebuild neuf.
+alter table public.tracks
+  add column if not exists source text,
+  add column if not exists source_url text;
+
 create or replace function public.enrich_track_from_keep_decision()
 returns trigger
 language plpgsql
