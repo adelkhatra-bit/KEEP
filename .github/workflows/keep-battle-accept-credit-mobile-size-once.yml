@@ -28,7 +28,7 @@ jobs:
       - name: Verify Battle mobile
         run: |
           npx tsc -p packages/mobile/tsconfig.json --noEmit
-          npx jest packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts --runInBand
+          npm test --workspace=packages/mobile -- --runInBand KeepBattleMobileGameV3.compact.test.ts
       - name: Commit fix
         run: |
           if git diff --quiet; then exit 0; fi
