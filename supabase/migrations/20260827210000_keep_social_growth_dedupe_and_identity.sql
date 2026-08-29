@@ -86,6 +86,12 @@ delete from public.tracks t
 using _keep_track_merge m
 where t.id = m.old_id;
 
+-- Ce fichier est la première migration qui consomme l'attribution sociale.
+-- Une base neuve ne possède donc pas encore nécessairement ces colonnes.
+alter table public.keep_decisions
+  add column if not exists source_user_id uuid references public.profiles(id) on delete set null,
+  add column if not exists source_type text;
+
 -- En cas d'anciens doubles KEEP, la décision la plus récente est conservée.
 create temporary table _keep_decision_merge as
 with ranked as (
