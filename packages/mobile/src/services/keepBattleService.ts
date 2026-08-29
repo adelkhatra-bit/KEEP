@@ -59,6 +59,13 @@ export type KeepBattleStats = {
   bestWinStreak: number;
 };
 
+export type KeepBattleCreditStatus = {
+  won: number;
+  lost: number;
+  net: number;
+  remainingFree: number;
+};
+
 function client() {
   if (!supabase) throw new Error('SUPABASE_NOT_CONFIGURED');
   return supabase;
@@ -116,6 +123,11 @@ export async function submitKeepBattleMove(args: {
 export async function loadMyKeepBattleStats(): Promise<KeepBattleStats> {
   const { data, error } = await client().rpc('keep_battle_my_stats');
   return unwrap(data as KeepBattleStats | null, error);
+}
+
+export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> {
+  const { data, error } = await client().rpc('keep_battle_credit_status');
+  return unwrap(data as KeepBattleCreditStatus | null, error);
 }
 
 export function buildKeepBattleInviteLink(inviteCode: string): string {
