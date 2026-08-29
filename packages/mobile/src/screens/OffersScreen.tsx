@@ -241,13 +241,22 @@ export default function OffersScreen({ navigation, route }: any) {
             </View>
 
             <View style={s.otherRewards}>
-              <Text style={s.otherRewardsTitle}>AUTRES BONUS À GAGNER</Text>
+              <Text style={s.otherRewardsTitle}>BONUS GRATUITS EN PLUS DE TON OFFRE</Text>
+              <Text style={s.otherRewardsIntro}>Ces avantages s’ajoutent à ta formule actuelle. Tu les gagnes gratuitement en faisant grandir ta communauté musicale et en partageant KEEP. Aucun achat supplémentaire.</Text>
               <Text style={s.otherRewardsLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
               <Text style={s.otherRewardsLine}>{f2} abonnés → +{fr.tier2Sort} essai Vibes</Text>
               <Text style={s.otherRewardsLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes</Text>
               <Text style={s.otherRewardsLine}>{s1} partages → +{sr.tier1Discovery} Découvertes</Text>
               <Text style={s.otherRewardsLine}>{s3} partages → +{sr.tier3Sort} essai Vibes en plus des Free</Text>
               <Text style={s.vibesDefinition}>Vibes = KEEP range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
+            </View>
+
+            <View style={s.communityOpportunity}>
+              <Text style={s.communityOpportunityEyebrow}>FAIS GRANDIR TA COMMUNAUTÉ MUSICALE</Text>
+              <Text style={s.communityOpportunityTitle}>Tes goûts musicaux peuvent devenir ton influence.</Text>
+              <Text style={s.communityOpportunityText}>Partage tes KEEP, tes Vibes et ton univers musical. Tu peux construire une vraie communauté et devenir influent sans avoir besoin de montrer ton visage.</Text>
+              <Text style={s.communityOpportunityText}>À partir de {f4} abonnés, la création d’événements peut se débloquer selon ta formule. Tu peux alors promouvoir tes propres événements ou collaborer directement avec des établissements et partenaires auprès de ta communauté.</Text>
+              <Text style={s.communityOpportunityNote}>KEEP ne vend pas tes partenariats et n’encaisse aucune rémunération à ta place : si tu conclus une collaboration, elle reste directe entre toi et ton partenaire.</Text>
             </View>
           </View>
         </>}
@@ -282,7 +291,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Règles simples</Text>
-          <Text style={s.subscriptionText}>Free permet de découvrir KEEP et peut se recharger grâce au partage, aux abonnés et aux victoires Battle. Premium donne l’usage quotidien confortable. Creator Pro ajoute Vibes illimité et les outils créateur. Venue Pro ajoute les outils professionnels et les événements illimités selon les règles affichées.</Text>
+          <Text style={s.subscriptionText}>Ta formule définit tes fonctions de base. Les bonus gagnés grâce aux partages, aux abonnés et aux Battles viennent s’ajouter gratuitement à cette formule. Premium donne l’usage quotidien confortable. Creator Pro ajoute Vibes illimité et les outils créateur. Venue Pro ajoute les outils professionnels et les événements illimités selon les règles affichées.</Text>
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
@@ -342,8 +351,14 @@ const s = StyleSheet.create({
   startBonusText: { color: '#FFFFFF', fontSize: 9, lineHeight: 13, fontWeight: '700', marginTop: 2 },
   otherRewards: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#493369', paddingTop: 10 },
   otherRewardsTitle: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  otherRewardsIntro: { color: '#FFFFFF', fontSize: 10, lineHeight: 15, marginTop: 5, marginBottom: 4, fontWeight: '800' },
   otherRewardsLine: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 2, fontWeight: '700' },
   vibesDefinition: { color: '#FFFFFF', fontSize: 9, lineHeight: 14, marginTop: 7, fontWeight: '800' },
+  communityOpportunity: { marginTop: 14, borderRadius: 14, backgroundColor: '#151020', borderWidth: 1, borderColor: colors.primaryLight, padding: 12 },
+  communityOpportunityEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: .9 },
+  communityOpportunityTitle: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 5 },
+  communityOpportunityText: { color: '#FFFFFF', fontSize: 10, lineHeight: 16, fontWeight: '700', marginTop: 6 },
+  communityOpportunityNote: { color: '#FFFFFF', fontSize: 9, lineHeight: 14, fontWeight: '800', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#493369' },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
   planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
