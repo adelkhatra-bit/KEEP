@@ -35,7 +35,12 @@ p.write_text(s)
 # Lock regression contract to the intended UX.
 p = Path('packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts')
 s = p.read_text()
-s = re.sub(r"\n  it\('still supports the legacy notification route safely without making it the Battle entry point'.*?\n  \}\);", "", s, flags=re.S)
+for title in [
+    'still supports the legacy notification route safely without making it the Battle entry point',
+    'keeps native action buttons only for real incoming Battle wake-up pushes',
+    'keeps the legacy notification screen safe if an old notification is opened',
+]:
+    s = re.sub(r"\n  it\('" + re.escape(title) + r"'.*?\n  \}\);", "", s, flags=re.S)
 if "keeps Battle decision out of Notifications" not in s:
     insert = """
   it('keeps Battle decision out of Notifications and native push actions', () => {
