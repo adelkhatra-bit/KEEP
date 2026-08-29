@@ -1,6 +1,5 @@
 from pathlib import Path
 
-# Battle: authoritative reload after accept + readable mobile invitation.
 p=Path('packages/mobile/src/components/KeepBattleMobileGameV3.tsx')
 s=p.read_text()
 s=s.replace("const loadedArena = response.arenaState || await loadArenaAfterAccept(response.arenaId);", "const loadedArena = await loadArenaAfterAccept(response.arenaId);", 1)
@@ -15,13 +14,12 @@ s=s.replace("yes: { flex: 1, minHeight: 56, paddingHorizontal: 14, borderRadius:
 s=s.replace("yesText: { color: '#17130B', fontSize: 14", "yesText: { color: '#17130B', fontSize: 15", 1)
 p.write_text(s)
 
-# Discovery: keep privacy rules, but do not bury a newly-created eligible profile behind the free quota.
 p=Path('packages/mobile/src/screens/DiscoverScreen.tsx')
 s=p.read_text()
 s=s.replace("  approxLng?: number;\n};", "  approxLng?: number;\n  createdAt?: string;\n};", 1)
 s=s.replace("    approxLng: normalizeOptionalCoordinate(row.approx_lng),\n  };", "    approxLng: normalizeOptionalCoordinate(row.approx_lng),\n    createdAt: row.created_at ? String(row.created_at) : undefined,\n  };", 1)
 s=s.replace(".select('id,username,avatar_url,bio,city,country_code,kind,favorite_genres,favorite_artists,approx_lat,approx_lng')", ".select('id,username,avatar_url,bio,city,country_code,kind,favorite_genres,favorite_artists,approx_lat,approx_lng,created_at')", 1)
-old="""    }).filter((item) => radiusKm >= 20000 ? true : item.distance !== null && item.distance <= radiusKm);"""
+old="    }).filter((item) => radiusKm >= 20000 ? true : item.distance !== null && item.distance <= radiusKm);"
 new="""    }).filter((item) => {
       if (radiusKm >= 20000) return true;
       if (item.distance !== null) return item.distance <= radiusKm;
@@ -31,20 +29,20 @@ new="""    }).filter((item) => {
     });"""
 if old not in s: raise SystemExit('discover radius anchor missing')
 s=s.replace(old,new,1)
-old_sort="""    return measured.sort((a, b) => {
+old_sort="""    ranked.sort((a, b) => {
       if (a.distance === null && b.distance === null) return a.profile.username.localeCompare(b.profile.username);
       if (a.distance === null) return 1;
       if (b.distance === null) return -1;
       return a.distance - b.distance;
-    }).map((item) => item.profile);"""
-new_sort="""    return measured.sort((a, b) => {
+    });"""
+new_sort="""    ranked.sort((a, b) => {
       const recent = String(b.profile.createdAt || '').localeCompare(String(a.profile.createdAt || ''));
       if (recent !== 0) return recent;
       if (a.distance === null && b.distance === null) return a.profile.username.localeCompare(b.profile.username);
       if (a.distance === null) return 1;
       if (b.distance === null) return -1;
       return a.distance - b.distance;
-    }).map((item) => item.profile);"""
+    });"""
 if old_sort not in s: raise SystemExit('discover sort anchor missing')
 s=s.replace(old_sort,new_sort,1)
 s=s.replace("  }, [profiles, radiusKm, searchPosition, hasSearched]);", "  }, [profiles, radiusKm, searchPosition, hasSearched, user?.city, user?.countryCode]);", 1)
