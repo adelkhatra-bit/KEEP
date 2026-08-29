@@ -1,12 +1,14 @@
+# KEEP real-browser profile tab contract patch. Editing this file intentionally retriggers CI after generated source commits.
 from pathlib import Path
 
 profile = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
 s = profile.read_text()
 old = "<View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>"
 new = "<View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole=\"tab\" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>"
-if old not in s:
+if old in s:
+    profile.write_text(s.replace(old, new, 1))
+elif 'accessibilityLabel={`Profil ${tab.label}`}' not in s:
     raise SystemExit('profile tabs anchor not found')
-profile.write_text(s.replace(old, new, 1))
 
 wf = Path('.github/workflows/mobile-web-importmeta-diagnostic.yml')
 w = wf.read_text()
