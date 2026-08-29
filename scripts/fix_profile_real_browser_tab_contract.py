@@ -12,6 +12,24 @@ elif 'accessibilityLabel={`Profil ${tab.label}`}' not in s:
 
 wf = Path('.github/workflows/mobile-web-importmeta-diagnostic.yml')
 w = wf.read_text()
-w = w.replace("const vibesTab = page.getByText('Vibes', { exact: true }).first();\n          const albumsTab = page.getByText('Albums', { exact: true }).first();\n          const keepTab = page.getByText('KEEP', { exact: true }).last();", "const vibesTab = page.getByLabel('Profil Vibes');\n          const albumsTab = page.getByLabel('Profil Albums');\n          const keepTab = page.getByLabel('Profil KEEP');")
-w = w.replace("if (await page.getByText(/KEEP construit ton univers/i).count() === 0) {\n            throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');\n          }", "const keepSelected = await keepTab.getAttribute('aria-selected');\n          if (keepSelected !== 'true') {\n            throw new Error(`KEEP tab did not become selected immediately: aria-selected=${keepSelected}`);\n          }\n          const keepContentPresent = (await page.getByText(/KEEP construit ton univers/i).count()) > 0 || (await page.getByText(/Tes morceaux KEEP apparaîtront ici/i).count()) > 0;\n          if (!keepContentPresent) {\n            throw new Error('KEEP tab selected but neither populated nor empty KEEP content was mounted');\n          }")
+w = w.replace("const vibesTab = page.getByText('Vibes', { exact: true }).first();", "const vibesTab = page.getByLabel('Profil Vibes');")
+w = w.replace("const albumsTab = page.getByText('Albums', { exact: true }).first();", "const albumsTab = page.getByLabel('Profil Albums');")
+w = w.replace("const keepTab = page.getByText('KEEP', { exact: true }).last();", "const keepTab = page.getByLabel('Profil KEEP');")
+old_check = """if (await page.getByText(/KEEP construit ton univers/i).count() === 0) {
+              throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
+            }"""
+new_check = """const keepSelected = await keepTab.getAttribute('aria-selected');
+            if (keepSelected !== 'true') {
+              throw new Error(`KEEP tab did not become selected immediately: aria-selected=${keepSelected}`);
+            }
+            const keepContentPresent = (await page.getByText(/KEEP construit ton univers/i).count()) > 0 || (await page.getByText(/Tes morceaux KEEP apparaîtront ici/i).count()) > 0;
+            if (!keepContentPresent) {
+              throw new Error('KEEP tab selected but neither populated nor empty KEEP content was mounted');
+            }"""
+if old_check in w:
+    w = w.replace(old_check, new_check, 1)
+elif "KEEP tab did not remount immediately" in w:
+    raise SystemExit('KEEP assertion anchor found with unexpected formatting')
+if "getByLabel('Profil KEEP')" not in w or 'aria-selected' not in w:
+    raise SystemExit('browser workflow patch incomplete')
 wf.write_text(w)
