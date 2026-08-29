@@ -35,6 +35,23 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
   });
 
+  it('shows a complete 8-round endgame with replay and challenge choices', () => {
+    expect(source).toContain('PARFAIT · 8/8');
+    expect(source).toContain('REFAIRE UNE PARTIE');
+    expect(source).toContain('DÉFIER UN JOUEUR');
+    expect(source).toContain('INVITER UN AMI');
+    expect(source).toContain('setSoloFinished(true); celebrate()');
+  });
+
+  it('stops automatic multiplayer restart and shows rematch actions', () => {
+    expect(source).toContain("arena.status === 'WAITING' && arena.lastResult");
+    expect(source).toContain('REVANCHE');
+    expect(source).toContain('AJOUTER UN JOUEUR');
+    expect(source).toContain('QUITTER LE BATTLE');
+    expect(source).toContain('buildKeepBattleArenaInviteLink');
+    expect(source).toContain('!arena.isHost || arena.lastResult || arena.seats.length < 2');
+  });
+
   it('keeps the horizontal music-style selector compact on 390x844', () => {
     expect(source).toContain('style={s.themeScroll}');
     expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }");
