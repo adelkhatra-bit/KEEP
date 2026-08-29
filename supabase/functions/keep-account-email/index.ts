@@ -52,22 +52,61 @@ function maskEmail(email: string) {
   return `${local.slice(0, 2)}•••@${domain}`;
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
+}
+
+function verificationEmailHtml(code: string, username: string) {
+  const handle = username ? `@${escapeHtml(username)}` : "";
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+  <title>Valide ton adresse e-mail KEEP</title>
+</head>
+<body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
+    <tr>
+      <td align="center" style="padding:24px 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
+          <tr>
+            <td style="padding:30px 26px 12px;text-align:center;">
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">KEEP</div>
+              <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">Valide ton adresse e-mail</h1>
+              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${handle ? `<strong style="color:#ffffff">${handle}</strong>, ` : ""}saisis ce code dans KEEP pour sécuriser ton compte et faciliter sa récupération.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:22px 24px 8px;">
+              <div style="box-sizing:border-box;width:100%;max-width:360px;background:#09070d;border:1px solid #463653;border-radius:22px;padding:22px 12px;font-size:34px;line-height:40px;font-weight:900;letter-spacing:9px;color:#e5f266;text-align:center;">${code}</div>
+              <p style="margin:12px 0 0;font-size:13px;line-height:19px;color:#a99eb5;">Ce code expire dans <strong style="color:#ffffff">10 minutes</strong>.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 26px 30px;">
+              <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
+              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail. KEEP ne te demandera jamais ton mot de passe ni ce code par e-mail.</p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">KEEP · Ton univers musical, gardé au même endroit.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 async function sendBrevoCode(to: string, code: string, username: string) {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "KEEP";
   if (!apiKey || !senderEmail) return { ok: false as const, error: "email_provider_unconfigured" };
 
-  const subject = "Valide ton adresse e-mail KEEP";
-  const htmlContent = `
-    <div style="font-family:Arial,sans-serif;background:#0b0711;color:#ffffff;padding:24px;border-radius:18px">
-      <div style="font-size:13px;font-weight:800;color:#a78bfa;letter-spacing:1px">KEEP</div>
-      <h2 style="margin:10px 0 8px">Valide ton adresse e-mail</h2>
-      <p style="color:#d5cce3">${username ? `@${username}, ` : ""}saisis ce code dans KEEP. Il expire dans 10 minutes.</p>
-      <div style="font-size:32px;font-weight:900;letter-spacing:8px;margin:24px 0;color:#ffffff">${code}</div>
-      <p style="font-size:12px;color:#9e94ae">Si tu n’as pas demandé cette validation, ignore cet e-mail. KEEP ne te demandera jamais ton mot de passe par e-mail.</p>
-    </div>`;
-
+  const subject = "Ton code de vérification KEEP";
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
@@ -75,7 +114,8 @@ async function sendBrevoCode(to: string, code: string, username: string) {
       sender: { email: senderEmail, name: senderName },
       to: [{ email: to }],
       subject,
-      htmlContent,
+      htmlContent: verificationEmailHtml(code, username),
+      textContent: `${username ? `@${username}, ` : ""}ton code de vérification KEEP est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
       tags: ["keep", "account", "email-verification"],
     }),
   });
@@ -88,11 +128,7 @@ async function requestCode(user: any, body: any) {
   const email = normalizeEmail(body?.email);
   if (!validEmail(email)) return json({ ok: false, error: "invalid_email" }, 400);
 
-  const { data: previous } = await admin
-    .from("account_email_verifications")
-    .select("requested_at")
-    .eq("profile_id", user.id)
-    .maybeSingle();
+  const { data: previous } = await admin.from("account_email_verifications").select("requested_at").eq("profile_id", user.id).maybeSingle();
   if (previous?.requested_at) {
     const elapsed = Date.now() - new Date(previous.requested_at).getTime();
     if (elapsed < 60_000) return json({ ok: false, error: "rate_limited", retry_after_seconds: Math.ceil((60_000 - elapsed) / 1000) }, 429);
@@ -104,15 +140,7 @@ async function requestCode(user: any, body: any) {
   const now = new Date();
   const expires = new Date(now.getTime() + 10 * 60_000);
 
-  const { error: saveError } = await admin.from("account_email_verifications").upsert({
-    profile_id: user.id,
-    email,
-    code_hash: codeHash,
-    attempts: 0,
-    requested_at: now.toISOString(),
-    expires_at: expires.toISOString(),
-    verified_at: null,
-  }, { onConflict: "profile_id" });
+  const { error: saveError } = await admin.from("account_email_verifications").upsert({ profile_id: user.id, email, code_hash: codeHash, attempts: 0, requested_at: now.toISOString(), expires_at: expires.toISOString(), verified_at: null }, { onConflict: "profile_id" });
   if (saveError) return json({ ok: false, error: "server_error" }, 500);
 
   const sent = await sendBrevoCode(email, code, String(profile?.username ?? ""));
@@ -120,7 +148,6 @@ async function requestCode(user: any, body: any) {
     await admin.from("account_email_verifications").delete().eq("profile_id", user.id);
     return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 503);
   }
-
   return json({ ok: true, email_hint: maskEmail(email), expires_in_seconds: 600 });
 }
 
@@ -129,11 +156,7 @@ async function confirmCode(user: any, body: any) {
   const code = String(body?.code ?? "").trim();
   if (!validEmail(email) || !/^\d{6}$/.test(code)) return json({ ok: false, error: "invalid_code" }, 400);
 
-  const { data: pending, error } = await admin
-    .from("account_email_verifications")
-    .select("email,code_hash,attempts,expires_at")
-    .eq("profile_id", user.id)
-    .maybeSingle();
+  const { data: pending, error } = await admin.from("account_email_verifications").select("email,code_hash,attempts,expires_at").eq("profile_id", user.id).maybeSingle();
   if (error || !pending) return json({ ok: false, error: "no_pending_verification" }, 400);
   if (normalizeEmail(pending.email) !== email) return json({ ok: false, error: "email_mismatch" }, 400);
   if (new Date(pending.expires_at).getTime() < Date.now()) {
@@ -149,11 +172,7 @@ async function confirmCode(user: any, body: any) {
   }
 
   const metadata = { ...(user.user_metadata ?? {}), keep_username_only: false, keep_recovery_email_verified: true };
-  const { data: updated, error: updateError } = await admin.auth.admin.updateUserById(user.id, {
-    email,
-    email_confirm: true,
-    user_metadata: metadata,
-  });
+  const { data: updated, error: updateError } = await admin.auth.admin.updateUserById(user.id, { email, email_confirm: true, user_metadata: metadata });
   if (updateError || !updated.user) {
     const msg = String(updateError?.message ?? "").toLowerCase();
     if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) return json({ ok: false, error: "email_taken" }, 409);
@@ -169,13 +188,7 @@ async function status(user: any) {
   const email = String(user.email ?? "").trim();
   const isReal = Boolean(email) && !/@keep\.local$/i.test(email);
   const { data: pending } = await admin.from("account_email_verifications").select("email,expires_at").eq("profile_id", user.id).maybeSingle();
-  return json({
-    ok: true,
-    email: isReal ? email : null,
-    email_verified: isReal && Boolean(user.email_confirmed_at),
-    pending_email_hint: pending?.email ? maskEmail(String(pending.email)) : null,
-    pending_expires_at: pending?.expires_at ?? null,
-  });
+  return json({ ok: true, email: isReal ? email : null, email_verified: isReal && Boolean(user.email_confirmed_at), pending_email_hint: pending?.email ? maskEmail(String(pending.email)) : null, pending_expires_at: pending?.expires_at ?? null });
 }
 
 Deno.serve(async (req) => {
