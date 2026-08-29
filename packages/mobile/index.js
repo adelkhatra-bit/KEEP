@@ -6,6 +6,7 @@ import MandatoryProfileRequirementsGate from './src/components/MandatoryProfileR
 import SharedMusicHandoff from './src/components/SharedMusicHandoff';
 import BackgroundListeningLifecycle from './src/components/BackgroundListeningLifecycle';
 import AuthEmailLinkLifecycle from './src/components/AuthEmailLinkLifecycle';
+import PushRegistrationLifecycle from './src/components/PushRegistrationLifecycle';
 
 
 // Samsung Internet / Chrome Android changent la hauteur du viewport lorsque
@@ -46,6 +47,7 @@ function KeepRoot() {
         React.createElement(SharedMusicHandoff),
         React.createElement(BackgroundListeningLifecycle),
         React.createElement(AuthEmailLinkLifecycle),
+        React.createElement(PushRegistrationLifecycle),
         React.createElement(App),
       ),
     ),
@@ -55,6 +57,7 @@ function KeepRoot() {
 // Les wrappers fonctionnels natifs restent volontairement placés ici :
 // App.tsx, son responsive, Navigation.tsx et la barre des 5 onglets ne sont
 // pas modifiés. Les exigences définies par le Super Admin, le cycle natif
-// d'écoute et les liens d'auth e-mail sont ainsi appliqués au vrai utilisateur
-// sans créer une navigation parallèle ni modifier le design validé.
+// d'écoute, les liens d'auth e-mail et l'enregistrement push sont ainsi
+// appliqués au vrai utilisateur sans créer une navigation parallèle ni
+// modifier le design validé.
 registerRootComponent(KeepRoot);
