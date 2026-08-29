@@ -22,6 +22,22 @@ export type GrowthRewardStatus = {
   audienceProThreshold: number;
 };
 
+export type FollowerRewards = {
+  tier1Discovery: number;
+  tier2Sort: number;
+  tier3Credits: number;
+  tier4Discovery: number;
+  tier4Sort: number;
+  tier5Credits: number;
+};
+
+export type ShareRewards = {
+  tier1Discovery: number;
+  tier2Credits: number;
+  tier3Credits: number;
+  tier3Sort: number;
+};
+
 export type CommercialRules = {
   freeDiscoveryProfiles: number;
   premiumSmartSortTrials: number;
@@ -30,6 +46,8 @@ export type CommercialRules = {
   audienceProThreshold: number;
   shareTiers: [number, number, number];
   followerTiers: [number, number, number, number, number];
+  followerRewards: FollowerRewards;
+  shareRewards: ShareRewards;
 };
 
 const FALLBACK_RULES: CommercialRules = {
@@ -40,6 +58,20 @@ const FALLBACK_RULES: CommercialRules = {
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
   followerTiers: [25, 100, 250, 500, 1000],
+  followerRewards: {
+    tier1Discovery: 3,
+    tier2Sort: 1,
+    tier3Credits: 5,
+    tier4Discovery: 5,
+    tier4Sort: 1,
+    tier5Credits: 20,
+  },
+  shareRewards: {
+    tier1Discovery: 3,
+    tier2Credits: 5,
+    tier3Credits: 20,
+    tier3Sort: 1,
+  },
 };
 
 function quota(row: any): QuotaAccess {
@@ -99,6 +131,8 @@ export async function getCommercialRules(): Promise<CommercialRules> {
   const row: any = data;
   const share = Array.isArray(row.share_tiers) ? row.share_tiers.map(Number) : FALLBACK_RULES.shareTiers;
   const followers = Array.isArray(row.follower_tiers) ? row.follower_tiers.map(Number) : FALLBACK_RULES.followerTiers;
+  const followerRewards = row.follower_rewards && typeof row.follower_rewards === 'object' ? row.follower_rewards : {};
+  const shareRewards = row.share_rewards && typeof row.share_rewards === 'object' ? row.share_rewards : {};
   const shareTiers: [number, number, number] = [share[0] || 20, share[1] || 50, share[2] || 100];
   const followerTiers: [number, number, number, number, number] = [followers[0] || 25, followers[1] || 100, followers[2] || 250, followers[3] || 500, followers[4] || 1000];
   return {
@@ -109,5 +143,19 @@ export async function getCommercialRules(): Promise<CommercialRules> {
     audienceProThreshold: followerTiers[4],
     shareTiers,
     followerTiers,
+    followerRewards: {
+      tier1Discovery: Number(followerRewards.tier1_discovery ?? FALLBACK_RULES.followerRewards.tier1Discovery),
+      tier2Sort: Number(followerRewards.tier2_sort ?? FALLBACK_RULES.followerRewards.tier2Sort),
+      tier3Credits: Number(followerRewards.tier3_credits ?? FALLBACK_RULES.followerRewards.tier3Credits),
+      tier4Discovery: Number(followerRewards.tier4_discovery ?? FALLBACK_RULES.followerRewards.tier4Discovery),
+      tier4Sort: Number(followerRewards.tier4_sort ?? FALLBACK_RULES.followerRewards.tier4Sort),
+      tier5Credits: Number(followerRewards.tier5_credits ?? FALLBACK_RULES.followerRewards.tier5Credits),
+    },
+    shareRewards: {
+      tier1Discovery: Number(shareRewards.tier1_discovery ?? FALLBACK_RULES.shareRewards.tier1Discovery),
+      tier2Credits: Number(shareRewards.tier2_credits ?? FALLBACK_RULES.shareRewards.tier2Credits),
+      tier3Credits: Number(shareRewards.tier3_credits ?? FALLBACK_RULES.shareRewards.tier3Credits),
+      tier3Sort: Number(shareRewards.tier3_sort ?? FALLBACK_RULES.shareRewards.tier3Sort),
+    },
   };
 }
