@@ -1,1 +1,1 @@
-export { default } from './KeepBattleMobileGame';
+export { default } from './KeepBattleMobileGameV2';
