@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { colors } from '../theme/colors';
-import { radius } from '../theme/spacing';
 import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
 import {
   buildKeepBattleArenaInviteLink,
@@ -28,6 +27,12 @@ import {
   submitKeepBattleArenaQuizAnswer,
   subscribeKeepBattleArena,
 } from '../services/keepBattleService';
+import {
+  KeepBattleOpenSalon,
+  KeepBattleThemeLobby,
+  loadBattleThemeLobby,
+  loadOpenBattleSalons,
+} from '../services/keepBattleSalonService';
 import { supabase } from '../services/supabaseClient';
 
 type Props = {
@@ -53,10 +58,22 @@ function formatSeconds(ms: number) {
   return `${(Math.max(0, ms) / 1000).toFixed(2)} s`;
 }
 
+function battleError(rawValue: unknown, fallback: string) {
+  const raw = String((rawValue as any)?.message || rawValue || '');
+  if (raw.includes('MINIMUM_THREE_FREE')) return 'Il faut au moins 3 Free disponibles pour entrer dans un Battle.';
+  return raw || fallback;
+}
+
 export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequireAccount }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
+  const [salonThemeFilter, setSalonThemeFilter] = React.useState<string | null>(null);
   const [lobby, setLobby] = React.useState<KeepBattleArenaLobby | null>(null);
+  const [themeLobby, setThemeLobby] = React.useState<KeepBattleThemeLobby[]>([]);
+  const [openSalons, setOpenSalons] = React.useState<KeepBattleOpenSalon[]>([]);
+  const [salonsLoading, setSalonsLoading] = React.useState(true);
+  const [salonsError, setSalonsError] = React.useState('');
+  const [busySalonId, setBusySalonId] = React.useState('');
   const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);
   const [joinCode, setJoinCode] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -70,6 +87,23 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
   const refreshLobby = React.useCallback(async () => {
     try { setLobby(await loadKeepBattleArenaLobby()); } catch { }
   }, []);
+
+  const refreshSalons = React.useCallback(async () => {
+    setSalonsLoading(true);
+    try {
+      const [salons, themesSummary] = await Promise.all([
+        loadOpenBattleSalons(salonThemeFilter),
+        loadBattleThemeLobby(),
+      ]);
+      setOpenSalons(salons);
+      setThemeLobby(themesSummary);
+      setSalonsError('');
+    } catch {
+      setSalonsError('Impossible de charger les salons ouverts pour le moment.');
+    } finally {
+      setSalonsLoading(false);
+    }
+  }, [salonThemeFilter]);
 
   const refreshArena = React.useCallback(async () => {
     if (!arena?.id) return;
@@ -87,6 +121,17 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     void refreshLobby();
     return () => { live = false; };
   }, [enabled, refreshLobby]);
+
+  React.useEffect(() => {
+    let live = true;
+    const reload = async () => {
+      if (!live) return;
+      await refreshSalons();
+    };
+    void reload();
+    const timer = setInterval(() => { void reload(); }, 5000);
+    return () => { live = false; clearInterval(timer); };
+  }, [refreshSalons]);
 
   React.useEffect(() => {
     if (!arena?.id) return undefined;
@@ -142,26 +187,34 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     ]);
   };
 
+  const enterSalon = async (salon: KeepBattleOpenSalon) => {
+    if (!enabled || !supabase) return requireAccount();
+    if (busy || busySalonId) return;
+    setBusySalonId(salon.id);
+    try {
+      const joined = await joinKeepBattleArena(salon.arenaCode);
+      setArena(await loadKeepBattleArena(joined.id));
+      await Promise.all([refreshLobby(), refreshSalons()]);
+    } catch (e: any) {
+      Alert.alert('Salon KEEP Battle', battleError(e, 'Impossible de rejoindre ce salon pour le moment.'));
+    } finally {
+      setBusySalonId('');
+    }
+  };
+
   const autoMatch = async () => {
     if (!enabled || !supabase) return requireAccount();
     setBusy(true);
     try {
-      // Le Salon utilise une réserve musicale centrale : un joueur peut entrer
-      // même avec zéro morceau personnel. Tant que la réserve grandit, KEEP la
-      // complète automatiquement avant le matchmaking, sans clé payante.
       await refreshKeepBattleCatalog(24).catch(() => null);
       const { data, error } = await supabase.rpc('keep_battle_arena_matchmake', { p_theme_code: themeCode });
       if (error) throw error;
       const id = String((data as any)?.id || '');
       if (!id) throw new Error('Arène introuvable.');
       setArena(await loadKeepBattleArena(id));
-      await refreshLobby();
+      await Promise.all([refreshLobby(), refreshSalons()]);
     } catch (e: any) {
-      const raw = String(e?.message || '');
-      const msg = raw.includes('MINIMUM_THREE_FREE')
-        ? 'Il faut au moins 3 Free disponibles pour entrer dans une arène.'
-        : raw || 'Impossible de rejoindre une arène pour le moment.';
-      Alert.alert('KEEP BATTLE', msg);
+      Alert.alert('KEEP BATTLE', battleError(e, 'Impossible de rejoindre une arène pour le moment.'));
     } finally { setBusy(false); }
   };
 
@@ -173,11 +226,9 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
       const joined = await joinKeepBattleArena(joinCode);
       setArena(await loadKeepBattleArena(joined.id));
       setJoinCode('');
-      await refreshLobby();
+      await Promise.all([refreshLobby(), refreshSalons()]);
     } catch (e: any) {
-      const raw = String(e?.message || '');
-      const msg = raw.includes('MINIMUM_THREE_FREE') ? 'Il faut au moins 3 Free disponibles pour rejoindre ce Battle.' : raw || 'Ce code n’est pas disponible.';
-      Alert.alert('Code Battle', msg);
+      Alert.alert('Code Battle', battleError(e, 'Ce code n’est pas disponible.'));
     } finally { setBusy(false); }
   };
 
@@ -278,13 +329,63 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
         </View>}
       </View> : null}
 
-      <View style={s.bottomRow}><TouchableOpacity onPress={() => setArena(null)}><Text style={s.link}>QUITTER L’ÉCRAN</Text></TouchableOpacity><TouchableOpacity onPress={shareArena}><Text style={s.link}>PARTAGER LE BATTLE</Text></TouchableOpacity></View>
+      <View style={s.bottomRow}><TouchableOpacity onPress={() => { setArena(null); void refreshSalons(); }}><Text style={s.link}>RETOUR AUX SALONS</Text></TouchableOpacity><TouchableOpacity onPress={shareArena}><Text style={s.link}>PARTAGER LE BATTLE</Text></TouchableOpacity></View>
     </View>;
   }
 
+  const totalOpen = themeLobby.reduce((sum, item) => sum + item.openSalons, 0);
+  const totalPlayers = themeLobby.reduce((sum, item) => sum + item.players, 0);
+
   return <View style={s.card}>
-    <Text style={s.kicker}>KEEP BATTLE</Text>
-    <Text style={s.title}>Tu reconnais la musique avant les autres ?</Text>
+    <Text style={s.kicker}>KEEP BATTLE · SALONS UTILISATEURS</Text>
+    <Text style={s.title}>Choisis un salon ouvert.</Text>
+    <Text style={s.subtitle}>Vois l’hôte, le thème, les places, la file et le jackpot avant d’entrer. Ensuite seulement, le Battle démarre.</Text>
+
+    <View style={s.salonSummary}>
+      <Text style={s.salonSummaryText}>{totalOpen} salon{totalOpen > 1 ? 's' : ''} ouvert{totalOpen > 1 ? 's' : ''}</Text>
+      <Text style={s.salonSummaryText}>{totalPlayers} joueur{totalPlayers > 1 ? 's' : ''}</Text>
+      <TouchableOpacity onPress={() => void refreshSalons()} accessibilityLabel="Actualiser les salons"><Text style={s.refreshText}>ACTUALISER</Text></TouchableOpacity>
+    </View>
+
+    <Text style={s.label}>FILTRER PAR THÈME</Text>
+    <View style={s.themeWrap}>
+      <TouchableOpacity style={[s.themeChip, salonThemeFilter === null && s.themeChipOn]} onPress={() => setSalonThemeFilter(null)}><Text style={[s.themeText, salonThemeFilter === null && s.themeTextOn]}>Tous</Text></TouchableOpacity>
+      {themes.map((theme) => {
+        const summary = themeLobby.find((row) => row.code === theme.code);
+        return <TouchableOpacity key={`salon-${theme.code}`} style={[s.themeChip, salonThemeFilter === theme.code && s.themeChipOn]} onPress={() => setSalonThemeFilter(theme.code)}>
+          <Text style={[s.themeText, salonThemeFilter === theme.code && s.themeTextOn]}>{theme.label}{summary?.openSalons ? ` · ${summary.openSalons}` : ''}</Text>
+        </TouchableOpacity>;
+      })}
+    </View>
+
+    <View style={s.salonList}>
+      {salonsLoading && openSalons.length === 0 ? <View style={s.salonLoading}><ActivityIndicator color="#B693FF"/><Text style={s.salonMuted}>Recherche des salons ouverts…</Text></View> : null}
+      {salonsError ? <View style={s.salonError}><Text style={s.salonErrorText}>{salonsError}</Text><TouchableOpacity onPress={() => void refreshSalons()}><Text style={s.refreshText}>RÉESSAYER</Text></TouchableOpacity></View> : null}
+      {!salonsLoading && !salonsError && openSalons.length === 0 ? <View style={s.emptySalon}><Text style={s.emptySalonTitle}>Aucun salon ouvert sur ce thème.</Text><Text style={s.salonMuted}>Tu peux lancer le tien juste en dessous.</Text></View> : null}
+      {openSalons.map((salon) => {
+        const joining = busySalonId === salon.id;
+        const full = salon.openSeats <= 0;
+        return <View key={salon.id} style={s.salonCard}>
+          <View style={s.salonTopRow}>
+            <TouchableOpacity style={s.salonHost} onPress={() => onOpenProfile(salon.hostUsername)} accessibilityLabel={`Voir le profil de ${salon.hostUsername}`}>
+              {salon.hostAvatarUrl ? <Image source={{ uri: salon.hostAvatarUrl }} style={s.salonAvatar}/> : <View style={[s.salonAvatar,s.avatarFallback]}><Text style={s.avatarLetter}>{salon.hostUsername.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={{flex:1}}><Text style={s.salonHostLabel}>CRÉÉ PAR</Text><Text style={s.salonHostName} numberOfLines={1}>@{salon.hostUsername}</Text></View>
+            </TouchableOpacity>
+            <View style={[s.statusPill, salon.status === 'ACTIVE' && s.statusActive]}><Text style={s.statusText}>{salon.status === 'ACTIVE' ? 'EN COURS' : 'OUVERT'}</Text></View>
+          </View>
+          <View style={s.salonThemeRow}><Text style={s.salonTheme}>{salon.themeLabel}</Text><Text style={s.jackpot}>+{salon.jackpotFree} FREE</Text></View>
+          <Text style={s.salonStats}>{salon.players}/{salon.maxPlayers} joueurs · {salon.openSeats} place{salon.openSeats > 1 ? 's' : ''} libre{salon.openSeats > 1 ? 's' : ''} · file {salon.queue}</Text>
+          <View style={s.salonActionRow}>
+            <Text style={s.salonCode}>CODE {salon.arenaCode}</Text>
+            <TouchableOpacity style={[s.enterButton, joining && s.disabled]} onPress={() => void enterSalon(salon)} disabled={Boolean(busy || busySalonId)} accessibilityLabel={`Entrer dans le salon de ${salon.hostUsername}`}>
+              <Text style={s.enterButtonText}>{joining ? 'ENTRÉE…' : full ? 'REJOINDRE LA FILE' : 'ENTRER'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>;
+      })}
+    </View>
+
+    <View style={s.separator}><View style={s.separatorLine}/><Text style={s.separatorText}>OU LANCER / REJOINDRE AUTOMATIQUEMENT</Text><View style={s.separatorLine}/></View>
     <Text style={s.subtitle}>Choisis ton style. Il faut au moins 3 Free. Un seul gagnant prend 3 Free à chaque perdant.</Text>
     <View style={s.rulesStrip}><Text style={s.ruleText}>10 joueurs max</Text><Text style={s.ruleText}>Réponse verrouillée</Text><Text style={s.ruleText}>Bon + rapide = devant</Text></View>
 
@@ -292,10 +393,10 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     <View style={s.themeWrap}>{themes.map((theme) => <TouchableOpacity key={theme.code} style={[s.themeChip, themeCode === theme.code && s.themeChipOn]} onPress={() => setThemeCode(theme.code)}><Text style={[s.themeText, themeCode === theme.code && s.themeTextOn]}>{theme.label}</Text></TouchableOpacity>)}</View>
 
     <View style={s.lobbyLine}><Text style={s.lobbyText}>{lobby ? `${lobby.activePlayers} joueur${lobby.activePlayers > 1 ? 's' : ''} en arène · ${lobby.queuedPlayers} en attente` : 'Lobby en direct'}</Text><Text style={s.themeSelected}>{activeTheme}</Text></View>
-    <TouchableOpacity style={s.bigPlay} onPress={() => void autoMatch()} disabled={busy}><Text style={s.bigPlayText}>{busy ? 'RECHERCHE…' : '⚡ JOUER MAINTENANT'}</Text></TouchableOpacity>
+    <TouchableOpacity style={s.bigPlay} onPress={() => void autoMatch()} disabled={busy || Boolean(busySalonId)}><Text style={s.bigPlayText}>{busy ? 'RECHERCHE…' : '⚡ JOUER MAINTENANT'}</Text></TouchableOpacity>
     <Text style={s.inviteSlogan}>Invite tes amis. Plus l’arène se remplit, plus le jackpot Free monte.</Text>
 
-    <View style={s.joinRow}><TextInput style={s.codeInput} value={joinCode} onChangeText={setJoinCode} autoCapitalize="characters" placeholder="CODE D’UN AMI" placeholderTextColor={colors.textMuted} maxLength={12}/><TouchableOpacity style={s.joinButton} onPress={() => void joinByCode()} disabled={busy}><Text style={s.joinButtonText}>REJOINDRE</Text></TouchableOpacity></View>
+    <View style={s.joinRow}><TextInput style={s.codeInput} value={joinCode} onChangeText={setJoinCode} autoCapitalize="characters" placeholder="CODE D’UN AMI" placeholderTextColor={colors.textMuted} maxLength={12}/><TouchableOpacity style={s.joinButton} onPress={() => void joinByCode()} disabled={busy || Boolean(busySalonId)}><Text style={s.joinButtonText}>REJOINDRE</Text></TouchableOpacity></View>
   </View>;
 }
 
@@ -305,6 +406,10 @@ const s = StyleSheet.create({
   headRow:{flexDirection:'row',alignItems:'center',gap:8},soundButton:{width:38,height:38,borderRadius:19,borderWidth:1,borderColor:'#6D5090',alignItems:'center',justifyContent:'center',backgroundColor:'#21182F'},soundText:{fontSize:17},
   rulesStrip:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:8},ruleText:{color:'#7CF2B9',fontSize:8,fontWeight:'900',paddingHorizontal:7,paddingVertical:4,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#2C8A60'},
   label:{color:'#D9C8F7',fontSize:9,fontWeight:'900',marginTop:11,marginBottom:6},themeWrap:{flexDirection:'row',flexWrap:'wrap',gap:5},themeChip:{paddingHorizontal:8,paddingVertical:6,borderRadius:14,borderWidth:1,borderColor:'#493369',backgroundColor:'#21182F'},themeChipOn:{borderColor:'#B693FF',backgroundColor:'#5B3F8C'},themeText:{color:'#FFF',fontSize:8,fontWeight:'800'},themeTextOn:{color:'#FFF'},
+  salonSummary:{flexDirection:'row',alignItems:'center',gap:8,marginTop:9,paddingVertical:7,paddingHorizontal:9,borderRadius:13,backgroundColor:'#100B18',borderWidth:1,borderColor:'#493369'},salonSummaryText:{color:'#FFF',fontSize:8,fontWeight:'800'},refreshText:{color:'#B693FF',fontSize:8,fontWeight:'900',marginLeft:'auto'},
+  salonList:{gap:7,marginTop:8},salonLoading:{minHeight:70,alignItems:'center',justifyContent:'center',gap:6},salonMuted:{color:'#AFA5BC',fontSize:8.5,lineHeight:12},salonError:{padding:9,borderRadius:13,borderWidth:1,borderColor:'#8C455A',backgroundColor:'#29131C',flexDirection:'row',alignItems:'center',gap:8},salonErrorText:{flex:1,color:'#FFB6C5',fontSize:8.5},emptySalon:{padding:11,borderRadius:13,borderWidth:1,borderStyle:'dashed',borderColor:'#493369',alignItems:'center'},emptySalonTitle:{color:'#FFF',fontSize:10,fontWeight:'900',marginBottom:2},
+  salonCard:{padding:9,borderRadius:15,backgroundColor:'#100B18',borderWidth:1,borderColor:'#493369'},salonTopRow:{flexDirection:'row',alignItems:'center',gap:7},salonHost:{flex:1,flexDirection:'row',alignItems:'center',gap:7},salonAvatar:{width:34,height:34,borderRadius:17},salonHostLabel:{color:'#9F92AF',fontSize:6.5,fontWeight:'900'},salonHostName:{color:'#FFF',fontSize:10,fontWeight:'900'},statusPill:{paddingHorizontal:7,paddingVertical:4,borderRadius:10,backgroundColor:'#173023',borderWidth:1,borderColor:'#377A58'},statusActive:{backgroundColor:'#2C203F',borderColor:'#7D59AD'},statusText:{color:'#FFF',fontSize:7,fontWeight:'900'},salonThemeRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:7},salonTheme:{color:'#D9C8F7',fontSize:11,fontWeight:'900'},jackpot:{color:'#E5F266',fontSize:10,fontWeight:'900'},salonStats:{color:'#FFF',fontSize:8.5,marginTop:3},salonActionRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:8},salonCode:{color:'#AFA5BC',fontSize:7.5,fontWeight:'800'},enterButton:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:'#714DAB',borderWidth:1,borderColor:'#B693FF',alignItems:'center',justifyContent:'center'},enterButtonText:{color:'#FFF',fontSize:8.5,fontWeight:'900'},
+  separator:{flexDirection:'row',alignItems:'center',gap:7,marginVertical:13},separatorLine:{height:1,flex:1,backgroundColor:'#493369'},separatorText:{color:'#9F92AF',fontSize:6.5,fontWeight:'900',textAlign:'center'},
   lobbyLine:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:6,marginTop:9},lobbyText:{color:'#FFF',fontSize:9},themeSelected:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},bigPlay:{height:44,borderRadius:22,backgroundColor:'#714DAB',borderWidth:1,borderColor:'#B693FF',alignItems:'center',justifyContent:'center',marginTop:9},bigPlayText:{color:'#FFF',fontSize:12,fontWeight:'900'},inviteSlogan:{color:'#FFF',fontSize:9,textAlign:'center',marginTop:6,fontWeight:'800'},
   joinRow:{flexDirection:'row',gap:6,marginTop:9},codeInput:{flex:1,height:38,borderWidth:1,borderColor:'#493369',borderRadius:19,paddingHorizontal:12,color:'#FFF',fontSize:10,fontWeight:'800',backgroundColor:'#100B18'},joinButton:{height:38,paddingHorizontal:12,borderRadius:19,backgroundColor:'#21182F',borderWidth:1,borderColor:'#B693FF',alignItems:'center',justifyContent:'center'},joinButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},
   seats:{flexDirection:'row',flexWrap:'wrap',marginTop:10,rowGap:8},seat:{width:'20%',alignItems:'center',paddingHorizontal:2},avatarWrap:{width:43,height:43,borderRadius:22,padding:2,borderWidth:1,borderColor:'#5E4385'},leaderAvatar:{borderColor:'#F1D86B',borderWidth:2},avatar:{width:'100%',height:'100%',borderRadius:21},avatarFallback:{backgroundColor:'#2A1D3C',alignItems:'center',justifyContent:'center'},avatarLetter:{color:'#FFF',fontSize:16,fontWeight:'900'},seatName:{color:'#FFF',fontSize:7.5,fontWeight:'900',marginTop:3,maxWidth:62},seatMeta:{color:'#B693FF',fontSize:6.5,fontWeight:'800',marginTop:1},seatGenre:{color:'#FFF',fontSize:6.5,marginTop:1,maxWidth:62},emptySeat:{opacity:.45},emptyAvatar:{width:43,height:43,borderRadius:22,borderWidth:1,borderStyle:'dashed',borderColor:'#6D5090',alignItems:'center',justifyContent:'center'},emptyPlus:{color:'#B693FF',fontSize:20},emptyText:{color:'#FFF',fontSize:6.5,fontWeight:'900',marginTop:3},
