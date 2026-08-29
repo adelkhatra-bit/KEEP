@@ -151,7 +151,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => {
     const round = solo?.rounds[soloIndex];
-    if (!round) return undefined;
+    if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined;
     let alive = true;
     setSoloStartedAt(0); setAudioReady(false);
     const start = async () => {
@@ -168,7 +168,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [solo?.themeCode, soloIndex, playVerified]);
+  }, [solo?.themeCode, soloIndex, playVerified, incoming[0]?.id, pausedSoloRemaining]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
   const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
@@ -176,8 +176,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => {
     if (!solo) return;
-    if (activeIncomingId && pausedSoloRemaining === null && audioReady && soloStartedAt && !soloAnswer) {
-      setPausedSoloRemaining(Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)));
+    if (activeIncomingId && pausedSoloRemaining === null && !soloAnswer) {
+      setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS);
       setAudioReady(false);
       void stopTrackPreview();
       return;
