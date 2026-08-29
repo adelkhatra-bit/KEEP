@@ -7,6 +7,7 @@ describe('KEEP Battle challenge UX', () => {
   const notifications = fs.readFileSync(path.resolve(__dirname, '..', 'NotificationsScreen.tsx'), 'utf8');
   const parties = fs.readFileSync(path.resolve(__dirname, '..', 'PartiesScreen.tsx'), 'utf8');
   const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
+  const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
   const push = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'pushNotificationService.ts'), 'utf8');
   const backendPush = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'backend', 'src', 'lib', 'pushNotifications.ts'), 'utf8');
   const wakeupMigration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260829124800_keep_battle_restore_background_wakeup_push.sql'), 'utf8');
@@ -25,12 +26,12 @@ describe('KEEP Battle challenge UX', () => {
     expect(battle).toContain("'ACCEPTER'");
   });
 
-  it('handles accept/refuse directly from live Battle and retries the accepted arena read', () => {
+  it('handles accept/refuse directly from live Battle using the arena returned by Supabase', () => {
     expect(battle).toContain('respondBattleChallenge(item.id, accept)');
     expect(battle).toContain('setIncoming((rows) => rows.filter((x) => x.id !== item.id))');
-    expect(battle).toContain('const loadedArena = await loadArenaAfterAccept(response.arenaId)');
+    expect(battle).toContain('const loadedArena = response.arenaState || await loadArenaAfterAccept(response.arenaId)');
     expect(battle).toContain('setArena(loadedArena)');
-    expect(battle).toContain('for (let attempt = 0; attempt < 5; attempt += 1)');
+    expect(live).toContain('arenaState: (data as any)?.arenaState ?? null');
     expect(battle).toContain('respondingChallengeId');
     expect(battle).toContain('CONNEXION…');
   });
