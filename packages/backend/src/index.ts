@@ -44,26 +44,26 @@ app.listen(PORT, () => {
   console.log(`KEEP Backend running on port ${PORT}`);
 });
 
-// Boucle push complète :
-// 1) création -> ticket Expo (SENT / NO_DEVICE / FAILED)
-// 2) ticket -> reçu Expo (DELIVERED / FAILED)
-// Les deux opérations sont sérialisées pour éviter deux cycles concurrents si
-// un appel Expo ou Supabase prend exceptionnellement plus de 15 secondes.
-const PUSH_POLL_INTERVAL_MS = 15000;
-let pushCycleRunning = false;
+// Production push delivery now runs from Supabase Cron + Edge Function.
+// Keep the old Express loop only as an explicit disaster-recovery fallback so
+// a sleeping free Render service can no longer be a required part of delivery.
+if (process.env.KEEP_PUSH_WORKER_FALLBACK === '1') {
+  const PUSH_POLL_INTERVAL_MS = 15000;
+  let pushCycleRunning = false;
 
-async function runPushCycle() {
-  if (pushCycleRunning) return;
-  pushCycleRunning = true;
-  try {
-    await processPendingPushNotifications();
-    await processExpoPushReceipts();
-  } catch (e: any) {
-    console.warn('[KEEP][push] cycle échoué:', e?.message);
-  } finally {
-    pushCycleRunning = false;
+  async function runPushCycle() {
+    if (pushCycleRunning) return;
+    pushCycleRunning = true;
+    try {
+      await processPendingPushNotifications();
+      await processExpoPushReceipts();
+    } catch (e: any) {
+      console.warn('[KEEP][push] fallback cycle échoué:', e?.message);
+    } finally {
+      pushCycleRunning = false;
+    }
   }
-}
 
-void runPushCycle();
-setInterval(() => { void runPushCycle(); }, PUSH_POLL_INTERVAL_MS);
+  void runPushCycle();
+  setInterval(() => { void runPushCycle(); }, PUSH_POLL_INTERVAL_MS);
+}
