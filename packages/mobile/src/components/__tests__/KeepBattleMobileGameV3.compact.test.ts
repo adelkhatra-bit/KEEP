@@ -93,6 +93,16 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('winner?.score ?? arena.lastResult.score');
   });
 
+  it('uses smartphone-sized Battle action targets and readable invite text', () => {
+    expect(source).toContain('minHeight: 44, minWidth: 70');
+    expect(source).toContain('minHeight: 44, minWidth: 76');
+    expect(source).toContain('hitSlop={4}');
+    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 11, lineHeight: 14");
+    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 12");
+    expect(source).toContain('respondingChallengeId');
+    expect(source).toContain('setIncoming((rows) => rows.filter((x) => x.id !== item.id))');
+  });
+
   it('keeps the horizontal music-style selector compact on 390x844', () => {
     expect(source).toContain('style={s.themeScroll}');
     expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }");
