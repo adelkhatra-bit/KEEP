@@ -47,21 +47,21 @@ begin
     pos := pos + 1;
 
     select artist into d1 from (
-      select distinct trim(t2.artist) artist
+      select trim(t2.artist) artist
       from public.tracks t2
       where trim(coalesce(t2.artist,''))<>''
         and lower(trim(t2.artist))<>lower(trim(rr.artist))
-      order by random() limit 1
-    ) x;
+      group by trim(t2.artist)
+    ) x order by random() limit 1;
 
     select artist into d2 from (
-      select distinct trim(t2.artist) artist
+      select trim(t2.artist) artist
       from public.tracks t2
       where trim(coalesce(t2.artist,''))<>''
         and lower(trim(t2.artist))<>lower(trim(rr.artist))
         and trim(t2.artist)<>coalesce(d1,'')
-      order by random() limit 1
-    ) x;
+      group by trim(t2.artist)
+    ) x order by random() limit 1;
 
     slot := floor(random()*3)::integer + 1;
     if slot = prev_slot then
@@ -141,20 +141,20 @@ begin
    order by position
  loop
    select artist into d1 from (
-     select distinct trim(artist) artist
+     select trim(artist) artist
      from public.tracks
      where trim(coalesce(artist,''))<>'' and lower(trim(artist))<>lower(trim(rr.artist_snapshot))
-     order by random() limit 1
-   )x;
+     group by trim(artist)
+   ) x order by random() limit 1;
 
    select artist into d2 from (
-     select distinct trim(artist) artist
+     select trim(artist) artist
      from public.tracks
      where trim(coalesce(artist,''))<>''
        and lower(trim(artist))<>lower(trim(rr.artist_snapshot))
        and trim(artist)<>coalesce(d1,'')
-     order by random() limit 1
-   )x;
+     group by trim(artist)
+   ) x order by random() limit 1;
 
    slot := floor(random()*3)::integer + 1;
    if slot = prev_slot then
