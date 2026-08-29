@@ -131,22 +131,24 @@ export async function toggleTrackPreview(
 }
 
 /**
- * Lit un segment court à partir d'une position donnée. Cette variante est
- * utilisée par KEEP Battle et partage le même lecteur global : deux morceaux
- * KEEP ne peuvent jamais se superposer.
+ * Lit un segment court pour KEEP Battle. Quand aucun point de départ explicite
+ * n'est fourni, on saute les 9 premières secondes du preview : cela évite les
+ * intros silencieuses/instrumentales et donne plus souvent une zone vocale ou
+ * mélodique reconnaissable, sans exposer tout le morceau.
  */
 export async function playTrackPreviewSegment(
   key: string,
   previewUrl: string,
   positionMillis: number,
-  durationMillis = 7000,
+  durationMillis = 8000,
   onStateChange?: (playing: boolean) => void,
 ): Promise<void> {
   return serialize(async () => {
     await unloadActive();
     await configurePreviewAudio();
+    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
 
-    const createdSound = await createSoundWithRetry(previewUrl, positionMillis, (status, sound) => {
+    const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
