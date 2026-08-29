@@ -24,11 +24,14 @@ describe('KEEP Battle challenge UX', () => {
     expect(battle).toContain("'ACCEPTER'");
   });
 
-  it('handles accept/refuse directly from the live Battle state', () => {
+  it('handles accept/refuse directly from live Battle and retries the accepted arena read', () => {
     expect(battle).toContain('respondBattleChallenge(item.id, accept)');
     expect(battle).toContain('setIncoming((rows) => rows.filter((x) => x.id !== item.id))');
-    expect(battle).toContain('setArena(await loadKeepBattleArena(response.arenaId))');
+    expect(battle).toContain('const loadedArena = await loadArenaAfterAccept(response.arenaId)');
+    expect(battle).toContain('setArena(loadedArena)');
+    expect(battle).toContain('for (let attempt = 0; attempt < 5; attempt += 1)');
     expect(battle).toContain('respondingChallengeId');
+    expect(battle).toContain('CONNEXION…');
   });
 
   it('fixes the incoming challenge RPC ambiguity that prevented the card from loading', () => {
@@ -51,8 +54,6 @@ describe('KEEP Battle challenge UX', () => {
     expect(push).not.toContain("void Linking.openURL('keep://notifications')");
     expect(push).not.toContain(".then(() => Linking.openURL('keep://notifications'))");
   });
-
-
 
   it('renders the 1v1 gauge with real player names, points and one central bar', () => {
     expect(battle).toContain('players.length === 2 ? `@${first.username}`');
