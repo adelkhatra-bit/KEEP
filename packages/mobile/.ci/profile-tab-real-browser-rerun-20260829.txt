@@ -1,0 +1,2 @@
+KEEP real-browser verification trigger after Profile tab accessibility/state repair.
+No runtime behavior is defined by this file.
