@@ -105,9 +105,11 @@ if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const sharedProfileHtml = fs.readFileSync(path.join(root, 'packages/mobile/share-profile.html'), 'utf8');
-for (const expected of ['profile_username_aliases', 'followAccountRoute', 'CRÉER MON COMPTE', expectedPublicRoot]) {
+for (const expected of ['profile_username_aliases', 'followAccountRoute', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile', expectedPublicRoot]) {
   if (!sharedProfileHtml.includes(expected)) failures.push(`PERMANENT SHARE PROFILE MARKER MISSING: ${expected}`);
 }
+if (!sharedProfileHtml.includes("followAccountRoute(p.username,'login')")) failures.push('SHARED PROFILE FOLLOW MUST PRIORITIZE LOGIN FOR EXISTING KEEP USERS');
+if (!sharedProfileHtml.includes("setTimeout(()=>controller.abort(),10000)")) failures.push('SHARED PROFILE FOLLOW REQUEST TIMEOUT MISSING');
 if (/https?:\/\/localhost|raw\.githubusercontent\.com|\/web-preview\//i.test(sharedProfileHtml)) {
   failures.push('STALE OR LOCAL PUBLIC PROFILE TARGET REINTRODUCED');
 }
