@@ -38,3 +38,5 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "fix(battle): show selected and correct solo answers"
           git push origin HEAD:reconcile/claude-main-20260825
+
+# retrigger: answer feedback mobile
