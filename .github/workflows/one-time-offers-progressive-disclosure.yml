@@ -1,0 +1,73 @@
+name: KEEP Offers Progressive Disclosure
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - scripts/one_time_offers_progressive_disclosure.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: git pull --rebase origin reconcile/claude-main-20260825
+
+      - name: Apply offers progressive disclosure
+        run: python3 scripts/one_time_offers_progressive_disclosure.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm run type-check --workspace=packages/mobile
+
+      - name: Verify offers contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('packages/mobile/src/screens/OffersScreen.tsx').read_text()
+          required = [
+            'Écoute. Garde. Partage. Recharge.',
+            'Fais grandir ta communauté musicale.',
+            "accessibilityLabel=\"En savoir plus sur les Free\"",
+            "accessibilityLabel=\"En savoir plus sur les KEEP Battles\"",
+            "accessibilityLabel=\"En savoir plus sur les règles\"",
+            'freeExpanded',
+            'battleExpanded',
+            'rulesExpanded',
+          ]
+          missing = [value for value in required if value not in text]
+          if missing:
+            raise SystemExit('Missing offers contracts: ' + repr(missing))
+          if '<Text style={s.promiseBody}>Les Free servent à GARDER' in text:
+            raise SystemExit('Legacy long promise body is still permanently visible')
+          PY
+
+      - name: Commit verified source
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/OffersScreen.tsx
+          if git diff --cached --quiet; then
+            echo "No source changes"
+            exit 0
+          fi
+          git commit -m "fix(offers): simplify Free and Battle details"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
