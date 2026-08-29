@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
 import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
+import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
 import { useUserStore } from '../../store/useUserStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
@@ -46,6 +47,14 @@ export default function OnboardingScreen() {
   const [accountOpen, setAccountOpen] = useState(Boolean(intent.mode || intent.followUsername));
   const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || 'create');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    // Les liens de profil partagés sont déjà des invitations préremplies :
+    // aucun code ami à recopier. Le pseudo du profil est stocké localement et
+    // sera réclamé seulement après la création d'un vrai compte.
+    void stageReferralFromUrl(window.location.href).catch(() => {});
+  }, []);
 
   const restoreGuest = async (guestId: string) => {
     enterGuestMode(guestId);
@@ -93,6 +102,10 @@ export default function OnboardingScreen() {
     setAccountOpen(false);
   };
 
+  const finishAccount = () => {
+    void claimPendingReferral().catch(() => false).finally(closeAccount);
+  };
+
   const continueWithoutSignup = async () => {
     clearWebIntent();
     await handleGuestPress();
@@ -120,7 +133,7 @@ export default function OnboardingScreen() {
             <UsernameAccountForm
               initialMode={accountMode}
               followUsername={intent.followUsername}
-              onSuccess={closeAccount}
+              onSuccess={finishAccount}
             />
             <TouchableOpacity
               style={[styles.button, styles.accountButton, styles.continueTrialButton]}
