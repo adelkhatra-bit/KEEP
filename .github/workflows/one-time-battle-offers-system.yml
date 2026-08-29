@@ -24,7 +24,9 @@ jobs:
       - name: Sync branch
         run: git pull --rebase origin reconcile/claude-main-20260825
       - name: Apply Battle and offers patch
-        run: python3 scripts/one_time_battle_offers_system.py
+        run: |
+          python3 scripts/one_time_battle_offers_system.py
+          sed -i 's/loadBattleFreeCreditStatus/loadMyKeepBattleCreditStatus/g' packages/mobile/src/screens/OffersScreen.tsx
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -48,7 +50,7 @@ jobs:
           parties = Path('packages/mobile/src/screens/PartiesScreen.tsx').read_text()
           required = [
             (offers, 'Tes Free disponibles'),
-            (offers, 'loadBattleFreeCreditStatus'),
+            (offers, 'loadMyKeepBattleCreditStatus'),
             (offers, 'freeBalanceLabel'),
             (sessions, '`Free · ${status.remaining}`'),
             (service, "functions.invoke('keep-battle-catalog-refresh'"),
