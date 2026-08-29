@@ -18,8 +18,11 @@ for (const [rel, expected] of Object.entries(protectedShell)) {
 }
 
 const profile = read('packages/mobile/src/screens/ProfilePublicScreen.tsx');
-for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'profileKeptTracks.map', 'ownSnapshot?.totalKeeps', 'CONTINUER EN MODE DÉMO']) {
+for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'publicKeptTracks.map', 'ownSnapshot?.totalKeeps', 'CONTINUER EN MODE DÉMO']) {
   if (!profile.includes(marker)) failures.push(`OWN PROFILE CANONICAL MARKER MISSING: ${marker}`);
+}
+for (const marker of ["profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC')", 'const publicKeptTracks = useMemo']) {
+  if (!profile.includes(marker)) failures.push(`OWN PROFILE PRIVACY MARKER MISSING: ${marker}`);
 }
 if (profile.includes('accessibilityLabel="Modifier mon profil"')) failures.push('DUPLICATE MODIFIER BUTTON REINTRODUCED');
 for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
@@ -88,7 +91,7 @@ if (failures.length) {
 }
 
 console.log('KEEP PROFILE DATA INTEGRITY: PASS');
-console.log('owner list/count: same authenticated server library');
+console.log('owner list/count: same authenticated server library; profile render: PUBLIC only');
 console.log('public list/count: same public distinct library');
 console.log('profile counters: shared owner/visitor component + permanent public page order enforced');
 console.log('guest/demo music: isolated from authenticated accounts');
