@@ -184,14 +184,14 @@ export default function OffersScreen({ navigation, route }: any) {
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
-            <Text style={s.promiseTitle}>Ton compte Free peut évoluer avec toi.</Text>
-            <Text style={s.promiseBody}>Partage ton univers, trouve des musiques, construis tes collections et fais grandir ta communauté. À certains paliers, KEEP te récompense automatiquement avec de nouvelles options. Les partages comptés sont plafonnés à {rules.shareDailyCap} par jour pour privilégier une vraie communauté.</Text>
+            <Text style={s.promiseTitle}>Plus ton profil musical grandit, plus ta communauté peut grandir.</Text>
+            <Text style={s.promiseBody}>Garde tes morceaux, partage ton profil et gagne des abonnés : les paliers débloquent crédits Free, Découvertes et KEEP Vibes.</Text>
           </View>
 
           <View style={s.creditCard}>
             <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes avantages Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
             <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés` : ''}.</Text>
-            <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 crédit. GARDER depuis Écouter = 1 crédit Free. Prendre un morceau sur le profil d’un autre membre = 0 crédit.</Text>
+            <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 crédit. GARDER un morceau détecté avec Écouter = 1 crédit Free. Prendre un morceau sur le profil d’un autre membre = 0 crédit.</Text>
             {growth ? <View style={s.growthGrid}>
               <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
               <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
