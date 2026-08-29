@@ -52,17 +52,7 @@ describe('KEEP Battle challenge UX', () => {
     expect(push).not.toContain(".then(() => Linking.openURL('keep://notifications'))");
   });
 
-  it('keeps native action buttons only for real incoming Battle wake-up pushes', () => {
-    expect(backendPush).toContain("const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'");
-    expect(backendPush).toContain("normalizedType === 'BATTLE_CHALLENGE'");
-    expect(backendPush).toContain("String(data?.presentation || '') === 'battle_inline'");
-    expect(backendPush).toContain('categoryId: BATTLE_CATEGORY');
-  });
 
-  it('keeps the legacy notification screen safe if an old notification is opened', () => {
-    expect(notifications).toContain('respondBattleChallenge(challengeId, accept)');
-    expect(parties).toContain('initialArenaId={route?.params?.arenaId}');
-  });
 
   it('renders the 1v1 gauge with real player names, points and one central bar', () => {
     expect(battle).toContain('players.length === 2 ? `@${first.username}`');
@@ -70,5 +60,16 @@ describe('KEEP Battle challenge UX', () => {
     expect(battle).toContain('{teamAScore} pts');
     expect(battle).toContain('{teamBScore} pts');
     expect(battle).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
+  });
+
+  it('keeps Battle decision out of Notifications and native push actions', () => {
+    expect(notifications).not.toContain('respondBattleChallenge(challengeId, accept)');
+    expect(notifications).not.toContain('accessibilityLabel="Refuser le Battle"');
+    expect(notifications).not.toContain('accessibilityLabel="Accepter le Battle"');
+    expect(push).not.toContain('KEEP_BATTLE_REFUSE');
+    expect(push).not.toContain('KEEP_BATTLE_ACCEPT');
+    expect(backendPush).not.toContain('categoryId: BATTLE_CATEGORY');
+    expect(battle).toContain('void respond(incoming[0], false)');
+    expect(battle).toContain('void respond(incoming[0], true)');
   });
 });

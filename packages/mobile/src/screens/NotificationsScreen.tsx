@@ -14,7 +14,6 @@ import {
   subscribeToNotifications,
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
-import { respondBattleChallenge } from '../services/keepBattleLiveService';
 
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
@@ -37,7 +36,6 @@ export default function NotificationsScreen({ navigation }: any) {
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [battleBusyId, setBattleBusyId] = useState<string | null>(null);
 
   const refresh = async () => {
     if (!user) return;
@@ -136,43 +134,6 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const battleTheme = (item: KeepNotification) => String(item.data?.themeCode || 'MIX').replace(/_/g, ' ');
 
-  const openBattle = (arenaId?: string | null) => {
-    navigation.navigate('Main', {
-      screen: 'Parties',
-      params: { openBattle: true, arenaId: arenaId || undefined, source: 'notification' },
-    });
-  };
-
-  const answerBattleInvite = async (item: KeepNotification, accept: boolean) => {
-    if (!user || battleBusyId) return;
-    const challengeId = String(item.data?.challengeId || '');
-    if (!challengeId) {
-      openBattle();
-      return;
-    }
-    setBattleBusyId(item.id);
-    try {
-      const response = await respondBattleChallenge(challengeId, accept);
-      await readOne(item);
-      setItems((current) => current.filter((entry) => entry.id !== item.id));
-      if (accept) {
-        if (!response.arenaId) throw new Error('BATTLE_ARENA_MISSING');
-        openBattle(response.arenaId);
-      } else {
-        setNotice('Battle refusé');
-      }
-    } catch (e: any) {
-      const message = String(e?.message || '');
-      if (message.includes('EXPIRED') || message.includes('NOT_PENDING')) {
-        setNotice('Cette invitation a expiré');
-        void refresh();
-      } else {
-        setError('Impossible de répondre à cette invitation Battle.');
-      }
-    } finally {
-      setBattleBusyId(null);
-    }
-  };
 
   const readAll = async () => {
     if (!user) return;
@@ -271,7 +232,7 @@ export default function NotificationsScreen({ navigation }: any) {
             <View style={styles.empty}><Text style={styles.emptyIcon}>♩</Text><Text style={styles.muted}>Aucune notification pour le moment.</Text></View>
           ) : items.map((item) => (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
-              <TouchableOpacity style={styles.cardMain} onPress={() => { if (isBattleInvite(item)) openBattle(); else void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
+              <TouchableOpacity style={styles.cardMain} onPress={() => { void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
                 <View style={styles.cardTop}>
                   <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>
                   <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
@@ -281,10 +242,6 @@ export default function NotificationsScreen({ navigation }: any) {
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
                 <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
               </TouchableOpacity>
-              {isBattleInvite(item) ? <View style={styles.battleActions}>
-                <TouchableOpacity style={[styles.battleAction, styles.battleRefuse]} disabled={battleBusyId === item.id} onPress={() => void answerBattleInvite(item, false)} accessibilityRole="button" accessibilityLabel="Refuser le Battle"><Text style={styles.battleRefuseText}>REFUSER</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.battleAction, styles.battleAccept]} disabled={battleBusyId === item.id} onPress={() => void answerBattleInvite(item, true)} accessibilityRole="button" accessibilityLabel="Accepter le Battle"><Text style={styles.battleAcceptText}>{battleBusyId === item.id ? '...' : 'ACCEPTER'}</Text></TouchableOpacity>
-              </View> : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
                 <TouchableOpacity onPress={() => { void removeOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
