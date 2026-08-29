@@ -226,6 +226,19 @@ export function createProfileService(client: SupabaseClient) {
       if (followersResult.error) throw followersResult.error;
       if (followingResult.error) throw followingResult.error;
 
+      // Une visite authentifiée d'un profil public avertit automatiquement son
+      // propriétaire. Le RPC ignore les visiteurs anonymes, l'auto-visite et
+      // déduplique côté serveur pour ne pas générer de spam. Une panne de cette
+      // notification ne doit jamais empêcher l'ouverture du profil.
+      try {
+        const { data: authState } = await client.auth.getUser();
+        if (authState.user?.id && authState.user.id !== profile.id) {
+          await client.rpc('notify_profile_view', { target_profile_id: profile.id });
+        }
+      } catch {
+        // Profil public prioritaire : notification best-effort.
+      }
+
       return publicUserFromProfile(
         profile,
         (socialLinks ?? []) as SocialLink[],
