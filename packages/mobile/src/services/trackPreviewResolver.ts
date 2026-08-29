@@ -1,6 +1,10 @@
 import type { CanonicalTrack } from '@keep/music';
 
-const previewCache = new Map<string, string | null>();
+type CacheEntry = { url: string | null; expiresAt: number };
+const previewCache = new Map<string, CacheEntry>();
+const POSITIVE_CACHE_MS = 6 * 60 * 60 * 1000;
+const NEGATIVE_CACHE_MS = 60 * 1000;
+const STOREFRONTS = ['FR', 'US', 'GB', 'CA'];
 
 function normalize(value: string | undefined | null): string {
   return String(value ?? '')
@@ -28,39 +32,57 @@ function scoreResult(track: CanonicalTrack, result: any): number {
   return score;
 }
 
+async function searchStorefront(track: CanonicalTrack, country: string): Promise<string | null> {
+  const term = encodeURIComponent(`${track.artist} ${track.title}`.trim());
+  const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=12&country=${country}`);
+  if (!response.ok) return null;
+
+  const payload = await response.json();
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  const best = results
+    .filter((item: any) => typeof item?.previewUrl === 'string' && item.previewUrl.length > 0)
+    .map((item: any) => ({ item, score: scoreResult(track, item) }))
+    .sort((a: any, b: any) => b.score - a.score)[0];
+
+  return best?.score >= 7 ? String(best.item.previewUrl) : null;
+}
+
 /**
- * KEEP ne stocke aucun fichier audio. Si un morceau public ne possède pas
- * encore d'extrait dans Supabase, on cherche à la volée un extrait
- * promotionnel public via iTunes Search. Aucun compte ni abonnement externe
- * n'est requis et le résultat reste uniquement en mémoire sur l'appareil.
+ * Résout un extrait promotionnel public sans stocker de fichier audio.
+ * Les URLs Apple peuvent changer ou devenir indisponibles selon le storefront :
+ * un échec n'est donc jamais mis en cache durablement et un refresh forcé peut
+ * remplacer silencieusement une URL Supabase devenue obsolète.
  */
-export async function resolveTrackPreviewUrl(track: CanonicalTrack): Promise<string | null> {
+export async function resolveTrackPreviewUrl(
+  track: CanonicalTrack,
+  options: { forceRefresh?: boolean } = {},
+): Promise<string | null> {
   const existing = track.previewUrl?.trim();
-  if (existing) return existing;
+  if (existing && !options.forceRefresh) return existing;
 
   const cacheKey = `${normalize(track.artist)}::${normalize(track.title)}`;
-  if (previewCache.has(cacheKey)) return previewCache.get(cacheKey) ?? null;
+  const cached = previewCache.get(cacheKey);
+  if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) return cached.url;
+  if (options.forceRefresh) previewCache.delete(cacheKey);
 
-  try {
-    const term = encodeURIComponent(`${track.artist} ${track.title}`.trim());
-    const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8&country=FR`);
-    if (!response.ok) {
-      previewCache.set(cacheKey, null);
-      return null;
+  let preview: string | null = null;
+  for (const country of STOREFRONTS) {
+    try {
+      preview = await searchStorefront(track, country);
+      if (preview) break;
+    } catch {
+      // On continue avec le storefront suivant : une panne locale ne doit pas
+      // rendre l'extrait définitivement indisponible.
     }
-
-    const payload = await response.json();
-    const results = Array.isArray(payload?.results) ? payload.results : [];
-    const best = results
-      .filter((item: any) => typeof item?.previewUrl === 'string' && item.previewUrl.length > 0)
-      .map((item: any) => ({ item, score: scoreResult(track, item) }))
-      .sort((a: any, b: any) => b.score - a.score)[0];
-
-    const preview = best?.score >= 7 ? String(best.item.previewUrl) : null;
-    previewCache.set(cacheKey, preview);
-    return preview;
-  } catch {
-    previewCache.set(cacheKey, null);
-    return null;
   }
+
+  previewCache.set(cacheKey, {
+    url: preview,
+    expiresAt: Date.now() + (preview ? POSITIVE_CACHE_MS : NEGATIVE_CACHE_MS),
+  });
+  return preview;
+}
+
+export function invalidateTrackPreviewCache(track: Pick<CanonicalTrack, 'title' | 'artist'>): void {
+  previewCache.delete(`${normalize(track.artist)}::${normalize(track.title)}`);
 }
