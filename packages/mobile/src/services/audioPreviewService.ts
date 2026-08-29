@@ -33,10 +33,47 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
 
 async function configurePreviewAudio() {
   await Audio.setAudioModeAsync({
+    allowsRecordingIOS: false,
     playsInSilentModeIOS: true,
     staysActiveInBackground: false,
     shouldDuckAndroid: true,
+    playThroughEarpieceAndroid: false,
   });
+}
+
+async function createSoundWithRetry(
+  previewUrl: string,
+  positionMillis: number,
+  onStatus: (status: AVPlaybackStatus, sound: Audio.Sound) => void,
+): Promise<Audio.Sound> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let createdSound: Audio.Sound | null = null;
+    try {
+      const created = await Audio.Sound.createAsync(
+        { uri: previewUrl },
+        {
+          shouldPlay: true,
+          positionMillis: Math.max(0, Math.round(positionMillis)),
+          progressUpdateIntervalMillis: 250,
+          volume: 1,
+        },
+        (status: AVPlaybackStatus) => {
+          if (createdSound) onStatus(status, createdSound);
+        },
+      );
+      createdSound = created.sound;
+      return created.sound;
+    } catch (error) {
+      lastError = error;
+      if (createdSound) {
+        try { await createdSound.unloadAsync(); } catch {}
+      }
+      await configurePreviewAudio().catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 140));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('AUDIO_PREVIEW_LOAD_FAILED');
 }
 
 /**
@@ -59,22 +96,16 @@ export async function toggleTrackPreview(
     await unloadActive();
     await configurePreviewAudio();
 
-    let createdSound: Audio.Sound | null = null;
-    const created = await Audio.Sound.createAsync(
-      { uri: previewUrl },
-      { shouldPlay: true, progressUpdateIntervalMillis: 250 },
-      (status: AVPlaybackStatus) => {
-        if (!status.isLoaded || !status.didJustFinish || !createdSound) return;
-        if (activeSound === createdSound) {
-          void serialize(async () => {
-            if (activeSound !== createdSound) return;
-            await unloadActive();
-            onEnded?.();
-          });
-        }
-      },
-    );
-    createdSound = created.sound;
+    const createdSound = await createSoundWithRetry(previewUrl, 0, (status, sound) => {
+      if (!status.isLoaded || !status.didJustFinish) return;
+      if (activeSound === sound) {
+        void serialize(async () => {
+          if (activeSound !== sound) return;
+          await unloadActive();
+          onEnded?.();
+        });
+      }
+    });
 
     activeSound = createdSound;
     activeKey = key;
@@ -99,22 +130,16 @@ export async function playTrackPreviewSegment(
     await unloadActive();
     await configurePreviewAudio();
 
-    let createdSound: Audio.Sound | null = null;
-    const created = await Audio.Sound.createAsync(
-      { uri: previewUrl },
-      {
-        shouldPlay: true,
-        positionMillis: Math.max(0, Math.round(positionMillis)),
-        progressUpdateIntervalMillis: 250,
-      },
-      (status: AVPlaybackStatus) => {
-        if (!status.isLoaded || !status.didJustFinish || !createdSound) return;
-        if (activeSound === createdSound) {
-          void serialize(async () => { await unloadActive(); });
-        }
-      },
-    );
-    createdSound = created.sound;
+    const createdSound = await createSoundWithRetry(previewUrl, positionMillis, (status, sound) => {
+      if (!status.isLoaded || !status.didJustFinish) return;
+      if (activeSound === sound) {
+        void serialize(async () => {
+          if (activeSound !== sound) return;
+          await unloadActive();
+        });
+      }
+    });
+
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange ?? null;
