@@ -94,11 +94,11 @@ describe('KEEP Battle mobile style selector', () => {
   });
 
   it('uses smartphone-sized Battle action targets and readable invite text', () => {
-    expect(source).toContain('minHeight: 44, minWidth: 70');
-    expect(source).toContain('minHeight: 44, minWidth: 76');
+    expect(source).toContain('minHeight: 48, minWidth: 84');
+    expect(source).toContain('minHeight: 48, minWidth: 92');
     expect(source).toContain('hitSlop={4}');
-    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 11, lineHeight: 14");
-    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 12");
+    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 12, lineHeight: 16");
+    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 13");
     expect(source).toContain('respondingChallengeId');
     expect(source).toContain('setIncoming((rows) => rows.filter((x) => x.id !== item.id))');
   });
@@ -109,4 +109,11 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain("theme: { height: 32, minHeight: 32");
     expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
   });
+  it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
+    expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
+    expect(source).toContain('BATTLE_TARGET_NO_CREDIT');
+    expect(source).toContain('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED');
+    expect(source).toContain('Il te faut au moins 3 Free');
+  });
+
 });
