@@ -353,7 +353,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           {winner ? <Avatar name={winner.username} url={winner.avatarUrl} size={72} /> : <Text style={s.finishTrophy}>🏆</Text>}
           <Text style={s.finishTitle}>{winner ? `@${winner.username}` : 'BATTLE TERMINÉ'}</Text>
           <Text style={s.finishSub}>{winner ? 'remporte ce Battle' : 'Résultat enregistré'}</Text>
-          <View style={s.finishScore}><Text style={s.finishScoreBig}>{arena.lastResult.score}</Text><Text style={s.finishScoreSlash}> pts</Text></View>
+          <View style={s.finishScore}><Text style={s.finishScoreBig}>{winner?.score ?? arena.lastResult.score}</Text><Text style={s.finishScoreSlash}> pts</Text></View>
           <Text style={arena.lastResult.won ? s.finishWon : s.finishLost}>{arena.lastResult.won ? `+${arena.lastResult.creditDelta} FREE · GAGNÉ` : `${arena.lastResult.creditDelta} FREE · MATCH TERMINÉ`}</Text>
         </Animated.View>
         <Text style={s.finishQuestion}>Le groupe reste ensemble. Et maintenant ?</Text>
