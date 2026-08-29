@@ -16,6 +16,20 @@ const DEFAULT_RULES: CommercialRules = {
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
   followerTiers: [25, 100, 250, 500, 1000],
+  followerRewards: {
+    tier1Discovery: 3,
+    tier2Sort: 1,
+    tier3Credits: 5,
+    tier4Discovery: 5,
+    tier4Sort: 1,
+    tier5Credits: 20,
+  },
+  shareRewards: {
+    tier1Discovery: 3,
+    tier2Credits: 5,
+    tier3Credits: 20,
+    tier3Sort: 1,
+  },
 };
 
 const PAID_PLAN_ORDER = ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
@@ -143,6 +157,8 @@ export default function OffersScreen({ navigation, route }: any) {
   }, [compatibleCodes, focusPlan, plans]);
   const [f1, f2, f3, f4, f5] = rules.followerTiers;
   const [s1, s2, s3] = rules.shareTiers;
+  const fr = rules.followerRewards;
+  const sr = rules.shareRewards;
 
   return (
     <SafeAreaView style={s.container}>
@@ -175,20 +191,20 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.creditCard}>
             <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes avantages Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
             <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés` : ''}.</Text>
-            <Text style={s.creditRule}>Écouter, reconnaître, pré-écouter et PASSER ne consomment rien. Un téléchargement réel consomme un crédit Free.</Text>
+            <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 crédit. GARDER depuis Écouter = 1 crédit Free. Prendre un morceau sur le profil d’un autre membre = 0 crédit.</Text>
             {growth ? <View style={s.growthGrid}>
               <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
               <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
-              <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusDiscoveryProfiles}</Text><Text style={s.growthLabel}>Découvertes gagnées</Text></View>
+              <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>crédits gagnés</Text></View>
             </View> : null}
             <View style={s.ladder}>
               <Text style={s.ladderTitle}>PALIERS COMMUNAUTÉ</Text>
-              <Text style={s.ladderLine}>{f1} abonnés → plus de Découvertes</Text>
-              <Text style={s.ladderLine}>{f2} abonnés → essai KEEP Vibes automatique</Text>
-              <Text style={s.ladderLine}>{f3} abonnés → crédits KEEP supplémentaires</Text>
-              <Text style={s.ladderLine}>{f4} abonnés → création d’événements disponible selon la formule + bonus Découvertes / Vibes</Text>
-              <Text style={s.ladderLine}>{f5} abonnés → crédits bonus + éligibilité Audience Pro</Text>
-              <Text style={s.ladderHint}>Des avantages se débloquent aussi à {s1}, {s2} et {s3} partages qualifiés. Tous les seuils et quotas sont réglables depuis le Super Admin.</Text>
+              <Text style={s.ladderLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
+              <Text style={s.ladderLine}>{f2} abonnés → +{fr.tier2Sort} essai KEEP Vibes automatique</Text>
+              <Text style={s.ladderLine}>{f3} abonnés → +{fr.tier3Credits} crédits Free</Text>
+              <Text style={s.ladderLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes · événements selon formule</Text>
+              <Text style={s.ladderLine}>{f5} abonnés → +{fr.tier5Credits} crédits Free + Audience Pro</Text>
+              <Text style={s.ladderHint}>Partages : {s1} → +{sr.tier1Discovery} Découvertes · {s2} → +{sr.tier2Credits} crédits · {s3} → +{sr.tier3Credits} crédits + {sr.tier3Sort} essai Vibes.</Text>
             </View>
           </View>
         </>}
