@@ -1,0 +1,88 @@
+name: KEEP Battle inline invite + team gauge
+
+on:
+  push:
+    paths:
+      - '.github/workflows/keep-battle-invite-team-gauge-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Patch Battle invitation and team gauge
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('packages/mobile/src/components/KeepBattleMobileGameV3.tsx')
+          s = p.read_text()
+
+          s = s.replace("""      await sendBattleChallenge(player.profileId, solo?.themeCode || themeCode);\n      setHandledOutgoingId('');\n      Alert.alert('Défi envoyé', `@${player.username} reçoit maintenant ta demande Battle.`);""", """      await sendBattleChallenge(player.profileId, solo?.themeCode || themeCode);\n      setHandledOutgoingId('');""")
+
+          old_q = """        <Text style={s.question}>Qui chante ?</Text>\n        <View style={s.answers}>{round.choices.slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect]}><Text style={s.answerNo}>{i + 1}</Text><Text style={s.answerText}>{choice}</Text></TouchableOpacity>)}</View>"""
+          new_q = """        <Text style={s.question}>Qui chante ?</Text>\n        {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteTop}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={34} /><View style={{ flex: 1 }}><Text style={s.inviteLabel}>⚡ BATTLE ? · {challengeRemaining}s</Text><TouchableOpacity onPress={() => onOpenProfile(incoming[0].username)}><Text style={s.inviteName}>@{incoming[0].username}</Text></TouchableOpacity><Text style={s.inviteQuestion}>Jouer ensemble et gagner des Free ?</Text></View></View><View style={s.inviteActions}><TouchableOpacity style={s.no} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity style={s.yes} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>ACCEPTER</Text></TouchableOpacity></View></Animated.View> : null}\n        <View style={s.answers}>{round.choices.slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0])} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect]}><Text style={s.answerNo}>{i + 1}</Text><Text style={s.answerText}>{choice}</Text></TouchableOpacity>)}</View>"""
+          if old_q not in s:
+              raise SystemExit('solo question block not found')
+          s = s.replace(old_q, new_q)
+
+          old_overlay = """      {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteTop}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={54} /><View style={{ flex: 1 }}><Text style={s.inviteLabel}>⚡ DÉFI EN DIRECT · {challengeRemaining}s</Text><TouchableOpacity onPress={() => onOpenProfile(incoming[0].username)}><Text style={s.inviteName}>@{incoming[0].username}</Text></TouchableOpacity><Text style={s.inviteQuestion}>Souhaites-tu faire un Battle et gagner des Free ?</Text></View></View><View style={s.inviteActions}><TouchableOpacity style={s.no} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>NON</Text></TouchableOpacity><TouchableOpacity style={s.yes} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>OUI · BATTLE</Text></TouchableOpacity></View></Animated.View> : null}\n"""
+          if old_overlay not in s:
+              raise SystemExit('old invite overlay not found')
+          s = s.replace(old_overlay, '')
+
+          old_calc = """    const first = players[0]; const second = players[1];\n    const total = Math.max(1, (first?.score || 0) + (second?.score || 0));\n    const leftShare = players.length === 2 ? Math.max(12, Math.min(88, ((first?.score || 0) / total) * 100)) : 50;"""
+          new_calc = """    const first = players[0]; const second = players[1];\n    const teamA = players.filter((_, index) => index % 2 === 0);\n    const teamB = players.filter((_, index) => index % 2 === 1);\n    const teamAScore = teamA.reduce((sum, player) => sum + Number(player?.score || 0), 0);\n    const teamBScore = teamB.reduce((sum, player) => sum + Number(player?.score || 0), 0);\n    const teamTotal = Math.max(1, teamAScore + teamBScore);\n    const leftShare = Math.max(12, Math.min(88, (teamAScore / teamTotal) * 100));\n    const versusLabel = players.length > 2 ? `ÉQUIPE A (${teamA.length}) VS ÉQUIPE B (${teamB.length})` : `${first ? `@${first.username}` : 'KEEP'} VS ${second ? `@${second.username}` : 'KEEP'}`;"""
+          if old_calc not in s:
+              raise SystemExit('duel calc not found')
+          s = s.replace(old_calc, new_calc)
+
+          s = s.replace("""<Text style={s.versusNames}>{first ? `@${first.username}` : 'KEEP'} VS {second ? `@${second.username}` : 'KEEP'}</Text>""", """<Text style={s.versusNames}>{versusLabel}</Text>""")
+
+          old_duel = """      {first && second ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(first.username)}><Text style={s.duelName}>@{first.username}</Text></TouchableOpacity><Text style={s.duelScore}>{first.score} — {second.score}</Text><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>@{second.username}</Text></TouchableOpacity></View><View style={s.power}><View style={[s.powerLeft, { width: `${leftShare}%` }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}"""
+          new_duel = """      {first && second ? <View style={s.duel}><View style={s.duelNames}><Text style={s.duelName}>ÉQUIPE A · {teamA.length}</Text><Text style={s.duelScore}>{teamAScore} — {teamBScore}</Text><Text style={[s.duelName, { textAlign: 'right' }]}>ÉQUIPE B · {teamB.length}</Text></View><View style={s.power}><View style={[s.powerLeft, { width: `${leftShare}%` }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View><View style={s.teamMembers}>{players.map((player, index) => <TouchableOpacity key={player.profileId} style={s.teamChip} onPress={() => onOpenProfile(player.username)}><Text style={s.teamChipText}>{index % 2 === 0 ? 'A' : 'B'} · @{player.username}</Text></TouchableOpacity>)}</View></View> : null}"""
+          if old_duel not in s:
+              raise SystemExit('duel view not found')
+          s = s.replace(old_duel, new_duel)
+
+          s = s.replace("'DUEL EN SYNCHRONISATION'", "'JOUEURS EN SYNCHRONISATION'")
+          s = s.replace("'Les deux joueurs entrent ensemble. Le morceau est préchargé avant le chrono.'", "'Tous les joueurs entrent dans la même partie. Le morceau démarre sur le même chrono.'")
+
+          old_invite_style = """invite: { position: 'absolute', zIndex: 30, left: 6, right: 6, top: 65, padding: 12, borderRadius: 20, backgroundColor: 'rgba(36,23,48,.98)', borderWidth: 1.5, borderColor: '#E5F266', elevation: 12 }, inviteTop: { flexDirection: 'row', alignItems: 'center', gap: 9 }, inviteLabel: { color: '#E5F266', fontSize: 9, fontWeight: '900' }, inviteName: { color: '#FFF', fontSize: 16, fontWeight: '900', marginTop: 1 }, inviteQuestion: { color: '#F3EDF7', fontSize: 11, lineHeight: 15, fontWeight: '800', marginTop: 4 }, inviteActions: { flexDirection: 'row', gap: 7, marginTop: 10 }, no: { flex: 1, minHeight: 40, borderRadius: 20, borderWidth: 1, borderColor: '#4B3C57', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 10, fontWeight: '900' }, yes: { flex: 1, minHeight: 40, borderRadius: 20, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 10, fontWeight: '900' },"""
+          new_invite_style = """invite: { marginTop: 6, padding: 8, borderRadius: 14, backgroundColor: '#241730', borderWidth: 1.5, borderColor: '#E5F266' }, inviteTop: { flexDirection: 'row', alignItems: 'center', gap: 7 }, inviteLabel: { color: '#E5F266', fontSize: 8, fontWeight: '900' }, inviteName: { color: '#FFF', fontSize: 12, fontWeight: '900' }, inviteQuestion: { color: '#F3EDF7', fontSize: 9, lineHeight: 12, fontWeight: '800', marginTop: 1 }, inviteActions: { flexDirection: 'row', gap: 6, marginTop: 6 }, no: { flex: 1, minHeight: 32, borderRadius: 16, borderWidth: 1, borderColor: '#4B3C57', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 9, fontWeight: '900' }, yes: { flex: 1, minHeight: 32, borderRadius: 16, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 9, fontWeight: '900' },"""
+          if old_invite_style not in s:
+              raise SystemExit('invite style not found')
+          s = s.replace(old_invite_style, new_invite_style)
+
+          s = s.replace("""duelScore: { color: '#E5F266', fontSize: 12, fontWeight: '900' }, power:""", """duelScore: { color: '#E5F266', fontSize: 12, fontWeight: '900' }, teamMembers: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 }, teamChip: { paddingHorizontal: 6, minHeight: 22, borderRadius: 11, backgroundColor: '#1D1625', alignItems: 'center', justifyContent: 'center' }, teamChipText: { color: '#FFF', fontSize: 8, fontWeight: '800' }, power:""")
+
+          p.write_text(s)
+
+          test = Path('packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts')
+          t = test.read_text()
+          marker = """  it('keeps the horizontal music-style selector compact on 390x844', () => {"""
+          if "renders one inline Battle invite above answers" not in t:
+              insert = """  it('renders one inline Battle invite above answers', () => {\n    const question = source.indexOf('<Text style={s.question}>Qui chante ?</Text>');\n    const invite = source.indexOf('style={[s.invite');\n    const answers = source.indexOf('<View style={s.answers}>');\n    expect(question).toBeGreaterThanOrEqual(0);\n    expect(invite).toBeGreaterThan(question);\n    expect(answers).toBeGreaterThan(invite);\n    expect(source).not.toContain("invite: { position: 'absolute'");\n    expect(source).not.toContain("Alert.alert('Défi envoyé'");\n  });\n\n  it('uses one team gauge for multiplayer groups', () => {\n    expect(source).toContain('const teamA = players.filter');\n    expect(source).toContain('const teamB = players.filter');\n    expect(source).toContain('ÉQUIPE A · {teamA.length}');\n    expect(source).toContain('ÉQUIPE B · {teamB.length}');\n    expect(source).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');\n  });\n\n"""
+              t = t.replace(marker, insert + marker)
+              test.write_text(t)
+          PY
+      - name: Install and test mobile
+        run: |
+          npm ci
+          npx tsc -p packages/mobile/tsconfig.json --noEmit
+          npm test --workspace @keep/mobile -- --runInBand KeepBattleMobileGameV3.compact.test.ts
+      - name: Commit patch
+        run: |
+          git config user.name "KEEP CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
+          git commit -m "fix(battle): inline invite and scalable team gauge"
+          git push origin HEAD:reconcile/claude-main-20260825
