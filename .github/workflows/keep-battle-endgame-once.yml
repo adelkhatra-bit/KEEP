@@ -20,7 +20,9 @@ jobs:
         with:
           node-version: '22'
       - name: Patch endgame screens
-        run: python3 scripts/patch-keep-battle-endgame.py
+        run: |
+          python3 scripts/patch-keep-battle-endgame.py
+          python3 scripts/patch-keep-battle-winner-score.py
       - name: Verify mobile
         run: |
           npm ci
@@ -32,5 +34,5 @@ jobs:
           git config user.name "KEEP CI"
           git config user.email "actions@users.noreply.github.com"
           git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
-          git commit -m "feat(battle): add endgame choices and winner celebration"
+          git diff --cached --quiet || git commit -m "fix(battle): show winner score on podium"
           git push origin HEAD:reconcile/claude-main-20260825
