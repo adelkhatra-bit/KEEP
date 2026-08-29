@@ -4,7 +4,7 @@ import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } fr
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
 import { markDirectRediscovery, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
-import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from '../services/micCapture';
+import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
@@ -172,6 +172,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lng: undefined,
 
   startSession: () => {
+    // Doit être appelé dans le geste tactile d'origine pour Samsung Internet /
+    // Chrome Android, sinon WebAudio peut rester suspendu après le clic.
+    prepareAudioCaptureFromUserGesture();
     clearTimers();
     void cancelAudioCapture();
     void prepareRecognitionNotifications();

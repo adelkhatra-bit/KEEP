@@ -266,20 +266,43 @@ export default function DiscoverScreen({ navigation }: any) {
   const searchAroundMe = async () => {
     if (searchBusy) return;
     setSearchBusy(true);
-    setHasSearched(false);
+    setProfileIndex(0);
     setDiscoveryAccess(null);
     setCurrentProfileSnapshot(null);
+    // Retour tactile/visuel immédiat : le bouton ne doit jamais sembler mort.
+    setHasSearched(true);
+
+    let persisted: SearchPosition | null = null;
+    if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
+      try {
+        const { data } = await supabase.from('profiles').select('approx_lat,approx_lng').eq('id', user.id).maybeSingle();
+        const lat = normalizeOptionalCoordinate(data?.approx_lat);
+        const lng = normalizeOptionalCoordinate(data?.approx_lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          persisted = { latitude: lat as number, longitude: lng as number };
+          setSearchPosition(persisted);
+        }
+      } catch {}
+    }
+
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
+      const permission = await Promise.race([
+        Location.requestForegroundPermissionsAsync(),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('GPS_PERMISSION_TIMEOUT')), 7000)),
+      ]);
       if (permission.status !== 'granted') {
-        Alert.alert('Localisation', 'Autorise la localisation pour rechercher les profils autour de toi.');
+        if (!persisted) setSearchPosition(null);
+        Alert.alert('Localisation', persisted
+          ? 'KEEP utilise ta dernière position enregistrée. Tu peux autoriser le GPS plus tard pour l’actualiser.'
+          : 'Le GPS n’est pas autorisé. Les profils publics restent disponibles et tu peux rechercher un pseudo directement.');
         return;
       }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const position = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('GPS_FIX_TIMEOUT')), 9000)),
+      ]);
       const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
       setSearchPosition(next);
-      setProfileIndex(0);
-      setHasSearched(true);
       if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
         await supabase.from('profiles').update({
           approx_lat: Math.round(next.latitude * 1000) / 1000,
@@ -288,22 +311,10 @@ export default function DiscoverScreen({ navigation }: any) {
         }).eq('id', user.id);
       }
     } catch {
-      // A returning/new account can still discover from its last persisted KEEP position
-      // when iOS/Android cannot return a fresh GPS fix at this exact moment.
-      if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
-        const { data } = await supabase.from('profiles').select('approx_lat,approx_lng').eq('id', user.id).maybeSingle();
-        const lat = normalizeOptionalCoordinate(data?.approx_lat);
-        const lng = normalizeOptionalCoordinate(data?.approx_lng);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          setSearchPosition({ latitude: lat as number, longitude: lng as number });
-          setProfileIndex(0);
-          setHasSearched(true);
-          setSearchBusy(false);
-          return;
-        }
-      }
-      resetSearchResults();
-      Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment. Vérifie l’autorisation GPS puis réessaie.');
+      if (!persisted) setSearchPosition(null);
+      Alert.alert('Localisation', persisted
+        ? 'Position GPS lente : KEEP utilise ta dernière position enregistrée pour cette recherche.'
+        : 'Position GPS indisponible. Les profils publics restent visibles et la recherche par pseudo fonctionne quand même.');
     } finally {
       setSearchBusy(false);
     }
@@ -462,7 +473,7 @@ export default function DiscoverScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingHorizontal:11,paddingTop:8,flexGrow:1,paddingBottom:10},title:{...typography.h2,color:colors.textPrimary,marginBottom:4},section:{marginTop:8},sectionTitle:{...typography.h3,color:colors.textPrimary},mutedHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},
   discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},usernameSearchIcon:{color:'#D9C8F7',fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:44,color:'#FFFFFF',fontSize:15,fontWeight:'700'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#241A2F'},usernameClearText:{color:'#FFFFFF',fontSize:22,lineHeight:24,fontWeight:'700'},lockBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},trialBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},
-  searchPanel:{marginBottom:6,padding:7,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},radiusLabel:{color:'#D9C8F7',fontSize:9,fontWeight:'900',letterSpacing:.4},radiusValue:{minHeight:26,paddingHorizontal:10,borderRadius:13,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},radiusValueText:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},radiusTrack:{height:4,borderRadius:2,backgroundColor:'#332A3C',marginTop:6,overflow:'hidden'},radiusFill:{height:4,borderRadius:2,backgroundColor:'#A884FA'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:5},radiusChoice:{minWidth:29,minHeight:21,paddingHorizontal:3,borderRadius:11,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},radiusChoiceText:{color:'#FFFFFF',fontSize:7,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{height:32,marginTop:6,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},searchButtonText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},searchHint:{color:'#FFFFFF',fontSize:8,textAlign:'center',marginTop:3},
+  searchPanel:{marginBottom:6,padding:7,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},radiusLabel:{color:'#D9C8F7',fontSize:9,fontWeight:'900',letterSpacing:.4},radiusValue:{minHeight:26,paddingHorizontal:10,borderRadius:13,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},radiusValueText:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},radiusTrack:{height:4,borderRadius:2,backgroundColor:'#332A3C',marginTop:6,overflow:'hidden'},radiusFill:{height:4,borderRadius:2,backgroundColor:'#A884FA'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:3,borderRadius:11,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},radiusChoiceText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{minHeight:48,marginTop:6,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},searchButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},searchHint:{color:'#FFFFFF',fontSize:8,textAlign:'center',marginTop:3},
   lockCard:{padding:13,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},lockIcon:{fontSize:24},lockTitle:{color:'#FFF',fontSize:15,fontWeight:'900',marginTop:6,textAlign:'center'},lockBody:{color:'#FFFFFF',fontSize:11,lineHeight:16,textAlign:'center',marginTop:6},lockCta:{color:'#FFF',fontSize:10,fontWeight:'900',marginTop:10,backgroundColor:colors.primary,paddingHorizontal:16,paddingVertical:9,borderRadius:20,overflow:'hidden'},emptyCard:{padding:14,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   swipeCard:{height:228,borderRadius:20,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:52,fontWeight:'900'},heroInfo:{padding:9,paddingTop:40,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap'},heroName:{color:'#FFF',fontSize:18,fontWeight:'900'},compatBadge:{paddingHorizontal:7,paddingVertical:3,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:10,fontWeight:'800',marginTop:3},kindMusicRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:3,flexWrap:'wrap'},kind:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},musicCount:{color:'#68F2B1',fontSize:9,fontWeight:'900'},bio:{color:'#FFFFFF',fontSize:9,lineHeight:12,marginTop:3},chips:{flexDirection:'row',flexWrap:'wrap',gap:3,marginTop:4},chip:{paddingHorizontal:6,paddingVertical:2,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:8,fontWeight:'800'},
   swipeActions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,marginTop:6},roundAction:{width:39,height:39,borderRadius:20,alignItems:'center',justifyContent:'center',borderWidth:2},passAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},passActionText:{color:'#FF5F83',fontSize:21,fontWeight:'800'},followAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},followActionText:{color:'#111',fontSize:24,fontWeight:'900'},profileAction:{minHeight:36,paddingHorizontal:14,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},profileActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},

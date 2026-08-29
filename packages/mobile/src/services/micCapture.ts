@@ -201,6 +201,16 @@ function getWebAudioCtx(): AudioContext {
   return webAudioCtx;
 }
 
+export function prepareAudioCaptureFromUserGesture(): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  try {
+    const ctx = getWebAudioCtx();
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+  } catch {
+    // La capture réelle remontera une erreur lisible si le navigateur refuse.
+  }
+}
+
 async function ensureWebStream(): Promise<MediaStream> {
   if (webStream && webStream.active) return webStream;
   try {
