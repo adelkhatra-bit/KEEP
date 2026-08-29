@@ -11,6 +11,8 @@ on:
       - 'CLAUDE.md'
       - 'AGENTS.md'
       - '.github/copilot-instructions.md'
+      - '.github/workflows/codeql.yml'
+      - '.github/dependabot.yml'
       - 'package.json'
       - 'package-lock.json'
       - 'START_KEEP_LIVE_CLEAN.bat'
