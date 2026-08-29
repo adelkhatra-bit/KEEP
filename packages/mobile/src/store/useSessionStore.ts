@@ -18,7 +18,8 @@ const MIN_RECOGNITION_ATTEMPT_GAP_MS = 5000;
 const NEW_MATCH_COOLDOWN_MS = 6000;
 const SAME_TRACK_COOLDOWN_MS = 7000;
 const SILENCE_CHECK_INTERVAL_MS = 15000;
-export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 10;
+export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 15;
+const SILENCE_PROMPT_GRACE_MS = 60 * 1000;
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -139,6 +140,7 @@ function applyTrackEnrichment(
 
 let tickHandle: ReturnType<typeof setInterval> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
+let silencePromptGraceHandle: ReturnType<typeof setTimeout> | null = null;
 let lastDetectionAt = 0;
 let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
@@ -155,6 +157,7 @@ function recognitionSampleDurationMs() {
 function clearTimers() {
   if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }
   if (silenceCheckHandle) { clearInterval(silenceCheckHandle); silenceCheckHandle = null; }
+  if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -264,11 +267,23 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     silenceCheckHandle = setInterval(() => {
       const { isActive, silenceTimeoutMin, showEndPrompt } = get();
       if (!isActive || showEndPrompt) return;
-      if (Date.now() - lastDetectionAt >= silenceTimeoutMin * 60 * 1000) set({ showEndPrompt: true });
+      if (Date.now() - lastDetectionAt >= silenceTimeoutMin * 60 * 1000) {
+        set({ showEndPrompt: true });
+        if (silencePromptGraceHandle) clearTimeout(silencePromptGraceHandle);
+        silencePromptGraceHandle = setTimeout(() => {
+          silencePromptGraceHandle = null;
+          const current = get();
+          if (current.isActive && current.showEndPrompt) current.requestEndSession();
+        }, SILENCE_PROMPT_GRACE_MS);
+      }
     }, SILENCE_CHECK_INTERVAL_MS);
   },
 
-  dismissEndPrompt: () => { lastDetectionAt = Date.now(); set({ showEndPrompt: false }); },
+  dismissEndPrompt: () => {
+    if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
+    lastDetectionAt = Date.now();
+    set({ showEndPrompt: false });
+  },
 
   requestEndSession: (title) => {
     clearTimers();

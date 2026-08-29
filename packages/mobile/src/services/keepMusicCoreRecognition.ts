@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
@@ -244,6 +245,7 @@ async function recognitionAttempt(
       headers: {
         ...baseHeaders(accessToken),
         'x-keep-device-id': deviceId,
+        'x-keep-platform': Platform.OS,
       },
       body: form,
     });
