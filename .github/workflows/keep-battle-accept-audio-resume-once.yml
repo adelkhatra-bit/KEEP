@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'scripts/patch_keep_battle_accept_audio_resume.py'
+      - 'scripts/fix_keep_battle_accept_audio_style_anchor.py'
       - '.github/workflows/keep-battle-accept-audio-resume-once.yml'
 
 permissions:
@@ -23,7 +24,9 @@ jobs:
       - name: Sync branch
         run: git pull --ff-only origin reconcile/claude-main-20260825
       - name: Apply Battle repair
-        run: python3 scripts/patch_keep_battle_accept_audio_resume.py
+        run: |
+          python3 scripts/patch_keep_battle_accept_audio_resume.py
+          python3 scripts/fix_keep_battle_accept_audio_style_anchor.py
       - name: Install dependencies
         run: npm ci
       - name: Verify mobile contracts
