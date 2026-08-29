@@ -1,0 +1,27 @@
+name: KEEP Battle genre catalog seed
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/keep-battle-catalog-seed-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Seed strict Battle genres from public iTunes previews
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-battle-catalog-seed'
+          for theme in RAP_FR RAP_US FUNK DISCO AFRO ELECTRO POP RNB ROCK LATINO RAI SOUL REGGAE JAZZ CLASSIQUE CHANSON_FR; do
+            echo "=== $theme ==="
+            body="$(curl --retry 3 --retry-delay 1 -fsS "$base?theme=$theme")"
+            echo "$body"
+            echo "$body" | grep -q '"ok":true'
+          done
