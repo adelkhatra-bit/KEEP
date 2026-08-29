@@ -59,9 +59,23 @@ export async function loadMyReferralCode(): Promise<string> {
   return String(data || '').trim().toUpperCase();
 }
 
+/**
+ * Une invitation KEEP n'oblige plus l'utilisateur à recopier un code.
+ * - lien explicite : ?ref=KXXXXXXXXXX
+ * - partage de profil KEEP : ?u=pseudo&share=profile
+ * Dans le second cas le pseudo sert d'alias de parrainage côté RPC.
+ */
 export function referralCodeFromUrl(url?: string | null): string {
-  const match = String(url || '').match(/[?&]ref=([A-Za-z0-9_-]{4,32})/i);
-  return match ? decodeURIComponent(match[1]).trim().toUpperCase() : '';
+  const raw = String(url || '');
+  const explicit = raw.match(/[?&]ref=([A-Za-z0-9_.-]{1,32})/i);
+  if (explicit) return decodeURIComponent(explicit[1]).trim().replace(/^@+/, '').toUpperCase();
+
+  const share = raw.match(/[?&]share=([^&#]+)/i);
+  const profile = raw.match(/[?&]u=([^&#]+)/i);
+  if (share && decodeURIComponent(share[1]).toLowerCase() === 'profile' && profile) {
+    return decodeURIComponent(profile[1]).trim().replace(/^@+/, '').toUpperCase();
+  }
+  return '';
 }
 
 export async function stageReferralFromUrl(url?: string | null): Promise<string> {
