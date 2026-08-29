@@ -153,7 +153,9 @@ jobs:
             await page.getByText('Profil',{exact:true}).last().click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Menu du profil').last().click();
-            await page.getByText('Modifier le profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            const editProfile=page.getByText('Modifier le profil',{exact:true}).last();
+            await editProfile.waitFor({state:'visible',timeout:15000});
+            await editProfile.click();
 
             const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
             await cityInput.waitFor({state:'visible',timeout:15000});
@@ -181,9 +183,13 @@ jobs:
             await page.getByText(CITY,{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
             await page.getByLabel('Menu du profil').last().click();
-            await page.getByText('Modifier le profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Réglages avancés du profil',{exact:true}).last().scrollIntoViewIfNeeded();
-            await page.getByText('Réglages avancés du profil',{exact:true}).last().click();
+            const editAgain=page.getByText('Modifier le profil',{exact:true}).last();
+            await editAgain.waitFor({state:'visible',timeout:15000});
+            await editAgain.click();
+            const advanced=page.getByText('Réglages avancés du profil',{exact:true}).last();
+            await advanced.waitFor({state:'visible',timeout:15000});
+            await advanced.scrollIntoViewIfNeeded();
+            await advanced.click();
             await page.getByText('← Revenir aux Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
@@ -195,7 +201,9 @@ jobs:
             await page.getByText('Profil',{exact:true}).last().click();
             await page.getByText(CITY,{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Menu du profil').last().click();
-            await page.getByText('Modifier le profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            const editAfterReload=page.getByText('Modifier le profil',{exact:true}).last();
+            await editAfterReload.waitFor({state:'visible',timeout:15000});
+            await editAfterReload.click();
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'mobile-390x844');
             if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
