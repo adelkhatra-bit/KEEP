@@ -11,6 +11,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const STOREFRONTS = ["US", "FR", "GB", "CA", "AU"];
+
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, "content-type": "application/json", "cache-control": "no-store" } });
 }
@@ -41,20 +43,21 @@ function yearFrom(value: unknown): number | null {
 function themesFor(genreRaw: unknown, year: number | null): string[] {
   const genre = norm(genreRaw);
   const out = new Set<string>();
-  if (/afro|afrobeats|afro beat/.test(genre)) out.add("AFRO");
+  if (/afro|afrobeats|afro beat|amapiano/.test(genre)) out.add("AFRO");
   if (/french pop|chanson francaise/.test(genre)) out.add("CHANSON_FR");
-  if (/classical|classique/.test(genre)) out.add("CLASSIQUE");
+  if (/classical|classique|opera/.test(genre)) out.add("CLASSIQUE");
   if (/disco/.test(genre)) out.add("DISCO");
-  if (/dance|electronic|electronica|house|techno/.test(genre)) out.add("ELECTRO");
+  if (/dance|electronic|electronica|house|techno|edm|trance/.test(genre)) out.add("ELECTRO");
   if (/funk/.test(genre)) out.add("FUNK");
   if (/jazz/.test(genre)) out.add("JAZZ");
-  if (/latin|latino|reggaeton/.test(genre)) out.add("LATINO");
+  if (/latin|latino|reggaeton|salsa|bachata/.test(genre)) out.add("LATINO");
   if (/\bpop\b/.test(genre)) out.add("POP");
-  if (/rai|maghreb/.test(genre)) out.add("RAI");
+  if (/rai|maghreb|arabic/.test(genre)) out.add("RAI");
   if (/reggae|dancehall/.test(genre)) out.add("REGGAE");
-  if (/r b|rnb|soul/.test(genre)) out.add("RNB");
-  if (/soul/.test(genre)) out.add("SOUL");
-  if (/rock|alternative|metal|punk/.test(genre)) out.add("ROCK");
+  if (/r b|rnb|rhythm blues/.test(genre)) out.add("RNB");
+  if (/soul/.test(genre)) { out.add("SOUL"); out.add("RNB"); }
+  if (/rock|alternative|metal|punk|grunge/.test(genre)) out.add("ROCK");
+  if (/hip hop|rap/.test(genre)) out.add("RAP_US");
   if (year != null && year >= 1980 && year <= 1989) out.add("ANNEES_80");
   if (year != null && year >= 1990 && year <= 1999) out.add("ANNEES_90");
   return [...out];
@@ -81,13 +84,15 @@ function bestMatch(results: any[], title: string, artist: string): any | null {
 
 async function lookup(track: any) {
   const term = encodeURIComponent(`${track.artist} ${track.title}`);
-  const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8&country=FR`, { headers: { "user-agent": "KEEP/1.0 Battle Catalog" } });
-  if (!response.ok) return null;
-  const body = await response.json().catch(() => null);
-  const rows = Array.isArray(body?.results) ? body.results : [];
-  const match = bestMatch(rows, track.title, track.artist);
-  if (!match || !String(match.previewUrl ?? "").startsWith("https://")) return null;
-  return match;
+  for (const country of STOREFRONTS) {
+    const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8&country=${country}`, { headers: { "user-agent": "KEEP/1.0 Battle Catalog" } });
+    if (!response.ok) continue;
+    const body = await response.json().catch(() => null);
+    const rows = Array.isArray(body?.results) ? body.results : [];
+    const match = bestMatch(rows, track.title, track.artist);
+    if (match && String(match.previewUrl ?? "").startsWith("https://")) return { ...match, storefront: country };
+  }
+  return null;
 }
 
 async function processOne(track: any) {
@@ -98,11 +103,14 @@ async function processOne(track: any) {
   const existingProviderIds = track.provider_ids && typeof track.provider_ids === "object" ? track.provider_ids : {};
   const existingExternalUrls = track.external_urls && typeof track.external_urls === "object" ? track.external_urls : {};
   const existingAvailable = Array.isArray(track.available_on) ? track.available_on : [];
+  const existingGenres = Array.isArray(track.genres) ? track.genres.map(String) : [];
+  const primaryGenre = String(match.primaryGenreName ?? "").trim();
   const patch: Record<string, unknown> = {
     preview_url: String(match.previewUrl),
-    provider_ids: { ...existingProviderIds, appleMusic: String(match.trackId) },
+    provider_ids: { ...existingProviderIds, appleMusic: String(match.trackId), appleStorefront: String(match.storefront || "") },
     external_urls: { ...existingExternalUrls, appleMusic: String(match.trackViewUrl ?? "") || undefined },
     available_on: Array.from(new Set([...existingAvailable, "Apple Music"])),
+    genres: Array.from(new Set([...existingGenres, ...(primaryGenre ? [primaryGenre] : [])])),
   };
   if (!track.artwork_url && match.artworkUrl100) patch.artwork_url = artwork600(match.artworkUrl100);
   if (!track.album && match.collectionName) patch.album = String(match.collectionName);
@@ -111,14 +119,53 @@ async function processOne(track: any) {
   const { error: updateError } = await admin.from("tracks").update(patch).eq("id", track.id);
   if (updateError) return { enriched: false, themed: 0 };
 
-  const themes = themesFor(match.primaryGenreName, year);
+  const themes = themesFor(primaryGenre, year);
   if (themes.length) {
     await admin.from("keep_battle_track_themes").upsert(
-      themes.map((themeCode) => ({ track_id: track.id, theme_code: themeCode, source: "itunes_public", confidence: 0.85 })),
+      themes.map((themeCode) => ({ track_id: track.id, theme_code: themeCode, source: "itunes_public", confidence: 0.9 })),
       { onConflict: "track_id,theme_code" },
     );
   }
   return { enriched: true, themed: themes.length };
+}
+
+async function loadWork(limit: number) {
+  const half = Math.max(5, Math.ceil(limit / 2));
+  const { data: missingPreview, error: missingError } = await admin
+    .from("tracks")
+    .select("id,title,artist,album,artwork_url,preview_url,release_year,provider_ids,external_urls,available_on,genres,created_at")
+    .or("preview_url.is.null,preview_url.eq.")
+    .order("created_at", { ascending: false })
+    .limit(half);
+  if (missingError) throw missingError;
+
+  const { data: playable, error: playableError } = await admin
+    .from("tracks")
+    .select("id,title,artist,album,artwork_url,preview_url,release_year,provider_ids,external_urls,available_on,genres,created_at")
+    .not("preview_url", "is", null)
+    .neq("preview_url", "")
+    .order("created_at", { ascending: false })
+    .limit(Math.max(limit * 4, 80));
+  if (playableError) throw playableError;
+
+  const playableRows = playable ?? [];
+  const ids = playableRows.map((row: any) => row.id);
+  const themedIds = new Set<string>();
+  if (ids.length) {
+    const { data: links } = await admin.from("keep_battle_track_themes").select("track_id").in("track_id", ids);
+    for (const row of links ?? []) themedIds.add(String((row as any).track_id));
+  }
+  const unthemed = playableRows.filter((row: any) => !themedIds.has(String(row.id)));
+  const seen = new Set<string>();
+  const work: any[] = [];
+  for (const row of [...(missingPreview ?? []), ...unthemed]) {
+    const id = String((row as any).id);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    work.push(row);
+    if (work.length >= limit) break;
+  }
+  return { work, unthemedPlayable: unthemed.length };
 }
 
 Deno.serve(async (req: Request) => {
@@ -128,24 +175,16 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({}));
     const requested = Number(body?.limit ?? 24);
-    const limit = Math.max(5, Math.min(Number.isFinite(requested) ? Math.floor(requested) : 24, 36));
+    const limit = Math.max(5, Math.min(Number.isFinite(requested) ? Math.floor(requested) : 24, 60));
 
     const { count: playableBefore } = await admin.from("tracks").select("id", { count: "exact", head: true }).not("preview_url", "is", null).neq("preview_url", "");
-    if ((playableBefore ?? 0) >= 180 && body?.force !== true) {
-      return json(200, { ok: true, skipped: true, reason: "catalog_target_reached", playable: playableBefore ?? 0, secretRequired: false });
+    const { work: rows, unthemedPlayable } = await loadWork(limit);
+    if (!rows.length && body?.force !== true) {
+      return json(200, { ok: true, skipped: true, reason: "catalog_fully_classified", playable: playableBefore ?? 0, unthemedPlayable: 0, secretRequired: false });
     }
-
-    const { data: tracks, error } = await admin
-      .from("tracks")
-      .select("id,title,artist,album,artwork_url,preview_url,release_year,provider_ids,external_urls,available_on")
-      .or("preview_url.is.null,preview_url.eq.")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) throw error;
 
     let enriched = 0;
     let themed = 0;
-    const rows = tracks ?? [];
     for (let start = 0; start < rows.length; start += 4) {
       const batch = rows.slice(start, start + 4);
       const results = await Promise.all(batch.map(processOne));
@@ -157,9 +196,11 @@ Deno.serve(async (req: Request) => {
       ok: true,
       secretRequired: false,
       provider: "Apple iTunes public catalog",
+      storefronts: STOREFRONTS,
       scanned: rows.length,
       enriched,
       themeLinksAdded: themed,
+      unthemedPlayableBefore: unthemedPlayable,
       playableBefore: playableBefore ?? 0,
       playableAfter: playableAfter ?? playableBefore ?? 0,
     });
