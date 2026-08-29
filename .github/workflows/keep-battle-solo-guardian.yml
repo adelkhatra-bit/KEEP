@@ -55,7 +55,7 @@ jobs:
           exit 1
       - name: Test Jouer maintenant solo at 390x844
         run: |
-          cat > /tmp/battle-solo.cjs <<'JS'
+          cat > battle-solo.cjs <<'JS'
           const { chromium } = require('playwright');
           (async () => {
             const browser = await chromium.launch({ headless: true });
@@ -78,11 +78,7 @@ jobs:
             await page.getByText('KEEP BATTLE · SOLO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
             await page.getByText('PARTAGER', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
             await page.getByText(/MORCEAU 1\//).last().waitFor({ state: 'visible', timeout: 15000 });
-            const choices = page.locator('text=Écoute. Qui est l’artiste ?').last();
-            await choices.waitFor({ state: 'visible', timeout: 15000 });
-            const answerButtons = page.locator('[role="button"]').filter({ has: page.locator('text=/./') });
-            const answerTexts = await page.locator('div').filter({ hasText: /./ }).count();
-            if (!answerTexts) throw new Error('No Battle answer UI rendered');
+            await page.getByText('Écoute. Qui est l’artiste ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
             const candidate = page.locator('div[role="button"]').filter({ hasText: /.+/ });
             const count = await candidate.count();
             let answered = false;
@@ -90,7 +86,7 @@ jobs:
               const el = candidate.nth(i);
               const box = await el.boundingBox().catch(() => null);
               const text = (await el.innerText().catch(() => '')).trim();
-              if (box && box.height >= 40 && box.width > 100 && text && !/PARTAGER|MORCEAU|RETOUR|SOLO|SCORE|JOUER/i.test(text)) {
+              if (box && box.height >= 40 && box.width > 100 && text && !/PARTAGER|MORCEAU|RETOUR|SOLO|SCORE|JOUER|SON/i.test(text)) {
                 await el.click();
                 answered = true;
                 break;
@@ -103,10 +99,10 @@ jobs:
             if (dims.scrollWidth > dims.width + 1) throw new Error(`Battle solo overflow: ${JSON.stringify(dims)}`);
             if (errors.length) throw new Error(`Page errors: ${errors.join('\n')}`);
             await browser.close();
-            console.log('BATTLE SOLO 390x844 OK: play-now, audio round UI, answer, next, share visible, no manual code');
+            console.log('BATTLE SOLO 390x844 OK: play-now, round, answer, next, share visible, no manual code');
           })().catch(e => { console.error(e); process.exit(1); });
           JS
-          node /tmp/battle-solo.cjs
+          node battle-solo.cjs
       - name: Runtime log on failure
         if: failure()
         run: cat /tmp/keep-battle-solo.log || true
