@@ -1,4 +1,4 @@
-# KEEP real-browser profile tab contract patch. Editing this file intentionally retriggers CI after generated source commits.
+# KEEP real-browser profile tab contract patch. Reapply after branch reconciliation; verify generated source before rerunning browser QA.
 from pathlib import Path
 
 profile = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx')
