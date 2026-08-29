@@ -128,6 +128,7 @@ old = """  React.useEffect(() => {
 new = """  React.useEffect(() => {
     const round = arena?.round;
     if (!arena || arena.status !== 'ACTIVE' || !round?.previewUrl) return undefined;
+    const previewUrl = round.previewUrl;
     let alive = true;
     setAudioReady(false);
     const run = async () => {
@@ -135,12 +136,12 @@ new = """  React.useEffect(() => {
       const closesAt = round.closesAt ? new Date(round.closesAt).getTime() : startsAt + ROUND_MS;
       const duration = Math.max(1600, closesAt - startsAt + 500);
       try {
-        await scheduleTrackPreviewSegment(`arena:${arena.id}:${arena.matchNo}:${round.position}`, round.previewUrl, 0, duration, startsAt, (playing) => {
+        await scheduleTrackPreviewSegment(`arena:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, 0, duration, startsAt, (playing) => {
           if (alive && playing) setAudioReady(true);
         });
       } catch {
         if (!alive) return;
-        const ok = await playVerified(`arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`, round.previewUrl, Math.max(1600, closesAt - Date.now() + 500));
+        const ok = await playVerified(`arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, Math.max(1600, closesAt - Date.now() + 500));
         if (alive && ok) setAudioReady(true);
       }
     };
