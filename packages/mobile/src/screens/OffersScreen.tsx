@@ -204,8 +204,8 @@ export default function OffersScreen({ navigation, route }: any) {
 
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>DÉCOUVERTE KEEP</Text>
-            <Text style={s.discoveryTitle}>Ta découverte reste attribuée à ton profil.</Text>
-            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, KEEP conserve ton profil comme source de cette découverte. Si un autre membre l’ajoute depuis ton profil, son ajout ne débite aucun Free et ton attribution reste attachée au morceau.</Text>
+            <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
+            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, KEEP associe cette découverte à ton profil. Si d’autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
@@ -219,7 +219,7 @@ export default function OffersScreen({ navigation, route }: any) {
             {discoveryExpanded ? <View style={s.discoveryDetails}>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur KEEP de cette occurrence.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un KEEP issu de la communauté.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut ensuite circuler de profil en profil : KEEP conserve le découvreur d’origine au lieu de remplacer son attribution à chaque partage.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s’il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l’enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
             </View> : null}
           </View>

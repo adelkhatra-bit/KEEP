@@ -126,6 +126,27 @@ export async function updateKeepDecisionVisibility(decisionId: string, visibilit
   return true;
 }
 
+/**
+ * Lorsqu'un membre avait d'abord récupéré gratuitement un titre depuis un
+ * autre profil, puis le reconnaît ensuite lui-même avec Écouter, sa propre
+ * écoute devient la source de ses futurs partages. Le KEEP reste unique et
+ * l'ancienne provenance sociale reste conservée dans l'historique serveur.
+ */
+export async function markDirectRediscovery(
+  trackId: string,
+  context: Record<string, unknown> = {},
+): Promise<boolean> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY) || !supabase) return false;
+  const accessToken = await getSupabaseAccessToken();
+  if (!accessToken) return false;
+  const { data, error } = await supabase.rpc('keep_mark_direct_rediscovery', {
+    p_track_id: trackId,
+    p_context: context,
+  });
+  if (error) return false;
+  return data === true;
+}
+
 export interface PersistedKeepDecision {
   decisionId: string;
   visibility: KeepVisibility;

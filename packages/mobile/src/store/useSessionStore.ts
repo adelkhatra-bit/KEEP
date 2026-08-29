@@ -3,7 +3,7 @@ import { CanonicalTrack } from '@keep/music';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { markDirectRediscovery, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
@@ -51,7 +51,17 @@ async function findExistingTrack(track: CanonicalTrack) {
   ]);
   const playlists = await withSoftTimeout(musicEngine.musicProvider.getPlaylists(session), 1000) ?? [];
   if (connected?.exists && connected.match) {
-    return { session, playlists, match: { playlistId: connected.match.playlistId, playlistName: connected.match.playlistName, provider: connected.match.provider } };
+    return {
+      session,
+      playlists,
+      match: {
+        playlistId: connected.match.playlistId,
+        playlistName: connected.match.playlistName,
+        provider: connected.match.provider,
+        decisionId: connected.match.decisionId,
+        trackId: connected.match.trackId,
+      },
+    };
   }
   if (!musicEngine.usesDemoMusicProvider) return { session, playlists, match: undefined };
   for (const playlist of playlists) {
@@ -222,6 +232,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         void (async () => {
           try {
             const { session, playlists, match } = await findExistingTrack(track);
+            const sharedSource = await getSharedMusicSource().catch(() => null);
+            if (!sharedSource && match?.decisionId && match?.trackId) {
+              await markDirectRediscovery(match.trackId, {
+                source: 'listen',
+                sessionId: sessionIdAtDetection,
+                detectedAt: entry.detectedAt,
+              }).catch(() => false);
+            }
             const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
             applyTrackEnrichment(sessionIdAtDetection, entry.id, {
               recommendations,
