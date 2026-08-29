@@ -30,9 +30,6 @@ MIGRATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../migrations" && pwd)"
 if [ -n "${PGHOST:-}" ]; then
   pg() { $PSQL "$@"; }
 else
-  # su -c ne prend qu'UNE chaîne : chaque argument doit être ré-échappé
-  # (printf %q) avant d'être rejoint, sinon "IF EXISTS"/les points-virgules
-  # sont ré-éclatés n'importe comment par le sous-shell de su.
   pg() {
     local cmd="$PSQL"
     for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
@@ -55,25 +52,19 @@ create table auth.users (
   email text,
   email_confirmed_at timestamptz,
   is_anonymous boolean not null default false,
-  raw_user_meta_data jsonb not null default '{}'::jsonb
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
 );
 create or replace function auth.uid() returns uuid
 language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
--- Rôles Supabase simulés. Certaines migrations accordent ou révoquent
--- explicitement des droits à `anon` / `authenticated` / `service_role`; un
--- PostgreSQL brut ne crée pas ces rôles automatiquement.
 drop role if exists anon;
 create role anon nosuperuser nobypassrls;
 drop role if exists authenticated;
 create role authenticated nosuperuser nobypassrls;
 drop role if exists service_role;
 create role service_role nosuperuser bypassrls;
--- Rôle applicatif non-superuser : sans ça, RLS est silencieusement
--- contournée par le propriétaire des tables (postgres), et le test ne
--- prouverait rien. Les rôles sont globaux au cluster (pas à la base) --
--- on le recrée proprement à chaque exécution du script.
 drop role if exists app_user;
 create role app_user nosuperuser nobypassrls login;
 SQL
@@ -105,18 +96,12 @@ declare
   sub_id uuid;
   is_adult_result boolean;
 begin
-  -- Deux profils, en tant que postgres (superuser, insertion "backend").
-  -- profiles.id référence auth.users(id) -- comme le ferait réellement
-  -- Supabase à la création de compte (GoTrue peuple auth.users).
   insert into auth.users (id) values (user_a), (user_b);
   insert into profiles (id, username) values (user_a, 'alice'), (user_b, 'bob');
 
-  -- Un admin (pour tester que admin_users reste invisible même avec des
-  -- données dedans -- un test sur une table vide ne prouverait rien).
   insert into auth.users (id) values (admin_id);
   insert into admin_users (id, role) values (admin_id, 'SUPER_ADMIN');
 
-  -- Trigger is_adult : 20 ans -> true.
   insert into profile_private_info (profile_id, birth_date) values (user_a, (current_date - interval '20 years')::date);
   select is_adult into is_adult_result from profiles where id = user_a;
   if is_adult_result is not true then
@@ -124,7 +109,6 @@ begin
   end if;
   raise notice 'OK is_adult (20 ans) = true';
 
-  -- Trigger is_adult : 10 ans -> false.
   insert into profile_private_info (profile_id, birth_date) values (user_b, (current_date - interval '10 years')::date);
   select is_adult into is_adult_result from profiles where id = user_b;
   if is_adult_result is not false then
@@ -132,7 +116,6 @@ begin
   end if;
   raise notice 'OK is_adult (10 ans) = false';
 
-  -- Trigger cohérence devise : plan_price en EUR, souscription en EUR -> OK.
   select id, plan_id into price_id, target_plan_id from plan_prices where currency_code = 'EUR' limit 1;
   if price_id is null then
     raise exception 'FAIL aucun plan_price EUR trouvé (seed manquant ?)';
@@ -142,7 +125,6 @@ begin
     returning id into sub_id;
   raise notice 'OK souscription EUR/EUR acceptée';
 
-  -- Trigger cohérence devise : souscription en AED sur un prix EUR -> doit échouer.
   begin
     insert into subscriptions (id, profile_id, plan_id, plan_price_id, channel, status, country_code, currency_code)
       values (gen_random_uuid(), user_a, target_plan_id, price_id, 'WEB', 'ACTIVE', 'FR', 'AED');
@@ -162,7 +144,6 @@ echo "== RLS réelle (rôle non-superuser, deux identités simulées) =="
 pg -d "$DB" <<'SQL'
 set role app_user;
 select set_config('request.jwt.claim.sub', (select id::text from profiles where username = 'alice'), true);
--- Alice doit voir son propre profil.
 do $$
 begin
   if not exists (select 1 from profiles where username = 'alice') then
@@ -171,7 +152,6 @@ begin
   raise notice 'OK Alice voit son propre profil';
 end;
 $$;
--- Alice ne doit PAS voir les infos privées de Bob (autre utilisateur).
 do $$
 declare
   bob_id uuid;
@@ -185,7 +165,6 @@ begin
   raise notice 'OK Alice ne voit pas les infos privées de Bob (0 ligne, RLS effective)';
 end;
 $$;
--- Personne (même authentifié) ne doit voir admin_users / audit_logs.
 do $$
 declare
   visible int;
