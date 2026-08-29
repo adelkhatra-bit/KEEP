@@ -50,15 +50,17 @@ delete from public.playlist_tracks pt
 using _keep_track_merge m
 where pt.track_id = m.old_id;
 
+-- track_likes.track_id est volontairement TEXT côté API mobile, mais contient
+-- l'UUID canonique sérialisé. On caste uniquement à cette frontière.
 insert into public.track_likes(profile_id, track_id, created_at)
-select tl.profile_id, m.canonical_id, tl.created_at
+select tl.profile_id, m.canonical_id::text, tl.created_at
 from public.track_likes tl
-join _keep_track_merge m on m.old_id = tl.track_id
+join _keep_track_merge m on m.old_id::text = tl.track_id
 on conflict (profile_id, track_id) do nothing;
 
 delete from public.track_likes tl
 using _keep_track_merge m
-where tl.track_id = m.old_id;
+where tl.track_id = m.old_id::text;
 
 update public.keep_fingerprints kf
 set track_id = m.canonical_id
