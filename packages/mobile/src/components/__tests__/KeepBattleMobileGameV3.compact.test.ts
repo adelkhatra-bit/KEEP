@@ -4,6 +4,7 @@ import path from 'path';
 
 describe('KEEP Battle mobile style selector', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
+  const audioSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'audioPreviewService.ts'), 'utf8');
 
   it('renders one inline Battle invite above answers', () => {
     const question = source.indexOf('<Text style={s.question}>Qui chante ?</Text>');
@@ -14,6 +15,16 @@ describe('KEEP Battle mobile style selector', () => {
     expect(answers).toBeGreaterThan(invite);
     expect(source).not.toContain("invite: { position: 'absolute'");
     expect(source).not.toContain("Alert.alert('Défi envoyé'");
+    expect(source).toContain('REFUSER');
+    expect(source).toContain('ACCEPTER');
+  });
+
+  it('pauses the solo round while the player decides on an invite', () => {
+    expect(source).toContain('pausedSoloRemaining');
+    expect(source).toContain("incoming[0] ? 'PAUSE'");
+    expect(source).toContain("incoming[0] ? 'INVITATION BATTLE'");
+    expect(source).toContain('setPausedSoloRemaining(Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)))');
+    expect(source).toContain('setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining))');
   });
 
   it('keeps solo on refusal and switches to shared arena on acceptance', () => {
@@ -25,6 +36,21 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('setArena(await loadKeepBattleArena(response.arenaId))');
     expect(source).toContain('void respond(incoming[0], false)');
     expect(source).toContain('void respond(incoming[0], true)');
+  });
+
+  it('makes the match style explicit before the challenge is accepted', () => {
+    expect(source).toContain('STYLE DU MATCH');
+    expect(source).toContain('Style proposé : {themeLabel(incoming[0].themeCode)}');
+    expect(source).toContain('BATTLE · {themeLabel(themeCode)}');
+    expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode)');
+  });
+
+  it('schedules multiplayer playback against the shared round timestamp', () => {
+    expect(source).toContain('scheduleTrackPreviewSegment');
+    expect(source).toContain('const startsAt = round.startedAt ? new Date(round.startedAt).getTime() : Date.now()');
+    expect(source).toContain('previewUrl, 0, duration, startsAt');
+    expect(audioSource).toContain('export async function scheduleTrackPreviewSegment');
+    expect(audioSource).toContain('startAtEpochMs - Date.now()');
   });
 
   it('uses one team gauge for multiplayer groups', () => {
