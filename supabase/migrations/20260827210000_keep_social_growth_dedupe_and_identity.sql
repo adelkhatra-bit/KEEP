@@ -18,7 +18,10 @@ $$;
 revoke all on function public.keep_track_identity(text, text) from public;
 
 -- Fusionne d'abord les doublons de catalogue sans ISRC.
-create temporary table _keep_track_merge on commit drop as
+-- Ne pas utiliser ON COMMIT DROP ici : le vérificateur PostgreSQL exécute le
+-- fichier statement par statement en autocommit. La table temporaire doit
+-- rester vivante pendant toute la session de cette migration.
+create temporary table _keep_track_merge as
 with ranked as (
   select
     id,
@@ -72,7 +75,7 @@ using _keep_track_merge m
 where t.id = m.old_id;
 
 -- En cas d'anciens doubles KEEP, la décision la plus récente est conservée.
-create temporary table _keep_decision_merge on commit drop as
+create temporary table _keep_decision_merge as
 with ranked as (
   select
     id,
