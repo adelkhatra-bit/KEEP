@@ -40,6 +40,8 @@ function str(row: any, camel: string, snake: string, fallback = '') {
   return value == null ? fallback : String(value);
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function heartbeatSoloBattle(themeCode: string): Promise<void> {
   const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode || 'MIX' });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_HEARTBEAT_FAILED'));
@@ -103,11 +105,21 @@ export async function loadOutgoingBattleChallenges(): Promise<KeepBattleOutgoing
 }
 
 export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null }> {
-  const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: accept });
-  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_RESPONSE_FAILED'));
-  return {
-    status: String((data as any)?.status || ''),
-    arenaId: (data as any)?.arenaId ? String((data as any).arenaId) : null,
-    arenaCode: (data as any)?.arenaCode ? String((data as any).arenaCode) : null,
-  };
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: accept });
+    if (!error) {
+      return {
+        status: String((data as any)?.status || ''),
+        arenaId: (data as any)?.arenaId ? String((data as any).arenaId) : null,
+        arenaCode: (data as any)?.arenaCode ? String((data as any).arenaCode) : null,
+      };
+    }
+    lastError = error;
+    const message = String(error.message || 'KEEP_BATTLE_CHALLENGE_RESPONSE_FAILED');
+    const terminal = message.includes('FORBIDDEN') || message.includes('EXPIRED') || message.includes('NO_CREDIT') || message.includes('MINIMUM_THREE_FREE_REQUIRED');
+    if (terminal || attempt === 2) throw new Error(message);
+    await wait(180 + attempt * 220);
+  }
+  throw new Error(String((lastError as any)?.message || 'KEEP_BATTLE_CHALLENGE_RESPONSE_FAILED'));
 }
