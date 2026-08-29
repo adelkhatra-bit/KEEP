@@ -1,0 +1,46 @@
+name: KEEP Battle invite loading pause guard
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'scripts/patch_keep_battle_invite_loading_pause.py'
+      - '.github/workflows/keep-battle-invite-loading-pause-once.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-battle-invite-loading-pause
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync latest branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply loading-pause patch
+        run: python scripts/patch_keep_battle_invite_loading_pause.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify
+        run: |
+          grep -Fq "if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          npm --prefix packages/mobile run type-check
+          npm --prefix packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts
+      - name: Commit
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          git commit -m 'fix(battle): fully pause solo audio during invites'
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
