@@ -1,4 +1,4 @@
-name: KEEP — One-time Discovery Attribution UI
+name: KEEP — One-time Lock Sync
 
 on:
   push:
@@ -11,61 +11,34 @@ permissions:
   contents: write
 
 concurrency:
-  group: keep-discovery-attribution-ui
+  group: keep-lock-sync
   cancel-in-progress: true
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
-      - name: Checkout source branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: reconcile/claude-main-20260825
           fetch-depth: 0
-      - name: Sync latest branch head
-        run: git pull --ff-only origin reconcile/claude-main-20260825
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - run: git pull --ff-only origin reconcile/claude-main-20260825
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Adapt guarded patch to two expected owner reset blocks
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('scripts/one_time_discovery_impact_ui.py')
-          s = p.read_text(encoding='utf-8')
-          old = "    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one match, got {count}')\n    return text.replace(old, new, 1)"
-          new = "    if count == 0:\n        raise SystemExit(f'{label}: expected a match, got 0')\n    if count > 1 and label != 'owner reset':\n        raise SystemExit(f'{label}: expected exactly one match, got {count}')\n    return text.replace(old, new, 1)"
-          if old not in s:
-              raise SystemExit('replace guard signature changed')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
-          PY
-      - name: Apply discovery impact UI
-        run: python scripts/one_time_discovery_impact_ui.py
-      - name: Verify KEEP source of truth
-        run: node scripts/verify-source-of-truth.cjs
-      - name: Typecheck mobile
-        run: npm --workspace packages/mobile run type-check
-      - name: Test mobile
-        run: npm --workspace packages/mobile test -- --runInBand
-      - name: Commit verified discovery attribution UI
+      - name: Synchronize package lock
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Commit lockfile
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
-          git add \
-            packages/mobile/src/services/publicProfileStateService.ts \
-            packages/mobile/src/screens/ProfilePublicScreen.tsx \
-            packages/mobile/src/screens/PublicUserProfileScreen.tsx \
-            packages/mobile/src/components/DiscoveryImpactLabel.tsx
+          git add package-lock.json
           if git diff --cached --quiet; then
-            echo "Discovery attribution UI already applied"
+            echo "Lockfile already synchronized"
           else
-            git commit -m "feat(profile): show discovery viral impact"
+            git commit -m "chore(deps): synchronize package lock"
             git pull --rebase origin reconcile/claude-main-20260825
             git push origin HEAD:reconcile/claude-main-20260825
           fi
