@@ -21,13 +21,14 @@ describe('KEEP Battle challenge UX', () => {
     expect(question).toBeGreaterThan(invite);
     expect(answers).toBeGreaterThan(question);
     expect(battle).toContain("<Text style={s.noText}>REFUSER</Text>");
-    expect(battle).toContain("<Text style={s.yesText}>ACCEPTER</Text>");
+    expect(battle).toContain("'ACCEPTER'");
   });
 
   it('handles accept/refuse directly from the live Battle state', () => {
     expect(battle).toContain('respondBattleChallenge(item.id, accept)');
     expect(battle).toContain('setIncoming((rows) => rows.filter((x) => x.id !== item.id))');
     expect(battle).toContain('setArena(await loadKeepBattleArena(response.arenaId))');
+    expect(battle).toContain('respondingChallengeId');
   });
 
   it('fixes the incoming challenge RPC ambiguity that prevented the card from loading', () => {
