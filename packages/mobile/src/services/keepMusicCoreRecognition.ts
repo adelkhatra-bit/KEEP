@@ -7,7 +7,7 @@ import { getSharedMusicSource } from './sharedMusicSourceService';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
-const FALLBACK_RECHECK_MS = 5 * 60 * 1000;
+const FALLBACK_RECHECK_MS = 30 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
