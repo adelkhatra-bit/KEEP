@@ -1,0 +1,52 @@
+name: KEEP Battle notification actions fix
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'scripts/patch_keep_battle_notification_actions.py'
+      - '.github/workflows/keep-battle-notification-actions-once.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-battle-notification-actions
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync latest branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply notification action fix
+        run: python scripts/patch_keep_battle_notification_actions.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify contracts
+        run: |
+          grep -Fq 'INVITATION BATTLE' packages/mobile/src/screens/NotificationsScreen.tsx
+          grep -Fq 'REFUSER' packages/mobile/src/screens/NotificationsScreen.tsx
+          grep -Fq 'ACCEPTER' packages/mobile/src/screens/NotificationsScreen.tsx
+          grep -Fq "screen: 'Parties'" packages/mobile/src/screens/NotificationsScreen.tsx
+          grep -Fq 'initialArenaId={route?.params?.arenaId}' packages/mobile/src/screens/PartiesScreen.tsx
+          grep -Fq 'initialArenaId?: string | null' packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          grep -Fq "Linking.openURL('keep://notifications')" packages/mobile/src/services/pushNotificationService.ts
+          npm --prefix packages/mobile run type-check
+          npm --prefix packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts
+      - name: Commit
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/screens/NotificationsScreen.tsx packages/mobile/src/screens/PartiesScreen.tsx packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/services/pushNotificationService.ts
+          git commit -m 'fix(battle): make challenge notifications actionable'
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
