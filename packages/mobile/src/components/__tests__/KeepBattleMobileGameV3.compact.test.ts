@@ -50,6 +50,7 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('QUITTER LE BATTLE');
     expect(source).toContain('buildKeepBattleArenaInviteLink');
     expect(source).toContain('!arena.isHost || arena.lastResult || arena.seats.length < 2');
+    expect(source).toContain('winner?.score ?? arena.lastResult.score');
   });
 
   it('keeps the horizontal music-style selector compact on 390x844', () => {
