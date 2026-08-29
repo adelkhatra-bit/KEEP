@@ -24,6 +24,7 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain("incoming[0] ? 'PAUSE'");
     expect(source).toContain("incoming[0] ? 'INVITATION BATTLE'");
     expect(source).toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
+    expect(source).toContain("[solo?.themeCode, soloIndex, playVerified, incoming[0]?.id, pausedSoloRemaining]");
     expect(source).toContain('setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS)');
     expect(source).toContain('setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining))');
   });
