@@ -173,7 +173,7 @@ jobs:
             await openSalon.waitFor({state:'visible',timeout:15000});
             await openSalon.click();
             await page.getByText('KEEP BATTLE · SALONS UTILISATEURS',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Choisis un salon ouvert.',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('Joue seul ou avec d’autres.',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/03-salons.png',fullPage:true});
             await page.getByLabel('Fermer le Salon KEEP Battle').last().click();
 
@@ -232,7 +232,7 @@ jobs:
             if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
             await page.screenshot({path:'artifacts/dual-viewport/05-after-reload.png',fullPage:true});
 
-            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, parties/salons, profile edit, GPS city+country, date, save, advanced settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
+            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, inline parties/salons, profile edit, GPS city+country, date, save, advanced settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
             fs.writeFileSync('artifacts/dual-viewport/report.txt',report.join('\n'));
             await context.close();
             await browser.close();
