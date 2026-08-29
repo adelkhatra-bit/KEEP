@@ -2,7 +2,7 @@ import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
-import { getSupabaseAccessToken, supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 
 /**
  * Enregistrement du token push réel + pont temps réel web.
@@ -17,7 +17,6 @@ import { getSupabaseAccessToken, supabase } from './supabaseClient';
  *
  * Aucune donnée audio n'est envoyée par ce mécanisme.
  */
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const TRACK_CATEGORY = 'KEEP_TRACK';
 export const TRACK_KEEP_ACTION = 'KEEP_TRACK_KEEP';
 export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
@@ -219,19 +218,29 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
   const tokenResponse = await Notifications.getExpoPushTokenAsync();
   const token = tokenResponse.data;
 
-  if (!API_URL) return { ok: false, reason: 'api_url_missing' };
-  const accessToken = await getSupabaseAccessToken();
-  if (!accessToken) return { ok: false, reason: 'not_logged_in' };
+  if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
 
   try {
-    const res = await fetch(`${API_URL}/api/notifications/push-token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ token, platform: Platform.OS }),
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
+    const { error } = await supabase.rpc('keep_push_token_register', {
+      p_token: token,
+      p_platform: Platform.OS,
     });
-    if (!res.ok) return { ok: false, reason: `server_${res.status}` };
+    if (error) return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
     return { ok: true };
   } catch {
     return { ok: false, reason: 'network_error' };
+  }
+}
+
+export async function unregisterCurrentPushToken(): Promise<void> {
+  if (Platform.OS === 'web' || !Device.isDevice || !supabase) return;
+  try {
+    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    if (!token) return;
+    await supabase.rpc('keep_push_token_unregister', { p_token: token });
+  } catch {
+    // Best effort on logout; stale Expo tokens are also removed by receipt processing.
   }
 }
