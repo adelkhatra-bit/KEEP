@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
@@ -24,6 +24,33 @@ export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
 let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
 let webToastTimer: ReturnType<typeof setTimeout> | null = null;
 let trackActionSubscription: Notifications.EventSubscription | null = null;
+let battleTapSubscription: Notifications.EventSubscription | null = null;
+
+function battleLike(type: unknown, title: unknown, data?: Record<string, unknown> | null) {
+  const normalized = String(type || data?.type || data?.notificationType || '').toUpperCase();
+  if (['BATTLE_CHALLENGE', 'KEEP_BATTLE_CHALLENGE', 'BATTLE_INVITE', 'KEEP_BATTLE_INVITE'].includes(normalized)) return true;
+  if (data?.challengeId) return true;
+  return String(title || '').toUpperCase().includes('BATTLE');
+}
+
+function installBattleNotificationTapRouter() {
+  if (Platform.OS === 'web' || battleTapSubscription) return;
+  battleTapSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    if (response.actionIdentifier === TRACK_KEEP_ACTION || response.actionIdentifier === TRACK_PASS_ACTION) return;
+    const content = response.notification.request.content;
+    const data = (content.data || {}) as Record<string, unknown>;
+    if (!battleLike(data.type, content.title, data)) return;
+    void Linking.openURL('keep://notifications');
+  });
+  void Notifications.getLastNotificationResponseAsync().then((response) => {
+    if (!response) return;
+    const content = response.notification.request.content;
+    const data = (content.data || {}) as Record<string, unknown>;
+    if (battleLike(data.type, content.title, data)) void Linking.openURL('keep://notifications');
+  }).catch(() => {});
+}
+
+installBattleNotificationTapRouter();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -35,7 +62,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function showWebKeepToast(title: string, body: string) {
+function showWebKeepToast(title: string, body: string, row?: Record<string, unknown>) {
   const doc = (globalThis as any)?.document as Document | undefined;
   if (!doc?.body) return;
 
@@ -105,7 +132,7 @@ async function startWebRealtimeNotificationBridge(): Promise<boolean> {
         const row = (payload as any)?.new ?? {};
         const title = String(row.title || 'Nouveau sur KEEP');
         const body = String(row.body || 'Ouvre KEEP pour voir la nouveauté.');
-        showWebKeepToast(title, body);
+        showWebKeepToast(title, body, row);
       },
     )
     .subscribe();

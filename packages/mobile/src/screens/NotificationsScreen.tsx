@@ -14,6 +14,7 @@ import {
   subscribeToNotifications,
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
+import { respondBattleChallenge } from '../services/keepBattleLiveService';
 
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
@@ -23,6 +24,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'MUSIC_TAKEN') return 'KEEP PARTAGÉ';
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
+  if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   return key.replace(/_/g, ' ');
 }
 
@@ -35,6 +37,7 @@ export default function NotificationsScreen({ navigation }: any) {
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [battleBusyId, setBattleBusyId] = useState<string | null>(null);
 
   const refresh = async () => {
     if (!user) return;
@@ -122,6 +125,52 @@ export default function NotificationsScreen({ navigation }: any) {
     } catch {
       setItems((current) => current.map((n) => n.id === item.id ? { ...n, readAt: item.readAt } : n));
       setError('Impossible de marquer cette notification comme lue.');
+    }
+  };
+
+  const isBattleInvite = (item: KeepNotification) => {
+    const type = String(item.type || '').toUpperCase();
+    return ['BATTLE_CHALLENGE', 'KEEP_BATTLE_CHALLENGE', 'BATTLE_INVITE', 'KEEP_BATTLE_INVITE'].includes(type)
+      || Boolean(item.data?.challengeId);
+  };
+
+  const battleTheme = (item: KeepNotification) => String(item.data?.themeCode || 'MIX').replace(/_/g, ' ');
+
+  const openBattle = (arenaId?: string | null) => {
+    navigation.navigate('Main', {
+      screen: 'Parties',
+      params: { openBattle: true, arenaId: arenaId || undefined, source: 'notification' },
+    });
+  };
+
+  const answerBattleInvite = async (item: KeepNotification, accept: boolean) => {
+    if (!user || battleBusyId) return;
+    const challengeId = String(item.data?.challengeId || '');
+    if (!challengeId) {
+      openBattle();
+      return;
+    }
+    setBattleBusyId(item.id);
+    try {
+      const response = await respondBattleChallenge(challengeId, accept);
+      await readOne(item);
+      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      if (accept) {
+        if (!response.arenaId) throw new Error('BATTLE_ARENA_MISSING');
+        openBattle(response.arenaId);
+      } else {
+        setNotice('Battle refusé');
+      }
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('EXPIRED') || message.includes('NOT_PENDING')) {
+        setNotice('Cette invitation a expiré');
+        void refresh();
+      } else {
+        setError('Impossible de répondre à cette invitation Battle.');
+      }
+    } finally {
+      setBattleBusyId(null);
     }
   };
 
@@ -222,15 +271,20 @@ export default function NotificationsScreen({ navigation }: any) {
             <View style={styles.empty}><Text style={styles.emptyIcon}>♩</Text><Text style={styles.muted}>Aucune notification pour le moment.</Text></View>
           ) : items.map((item) => (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
-              <TouchableOpacity style={styles.cardMain} onPress={() => { void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
+              <TouchableOpacity style={styles.cardMain} onPress={() => { if (isBattleInvite(item)) openBattle(); else void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
                 <View style={styles.cardTop}>
                   <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>
                   <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
                 </View>
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.cardBody}>{item.body}</Text>
+                {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
                 <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
               </TouchableOpacity>
+              {isBattleInvite(item) ? <View style={styles.battleActions}>
+                <TouchableOpacity style={[styles.battleAction, styles.battleRefuse]} disabled={battleBusyId === item.id} onPress={() => void answerBattleInvite(item, false)} accessibilityRole="button" accessibilityLabel="Refuser le Battle"><Text style={styles.battleRefuseText}>REFUSER</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.battleAction, styles.battleAccept]} disabled={battleBusyId === item.id} onPress={() => void answerBattleInvite(item, true)} accessibilityRole="button" accessibilityLabel="Accepter le Battle"><Text style={styles.battleAcceptText}>{battleBusyId === item.id ? '...' : 'ACCEPTER'}</Text></TouchableOpacity>
+              </View> : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
                 <TouchableOpacity onPress={() => { void removeOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
@@ -289,6 +343,15 @@ const styles = StyleSheet.create({
   cardTitle: { color: '#F8F6FC', fontSize: 14, fontWeight: '900', marginTop: 7 },
   cardBody: { color:'#FFFFFF', fontSize: 12, lineHeight: 18, marginTop: 4 },
   cardDate: { color:'#FFFFFF', fontSize: 10, marginTop: 8 },
+  battleTheme: { marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: '#5D3D7B', backgroundColor: '#241630', paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  battleThemeLabel: { color: '#D8C7FF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  battleThemeValue: { color: '#E5F266', fontSize: 12, fontWeight: '900' },
+  battleActions: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  battleAction: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  battleRefuse: { backgroundColor: '#1B121F', borderColor: '#78435A' },
+  battleAccept: { backgroundColor: '#E5F266', borderColor: '#E5F266' },
+  battleRefuseText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  battleAcceptText: { color: '#17130C', fontSize: 11, fontWeight: '900' },
   cardFooter: { minHeight: 38, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: '#2A2035', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   readAction: { color: '#A884FA', fontSize: 9, fontWeight: '800' },
   deleteOneText: { color: '#FF7D92', fontSize: 9, fontWeight: '900' },

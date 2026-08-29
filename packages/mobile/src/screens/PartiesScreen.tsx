@@ -13,7 +13,7 @@ const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
 };
 
-export default function PartiesScreen({ navigation }: any) {
+export default function PartiesScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -63,6 +63,11 @@ export default function PartiesScreen({ navigation }: any) {
   };
 
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
+  useEffect(() => {
+    if (!route?.params?.openBattle) return;
+    setBattleOpen(true);
+    navigation.setParams?.({ openBattle: undefined, source: undefined });
+  }, [navigation, route?.params?.openBattle]);
   const currentEvent = events.length ? events[eventIndex % events.length] : null;
   const audienceReady = followers >= minEventFollowers;
   const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited) && audienceReady;
@@ -151,6 +156,7 @@ export default function PartiesScreen({ navigation }: any) {
       <View style={styles.battleFullscreen}>
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
+          initialArenaId={route?.params?.arenaId}
           onOpenProfile={(username) => navigation.navigate('PublicUserProfile', { username })}
           onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
           onExit={() => setBattleOpen(false)}

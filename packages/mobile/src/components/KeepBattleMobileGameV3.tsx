@@ -22,9 +22,10 @@ type Props = {
   onOpenProfile: (username: string) => void;
   onRequireAccount?: () => void;
   onExit?: () => void;
+  initialArenaId?: string | null;
 };
 
-export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit }: Props) {
+export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   const [solo, setSolo] = React.useState<KeepBattleSoloPack | null>(null);
@@ -81,6 +82,24 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       Animated.timing(versusOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]).start();
   }, [versusOpacity, versusScale]);
+
+  React.useEffect(() => {
+    if (!enabled || !initialArenaId) return;
+    let active = true;
+    void (async () => {
+      try {
+        await stopTrackPreview();
+        await leaveSoloBattle().catch(() => {});
+        const loaded = await loadKeepBattleArena(initialArenaId);
+        if (!active) return;
+        setSolo(null); setBrowseOnline(false); setAudioReady(false); setArena(loaded);
+        animateVersus();
+      } catch {
+        if (active) Alert.alert('Battle', 'Impossible d’ouvrir ce salon. L’invitation a peut-être expiré.');
+      }
+    })();
+    return () => { active = false; };
+  }, [enabled, initialArenaId]);
 
   const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
     if (!url) return false;
