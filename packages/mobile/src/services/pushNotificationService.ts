@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
+import { respondBattleChallenge } from './keepBattleLiveService';
 
 /**
  * Enregistrement du token push réel + pont temps réel web.
@@ -19,6 +20,9 @@ import { getSupabaseAccessToken, supabase } from './supabaseClient';
  */
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const TRACK_CATEGORY = 'KEEP_TRACK';
+const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE';
+export const BATTLE_REFUSE_ACTION = 'KEEP_BATTLE_REFUSE';
+export const BATTLE_ACCEPT_ACTION = 'KEEP_BATTLE_ACCEPT';
 export const TRACK_KEEP_ACTION = 'KEEP_TRACK_KEEP';
 export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
 let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
@@ -40,6 +44,15 @@ function installBattleNotificationTapRouter() {
     const content = response.notification.request.content;
     const data = (content.data || {}) as Record<string, unknown>;
     if (!battleLike(data.type, content.title, data)) return;
+    const challengeId = String(data.challengeId || data.challenge_id || '');
+    const action = response.actionIdentifier;
+    if ((action === BATTLE_REFUSE_ACTION || action === BATTLE_ACCEPT_ACTION) && challengeId) {
+      const accept = action === BATTLE_ACCEPT_ACTION;
+      void respondBattleChallenge(challengeId, accept)
+        .then(() => Linking.openURL('keep://notifications'))
+        .catch(() => Linking.openURL('keep://notifications'));
+      return;
+    }
     void Linking.openURL('keep://notifications');
   });
   void Notifications.getLastNotificationResponseAsync().then((response) => {
@@ -140,6 +153,22 @@ async function startWebRealtimeNotificationBridge(): Promise<boolean> {
   return true;
 }
 
+async function ensureBattleChallengeCategory(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  await Notifications.setNotificationCategoryAsync(BATTLE_CATEGORY, [
+    {
+      identifier: BATTLE_REFUSE_ACTION,
+      buttonTitle: 'REFUSER',
+      options: { opensAppToForeground: true, isAuthenticationRequired: false, isDestructive: true },
+    },
+    {
+      identifier: BATTLE_ACCEPT_ACTION,
+      buttonTitle: 'ACCEPTER',
+      options: { opensAppToForeground: true, isAuthenticationRequired: false, isDestructive: false },
+    },
+  ]);
+}
+
 async function ensureDetectedTrackCategory(): Promise<void> {
   if (Platform.OS === 'web') return;
   await Notifications.setNotificationCategoryAsync(TRACK_CATEGORY, [
@@ -217,6 +246,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
   }
 
   await ensureDetectedTrackCategory().catch(() => {});
+  await ensureBattleChallengeCategory().catch(() => {});
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {

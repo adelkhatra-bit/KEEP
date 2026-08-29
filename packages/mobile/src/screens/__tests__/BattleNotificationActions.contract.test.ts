@@ -7,6 +7,7 @@ describe('KEEP Battle notification actions', () => {
   const parties = fs.readFileSync(path.resolve(__dirname, '..', 'PartiesScreen.tsx'), 'utf8');
   const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const push = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'pushNotificationService.ts'), 'utf8');
+  const backendPush = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'backend', 'src', 'lib', 'pushNotifications.ts'), 'utf8');
 
   it('shows Battle invitations as explicit accept/refuse actions', () => {
     expect(notifications).toContain("return 'INVITATION BATTLE'");
@@ -23,6 +24,28 @@ describe('KEEP Battle notification actions', () => {
     expect(parties).toContain('initialArenaId={route?.params?.arenaId}');
     expect(battle).toContain('initialArenaId?: string | null');
     expect(battle).toContain('const loaded = await loadKeepBattleArena(initialArenaId)');
+  });
+
+  it('exposes REFUSER / ACCEPTER directly on native Battle push notifications', () => {
+    expect(push).toContain("const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'");
+    expect(push).toContain("buttonTitle: 'REFUSER'");
+    expect(push).toContain("buttonTitle: 'ACCEPTER'");
+    expect(push).toContain('setNotificationCategoryAsync(BATTLE_CATEGORY');
+    expect(push).toContain('respondBattleChallenge(challengeId, accept)');
+    expect(backendPush).toContain("categoryId: BATTLE_CATEGORY");
+    expect(backendPush).toContain("const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'");
+  });
+
+  it('keeps the incoming challenge compact directly under Qui chante', () => {
+    const question = battle.indexOf("<Text style={s.question}>Qui chante ?</Text>");
+    const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
+    const answers = battle.indexOf('<View style={s.answers}>');
+    expect(question).toBeGreaterThan(-1);
+    expect(invite).toBeGreaterThan(question);
+    expect(answers).toBeGreaterThan(invite);
+    expect(battle).toContain("size={24}");
+    expect(battle).toContain("<Text style={s.noText}>REFUSER</Text>");
+    expect(battle).toContain("<Text style={s.yesText}>ACCEPTER</Text>");
   });
 
   it('routes native Battle notification taps into the notification action screen', () => {
