@@ -74,6 +74,18 @@ export async function sendBattleChallenge(targetId: string, themeCode: string): 
   };
 }
 
+export async function sendBattleArenaChallenge(arenaId: string, targetId: string): Promise<{ id: string; status: string; arenaId?: string | null; arenaCode?: string | null; expiresAt?: string }> {
+  const { data, error } = await client().rpc('keep_battle_arena_challenge_send', { p_arena_id: arenaId, p_target_id: targetId });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_ARENA_CHALLENGE_FAILED'));
+  return {
+    id: String((data as any)?.id || ''),
+    status: String((data as any)?.status || 'PENDING'),
+    arenaId: (data as any)?.arenaId ? String((data as any).arenaId) : null,
+    arenaCode: (data as any)?.arenaCode ? String((data as any).arenaCode) : null,
+    expiresAt: (data as any)?.expiresAt ? String((data as any).expiresAt) : undefined,
+  };
+}
+
 export async function loadIncomingBattleChallenges(): Promise<KeepBattleIncomingChallenge[]> {
   const { data, error } = await client().rpc('keep_battle_challenge_inbox');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_INBOX_FAILED'));

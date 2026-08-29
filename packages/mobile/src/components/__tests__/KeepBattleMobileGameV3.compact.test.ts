@@ -152,3 +152,23 @@ describe('KEEP Battle accept reliability', () => {
     expect(battle).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 15, lineHeight: 20");
   });
 });
+
+
+describe('KEEP Battle persistent group invitations', () => {
+  const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
+  const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
+
+  it('invites additional players into the same arena instead of replacing the group', () => {
+    expect(live).toContain("rpc('keep_battle_arena_challenge_send'");
+    expect(battle).toContain('sendBattleArenaChallenge(arena.id, player.profileId)');
+    expect(battle).toContain('GROUPE {arena.seats.length}/10');
+    expect(battle).toContain("invited ? 'INVITÉ' : 'INVITER'");
+    expect(battle).toContain('arena.openSeats > 0');
+  });
+
+  it('keeps post-match add-player controls smartphone sized', () => {
+    expect(battle).toContain('arenaInviteButton: { minWidth: 94, minHeight: 52');
+    expect(battle).toContain('arenaInviteRow: { minHeight: 62');
+    expect(battle).toContain('INVITER UN AMI PAR LIEN');
+  });
+});
