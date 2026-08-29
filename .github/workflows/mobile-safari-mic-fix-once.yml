@@ -1,0 +1,41 @@
+name: KEEP mobile Safari microphone fix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [reconcile/claude-main-20260825]
+    paths:
+      - 'scripts/patch_mobile_safari_mic_capture.py'
+      - '.github/workflows/mobile-safari-mic-fix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply Safari microphone repair
+        run: python scripts/patch_mobile_safari_mic_capture.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify mobile
+        run: |
+          npx tsc -p packages/mobile/tsconfig.json --noEmit
+          npm test -- --runInBand packages/mobile/src/services/__tests__/mobileSafariMic.contract.test.ts
+      - name: Commit fix
+        run: |
+          if git diff --quiet && git status --porcelain | grep -q '^??' ; then :; fi
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name 'KEEP Guardian'
+            git config user.email 'actions@github.com'
+            git add packages/mobile/src/services/micCapture.ts packages/mobile/src/services/__tests__/mobileSafariMic.contract.test.ts
+            git commit -m 'fix(listen): stabilize Safari mobile microphone capture'
+            git push origin HEAD:reconcile/claude-main-20260825
+          fi
