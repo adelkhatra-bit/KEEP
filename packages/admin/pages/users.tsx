@@ -112,10 +112,18 @@ export default function Users() {
     setLoading(true); setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const { data, error: rpcError } = await supabase.rpc('admin_user_directory');
-      if (rpcError) throw rpcError;
-      setUsers((data ?? []) as DirectoryUser[]);
-    } catch (e: any) { setError(e?.message ?? 'Impossible de charger les utilisateurs.'); }
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error('Session Super Admin expirée. Reconnecte-toi.');
+      let result = await supabase.rpc('admin_user_directory');
+      if (result.error && /jwt|token|session|auth/i.test(String(result.error.message || ''))) {
+        await supabase.auth.refreshSession();
+        result = await supabase.rpc('admin_user_directory');
+      }
+      if (result.error) throw result.error;
+      const rows = Array.isArray(result.data) ? result.data : [];
+      setUsers(rows as DirectoryUser[]);
+      if (!rows.length) setError('Annuaire chargé mais aucun profil n’est remonté. Actualise la session Super Admin.');
+    } catch (e: any) { setUsers([]); setError(e?.message ?? 'Impossible de charger les utilisateurs.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
@@ -273,8 +281,8 @@ export default function Users() {
       <button onClick={()=>void load()} disabled={loading}>Actualiser</button>
     </div>
 
-    <div className="card" style={{ padding:0, overflow:'hidden', width:'100%' }}>
-      <table style={{ margin:0, width:'100%', tableLayout:'fixed' }}>
+    <div className="card" style={{ padding:0, overflowX:'auto', overflowY:'hidden', width:'100%', WebkitOverflowScrolling:'touch' }}>
+      <table style={{ margin:0, width:'100%', minWidth:860, tableLayout:'fixed' }}>
         <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Certification</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
         <tbody>
           {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
