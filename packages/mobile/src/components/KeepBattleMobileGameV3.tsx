@@ -232,10 +232,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     if (soloIndex >= solo.rounds.length - 1) {
-      const id = setTimeout(() => { setSoloFinished(true); celebrate(); }, 950);
+      const id = setTimeout(() => { setSoloFinished(true); celebrate(); }, 520);
       return () => clearTimeout(id);
     }
-    const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 950);
+    const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360);
     return () => clearTimeout(id);
   }, [solo, soloAnswer, soloIndex, celebrate]);
 

@@ -116,4 +116,9 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('Il te faut au moins 3 Free');
   });
 
+
+  it('advances solo rapidly after an answer', () => {
+    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
+    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 950)');
+  });
 });

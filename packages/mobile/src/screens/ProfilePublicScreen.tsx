@@ -11,7 +11,7 @@ import { ProfileKind, SocialLink } from '../types';
 import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { loadNotifications } from '../services/notificationService';
+import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
@@ -190,11 +190,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setUnreadCount(0);
       return () => { live = false; };
     }
-    loadNotifications(user.id)
-      .then((items) => live && setUnreadCount(items.filter((item) => !item.readAt).length))
-      .catch(() => live && setUnreadCount(0));
-    return () => { live = false; };
-  }, [accountRequired, user?.id]);
+    const refreshUnread = () => {
+      void loadUnreadNotificationCount(user.id)
+        .then((count) => { if (live) setUnreadCount(count); })
+        .catch(() => { if (live) setUnreadCount(0); });
+    };
+    refreshUnread();
+    const unsubscribeChanges = subscribeToNotificationChanges(user.id, refreshUnread);
+    const unsubscribeFocus = navigation?.addListener?.('focus', refreshUnread);
+    return () => {
+      live = false;
+      unsubscribeChanges();
+      unsubscribeFocus?.();
+    };
+  }, [accountRequired, navigation, user?.id]);
 
   const keptTracks = useMemo(() => {
     const unique = new Map<string, (typeof sessions)[number]['tracks'][number]>();
