@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Alert, Animated, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
 import { buildKeepBattleArenaInviteLink, KeepBattleArenaState, KeepBattleTheme, loadKeepBattleArena, loadKeepBattleThemes, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
 import { KeepBattleSoloPack, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadOutgoingBattleChallenges, respondBattleChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
@@ -33,6 +33,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloScore, setSoloScore] = React.useState(0);
   const [soloFinished, setSoloFinished] = React.useState(false);
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
+  const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);
   const [livePlayers, setLivePlayers] = React.useState<KeepBattleLivePlayer[]>([]);
   const [incoming, setIncoming] = React.useState<KeepBattleIncomingChallenge[]>([]);
@@ -170,10 +171,44 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo?.themeCode, soloIndex, playVerified]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
+  const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
+  const activeIncomingId = incoming[0]?.id || '';
+
   React.useEffect(() => {
-    if (!solo || !audioReady || soloAnswer || soloRemaining > 0) return;
+    if (!solo) return;
+    if (activeIncomingId && pausedSoloRemaining === null && audioReady && soloStartedAt && !soloAnswer) {
+      setPausedSoloRemaining(Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)));
+      setAudioReady(false);
+      void stopTrackPreview();
+      return;
+    }
+    if (!activeIncomingId && pausedSoloRemaining !== null && !soloAnswer) {
+      const round = solo.rounds[soloIndex];
+      const savedRemaining = pausedSoloRemaining;
+      setPausedSoloRemaining(null);
+      setSoloStartedAt(0);
+      setAudioReady(false);
+      let alive = true;
+      void (async () => {
+        while (alive) {
+          const ok = await playVerified(`solo-resume:${round.trackId}:${soloIndex}`, round.previewUrl, savedRemaining + 800);
+          if (!alive) return;
+          if (ok) {
+            setAudioReady(true);
+            setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining));
+            return;
+          }
+          await wait(500);
+        }
+      })();
+      return () => { alive = false; };
+    }
+  }, [solo, soloIndex, soloAnswer, activeIncomingId, pausedSoloRemaining, audioReady, soloStartedAt, playVerified]);
+
+  React.useEffect(() => {
+    if (!solo || activeIncomingId || !audioReady || soloAnswer || displayedSoloRemaining > 0) return;
     setSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
-  }, [solo, audioReady, soloAnswer, soloRemaining, animateResult]);
+  }, [solo, activeIncomingId, audioReady, soloAnswer, displayedSoloRemaining, animateResult]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     if (soloIndex >= solo.rounds.length - 1) {
@@ -198,17 +233,26 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   React.useEffect(() => {
     const round = arena?.round;
     if (!arena || arena.status !== 'ACTIVE' || !round?.previewUrl) return undefined;
+    const previewUrl = round.previewUrl;
     let alive = true;
     setAudioReady(false);
     const run = async () => {
-      const closesAt = round.closesAt ? new Date(round.closesAt).getTime() : Date.now() + ROUND_MS;
-      const duration = Math.max(1600, closesAt - Date.now() + 500);
-      const ok = await playVerified(`arena:${arena.id}:${arena.matchNo}:${round.position}`, round.previewUrl, duration);
-      if (alive && ok) setAudioReady(true);
+      const startsAt = round.startedAt ? new Date(round.startedAt).getTime() : Date.now();
+      const closesAt = round.closesAt ? new Date(round.closesAt).getTime() : startsAt + ROUND_MS;
+      const duration = Math.max(1600, closesAt - startsAt + 500);
+      try {
+        await scheduleTrackPreviewSegment(`arena:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, 0, duration, startsAt, (playing) => {
+          if (alive && playing) setAudioReady(true);
+        });
+      } catch {
+        if (!alive) return;
+        const ok = await playVerified(`arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, Math.max(1600, closesAt - Date.now() + 500));
+        if (alive && ok) setAudioReady(true);
+      }
     };
     void run();
-    return () => { alive = false; };
-  }, [arena?.id, arena?.status, arena?.matchNo, arena?.round?.position, arena?.round?.previewUrl, arena?.round?.closesAt, playVerified]);
+    return () => { alive = false; void stopTrackPreview(); };
+  }, [arena?.id, arena?.status, arena?.matchNo, arena?.round?.position, arena?.round?.previewUrl, arena?.round?.startedAt, arena?.round?.closesAt, playVerified]);
   React.useEffect(() => { if (arena?.round?.revealed) { void stopTrackPreview(); animateResult(); } }, [arena?.round?.revealed, arena?.round?.position, arena?.matchNo, animateResult]);
   React.useEffect(() => {
     if (arena?.status === 'WAITING' && arena.lastResult) celebrate();
@@ -242,7 +286,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const challenge = async (player: KeepBattleLivePlayer) => {
     try {
-      await sendBattleChallenge(player.profileId, solo?.themeCode || themeCode);
+      await sendBattleChallenge(player.profileId, themeCode);
       setHandledOutgoingId('');
     } catch {
       Alert.alert('Battle', `@${player.username} n’est plus disponible.`);
@@ -295,7 +339,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const errors = Math.max(0, attempts - soloScore);
     const remaining = Math.max(0, solo.rounds.length - attempts);
     const challengeRemaining = incoming[0] ? Math.max(0, Math.ceil((new Date(incoming[0].expiresAt).getTime() - now) / 1000)) : 0;
-    const pct = audioReady ? (soloRemaining / ROUND_MS) * 100 : 100;
+    const pct = audioReady && !incoming[0] ? (displayedSoloRemaining / ROUND_MS) * 100 : 100;
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
       return <View style={s.root}>
@@ -315,13 +359,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }
     return <View style={s.root}>
       <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>KEEP BATTLE</Text><Text style={s.title}>{themeLabel(solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/8</Text></View>
-      <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{audioReady ? `${(soloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
+      <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{incoming[0] ? 'PAUSE' : audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{incoming[0] ? 'INVITATION BATTLE' : audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
       <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
       <Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}>
         <View style={s.visual}>{answered && round.artworkUrl ? <Image source={{ uri: round.artworkUrl }} style={s.cover} /> : <Text style={s.music}>♫</Text>}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
         <Text style={s.question}>Qui chante ?</Text>
-        {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteTop}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={34} /><View style={{ flex: 1 }}><Text style={s.inviteLabel}>⚡ BATTLE ? · {challengeRemaining}s</Text><TouchableOpacity onPress={() => onOpenProfile(incoming[0].username)}><Text style={s.inviteName}>@{incoming[0].username}</Text></TouchableOpacity><Text style={s.inviteQuestion}>Jouer ensemble et gagner des Free ?</Text></View></View><View style={s.inviteActions}><TouchableOpacity style={s.no} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity style={s.yes} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>ACCEPTER</Text></TouchableOpacity></View></Animated.View> : null}
-        <View style={s.answers}>{round.choices.slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0])} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect]}><Text style={s.answerNo}>{i + 1}</Text><Text style={s.answerText}>{choice}</Text></TouchableOpacity>)}</View>
+        {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteTop}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={34} /><View style={{ flex: 1 }}><Text style={s.inviteLabel}>⚡ BATTLE · {themeLabel(incoming[0].themeCode)} · {challengeRemaining}s</Text><TouchableOpacity onPress={() => onOpenProfile(incoming[0].username)}><Text style={s.inviteName}>@{incoming[0].username}</Text></TouchableOpacity><Text style={s.inviteQuestion}>Style proposé : {themeLabel(incoming[0].themeCode)}. Accepter ce match ?</Text></View></View><View style={s.inviteActions}><TouchableOpacity style={s.no} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity style={s.yes} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>ACCEPTER</Text></TouchableOpacity></View></Animated.View> : null}
+        <View style={s.answers}>{round.choices.slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0]) || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect]}><Text style={s.answerNo}>{i + 1}</Text><Text style={s.answerText}>{choice}</Text></TouchableOpacity>)}</View>
       </Animated.View>
       <View style={s.scoreLine}><Text style={s.score}>✓ {soloScore} · ✕ {errors}</Text><Text style={s.score}>{remaining} à jouer</Text></View>
       {enabled ? <View style={s.live}><View style={s.liveHeader}><View style={s.dot} /><Text style={s.liveTitle}>{livePlayers.length ? `${livePlayers.length} joueur${livePlayers.length > 1 ? 's' : ''} disponible${livePlayers.length > 1 ? 's' : ''}` : 'Tu es visible pour les Battles'}</Text></View>{livePlayers.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.liveRow}>{livePlayers.map((p) => <View key={p.profileId} style={s.livePlayer}><TouchableOpacity onPress={() => onOpenProfile(p.username)}><Avatar name={p.username} url={p.avatarUrl} /></TouchableOpacity><Text numberOfLines={1} style={s.username}>@{p.username}</Text><TouchableOpacity style={s.battleButton} onPress={() => { void challenge(p); }}><Text style={s.battleButtonText}>BATTLE ?</Text></TouchableOpacity></View>)}</ScrollView> : null}</View> : null}
@@ -372,7 +416,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }
 
   if (browseOnline) {
-    return <View style={s.root}><View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>KEEP BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View><Text style={s.browseText}>Les utilisateurs actuellement en solo apparaissent ici. Choisis un joueur et envoie-lui un défi.</Text>{busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <View style={s.browseList}>{livePlayers.map((p) => <View key={p.profileId} style={s.browsePlayer}><TouchableOpacity onPress={() => onOpenProfile(p.username)}><Avatar name={p.username} url={p.avatarUrl} size={48} /></TouchableOpacity><View style={{ flex: 1 }}><TouchableOpacity onPress={() => onOpenProfile(p.username)}><Text style={s.browseName}>@{p.username}</Text></TouchableOpacity><Text style={s.browseMeta}>● joue en solo · {themeLabel(p.themeCode)}</Text></View><TouchableOpacity style={s.browseBattle} onPress={() => { void challenge(p); }}><Text style={s.browseBattleText}>BATTLE ?</Text></TouchableOpacity></View>)}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}</View>;
+    return <View style={s.root}><View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>KEEP BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View><Text style={s.browseText}>Choisis d’abord le style du match. Le joueur invité verra ce style avant d’accepter ou refuser.</Text><Text style={s.section}>STYLE DU MATCH</Text><ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>{themes.map((t) => <TouchableOpacity key={t.code} onPress={() => setThemeCode(t.code)} style={[s.theme, t.code === themeCode && s.themeOn]}><Text style={[s.themeText, t.code === themeCode && s.themeTextOn]}>{t.label}</Text></TouchableOpacity>)}</ScrollView>{busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <View style={s.browseList}>{livePlayers.map((p) => <View key={p.profileId} style={s.browsePlayer}><TouchableOpacity onPress={() => onOpenProfile(p.username)}><Avatar name={p.username} url={p.avatarUrl} size={48} /></TouchableOpacity><View style={{ flex: 1 }}><TouchableOpacity onPress={() => onOpenProfile(p.username)}><Text style={s.browseName}>@{p.username}</Text></TouchableOpacity><Text style={s.browseMeta}>● joue en solo · {themeLabel(p.themeCode)}</Text></View><TouchableOpacity style={s.browseBattle} onPress={() => { void challenge(p); }}><Text style={s.browseBattleText}>BATTLE · {themeLabel(themeCode)}</Text></TouchableOpacity></View>)}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}</View>;
   }
 
   return <View style={s.root}><View style={s.home}><TouchableOpacity style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity><Text style={s.homeIcon}>⚡</Text><Text style={s.homeTitle}>KEEP BATTLE</Text><Text style={s.homeSub}>10 secondes réelles d’écoute · 3 choix · aucun swipe</Text></View><Text style={s.section}>STYLE</Text><ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>{themes.map((t) => <TouchableOpacity key={t.code} onPress={() => setThemeCode(t.code)} style={[s.theme, t.code === themeCode && s.themeOn]}><Text style={[s.themeText, t.code === themeCode && s.themeTextOn]}>{t.label}</Text></TouchableOpacity>)}</ScrollView><TouchableOpacity style={s.mainButton} disabled={busy} onPress={() => { void startSolo(); }}>{busy ? <ActivityIndicator color="#15110B" /> : <><Text style={s.mainButtonText}>JOUER SOLO</Text><Text style={s.mainButtonSub}>Le chrono attend que le son démarre</Text></>}</TouchableOpacity><TouchableOpacity style={s.onlineButton} disabled={busy} onPress={() => { void openOnline(); }}><Text style={s.onlineTitle}>BATTLE EN LIGNE</Text><Text style={s.onlineSub}>Voir les joueurs qui jouent déjà en solo</Text></TouchableOpacity></View>;

@@ -4,12 +4,17 @@ let activeSound: Audio.Sound | null = null;
 let activeKey: string | null = null;
 let activeStateListener: ((playing: boolean) => void) | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
+let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
 function clearActiveTimer() {
   if (!activeTimer) return;
   clearTimeout(activeTimer);
   activeTimer = null;
+  if (activeStartTimer) {
+    clearTimeout(activeStartTimer);
+    activeStartTimer = null;
+  }
 }
 
 async function unloadActive() {
@@ -56,6 +61,7 @@ async function createSoundWithRetry(
   previewUrl: string,
   positionMillis: number,
   onStatus: (status: AVPlaybackStatus, sound: Audio.Sound) => void,
+  autoPlay = true,
 ): Promise<Audio.Sound> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -75,7 +81,12 @@ async function createSoundWithRetry(
         },
       );
       createdSound = created.sound;
-      await ensurePlaying(created.sound);
+      if (autoPlay) {
+        await ensurePlaying(created.sound);
+      } else {
+        const status = await created.sound.getStatusAsync();
+        if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
+      }
       return created.sound;
     } catch (error) {
       lastError = error;
@@ -169,6 +180,51 @@ export async function playTrackPreviewSegment(
       if (activeSound !== createdSound) return;
       void serialize(async () => { await unloadActive(); });
     }, Math.max(1000, Math.round(durationMillis)));
+  });
+}
+
+/** Précharge l'extrait et le lance sur un timestamp absolu partagé entre joueurs. */
+export async function scheduleTrackPreviewSegment(
+  key: string,
+  previewUrl: string,
+  positionMillis: number,
+  durationMillis: number,
+  startAtEpochMs: number,
+  onStateChange?: (playing: boolean) => void,
+): Promise<void> {
+  return serialize(async () => {
+    await unloadActive();
+    await configurePreviewAudio();
+    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+    const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
+      if (!status.isLoaded) return;
+      if (activeSound === sound) activeStateListener?.(status.isPlaying);
+      if (!status.didJustFinish) return;
+      if (activeSound === sound) {
+        void serialize(async () => {
+          if (activeSound !== sound) return;
+          await unloadActive();
+        });
+      }
+    }, false);
+    activeSound = createdSound;
+    activeKey = key;
+    activeStateListener = onStateChange ?? null;
+    const delay = Math.max(0, Math.round(startAtEpochMs - Date.now()));
+    activeStartTimer = setTimeout(() => {
+      activeStartTimer = null;
+      if (activeSound !== createdSound) return;
+      void createdSound.playAsync().then(() => {
+        if (activeSound !== createdSound) return;
+        onStateChange?.(true);
+        activeTimer = setTimeout(() => {
+          if (activeSound !== createdSound) return;
+          void serialize(async () => { await unloadActive(); });
+        }, Math.max(1000, Math.round(durationMillis)));
+      }).catch(() => {
+        if (activeSound === createdSound) void serialize(async () => { await unloadActive(); });
+      });
+    }, delay);
   });
 }
 
