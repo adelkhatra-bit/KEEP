@@ -42,31 +42,44 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
-          required = [
+          own = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
+          public = Path('packages/mobile/src/screens/PublicUserProfileScreen.tsx').read_text()
+          required_own = [
             'Vibes (ambiances & styles)',
             'Ce ne sont ni des albums ni des événements.',
             'Artistes (interprètes)',
             'Albums (un artiste + un album)',
             'const albumGroups = useMemo',
             'const displayPlaylists = useMemo<ProviderPlaylist[]>(() => smartAlbums.map(smartAlbumAsProviderPlaylist), [smartAlbums]);',
+            'Tes écoutes et tes partages de liens = tes propres découvertes.',
+            'Découvert via',
+            '@{sourceUsername}',
           ]
-          missing = [x for x in required if x not in p]
+          required_public = [
+            'sourceUsername?: string;',
+            'sourceUsername: entry.sourceUsername',
+            'Découvert via',
+            'Une musique trouvée par cette personne lui appartient comme découverte.',
+            "navigation.navigate('PublicProfile', { username: sourceUsername.replace(/^@+/, '') })",
+          ]
+          missing = [x for x in required_own if x not in own] + [x for x in required_public if x not in public]
           if missing:
-            raise SystemExit('Missing profile music clarity contract: ' + repr(missing))
-          if 'result.push(...providerPlaylists)' in p:
+            raise SystemExit('Missing profile music/provenance clarity contract: ' + repr(missing))
+          if 'result.push(...providerPlaylists)' in own:
             raise SystemExit('Provider playlists must not be mixed into Vibes')
+          if 'sourceUsername.slice(0, 4)' in own:
+            raise SystemExit('Source username must never be truncated')
           PY
 
       - name: Commit source patch
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
-          git add packages/mobile/src/screens/ProfilePublicScreen.tsx
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
           if git diff --cached --quiet; then
             echo "No source change required"
             exit 0
           fi
-          git commit -m "fix(profile): clarify vibes artists and albums"
+          git commit -m "fix(profile): clarify music collections and provenance"
           git pull --rebase origin reconcile/claude-main-20260825
           git push origin HEAD:reconcile/claude-main-20260825
