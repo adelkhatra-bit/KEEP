@@ -6,13 +6,15 @@ describe('KEEP Battle mobile style selector', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const audioSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'audioPreviewService.ts'), 'utf8');
 
-  it('renders one inline Battle invite above answers', () => {
+  it('renders one inline Battle invite between artwork and Qui chante', () => {
+    const visual = source.indexOf('<View style={s.visual}>');
+    const invite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
     const question = source.indexOf('<Text style={s.question}>Qui chante ?</Text>');
-    const invite = source.indexOf('style={[s.invite');
     const answers = source.indexOf('<View style={s.answers}>');
-    expect(question).toBeGreaterThanOrEqual(0);
-    expect(invite).toBeGreaterThan(question);
-    expect(answers).toBeGreaterThan(invite);
+    expect(visual).toBeGreaterThanOrEqual(0);
+    expect(invite).toBeGreaterThan(visual);
+    expect(question).toBeGreaterThan(invite);
+    expect(answers).toBeGreaterThan(question);
     expect(source).not.toContain("invite: { position: 'absolute'");
     expect(source).not.toContain("Alert.alert('Défi envoyé'");
     expect(source).toContain('REFUSER');
@@ -42,9 +44,15 @@ describe('KEEP Battle mobile style selector', () => {
 
   it('makes the match style explicit before the challenge is accepted', () => {
     expect(source).toContain('STYLE DU MATCH');
-    expect(source).toContain('Style proposé : {themeLabel(incoming[0].themeCode)}');
+    expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
     expect(source).toContain('BATTLE · {themeLabel(themeCode)}');
     expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode)');
+  });
+
+  it('polls incoming challenges throughout Battle before an arena starts', () => {
+    expect(source).toContain('if (!enabled || arena) return;');
+    expect(source).toContain('if (!enabled || arena) return undefined;');
+    expect(source).toContain('loadIncomingBattleChallenges()');
   });
 
   it('schedules multiplayer playback against the shared round timestamp', () => {
@@ -55,11 +63,15 @@ describe('KEEP Battle mobile style selector', () => {
     expect(audioSource).toContain('startAtEpochMs - Date.now()');
   });
 
-  it('uses one team gauge for multiplayer groups', () => {
+  it('uses one TikTok-style pressure gauge with real names for 1v1 and teams for groups', () => {
     expect(source).toContain('const teamA = players.filter');
     expect(source).toContain('const teamB = players.filter');
-    expect(source).toContain('ÉQUIPE A · {teamA.length}');
-    expect(source).toContain('ÉQUIPE B · {teamB.length}');
+    expect(source).toContain('players.length === 2 ? `@${first.username}`');
+    expect(source).toContain('players.length === 2 ? `@${second.username}`');
+    expect(source).toContain('`ÉQUIPE A · ${teamA.length}`');
+    expect(source).toContain('`ÉQUIPE B · ${teamB.length}`');
+    expect(source).toContain('{teamAScore} pts');
+    expect(source).toContain('{teamBScore} pts');
     expect(source).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
   });
 
