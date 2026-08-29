@@ -41,21 +41,33 @@ async function configurePreviewAudio() {
   });
 }
 
+async function ensurePlaying(sound: Audio.Sound): Promise<void> {
+  let status = await sound.getStatusAsync();
+  if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
+  if (!status.isPlaying) {
+    try { await sound.playAsync(); } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    status = await sound.getStatusAsync();
+  }
+  if (!status.isLoaded || !status.isPlaying) throw new Error('AUDIO_PREVIEW_NOT_PLAYING');
+}
+
 async function createSoundWithRetry(
   previewUrl: string,
   positionMillis: number,
   onStatus: (status: AVPlaybackStatus, sound: Audio.Sound) => void,
 ): Promise<Audio.Sound> {
   let lastError: unknown = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     let createdSound: Audio.Sound | null = null;
     try {
+      await configurePreviewAudio();
       const created = await Audio.Sound.createAsync(
         { uri: previewUrl },
         {
-          shouldPlay: true,
+          shouldPlay: false,
           positionMillis: Math.max(0, Math.round(positionMillis)),
-          progressUpdateIntervalMillis: 250,
+          progressUpdateIntervalMillis: 200,
           volume: 1,
         },
         (status: AVPlaybackStatus) => {
@@ -63,14 +75,16 @@ async function createSoundWithRetry(
         },
       );
       createdSound = created.sound;
+      await ensurePlaying(created.sound);
       return created.sound;
     } catch (error) {
       lastError = error;
       if (createdSound) {
+        try { await createdSound.stopAsync(); } catch {}
         try { await createdSound.unloadAsync(); } catch {}
       }
       await configurePreviewAudio().catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 140));
+      await new Promise((resolve) => setTimeout(resolve, 160 + attempt * 120));
     }
   }
   throw lastError instanceof Error ? lastError : new Error('AUDIO_PREVIEW_LOAD_FAILED');
@@ -97,7 +111,9 @@ export async function toggleTrackPreview(
     await configurePreviewAudio();
 
     const createdSound = await createSoundWithRetry(previewUrl, 0, (status, sound) => {
-      if (!status.isLoaded || !status.didJustFinish) return;
+      if (!status.isLoaded) return;
+      if (activeSound === sound) activeStateListener?.(status.isPlaying);
+      if (!status.didJustFinish) return;
       if (activeSound === sound) {
         void serialize(async () => {
           if (activeSound !== sound) return;
@@ -116,8 +132,8 @@ export async function toggleTrackPreview(
 
 /**
  * Lit un segment court à partir d'une position donnée. Cette variante est
- * utilisée par les boutons 0s / 10s / 20s de la session et partage le même
- * lecteur global : deux morceaux KEEP ne peuvent donc jamais se superposer.
+ * utilisée par KEEP Battle et partage le même lecteur global : deux morceaux
+ * KEEP ne peuvent jamais se superposer.
  */
 export async function playTrackPreviewSegment(
   key: string,
@@ -131,7 +147,9 @@ export async function playTrackPreviewSegment(
     await configurePreviewAudio();
 
     const createdSound = await createSoundWithRetry(previewUrl, positionMillis, (status, sound) => {
-      if (!status.isLoaded || !status.didJustFinish) return;
+      if (!status.isLoaded) return;
+      if (activeSound === sound) activeStateListener?.(status.isPlaying);
+      if (!status.didJustFinish) return;
       if (activeSound === sound) {
         void serialize(async () => {
           if (activeSound !== sound) return;
