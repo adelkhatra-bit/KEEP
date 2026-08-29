@@ -16,6 +16,17 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).not.toContain("Alert.alert('Défi envoyé'");
   });
 
+  it('keeps solo on refusal and switches to shared arena on acceptance', () => {
+    expect(source).toContain('const response = await respondBattleChallenge(item.id, accept)');
+    expect(source).toContain('if (accept && response.arenaId)');
+    expect(source).toContain('await stopTrackPreview()');
+    expect(source).toContain('await leaveSoloBattle().catch(() => {})');
+    expect(source).toContain('setSolo(null); setAudioReady(false)');
+    expect(source).toContain('setArena(await loadKeepBattleArena(response.arenaId))');
+    expect(source).toContain('void respond(incoming[0], false)');
+    expect(source).toContain('void respond(incoming[0], true)');
+  });
+
   it('uses one team gauge for multiplayer groups', () => {
     expect(source).toContain('const teamA = players.filter');
     expect(source).toContain('const teamB = players.filter');
