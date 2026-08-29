@@ -63,6 +63,15 @@ describe('KEEP Battle mobile style selector', () => {
     expect(audioSource).toContain('startAtEpochMs - Date.now()');
   });
 
+  it('keeps one Safari web audio element alive across rounds so the next track starts without another tap', () => {
+    expect(audioSource).toContain('let webAudio: any = null');
+    expect(audioSource).toContain('if (!webAudio)');
+    expect(audioSource).toContain('webAudio = new HtmlAudio()');
+    expect(audioSource).toContain('await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange)');
+    expect(audioSource).not.toContain('webAudio = null');
+    expect(audioSource).toContain('if (activeStartTimer)');
+  });
+
   it('uses one TikTok-style pressure gauge with real names for 1v1 and teams for groups', () => {
     expect(source).toContain('const teamA = players.filter');
     expect(source).toContain('const teamB = players.filter');
@@ -109,13 +118,13 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain("theme: { height: 32, minHeight: 32");
     expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
   });
+
   it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
     expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
     expect(source).toContain('BATTLE_TARGET_NO_CREDIT');
     expect(source).toContain('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED');
     expect(source).toContain('Il te faut au moins 3 Free');
   });
-
 
   it('advances solo rapidly after an answer', () => {
     expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
