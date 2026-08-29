@@ -189,9 +189,12 @@ export async function loadPublicProfileKeeps(profileId: string): Promise<PublicP
 }
 
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {
-  return loadPagedKeeps('keep_own_profile_tracks', {});
+  // Le RPC propriétaire conserve PUBLIC + PRIVATE pour l'identité canonique et
+  // l'anti-doublon. Cette couche est exclusivement destinée à l'écran Profil :
+  // elle ne doit jamais lui livrer une décision privée à rendre visuellement.
+  const rows = await loadPagedKeeps('keep_own_profile_tracks', {});
+  return rows.filter((row) => row.visibility === 'PUBLIC');
 }
-
 
 export async function loadProfileDiscoveryImpacts(profileId: string): Promise<Record<string, DiscoveryImpact>> {
   if (!supabase || !profileId) return {};
