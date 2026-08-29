@@ -66,6 +66,10 @@ jobs:
 
           const ORIGIN = 'http://127.0.0.1:8081';
           const CITY = 'Saint-Jean-de-Thurigneux';
+          const USERNAME = 'guardian390';
+          const BIO = 'Profil test mobile 390x844';
+          const WEBSITE = 'https://keep.test/guardian390';
+          const INSTAGRAM = 'https://instagram.com/guardian390';
           const tabs = ['Écouter','Découvertes','Playlists','Soirées','Profil'];
 
           async function openKeep(page) {
@@ -73,6 +77,38 @@ jobs:
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
             if (await tryFree.isVisible().catch(()=>false)) await tryFree.click();
             for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function openEdit(page) {
+            await page.getByText('Profil',{exact:true}).last().click();
+            const menu=page.getByLabel('Menu du profil').last();
+            await menu.waitFor({state:'visible',timeout:15000});
+            await menu.click();
+            const edit=page.getByText('Modifier le profil',{exact:true}).last();
+            await edit.waitFor({state:'visible',timeout:15000});
+            await edit.click();
+            await page.getByPlaceholder('tonpseudo').last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function assertProfileForm(page) {
+            const username=page.getByPlaceholder('tonpseudo').last();
+            const bio=page.getByPlaceholder('Quelques mots sur toi').last();
+            const city=page.getByPlaceholder('Commence à saisir une ville').last();
+            const website=page.getByPlaceholder('https://...').last();
+            if(await username.inputValue()!==USERNAME) throw new Error(`username not persisted: ${await username.inputValue()}`);
+            if(await bio.inputValue()!==BIO) throw new Error(`bio not persisted: ${await bio.inputValue()}`);
+            if(await city.inputValue()!==CITY) throw new Error(`city not persisted: ${await city.inputValue()}`);
+            if(await website.inputValue()!==WEBSITE) throw new Error(`website not persisted: ${await website.inputValue()}`);
+            await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function openAdvancedFromEdit(page) {
+            const advanced=page.getByText('Réglages avancés du profil',{exact:true}).last();
+            await advanced.waitFor({state:'visible',timeout:15000});
+            await advanced.scrollIntoViewIfNeeded();
+            await advanced.click();
+            await page.getByText('Réglages avancés',{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
           async function assertNoOverflow(page,label) {
@@ -92,7 +128,7 @@ jobs:
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               await assertNoOverflow(page,'desktop-1440x900');
               await page.screenshot({path:'artifacts/dual-viewport/desktop-1440x900-profile.png',fullPage:true});
-              report.push('desktop-1440x900: PASS — shell, tabs, profil, no overflow');
+              report.push('desktop-1440x900: PASS');
               await context.close();
             }
 
@@ -107,22 +143,14 @@ jobs:
             page.on('pageerror',e=>pageErrors.push(String(e)));
             page.on('dialog',async d=>d.accept().catch(()=>{}));
 
-            await page.route('https://api.bigdatacloud.net/**', async route => {
-              await route.fulfill({
-                status:200,
-                contentType:'application/json',
-                headers:{'access-control-allow-origin':'*'},
-                body:JSON.stringify({city:CITY,locality:CITY,countryCode:'FR'}),
-              });
-            });
-            await page.route('https://nominatim.openstreetmap.org/**', async route => {
-              await route.fulfill({
-                status:200,
-                contentType:'application/json',
-                headers:{'access-control-allow-origin':'*'},
-                body:JSON.stringify({address:{village:CITY,country_code:'fr'}}),
-              });
-            });
+            await page.route('https://api.bigdatacloud.net/**', async route => route.fulfill({
+              status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
+              body:JSON.stringify({city:CITY,locality:CITY,countryCode:'FR'}),
+            }));
+            await page.route('https://nominatim.openstreetmap.org/**', async route => route.fulfill({
+              status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
+              body:JSON.stringify({address:{village:CITY,country_code:'fr'}}),
+            }));
 
             await openKeep(page);
             await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
@@ -140,7 +168,6 @@ jobs:
             await page.getByText('Découvertes',{exact:true}).last().click();
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('Playlists',{exact:true}).last().click();
-            await page.waitForTimeout(250);
             await page.getByText('Soirées',{exact:true}).last().click();
             const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
             await openSalon.waitFor({state:'visible',timeout:15000});
@@ -150,15 +177,12 @@ jobs:
             await page.screenshot({path:'artifacts/dual-viewport/03-salons.png',fullPage:true});
             await page.getByLabel('Fermer le Salon KEEP Battle').last().click();
 
-            await page.getByText('Profil',{exact:true}).last().click();
-            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Menu du profil').last().click();
-            const editProfile=page.getByText('Modifier le profil',{exact:true}).last();
-            await editProfile.waitFor({state:'visible',timeout:15000});
-            await editProfile.click();
+            await openEdit(page);
+            await page.getByPlaceholder('tonpseudo').last().fill(USERNAME);
+            await page.getByPlaceholder('Quelques mots sur toi').last().fill(BIO);
+            await page.getByPlaceholder('https://...').last().fill(WEBSITE);
 
             const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
-            await cityInput.waitFor({state:'visible',timeout:15000});
             const locate=page.getByText('⌖ Utiliser ma position',{exact:true}).last();
             await locate.waitFor({state:'visible',timeout:15000});
             await locate.click();
@@ -180,36 +204,35 @@ jobs:
             await save.waitFor({state:'visible',timeout:15000});
             await save.click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
-            await page.getByText(CITY,{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
-            await page.getByLabel('Menu du profil').last().click();
-            const editAgain=page.getByText('Modifier le profil',{exact:true}).last();
-            await editAgain.waitFor({state:'visible',timeout:15000});
-            await editAgain.click();
-            const advanced=page.getByText('Réglages avancés du profil',{exact:true}).last();
-            await advanced.waitFor({state:'visible',timeout:15000});
-            await advanced.scrollIntoViewIfNeeded();
-            await advanced.click();
-            await page.getByText('← Revenir aux Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await openEdit(page);
+            await assertProfileForm(page);
+            await openAdvancedFromEdit(page);
+            const instagram=page.getByPlaceholder('Lien Instagram').last();
+            await instagram.waitFor({state:'visible',timeout:15000});
+            await instagram.fill(INSTAGRAM);
+            await page.getByLabel('Enregistrer Instagram').last().click();
+            await page.getByText('Connecté au profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
             await page.reload({waitUntil:'networkidle',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
             if(await tryFree.isVisible().catch(()=>false)) await tryFree.click();
-            await page.getByText('Profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Profil',{exact:true}).last().click();
-            await page.getByText(CITY,{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Menu du profil').last().click();
-            const editAfterReload=page.getByText('Modifier le profil',{exact:true}).last();
-            await editAfterReload.waitFor({state:'visible',timeout:15000});
-            await editAfterReload.click();
-            await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await openEdit(page);
+            await assertProfileForm(page);
+            await openAdvancedFromEdit(page);
+            const instagramReload=page.getByPlaceholder('Lien Instagram').last();
+            await instagramReload.waitFor({state:'visible',timeout:15000});
+            if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
+            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+
             await assertNoOverflow(page,'mobile-390x844');
             if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
             await page.screenshot({path:'artifacts/dual-viewport/05-after-reload.png',fullPage:true});
 
-            report.push('mobile-390x844: PASS — Écouter/arrêter → Découvertes → Playlists → Soirées/Salons → Profil → Modifier → GPS ville+pays → date → enregistrer → Réglages avancés → Playlists → reload city+date; no overflow');
+            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, parties/salons, profile edit, GPS city+country, date, save, advanced settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
             fs.writeFileSync('artifacts/dual-viewport/report.txt',report.join('\n'));
             await context.close();
             await browser.close();
