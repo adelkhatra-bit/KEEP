@@ -4,10 +4,23 @@ import { KeepNotification, loadNotificationPreferences, markNotificationRead, su
 import { useUserStore } from '../store/useUserStore';
 
 const VISIBLE_MS = 4600;
+const BATTLE_INLINE_TYPES = new Set([
+  'BATTLE_CHALLENGE',
+  'KEEP_BATTLE_CHALLENGE',
+  'BATTLE_INVITE',
+  'KEEP_BATTLE_INVITE',
+]);
 
 function dataText(notification: KeepNotification | null, key: string): string {
   const value = notification?.data?.[key];
   return typeof value === 'string' ? value : '';
+}
+
+function isBattleChallenge(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  if (BATTLE_INLINE_TYPES.has(type)) return true;
+  const title = String(notification.title || '').toUpperCase();
+  return title.includes('BATTLE KEEP') || title.includes('BATTLE ?');
 }
 
 export default function GlobalNotificationBanner() {
@@ -19,6 +32,7 @@ export default function GlobalNotificationBanner() {
   const opacity = useRef(new Animated.Value(0)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationsEnabled = useRef(true);
+  const seenNotificationIds = useRef(new Set<string>());
 
   const animateOut = (after?: () => void) => {
     if (hideTimer.current) {
@@ -37,6 +51,7 @@ export default function GlobalNotificationBanner() {
   useEffect(() => {
     if (!user || isDemoMode || isLocalGuest) {
       notificationsEnabled.current = false;
+      seenNotificationIds.current.clear();
       setCurrent(null);
       return undefined;
     }
@@ -51,6 +66,18 @@ export default function GlobalNotificationBanner() {
 
     const unsubscribe = subscribeToNotifications(user.id, (notification) => {
       if (!active || !notificationsEnabled.current) return;
+
+      // KEEP Battle invitations are actionable inside the music card itself.
+      // Never stack the global banner over REFUSER / ACCEPTER.
+      if (isBattleChallenge(notification)) return;
+
+      // Realtime reconnects must never replay the same visual notification.
+      if (seenNotificationIds.current.has(notification.id)) return;
+      seenNotificationIds.current.add(notification.id);
+      if (seenNotificationIds.current.size > 80) {
+        const oldest = seenNotificationIds.current.values().next().value;
+        if (oldest) seenNotificationIds.current.delete(oldest);
+      }
 
       if (hideTimer.current) clearTimeout(hideTimer.current);
       translateX.stopAnimation();
