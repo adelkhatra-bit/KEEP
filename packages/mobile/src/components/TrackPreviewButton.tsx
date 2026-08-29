@@ -16,6 +16,12 @@ type Props = {
   fullWidth?: boolean;
 };
 
+type TrackAudioMetadata = {
+  candidate: CanonicalTrack | null;
+  directPreview: string;
+  fallback: string;
+};
+
 function firstExternalUrl(value: unknown): string {
   if (!value || typeof value !== 'object') return '';
   const urls = value as Record<string, unknown>;
@@ -28,6 +34,24 @@ function firstExternalUrl(value: unknown): string {
     if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim())) return candidate.trim();
   }
   return '';
+}
+
+async function loadTrackAudioMetadata(trackKey: string): Promise<TrackAudioMetadata> {
+  if (!supabase || !trackKey) return { candidate: null, directPreview: '', fallback: '' };
+  const { data, error } = await supabase
+    .from('tracks')
+    .select('id,title,artist,preview_url,external_urls')
+    .eq('id', trackKey)
+    .maybeSingle();
+  if (error || !data) return { candidate: null, directPreview: '', fallback: '' };
+
+  const title = String((data as any).title || '').trim();
+  const artist = String((data as any).artist || '').trim();
+  return {
+    directPreview: typeof (data as any).preview_url === 'string' ? String((data as any).preview_url).trim() : '',
+    fallback: firstExternalUrl((data as any).external_urls),
+    candidate: title && artist ? ({ id: String((data as any).id || trackKey), title, artist } as CanonicalTrack) : null,
+  };
 }
 
 export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false }: Props) {
@@ -55,30 +79,15 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     setResolving(true);
     void (async () => {
       try {
-        const { data, error } = await supabase
-          .from('tracks')
-          .select('id,title,artist,preview_url,external_urls')
-          .eq('id', trackKey)
-          .maybeSingle();
-        if (error || !data || !live) return;
-
-        const directPreview = typeof (data as any).preview_url === 'string' ? String((data as any).preview_url).trim() : '';
-        const external = firstExternalUrl((data as any).external_urls);
-        if (directPreview) {
-          setResolvedPreviewUrl(directPreview);
-          setResolvedFallbackUrl(external);
+        const metadata = await loadTrackAudioMetadata(trackKey);
+        if (!live) return;
+        if (metadata.fallback) setResolvedFallbackUrl(metadata.fallback);
+        if (metadata.directPreview) {
+          setResolvedPreviewUrl(metadata.directPreview);
           return;
         }
-
-        const candidate = {
-          id: String((data as any).id || trackKey),
-          title: String((data as any).title || ''),
-          artist: String((data as any).artist || ''),
-        } as CanonicalTrack;
-        const publicPreview = candidate.title && candidate.artist ? await resolveTrackPreviewUrl(candidate) : null;
-        if (!live) return;
-        setResolvedPreviewUrl(publicPreview || '');
-        setResolvedFallbackUrl(external);
+        const publicPreview = metadata.candidate ? await resolveTrackPreviewUrl(metadata.candidate) : null;
+        if (live) setResolvedPreviewUrl(publicPreview || '');
       } finally {
         if (live) setResolving(false);
       }
@@ -87,14 +96,40 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     return () => { live = false; };
   }, [fallbackUrl, previewUrl, trackKey]);
 
+  const retryWithFreshPreview = async (failedUrl: string): Promise<boolean> => {
+    const metadata = await loadTrackAudioMetadata(trackKey);
+    if (metadata.fallback) setResolvedFallbackUrl(metadata.fallback);
+    if (!metadata.candidate) return false;
+
+    const fresh = await resolveTrackPreviewUrl(metadata.candidate, { forceRefresh: true });
+    if (!fresh || fresh === failedUrl) return false;
+    setResolvedPreviewUrl(fresh);
+    try {
+      await toggleTrackPreview(trackKey, fresh, setPlaying);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const playOrStopPreview = async () => {
     if (!resolvedPreviewUrl || busy) return;
     setBusy(true);
+    const attemptedUrl = resolvedPreviewUrl;
     try {
-      await toggleTrackPreview(trackKey, resolvedPreviewUrl, setPlaying);
+      await toggleTrackPreview(trackKey, attemptedUrl, setPlaying);
     } catch {
       setPlaying(false);
-      Alert.alert('Lecture indisponible', 'L’extrait audio ne peut pas être lu pour le moment. Tu peux ouvrir le morceau sur sa plateforme si un lien est disponible.');
+      const recovered = await retryWithFreshPreview(attemptedUrl).catch(() => false);
+      if (!recovered) {
+        setResolvedPreviewUrl('');
+        Alert.alert(
+          'Extrait en cours de renouvellement',
+          resolvedFallbackUrl
+            ? 'Cet ancien extrait n’est plus lisible. KEEP a recherché une nouvelle source. Tu peux aussi ouvrir le morceau sur sa plateforme.'
+            : 'Cet ancien extrait n’est plus lisible et aucune nouvelle source audio n’est disponible pour le moment.',
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -182,20 +217,20 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 34,
+    minHeight: 44,
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    borderRadius: 17,
+    paddingHorizontal: 14,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.primary,
     backgroundColor: colors.backgroundCard,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  compact: { minHeight: 28, paddingHorizontal: 9, borderRadius: 14 },
+  compact: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22 },
   fullWidth: { alignSelf: 'stretch', width: '100%' },
-  text: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
-  compactText: { fontSize: 9 },
-  unavailable: { color: colors.textMuted, fontSize: 10 },
+  text: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
+  compactText: { fontSize: 12 },
+  unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
 });
