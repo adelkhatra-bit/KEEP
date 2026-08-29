@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: reconcile/claude-main-20260825, fetch-depth: 0 }
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 22 }
       - run: git pull --ff-only origin reconcile/claude-main-20260825
       - name: Apply repairs
         run: python scripts/patch_keep_battle_accept_and_discovery_visibility.py
@@ -22,7 +22,7 @@ jobs:
       - name: Verify mobile
         run: |
           npx tsc -p packages/mobile/tsconfig.json --noEmit
-          npx jest --config packages/mobile/jest.config.js --runInBand packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts
+          npx jest --runInBand packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts
       - name: Contract checks
         run: |
           grep -q "const loadedArena = await loadArenaAfterAccept(response.arenaId)" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
