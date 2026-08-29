@@ -29,13 +29,13 @@ jobs:
       - name: Verify mobile + backend
         run: |
           npm --workspace packages/mobile run type-check
-          npm --workspace packages/mobile test -- --runInBand BattleNotificationActions.contract.test.ts KeepBattleMobileGameV3.compact.test.ts
+          npm --workspace packages/mobile test -- --runInBand BattleNotificationActions.contract.test.ts KeepBattleMobileGameV3.compact.test.ts NotificationBadgeRealtime.contract.test.ts
           npm --workspace packages/backend run build
       - name: Commit fix
         run: |
           git config user.name "KEEP Guardian"
           git config user.email "actions@github.com"
-          git add packages/mobile/src/screens/NotificationsScreen.tsx packages/mobile/src/services/pushNotificationService.ts packages/backend/src/lib/pushNotifications.ts packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts
+          git add packages/mobile/src/screens/NotificationsScreen.tsx packages/mobile/src/services/pushNotificationService.ts packages/backend/src/lib/pushNotifications.ts packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/__tests__/NotificationBadgeRealtime.contract.test.ts
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "fix(battle): keep actions in game and preserve Free notifications"
+          git commit -m "fix(mobile): instant notification badge and faster Battle rounds"
           git push origin HEAD:reconcile/claude-main-20260825
