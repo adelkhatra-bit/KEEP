@@ -76,17 +76,8 @@ export type KeepBattleCreditStatus = {
   remainingFree: number;
 };
 
-export type KeepBattleTheme = {
-  code: string;
-  label: string;
-  sortOrder?: number;
-};
-
-export type KeepBattleLobby = {
-  waiting: number;
-  active: number;
-  completedToday: number;
-};
+export type KeepBattleTheme = { code: string; label: string; sortOrder?: number };
+export type KeepBattleLobby = { waiting: number; active: number; completedToday: number };
 
 export type KeepBattleArenaSeat = {
   profileId: string;
@@ -106,17 +97,17 @@ export type KeepBattleArenaRound = {
   artist?: string | null;
   artworkUrl?: string | null;
   previewUrl?: string | null;
+  choices?: string[];
   startedAt?: string | null;
   closesAt?: string | null;
-  majorityDecision?: KeepBattleDecision | 'TIE' | null;
+  revealUntil?: string | null;
   revealed?: boolean;
   answered?: boolean;
   myAnswer?: {
-    actual: KeepBattleDecision;
-    prediction: KeepBattleDecision;
+    selectedAnswer: string;
     responseMs: number;
     points: number;
-    predictionCorrect?: boolean | null;
+    correct?: boolean | null;
   } | null;
 };
 
@@ -133,15 +124,11 @@ export type KeepBattleArenaState = {
   currentRound: number;
   roundDurationMs: number;
   isHost: boolean;
-  me?: {
-    profileId: string;
-    status: 'ACTIVE' | 'QUEUED' | 'ELIMINATED' | 'LEFT';
-    score: number;
-    placement?: number | null;
-  } | null;
+  me?: { profileId: string; status: 'ACTIVE' | 'QUEUED' | 'ELIMINATED' | 'LEFT'; score: number; placement?: number | null } | null;
   seats: KeepBattleArenaSeat[];
   leaderboard: Array<{ profileId: string; username: string; score: number; placement?: number | null; responseMs: number }>;
   round?: KeepBattleArenaRound | null;
+  roundWinner?: { profileId: string; username: string; avatarUrl?: string | null; responseMs: number } | null;
 };
 
 export type KeepBattleArenaCreated = {
@@ -174,16 +161,8 @@ function unwrap<T>(data: T | null, error: any): T {
   return data;
 }
 
-/**
- * KEEP BATTLE never writes to canonical keep_decisions. A duel is a separate
- * social-game signal; importing a duel KEEP into the user's real library must
- * always be an explicit later action.
- */
-export async function createKeepBattle(args?: {
-  roundCount?: number;
-  opponentId?: string | null;
-  themeCode?: string;
-}): Promise<KeepBattleCreated> {
+/** KEEP BATTLE is separate from canonical keep_decisions. */
+export async function createKeepBattle(args?: { roundCount?: number; opponentId?: string | null; themeCode?: string }): Promise<KeepBattleCreated> {
   const { data, error } = await client().rpc('keep_battle_create_themed', {
     p_round_count: Math.max(5, Math.min(args?.roundCount ?? 8, 12)),
     p_opponent_id: args?.opponentId ?? null,
@@ -218,13 +197,7 @@ export async function loadKeepBattle(battleId: string): Promise<KeepBattleState>
   return unwrap(data as KeepBattleState | null, error);
 }
 
-export async function submitKeepBattleMove(args: {
-  battleId: string;
-  position: number;
-  actualDecision: KeepBattleDecision;
-  predictedOtherDecision: KeepBattleDecision;
-  responseMs?: number;
-}): Promise<KeepBattleState> {
+export async function submitKeepBattleMove(args: { battleId: string; position: number; actualDecision: KeepBattleDecision; predictedOtherDecision: KeepBattleDecision; responseMs?: number }): Promise<KeepBattleState> {
   const { data, error } = await client().rpc('keep_battle_submit_move_v2', {
     p_battle_id: args.battleId,
     p_position: args.position,
@@ -251,11 +224,7 @@ export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditSt
 }
 
 export async function loadKeepBattleThemes(): Promise<KeepBattleTheme[]> {
-  const { data, error } = await client()
-    .from('keep_battle_themes')
-    .select('code,label,sort_order')
-    .eq('enabled', true)
-    .order('sort_order', { ascending: true });
+  const { data, error } = await client().from('keep_battle_themes').select('code,label,sort_order').eq('enabled', true).order('sort_order', { ascending: true });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_THEME_FAILED'));
   return (data ?? []).map((row: any) => ({ code: String(row.code), label: String(row.label), sortOrder: Number(row.sort_order ?? 100) }));
 }
@@ -276,10 +245,7 @@ export function subscribeKeepBattle(battleId: string, onChange: () => void) {
 }
 
 export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleArenaCreated> {
-  const { data, error } = await client().rpc('keep_battle_arena_create', {
-    p_theme_code: themeCode.toUpperCase(),
-    p_round_count: Math.max(5, Math.min(roundCount, 12)),
-  });
+  const { data, error } = await client().rpc('keep_battle_arena_create', { p_theme_code: themeCode.toUpperCase(), p_round_count: Math.max(5, Math.min(roundCount, 12)) });
   return unwrap(data as KeepBattleArenaCreated | null, error);
 }
 
@@ -300,16 +266,8 @@ export async function startKeepBattleArena(arenaId: string): Promise<KeepBattleA
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
-export async function submitKeepBattleArenaAnswer(args: {
-  arenaId: string;
-  actualDecision: KeepBattleDecision;
-  predictedMajorityDecision: KeepBattleDecision;
-}): Promise<KeepBattleArenaState> {
-  const { data, error } = await client().rpc('keep_battle_arena_submit', {
-    p_arena_id: args.arenaId,
-    p_actual_decision: args.actualDecision,
-    p_predicted_majority_decision: args.predictedMajorityDecision,
-  });
+export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedAnswer: string): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_submit_quiz', { p_arena_id: arenaId, p_selected_answer: selectedAnswer.trim() });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
