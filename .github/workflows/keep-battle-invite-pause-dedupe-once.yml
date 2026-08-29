@@ -1,0 +1,151 @@
+name: KEEP Battle invite pause + notification audit
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/keep-battle-invite-pause-dedupe-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch Battle foreground invitation flow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('packages/mobile/src/components/KeepBattleMobileGameV3.tsx')
+          s = p.read_text()
+
+          old = "  const [soloStartedAt, setSoloStartedAt] = React.useState(0);\n  const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);"
+          new = "  const [soloStartedAt, setSoloStartedAt] = React.useState(0);\n  const [soloPausedRemaining, setSoloPausedRemaining] = React.useState<number | null>(null);\n  const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);"
+          if old not in s: raise SystemExit('state anchor missing')
+          s = s.replace(old, new, 1)
+
+          old = "  const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;\n  React.useEffect(() => {\n    if (!solo || !audioReady || soloAnswer || soloRemaining > 0) return;"
+          new = """  const runningSoloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
+  const soloRemaining = soloPausedRemaining ?? runningSoloRemaining;
+  const activeInviteId = incoming[0]?.id || '';
+
+  React.useEffect(() => {
+    if (!solo || !activeInviteId || !audioReady || !soloStartedAt || soloPausedRemaining !== null) return;
+    setSoloPausedRemaining(Math.max(0, runningSoloRemaining));
+    setAudioReady(false);
+    void stopTrackPreview();
+  }, [solo, activeInviteId, audioReady, soloStartedAt, soloPausedRemaining, runningSoloRemaining]);
+
+  React.useEffect(() => {
+    if (!solo || activeInviteId || soloPausedRemaining === null) return undefined;
+    const round = solo.rounds[soloIndex];
+    if (!round) return undefined;
+    let alive = true;
+    const resume = async () => {
+      const remaining = Math.max(0, soloPausedRemaining);
+      if (remaining <= 0) {
+        setSoloPausedRemaining(null);
+        setSoloAnswer('__TIMEOUT__');
+        animateResult();
+        return;
+      }
+      const ok = await playVerified(`solo-resume:${round.trackId}:${soloIndex}`, round.previewUrl, remaining + 800);
+      if (!alive || !ok) return;
+      const elapsedBeforePause = Math.max(0, ROUND_MS - remaining);
+      setSoloStartedAt(Date.now() - elapsedBeforePause);
+      setSoloPausedRemaining(null);
+      setAudioReady(true);
+    };
+    void resume();
+    return () => { alive = false; };
+  }, [solo, activeInviteId, soloPausedRemaining, soloIndex, playVerified, animateResult]);
+
+  React.useEffect(() => {
+    if (!solo || activeInviteId || !audioReady || soloAnswer || soloRemaining > 0) return;"""
+          if old not in s: raise SystemExit('timer anchor missing')
+          s = s.replace(old, new, 1)
+
+          s = s.replace("  }, [solo, audioReady, soloAnswer, soloRemaining, animateResult]);", "  }, [solo, activeInviteId, audioReady, soloAnswer, soloRemaining, animateResult]);", 1)
+
+          old = "setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); setHandledOutgoingId('');"
+          new = "setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloPausedRemaining(null); setAudioReady(false); setHandledOutgoingId('');"
+          if old not in s: raise SystemExit('startSolo reset missing')
+          s = s.replace(old, new, 1)
+
+          old = "        setSolo(null); setAudioReady(false);\n        setArena(await loadKeepBattleArena(response.arenaId));"
+          new = "        setSolo(null); setSoloPausedRemaining(null); setAudioReady(false);\n        setArena(await loadKeepBattleArena(response.arenaId));"
+          if old not in s: raise SystemExit('respond accept anchor missing')
+          s = s.replace(old, new, 1)
+
+          old = "        setSolo(null); setBrowseOnline(false); setAudioReady(false);\n        setArena(await loadKeepBattleArena(accepted.arenaId));"
+          new = "        setSolo(null); setSoloPausedRemaining(null); setBrowseOnline(false); setAudioReady(false);\n        setArena(await loadKeepBattleArena(accepted.arenaId));"
+          if old not in s: raise SystemExit('outgoing accept anchor missing')
+          s = s.replace(old, new, 1)
+
+          old = "<TouchableOpacity style={s.no} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity style={s.yes} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>ACCEPTER</Text></TouchableOpacity>"
+          new = "<TouchableOpacity accessibilityRole=\"button\" accessibilityLabel=\"Refuser le Battle\" style={s.no} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole=\"button\" accessibilityLabel=\"Accepter le Battle\" style={s.yes} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>ACCEPTER</Text></TouchableOpacity>"
+          if old not in s: raise SystemExit('invite actions anchor missing')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          b = Path('packages/mobile/src/components/GlobalNotificationBanner.tsx')
+          t = b.read_text()
+          old = """function isBattleChallenge(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  if (BATTLE_INLINE_TYPES.has(type)) return true;
+  const title = String(notification.title || '').toUpperCase();
+  return title.includes('BATTLE KEEP') || title.includes('BATTLE ?');
+}"""
+          new = """function isBattleChallenge(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  if (BATTLE_INLINE_TYPES.has(type)) return true;
+  if (type.includes('BATTLE_CHALLENGE') || type.includes('BATTLE_INVITE')) return true;
+  if (typeof notification.data?.challengeId === 'string' && notification.data.challengeId) return true;
+  const title = String(notification.title || '').toUpperCase();
+  const body = String(notification.body || '').toUpperCase();
+  return title.includes('BATTLE KEEP') || title.includes('BATTLE ?') || body.includes('BATTLE AFIN DE GAGNER DES FREE');
+}"""
+          if old not in t: raise SystemExit('banner classifier anchor missing')
+          b.write_text(t.replace(old, new, 1))
+
+          test = Path('packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts')
+          u = test.read_text()
+          marker = "  it('uses one team gauge for multiplayer groups', () => {"
+          block = """  it('pauses solo while deciding an incoming Battle and exposes direct actions', () => {
+    expect(source).toContain('const [soloPausedRemaining, setSoloPausedRemaining]');
+    expect(source).toContain("const activeInviteId = incoming[0]?.id || ''");
+    expect(source).toContain('setSoloPausedRemaining(Math.max(0, runningSoloRemaining))');
+    expect(source).toContain('if (!solo || activeInviteId || !audioReady || soloAnswer || soloRemaining > 0) return');
+    expect(source).toContain('accessibilityLabel=\"Refuser le Battle\"');
+    expect(source).toContain('accessibilityLabel=\"Accepter le Battle\"');
+  });
+
+"""
+          if 'pauses solo while deciding an incoming Battle' not in u:
+            if marker not in u: raise SystemExit('test marker missing')
+            u = u.replace(marker, block + marker, 1)
+            test.write_text(u)
+          PY
+      - name: Verify notification and Battle contracts
+        run: |
+          npm ci
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts
+          grep -Fq "type.includes('BATTLE_CHALLENGE')" packages/mobile/src/components/GlobalNotificationBanner.tsx
+          grep -Fq 'accessibilityLabel="Accepter le Battle"' packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+      - name: Commit audited Battle flow
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/GlobalNotificationBanner.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
+          git commit -m 'fix(battle): pause solo and dedupe live invitations'
+          git push origin HEAD:reconcile/claude-main-20260825
