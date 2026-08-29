@@ -1,0 +1,92 @@
+name: KEEP Mobile Clarity Patch V2
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - scripts/one_time_mobile_clarity_v2.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+
+      - name: Apply patch
+        run: python3 scripts/one_time_mobile_clarity_v2.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm run type-check --workspace=packages/mobile
+
+      - name: Verify contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          own = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
+          public = Path('packages/mobile/src/screens/PublicUserProfileScreen.tsx').read_text()
+          state = Path('packages/mobile/src/services/publicProfileStateService.ts').read_text()
+          offers = Path('packages/mobile/src/screens/OffersScreen.tsx').read_text()
+          home = Path('packages/mobile/src/screens/HomeScreenCompact.tsx').read_text()
+          recap = Path('packages/mobile/src/screens/SessionRecapScreen.tsx').read_text()
+          checks = [
+            (own, 'Vibes (ambiances & styles)'),
+            (own, 'Ce ne sont ni des albums ni des événements.'),
+            (own, 'Artistes (interprètes)'),
+            (own, 'Albums (un artiste + un album)'),
+            (own, 'Découvert en Écoute par'),
+            (public, 'Découvert en Écoute par'),
+            (state, 'originUserId?: string;'),
+            (state, 'contextSourceProfileId'),
+            (offers, 'const visiblePlans = useMemo(() => plans, [plans]);'),
+            (offers, 'Ta communauté se construit autour de tes goûts, de tes découvertes et des morceaux que tu choisis de partager.'),
+            (offers, 'communityOpportunityText: { ...typography.caption'),
+            (home, "const freeLabel = creditUnlimited ? 'Free : ∞'"),
+            (home, 'Écouter/PASSER = 0 · GARDER = 1'),
+            (recap, 'SOLDE FREE'),
+            (recap, 'morceau pris sur le profil d’un autre membre = 0 Free.'),
+          ]
+          missing = [needle for haystack, needle in checks if needle not in haystack]
+          if missing:
+            raise SystemExit('Missing contracts: ' + repr(missing))
+          forbidden = [
+            (offers.lower(), 'montrer ton visage'),
+            (offers, 'Voir toutes les formules'),
+            (own, 'result.push(...providerPlaylists)'),
+            (own, 'sourceUsername.slice(0, 4)'),
+          ]
+          bad = [needle for haystack, needle in forbidden if needle in haystack]
+          if bad:
+            raise SystemExit('Forbidden leftovers: ' + repr(bad))
+          PY
+
+      - name: Commit source changes
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/services/publicProfileStateService.ts packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx packages/mobile/src/screens/OffersScreen.tsx packages/mobile/src/screens/HomeScreenCompact.tsx packages/mobile/src/screens/SessionRecapScreen.tsx
+          if git diff --cached --quiet; then
+            echo "No source changes"
+            exit 0
+          fi
+          git commit -m "fix(mobile): clarify music discovery and Free UX"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
