@@ -104,7 +104,7 @@ export async function loadOutgoingBattleChallenges(): Promise<KeepBattleOutgoing
   })).filter((row) => row.id) : [];
 }
 
-export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null }> {
+export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null; arenaState?: any | null }> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: accept });
@@ -113,6 +113,7 @@ export async function respondBattleChallenge(challengeId: string, accept: boolea
         status: String((data as any)?.status || ''),
         arenaId: (data as any)?.arenaId ? String((data as any).arenaId) : null,
         arenaCode: (data as any)?.arenaCode ? String((data as any).arenaCode) : null,
+        arenaState: (data as any)?.arenaState ?? null,
       };
     }
     lastError = error;

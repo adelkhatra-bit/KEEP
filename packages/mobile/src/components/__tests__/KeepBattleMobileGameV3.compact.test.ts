@@ -134,3 +134,21 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 950)');
   });
 });
+
+
+describe('KEEP Battle accept reliability', () => {
+  const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
+  const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
+
+  it('uses the arena state returned by accept without requiring a second network call', () => {
+    expect(live).toContain('arenaState: (data as any)?.arenaState ?? null');
+    expect(battle).toContain('response.arenaState || await loadArenaAfterAccept(response.arenaId)');
+  });
+
+  it('uses large smartphone touch targets for accept and refuse', () => {
+    expect(battle).toContain('minHeight: 56');
+    expect(battle).toContain('borderWidth: 2');
+    expect(battle).toContain('hitSlop={10}');
+    expect(battle).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 15, lineHeight: 20");
+  });
+});
