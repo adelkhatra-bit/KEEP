@@ -1,0 +1,42 @@
+name: KEEP profile deep-link + referral repair
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_profile_deeplink_referral_audit.py'
+      - '.github/workflows/profile-deeplink-referral-audit-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply deep-link + referral repair
+        run: python3 scripts/patch_profile_deeplink_referral_audit.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify profile sharing and mobile types
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand SharedProfileFollow.contract.test.ts ProfileDeepLinkReferral.contract.test.ts
+          grep -q "keep://profile/" packages/mobile/share-profile.html
+          ! grep -q "__keep_route" packages/mobile/share-profile.html
+      - name: Commit generated repair
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/share-profile.html packages/mobile/src/components/SharedMusicHandoff.tsx packages/mobile/src/screens/__tests__/SharedProfileFollow.contract.test.ts packages/mobile/src/components/__tests__/ProfileDeepLinkReferral.contract.test.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(share): open shared profiles directly and preserve referrals"
+          git push origin HEAD:reconcile/claude-main-20260825
