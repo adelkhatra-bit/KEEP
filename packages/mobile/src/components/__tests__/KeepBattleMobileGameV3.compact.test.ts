@@ -36,7 +36,7 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('if (accept && response.arenaId)');
     expect(source).toContain('await stopTrackPreview()');
     expect(source).toContain('await leaveSoloBattle().catch(() => {})');
-    expect(source).toContain('setSolo(null); setAudioReady(false)');
+    expect(source).toContain('setSolo(null); setBrowseOnline(false); setAudioReady(false)');
     expect(source).toContain('setArena(await loadKeepBattleArena(response.arenaId))');
     expect(source).toContain('void respond(incoming[0], false)');
     expect(source).toContain('void respond(incoming[0], true)');
