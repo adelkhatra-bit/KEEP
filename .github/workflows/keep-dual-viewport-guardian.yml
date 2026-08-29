@@ -84,7 +84,6 @@ jobs:
             const browser = await chromium.launch({ headless:true });
             const report=[];
 
-            // Desktop stays guarded so mobile changes cannot silently break the web shell.
             {
               const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1});
               const page=await context.newPage();
@@ -108,7 +107,6 @@ jobs:
             page.on('pageerror',e=>pageErrors.push(String(e)));
             page.on('dialog',async d=>d.accept().catch(()=>{}));
 
-            // Keep the browser GPS real; make only reverse geocoding deterministic.
             await page.route('https://api.bigdatacloud.net/**', async route => {
               await route.fulfill({
                 status:200,
@@ -129,7 +127,6 @@ jobs:
             await openKeep(page);
             await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
 
-            // Écouter → arrêter. Explicit controls only; no swipe required.
             const start=page.getByLabel('Démarrer une écoute').last();
             await start.waitFor({state:'visible',timeout:15000});
             await start.click();
@@ -140,17 +137,19 @@ jobs:
             await stop.click();
             await start.waitFor({state:'visible',timeout:15000});
 
-            // Découvertes → Playlists → Soirées.
             await page.getByText('Découvertes',{exact:true}).last().click();
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('Playlists',{exact:true}).last().click();
             await page.waitForTimeout(250);
             await page.getByText('Soirées',{exact:true}).last().click();
+            const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
+            await openSalon.waitFor({state:'visible',timeout:15000});
+            await openSalon.click();
             await page.getByText('KEEP BATTLE · SALONS UTILISATEURS',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('Choisis un salon ouvert.',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/03-salons.png',fullPage:true});
+            await page.getByLabel('Fermer le Salon KEEP Battle').last().click();
 
-            // Profil → Modifier → localisation → date → enregistrer.
             await page.getByText('Profil',{exact:true}).last().click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Menu du profil').last().click();
@@ -158,7 +157,6 @@ jobs:
 
             const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
             await cityInput.waitFor({state:'visible',timeout:15000});
-            // Exact label avoids accidentally clicking the privacy explanatory text.
             const locate=page.getByText('⌖ Utiliser ma position',{exact:true}).last();
             await locate.waitFor({state:'visible',timeout:15000});
             await locate.click();
@@ -182,7 +180,6 @@ jobs:
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
             await page.getByText(CITY,{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
-            // Réglages avancés → Playlists, without logout.
             await page.getByLabel('Menu du profil').last().click();
             await page.getByText('Modifier le profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('Réglages avancés du profil',{exact:true}).last().scrollIntoViewIfNeeded();
@@ -191,7 +188,6 @@ jobs:
             await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
-            // Reload: local guest profile must still retain saved city/date.
             await page.reload({waitUntil:'networkidle',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
             if(await tryFree.isVisible().catch(()=>false)) await tryFree.click();
