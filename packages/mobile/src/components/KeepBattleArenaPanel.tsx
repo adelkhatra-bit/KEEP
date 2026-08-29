@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Share,
   StyleSheet,
@@ -15,9 +16,11 @@ import {
   joinKeepBattleArena,
   KeepBattleArenaLobby,
   KeepBattleArenaState,
+  KeepBattleArenaWinner,
   KeepBattleTheme,
   loadKeepBattleArena,
   loadKeepBattleArenaLobby,
+  loadKeepBattleArenaWinnerHistory,
   loadKeepBattleThemes,
   refreshKeepBattleCatalog,
   startKeepBattleArena,
@@ -59,7 +62,7 @@ const FALLBACK_THEMES: KeepBattleTheme[] = [
 ];
 
 function formatSeconds(ms: number) {
-  return `${(Math.max(0, ms) / 1000).toFixed(2)} s`;
+  return `${(Math.max(0, ms) / 1000).toFixed(1)} s`;
 }
 
 function battleError(rawValue: unknown, fallback: string) {
@@ -81,6 +84,7 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
   const [salonsError, setSalonsError] = React.useState('');
   const [busySalonId, setBusySalonId] = React.useState('');
   const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);
+  const [winnerHistory, setWinnerHistory] = React.useState<KeepBattleArenaWinner[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [pendingAnswer, setPendingAnswer] = React.useState<string | null>(null);
   const [soundOn, setSoundOn] = React.useState(true);
@@ -90,6 +94,27 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
   const [soloAnswer, setSoloAnswer] = React.useState<string | null>(null);
   const [soloScore, setSoloScore] = React.useState(0);
   const [soloBusy, setSoloBusy] = React.useState(false);
+  const resultScale = React.useRef(new Animated.Value(1)).current;
+  const resultShake = React.useRef(new Animated.Value(0)).current;
+
+  const animateResult = React.useCallback((correct: boolean) => {
+    resultScale.setValue(1);
+    resultShake.setValue(0);
+    if (correct) {
+      Animated.sequence([
+        Animated.timing(resultScale, { toValue: 1.14, duration: 160, useNativeDriver: true }),
+        Animated.spring(resultScale, { toValue: 1, friction: 4, tension: 110, useNativeDriver: true }),
+      ]).start();
+      return;
+    }
+    Animated.sequence([
+      Animated.timing(resultShake, { toValue: -9, duration: 70, useNativeDriver: true }),
+      Animated.timing(resultShake, { toValue: 9, duration: 70, useNativeDriver: true }),
+      Animated.timing(resultShake, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(resultShake, { toValue: 6, duration: 60, useNativeDriver: true }),
+      Animated.timing(resultShake, { toValue: 0, duration: 70, useNativeDriver: true }),
+    ]).start();
+  }, [resultScale, resultShake]);
 
   const refreshLobby = React.useCallback(async () => {
     try { setLobby(await loadKeepBattleArenaLobby()); } catch { }
@@ -143,9 +168,14 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
   React.useEffect(() => {
     if (!arena?.id) return undefined;
     const unsubscribe = subscribeKeepBattleArena(arena.id, () => { void refreshArena(); });
-    const timer = setInterval(() => { void refreshArena(); }, 650);
+    const timer = setInterval(() => { void refreshArena(); }, 450);
     return () => { unsubscribe(); clearInterval(timer); };
   }, [arena?.id, refreshArena]);
+
+  React.useEffect(() => {
+    if (!arena?.id || !enabled) return;
+    void loadKeepBattleArenaWinnerHistory(arena.id, 10).then(setWinnerHistory).catch(() => setWinnerHistory([]));
+  }, [arena?.id, arena?.matchNo, arena?.lastWinner?.profileId, enabled]);
 
   React.useEffect(() => {
     if (arena?.status !== 'ACTIVE' || !arena.round) return undefined;
@@ -157,7 +187,7 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     const round = arena?.round;
     if (!arena || arena.status !== 'ACTIVE' || !round?.previewUrl || !soundOn) return;
     const phase = `${arena.id}:${arena.matchNo}:${round.position}:${round.revealed ? 'reveal' : 'listen'}`;
-    const duration = round.revealed ? 3800 : Math.max(2500, Math.min(arena.roundDurationMs || 12000, 15000));
+    const duration = round.revealed ? 1600 : Math.max(2500, Math.min(arena.roundDurationMs || 12000, 15000));
     void stopTrackPreview().then(() => playTrackPreviewSegment(`battle:${phase}`, round.previewUrl as string, 0, duration)).catch(() => {});
   }, [arena?.id, arena?.status, arena?.matchNo, arena?.round?.position, arena?.round?.revealed, arena?.round?.previewUrl, arena?.roundDurationMs, soundOn]);
 
@@ -166,6 +196,23 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     if (!round?.previewUrl || !soundOn) return;
     void stopTrackPreview().then(() => playTrackPreviewSegment(`battle:solo:${soloPack?.themeCode}:${soloIndex}`, round.previewUrl, 0, 12000)).catch(() => {});
   }, [soloPack, soloIndex, soundOn]);
+
+  React.useEffect(() => {
+    if (!soloPack || !soloAnswer) return undefined;
+    const round = soloPack.rounds[soloIndex];
+    animateResult(soloAnswer === round.correctAnswer);
+    if (soloIndex >= soloPack.rounds.length - 1) return undefined;
+    const timer = setTimeout(() => {
+      setSoloIndex((value) => value + 1);
+      setSoloAnswer(null);
+    }, 1150);
+    return () => clearTimeout(timer);
+  }, [soloAnswer, soloIndex, soloPack, animateResult]);
+
+  React.useEffect(() => {
+    if (!arena?.round?.revealed || arena.round.myAnswer?.correct == null) return;
+    animateResult(Boolean(arena.round.myAnswer.correct));
+  }, [arena?.id, arena?.matchNo, arena?.round?.position, arena?.round?.revealed, arena?.round?.myAnswer?.correct, animateResult]);
 
   React.useEffect(() => () => { void stopTrackPreview(); }, []);
 
@@ -197,13 +244,6 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     if (!round || soloAnswer) return;
     setSoloAnswer(choice);
     if (choice === round.correctAnswer) setSoloScore((value) => value + 1);
-  };
-
-  const nextSolo = () => {
-    if (!soloPack) return;
-    if (soloIndex >= soloPack.rounds.length - 1) return;
-    setSoloIndex((value) => value + 1);
-    setSoloAnswer(null);
   };
 
   const shareSolo = async () => {
@@ -280,7 +320,7 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
         <View style={{ flex: 1 }}>
           <Text style={s.kicker}>KEEP BATTLE · SOLO</Text>
           <Text style={s.title}>Teste ton oreille musicale.</Text>
-          <Text style={s.subtitle}>Aucun Free dépensé. Aucun compte obligatoire. Écoute puis choisis l’artiste.</Text>
+          <Text style={s.subtitle}>Tes propres playlists sont exclues. Une réponse suffit : KEEP passe automatiquement au morceau suivant.</Text>
         </View>
         <TouchableOpacity style={s.soundButton} onPress={() => setSoundOn((value) => !value)} accessibilityLabel={soundOn ? 'Couper le son' : 'Activer le son'}>
           <Text style={s.soundText}>{soundOn ? '🔊' : '🔇'}</Text>
@@ -307,15 +347,16 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
         })}
       </View>
 
-      {soloAnswer ? <View style={s.revealResult}>
-        <Text style={correct ? s.correct : s.wrong}>{correct ? '✓ BONNE RÉPONSE' : `✕ RÉPONSE : ${round.correctAnswer}`}</Text>
-      </View> : null}
+      {soloAnswer ? <Animated.View style={[s.revealResult,{transform:[{scale:resultScale},{translateX:resultShake}]}]}>
+        <Text style={correct ? s.correct : s.wrong}>{correct ? '✓ BONNE RÉPONSE' : `✕ PERDU · ${round.correctAnswer}`}</Text>
+        <Text style={s.autoText}>{finished ? 'PARTIE TERMINÉE' : 'SUITE AUTOMATIQUE…'}</Text>
+      </Animated.View> : null}
 
-      <View style={s.rowButtons}>
-        <TouchableOpacity style={s.secondaryButton} onPress={() => void shareSolo()}><Text style={s.secondaryButtonText}>PARTAGER</Text></TouchableOpacity>
-        {!finished ? <TouchableOpacity style={[s.primaryButton, !soloAnswer && s.disabled]} onPress={nextSolo} disabled={!soloAnswer}><Text style={s.primaryButtonText}>MORCEAU SUIVANT</Text></TouchableOpacity> : <TouchableOpacity style={s.primaryButton} onPress={() => void startSolo()}><Text style={s.primaryButtonText}>REJOUER</Text></TouchableOpacity>}
+      <View style={s.verticalActions}>
+        <TouchableOpacity style={s.secondaryButton} onPress={() => void shareSolo()}><Text style={s.secondaryButtonText}>PARTAGER · WHATSAPP / MESSAGES / AUTRES</Text></TouchableOpacity>
+        {finished ? <TouchableOpacity style={s.primaryButton} onPress={() => void startSolo()}><Text style={s.primaryButtonText}>REJOUER</Text></TouchableOpacity> : null}
+        <TouchableOpacity style={s.secondaryButton} onPress={() => { setSoloPack(null); setSoloAnswer(null); void stopTrackPreview(); }}><Text style={s.secondaryButtonText}>RETOUR AUX SALONS</Text></TouchableOpacity>
       </View>
-      <TouchableOpacity style={s.returnButton} onPress={() => { setSoloPack(null); setSoloAnswer(null); void stopTrackPreview(); }}><Text style={s.link}>RETOUR AUX SALONS</Text></TouchableOpacity>
     </View>;
   }
 
@@ -327,13 +368,15 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     const frozenMs = round?.myAnswer?.responseMs ?? null;
     const remainingMs = round?.closesAt ? Math.max(0, new Date(round.closesAt).getTime() - now) : (arena.roundDurationMs ?? 12000);
     const displayMs = frozenMs ?? remainingMs;
+    const progress = Math.max(0, Math.min(1, remainingMs / Math.max(1, arena.roundDurationMs || 12000)));
+    const topThree = (arena.leaderboard || []).slice(0,3);
 
     return <View style={s.card}>
       <View style={s.headRow}>
         <View style={{ flex: 1 }}>
           <Text style={s.kicker}>KEEP ARENA · {arena.themeCode}</Text>
           <Text style={s.title}>Salon multijoueur.</Text>
-          <Text style={s.subtitle}>{activePlayers}/{arena.maxPlayers} joueurs · jackpot +{jackpot} Free · file {arena.queue}</Text>
+          <Text style={s.subtitle}>{activePlayers}/{arena.maxPlayers} joueurs · jackpot +{jackpot} Free · personne ne peut bloquer la manche.</Text>
         </View>
         <TouchableOpacity style={s.soundButton} onPress={() => setSoundOn((value) => !value)}><Text style={s.soundText}>{soundOn ? '🔊' : '🔇'}</Text></TouchableOpacity>
       </View>
@@ -345,30 +388,49 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
         </TouchableOpacity>)}
       </View>
 
+      {topThree.length ? <View style={s.leaderCard}>
+        <Text style={s.leaderTitle}>CLASSEMENT EN DIRECT</Text>
+        {topThree.map((entry,index)=><TouchableOpacity key={entry.profileId} style={s.leaderRow} onPress={()=>onOpenProfile(entry.username)}>
+          <Text style={s.medal}>{index===0?'🥇':index===1?'🥈':'🥉'}</Text>
+          <Text style={s.leaderName}>@{entry.username}</Text>
+          <Text style={s.leaderScore}>{entry.score} pts</Text>
+        </TouchableOpacity>)}
+      </View> : null}
+
       {isQueued ? <View style={s.waitBox}><Text style={s.waitTitle}>Tu es dans la file d’attente</Text><Text style={s.waitText}>KEEP t’installe automatiquement dès qu’une place est disponible.</Text></View> : null}
 
       {arena.status === 'WAITING' && !isQueued ? <>
         <View style={s.waitBox}><Text style={s.waitTitle}>SALON PRÊT</Text><Text style={s.waitText}>{activePlayers < 2 ? 'Partage le lien : ton ami rejoint directement le salon, sans saisir de code.' : 'Vous pouvez démarrer.'}</Text></View>
-        <View style={s.rowButtons}>
+        <View style={s.verticalActions}>
           <TouchableOpacity style={s.secondaryButton} onPress={() => void shareArena()}><Text style={s.secondaryButtonText}>INVITER / PARTAGER</Text></TouchableOpacity>
           <TouchableOpacity style={[s.primaryButton, activePlayers < 2 && s.disabled]} onPress={() => void startArena()} disabled={busy || activePlayers < 2}><Text style={s.primaryButtonText}>{busy ? '...' : 'DÉMARRER'}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.secondaryButton} onPress={() => { setArena(null); void refreshSalons(); }}><Text style={s.secondaryButtonText}>RETOUR AUX SALONS</Text></TouchableOpacity>
         </View>
       </> : null}
 
       {arena.status === 'ACTIVE' && round && !isQueued ? <View style={s.gameBox}>
         <View style={s.roundHeader}><Text style={s.roundLabel}>ROUND {arena.currentRound}/{arena.roundCount}</Text><Text style={s.timer}>{round.answered ? `🔒 ${formatSeconds(displayMs)}` : `◷ ${formatSeconds(displayMs)}`}</Text></View>
+        <View style={s.timeTrack}><View style={[s.timeFill,{width:`${Math.round(progress*100)}%`}]} /></View>
+        <Text style={s.deadlineText}>{round.answered ? 'Réponse verrouillée · passage automatique' : 'Réponds avant la fin du chrono · absence = 0 point'}</Text>
         <View style={s.hiddenCover}>
           {round.revealed && round.artworkUrl ? <Image source={{ uri: round.artworkUrl }} style={s.cover} /> : <Text style={s.question}>{round.revealed ? '♫' : '?'}</Text>}
         </View>
-        <Text style={s.listenText}>{round.revealed ? `${round.artist || 'Artiste'} — ${round.title || 'Titre'}` : round.answered ? 'Réponse verrouillée · attends les autres' : 'Écoute. Qui est l’artiste ?'}</Text>
+        <Text style={s.listenText}>{round.revealed ? `${round.artist || 'Artiste'} — ${round.title || 'Titre'}` : round.answered ? 'Réponse enregistrée · attends seulement le chrono ou les dernières réponses' : 'Écoute. Qui est l’artiste ?'}</Text>
         {!round.revealed ? <View style={s.choices}>{(round.choices ?? []).map((choice) => {
           const selected = round.myAnswer?.selectedAnswer === choice || pendingAnswer === choice;
           const locked = Boolean(round.answered || pendingAnswer);
           return <TouchableOpacity key={choice} style={[s.choice, selected && s.choiceSelected, locked && !selected && s.choiceLocked]} onPress={() => void answer(choice)} disabled={locked}>
             <Text style={s.choiceText} numberOfLines={2}>{choice}</Text>
           </TouchableOpacity>;
-        })}</View> : <View style={s.revealResult}><Text style={round.myAnswer?.correct ? s.correct : s.wrong}>{round.myAnswer?.correct ? `✓ BONNE RÉPONSE · +${round.myAnswer?.points ?? 0} pts` : '✕ MAUVAISE RÉPONSE'}</Text></View>}
+        })}</View> : <Animated.View style={[s.revealResult,{transform:[{scale:resultScale},{translateX:resultShake}]}]}><Text style={round.myAnswer?.correct ? s.correct : s.wrong}>{round.myAnswer?.correct ? `✓ GAGNÉ · +${round.myAnswer?.points ?? 0} pts` : '✕ PERDU · 0 point'}</Text><Text style={s.autoText}>PROCHAINE MANCHE AUTOMATIQUE…</Text></Animated.View>}
+        {round.revealed && arena.roundWinner ? <TouchableOpacity style={s.roundWinner} onPress={()=>onOpenProfile(arena.roundWinner!.username)}><Text style={s.roundWinnerText}>⚡ PLUS RAPIDE : @{arena.roundWinner.username} · {formatSeconds(arena.roundWinner.responseMs)}</Text></TouchableOpacity> : null}
       </View> : null}
+
+      {arena.lastWinner ? <TouchableOpacity style={s.championCard} onPress={()=>onOpenProfile(arena.lastWinner!.username)}>
+        <Text style={s.championCrown}>👑</Text><View style={{flex:1}}><Text style={s.championLabel}>DERNIER GAGNANT</Text><Text style={s.championName}>@{arena.lastWinner.username}</Text></View><Text style={s.championScore}>{arena.lastWinner.score} pts</Text>
+      </TouchableOpacity> : null}
+
+      {winnerHistory.length ? <View style={s.historyCard}><Text style={s.leaderTitle}>PALMARÈS DU SALON</Text>{winnerHistory.slice(0,5).map((winner,index)=><TouchableOpacity key={`${winner.matchNo}-${winner.profileId}`} style={s.historyRow} onPress={()=>onOpenProfile(winner.username)}><Text style={s.historyRank}>#{index+1}</Text><Text style={s.leaderName}>@{winner.username}</Text><Text style={s.leaderScore}>{winner.score} pts</Text></TouchableOpacity>)}</View> : null}
 
       <View style={s.bottomRow}><TouchableOpacity onPress={() => { setArena(null); void refreshSalons(); }}><Text style={s.link}>RETOUR AUX SALONS</Text></TouchableOpacity><TouchableOpacity onPress={() => void shareArena()}><Text style={s.link}>PARTAGER</Text></TouchableOpacity></View>
     </View>;
@@ -380,7 +442,7 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
   return <View style={s.card}>
     <Text style={s.kicker}>KEEP BATTLE · SALONS UTILISATEURS</Text>
     <Text style={s.title}>Joue seul ou avec d’autres.</Text>
-    <Text style={s.subtitle}>Aucun code à écrire. En solo, tu joues immédiatement. Avec des amis, un simple lien partagé ouvre le salon.</Text>
+    <Text style={s.subtitle}>Aucun code à écrire. Tes playlists sont exclues des morceaux proposés. Tout se joue par boutons simples et passage automatique.</Text>
 
     <Text style={s.label}>CHOISIS TON STYLE MUSICAL</Text>
     <View style={s.themeWrap}>{themes.map((theme) => <TouchableOpacity key={theme.code} style={[s.themeChip, themeCode === theme.code && s.themeChipOn]} onPress={() => setThemeCode(theme.code)}><Text style={s.themeText}>{theme.label}</Text></TouchableOpacity>)}</View>
@@ -446,11 +508,13 @@ const s = StyleSheet.create({
   salonCard:{padding:11,borderRadius:15,backgroundColor:'#100B18',borderWidth:1,borderColor:'#493369'},salonTopRow:{flexDirection:'row',alignItems:'center',gap:8},salonHost:{flex:1,flexDirection:'row',alignItems:'center',gap:8},salonAvatar:{width:38,height:38,borderRadius:19},salonHostLabel:{color:'#B693FF',fontSize:11,fontWeight:'900'},salonHostName:{color:'#FFF',fontSize:14,fontWeight:'900'},statusPill:{paddingHorizontal:8,paddingVertical:5,borderRadius:11,backgroundColor:'#173023',borderWidth:1,borderColor:'#377A58'},statusText:{color:'#FFF',fontSize:11,fontWeight:'900'},salonThemeRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8},salonTheme:{color:'#D9C8F7',fontSize:14,fontWeight:'900'},jackpot:{color:'#E5F266',fontSize:13,fontWeight:'900'},salonStats:{color:'#FFF',fontSize:12,marginTop:4},enterButton:{minHeight:42,paddingHorizontal:13,borderRadius:21,backgroundColor:'#714DAB',borderWidth:1,borderColor:'#B693FF',alignItems:'center',justifyContent:'center',marginTop:9},enterButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   lobbyLine:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:12},lobbyText:{color:'#FFF',fontSize:12},themeSelected:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},
   seats:{flexDirection:'row',flexWrap:'wrap',marginTop:12,rowGap:10},seat:{width:'20%',alignItems:'center',paddingHorizontal:2},avatarWrap:{width:46,height:46,borderRadius:23,padding:2,borderWidth:1,borderColor:'#5E4385'},avatar:{width:'100%',height:'100%',borderRadius:22},avatarFallback:{backgroundColor:'#2A1D3C',alignItems:'center',justifyContent:'center'},avatarLetter:{color:'#FFF',fontSize:17,fontWeight:'900'},seatName:{color:'#FFF',fontSize:11,fontWeight:'900',marginTop:4,maxWidth:70},
-  waitBox:{marginTop:12,padding:11,borderRadius:14,backgroundColor:'#100B18',borderWidth:1,borderColor:'#493369'},waitTitle:{color:'#B693FF',fontSize:14,fontWeight:'900'},waitText:{color:'#FFF',fontSize:13,lineHeight:18,marginTop:4},rowButtons:{flexDirection:'row',gap:8,marginTop:10},secondaryButton:{flex:1,minHeight:44,borderRadius:22,borderWidth:1,borderColor:'#B693FF',alignItems:'center',justifyContent:'center',paddingHorizontal:8},secondaryButtonText:{color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center'},primaryButton:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center',paddingHorizontal:8},primaryButtonText:{color:'#111',fontSize:12,fontWeight:'900',textAlign:'center'},disabled:{opacity:.45},
-  gameBox:{marginTop:12,padding:11,borderRadius:16,backgroundColor:'#0F0A17',borderWidth:1,borderColor:'#5E4385'},roundHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},roundLabel:{color:'#B693FF',fontSize:13,fontWeight:'900'},timer:{color:'#FFF',fontSize:14,fontWeight:'900'},
+  leaderCard:{marginTop:12,padding:11,borderRadius:14,backgroundColor:'#100B18',borderWidth:1,borderColor:'#6D5090'},leaderTitle:{color:'#B693FF',fontSize:12,fontWeight:'900',marginBottom:7},leaderRow:{flexDirection:'row',alignItems:'center',minHeight:34,gap:8},medal:{fontSize:18,width:26},leaderName:{flex:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderScore:{color:'#E5F266',fontSize:13,fontWeight:'900'},
+  waitBox:{marginTop:12,padding:11,borderRadius:14,backgroundColor:'#100B18',borderWidth:1,borderColor:'#493369'},waitTitle:{color:'#B693FF',fontSize:14,fontWeight:'900'},waitText:{color:'#FFF',fontSize:13,lineHeight:18,marginTop:4},verticalActions:{gap:8,marginTop:10},secondaryButton:{width:'100%',minHeight:46,borderRadius:23,borderWidth:1,borderColor:'#B693FF',alignItems:'center',justifyContent:'center',paddingHorizontal:10},secondaryButtonText:{color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center'},primaryButton:{width:'100%',minHeight:46,borderRadius:23,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center',paddingHorizontal:10},primaryButtonText:{color:'#111',fontSize:13,fontWeight:'900',textAlign:'center'},disabled:{opacity:.45},
+  gameBox:{marginTop:12,padding:11,borderRadius:16,backgroundColor:'#0F0A17',borderWidth:1,borderColor:'#5E4385'},roundHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},roundLabel:{color:'#B693FF',fontSize:13,fontWeight:'900'},timer:{color:'#FFF',fontSize:14,fontWeight:'900'},timeTrack:{height:7,borderRadius:4,backgroundColor:'#2A2037',overflow:'hidden',marginTop:8},timeFill:{height:'100%',backgroundColor:'#E5F266',borderRadius:4},deadlineText:{color:'#FFF',fontSize:12,lineHeight:17,marginTop:6,textAlign:'center'},
   hiddenCover:{height:190,marginTop:10,borderRadius:18,borderWidth:1,borderColor:'#6D5090',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center',overflow:'hidden'},question:{color:'#FFF',fontSize:72,fontWeight:'900'},cover:{width:'100%',height:'100%'},listenText:{color:'#FFF',fontSize:14,fontWeight:'800',marginTop:8,textAlign:'center'},
-  choices:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:11},choice:{width:'48.5%',minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#493369',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center',paddingHorizontal:8,paddingVertical:6},choiceSelected:{borderColor:'#E5F266',backgroundColor:'#3A4020'},choiceCorrect:{borderColor:'#7CF2B9',backgroundColor:'#153828'},choiceLocked:{opacity:.42},choiceText:{color:'#FFF',fontSize:13,fontWeight:'900',textAlign:'center'},
-  revealResult:{marginTop:10,padding:11,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},correct:{color:'#7CF2B9',fontSize:14,fontWeight:'900',textAlign:'center'},wrong:{color:'#FF829C',fontSize:14,fontWeight:'900',textAlign:'center'},
+  choices:{gap:8,marginTop:11},choice:{width:'100%',minHeight:50,borderRadius:14,borderWidth:1,borderColor:'#493369',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:8},choiceSelected:{borderColor:'#E5F266',backgroundColor:'#3A4020'},choiceCorrect:{borderColor:'#7CF2B9',backgroundColor:'#153828'},choiceLocked:{opacity:.42},choiceText:{color:'#FFF',fontSize:14,fontWeight:'900',textAlign:'center'},
+  revealResult:{marginTop:10,padding:12,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},correct:{color:'#7CF2B9',fontSize:15,fontWeight:'900',textAlign:'center'},wrong:{color:'#FF829C',fontSize:15,fontWeight:'900',textAlign:'center'},autoText:{color:'#FFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:4},roundWinner:{marginTop:8,padding:8,borderRadius:11,backgroundColor:'#251B10',borderWidth:1,borderColor:'#D6AA36'},roundWinnerText:{color:'#FFE191',fontSize:12,fontWeight:'900',textAlign:'center'},
   soloScoreRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:12},soloScore:{color:'#E5F266',fontSize:14,fontWeight:'900'},soloProgress:{color:'#B693FF',fontSize:13,fontWeight:'900'},
-  bottomRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:11},returnButton:{alignSelf:'center',marginTop:12,padding:8},link:{color:'#B693FF',fontSize:12,fontWeight:'900'},
+  championCard:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12,padding:12,borderRadius:15,backgroundColor:'#291E0D',borderWidth:1,borderColor:'#D6AA36'},championCrown:{fontSize:28},championLabel:{color:'#FFE191',fontSize:11,fontWeight:'900'},championName:{color:'#FFF',fontSize:15,fontWeight:'900',marginTop:2},championScore:{color:'#E5F266',fontSize:14,fontWeight:'900'},historyCard:{marginTop:10,padding:11,borderRadius:14,backgroundColor:'#100B18',borderWidth:1,borderColor:'#493369'},historyRow:{flexDirection:'row',alignItems:'center',minHeight:34,gap:8},historyRank:{width:28,color:'#B693FF',fontSize:12,fontWeight:'900'},
+  bottomRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:11},link:{color:'#B693FF',fontSize:12,fontWeight:'900'},
 });
