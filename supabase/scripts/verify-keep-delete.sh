@@ -6,6 +6,8 @@
 # données : morceau KEEP présent -> suppression -> plus aucune décision -> plus
 # aucune apparition profil propriétaire -> plus aucune apparition profil public
 # -> le crédit FREE déjà consommé reste consommé.
+#
+# Le contrat actuel garantit une seule décision KEPT canonique par profil/morceau.
 set -euo pipefail
 
 DB=keep_verify_ci
@@ -46,13 +48,9 @@ begin
   values(v_track_id, 'Delete Regression Track', 'KEEP CI', array['test'], '{}'::jsonb, '{}'::jsonb, array[]::text[]);
 
   insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
-  values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '2 minutes');
-  insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
   values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '1 minute');
 
   -- Reproduit exactement l'association écrite par l'app : added_via='KEEP'.
-  -- Une ancienne fonction testait uniquement 'keep' en minuscules et laissait
-  -- alors l'extrait orphelin dans la playlist.
   insert into public.playlists(id, owner_id, name, visibility)
   values(v_playlist_id, uid, 'Delete CI Playlist', 'PRIVATE');
   insert into public.playlist_tracks(playlist_id, track_id, position, added_via)
@@ -76,8 +74,8 @@ begin
   end if;
 
   select public.keep_remove_track(v_track_id) into removed;
-  if removed <> 2 then
-    raise exception 'FAIL suppression : 2 décisions attendues supprimées, obtenu %', removed;
+  if removed <> 1 then
+    raise exception 'FAIL suppression : 1 décision canonique attendue supprimée, obtenu %', removed;
   end if;
 
   select count(*) into remaining_decisions
