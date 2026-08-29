@@ -77,33 +77,35 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
 function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (planCode === 'FREE') return [
-    'Écoute et reconnaissance illimitées : tes sessions continuent même sans crédit.',
-    `${rules.freeDiscoveryProfiles} profils Découvertes offerts, puis Premium ou bonus gagnés avec ta communauté.`,
-    `${funnel.guestSuccessLimit} KEEP avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
-    'Recharge tes Free en partageant KEEP, en faisant grandir tes abonnés et en remportant des KEEP Battles.',
+    `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : 1 Free.`,
+    `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
+    `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
-    'Écoute illimitée et profil musical étendu en illimité.',
     `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
     'Découvertes de profils en illimité.',
-    `${rules.premiumSmartSortTrials} essais de KEEP Vibes : KEEP classe automatiquement ta musique par ambiances et styles.`,
-    'Profil reste « Utilisateur » : DJ / Artiste / Créateur se débloquent avec Creator Pro.',
+    `${rules.premiumSmartSortTrials} essais de KEEP Vibes.`,
   ];
   if (planCode === 'CREATOR_PRO') return [
-    'Tout Premium + téléchargements illimités.',
-    'KEEP Vibes illimité : classement automatique par styles/ambiances, albums intelligents et renommage libre.',
-    'Choisis ton profil : DJ, Artiste, Créateur ou Producteur.',
-    `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois + notifications aux abonnés.`,
-    'Analytics et fonctions créateur avancées.',
+    'Téléchargements et KEEP Vibes illimités.',
+    'Profils DJ, Artiste, Créateur ou Producteur.',
+    `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois et notifications aux abonnés.`,
+    'Analytics et outils créateur avancés.',
   ];
   if (planCode === 'VENUE_PRO') return [
-    'Tout Creator Pro + téléchargements et KEEP Vibes illimités.',
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
     'QR, communauté et analytics avancés.',
-    `Les fonctions Audience Pro demandent aussi une vraie communauté : seuil actuel ${rules.audienceProThreshold} abonnés.`,
+    `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
   ];
   return [];
+}
+
+function planSummary(planCode: string): string {
+  if (planCode === 'PREMIUM') return 'Pour profiter de KEEP au quotidien avec davantage de liberté.';
+  if (planCode === 'CREATOR_PRO') return 'Pour les DJs, artistes et créateurs qui développent leur communauté.';
+  if (planCode === 'VENUE_PRO') return 'Pour les lieux et établissements qui organisent et animent leur audience.';
+  return 'Les fonctions essentielles de KEEP pour commencer.';
 }
 
 export default function OffersScreen({ navigation, route }: any) {
@@ -125,7 +127,9 @@ export default function OffersScreen({ navigation, route }: any) {
   const [error, setError] = useState('');
   const [freeExpanded, setFreeExpanded] = useState(false);
   const [battleExpanded, setBattleExpanded] = useState(false);
+  const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
+  const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,6 +202,28 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.promiseCommunity}>Fais grandir ta communauté musicale.</Text>
           </View>
 
+          <View style={s.discoveryCard}>
+            <Text style={s.discoveryEyebrow}>DÉCOUVERTE KEEP</Text>
+            <Text style={s.discoveryTitle}>Ta découverte reste attribuée à ton profil.</Text>
+            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, KEEP conserve ton profil comme source de cette découverte. Si un autre membre l’ajoute depuis ton profil, son ajout ne débite aucun Free et ton attribution reste attachée au morceau.</Text>
+            <TouchableOpacity
+              style={s.disclosureButton}
+              onPress={() => setDiscoveryExpanded((value) => !value)}
+              accessibilityRole="button"
+              accessibilityLabel="En savoir plus sur l’attribution des découvertes"
+              accessibilityState={{ expanded: discoveryExpanded }}
+            >
+              <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+            {discoveryExpanded ? <View style={s.discoveryDetails}>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur KEEP de cette occurrence.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un KEEP issu de la communauté.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut ensuite circuler de profil en profil : KEEP conserve le découvreur d’origine au lieu de remplacer son attribution à chaque partage.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l’enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
+            </View> : null}
+          </View>
+
           <View style={s.creditCard}>
             <View style={s.creditTop}>
               <View><Text style={s.sectionTitle}>Tes Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View>
@@ -263,14 +289,6 @@ export default function OffersScreen({ navigation, route }: any) {
                 <Text style={s.otherRewardsLine}>{s3} partages → +{sr.tier3Sort} essai Vibes en plus des Free</Text>
                 <Text style={s.vibesDefinition}>Vibes = KEEP range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
               </View>
-
-              <View style={s.communityOpportunity}>
-                <Text style={s.communityOpportunityEyebrow}>TA COMMUNAUTÉ</Text>
-                <Text style={s.communityOpportunityTitle}>Tes goûts musicaux peuvent devenir ton influence.</Text>
-                <Text style={s.communityOpportunityText}>Ta communauté se construit autour de tes goûts, de tes découvertes et des morceaux que tu choisis de partager.</Text>
-                <Text style={s.communityOpportunityText}>À partir de {f4} abonnés, la création d’événements peut se débloquer selon ta formule.</Text>
-                <Text style={s.communityOpportunityNote}>Les collaborations éventuelles restent directes entre toi et tes partenaires.</Text>
-              </View>
             </> : null}
           </View>
 
@@ -316,9 +334,22 @@ export default function OffersScreen({ navigation, route }: any) {
                 </View>
                 {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>MINIMUM</Text></View> : null}
               </View>
-              {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
-              <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
-              {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
+              <Text style={s.planSummary}>{planSummary(plan.code)}</Text>
+              <TouchableOpacity
+                style={s.disclosureButton}
+                onPress={() => setExpandedPlanCode((current) => current === plan.code ? null : plan.code)}
+                accessibilityRole="button"
+                accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
+                accessibilityState={{ expanded: expandedPlanCode === plan.code }}
+              >
+                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
+                <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
+              </TouchableOpacity>
+              {expandedPlanCode === plan.code ? <View style={s.planDetails}>
+                {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
+                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
+                {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
+              </View> : null}
               {!active && plan.code !== 'FREE' ? (
                 <TouchableOpacity style={[s.cta, venueUnlimited && s.ctaUnlimited]} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
                   <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
@@ -340,7 +371,12 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
             <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
-          {rulesExpanded ? <Text style={s.subscriptionText}>Ta formule définit tes fonctions de base. Les bonus gagnés grâce aux partages, aux abonnés et aux Battles viennent s’ajouter gratuitement à cette formule. Premium donne l’usage quotidien confortable. Creator Pro ajoute Vibes illimité et les outils créateur. Venue Pro ajoute les outils professionnels et les événements illimités selon les règles affichées.</Text> : null}
+          {rulesExpanded ? <View style={s.rulesDetails}>
+            <Text style={s.subscriptionText}>• Écouter, reconnaître et PASSER ne consomment aucun Free.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise 1 Free. Le récupérer depuis le profil d’un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s’ajoutent à ta formule.</Text>
+            <Text style={s.subscriptionText}>• La provenance d’une découverte reste rattachée au membre qui l’a reconnue avec Écouter.</Text>
+          </View> : null}
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
@@ -373,6 +409,14 @@ const s = StyleSheet.create({
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
   promiseCommunity: { color: colors.keep, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 7 },
+  discoveryCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60' },
+  discoveryEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  discoveryTitle: { color: colors.textPrimary, fontSize: 17, lineHeight: 22, fontWeight: '900', marginTop: 5 },
+  discoveryBody: { ...typography.caption, color: colors.textPrimary, lineHeight: 18, fontWeight: '700', marginTop: 7 },
+  discoveryDetails: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#254936', gap: 9 },
+  discoveryStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  discoveryStepNumber: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#173529', color: '#7CF2B9', textAlign: 'center', lineHeight: 22, fontSize: 10, fontWeight: '900' },
+  discoveryStepText: { ...typography.caption, color: colors.textPrimary, lineHeight: 18, fontWeight: '700', flex: 1 },
   promiseBody: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 8, fontWeight: '700' },
   creditCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primary },
   creditTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -435,7 +479,9 @@ const s = StyleSheet.create({
   requiredBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
   unlimitedBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#2B2410', borderWidth: 1, borderColor: '#D6AA36' },
   unlimitedBadgeText: { color: '#FFF4C2', fontSize: 9, fontWeight: '900' },
-  planDescription: { color: '#F8F6FC', fontSize: 12, lineHeight: 17, marginTop: 9, fontWeight: '700' },
+  planSummary: { ...typography.caption, color: colors.textPrimary, lineHeight: 18, marginTop: 9, fontWeight: '700' },
+  planDetails: { marginTop: 2 },
+  planDescription: { ...typography.caption, color: '#F8F6FC', lineHeight: 18, marginTop: 9, fontWeight: '700' },
   benefitBox: { marginTop: 8, gap: 2 },
   benefit: { color: '#F8F6FC', fontSize: 11, lineHeight: 17, fontWeight: '700' },
   trial: { color: colors.keep, fontSize: 11, fontWeight: '900', marginTop: 8 },
@@ -444,7 +490,8 @@ const s = StyleSheet.create({
   ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
-  subscriptionText: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 5, fontWeight: '700' },
+  rulesDetails: { marginTop: 3, gap: 3 },
+  subscriptionText: { ...typography.caption, color: '#F8F6FC', lineHeight: 18, marginTop: 5, fontWeight: '700' },
   allPlans: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   allPlansText: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   error: { color: colors.danger, textAlign: 'center', paddingVertical: 20 },
