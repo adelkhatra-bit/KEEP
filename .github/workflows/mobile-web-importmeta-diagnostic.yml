@@ -84,87 +84,68 @@ jobs:
               }
             });
             page.on('response', response => {
-              if (response.status() >= 400) {
-                httpFailures.push(`HTTP ${response.status()} ${response.request().method()} ${response.url()}`);
-              }
+              if (response.status() >= 400) httpFailures.push(`HTTP ${response.status()} ${response.request().method()} ${response.url()}`);
             });
             page.on('requestfailed', request => {
               httpFailures.push(`REQUEST FAILED ${request.method()} ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`);
             });
-            // React Native Web ne sait pas exécuter les callbacks multi-boutons
-            // d'Alert.alert comme iOS/Android. KEEP utilise window.confirm pour
-            // la suppression Web : ce handler simule le vrai clic utilisateur.
             page.on('dialog', async dialog => {
               if (dialog.type() === 'confirm') await dialog.accept();
               else await dialog.dismiss();
             });
 
-            const response = await page.goto('http://127.0.0.1:8081', {
-              waitUntil: 'networkidle',
-              timeout: 60000,
-            });
-
-            if (!response || !response.ok()) {
-              throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
-            }
-
+            const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            if (!response || !response.ok()) throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
             await page.waitForTimeout(1500);
 
             const bodyText = (await page.locator('body').innerText()).trim();
             const bodyBox = await page.locator('body').boundingBox();
             const rootHtml = await page.locator('#root').innerHTML().catch(() => '');
+            await page.screenshot({ path: 'artifacts/real-browser/keep-mobile-runtime.png', fullPage: true });
 
-            await page.screenshot({
-              path: 'artifacts/real-browser/keep-mobile-runtime.png',
-              fullPage: true,
-            });
+            if (!bodyText || bodyText.length < 10) throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
+            if (!rootHtml || rootHtml.trim().length < 20) throw new Error('Visual audit failed: #root is empty or effectively blank');
+            if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
 
-            if (!bodyText || bodyText.length < 10) {
-              throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
+            // Samsung/Chrome Android : un swipe vertical ne doit jamais faire sortir
+            // la barre des 5 onglets du viewport visible.
+            const bottomProfileTab = page.getByText('Profil', { exact: true }).last();
+            if (await bottomProfileTab.count() === 0) throw new Error('Profile bottom tab not found');
+            const bottomBefore = await bottomProfileTab.boundingBox();
+            await page.mouse.wheel(0, 1400);
+            await page.waitForTimeout(300);
+            const bottomAfter = await bottomProfileTab.boundingBox();
+            if (!bottomBefore || !bottomAfter) throw new Error('Bottom tab lost during vertical swipe');
+            if (bottomAfter.y < 0 || bottomAfter.y + bottomAfter.height > 844) {
+              throw new Error(`Samsung bottom navigation left viewport after swipe: ${JSON.stringify(bottomAfter)}`);
             }
-            if (!rootHtml || rootHtml.trim().length < 20) {
-              throw new Error('Visual audit failed: #root is empty or effectively blank');
-            }
-            if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) {
-              throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
+            if (Math.abs(bottomAfter.y - bottomBefore.y) > 4) {
+              throw new Error(`Samsung bottom navigation moved with page scroll: ${bottomBefore.y} -> ${bottomAfter.y}`);
             }
 
-            // Régression critique signalée sur 390×844 : après Vibes/Albums,
-            // revenir sur KEEP ne devait plus nécessiter un refresh navigateur.
-            const profileBottomTab = page.getByText('Profil', { exact: true }).last();
-            if (await profileBottomTab.count() === 0) throw new Error('Profile tab not found in mobile navigation');
-            await profileBottomTab.click();
+            await bottomProfileTab.click();
             await page.waitForTimeout(700);
 
-            const vibesTab = page.getByText('Vibes', { exact: true }).first();
-            const albumsTab = page.getByText('Albums', { exact: true }).first();
-            const keepTab = page.getByText('KEEP', { exact: true }).last();
-            if (await vibesTab.count() === 0 || await albumsTab.count() === 0 || await keepTab.count() === 0) {
-              throw new Error('Profile music tabs not found');
-            }
+            // Cible les vrais onglets du profil via leur libellé d'accessibilité,
+            // pas un texte KEEP/Vibes/Albums pouvant exister ailleurs sur la page.
+            const vibesTab = page.getByLabel('Profil Vibes');
+            const albumsTab = page.getByLabel('Profil Albums');
+            const keepTab = page.getByLabel('Profil KEEP');
+            if (await vibesTab.count() === 0 || await albumsTab.count() === 0 || await keepTab.count() === 0) throw new Error('Profile music tabs not found');
 
             await vibesTab.click();
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count()) {
-              throw new Error('Vibes tab kept KEEP content mounted');
-            }
+            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Vibes tab kept KEEP content mounted');
 
             await albumsTab.click();
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count()) {
-              throw new Error('Albums tab kept KEEP content mounted');
-            }
+            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Albums tab kept KEEP content mounted');
 
             await keepTab.click();
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count() === 0) {
-              throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
-            }
+            if (await page.getByText(/KEEP construit ton univers/i).count() === 0) throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
 
-            await page.screenshot({
-              path: 'artifacts/real-browser/keep-profile-tabs-390x844.png',
-              fullPage: true,
-            });
+            await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
             // Boucle complète SUPPRIMER : Playlists -> bouton -> confirmation ->
             // disparition -> Profil -> reload -> toujours absent.
@@ -190,18 +171,12 @@ jobs:
             await deleteButton.click();
             await page.waitForTimeout(800);
             const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de KEEP').count();
-            if (afterDeleteCount !== beforeDeleteCount - 1) {
-              throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
-            }
-            if (await page.getByText(deletedTitle, { exact: true }).count()) {
-              throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
-            }
+            if (afterDeleteCount !== beforeDeleteCount - 1) throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
+            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
 
             await page.getByText('Profil', { exact: true }).last().click();
             await page.waitForTimeout(500);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) {
-              throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
-            }
+            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
 
             await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
             await page.waitForTimeout(900);
@@ -209,14 +184,9 @@ jobs:
             if (await profileAfterReload.count() === 0) throw new Error('Profile tab missing after reload');
             await profileAfterReload.click();
             await page.waitForTimeout(400);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) {
-              throw new Error(`Deleted track returned after full reload: ${deletedTitle}`);
-            }
+            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track returned after full reload: ${deletedTitle}`);
 
-            await page.screenshot({
-              path: 'artifacts/real-browser/keep-delete-loop-390x844.png',
-              fullPage: true,
-            });
+            await page.screenshot({ path: 'artifacts/real-browser/keep-delete-loop-390x844.png', fullPage: true });
 
             const report = [
               `URL: ${page.url()}`,
@@ -224,6 +194,7 @@ jobs:
               `BODY_LENGTH: ${bodyText.length}`,
               `ROOT_HTML_LENGTH: ${rootHtml.length}`,
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
+              'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
               `DELETE_TRACK: ${deletedTitle}`,
               'DELETE_PLAYLIST_TO_PROFILE_TO_RELOAD: PASS',
@@ -241,10 +212,7 @@ jobs:
             ].join('\n');
             fs.writeFileSync('artifacts/real-browser/report.txt', report);
 
-            if (errors.length > 0 || httpFailures.length > 0) {
-              throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
-            }
-
+            if (errors.length > 0 || httpFailures.length > 0) throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
             await browser.close();
           })().catch(err => {
             console.error(err);
