@@ -44,6 +44,7 @@ interface SentAttemptRow {
 }
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE';
 const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts';
 const EXPO_TOKEN_PATTERN = /^(?:Exponent|Expo)PushToken\[.+\]$/;
 const MAX_TRANSPORT_ATTEMPTS = 3;
@@ -64,6 +65,8 @@ async function sendExpoPush(
   body: string,
   data: Record<string, unknown> | null,
 ): Promise<ExpoPushTicket[]> {
+  const normalizedType = String(data?.type || data?.notificationType || '').toUpperCase();
+  const isBattleInvite = normalizedType === 'BATTLE_CHALLENGE' && String(data?.presentation || '') === 'battle_inline';
   const messages = rows.map(({ token: to }) => ({
     to,
     title,
@@ -71,6 +74,7 @@ async function sendExpoPush(
     data: data ?? {},
     sound: 'default',
     priority: 'high',
+    ...(isBattleInvite ? { categoryId: BATTLE_CATEGORY } : {}),
   }));
 
   const response = await fetch(EXPO_PUSH_URL, {

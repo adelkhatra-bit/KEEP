@@ -51,26 +51,31 @@ function installBattleNotificationTapRouter() {
       void respondBattleChallenge(challengeId, accept).catch(() => {});
       return;
     }
-    void Linking.openURL('keep://notifications');
+    return;
   });
   void Notifications.getLastNotificationResponseAsync().then((response) => {
     if (!response) return;
     const content = response.notification.request.content;
     const data = (content.data || {}) as Record<string, unknown>;
-    if (battleLike(data.type, content.title, data)) void Linking.openURL('keep://notifications');
+    if (battleLike(data.type, content.title, data)) return;
   }).catch(() => {});
 }
 
 installBattleNotificationTapRouter();
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const content = notification.request.content;
+    const data = (content.data || {}) as Record<string, unknown>;
+    const inlineBattle = battleLike(data.type, content.title, data) && String(data.presentation || '') === 'battle_inline';
+    return {
+      shouldShowAlert: !inlineBattle,
+      shouldPlaySound: !inlineBattle,
+      shouldSetBadge: !inlineBattle,
+      shouldShowBanner: !inlineBattle,
+      shouldShowList: !inlineBattle,
+    };
+  },
 });
 
 function showWebKeepToast(title: string, body: string, row?: Record<string, unknown>) {
@@ -141,6 +146,7 @@ async function startWebRealtimeNotificationBridge(): Promise<boolean> {
       { event: 'INSERT', schema: 'public', table: 'notifications', filter: `profile_id=eq.${profileId}` },
       (payload) => {
         const row = (payload as any)?.new ?? {};
+        if (String(row?.data?.presentation || '') === 'battle_inline') return;
         const title = String(row.title || 'Nouveau sur KEEP');
         const body = String(row.body || 'Ouvre KEEP pour voir la nouveauté.');
         showWebKeepToast(title, body, row);
