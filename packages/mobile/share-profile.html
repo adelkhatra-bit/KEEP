@@ -59,7 +59,7 @@
   const $=id=>document.getElementById(id);
   const safe=value=>String(value||'').trim();
   const routeProfile=u=>`${KEEP_ROOT}?__keep_route=${encodeURIComponent('/profile/'+u)}`;
-  const followAccountRoute=(u='')=>`${KEEP_ROOT}?__keep_auth=create${u?`&__keep_follow=${encodeURIComponent(u)}`:''}`;
+  const followAccountRoute=(u='',mode='login')=>`${KEEP_ROOT}?__keep_auth=${encodeURIComponent(mode)}${u?`&__keep_follow=${encodeURIComponent(u)}`:''}&u=${encodeURIComponent(u)}&share=profile`;
 
   function setContext(){
     const title=safe(params.get('title')), artist=safe(params.get('artist')), label=safe(params.get('label'));
@@ -74,9 +74,13 @@
   }
 
   async function rest(path,options={}){
-    const response=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...options,headers:{...headers,...(options.headers||{})}});
-    if(!response.ok){const body=await response.text().catch(()=> '');throw new Error(`SUPABASE_${response.status}:${body.slice(0,120)}`);}
-    if(response.status===204)return null;return response.json();
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10000);
+    try{
+      const response=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...options,signal:controller.signal,headers:{...headers,...(options.headers||{})}});
+      if(!response.ok){const body=await response.text().catch(()=> '');throw new Error(`SUPABASE_${response.status}:${body.slice(0,120)}`);}
+      if(response.status===204)return null;return response.json();
+    }finally{clearTimeout(timer);}
   }
   async function rpc(name,body,authHeaders=headers){return rest(`rpc/${name}`,{method:'POST',headers:authHeaders,body:JSON.stringify(body)});}
   function readSession(){
@@ -112,12 +116,32 @@
 
   async function hydrateFollow(p){
     const button=$('follow'),hint=$('followHint'),session=readSession();
-    if(!session){button.textContent='CRÉER MON COMPTE POUR SUIVRE';button.onclick=()=>{location.href=followAccountRoute(p.username);};return;}
+    if(!session){
+      button.textContent='SE CONNECTER / CRÉER POUR SUIVRE';
+      hint.textContent=`Déjà sur KEEP ? Connecte-toi. Sinon crée ton compte : @${p.username} sera suivi automatiquement.`;
+      button.onclick=()=>{location.href=followAccountRoute(p.username,'login');};
+      return;
+    }
     if(session.user.id===p.id){button.classList.add('hidden');hint.textContent='Ceci est ton profil public.';return;}
     async function state(){const rows=await authed(`follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}&select=follower_id&limit=1`);return Array.isArray(rows)&&rows.length>0;}
-    async function paint(){const on=await state();button.classList.toggle('on',on);button.textContent=on?'ABONNÉ(E)':'+ SUIVRE';hint.textContent=on?'Tu suis ce profil.':'Tu peux suivre ce profil directement.';return on;}
-    button.onclick=async()=>{button.disabled=true;try{const on=await state();if(on)await authed(`follows?follower_id=eq.${encodeURIComponent(session.user.id)}&followee_id=eq.${encodeURIComponent(p.id)}`,{method:'DELETE'});else await authed('follows',{method:'POST',body:JSON.stringify({follower_id:session.user.id,followee_id:p.id}),headers:{Prefer:'return=minimal'}});await paint();}catch{$('followHint').textContent='Suivi momentanément indisponible.';}finally{button.disabled=false;}};
-    await paint().catch(()=>{$('followHint').textContent='Connexion active · suivi momentanément indisponible.';});
+    async function paint(){const on=await state();button.classList.toggle('on',on);button.textContent=on?'ABONNÉ(E)':'SUIVRE';hint.textContent=on?'Tu suis ce profil.':'Tu peux suivre ce profil directement.';return on;}
+    button.onclick=async()=>{
+      if(button.disabled)return;
+      button.disabled=true;
+      const previous=button.textContent;
+      button.textContent='UN INSTANT…';
+      try{
+        const on=await state();
+        const auth=authHeaders();
+        if(!auth)throw new Error('NO_SESSION');
+        await rpc(on?'keep_unfollow_profile':'keep_follow_profile',{p_followee_id:p.id},auth);
+        await paint();
+      }catch(error){
+        button.textContent=previous||'SUIVRE';
+        hint.textContent='Le suivi n’a pas abouti. Vérifie ta connexion puis réessaie.';
+      }finally{button.disabled=false;}
+    };
+    await paint().catch(()=>{button.textContent='SUIVRE';hint.textContent='Connexion active · appuie sur SUIVRE pour réessayer.';});
   }
 
   async function init(){

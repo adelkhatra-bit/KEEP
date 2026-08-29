@@ -45,7 +45,7 @@ export default function OnboardingScreen() {
   const enterGuestMode = useUserStore((s) => s.enterGuestMode);
   const [intent] = useState<WebIntent>(() => readWebIntent());
   const [accountOpen, setAccountOpen] = useState(Boolean(intent.mode || intent.followUsername));
-  const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || 'create');
+  const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || (intent.followUsername ? 'login' : 'create'));
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
