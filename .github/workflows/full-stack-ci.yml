@@ -40,6 +40,8 @@ jobs:
         run: node scripts/verify-app-store-readiness.cjs
       - name: Verify Super Admin to user contract
         run: node scripts/verify-admin-user-loop.cjs
+      - name: Verify direct Supabase push architecture
+        run: node scripts/verify-push-direct-supabase.cjs
       - name: Install
         run: npm ci
       - name: Typecheck all workspaces
