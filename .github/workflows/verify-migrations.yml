@@ -3,7 +3,7 @@ name: KEEP — Vérification migrations SQL (PostgreSQL réel)
 # Aucun secret nécessaire : ce workflow utilise un vrai service PostgreSQL 16,
 # applique toutes les migrations présentes dans supabase/migrations, puis
 # exécute les assertions métier réelles (triggers, cohérence devise, RLS,
-# confidentialité Public/Privé et suppression KEEP de bout en bout).
+# confidentialité Public/Privé, suppression KEEP et invitation ami préremplie).
 # La branche de travail unique KEEP est la seule source active.
 
 on:
@@ -69,6 +69,14 @@ jobs:
           status=${PIPESTATUS[0]}
           exit "$status"
 
+      - name: Vérifier invitation ami préremplie
+        shell: bash
+        run: |
+          set +e
+          bash supabase/scripts/verify-referral-profile-link.sh 2>&1 | tee verify-referral-profile-link.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
       - name: Conserver les diagnostics SQL
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,5 +86,6 @@ jobs:
             verify-migrations.log
             verify-profile-privacy.log
             verify-keep-delete.log
+            verify-referral-profile-link.log
           if-no-files-found: ignore
           retention-days: 2
