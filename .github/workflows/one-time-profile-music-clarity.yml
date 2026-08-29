@@ -1,0 +1,72 @@
+name: KEEP — One-time profile music clarity
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - scripts/one_time_profile_music_clarity.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync latest branch head
+        run: |
+          git pull --rebase origin reconcile/claude-main-20260825
+
+      - name: Apply profile music clarity patch
+        run: python3 scripts/one_time_profile_music_clarity.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm run typecheck --workspace @keep/mobile
+
+      - name: Verify clarity contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
+          required = [
+            'Vibes (ambiances & styles)',
+            'Ce ne sont ni des albums ni des événements.',
+            'Artistes (interprètes)',
+            'Albums (un artiste + un album)',
+            'const albumGroups = useMemo',
+            'const displayPlaylists = useMemo<ProviderPlaylist[]>(() => smartAlbums.map(smartAlbumAsProviderPlaylist), [smartAlbums]);',
+          ]
+          missing = [x for x in required if x not in p]
+          if missing:
+            raise SystemExit('Missing profile music clarity contract: ' + repr(missing))
+          if 'result.push(...providerPlaylists)' in p:
+            raise SystemExit('Provider playlists must not be mixed into Vibes')
+          PY
+
+      - name: Commit source patch
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx
+          if git diff --cached --quiet; then
+            echo "No source change required"
+            exit 0
+          fi
+          git commit -m "fix(profile): clarify vibes artists and albums"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
