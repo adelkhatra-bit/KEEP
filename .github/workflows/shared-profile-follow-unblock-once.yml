@@ -1,0 +1,40 @@
+name: KEEP shared profile follow unblock
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_shared_profile_follow_unblock.py'
+      - '.github/workflows/shared-profile-follow-unblock-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply shared profile follow repair
+        run: python3 scripts/patch_shared_profile_follow_unblock.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify shared follow flow
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand SharedProfileFollow.contract.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/share-profile.html packages/mobile/src/screens/onboarding/OnboardingScreen.tsx packages/mobile/src/screens/__tests__/SharedProfileFollow.contract.test.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(share): unblock follow from shared profiles"
+          git push origin HEAD:reconcile/claude-main-20260825
