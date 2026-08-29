@@ -15,7 +15,7 @@ import { loadNotifications } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
-import { loadOwnProfileKeeps, loadOwnProfileSnapshot, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -24,6 +24,7 @@ import SourceProfileQuickView from '../components/SourceProfileQuickView';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import CommunityConnectionsPanel from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
+import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 
 type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
@@ -54,6 +55,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
   const [serverOwnKeeps, setServerOwnKeeps] = useState<PublicProfileKeep[]>([]);
+  const [discoveryImpacts, setDiscoveryImpacts] = useState<Record<string, DiscoveryImpact>>({});
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -89,25 +91,29 @@ export default function ProfilePublicScreen({ navigation }: any) {
           setPublicSnapshot(null);
           setOwnSnapshot(null);
           setServerOwnKeeps([]);
+          setDiscoveryImpacts({});
         }
         return;
       }
       try {
-        const [publicState, ownState, ownKeeps] = await Promise.all([
+        const [publicState, ownState, ownKeeps, impacts] = await Promise.all([
           loadPublicProfileSnapshot(user.id),
           loadOwnProfileSnapshot(),
           loadOwnProfileKeeps(),
+          loadProfileDiscoveryImpacts(user.id),
         ]);
         if (live) {
           setPublicSnapshot(publicState);
           setOwnSnapshot(ownState);
           setServerOwnKeeps(ownKeeps);
+          setDiscoveryImpacts(impacts);
         }
       } catch {
         if (live) {
           setPublicSnapshot(null);
           setOwnSnapshot(null);
           setServerOwnKeeps([]);
+          setDiscoveryImpacts({});
         }
       }
     };
@@ -372,6 +378,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </TouchableOpacity>
           ) : <Text style={s.originProtected}>découvreur d’origine protégé</Text>}
         </View> : null}
+        {originKind ? <DiscoveryImpactLabel impact={discoveryImpacts[track.id]} /> : null}
         <View style={s.trackMetaRow}>
           <TouchableOpacity style={s.trackShare} onPress={() => void shareProfileTrack(user.username, track.title, track.artist)}><Text style={s.trackShareText}>↗ Partager</Text></TouchableOpacity>
         </View>

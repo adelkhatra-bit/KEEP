@@ -22,6 +22,12 @@ export type OwnProfileSnapshot = {
   privateKeeps: number;
 };
 
+export type DiscoveryImpact = {
+  originProfileId: string;
+  recoveryCount: number;
+  uniqueUsers: number;
+};
+
 export type PublicProfileKeep = {
   decisionId: string;
   keptAt: string;
@@ -184,4 +190,23 @@ export async function loadPublicProfileKeeps(profileId: string): Promise<PublicP
 
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {
   return loadPagedKeeps('keep_own_profile_tracks', {});
+}
+
+
+export async function loadProfileDiscoveryImpacts(profileId: string): Promise<Record<string, DiscoveryImpact>> {
+  if (!supabase || !profileId) return {};
+  const { data, error } = await supabase.rpc('keep_profile_discovery_impacts', { p_profile_id: profileId });
+  if (error) throw error;
+  const impacts: Record<string, DiscoveryImpact> = {};
+  for (const row of Array.isArray(data) ? data : []) {
+    const trackId = String(row?.track_id || '');
+    const originProfileId = String(row?.origin_profile_id || '');
+    if (!trackId || !originProfileId) continue;
+    impacts[trackId] = {
+      originProfileId,
+      recoveryCount: Number(row?.recovery_count || 0),
+      uniqueUsers: Number(row?.unique_users || 0),
+    };
+  }
+  return impacts;
 }

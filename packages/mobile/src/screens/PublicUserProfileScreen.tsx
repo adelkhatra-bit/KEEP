@@ -4,7 +4,7 @@ import { CanonicalTrack } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { requestSocialLink } from '../services/notificationService';
-import { loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { DiscoveryImpact, loadProfileDiscoveryImpacts, loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import { useUserStore } from '../store/useUserStore';
 import { ProfileKind, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
@@ -14,6 +14,7 @@ import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
+import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { commitKeep } from '../services/keepTrackAction';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 
@@ -68,6 +69,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
   const [directKeepCount, setDirectKeepCount] = useState(0);
   const [socialKeepCount, setSocialKeepCount] = useState(0);
+  const [discoveryImpacts, setDiscoveryImpacts] = useState<Record<string, DiscoveryImpact>>({});
   const [viewerKeepTrackIds, setViewerKeepTrackIds] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
@@ -85,6 +87,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setLoading(true);
       setError(null);
       setPublicSnapshot(null);
+      setDiscoveryImpacts({});
       setViewerKeepTrackIds(new Set());
       if (!username || !supabase) { setError('Profil indisponible.'); setLoading(false); return; }
       try {
@@ -95,6 +98,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         setFollowerCount(result.followerCount);
 
         const snapshotPromise = loadPublicProfileSnapshot(result.id).catch(() => null);
+        const impactPromise = loadProfileDiscoveryImpacts(result.id).catch(() => ({}));
 
         if (viewer?.id && viewer.id !== result.id && !isLocalGuest && !isDemoMode) {
           const { data: existing } = await supabase.from('follows').select('follower_id').eq('follower_id', viewer.id).eq('followee_id', result.id).maybeSingle();
@@ -126,6 +130,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         if (cancelled) return;
         setTracks(normalized);
+        const impacts = await impactPromise;
+        if (cancelled) return;
+        setDiscoveryImpacts(impacts);
         const localSocialCount = normalized.filter((track) => Boolean(track.sourceUserId || track.sourceProfileId)).length;
         const snapshot = await snapshotPromise;
         if (cancelled) return;
@@ -422,6 +429,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               const alreadyKept = alreadyInMyKeep(track.trackId);
               const directDiscovery = !track.sourceUserId && !track.sourceProfileId;
               const discoveryUsername = track.sourceUsername || (directDiscovery ? profile.username : '');
+              const discoveryImpact = discoveryImpacts[track.trackId];
               return <View key={track.id} style={styles.musicRow}>
                 {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>K</Text></View>}
                 <View style={styles.trackInfo}>
@@ -437,6 +445,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       </TouchableOpacity>
                     ) : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                   </View>
+                  <DiscoveryImpactLabel impact={discoveryImpact} />
                   <View style={styles.trackActions}>
                     {viewer?.id !== profile.id ? <TouchableOpacity style={[styles.keepButton, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : void addToMyKeep(track)} disabled={adding}><Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]}>{adding ? '…' : alreadyKept ? '✓ DÉJÀ DANS TON KEEP' : '+ KEEP'}</Text></TouchableOpacity> : null}
                     <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
