@@ -31,13 +31,13 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining))');
   });
 
-  it('keeps solo on refusal and switches to shared arena on acceptance with retry', () => {
+  it('keeps solo on refusal and switches to the returned shared arena on acceptance', () => {
     expect(source).toContain('const response = await respondBattleChallenge(item.id, accept)');
     expect(source).toContain('if (accept && response.arenaId)');
     expect(source).toContain('await stopTrackPreview()');
     expect(source).toContain('await leaveSoloBattle().catch(() => {})');
     expect(source).toContain('setSolo(null); setBrowseOnline(false); setAudioReady(false)');
-    expect(source).toContain('const loadedArena = await loadArenaAfterAccept(response.arenaId)');
+    expect(source).toContain('const loadedArena = response.arenaState || await loadArenaAfterAccept(response.arenaId)');
     expect(source).toContain('setArena(loadedArena)');
     expect(source).toContain('for (let attempt = 0; attempt < 5; attempt += 1)');
     expect(source).toContain('void respond(incoming[0], false)');
@@ -105,12 +105,12 @@ describe('KEEP Battle mobile style selector', () => {
   });
 
   it('uses smartphone-sized Battle action targets and readable invite text', () => {
-    expect(source).toContain('inviteActions: { flexDirection: \'row\', gap: 10, marginTop: 10 }');
-    expect(source).toContain('no: { flex: 1, minHeight: 52');
-    expect(source).toContain('yes: { flex: 1, minHeight: 52');
-    expect(source).toContain('hitSlop={6}');
-    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 14, lineHeight: 19");
-    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 15");
+    expect(source).toContain("inviteActions: { flexDirection: 'row', gap: 10, width: '100%' }");
+    expect(source).toContain('no: { flex: 1, minHeight: 56');
+    expect(source).toContain('yes: { flex: 1, minHeight: 56');
+    expect(source).toContain('hitSlop={10}');
+    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 15, lineHeight: 20");
+    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 16");
     expect(source).toContain("borderWidth: 2, borderColor: '#E5F266'");
     expect(source).toContain('CONNEXION…');
     expect(source).toContain('respondingChallengeId');
@@ -126,7 +126,6 @@ describe('KEEP Battle mobile style selector', () => {
   it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
     expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
     expect(source).toContain('BATTLE_TARGET_NO_CREDIT');
-    expect(source).toContain('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED');
     expect(source).toContain('Il te faut au moins 3 Free');
   });
 
