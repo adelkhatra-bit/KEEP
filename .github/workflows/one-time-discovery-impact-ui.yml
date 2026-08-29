@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: keep-discovery-impact-ui-v3
+  group: keep-discovery-impact-ui-v4
   cancel-in-progress: true
 
 jobs:
@@ -48,6 +48,7 @@ jobs:
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
+          git restore scripts/one_time_discovery_impact_ui.py
           git add packages/mobile/src/services/publicProfileStateService.ts packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx packages/mobile/src/components/DiscoveryImpactLabel.tsx
           if ! git diff --cached --quiet; then
             git commit -m "feat(profile): show discovery viral impact"
