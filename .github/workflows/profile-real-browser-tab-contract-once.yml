@@ -19,18 +19,15 @@ jobs:
           fetch-depth: 0
       - name: Sync branch
         run: git pull --ff-only origin reconcile/claude-main-20260825
-      - name: Apply profile browser contract repair
+      - name: Apply profile source repair
         run: python3 scripts/fix_profile_real_browser_tab_contract.py
-      - name: Verify patch before commit
-        run: |
-          grep -F 'accessibilityLabel={`Profil ${tab.label}`}' packages/mobile/src/screens/ProfilePublicScreen.tsx
-          grep -F "getByLabel('Profil KEEP')" .github/workflows/mobile-web-importmeta-diagnostic.yml
-          grep -F "aria-selected" .github/workflows/mobile-web-importmeta-diagnostic.yml
-      - name: Commit repair
+      - name: Verify profile source patch
+        run: grep -F 'accessibilityLabel={`Profil ${tab.label}`}' packages/mobile/src/screens/ProfilePublicScreen.tsx
+      - name: Commit profile source only
         run: |
           git config user.name "KEEP Guardian"
           git config user.email "actions@github.com"
-          git add packages/mobile/src/screens/ProfilePublicScreen.tsx .github/workflows/mobile-web-importmeta-diagnostic.yml
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "fix(profile): make tab remount browser-testable"
+          git commit -m "fix(profile): expose tab state for real mobile QA"
           git push origin HEAD:reconcile/claude-main-20260825
