@@ -129,6 +129,18 @@ export type KeepBattleArenaState = {
   leaderboard: Array<{ profileId: string; username: string; score: number; placement?: number | null; responseMs: number }>;
   round?: KeepBattleArenaRound | null;
   roundWinner?: { profileId: string; username: string; avatarUrl?: string | null; responseMs: number } | null;
+  lastResult?: { matchNo: number; placement: number; score: number; correct: number; responseMs: number; creditDelta: number; won: boolean } | null;
+  lastWinner?: { profileId: string; username: string; avatarUrl?: string | null; score: number; responseMs: number } | null;
+};
+
+export type KeepBattleArenaWinner = {
+  matchNo: number;
+  profileId: string;
+  username: string;
+  avatarUrl?: string | null;
+  score: number;
+  responseMs: number;
+  createdAt?: string | null;
 };
 
 export type KeepBattleArenaCreated = {
@@ -289,6 +301,14 @@ export async function joinKeepBattleArena(arenaCode: string): Promise<KeepBattle
 export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_state', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function loadKeepBattleArenaWinnerHistory(arenaId: string, limit = 10): Promise<KeepBattleArenaWinner[]> {
+  const { data, error } = await client().rpc('keep_battle_arena_winner_history', {
+    p_arena_id: arenaId,
+    p_limit: Math.max(1, Math.min(Math.round(limit), 20)),
+  });
+  return unwrap((data ?? []) as KeepBattleArenaWinner[] | null, error);
 }
 
 export async function startKeepBattleArena(arenaId: string): Promise<KeepBattleArenaState> {
