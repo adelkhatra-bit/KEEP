@@ -7,14 +7,47 @@ let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
+// Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
+// deux manches. Sur le web, KEEP Battle réutilise donc le même HTMLAudioElement
+// pendant toute la session. L'élément est seulement mis en pause entre les titres ;
+// il n'est pas détruit, ce qui conserve l'autorisation de lecture acquise.
+let webAudio: any = null;
+let webAudioKey: string | null = null;
+let webAudioListener: ((playing: boolean) => void) | null = null;
+
+function canUseWebAudio(): boolean {
+  return typeof (globalThis as any)?.Audio === 'function' && typeof (globalThis as any)?.document !== 'undefined';
+}
+
+function getWebAudio(): any {
+  if (!canUseWebAudio()) return null;
+  if (!webAudio) {
+    const HtmlAudio = (globalThis as any).Audio;
+    webAudio = new HtmlAudio();
+    webAudio.preload = 'auto';
+    webAudio.playsInline = true;
+  }
+  return webAudio;
+}
+
 function clearActiveTimer() {
-  if (!activeTimer) return;
-  clearTimeout(activeTimer);
-  activeTimer = null;
+  if (activeTimer) {
+    clearTimeout(activeTimer);
+    activeTimer = null;
+  }
   if (activeStartTimer) {
     clearTimeout(activeStartTimer);
     activeStartTimer = null;
   }
+}
+
+async function stopWebAudio() {
+  if (!webAudio) return;
+  const listener = webAudioListener;
+  webAudioListener = null;
+  webAudioKey = null;
+  try { webAudio.pause(); } catch {}
+  listener?.(false);
 }
 
 async function unloadActive() {
@@ -25,6 +58,7 @@ async function unloadActive() {
   activeKey = null;
   activeStateListener = null;
   listener?.(false);
+  await stopWebAudio();
   if (!sound) return;
   try { await sound.stopAsync(); } catch {}
   try { await sound.unloadAsync(); } catch {}
@@ -101,6 +135,49 @@ async function createSoundWithRetry(
   throw lastError instanceof Error ? lastError : new Error('AUDIO_PREVIEW_LOAD_FAILED');
 }
 
+async function playWebSegment(
+  key: string,
+  previewUrl: string,
+  positionMillis: number,
+  durationMillis: number,
+  onStateChange?: (playing: boolean) => void,
+): Promise<void> {
+  const element = getWebAudio();
+  if (!element) throw new Error('WEB_AUDIO_UNAVAILABLE');
+
+  clearActiveTimer();
+  try { element.pause(); } catch {}
+  webAudioKey = key;
+  webAudioListener = onStateChange ?? null;
+
+  if (element.src !== previewUrl) {
+    element.src = previewUrl;
+    try { element.load(); } catch {}
+  }
+
+  const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+  try {
+    if (Number.isFinite(element.duration) && element.duration > 0) {
+      element.currentTime = Math.min(effectivePosition / 1000, Math.max(0, element.duration - 0.25));
+    } else {
+      element.currentTime = effectivePosition / 1000;
+    }
+  } catch {}
+
+  const playPromise = element.play();
+  if (playPromise && typeof playPromise.then === 'function') await playPromise;
+  if (webAudioKey !== key) return;
+  onStateChange?.(true);
+
+  activeTimer = setTimeout(() => {
+    if (webAudioKey !== key || webAudio !== element) return;
+    try { element.pause(); } catch {}
+    webAudioListener?.(false);
+    webAudioListener = null;
+    webAudioKey = null;
+  }, Math.max(1000, Math.round(durationMillis)));
+}
+
 /**
  * Joue un extrait promotionnel fourni par le catalogue. KEEP ne télécharge et
  * ne stocke jamais le fichier audio. Un seul extrait peut jouer à la fois :
@@ -155,6 +232,11 @@ export async function playTrackPreviewSegment(
   onStateChange?: (playing: boolean) => void,
 ): Promise<void> {
   return serialize(async () => {
+    if (canUseWebAudio()) {
+      await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange);
+      return;
+    }
+
     await unloadActive();
     await configurePreviewAudio();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
@@ -193,6 +275,18 @@ export async function scheduleTrackPreviewSegment(
   onStateChange?: (playing: boolean) => void,
 ): Promise<void> {
   return serialize(async () => {
+    if (canUseWebAudio()) {
+      clearActiveTimer();
+      const delay = Math.max(0, Math.round(startAtEpochMs - Date.now()));
+      activeStartTimer = setTimeout(() => {
+        activeStartTimer = null;
+        void serialize(async () => {
+          await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange);
+        });
+      }, delay);
+      return;
+    }
+
     await unloadActive();
     await configurePreviewAudio();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
@@ -230,11 +324,11 @@ export async function scheduleTrackPreviewSegment(
 
 export async function stopTrackPreview(key?: string): Promise<void> {
   return serialize(async () => {
-    if (key && activeKey !== key) return;
+    if (key && activeKey !== key && webAudioKey !== key) return;
     await unloadActive();
   });
 }
 
 export function isTrackPreviewActive(key: string): boolean {
-  return activeKey === key && activeSound !== null;
+  return (activeKey === key && activeSound !== null) || webAudioKey === key;
 }
