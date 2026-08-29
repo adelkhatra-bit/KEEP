@@ -1,4 +1,5 @@
 // @ts-nocheck
+// Branch-head verification: hardened in-card Battle accept/refuse flow.
 import fs from 'fs';
 import path from 'path';
 
