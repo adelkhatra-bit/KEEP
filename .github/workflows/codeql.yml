@@ -4,7 +4,7 @@ on:
   push:
     branches: ['reconcile/claude-main-20260825']
   pull_request:
-    branches: ['main', 'reconcile/claude-main-20260825']
+    branches: ['reconcile/claude-main-20260825']
   schedule:
     - cron: '17 4 * * 1'
 
