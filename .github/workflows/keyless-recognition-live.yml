@@ -46,6 +46,7 @@ jobs:
           if (!res.ok || payload?.ok !== true) throw new Error(`health failed: ${res.status} ${JSON.stringify(payload)}`);
           if (payload?.apiKeyRequired !== false) throw new Error('keyless resolver unexpectedly requires a private API key');
           if (!Array.isArray(payload?.catalogs) || !payload.catalogs.includes('APPLE_ITUNES_SEARCH')) throw new Error('Apple public catalog missing');
+          if (!payload.catalogs.includes('DEEZER_PUBLIC_SEARCH')) throw new Error('Deezer public catalog missing');
           console.log('KEYLESS HEALTH OK', payload);
           JS
       - name: Reconnaissance réelle — lien Apple public sans clé
@@ -62,7 +63,7 @@ jobs:
           if (!row?.trackViewUrl) throw new Error('stable public Apple test song not found');
           const res = await fetch(`${base}/functions/v1/keep-music-keyless-source`, {
             method: 'POST',
-            headers: { apikey: key, Authorization: `Bearer ${key}`, 'content-type': 'application/json', 'x-keep-device-id': 'github-keyless-live' },
+            headers: { apikey: key, Authorization: `Bearer ${key}`, 'content-type': 'application/json', 'x-keep-device-id': 'github-keyless-live-apple' },
             body: JSON.stringify({
               url: row.trackViewUrl,
               rawText: `${row.artistName} - ${row.trackName}`,
@@ -76,7 +77,31 @@ jobs:
           const artist = String(payload.recognition.artist || '').toLowerCase();
           if (!title.includes('one more time') || !artist.includes('daft punk')) throw new Error(`wrong recognition: ${JSON.stringify(payload.recognition)}`);
           if (Number(payload.recognition.confidence || 0) < 0.68) throw new Error(`confidence too low: ${payload.recognition.confidence}`);
-          console.log('KEYLESS LIVE RECOGNITION OK', { strategy: payload.strategy, title: payload.recognition.title, artist: payload.recognition.artist, confidence: payload.recognition.confidence });
+          console.log('KEYLESS APPLE LINK OK', { strategy: payload.strategy, title: payload.recognition.title, artist: payload.recognition.artist, confidence: payload.recognition.confidence });
+          JS
+      - name: Reconnaissance réelle — métadonnées partagées sans URL ni clé
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'JS'
+          const base = process.env.KEEP_SUPABASE_URL;
+          const key = process.env.KEEP_SUPABASE_ANON_KEY;
+          const res = await fetch(`${base}/functions/v1/keep-music-keyless-source`, {
+            method: 'POST',
+            headers: { apikey: key, Authorization: `Bearer ${key}`, 'content-type': 'application/json', 'x-keep-device-id': 'github-keyless-live-metadata' },
+            body: JSON.stringify({
+              rawText: 'Daft Punk - One More Time',
+              title: 'Daft Punk - One More Time',
+              platform: 'TIKTOK',
+            }),
+          });
+          const payload = await res.json();
+          if (!res.ok || !payload?.recognition) throw new Error(`metadata-only recognition failed: ${res.status} ${JSON.stringify(payload)}`);
+          const title = String(payload.recognition.title || '').toLowerCase();
+          const artist = String(payload.recognition.artist || '').toLowerCase();
+          if (!title.includes('one more time') || !artist.includes('daft punk')) throw new Error(`wrong metadata-only recognition: ${JSON.stringify(payload.recognition)}`);
+          if (Number(payload.recognition.confidence || 0) < 0.68) throw new Error(`metadata-only confidence too low: ${payload.recognition.confidence}`);
+          console.log('KEYLESS METADATA ONLY OK', { strategy: payload.strategy, title: payload.recognition.title, artist: payload.recognition.artist, confidence: payload.recognition.confidence });
           JS
       - name: Contrat mobile — fallback sans clé reste branché
         run: |
@@ -84,3 +109,4 @@ jobs:
           grep -q "resolveKeylessSocialMusic" packages/mobile/src/components/SharedMusicHandoff.tsx
           grep -q "ingestExternalRecognition" packages/mobile/src/components/SharedMusicHandoff.tsx
           grep -q "apiKeyRequired: false" supabase/functions/keep-music-keyless-source/index.ts
+          grep -q "FALLBACK_RECHECK_MS = 30 \* 1000" packages/mobile/src/services/keepMusicCoreRecognition.ts
