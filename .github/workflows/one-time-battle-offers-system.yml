@@ -6,6 +6,7 @@ on:
       - reconcile/claude-main-20260825
     paths:
       - scripts/one_time_battle_offers_system.py
+      - scripts/one_time_battle_offers_trigger.txt
 
 permissions:
   contents: write
