@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# One-shot patch: source changes are committed atomically with their cleanup.
+
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
     count = text.count(old)
