@@ -1,0 +1,44 @@
+name: KEEP — KEEP utilisateurs Semantic Fallback
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/one-time-keep-user-semantic-fallback.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-user-semantic-fallback
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - run: git pull --ff-only origin reconcile/claude-main-20260825
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: python scripts/one_time_keep_user_semantic_fallback.py
+      - run: node scripts/verify-source-of-truth.cjs
+      - run: npm --workspace packages/mobile run type-check
+      - run: npm --workspace packages/mobile test -- --runInBand
+      - name: Commit verified source
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(profile): preserve KEEP utilisateurs semantics on fallback"
+            git pull --rebase origin reconcile/claude-main-20260825
+            git push origin HEAD:reconcile/claude-main-20260825
+          fi
