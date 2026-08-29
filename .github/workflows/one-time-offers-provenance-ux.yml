@@ -1,0 +1,88 @@
+name: KEEP Offers and Provenance UX
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - scripts/one_time_offers_provenance_ux.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Sync branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+
+      - name: Apply UX patch
+        run: python3 scripts/one_time_offers_provenance_ux.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm run type-check --workspace=packages/mobile
+
+      - name: Test mobile
+        run: npm test --workspace=packages/mobile -- --runInBand
+
+      - name: Verify product contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          offers = Path('packages/mobile/src/screens/OffersScreen.tsx').read_text()
+          own = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
+          public = Path('packages/mobile/src/screens/PublicUserProfileScreen.tsx').read_text()
+          core = Path('supabase/functions/keep-music-core/index.ts').read_text()
+          required = [
+            (offers, 'Écoute. Garde. Partage. Recharge.'),
+            (offers, 'Fais grandir ta communauté musicale.'),
+            (offers, 'Ta découverte reste attribuée à ton profil.'),
+            (offers, '0 Free'),
+            (offers, 'discoveryExpanded'),
+            (offers, 'expandedPlanCode'),
+            (own, 'Découvert avec Écouter par'),
+            (public, 'Découvert avec Écouter par'),
+            (public, 'sourceUsername: entry.sourceUsername'),
+            (core, 'resolveSocialOrigin'),
+            (core, 'validUuid(data?.source_user_id) ?? sourceProfileId'),
+          ]
+          missing = [needle for haystack, needle in required if needle not in haystack]
+          if missing:
+            raise SystemExit('Missing product contracts: ' + repr(missing))
+          forbidden = [
+            (own, 'sourceUsername.slice(0, 4)'),
+            (offers, 'Tout Premium +'),
+            (offers, 'Tout Creator Pro +'),
+          ]
+          bad = [needle for haystack, needle in forbidden if needle in haystack]
+          if bad:
+            raise SystemExit('Repetitive/legacy wording remains: ' + repr(bad))
+          PY
+
+      - name: Commit verified changes
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/OffersScreen.tsx packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
+          if git diff --cached --quiet; then
+            echo "No source changes"
+            exit 0
+          fi
+          git commit -m "fix(mobile): clarify Free plans and discovery attribution"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
