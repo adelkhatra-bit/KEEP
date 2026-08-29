@@ -1,6 +1,6 @@
 from pathlib import Path
 
-# Battle: always reload authoritative arena after accept; enlarge invitation without changing card design.
+# Battle: authoritative reload after accept + readable mobile invitation.
 p=Path('packages/mobile/src/components/KeepBattleMobileGameV3.tsx')
 s=p.read_text()
 s=s.replace("const loadedArena = response.arenaState || await loadArenaAfterAccept(response.arenaId);", "const loadedArena = await loadArenaAfterAccept(response.arenaId);", 1)
@@ -15,8 +15,7 @@ s=s.replace("yes: { flex: 1, minHeight: 56, paddingHorizontal: 14, borderRadius:
 s=s.replace("yesText: { color: '#17130B', fontSize: 14", "yesText: { color: '#17130B', fontSize: 15", 1)
 p.write_text(s)
 
-# Discovery: newest public profiles must not disappear just because they have no GPS yet.
-# Local radii use GPS when present, then same-city/same-country fallback. WORLD shows every public visible profile.
+# Discovery: keep privacy rules, but do not bury a newly-created eligible profile behind the free quota.
 p=Path('packages/mobile/src/screens/DiscoverScreen.tsx')
 s=p.read_text()
 s=s.replace("  approxLng?: number;\n};", "  approxLng?: number;\n  createdAt?: string;\n};", 1)
@@ -32,6 +31,21 @@ new="""    }).filter((item) => {
     });"""
 if old not in s: raise SystemExit('discover radius anchor missing')
 s=s.replace(old,new,1)
-s=s.replace("if (a.distance === null && b.distance === null) return a.profile.username.localeCompare(b.profile.username);", "if (a.distance === null && b.distance === null) return String(b.profile.createdAt || '').localeCompare(String(a.profile.createdAt || '')) || a.profile.username.localeCompare(b.profile.username);", 1)
+old_sort="""    return measured.sort((a, b) => {
+      if (a.distance === null && b.distance === null) return a.profile.username.localeCompare(b.profile.username);
+      if (a.distance === null) return 1;
+      if (b.distance === null) return -1;
+      return a.distance - b.distance;
+    }).map((item) => item.profile);"""
+new_sort="""    return measured.sort((a, b) => {
+      const recent = String(b.profile.createdAt || '').localeCompare(String(a.profile.createdAt || ''));
+      if (recent !== 0) return recent;
+      if (a.distance === null && b.distance === null) return a.profile.username.localeCompare(b.profile.username);
+      if (a.distance === null) return 1;
+      if (b.distance === null) return -1;
+      return a.distance - b.distance;
+    }).map((item) => item.profile);"""
+if old_sort not in s: raise SystemExit('discover sort anchor missing')
+s=s.replace(old_sort,new_sort,1)
 s=s.replace("  }, [profiles, radiusKm, searchPosition, hasSearched]);", "  }, [profiles, radiusKm, searchPosition, hasSearched, user?.city, user?.countryCode]);", 1)
 p.write_text(s)
