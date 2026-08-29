@@ -1,0 +1,50 @@
+name: KEEP Battle native push actions fix
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'scripts/patch_keep_battle_native_push_actions.py'
+      - '.github/workflows/keep-battle-native-push-actions-once.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-battle-native-push-actions
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply native notification actions
+        run: python scripts/patch_keep_battle_native_push_actions.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Battle notification actions
+        run: |
+          grep -Fq "const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'" packages/mobile/src/services/pushNotificationService.ts
+          grep -Fq "buttonTitle: 'REFUSER'" packages/mobile/src/services/pushNotificationService.ts
+          grep -Fq "buttonTitle: 'ACCEPTER'" packages/mobile/src/services/pushNotificationService.ts
+          grep -Fq 'categoryId: BATTLE_CATEGORY' packages/backend/src/lib/pushNotifications.ts
+          npm --prefix packages/mobile run type-check
+          npm --prefix packages/backend run build
+          npm --prefix packages/mobile test -- --runInBand BattleNotificationActions.contract.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/services/pushNotificationService.ts packages/backend/src/lib/pushNotifications.ts packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts
+          git commit -m 'fix(battle): add accept refuse native push actions'
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825
