@@ -34,6 +34,7 @@ jobs:
       - name: Verify
         run: |
           grep -Fq "if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          grep -Fq "setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS)" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
           npm --prefix packages/mobile run type-check
           npm --prefix packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts
       - name: Commit
