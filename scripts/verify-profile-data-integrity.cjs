@@ -45,9 +45,11 @@ for (const marker of ["kind?: 'connections' | 'keeps'", "label: { color: '#FFFFF
 }
 
 const publicShare = read('packages/mobile/share-profile.html');
-for (const marker of ['class="connections"', 'class="stats"', 'followAccountRoute', 'CRÉER MON COMPTE']) {
+for (const marker of ['class="connections"', 'class="stats"', 'followAccountRoute', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile']) {
   if (!publicShare.includes(marker)) failures.push(`PERMANENT PUBLIC PROFILE COUNTER/FOLLOW CONTRACT MISSING: ${marker}`);
 }
+if (!publicShare.includes("followAccountRoute(p.username,'login')")) failures.push('PERMANENT PUBLIC PROFILE FOLLOW MUST PRIORITIZE LOGIN');
+if (!publicShare.includes('setTimeout(()=>controller.abort(),10000)')) failures.push('PERMANENT PUBLIC PROFILE FOLLOW TIMEOUT MISSING');
 const connectionsIndex = publicShare.indexOf('class="connections"');
 const keepStatsIndex = publicShare.indexOf('class="stats"');
 if (connectionsIndex < 0 || keepStatsIndex < 0 || connectionsIndex > keepStatsIndex) failures.push('PERMANENT PUBLIC PROFILE COUNTER ORDER CHANGED');
@@ -94,6 +96,7 @@ console.log('KEEP PROFILE DATA INTEGRITY: PASS');
 console.log('owner list/count: same authenticated server library; profile render: PUBLIC only');
 console.log('public list/count: same public distinct library');
 console.log('profile counters: shared owner/visitor component + permanent public page order enforced');
+console.log('shared profile follow: login-first handoff + secured follow/unfollow RPC + bounded request');
 console.log('guest/demo music: isolated from authenticated accounts');
 console.log('GPS: native + web foreground location, city/country resolution, approximate coordinates + persisted opt-in contract present');
 console.log('protected shell: App.tsx + Navigation.tsx unchanged');
