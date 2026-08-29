@@ -44,6 +44,7 @@ jobs:
           own = Path('packages/mobile/src/screens/ProfilePublicScreen.tsx').read_text()
           public = Path('packages/mobile/src/screens/PublicUserProfileScreen.tsx').read_text()
           state = Path('packages/mobile/src/services/publicProfileStateService.ts').read_text()
+          offers = Path('packages/mobile/src/screens/OffersScreen.tsx').read_text()
           required = [
             (own, 'Vibes (ambiances & styles)'),
             (own, 'Ce ne sont ni des albums ni des événements.'),
@@ -51,18 +52,17 @@ jobs:
             (own, 'Albums (un artiste + un album)'),
             (own, 'const albumGroups = useMemo'),
             (own, 'const displayPlaylists = useMemo<ProviderPlaylist[]>(() => smartAlbums.map(smartAlbumAsProviderPlaylist), [smartAlbums]);'),
-            (own, 'Tes écoutes et tes partages de liens = tes propres découvertes.'),
-            (own, 'Découvert par'),
+            (own, 'Tes morceaux ajoutés avec Écouter sont tes découvertes.'),
+            (own, 'Découvert en Écoute par'),
             (own, 'via @'),
-            (public, 'Une musique trouvée directement par cette personne est sa découverte.'),
-            (public, 'Découvert par'),
+            (public, 'Une musique trouvée directement avec Écouter par cette personne est sa découverte.'),
+            (public, 'Découvert en Écoute par'),
             (public, 'via @'),
             (public, "navigation.navigate('PublicProfile', { username: sourceUsername.replace(/^@+/, '') })"),
             (state, 'originUserId?: string;'),
             (state, 'originUsername?: string;'),
-            (state, 'sourceProfileId?: string;'),
-            (state, 'sourceUsername?: string;'),
             (state, 'contextSourceProfileId'),
+            (offers, 'Chaque morceau que tu ajoutes grâce à Écouter peut porter ton @ comme découvreur d’origine.'),
           ]
           missing = [needle for haystack, needle in required if needle not in haystack]
           if missing:
@@ -77,7 +77,7 @@ jobs:
         run: |
           git config user.name "KEEP QA Bot"
           git config user.email "keep-qa-bot@users.noreply.github.com"
-          git add packages/mobile/src/services/publicProfileStateService.ts packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx
+          git add packages/mobile/src/services/publicProfileStateService.ts packages/mobile/src/screens/ProfilePublicScreen.tsx packages/mobile/src/screens/PublicUserProfileScreen.tsx packages/mobile/src/screens/OffersScreen.tsx
           if git diff --cached --quiet; then
             echo "No source change required"
             exit 0
