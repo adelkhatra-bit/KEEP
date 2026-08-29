@@ -1,0 +1,39 @@
+name: KEEP Battle accept + credit + mobile size
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_keep_battle_accept_credit_and_mobile_size.py'
+      - '.github/workflows/keep-battle-accept-credit-mobile-size-once.yml'
+      - 'supabase/migrations/20260829151000_keep_battle_credit_gate_and_between_match_join.sql'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Sync branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply accept + mobile size repair
+        run: python scripts/patch_keep_battle_accept_credit_and_mobile_size.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Battle mobile
+        run: |
+          npx tsc -p packages/mobile/tsconfig.json --noEmit
+          npx jest packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts --runInBand
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
+          git commit -m 'fix(battle): gate credit failures and enlarge invite actions'
+          git push origin HEAD:reconcile/claude-main-20260825
