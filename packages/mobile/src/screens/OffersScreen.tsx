@@ -3,6 +3,7 @@ import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, Touchabl
 import { useUserStore } from '../store/useUserStore';
 import { CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
+import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
@@ -64,7 +65,7 @@ function compatiblePlanCodes(feature: string, focusPlan: string): string[] {
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
-  if (feature === 'SMART_SORTING') return `Le rangement automatique KEEP Vibes est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
+  if (feature === 'SMART_SORTING') return `KEEP Vibes classe automatiquement ta musique par ambiances et styles. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
@@ -79,18 +80,18 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     'Écoute et reconnaissance illimitées : tes sessions continuent même sans crédit.',
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts, puis Premium ou bonus gagnés avec ta communauté.`,
     `${funnel.guestSuccessLimit} KEEP avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
-    'Pas de rangement automatique par défaut : des essais peuvent se débloquer en partageant et en gagnant des abonnés.',
+    'Recharge tes Free en partageant KEEP, en faisant grandir tes abonnés et en remportant des KEEP Battles.',
   ];
   if (planCode === 'PREMIUM') return [
     'Écoute illimitée et profil musical étendu en illimité.',
     `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
     'Découvertes de profils en illimité.',
-    `${rules.premiumSmartSortTrials} essais de KEEP Vibes automatique, puis Creator Pro pour le rangement illimité.`,
+    `${rules.premiumSmartSortTrials} essais de KEEP Vibes : KEEP classe automatiquement ta musique par ambiances et styles.`,
     'Profil reste « Utilisateur » : DJ / Artiste / Créateur se débloquent avec Creator Pro.',
   ];
   if (planCode === 'CREATOR_PRO') return [
     'Tout Premium + téléchargements illimités.',
-    'KEEP Vibes automatique en illimité : styles, albums intelligents et renommage libre.',
+    'KEEP Vibes illimité : classement automatique par styles/ambiances, albums intelligents et renommage libre.',
     'Choisis ton profil : DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois + notifications aux abonnés.`,
     'Analytics et fonctions créateur avancées.',
@@ -117,6 +118,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const [plans, setPlans] = useState<KeepPlan[]>([]);
   const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
   const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
+  const [battleRules, setBattleRules] = useState<KeepBattleArenaRules>(DEFAULT_KEEP_BATTLE_RULES);
   const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
   const [currentPlan, setCurrentPlan] = useState('FREE');
   const [loading, setLoading] = useState(true);
@@ -127,11 +129,12 @@ export default function OffersScreen({ navigation, route }: any) {
     (async () => {
       try {
         const canLoadGrowth = Boolean(user && !isLocalGuest && !isDemoMode);
-        const [livePlans, liveFunnel, planCode, liveRules, liveGrowth] = await Promise.all([
+        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth] = await Promise.all([
           loadPlans(),
           loadCreditFunnel(),
           user ? loadCurrentPlanCode(user.id) : Promise.resolve('FREE'),
           getCommercialRules(),
+          loadKeepBattleArenaRules(),
           canLoadGrowth ? getGrowthRewardStatus().catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
@@ -139,6 +142,7 @@ export default function OffersScreen({ navigation, route }: any) {
         setFunnel(liveFunnel);
         setCurrentPlan(planCode || 'FREE');
         setRules(liveRules);
+        setBattleRules(liveBattleRules);
         setGrowth(liveGrowth);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Impossible de charger les offres.');
@@ -184,27 +188,66 @@ export default function OffersScreen({ navigation, route }: any) {
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>KEEP</Text>
-            <Text style={s.promiseTitle}>Plus ton profil musical grandit, plus ta communauté peut grandir.</Text>
-            <Text style={s.promiseBody}>Garde tes morceaux, partage ton profil et gagne des abonnés : les paliers débloquent crédits Free, Découvertes et KEEP Vibes.</Text>
+            <Text style={s.promiseTitle}>Écoute. Garde. Partage. Recharge.</Text>
+            <Text style={s.promiseBody}>Les Free servent à GARDER les morceaux détectés avec Écouter. L’écoute, la reconnaissance et PASSER restent gratuits.</Text>
           </View>
 
           <View style={s.creditCard}>
-            <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes avantages Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
-            <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés` : ''}.</Text>
-            <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 crédit. GARDER un morceau détecté avec Écouter = 1 crédit Free. Prendre un morceau sur le profil d’un autre membre = 0 crédit.</Text>
+            <View style={s.creditTop}><View><Text style={s.sectionTitle}>Tes Free obtenus</Text><Text style={s.creditBig}>{freeTotal}</Text></View><View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View></View>
+            <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés avec ta communauté` : ''}.</Text>
+            <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = 1 Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
             {growth ? <View style={s.growthGrid}>
               <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
               <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
-              <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>crédits gagnés</Text></View>
+              <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>Free gagnés</Text></View>
             </View> : null}
-            <View style={s.ladder}>
-              <Text style={s.ladderTitle}>PALIERS COMMUNAUTÉ</Text>
-              <Text style={s.ladderLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
-              <Text style={s.ladderLine}>{f2} abonnés → +{fr.tier2Sort} essai KEEP Vibes automatique</Text>
-              <Text style={s.ladderLine}>{f3} abonnés → +{fr.tier3Credits} crédits Free</Text>
-              <Text style={s.ladderLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes · événements selon formule</Text>
-              <Text style={s.ladderLine}>{f5} abonnés → +{fr.tier5Credits} crédits Free + Audience Pro</Text>
-              <Text style={s.ladderHint}>Partages : {s1} → +{sr.tier1Discovery} Découvertes · {s2} → +{sr.tier2Credits} crédits · {s3} → +{sr.tier3Credits} crédits + {sr.tier3Sort} essai Vibes.</Text>
+
+            <View style={s.rechargeBox}>
+              <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
+              <Text style={s.rechargeTitle}>Pas besoin de payer pour continuer.</Text>
+              <Text style={s.rechargeIntro}>Fais vivre ton profil KEEP : certaines actions te redonnent réellement des Free.</Text>
+
+              <View style={s.rechargeItem}>
+                <Text style={s.rechargeIcon}>↗</Text>
+                <View style={s.rechargeCopy}>
+                  <Text style={s.rechargeItemTitle}>Partage KEEP</Text>
+                  <Text style={s.rechargeItemText}>{s2} partages qualifiés → +{sr.tier2Credits} Free · {s3} partages → +{sr.tier3Credits} Free.</Text>
+                  <Text style={s.rechargeHint}>Un partage doit être comptabilisé comme qualifié par KEEP. Limite actuelle : {rules.shareDailyCap} partages comptabilisés par jour.</Text>
+                </View>
+              </View>
+
+              <View style={s.rechargeItem}>
+                <Text style={s.rechargeIcon}>＋</Text>
+                <View style={s.rechargeCopy}>
+                  <Text style={s.rechargeItemTitle}>Fais grandir tes abonnés</Text>
+                  <Text style={s.rechargeItemText}>{f3} abonnés → +{fr.tier3Credits} Free · {f5} abonnés → +{fr.tier5Credits} Free.</Text>
+                  <Text style={s.rechargeHint}>Les autres paliers peuvent donner des Découvertes ou des essais Vibes, mais ils ne sont pas comptés comme des Free.</Text>
+                </View>
+              </View>
+
+              <View style={s.rechargeItem}>
+                <Text style={s.rechargeIcon}>⚡</Text>
+                <View style={s.rechargeCopy}>
+                  <Text style={s.rechargeItemTitle}>Gagne un KEEP Battle</Text>
+                  <Text style={s.rechargeItemText}>Battle de 2 à {battleRules.maxPlayers} joueurs : le vainqueur gagne {battleRules.stakeFree} Free par adversaire battu.</Text>
+                  <Text style={s.rechargeHint}>Il faut au moins {battleRules.minimumFreeRequired} Free pour entrer. À {battleRules.maxPlayers} joueurs, le gain peut atteindre +{battleRules.fullArenaNetPrize} Free. Si tu perds, -{battleRules.stakeFree} Free.</Text>
+                </View>
+              </View>
+
+              <View style={s.startBonus}>
+                <Text style={s.startBonusTitle}>BONUS DE DÉPART</Text>
+                <Text style={s.startBonusText}>{funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. C’est un bonus de démarrage, pas une recharge répétable.</Text>
+              </View>
+            </View>
+
+            <View style={s.otherRewards}>
+              <Text style={s.otherRewardsTitle}>AUTRES BONUS À GAGNER</Text>
+              <Text style={s.otherRewardsLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
+              <Text style={s.otherRewardsLine}>{f2} abonnés → +{fr.tier2Sort} essai Vibes</Text>
+              <Text style={s.otherRewardsLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes</Text>
+              <Text style={s.otherRewardsLine}>{s1} partages → +{sr.tier1Discovery} Découvertes</Text>
+              <Text style={s.otherRewardsLine}>{s3} partages → +{sr.tier3Sort} essai Vibes en plus des Free</Text>
+              <Text style={s.vibesDefinition}>Vibes = KEEP range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
             </View>
           </View>
         </>}
@@ -239,7 +282,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Règles simples</Text>
-          <Text style={s.subscriptionText}>Free gagne des options par paliers. Premium donne l’usage quotidien confortable. Creator Pro débloque le rangement automatique et 1 soirée par mois à partir de {f4} abonnés. Venue Pro passe les soirées en illimité à partir du même seuil et ouvre les outils professionnels.</Text>
+          <Text style={s.subscriptionText}>Free permet de découvrir KEEP et peut se recharger grâce au partage, aux abonnés et aux victoires Battle. Premium donne l’usage quotidien confortable. Creator Pro ajoute Vibes illimité et les outils créateur. Venue Pro ajoute les outils professionnels et les événements illimités selon les règles affichées.</Text>
         </View>
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
@@ -284,10 +327,23 @@ const s = StyleSheet.create({
   growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   growthValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   growthLabel: { color: '#E9E3F0', fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2, fontWeight: '700' },
-  ladder: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#493369', paddingTop: 10 },
-  ladderTitle: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  ladderLine: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 2, fontWeight: '700' },
-  ladderHint: { color:'#FFFFFF', fontSize: 9, lineHeight: 14, marginTop: 6, fontWeight: '700' },
+  rechargeBox: { marginTop: 13, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
+  rechargeEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  rechargeTitle: { color: '#FFFFFF', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 3 },
+  rechargeIntro: { color: '#FFFFFF', fontSize: 10, lineHeight: 15, fontWeight: '700', marginTop: 4 },
+  rechargeItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: '#254936' },
+  rechargeIcon: { width: 25, color: '#7CF2B9', fontSize: 19, fontWeight: '900', textAlign: 'center' },
+  rechargeCopy: { flex: 1 },
+  rechargeItemTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  rechargeItemText: { color: '#FFFFFF', fontSize: 10, lineHeight: 15, fontWeight: '800', marginTop: 2 },
+  rechargeHint: { color: '#FFFFFF', fontSize: 8, lineHeight: 12, fontWeight: '700', marginTop: 3 },
+  startBonus: { marginTop: 10, borderRadius: 12, backgroundColor: '#17241D', paddingHorizontal: 9, paddingVertical: 8 },
+  startBonusTitle: { color: '#7CF2B9', fontSize: 8, fontWeight: '900', letterSpacing: .7 },
+  startBonusText: { color: '#FFFFFF', fontSize: 9, lineHeight: 13, fontWeight: '700', marginTop: 2 },
+  otherRewards: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#493369', paddingTop: 10 },
+  otherRewardsTitle: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  otherRewardsLine: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 2, fontWeight: '700' },
+  vibesDefinition: { color: '#FFFFFF', fontSize: 9, lineHeight: 14, marginTop: 7, fontWeight: '800' },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
   planCardFocused: { borderColor: colors.primaryLight, borderWidth: 2 },
