@@ -50,11 +50,12 @@ begin
   insert into public.keep_decisions(profile_id, track_id, decision, visibility, source_type, created_at)
   values(uid, v_track_id, 'KEPT', 'PUBLIC', 'listen', now() - interval '1 minute');
 
-  -- Reproduit exactement l'association écrite par l'app : added_via='KEEP'.
-  insert into public.playlists(id, owner_id, name, visibility)
-  values(v_playlist_id, uid, 'Delete CI Playlist', 'PRIVATE');
-  insert into public.playlist_tracks(playlist_id, track_id, position, added_via)
-  values(v_playlist_id, v_track_id, 1, 'KEEP');
+  -- Reproduit l'association écrite par l'app avec le schéma playlist actuel.
+  -- La suppression doit reconnaître added_via='KEEP' sans dépendre de la casse.
+  insert into public.playlists(id, owner_id, provider, name, is_public)
+  values(v_playlist_id, uid, 'keep', 'Delete CI Playlist', false);
+  insert into public.playlist_tracks(playlist_id, track_id, added_via)
+  values(v_playlist_id, v_track_id, 'KEEP');
 
   -- Le crédit représente une consommation historique. Il ne doit jamais être
   -- recalculé à la baisse à partir du nombre de morceaux encore présents.
