@@ -2,72 +2,57 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
-import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
-import { useUserStore } from '../store/useUserStore';
-import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { colors } from '../theme/colors';
-import { spacing, radius, typography } from '../theme/spacing';
 import { supabase } from '../services/supabaseClient';
-import { loadCurrentPlanCode } from '../services/planService';
-import { DiscoveryAccess, getDiscoveryAccess } from '../services/growthAccessService';
-import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
-import { normalizeOptionalCoordinate } from '../services/discoveryCoordinate';
-import SwipeDeck from '../components/SwipeDeck';
+import { useUserStore } from '../store/useUserStore';
+import { getDiscoveryAccess, loadDiscoveryEntitlement, DiscoveryAccess } from '../services/growthAccessService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
+import ProfileCounterRow from '../components/ProfileCounterRow';
+import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
 
-type DiscoveryProfile = {
-  id: string;
-  username: string;
-  avatarUrl?: string;
-  bio: string;
-  city?: string;
-  countryCode?: string;
-  kind: string;
-  favoriteGenres: string[];
-  favoriteArtists: string[];
-  approxLat?: number;
-  approxLng?: number;
-};
-
-const PROFILE_KIND_LABELS: Record<string, string> = {
-  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
-};
+const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
-const DISCOVERY_RADII = [10, 50, 100, 300, 1000, 20000] as const;
 
 type SearchPosition = { latitude: number; longitude: number };
 
-function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number) {
-  const rad = (value: number) => value * Math.PI / 180;
-  const dLat = rad(bLat - aLat);
-  const dLng = rad(bLng - aLng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng / 2) ** 2;
-  return 6371 * 2 * Math.asin(Math.sqrt(h));
+type ProfileCard = {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  bio?: string;
+  city?: string;
+  countryCode?: string;
+  approxLat?: number | null;
+  approxLng?: number | null;
+  favoriteGenres: string[];
+  favoriteArtists: string[];
+  certificationTier?: 'FREE' | 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO' | 'UNVERIFIED';
+};
+
+function normalizeList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 }
 
-function normalizeProfile(row: any): DiscoveryProfile {
-  return {
-    id: String(row.id),
-    username: String(row.username || ''),
-    avatarUrl: row.avatar_url || undefined,
-    bio: String(row.bio || ''),
-    city: row.city || undefined,
-    countryCode: row.country_code || undefined,
-    kind: String(row.kind || 'USER'),
-    favoriteGenres: Array.isArray(row.favorite_genres) ? row.favorite_genres : [],
-    favoriteArtists: Array.isArray(row.favorite_artists) ? row.favorite_artists : [],
-    approxLat: normalizeOptionalCoordinate(row.approx_lat),
-    approxLng: normalizeOptionalCoordinate(row.approx_lng),
-  };
+function normalizeOptionalCoordinate(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
-function overlapScore(me: string[], them: string[]) {
-  const a = new Set(me.map((value) => value.trim().toLowerCase()).filter(Boolean));
-  const b = new Set(them.map((value) => value.trim().toLowerCase()).filter(Boolean));
-  if (!a.size || !b.size) return null;
-  let common = 0;
-  a.forEach((value) => { if (b.has(value)) common += 1; });
-  return Math.round((common / Math.max(a.size, b.size)) * 100);
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const r = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function overlapScore(a: string[], b: string[]): number {
+  const left = new Set(a.map((item) => item.trim().toLowerCase()).filter(Boolean));
+  const right = new Set(b.map((item) => item.trim().toLowerCase()).filter(Boolean));
+  if (!left.size || !right.size) return 0;
+  const matches = [...left].filter((item) => right.has(item)).length;
+  return Math.round((matches / Math.max(left.size, right.size)) * 100);
 }
 
 export default function DiscoverScreen({ navigation }: any) {
@@ -75,107 +60,91 @@ export default function DiscoverScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
-  const sessions = useSessionHistoryStore((s) => s.sessions);
-  const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
-  const [profileIndex, setProfileIndex] = useState(0);
-  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [profiles, setProfiles] = useState<ProfileCard[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [planCode, setPlanCode] = useState('FREE');
-  const [accessLoading, setAccessLoading] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(25);
+  const [profileIndex, setProfileIndex] = useState(0);
   const [discoveryAccess, setDiscoveryAccess] = useState<DiscoveryAccess | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
   const [guestSeenIds, setGuestSeenIds] = useState<string[]>([]);
   const [followBusy, setFollowBusy] = useState(false);
   const [followNotice, setFollowNotice] = useState('');
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(100);
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [profileQuery, setProfileQuery] = useState('');
 
-  const myDna = useMemo(() => {
-    const decisions: DnaSourceDecision[] = sessions.flatMap((session) =>
-      session.tracks
-        .filter((track) => track.status === 'kept')
-        .map((track) => ({ artist: track.track.artist, genres: track.track.genres ?? [], decision: 'KEPT' as const, createdAt: track.detectedAt }))
-    );
-    return computeMusicDNA(decisions);
-  }, [sessions]);
-
-  const trends = useMemo(() => {
-    const counts = new Map<string, number>();
-    sessions.forEach((session) => session.tracks.forEach((track) => {
-      if (track.status !== 'kept') return;
-      counts.set(track.track.artist, (counts.get(track.track.artist) ?? 0) + 1);
-    }));
-    return Array.from(counts.entries()).map(([artist, count]) => ({ artist, count })).sort((a, b) => b.count - a.count).slice(0, 6);
-  }, [sessions]);
-
   useEffect(() => {
     let live = true;
-    const loadPlan = async () => {
-      if (!user || isLocalGuest || isDemoMode) {
-        if (live) setPlanCode(isDemoMode ? 'DEMO' : 'FREE');
+    const load = async () => {
+      if (isDemoMode || !supabase) {
+        if (live) setProfiles([
+          { id: 'demo-julie', username: 'julie.vibes', bio: 'Pop française · Lyon', city: 'Lyon', countryCode: 'FR', approxLat: 45.764, approxLng: 4.836, favoriteGenres: ['Pop', 'Dance'], favoriteArtists: ['Dua Lipa', 'Angèle'] },
+          { id: 'demo-maxime', username: 'maxime.mix', bio: 'Rap · Afro · soirées', city: 'Villeurbanne', countryCode: 'FR', approxLat: 45.771, approxLng: 4.88, favoriteGenres: ['Rap', 'Afro'], favoriteArtists: ['Damso', 'Burna Boy'] },
+          { id: 'demo-lea', username: 'lea.keep', bio: 'R&B · Soul', city: 'Lyon', countryCode: 'FR', approxLat: 45.75, approxLng: 4.85, favoriteGenres: ['R&B', 'Soul'], favoriteArtists: ['SZA', 'The Weeknd'] },
+        ]);
         return;
       }
-      try {
-        const code = await loadCurrentPlanCode(user.id);
-        if (live) setPlanCode(code || 'FREE');
-      } catch { if (live) setPlanCode('FREE'); }
-    };
-    void loadPlan();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void loadPlan(); });
-    return () => { live = false; unsubscribe?.(); };
-  }, [user?.id, isLocalGuest, isDemoMode, navigation]);
-
-  useEffect(() => {
-    setHasSearched(false);
-    setSearchPosition(null);
-    setProfileIndex(0);
-    setDiscoveryAccess(null);
-    setCurrentProfileSnapshot(null);
-    setProfileQuery('');
-  }, [user?.id]);
-
-  useEffect(() => {
-    let live = true;
-    const loadProfiles = async () => {
       setLoadingProfiles(true);
-      if (!supabase) { if (live) setLoadingProfiles(false); return; }
       try {
         let query = supabase
           .from('profiles')
-          .select('id,username,avatar_url,bio,city,country_code,kind,favorite_genres,favorite_artists,approx_lat,approx_lng')
+          .select('id,username,avatar_url,bio,city,country_code,approx_lat,approx_lng,favorite_genres,favorite_artists,certification_tier')
           .eq('is_public', true)
           .eq('discovery_hidden', false)
-          .limit(80);
-        if (user?.id && !isLocalGuest) query = query.neq('id', user.id);
+          .order('updated_at', { ascending: false })
+          .limit(100);
+        if (user?.id) query = query.neq('id', user.id);
         const { data, error } = await query;
         if (error) throw error;
-        if (!live) return;
-        const normalized = (data ?? []).map(normalizeProfile).filter((profile) => profile.username);
-        normalized.sort((a, b) => {
-          const aCity = Boolean(user?.city && a.city && a.city.toLowerCase() === user.city.toLowerCase());
-          const bCity = Boolean(user?.city && b.city && b.city.toLowerCase() === user.city.toLowerCase());
-          if (aCity !== bCity) return aCity ? -1 : 1;
-          const aCountry = Boolean(user?.countryCode && a.countryCode === user.countryCode);
-          const bCountry = Boolean(user?.countryCode && b.countryCode === user.countryCode);
-          if (aCountry !== bCountry) return aCountry ? -1 : 1;
-          const aAvatar = Boolean(a.avatarUrl);
-          const bAvatar = Boolean(b.avatarUrl);
-          if (aAvatar !== bAvatar) return aAvatar ? -1 : 1;
-          return a.username.localeCompare(b.username);
-        });
-        setProfiles(normalized);
-        setProfileIndex(0);
+        if (live) setProfiles((data ?? []).map((row: any) => ({
+          id: row.id,
+          username: row.username || 'keep-user',
+          avatarUrl: row.avatar_url || undefined,
+          bio: row.bio || undefined,
+          city: row.city || undefined,
+          countryCode: row.country_code || undefined,
+          approxLat: normalizeOptionalCoordinate(row.approx_lat),
+          approxLng: normalizeOptionalCoordinate(row.approx_lng),
+          favoriteGenres: normalizeList(row.favorite_genres),
+          favoriteArtists: normalizeList(row.favorite_artists),
+          certificationTier: row.certification_tier || undefined,
+        })));
       } catch {
         if (live) setProfiles([]);
       } finally { if (live) setLoadingProfiles(false); }
     };
-    void loadProfiles();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void loadProfiles(); });
-    return () => { live = false; unsubscribe?.(); };
-  }, [user?.id, user?.city, user?.countryCode, isLocalGuest, navigation]);
+    void load();
+    return () => { live = false; };
+  }, [isDemoMode, user?.id]);
+
+  useEffect(() => {
+    let live = true;
+    const loadPlan = async () => {
+      if (isDemoMode) { if (live) setPlanCode('DEMO'); return; }
+      if (!user || isLocalGuest) { if (live) setPlanCode('FREE'); return; }
+      try {
+        const entitlement = await loadDiscoveryEntitlement();
+        if (live) setPlanCode(entitlement.planCode || 'FREE');
+      } catch { if (live) setPlanCode('FREE'); }
+    };
+    void loadPlan();
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
+
+  useEffect(() => {
+    setProfileIndex(0);
+    setDiscoveryAccess(null);
+    setGuestSeenIds([]);
+    setFollowNotice('');
+    setSearchPosition(null);
+    setHasSearched(false);
+    setCurrentProfileSnapshot(null);
+    setProfileQuery('');
+  }, [user?.id]);
 
   const filteredProfiles = useMemo(() => {
     const needle = profileQuery.trim().replace(/^@/, '').toLowerCase();
@@ -220,8 +189,7 @@ export default function DiscoverScreen({ navigation }: any) {
           const allowed = alreadySeen || guestSeenIds.length < FREE_LOCAL_DISCOVERY_LIMIT;
           if (allowed && !alreadySeen && live) setGuestSeenIds((ids) => [...ids, currentProfile.id]);
           if (live) setDiscoveryAccess({
-            planCode: 'FREE',
-            allowed,
+            planCode: 'FREE', allowed,
             used: alreadySeen ? guestSeenIds.length : Math.min(guestSeenIds.length + (allowed ? 1 : 0), FREE_LOCAL_DISCOVERY_LIMIT),
             limit: FREE_LOCAL_DISCOVERY_LIMIT,
             remaining: Math.max(FREE_LOCAL_DISCOVERY_LIMIT - guestSeenIds.length - (!alreadySeen && allowed ? 1 : 0), 0),
@@ -240,9 +208,7 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; };
   }, [currentProfile?.id, user?.id, isLocalGuest, isDemoMode, planCode]);
 
-  useEffect(() => {
-    setAvatarFailedFor(null);
-  }, [currentProfile?.id, currentProfile?.avatarUrl]);
+  useEffect(() => { setAvatarFailedFor(null); }, [currentProfile?.id, currentProfile?.avatarUrl]);
 
   useEffect(() => {
     let live = true;
@@ -269,7 +235,6 @@ export default function DiscoverScreen({ navigation }: any) {
     setProfileIndex(0);
     setDiscoveryAccess(null);
     setCurrentProfileSnapshot(null);
-    // Retour tactile/visuel immédiat : le bouton ne doit jamais sembler mort.
     setHasSearched(true);
 
     let persisted: SearchPosition | null = null;
@@ -304,20 +269,14 @@ export default function DiscoverScreen({ navigation }: any) {
       const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
       setSearchPosition(next);
       if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
-        await supabase.from('profiles').update({
-          approx_lat: Math.round(next.latitude * 1000) / 1000,
-          approx_lng: Math.round(next.longitude * 1000) / 1000,
-          location_opt_in: true,
-        }).eq('id', user.id);
+        await supabase.from('profiles').update({ approx_lat: Math.round(next.latitude * 1000) / 1000, approx_lng: Math.round(next.longitude * 1000) / 1000, location_opt_in: true }).eq('id', user.id);
       }
     } catch {
       if (!persisted) setSearchPosition(null);
       Alert.alert('Localisation', persisted
         ? 'Position GPS lente : KEEP utilise ta dernière position enregistrée pour cette recherche.'
         : 'Position GPS indisponible. Les profils publics restent visibles et la recherche par pseudo fonctionne quand même.');
-    } finally {
-      setSearchBusy(false);
-    }
+    } finally { setSearchBusy(false); }
   };
 
   const nextProfile = () => {
@@ -342,27 +301,19 @@ export default function DiscoverScreen({ navigation }: any) {
     setFollowBusy(true);
     setFollowNotice('');
     try {
-      const { error } = await supabase.from('follows').upsert(
-        { follower_id: user.id, followee_id: currentProfile.id },
-        { onConflict: 'follower_id,followee_id', ignoreDuplicates: true },
-      );
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: currentProfile.id });
       if (error) throw error;
+      setFollowNotice(`Tu suis maintenant @${currentProfile.username}.`);
       nextProfile();
-    } catch { Alert.alert('Suivre', 'Impossible de suivre ce profil pour le moment.'); }
-    finally { setFollowBusy(false); }
+    } catch {
+      setFollowNotice('Le suivi n’a pas abouti. Réessaie dans un instant.');
+      Alert.alert('Suivre', 'Impossible de suivre ce profil pour le moment.');
+    } finally { setFollowBusy(false); }
   };
 
-  const compatibility = currentProfile
-    ? overlapScore(
-        [...(user?.favoriteGenres ?? []), ...(user?.favoriteArtists ?? [])],
-        [...currentProfile.favoriteGenres, ...currentProfile.favoriteArtists],
-      )
-    : null;
-
+  const compatibility = currentProfile ? overlapScore([...(user?.favoriteGenres ?? []), ...(user?.favoriteArtists ?? [])], [...currentProfile.favoriteGenres, ...currentProfile.favoriteArtists]) : null;
   const currentDistance = currentProfile && searchPosition && Number.isFinite(currentProfile.approxLat) && Number.isFinite(currentProfile.approxLng)
-    ? distanceKm(searchPosition.latitude, searchPosition.longitude, currentProfile.approxLat as number, currentProfile.approxLng as number)
-    : null;
-
+    ? distanceKm(searchPosition.latitude, searchPosition.longitude, currentProfile.approxLat as number, currentProfile.approxLng as number) : null;
   const proximity = currentProfile
     ? currentDistance !== null
       ? `${currentDistance < 1 ? '< 1' : Math.round(currentDistance)} km · ${[currentProfile.city, currentProfile.countryCode].filter(Boolean).join(' · ') || 'autour de toi'}`
@@ -380,103 +331,54 @@ export default function DiscoverScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{t('nav.discover')}</Text>
-
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
           {currentProfile && !discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : currentProfile && freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
         </View>
-
         <View style={styles.usernameSearch}>
           <Text style={styles.usernameSearchIcon}>⌕</Text>
-          <TextInput
-            value={profileQuery}
-            onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }}
-            placeholder="Rechercher un pseudo KEEP"
-            placeholderTextColor="#8E849A"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.usernameSearchInput}
-            accessibilityLabel="Rechercher un utilisateur KEEP par pseudo"
-          />
+          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo KEEP" placeholderTextColor="#8E849A" autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un utilisateur KEEP par pseudo" />
           {profileQuery ? <TouchableOpacity style={styles.usernameClear} onPress={() => { setProfileQuery(''); setProfileIndex(0); }} accessibilityLabel="Effacer la recherche"><Text style={styles.usernameClearText}>×</Text></TouchableOpacity> : null}
         </View>
-
         <View style={styles.searchPanel}>
-          <View style={styles.radiusHeader}>
-            <Text style={styles.radiusLabel}>1 · DISTANCE</Text>
-            <View style={styles.radiusValue}><Text style={styles.radiusValueText}>{radiusKm >= 20000 ? 'MONDE' : `${radiusKm} KM`}</Text></View>
-          </View>
+          <View style={styles.radiusHeader}><Text style={styles.radiusLabel}>1 · DISTANCE</Text><View style={styles.radiusValue}><Text style={styles.radiusValueText}>{radiusKm >= 20000 ? 'MONDE' : `${radiusKm} KM`}</Text></View></View>
           <View style={styles.radiusTrack}><View style={[styles.radiusFill, { width: `${(DISCOVERY_RADII.indexOf(radiusKm as any) / (DISCOVERY_RADII.length - 1)) * 100}%` }]} /></View>
           <View style={styles.radiusChoices}>{DISCOVERY_RADII.map((value) => (
-            <TouchableOpacity key={value} style={[styles.radiusChoice, radiusKm === value && styles.radiusChoiceOn]} onPress={() => { setRadiusKm(value); resetSearchResults(); }} accessibilityLabel={value >= 20000 ? 'Rayon Monde' : `Rayon ${value} kilomètres`}>
-              <Text style={[styles.radiusChoiceText, radiusKm === value && styles.radiusChoiceTextOn]}>{value >= 20000 ? 'Monde' : value}</Text>
-            </TouchableOpacity>
+            <TouchableOpacity key={value} style={[styles.radiusChoice, radiusKm === value && styles.radiusChoiceOn]} onPress={() => { setRadiusKm(value); resetSearchResults(); }} accessibilityLabel={value >= 20000 ? 'Rayon Monde' : `Rayon ${value} kilomètres`}><Text style={[styles.radiusChoiceText, radiusKm === value && styles.radiusChoiceTextOn]}>{value >= 20000 ? 'Monde' : value}</Text></TouchableOpacity>
           ))}</View>
-          <TouchableOpacity style={styles.searchButton} onPress={() => void searchAroundMe()} disabled={searchBusy} accessibilityLabel="Rechercher des profils autour de moi">
-            {searchBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.searchButtonText}>2 · ⌖ RECHERCHER</Text>}
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.searchButton} onPress={() => void searchAroundMe()} disabled={searchBusy} accessibilityLabel="Rechercher des profils autour de moi">{searchBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.searchButtonText}>2 · ⌖ RECHERCHER</Text>}</TouchableOpacity>
           <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} disponible${filteredProfiles.length > 1 ? 's' : ''} · le GPS affine ensuite la proximité`}</Text>
         </View>
-
         {loadingProfiles || (currentProfile && accessLoading) ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
-          <TouchableOpacity style={styles.lockCard} onPress={openPremium}>
-            <Text style={styles.lockIcon}>🔒</Text>
-            <Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text>
-            <Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant KEEP et en faisant grandir tes abonnés.</Text>
-            <Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.lockCard} onPress={openPremium}><Text style={styles.lockIcon}>🔒</Text><Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text><Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant KEEP et en faisant grandir tes abonnés.</Text><Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text></TouchableOpacity>
         ) : !currentProfile ? (
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à @${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun autre profil public disponible pour le moment.'}</Text></View>
         ) : (
-          <>
-            <SwipeDeck resetKey={currentProfile.id} enabled={!followBusy} onSwipeLeft={nextProfile} onSwipeRight={followCurrent} leftLabel="PASSER" rightLabel="SUIVRE" hint="Glisse ← pour passer · → pour suivre">
-              <View style={styles.swipeCard}>
-                {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.heroAvatar} resizeMode="cover" onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.heroAvatar,styles.heroFallback]}><Text style={styles.heroLetter}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
-                <View style={styles.heroInfo}>
-                  <View style={styles.heroNameRow}>
-                    <Text style={styles.heroName}>@{currentProfile.username}</Text>
-                    {currentProfileSnapshot ? <ProfileCertificationBadge tier={currentProfileSnapshot.certificationTier} compact /> : null}
-                    {compatibility !== null ? <View style={styles.compatBadge}><Text style={styles.compatText}>{compatibility}% ADN</Text></View> : null}
-                  </View>
-                  {proximity ? <Text style={styles.location}>{proximity}</Text> : <Text style={styles.location}>Localisation non partagée</Text>}
-                  <View style={styles.kindMusicRow}>
-                    <Text style={styles.kind}>{PROFILE_KIND_LABELS[currentProfile.kind] ?? currentProfile.kind}</Text>
-                    {currentProfileSnapshot ? <Text style={styles.musicCount}>{currentProfileSnapshot.totalPublicKeeps} KEEP public{currentProfileSnapshot.totalPublicKeeps > 1 ? 's' : ''}</Text> : null}
-                  </View>
-                  {currentProfile.bio ? <Text style={styles.bio} numberOfLines={2}>{currentProfile.bio}</Text> : null}
-                  {(currentProfile.favoriteGenres.length || currentProfile.favoriteArtists.length) ? <View style={styles.chips}>{[...currentProfile.favoriteGenres,...currentProfile.favoriteArtists].slice(0,4).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View> : null}
-                </View>
-              </View>
-            </SwipeDeck>
-            <View style={styles.swipeActions}>
-              <TouchableOpacity style={[styles.roundAction,styles.passAction]} onPress={nextProfile} accessibilityLabel="Passer ce profil"><Text style={styles.passActionText}>✕</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.profileAction} onPress={openCurrentProfile} accessibilityLabel="Voir le profil"><Text style={styles.profileActionText}>VOIR PROFIL</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.roundAction,styles.followAction]} onPress={() => void followCurrent()} disabled={followBusy} accessibilityLabel="Suivre ce profil">{followBusy ? <ActivityIndicator color="#111"/> : <Text style={styles.followActionText}>＋</Text>}</TouchableOpacity>
-            </View>
-            {followNotice ? <TouchableOpacity style={styles.followNotice} onPress={openAccount} accessibilityRole="button" accessibilityLabel="Créer un compte KEEP pour suivre"><Text style={styles.followNoticeText}>{followNotice} <Text style={styles.followNoticeCta}>CRÉER MON COMPTE</Text></Text></TouchableOpacity> : null}
-          </>
+          <View style={styles.profileCard}>
+            <TouchableOpacity activeOpacity={0.85} onPress={openCurrentProfile} style={styles.profileHero} accessibilityLabel={`Ouvrir le profil de ${currentProfile.username}`}>
+              {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.avatar} onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>@{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil KEEP public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public KEEP'}</Text></View>
+            </TouchableOpacity>
+            {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
+            <View style={styles.matchRow}><View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View><View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'KEEP'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
+            <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity><TouchableOpacity style={styles.followButton} onPress={() => void followCurrent()} disabled={followBusy}><Text style={styles.followText}>{followBusy ? '…' : '+ SUIVRE'}</Text></TouchableOpacity></View>
+            {followNotice ? <Text style={styles.followNotice}>{followNotice}</Text> : null}
+          </View>
         )}
-
-        {!user?.city && <TouchableOpacity style={styles.locationHint} onPress={() => navigation.navigate('ProfileSettings')}><Text style={styles.locationHintText}>📍 Ajoute ta ville ou utilise ta position pour améliorer les profils autour de toi.</Text></TouchableOpacity>}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('discover.yourTrends')}</Text>
-          {trends.length === 0 ? <Text style={styles.mutedHint}>{t('discover.emptyTrends')}</Text> : <View style={styles.chipsWrap}>{trends.map((trend) => <View key={trend.artist} style={styles.trendChip}><Text style={styles.trendChipText}>{trend.artist} · {trend.count}</Text></View>)}</View>}
-        </View>
-
-        <Text style={styles.footerNote}>KEEP utilise seulement les informations musicales et de localisation que l’utilisateur choisit de partager. Aucun système de rencontre n’est créé : il s’agit uniquement de découverte musicale et communautaire.</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},content:{paddingHorizontal:11,paddingTop:8,flexGrow:1,paddingBottom:10},title:{...typography.h2,color:colors.textPrimary,marginBottom:4},section:{marginTop:8},sectionTitle:{...typography.h3,color:colors.textPrimary},mutedHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},
-  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},usernameSearchIcon:{color:'#D9C8F7',fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:44,color:'#FFFFFF',fontSize:15,fontWeight:'700'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#241A2F'},usernameClearText:{color:'#FFFFFF',fontSize:22,lineHeight:24,fontWeight:'700'},lockBadge:{paddingHorizontal:9,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},lockText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},trialBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.12)',borderWidth:1,borderColor:'#2C8A60'},trialText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},
-  searchPanel:{marginBottom:6,padding:7,borderRadius:14,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},radiusLabel:{color:'#D9C8F7',fontSize:9,fontWeight:'900',letterSpacing:.4},radiusValue:{minHeight:26,paddingHorizontal:10,borderRadius:13,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},radiusValueText:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},radiusTrack:{height:4,borderRadius:2,backgroundColor:'#332A3C',marginTop:6,overflow:'hidden'},radiusFill:{height:4,borderRadius:2,backgroundColor:'#A884FA'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:3,borderRadius:11,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},radiusChoiceText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{minHeight:48,marginTop:6,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},searchButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},searchHint:{color:'#FFFFFF',fontSize:8,textAlign:'center',marginTop:3},
-  lockCard:{padding:13,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},lockIcon:{fontSize:24},lockTitle:{color:'#FFF',fontSize:15,fontWeight:'900',marginTop:6,textAlign:'center'},lockBody:{color:'#FFFFFF',fontSize:11,lineHeight:16,textAlign:'center',marginTop:6},lockCta:{color:'#FFF',fontSize:10,fontWeight:'900',marginTop:10,backgroundColor:colors.primary,paddingHorizontal:16,paddingVertical:9,borderRadius:20,overflow:'hidden'},emptyCard:{padding:14,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
-  swipeCard:{height:228,borderRadius:20,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},heroAvatar:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},heroFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},heroLetter:{color:colors.primaryLight,fontSize:52,fontWeight:'900'},heroInfo:{padding:9,paddingTop:40,backgroundColor:'rgba(9,6,16,.72)'},heroNameRow:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap'},heroName:{color:'#FFF',fontSize:18,fontWeight:'900'},compatBadge:{paddingHorizontal:7,paddingVertical:3,borderRadius:radius.pill,backgroundColor:'rgba(104,242,177,.16)'},compatText:{color:'#68F2B1',fontSize:8,fontWeight:'900'},location:{color:'#E1D8EA',fontSize:10,fontWeight:'800',marginTop:3},kindMusicRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:3,flexWrap:'wrap'},kind:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},musicCount:{color:'#68F2B1',fontSize:9,fontWeight:'900'},bio:{color:'#FFFFFF',fontSize:9,lineHeight:12,marginTop:3},chips:{flexDirection:'row',flexWrap:'wrap',gap:3,marginTop:4},chip:{paddingHorizontal:6,paddingVertical:2,borderRadius:radius.pill,backgroundColor:'rgba(0,0,0,.45)',borderWidth:1,borderColor:'#4B3A61'},chipText:{color:'#FFF',fontSize:8,fontWeight:'800'},
-  swipeActions:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,marginTop:6},roundAction:{width:39,height:39,borderRadius:20,alignItems:'center',justifyContent:'center',borderWidth:2},passAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},passActionText:{color:'#FF5F83',fontSize:21,fontWeight:'800'},followAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},followActionText:{color:'#111',fontSize:24,fontWeight:'900'},profileAction:{minHeight:36,paddingHorizontal:14,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},profileActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},
-  followNotice:{marginTop:6,alignSelf:'center',paddingHorizontal:10,paddingVertical:6,borderRadius:12,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',maxWidth:340},followNoticeText:{color:'#FFFFFF',fontSize:9,lineHeight:13,textAlign:'center'},followNoticeCta:{color:colors.primaryLight,fontWeight:'900'},
-  locationHint:{marginTop:6,padding:7,borderRadius:12,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},locationHintText:{color:'#FFFFFF',fontSize:9,lineHeight:13,textAlign:'center',fontWeight:'800'},chipsWrap:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:5},trendChip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:8,paddingVertical:4},trendChipText:{color:colors.smartBadgeText,fontSize:10,fontWeight:'700'},footerNote:{color:colors.textMuted,fontSize:7,lineHeight:9,textAlign:'center',marginTop:7},
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: 16, paddingBottom: 110 },
+  title: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', marginBottom: 10 },
+  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},usernameSearchIcon:{color:'#D9C8F7',fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:44,color:'#FFFFFF',fontSize:15,fontWeight:'700'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#241A2F'},usernameClearText:{color:'#FFFFFF',fontSize:22,lineHeight:24,fontWeight:'700'},
+  sectionTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},mutedHint:{color:'#C9C2D4',fontSize:12,lineHeight:17},
+  lockBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:'#241A31',borderWidth:1,borderColor:'#5A456F'},lockText:{color:'#F6EEFF',fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:'#142B20',borderWidth:1,borderColor:'#2F7E57'},trialText:{color:'#7CF2B9',fontSize:9,fontWeight:'900'},
+  searchPanel:{padding:10,borderRadius:15,backgroundColor:'#130F1B',borderWidth:1,borderColor:'#332642',marginBottom:8},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:'#C8B7E5',fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:'#23192F',alignItems:'center'},radiusValueText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:'#2B2037',overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:'#9B6DFF'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:6,marginBottom:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:4,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#6543A0'},radiusChoiceText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{minHeight:48,borderRadius:14,backgroundColor:'#6D46AE',alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:'#AFA5BF',fontSize:8,marginTop:5,textAlign:'center'},
+  lockCard:{padding:16,borderRadius:20,backgroundColor:'#181121',borderWidth:1,borderColor:'#5C3E78',alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:'#C9C0D4',fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:'#D9C3FF',fontSize:12,fontWeight:'900',marginTop:12},
+  emptyCard:{padding:18,borderRadius:18,backgroundColor:'#120E18',borderWidth:1,borderColor:'#30233C'},
+  profileCard:{padding:12,borderRadius:22,backgroundColor:'#15101D',borderWidth:1,borderColor:'#4D3762'},profileHero:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241B30'},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarInitial:{color:'#FFFFFF',fontSize:30,fontWeight:'900'},profileInfo:{flex:1},profileNameRow:{flexDirection:'row',alignItems:'center',gap:6},profileName:{color:'#FFFFFF',fontSize:17,fontWeight:'900'},profileBio:{color:'#D2CADB',fontSize:12,lineHeight:17,marginTop:3},proximity:{color:'#A98BE2',fontSize:11,fontWeight:'800',marginTop:4},matchRow:{flexDirection:'row',gap:8,marginTop:12},matchBlock:{flex:1,minHeight:52,borderRadius:15,backgroundColor:'#20172A',alignItems:'center',justifyContent:'center'},matchValue:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},matchLabel:{color:'#AFA4BF',fontSize:8,fontWeight:'900',marginTop:2},cardActions:{flexDirection:'row',gap:9,marginTop:12},passButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#28202F',alignItems:'center',justifyContent:'center'},passText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#6945A8',alignItems:'center',justifyContent:'center'},followText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followNotice:{color:'#82EEB6',fontSize:11,fontWeight:'800',textAlign:'center',marginTop:8},
 });
