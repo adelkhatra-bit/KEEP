@@ -23,6 +23,7 @@ import {
   loadKeepBattleArena,
   loadKeepBattleArenaLobby,
   loadKeepBattleThemes,
+  refreshKeepBattleCatalog,
   startKeepBattleArena,
   submitKeepBattleArenaQuizAnswer,
   subscribeKeepBattleArena,
@@ -82,9 +83,10 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
   React.useEffect(() => {
     let live = true;
     void loadKeepBattleThemes().then((rows) => { if (live && rows.length) setThemes(rows); }).catch(() => {});
+    if (enabled) void refreshKeepBattleCatalog(24).catch(() => null);
     void refreshLobby();
     return () => { live = false; };
-  }, [refreshLobby]);
+  }, [enabled, refreshLobby]);
 
   React.useEffect(() => {
     if (!arena?.id) return undefined;
@@ -144,6 +146,10 @@ export default function KeepBattleArenaPanel({ enabled, onOpenProfile, onRequire
     if (!enabled || !supabase) return requireAccount();
     setBusy(true);
     try {
+      // Le Salon utilise une réserve musicale centrale : un joueur peut entrer
+      // même avec zéro morceau personnel. Tant que la réserve grandit, KEEP la
+      // complète automatiquement avant le matchmaking, sans clé payante.
+      await refreshKeepBattleCatalog(24).catch(() => null);
       const { data, error } = await supabase.rpc('keep_battle_arena_matchmake', { p_theme_code: themeCode });
       if (error) throw error;
       const id = String((data as any)?.id || '');

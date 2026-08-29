@@ -4,6 +4,8 @@ import { useUserStore } from '../store/useUserStore';
 import { CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
+import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
+import { getDownloadCreditStatus } from '../services/creditService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
@@ -123,6 +125,8 @@ export default function OffersScreen({ navigation, route }: any) {
   const [battleRules, setBattleRules] = useState<KeepBattleArenaRules>(DEFAULT_KEEP_BATTLE_RULES);
   const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
   const [currentPlan, setCurrentPlan] = useState('FREE');
+  const [freeBalance, setFreeBalance] = useState<number | null>(null);
+  const [freeUnlimited, setFreeUnlimited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [freeExpanded, setFreeExpanded] = useState(false);
@@ -136,13 +140,16 @@ export default function OffersScreen({ navigation, route }: any) {
     (async () => {
       try {
         const canLoadGrowth = Boolean(user && !isLocalGuest && !isDemoMode);
-        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth] = await Promise.all([
+        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth, liveFreeStatus] = await Promise.all([
           loadPlans(),
           loadCreditFunnel(),
           user ? loadCurrentPlanCode(user.id) : Promise.resolve('FREE'),
           getCommercialRules(),
           loadKeepBattleArenaRules(),
           canLoadGrowth ? getGrowthRewardStatus().catch(() => null) : Promise.resolve(null),
+          canLoadGrowth
+            ? loadMyKeepBattleCreditStatus().catch(() => null)
+            : getDownloadCreditStatus().catch(() => null),
         ]);
         if (cancelled) return;
         setPlans(livePlans);
@@ -151,6 +158,16 @@ export default function OffersScreen({ navigation, route }: any) {
         setRules(liveRules);
         setBattleRules(liveBattleRules);
         setGrowth(liveGrowth);
+        if (liveFreeStatus && 'remainingFree' in liveFreeStatus) {
+          setFreeBalance(Number(liveFreeStatus.remainingFree ?? 0));
+          setFreeUnlimited(false);
+        } else if (liveFreeStatus) {
+          setFreeBalance(liveFreeStatus.remaining == null ? null : Number(liveFreeStatus.remaining));
+          setFreeUnlimited(Boolean(liveFreeStatus.unlimited));
+        } else {
+          setFreeBalance(null);
+          setFreeUnlimited(false);
+        }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Impossible de charger les offres.');
       } finally {
@@ -160,7 +177,7 @@ export default function OffersScreen({ navigation, route }: any) {
     return () => { cancelled = true; };
   }, [user?.id, isLocalGuest, isDemoMode]);
 
-  const freeTotal = useMemo(() => funnel.guestSuccessLimit + funnel.signupBonusSuccesses + (growth?.bonusFreeCredits ?? 0), [funnel, growth?.bonusFreeCredits]);
+  const freeBalanceLabel = freeUnlimited ? '∞' : freeBalance == null ? '—' : String(Math.max(0, freeBalance));
   const visiblePlans = useMemo(() => {
     // La formule Free possède son propre bloc compact au-dessus. Les cartes
     // ci-dessous restent donc réservées aux offres Premium / Pro.
@@ -226,7 +243,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
           <View style={s.creditCard}>
             <View style={s.creditTop}>
-              <View><Text style={s.sectionTitle}>Tes Free</Text><Text style={s.creditBig}>{freeTotal}</Text></View>
+              <View><Text style={s.sectionTitle}>Tes Free disponibles</Text><Text style={s.creditBig}>{freeBalanceLabel}</Text></View>
               <View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View>
             </View>
 
@@ -242,7 +259,7 @@ export default function OffersScreen({ navigation, route }: any) {
             </TouchableOpacity>
 
             {freeExpanded ? <>
-              <Text style={s.creditText}>{funnel.guestSuccessLimit} avant inscription + {funnel.signupBonusSuccesses} après création du compte{growth?.bonusFreeCredits ? ` + ${growth.bonusFreeCredits} gagnés avec ta communauté` : ''}.</Text>
+              <Text style={s.creditText}>Ce nombre est ton solde réellement disponible. Au démarrage : {funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. Les Free utilisés sont déduits ; les récompenses communauté et Battle s’ajoutent automatiquement.</Text>
               <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = 1 Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
               {growth ? <View style={s.growthGrid}>
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>

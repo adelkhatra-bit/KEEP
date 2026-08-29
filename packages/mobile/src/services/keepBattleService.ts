@@ -161,6 +161,36 @@ function unwrap<T>(data: T | null, error: any): T {
   return data;
 }
 
+export type KeepBattleCatalogRefresh = {
+  ok: boolean;
+  secretRequired: boolean;
+  provider?: string;
+  scanned?: number;
+  enriched?: number;
+  themeLinksAdded?: number;
+  playableBefore?: number;
+  playableAfter?: number;
+  skipped?: boolean;
+};
+
+/**
+ * Enrichit la réserve centrale Battle sans utiliser la bibliothèque personnelle
+ * du joueur. La fonction serveur ne nécessite aucune clé musicale privée : elle
+ * complète uniquement les morceaux déjà connus de KEEP avec des extraits
+ * promotionnels publics disponibles.
+ */
+export async function refreshKeepBattleCatalog(limit = 24): Promise<KeepBattleCatalogRefresh | null> {
+  try {
+    const { data, error } = await client().functions.invoke('keep-battle-catalog-refresh', {
+      body: { limit: Math.max(5, Math.min(Math.floor(limit), 36)) },
+    });
+    if (error || !data) return null;
+    return data as KeepBattleCatalogRefresh;
+  } catch {
+    return null;
+  }
+}
+
 /** KEEP BATTLE is separate from canonical keep_decisions. */
 export async function createKeepBattle(args?: { roundCount?: number; opponentId?: string | null; themeCode?: string }): Promise<KeepBattleCreated> {
   const { data, error } = await client().rpc('keep_battle_create_themed', {

@@ -41,7 +41,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
   const isListening = useSessionStore((s) => s.isActive);
   const activeSessionId = useSessionStore((s) => s.sessionId);
-  const [planBadge, setPlanBadge] = useState<{ label: string; focusPlan: string; paid: boolean }>({ label: 'FREE', focusPlan: 'PREMIUM', paid: false });
+  const [planBadge, setPlanBadge] = useState<{ label: string; focusPlan: string; paid: boolean }>({ label: 'Free', focusPlan: 'PREMIUM', paid: false });
   const realActiveSessionId = isListening ? activeSessionId : null;
   const hasOrphanedLiveSession = visibleSessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
 
@@ -57,10 +57,10 @@ export default function SessionHistoryScreen({ navigation }: any) {
           ? 'Creator Pro'
           : code === 'VENUE_PRO'
             ? 'Venue Pro'
-            : status.remaining == null ? 'FREE' : `FREE · ${status.remaining}`;
+            : status.remaining == null ? 'Free' : `Free · ${status.remaining}`;
       setPlanBadge({ label, focusPlan: paid ? code : 'PREMIUM', paid });
     } catch {
-      setPlanBadge({ label: 'FREE', focusPlan: 'PREMIUM', paid: false });
+      setPlanBadge({ label: 'Free', focusPlan: 'PREMIUM', paid: false });
     }
   };
 
