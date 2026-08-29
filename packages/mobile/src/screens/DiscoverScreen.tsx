@@ -278,8 +278,22 @@ export default function DiscoverScreen({ navigation }: any) {
         }).eq('id', user.id);
       }
     } catch {
+      // A returning/new account can still discover from its last persisted KEEP position
+      // when iOS/Android cannot return a fresh GPS fix at this exact moment.
+      if (supabase && user?.id && !isLocalGuest && !isDemoMode) {
+        const { data } = await supabase.from('profiles').select('approx_lat,approx_lng').eq('id', user.id).maybeSingle();
+        const lat = normalizeOptionalCoordinate(data?.approx_lat);
+        const lng = normalizeOptionalCoordinate(data?.approx_lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setSearchPosition({ latitude: lat as number, longitude: lng as number });
+          setProfileIndex(0);
+          setHasSearched(true);
+          setSearchBusy(false);
+          return;
+        }
+      }
       resetSearchResults();
-      Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment.');
+      Alert.alert('Localisation', 'Impossible de récupérer ta position pour le moment. Vérifie l’autorisation GPS puis réessaie.');
     } finally {
       setSearchBusy(false);
     }

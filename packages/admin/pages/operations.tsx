@@ -32,6 +32,7 @@ type DirectoryUser = {
   keeps_this_month: number;
 };
 
+type AutoRepairRow = { ran_at: string; stale_challenges_expired: number; battle_rounds_finalized: number; battle_rounds_advanced: number; notes: string | null };
 type PushSummaryRow = { status: string; total: number | string };
 type PushRecentRow = {
   notification_id: string;
@@ -121,6 +122,7 @@ export default function Operations() {
   const [runtime, setRuntime] = useState<RuntimeRow[]>([]);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [pushSummary, setPushSummary] = useState<PushSummaryRow[]>([]);
+  const [autoRepair, setAutoRepair] = useState<AutoRepairRow[]>([]);
   const [pushRecent, setPushRecent] = useState<PushRecentRow[]>([]);
   const [keylessHealth, setKeylessHealth] = useState<KeylessHealth | null>(null);
   const [query, setQuery] = useState('');
@@ -132,13 +134,14 @@ export default function Operations() {
     setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const [integrationResult, runtimeResult, usersResult, pushSummaryResult, pushRecentResult, keylessResult] = await Promise.all([
+      const [integrationResult, runtimeResult, usersResult, pushSummaryResult, pushRecentResult, keylessResult, autoRepairResult] = await Promise.all([
         invokeAdmin({ action: 'integrations.list' }),
         supabase.rpc('admin_integration_runtime_status'),
         supabase.rpc('admin_user_directory'),
         supabase.rpc('admin_push_delivery_summary'),
         supabase.rpc('admin_push_delivery_recent', { p_limit: 50 }),
         supabase.functions.invoke('keep-keyless-social', { body: { action: 'health' } }),
+        supabase.rpc('admin_auto_repair_status'),
       ]);
       if (runtimeResult.error) throw runtimeResult.error;
       if (usersResult.error) throw usersResult.error;
@@ -150,6 +153,7 @@ export default function Operations() {
       setPushSummary((pushSummaryResult.data ?? []) as PushSummaryRow[]);
       setPushRecent((pushRecentResult.data ?? []) as PushRecentRow[]);
       setKeylessHealth(!keylessResult.error && keylessResult.data?.ok ? keylessResult.data as KeylessHealth : null);
+      setAutoRepair(!autoRepairResult.error ? (autoRepairResult.data ?? []) as AutoRepairRow[] : []);
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les opérations KEEP.');
     } finally {
@@ -199,6 +203,13 @@ export default function Operations() {
       <button onClick={() => void load()} disabled={loading} style={{ marginBottom: 18 }}>
         {loading ? 'Analyse…' : 'Actualiser l’analyse'}
       </button>
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Réparation automatique KEEP</h3>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>Le Guardian serveur contrôle chaque minute les états réparables sans risque : invitations Battle expirées et manches bloquées après leur délai. Les clés externes manquantes restent signalées et ne sont jamais inventées.</p>
+        <strong style={{ color: autoRepair.length ? '#86efac' : '#f59e0b' }}>{autoRepair.length ? 'ACTIF · contrôle automatique chaque minute' : 'À CONTRÔLER'}</strong>
+        {autoRepair[0] ? <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>Dernier passage : {new Date(autoRepair[0].ran_at).toLocaleString()} · défis expirés {autoRepair[0].stale_challenges_expired} · manches finalisées {autoRepair[0].battle_rounds_finalized} · manches avancées {autoRepair[0].battle_rounds_advanced}</div> : null}
+      </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — ordre réel de secours</h3>
