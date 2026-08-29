@@ -19,11 +19,12 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('ACCEPTER');
   });
 
-  it('pauses the solo round while the player decides on an invite', () => {
+  it('pauses the solo round while the player decides on an invite, including audio loading', () => {
     expect(source).toContain('pausedSoloRemaining');
     expect(source).toContain("incoming[0] ? 'PAUSE'");
     expect(source).toContain("incoming[0] ? 'INVITATION BATTLE'");
-    expect(source).toContain('setPausedSoloRemaining(Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)))');
+    expect(source).toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
+    expect(source).toContain('setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS)');
     expect(source).toContain('setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining))');
   });
 
