@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'scripts/patch_profile_deeplink_referral_audit.py'
+      - 'scripts/patch_mobile_compile_blockers.py'
       - '.github/workflows/profile-deeplink-referral-audit-once.yml'
 
 permissions:
@@ -23,7 +24,9 @@ jobs:
       - name: Sync branch
         run: git pull --ff-only origin reconcile/claude-main-20260825
       - name: Apply deep-link + referral repair
-        run: python3 scripts/patch_profile_deeplink_referral_audit.py
+        run: |
+          python3 scripts/patch_profile_deeplink_referral_audit.py
+          python3 scripts/patch_mobile_compile_blockers.py
       - name: Install dependencies
         run: npm ci
       - name: Verify profile sharing and mobile types
@@ -36,7 +39,7 @@ jobs:
         run: |
           git config user.name "KEEP Guardian"
           git config user.email "actions@github.com"
-          git add packages/mobile/share-profile.html packages/mobile/src/components/SharedMusicHandoff.tsx packages/mobile/src/screens/__tests__/SharedProfileFollow.contract.test.ts packages/mobile/src/components/__tests__/ProfileDeepLinkReferral.contract.test.ts
+          git add packages/mobile/share-profile.html packages/mobile/src/components/SharedMusicHandoff.tsx packages/mobile/src/screens/__tests__/SharedProfileFollow.contract.test.ts packages/mobile/src/components/__tests__/ProfileDeepLinkReferral.contract.test.ts packages/mobile/src/screens/DiscoverScreen.tsx packages/mobile/src/components/ProfileCounterRow.tsx
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "fix(share): open shared profiles directly and preserve referrals"
           git push origin HEAD:reconcile/claude-main-20260825
