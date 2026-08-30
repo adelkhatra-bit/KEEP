@@ -33,7 +33,8 @@ describe('KEEP Battle mobile style selector', () => {
 
   it('keeps solo on refusal and switches to the returned shared arena on acceptance', () => {
     expect(source).toContain('const response = await respondBattleChallenge(item.id, accept)');
-    expect(source).toContain('if (accept && response.arenaId)');
+    expect(source).toContain('if (accept) {');
+    expect(source).toContain("if (!response.arenaId) throw new Error('BATTLE_ACCEPTED_WITHOUT_ARENA')");
     expect(source).toContain('await stopTrackPreview()');
     expect(source).toContain('await leaveSoloBattle().catch(() => {})');
     expect(source).toContain('setSolo(null); setBrowseOnline(false); setAudioReady(false)');
@@ -104,15 +105,16 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('winner?.score ?? arena.lastResult.score');
   });
 
-  it('uses smartphone-sized Battle action targets and readable invite text', () => {
-    expect(source).toContain("inviteActions: { flexDirection: 'row', gap: 10, width: '100%' }");
-    expect(source).toContain('no: { flex: 1, minHeight: 56');
-    expect(source).toContain('yes: { flex: 1, minHeight: 56');
+  it('uses clearly readable smartphone-sized Battle action targets', () => {
+    expect(source).toContain("inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }");
+    expect(source).toContain('invite: { marginTop: 10, minHeight: 142');
+    expect(source).toContain('no: { flex: 1, minHeight: 64');
+    expect(source).toContain('yes: { flex: 1, minHeight: 64');
     expect(source).toContain('hitSlop={10}');
-    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 15, lineHeight: 20");
-    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 16");
-    expect(source).toContain("borderWidth: 2, borderColor: '#E5F266'");
-    expect(source).toContain('CONNEXION…');
+    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22");
+    expect(source).toContain("inviteName: { color: '#FFF', fontSize: 17");
+    expect(source).toContain("borderWidth: 3, borderColor: '#E5F266'");
+    expect(source).toContain('CONNEXION AU BATTLE…');
     expect(source).toContain('respondingChallengeId');
   });
 
@@ -135,7 +137,6 @@ describe('KEEP Battle mobile style selector', () => {
   });
 });
 
-
 describe('KEEP Battle accept reliability', () => {
   const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
@@ -145,14 +146,15 @@ describe('KEEP Battle accept reliability', () => {
     expect(battle).toContain('response.arenaState || await loadArenaAfterAccept(response.arenaId)');
   });
 
-  it('uses large smartphone touch targets for accept and refuse', () => {
-    expect(battle).toContain('minHeight: 56');
-    expect(battle).toContain('borderWidth: 2');
+  it('reacts immediately and uses large touch targets for accept/refuse', () => {
+    expect(battle).toContain('setAudioReady(false);\n      void stopTrackPreview();');
+    expect(battle).toContain('minHeight: 64');
+    expect(battle).toContain('borderWidth: 3');
     expect(battle).toContain('hitSlop={10}');
-    expect(battle).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 15, lineHeight: 20");
+    expect(battle).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22");
+    expect(battle).toContain('CONNEXION AU BATTLE…');
   });
 });
-
 
 describe('KEEP Battle persistent group invitations', () => {
   const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
