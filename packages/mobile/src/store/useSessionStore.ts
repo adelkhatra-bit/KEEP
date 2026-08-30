@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { CanonicalTrack } from '@keep/music';
+import { CanonicalTrack, RecognitionResult } from '@keep/music';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { markDirectRediscovery, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
@@ -97,6 +97,7 @@ interface SessionStore {
   keepAllPending: () => Promise<void>;
   setSilenceTimeoutMin: (minutes: number) => void;
   attachLocation: (label: string, lat?: number, lng?: number) => void;
+  submitManualSearch: (query: string) => Promise<'added' | 'duplicate' | 'not_found'>;
 }
 
 function persistLiveSession(state: SessionStore) {
@@ -137,6 +138,70 @@ function applyTrackEnrichment(
       ? session
       : { ...session, tracks: session.tracks.map(enrich) }),
   }));
+}
+
+type SetFn = (partial: SessionStore | Partial<SessionStore> | ((state: SessionStore) => SessionStore | Partial<SessionStore>)) => void;
+type GetFn = () => SessionStore;
+
+// Chemin commun à une détection micro/onglet réussie ET à une recherche
+// manuelle (texte tapé par l'utilisateur quand l'empreinte audio ne
+// reconnaît pas le morceau) -- les deux doivent produire exactement la même
+// carte GARDER/PASSER, avec le même enrichissement playlists/liens.
+async function applyDetectedTrack(
+  set: SetFn,
+  get: GetFn,
+  recognition: RecognitionResult,
+  source: 'listen' | 'manual-search',
+): Promise<'added' | 'duplicate' | 'inactive'> {
+  const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
+  const last = get().tracks[0];
+  if (last && sameTrack(last.track, track)) {
+    lastDetectionAt = Date.now();
+    nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
+    set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null });
+    return 'duplicate';
+  }
+
+  const sessionIdAtDetection = get().sessionId;
+  if (!sessionIdAtDetection) {
+    set({ recognizing: false, micLevel: 0, error: null });
+    return 'inactive';
+  }
+
+  const entry: SessionTrackEntry = {
+    id: newId(),
+    track,
+    recommendations: [],
+    status: 'pending',
+    detectedAt: new Date().toISOString(),
+  };
+  lastDetectionAt = Date.now();
+  nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
+  set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
+  persistLiveSession(get());
+
+  void (async () => {
+    try {
+      const { session, playlists, match } = await findExistingTrack(track);
+      const sharedSource = await getSharedMusicSource().catch(() => null);
+      if (!sharedSource && match?.decisionId && match?.trackId) {
+        await markDirectRediscovery(match.trackId, {
+          source,
+          sessionId: sessionIdAtDetection,
+          detectedAt: entry.detectedAt,
+        }).catch(() => false);
+      }
+      const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
+      applyTrackEnrichment(sessionIdAtDetection, entry.id, {
+        recommendations,
+        status: match ? 'already_saved' : 'pending',
+        existingMatch: match,
+      });
+    } catch {
+      // Le morceau reste pending et disponible dans la session.
+    }
+  })();
+  return 'added';
 }
 
 let tickHandle: ReturnType<typeof setInterval> | null = null;
@@ -229,52 +294,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }
         consecutiveNoMatches = 0;
         consecutiveWeakSamples = 0;
-
-        const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
-        const last = get().tracks[0];
-        if (last && sameTrack(last.track, track)) {
-          lastDetectionAt = Date.now();
-          nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
-          set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null });
-          return;
-        }
-
-        const sessionIdAtDetection = get().sessionId;
-        if (!sessionIdAtDetection) { set({ recognizing: false, micLevel: 0, error: null }); return; }
-
-        const entry: SessionTrackEntry = {
-          id: newId(),
-          track,
-          recommendations: [],
-          status: 'pending',
-          detectedAt: new Date().toISOString(),
-        };
-        lastDetectionAt = Date.now();
-        nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
-        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
-        persistLiveSession(get());
-
-        void (async () => {
-          try {
-            const { session, playlists, match } = await findExistingTrack(track);
-            const sharedSource = await getSharedMusicSource().catch(() => null);
-            if (!sharedSource && match?.decisionId && match?.trackId) {
-              await markDirectRediscovery(match.trackId, {
-                source: 'listen',
-                sessionId: sessionIdAtDetection,
-                detectedAt: entry.detectedAt,
-              }).catch(() => false);
-            }
-            const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
-            applyTrackEnrichment(sessionIdAtDetection, entry.id, {
-              recommendations,
-              status: match ? 'already_saved' : 'pending',
-              existingMatch: match,
-            });
-          } catch {
-            // Le morceau reste pending et disponible dans la session.
-          }
-        })();
+        await applyDetectedTrack(set, get, recognition, 'listen');
       } catch (e: any) {
         if (e instanceof MicCaptureCancelledError || !get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         set({ recognizing: false, micLevel: 0, error: e?.message ?? 'Erreur de reconnaissance' });
@@ -374,4 +394,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   setSilenceTimeoutMin: (minutes) => set({ silenceTimeoutMin: minutes }),
   attachLocation: (label, lat, lng) => { set({ locationLabel: label, lat, lng }); persistLiveSession(get()); },
+
+  submitManualSearch: async (query) => {
+    const trimmed = query.trim();
+    if (!trimmed || !get().isActive) return 'not_found';
+    const recognition = await searchTrackByText(trimmed).catch(() => null);
+    if (!recognition) return 'not_found';
+    const outcome = await applyDetectedTrack(set, get, recognition, 'manual-search');
+    return outcome === 'inactive' ? 'not_found' : outcome;
+  },
 }));

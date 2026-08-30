@@ -289,6 +289,35 @@ async function keylessSourceRecognition(accessToken: string | null): Promise<Rec
   }
 }
 
+/**
+ * Recherche manuelle par texte (artiste/titre tapé par l'utilisateur) quand
+ * l'empreinte audio ne trouve rien -- typiquement du contenu indépendant/
+ * underground absent des catalogues commerciaux AudD/ACRCloud. Réutilise le
+ * même moteur gratuit sans clé que le partage social (Apple + Deezer,
+ * scoring par recouvrement de tokens), juste avec un texte fourni à la main
+ * au lieu d'une page scrappée.
+ */
+export async function searchTrackByText(query: string): Promise<RecognitionResult | null> {
+  const trimmed = query.trim();
+  if (!trimmed || !configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
+  try {
+    const accessToken = await getSupabaseAccessToken();
+    const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: trimmed }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.recognition) return null;
+    return payload.recognition as RecognitionResult;
+  } catch {
+    return null;
+  }
+}
+
 function fallbackKnownUnavailable() {
   return Date.now() < fallbackUnavailableUntil;
 }

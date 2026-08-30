@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
 import { useSessionStore } from '../store/useSessionStore';
@@ -30,7 +30,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel,
-    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
+    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
@@ -45,6 +45,27 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
   const [keepBusy, setKeepBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
+  const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  const [manualSearchQuery, setManualSearchQuery] = useState('');
+  const [manualSearchBusy, setManualSearchBusy] = useState(false);
+  const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
+
+  const runManualSearch = async () => {
+    if (manualSearchBusy || !manualSearchQuery.trim()) return;
+    setManualSearchBusy(true);
+    setManualSearchNotFound(false);
+    try {
+      const outcome = await submitManualSearch(manualSearchQuery);
+      if (outcome === 'not_found') {
+        setManualSearchNotFound(true);
+        return;
+      }
+      setManualSearchOpen(false);
+      setManualSearchQuery('');
+    } finally {
+      setManualSearchBusy(false);
+    }
+  };
 
   const refreshCreditBadge = async () => {
     try {
@@ -291,6 +312,10 @@ export default function HomeScreenCompact({ navigation }: any) {
         ) : (
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
+
+        <TouchableOpacity style={s.manualSearchLink} onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }} accessibilityLabel="Chercher un morceau par son titre">
+          <Text style={s.manualSearchLinkText}>Tu connais le titre ? Cherche-le toi-même</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <View style={s.footerActions}>
@@ -322,6 +347,31 @@ export default function HomeScreenCompact({ navigation }: any) {
             <Text style={s.visibilityChoiceText}>Le morceau reste dans ta bibliothèque et n’apparaît pas sur ton profil public.</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.cancelChoice} onPress={() => setKeepChoiceOpen(false)}><Text style={s.cancelChoiceText}>Annuler</Text></TouchableOpacity>
+        </View></View>
+      </Modal>
+
+      <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
+        <View style={s.modalOverlay}><View style={s.modalCard}>
+          <Text style={s.modalTitle}>Chercher un morceau</Text>
+          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). KEEP cherche dans les catalogues Apple Music et Deezer.</Text>
+          <TextInput
+            style={s.manualSearchInput}
+            value={manualSearchQuery}
+            onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
+            placeholder="Artiste - Titre"
+            placeholderTextColor={C.muted}
+            editable={!manualSearchBusy}
+            autoFocus
+            returnKeyType="search"
+            onSubmitEditing={runManualSearch}
+          />
+          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Rien trouvé avec ce texte -- réessaie avec un intitulé plus précis.</Text> : null}
+          <View style={s.modalActions}>
+            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
+              <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
+            </TouchableOpacity>
+          </View>
         </View></View>
       </Modal>
 
@@ -422,6 +472,10 @@ const s = StyleSheet.create({
   passedStateText: { color: C.pink, fontSize: 12, fontWeight: '900' },
   waiting: { minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   waitingText: { color: C.muted, fontSize: 12, textAlign: 'center' },
+  manualSearchLink: { marginTop: 10, alignItems: 'center', paddingVertical: 4 },
+  manualSearchLinkText: { color: C.muted, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
+  manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', color: C.text, fontSize: 14, paddingHorizontal: 12 },
+  manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
   footerActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
   secondary: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
