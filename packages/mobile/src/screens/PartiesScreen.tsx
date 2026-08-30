@@ -8,6 +8,7 @@ import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import SwipeDeck from '../components/SwipeDeck';
 import KeepBattleArenaPanel from '../components/KeepBattleArenaPanel';
+import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -28,6 +29,12 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [minEventFollowers, setMinEventFollowers] = useState(500);
   const [createOpen, setCreateOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
+  // BUG RÉEL trouvé le 30/08/2026 (audit Soirées en direct) : le lanceur
+  // KEEP BATTLE s'affichait pour 100% des utilisateurs réels alors qu'Adel
+  // a explicitement choisi de garder keep_battle désactivé (rollout_percent
+  // à 0, voir feature-flags.tsx) -- aucun code ne lisait jamais le flag ici.
+  const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
+  useEffect(() => { let live = true; isKeepBattleEnabled().then((enabled) => live && setBattleFeatureEnabled(enabled)); return () => { live = false; }; }, []);
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
@@ -176,15 +183,17 @@ export default function PartiesScreen({ navigation, route }: any) {
           : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les soirées en illimité.'}</Text></TouchableOpacity>
             : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : soirées illimitées · seuil {minEventFollowers} abonnés atteint.</Text></View>}
 
-      <TouchableOpacity style={styles.battleLauncher} onPress={() => setBattleOpen(true)} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon KEEP Battle">
-        <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
-        <View style={styles.battleLauncherCopy}>
-          <Text style={styles.battleLauncherKicker}>KEEP BATTLE</Text>
-          <Text style={styles.battleLauncherTitle}>Salon musical</Text>
-          <Text style={styles.battleLauncherMeta}>Solo ou multijoueur · mode plein écran · aucun code à écrire</Text>
-        </View>
-        <Text style={styles.battleLauncherOpen}>JOUER ›</Text>
-      </TouchableOpacity>
+      {battleFeatureEnabled && (
+        <TouchableOpacity style={styles.battleLauncher} onPress={() => setBattleOpen(true)} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon KEEP Battle">
+          <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
+          <View style={styles.battleLauncherCopy}>
+            <Text style={styles.battleLauncherKicker}>KEEP BATTLE</Text>
+            <Text style={styles.battleLauncherTitle}>Salon musical</Text>
+            <Text style={styles.battleLauncherMeta}>Solo ou multijoueur · mode plein écran · aucun code à écrire</Text>
+          </View>
+          <Text style={styles.battleLauncherOpen}>JOUER ›</Text>
+        </TouchableOpacity>
+      )}
 
       {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
