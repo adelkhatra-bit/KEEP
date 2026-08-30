@@ -104,6 +104,14 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('setSoloFinished(true); celebrate()');
   });
 
+  it('shows the real arena winner history as a clickable Top 3 palmares', () => {
+    expect(source).toContain('loadKeepBattleArenaWinnerHistory(arena.id, 20)');
+    expect(source).toContain('PALMARÈS · TOP 3');
+    expect(source).toContain('entry.wins} victoire');
+    expect(source).toContain('onOpenProfile(entry.username)');
+    expect(source).toContain('palmaresRow: { minHeight: 50');
+  });
+
   it('stops automatic multiplayer restart and shows rematch actions', () => {
     expect(source).toContain("arena.status === 'WAITING' && arena.lastResult");
     expect(source).toContain('REVANCHE');
