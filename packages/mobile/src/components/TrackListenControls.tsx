@@ -26,16 +26,21 @@ export default function TrackListenControls({ track, previewKey }: Props) {
     || track.externalUrls?.deezer
     || track.externalUrls?.universal
     || track.externalUrls?.youtubeSearch;
-  // Lecteur officiel intégré (widget Spotify/Deezer) : reste dans KEEP au lieu
-  // d'ouvrir la plateforme dans un nouvel onglet. Web uniquement pour l'instant
-  // -- une iframe n'a pas d'équivalent React Native direct sans dépendance
-  // WebView côté natif. Priorité Spotify (widget le plus universellement
-  // disponible), Deezer en repli.
+  // Lecteur officiel intégré (widget Spotify/Deezer, ou IFrame Player API
+  // YouTube) : reste dans KEEP au lieu d'ouvrir la plateforme dans un nouvel
+  // onglet. Web uniquement pour l'instant -- une iframe n'a pas d'équivalent
+  // React Native direct sans dépendance WebView côté natif. Priorité Spotify
+  // (widget le plus universellement disponible), Deezer puis YouTube en repli
+  // -- YouTube seulement quand ACRCloud a confirmé un vrai id vidéo (vid),
+  // jamais une simple recherche.
   const embedUrl = track.providerIds?.spotify
     ? `https://open.spotify.com/embed/track/${encodeURIComponent(track.providerIds.spotify)}`
     : track.providerIds?.deezer
       ? `https://widget.deezer.com/widget/dark/track/${encodeURIComponent(track.providerIds.deezer)}`
-      : undefined;
+      : track.providerIds?.youtubeMusic
+        ? `https://www.youtube.com/embed/${encodeURIComponent(track.providerIds.youtubeMusic)}`
+        : undefined;
+  const embedProviderLabel = track.providerIds?.spotify ? 'Spotify' : track.providerIds?.deezer ? 'Deezer' : 'YouTube';
 
   useEffect(() => () => {
     void stopTrackPreview(previewKey);
@@ -131,7 +136,7 @@ export default function TrackListenControls({ track, previewKey }: Props) {
                     style: { border: 0, borderRadius: 12 },
                   })
                 : null}
-              <Text style={styles.embedHint}>Lecteur officiel {track.providerIds?.spotify ? 'Spotify' : 'Deezer'} intégré -- reste sur KEEP.</Text>
+              <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur KEEP.</Text>
             </View>
           </View>
         </Modal>
