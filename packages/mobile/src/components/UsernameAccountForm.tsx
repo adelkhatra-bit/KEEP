@@ -177,14 +177,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setBusy(true);
     setError('');
     try {
-      const result = await createAuthService(supabase).requestEmailMagicLink(email);
+      const result = await createAuthService(supabase).requestPasswordReset(email);
       if (result.error) {
         setError(errorText(result.error));
         return;
       }
       Alert.alert(
         'Lien KEEP envoyé',
-        'Si cette adresse est liée à un compte KEEP, ouvre l’e-mail reçu puis touche « OUVRIR KEEP ». Le lien est personnel et temporaire.',
+        'Si cette adresse est liée à un compte KEEP, ouvre l’e-mail reçu puis touche « CHANGER MON MOT DE PASSE ». Tu pourras choisir un nouveau mot de passe sécurisé.',
       );
     } catch {
       setError('Impossible d’envoyer le lien de récupération pour le moment. Réessaie dans un instant.');

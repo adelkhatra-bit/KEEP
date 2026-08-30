@@ -49,7 +49,7 @@ export async function consumeSupabaseAuthUrl(client: SupabaseClient, url: string
 
 export function subscribeToNativeAuthLinks(
   client: SupabaseClient,
-  onSuccess?: () => void,
+  onSuccess?: (type?: string) => void,
   onError?: (message: string) => void,
 ): () => void {
   if (Platform.OS === 'web') return () => {};
@@ -58,7 +58,10 @@ export function subscribeToNativeAuthLinks(
     if (!url || !url.startsWith('keep://auth/callback')) return;
     try {
       const ok = await consumeSupabaseAuthUrl(client, url);
-      if (ok) onSuccess?.();
+      if (ok) {
+        const parsed = new URL(url.replace('#', '?'));
+        onSuccess?.(parsed.searchParams.get('type') || parsed.searchParams.get('keep_auth') || undefined);
+      }
     } catch (error) {
       onError?.(error instanceof Error ? error.message : 'Connexion e-mail impossible.');
     }
@@ -100,7 +103,10 @@ export async function consumeWebAuthAndOpenNative(client: SupabaseClient): Promi
   window.history.replaceState({}, document.title, window.location.pathname + (cleanQuery ? `?${cleanQuery}` : ''));
 
   if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && accessToken && refreshToken) {
-    const deepLink = `keep://auth/callback?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
+    const recoveryMarker = current.searchParams.get('type') === 'recovery' || current.searchParams.get('keep_auth') === 'recovery'
+      ? '&keep_auth=recovery'
+      : '';
+    const deepLink = `keep://auth/callback?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}${recoveryMarker}`;
     window.setTimeout(() => {
       window.location.href = deepLink;
     }, 120);

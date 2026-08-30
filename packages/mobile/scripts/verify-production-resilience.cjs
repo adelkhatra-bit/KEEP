@@ -68,7 +68,8 @@ pass('Récupération e-mail ne crée jamais un nouveau compte', contains(authSer
 pass('Lien e-mail token_hash est vérifié réellement', contains(authHandoff, 'verifyOtp') && contains(authHandoff, 'token_hash'));
 pass('Lien e-mail peut revenir dans l’app native', contains(authHandoff, 'keep://auth/callback') && contains(authHandoff, 'getSession()'));
 pass('Lifecycle auth e-mail est monté hors navigation', contains(root, 'AuthEmailLinkLifecycle'));
-pass('Mot de passe oublié utilise le vrai flux e-mail', contains(accountForm, 'requestEmailMagicLink(email)') && !contains(accountForm, 'Pendant les tests, le Super Admin KEEP peut générer'));
+pass('Mot de passe oublié utilise le vrai flux de réinitialisation', contains(accountForm, 'requestPasswordReset(email)') && contains(authService, 'resetPasswordForEmail') && contains(authService, 'updateUser({ password })'));
+pass('Réinitialisation affiche un choix de nouveau mot de passe', contains('packages/mobile/src/components/AuthEmailLinkLifecycle.tsx', 'Nouveau mot de passe KEEP') && contains('packages/mobile/src/components/AuthEmailLinkLifecycle.tsx', "event === 'PASSWORD_RECOVERY'"));
 
 if (failures.length) {
   console.error('\nKEEP production resilience failures:');

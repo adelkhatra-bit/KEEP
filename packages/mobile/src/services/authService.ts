@@ -23,6 +23,8 @@ export interface AuthService {
   signUpWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
   signInWithUsername(username: string, password: string): Promise<UsernameAuthResult>;
   requestEmailMagicLink(email: string): Promise<{ error: string | null }>;
+  requestPasswordReset(email: string): Promise<{ error: string | null }>;
+  updatePassword(password: string): Promise<{ error: string | null }>;
   requestEmailLink(email: string): Promise<{ error: string | null }>;
   verifyEmailLink(email: string, code: string): Promise<{ error: string | null }>;
   signUpWithPassword(email: string, password: string): Promise<{ error: string | null; sessionCreated: boolean }>;
@@ -193,6 +195,21 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     async requestEmailMagicLink(email) {
       return requestMagicLink(client, email);
+    },
+
+    async requestPasswordReset(email) {
+      const cleanEmail = normalizeEmail(email);
+      if (!validRecoveryEmail(cleanEmail)) return { error: 'invalid_email' };
+      const { error } = await client.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: `${KEEP_PUBLIC_URL}?keep_auth=recovery`,
+      });
+      return { error: error ? mapSignupError(error.message) : null };
+    },
+
+    async updatePassword(password) {
+      if (password.length < 10) return { error: 'invalid_password' };
+      const { error } = await client.auth.updateUser({ password });
+      return { error: error ? mapSignupError(error.message) : null };
     },
 
     async requestEmailLink(email) {

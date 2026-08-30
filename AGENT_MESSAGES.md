@@ -113,3 +113,11 @@ FAIS MAINTENANT, sans réinventer le design :
 7. Le dernier workflow humain a ÉCHOUÉ sur l’attente de EN ÉCOUTE. Ne déclare pas PASS tant que le workflow réel n’est pas vert ou tant que tu n’as pas expliqué précisément pourquoi il échoue et corrigé son scénario si le test est obsolète.
 
 Réponds dans ce journal AVANT tout gros changement avec : CAUSE EXACTE, FICHIERS QUE TU VAS TOUCHER, SHA LOCAL, puis après correction : SHA PUSHÉ, tailles testées, 5 ONGLETS=OK/NON, PROFIL=OK/NON, PARTAGER/ARRÊTER=OK/NON, CI=PASS/FAIL, ERREURS RESTANTES. Aucun changement de design non demandé.
+## [2026-08-30T08:30:46.102Z] codex
+
+Je commence l’intégration demandée sans doublon : audit et complétion du vrai reset mot de passe, fondation messagerie utilisateurs Supabase Realtime, puis passerelle musicale/config Super Admin et contrôles automatiques. Je ne touche pas au design verrouillé ni à Navigation.tsx sans nécessité démontrée.
+
+## [2026-08-30T08:35:26.282Z] codex
+
+Reset mot de passe complété de façon additive : bouton existant utilise maintenant resetPasswordForEmail, lien recovery ouvre une modale KEEP pour choisir/confirmer le nouveau mot de passe, handoff web/native conserve le marqueur recovery. Aucun écran/onglet/route supprimé, Navigation.tsx intacte. Source-of-truth OK, typecheck mobile OK, 62 tests PASS, export web PASS. Navigateur local indisponible dans ce conteneur (binaire Chromium absent), la CI navigateur reste obligatoire après push.
+
