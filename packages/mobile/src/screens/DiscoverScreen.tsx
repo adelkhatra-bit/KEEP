@@ -77,6 +77,21 @@ export default function DiscoverScreen({ navigation }: any) {
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [profileQuery, setProfileQuery] = useState('');
+  // BUG RÉEL trouvé le 30/08/2026 (audit Découvertes en direct, Adel : "je
+  // fais une recherche... ça ne fonctionne pas") : filteredProfiles changeait
+  // `currentProfile` à CHAQUE frappe, et l'effet de vérification d'accès
+  // (getDiscoveryAccess/keep_discovery_profile_access) consomme réellement un
+  // crédit Découvertes par profil vérifié -- taper un pseudo de quelques
+  // lettres épuisait donc le quota gratuit (3) en une seconde, avant même que
+  // l'utilisateur voie un résultat. `committedQuery` ne se met à jour que
+  // 400ms après la dernière frappe : le champ reste réactif à l'écran, mais
+  // le filtrage qui déclenche la vérification de crédit ne bouge plus à
+  // chaque caractère.
+  const [committedQuery, setCommittedQuery] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setCommittedQuery(profileQuery), 400);
+    return () => clearTimeout(timer);
+  }, [profileQuery]);
 
   useEffect(() => {
     let live = true;
@@ -148,7 +163,7 @@ export default function DiscoverScreen({ navigation }: any) {
   }, [user?.id]);
 
   const filteredProfiles = useMemo(() => {
-    const needle = profileQuery.trim().replace(/^@/, '').toLowerCase();
+    const needle = committedQuery.trim().replace(/^@/, '').toLowerCase();
     const candidates = needle
       ? profiles.filter((profile) => profile.username.toLowerCase().includes(needle))
       : profiles;
@@ -171,7 +186,7 @@ export default function DiscoverScreen({ navigation }: any) {
       return a.distance - b.distance;
     });
     return ranked.map((item) => item.profile);
-  }, [profiles, profileQuery, radiusKm, searchPosition, hasSearched]);
+  }, [profiles, committedQuery, radiusKm, searchPosition, hasSearched]);
 
   const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
