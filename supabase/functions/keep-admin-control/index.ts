@@ -1,3 +1,5 @@
+[reconcile/claude-main-20260825 20b0ba6] fix(admin): generalize integration runtime status
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -254,7 +256,7 @@ async function validateAcrCloudCredentials(hostValue: string, accessKey: string,
   return { valid: false, status: "ERROR", message: `ACRCloud n'a pas confirmé les credentials (${code}: ${providerMessage.slice(0, 140)}). Rien n'a été activé.`, providerCode: code };
 }
 
-async function setRecognitionRuntimeStatus(key: "AUDD_API_KEY" | "ACRCLOUD", status: string, message: string | null) {
+async function setRecognitionRuntimeStatus(key: string, status: string, message: string | null) {
   const now = new Date().toISOString();
   await admin.from("integration_runtime_status").upsert({
     key,
