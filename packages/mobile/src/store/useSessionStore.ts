@@ -84,6 +84,7 @@ interface SessionStore {
   recognizing: boolean;
   micLevel: number;
   error: string | null;
+  signalHint: string | null;
   locationLabel?: string;
   lat?: number;
   lng?: number;
@@ -144,6 +145,12 @@ let silencePromptGraceHandle: ReturnType<typeof setTimeout> | null = null;
 let lastDetectionAt = 0;
 let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
+let consecutiveWeakSamples = 0;
+// Seuil sur le pic linéaire pré-gain (même échelle que le garde-fou silence
+// à 0.004 dans micCapture.ts) : sous cette valeur, même après amplification
+// x10, le signal est trop faible pour qu'une empreinte fiable en sorte --
+// c'est distinct d'un vrai "aucune correspondance" catalogue.
+const WEAK_SIGNAL_PEAK = 0.05;
 
 function recognitionSampleDurationMs() {
   // Premier essai court = résultat plus vite. Après un no-match, KEEP donne au
@@ -170,6 +177,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   recognizing: false,
   micLevel: 0,
   error: null,
+  signalHint: null,
   locationLabel: undefined,
   lat: undefined,
   lng: undefined,
@@ -188,7 +196,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     lastDetectionAt = Date.now();
     nextRecognitionAllowedAt = 0;
     consecutiveNoMatches = 0;
-    set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    consecutiveWeakSamples = 0;
+    set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
 
     const tick = async () => {
       if (!get().isActive || get().recognizing) return;
@@ -196,27 +205,37 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (now < nextRecognitionAllowedAt) return;
       nextRecognitionAllowedAt = now + MIN_RECOGNITION_ATTEMPT_GAP_MS;
       set({ recognizing: true });
+      let samplePeak: number | null = null;
       try {
         const sampleDuration = recognitionSampleDurationMs();
         const audioSample = musicEngine.isDemoMode
           ? new ArrayBuffer(0)
-          : await captureAudioSample((level) => { if (get().isActive) set({ micLevel: level }); }, sampleDuration);
+          : await captureAudioSample(
+              (level) => { if (get().isActive) set({ micLevel: level }); },
+              sampleDuration,
+              (peak) => { samplePeak = peak; },
+            );
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         if (!recognition) {
           consecutiveNoMatches = Math.min(5, consecutiveNoMatches + 1);
-          set({ recognizing: false, micLevel: 0, error: null });
+          consecutiveWeakSamples = samplePeak !== null && samplePeak < WEAK_SIGNAL_PEAK ? consecutiveWeakSamples + 1 : 0;
+          const signalHint = consecutiveWeakSamples >= 2
+            ? 'Son un peu faible pour l’instant -- rapproche le téléphone de la musique.'
+            : null;
+          set({ recognizing: false, micLevel: 0, error: null, signalHint });
           return;
         }
         consecutiveNoMatches = 0;
+        consecutiveWeakSamples = 0;
 
         const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
         const last = get().tracks[0];
         if (last && sameTrack(last.track, track)) {
           lastDetectionAt = Date.now();
           nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
-          set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null });
+          set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null });
           return;
         }
 
@@ -232,7 +251,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         };
         lastDetectionAt = Date.now();
         nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
-        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null }));
+        set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
         persistLiveSession(get());
 
         void (async () => {
@@ -293,7 +312,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!s.sessionId || !s.startedAt) return null;
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
-    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
 

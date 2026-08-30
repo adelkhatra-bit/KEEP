@@ -29,7 +29,7 @@ function formatElapsed(startedAt: string | null) {
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, recognizing, micLevel,
+    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
@@ -240,6 +240,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         </ListenEnergyAura>
 
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text></View> : null}
+        {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
         <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
 
@@ -373,6 +374,7 @@ const s = StyleSheet.create({
   tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12 },
   tabTestText: { color: C.muted, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
+  signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
   main: { flex: 1 },
   mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
   liveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 6 },

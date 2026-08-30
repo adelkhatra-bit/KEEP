@@ -287,7 +287,8 @@ async function captureStreamToWav(
   stream: MediaStream,
   versionAtStart: number,
   onLevel?: (level: number) => void,
-  durationMs = DEFAULT_SAMPLE_DURATION_MS
+  durationMs = DEFAULT_SAMPLE_DURATION_MS,
+  onPeak?: (peak: number) => void
 ): Promise<Blob> {
   const audioCtx = getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
@@ -348,6 +349,7 @@ async function captureStreamToWav(
   if (totalLength === 0 || peak < 0.004) {
     throw new Error('Aucun son détecté -- vérifie que le micro capte bien la musique (volume, autorisation navigateur).');
   }
+  onPeak?.(peak);
 
   // Normalisation locale avant envoi à la reconnaissance : on n'invente aucun
   // son, on remonte simplement un signal réellement capté mais trop faible.
@@ -361,7 +363,7 @@ async function captureStreamToWav(
   return encodeWav(merged, sampleRate);
 }
 
-async function captureAudioSampleWeb(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+async function captureAudioSampleWeb(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS, onPeak?: (peak: number) => void): Promise<Blob> {
   const versionAtStart = cancellationVersion;
   const stream = await ensureWebStream();
 
@@ -373,7 +375,7 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
   }
 
   try {
-    return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs);
+    return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs, onPeak);
   } catch (e) {
     if (versionAtStart !== cancellationVersion) releaseCaptureResources();
     throw e;
@@ -438,7 +440,7 @@ export async function cancelAudioCapture(): Promise<void> {
   }
 }
 
-export async function captureAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+export async function captureAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS, onPeak?: (peak: number) => void): Promise<Blob> {
   const duration = safeSampleDuration(durationMs);
-  return Platform.OS === 'web' ? captureAudioSampleWeb(onLevel, duration) : captureAudioSampleNative(onLevel, duration);
+  return Platform.OS === 'web' ? captureAudioSampleWeb(onLevel, duration, onPeak) : captureAudioSampleNative(onLevel, duration);
 }
