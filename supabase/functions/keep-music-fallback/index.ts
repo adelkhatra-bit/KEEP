@@ -70,6 +70,56 @@ function firstString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function normalizeText(value: unknown) {
+  return String(value ?? "").normalize("NFKD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function upscaleAppleArtwork(url: string) {
+  return url.replace(/100x100bb/gi, "600x600bb").replace(/100x100/gi, "600x600");
+}
+
+async function fetchJsonSafe(url: string, init?: RequestInit) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000), ...init });
+    if (!response.ok) return null;
+    return await response.json().catch(() => null);
+  } catch { return null; }
+}
+
+// ACRCloud identifie l'empreinte audio mais ne renvoie quasiment jamais de
+// jaquette exploitable (juste des identifiants Spotify/Deezer/YouTube). Deux
+// sources gratuites, sans compte, comblent ça : un lookup exact Deezer quand
+// son ID est présent, sinon une recherche iTunes par titre+artiste (même
+// technique déjà éprouvée côté AudD dans keep-music-recognition-v2).
+async function resolveArtwork(title: string, artist: string, deezerTrackId?: string): Promise<string | undefined> {
+  if (deezerTrackId) {
+    const track = await fetchJsonSafe(`https://api.deezer.com/track/${encodeURIComponent(deezerTrackId)}`);
+    const cover = track?.album?.cover_xl || track?.album?.cover_big || track?.album?.cover_medium;
+    if (cover) return String(cover);
+  }
+  const payload = await fetchJsonSafe(
+    `https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}&entity=song&limit=8&country=FR`,
+    { headers: { "User-Agent": "KEEP/1.0" } },
+  );
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  if (!rows.length) return undefined;
+  const wantedTitle = normalizeText(title);
+  const wantedArtist = normalizeText(artist);
+  const best = rows.find((row: any) => normalizeText(row?.trackName) === wantedTitle && normalizeText(row?.artistName) === wantedArtist)
+    ?? rows.find((row: any) => normalizeText(row?.trackName).includes(wantedTitle) && normalizeText(row?.artistName).includes(wantedArtist))
+    ?? rows[0];
+  return best?.artworkUrl100 ? upscaleAppleArtwork(String(best.artworkUrl100)) : undefined;
+}
+
+// Capture ambiante (micro/onglet) sur un extrait court : ACRCloud peut
+// répondre avec un score faible plutôt qu'un vrai no-match. Un score bas
+// présenté comme certitude est la cause directe des mauvais artistes
+// rapportés en test réel (30/08/2026) -- en dessous du seuil, KEEP traite
+// ça comme une non-reconnaissance et laisse la cascade continuer (source
+// sans clé) plutôt que d'afficher un résultat non fiable.
+const MIN_ACR_SCORE = 65;
+
 async function hmacSha1Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -90,7 +140,7 @@ function normalizeHost(value: string): string {
   return value.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
 }
 
-function normalizeAcrMusic(music: any) {
+async function normalizeAcrMusic(music: any) {
   if (!music?.title) return null;
   const artist = first(music.artists)?.name ?? music.artist ?? "";
   if (!String(artist).trim()) return null;
@@ -125,12 +175,15 @@ function normalizeAcrMusic(music: any) {
   externalUrls.youtubeSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${music.title}`)}`;
 
   const score = Number(music.score ?? 100);
+  const title = String(music.title);
+  const artworkUrl = await resolveArtwork(title, String(artist), deezerId);
   return {
     confidence: Number.isFinite(score) ? Math.max(0, Math.min(1, score / 100)) : 1,
-    title: String(music.title),
+    title,
     artist: String(artist),
     album: music.album?.name ? String(music.album.name) : undefined,
     isrc: firstString(music.external_ids?.isrc),
+    artworkUrl,
     availableOn,
     externalUrls,
     providerIds,
@@ -194,7 +247,11 @@ async function identify(req: Request) {
   }
 
   const music = Array.isArray(body?.metadata?.music) ? body.metadata.music[0] : null;
-  return json(200, { ok: true, provider: "ACRCloud", recognition: normalizeAcrMusic(music) });
+  const rawScore = Number(music?.score ?? 100);
+  if (music && Number.isFinite(rawScore) && rawScore < MIN_ACR_SCORE) {
+    return json(200, { ok: true, provider: "ACRCloud", recognition: null, providerStatus: statusCode, lowConfidenceScore: rawScore });
+  }
+  return json(200, { ok: true, provider: "ACRCloud", recognition: await normalizeAcrMusic(music) });
 }
 
 Deno.serve(async (req) => {
