@@ -300,6 +300,12 @@ async function keylessSourceRecognition(accessToken: string | null): Promise<Rec
 export async function searchTrackByText(query: string): Promise<RecognitionResult | null> {
   const trimmed = query.trim();
   if (!trimmed || !configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
+  // Un lien Spotify/Deezer/Apple Music/SoundCloud/Tidal collé donne une bien
+  // meilleure preuve qu'un titre tapé à la main -- keep-music-keyless-source
+  // sait déjà lire ces hôtes (lookup exact Apple/Deezer, page title sinon) et
+  // applique un seuil de confiance plus permissif que pour du texte libre.
+  const looksLikeUrl = /^https?:\/\//i.test(trimmed);
+  const body = looksLikeUrl ? { url: trimmed } : { title: trimmed };
   try {
     const accessToken = await getSupabaseAccessToken();
     const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
@@ -308,7 +314,7 @@ export async function searchTrackByText(query: string): Promise<RecognitionResul
         ...baseHeaders(accessToken),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ title: trimmed }),
+      body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload?.recognition) return null;

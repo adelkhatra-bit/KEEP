@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
 import { useSessionStore } from '../store/useSessionStore';
@@ -179,11 +179,6 @@ export default function HomeScreenCompact({ navigation }: any) {
     setPrivacyBusy(false);
   };
 
-  const share = async () => {
-    if (!current) return;
-    await Share.share({ message: `${current.track.title} — ${current.track.artist} · découvert avec KEEP 🎵` });
-  };
-
   // Idée du 30/08/2026 (Adel : "il faut régler le souci pour l'écoute...
   // idée gratuite, innove") : capter l'audio d'un onglet/écran (web) au lieu
   // du micro évite le pire cas acoustique -- micro + haut-parleurs du même
@@ -319,7 +314,6 @@ export default function HomeScreenCompact({ navigation }: any) {
       </ScrollView>
 
       <View style={s.footerActions}>
-        <TouchableOpacity style={s.secondary} onPress={share} disabled={!current}><Text style={s.secondaryText}>↗ Partager</Text></TouchableOpacity>
         <TouchableOpacity style={s.secondary} onPress={finishSession}><Text style={s.secondaryText}>{t('session.endNow')}</Text></TouchableOpacity>
       </View>
 
@@ -353,12 +347,12 @@ export default function HomeScreenCompact({ navigation }: any) {
       <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). KEEP cherche dans les catalogues Apple Music et Deezer.</Text>
+          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »), ou colle un lien Spotify/Deezer/Apple Music. KEEP cherche dans les catalogues.</Text>
           <TextInput
             style={s.manualSearchInput}
             value={manualSearchQuery}
             onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
-            placeholder="Artiste - Titre"
+            placeholder="Artiste - Titre, ou lien Spotify/Deezer…"
             placeholderTextColor={C.muted}
             editable={!manualSearchBusy}
             autoFocus
