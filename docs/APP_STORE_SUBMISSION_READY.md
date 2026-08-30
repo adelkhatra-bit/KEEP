@@ -94,6 +94,7 @@ Privacy/legal links:
 
 Music recognition:
 - KEEP can use server-configured recognition providers and a keyless public metadata fallback.
+- When enabled, Pipedream Connect displays the provider's authorization flow and stores encrypted OAuth tokens; KEEP never asks for a provider password.
 - Missing recognition provider credentials do not block the application UI.
 
 Reviewer account:
@@ -228,6 +229,7 @@ Ne jamais mettre les secrets API, le mot de passe Super Admin ou une clé App St
 ## 12. Éléments externes encore requis avant le premier build iOS réel
 
 - Compte Apple Developer actif.
+- Compte Pipedream Connect KEEP configuré en production uniquement si la passerelle OAuth est activée dans la build soumise.
 - Application créée dans App Store Connect avec Bundle ID `com.adelkhatra.keep`.
 - Apple Team ID réel.
 - App Store Connect numeric App ID (`ascAppId`).

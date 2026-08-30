@@ -29,6 +29,10 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   APPLE_MUSICKIT_PRIVATE_KEY: { category: "music", label: "Apple MusicKit Private Key", secret: true },
   MUSICAPI_CLIENT_ID: { category: "music", label: "MusicAPI — clé catalogue unifié", secret: true },
   MUSICAPI_CLIENT_SECRET: { category: "music", label: "MusicAPI — secret SSO bibliothèques", secret: true },
+  PIPEDREAM_CLIENT_ID: { category: "automation", label: "Pipedream Connect — Client ID" },
+  PIPEDREAM_CLIENT_SECRET: { category: "automation", label: "Pipedream Connect — Client Secret", secret: true },
+  PIPEDREAM_PROJECT_ID: { category: "automation", label: "Pipedream Connect — Project ID" },
+  PIPEDREAM_ENVIRONMENT: { category: "automation", label: "Pipedream Connect — environnement" },
   AUDD_API_KEY: { category: "recognition", label: "AudD API key", secret: true },
   ACRCLOUD_ACCESS_KEY: { category: "recognition", label: "ACRCloud Access Key", secret: true },
   ACRCLOUD_ACCESS_SECRET: { category: "recognition", label: "ACRCloud Access Secret", secret: true },
@@ -130,6 +134,26 @@ async function validateMusicApiClientId(value: string) {
     };
   } catch {
     return { valid: false, status: "ERROR" as const, message: "Impossible de joindre MusicAPI pour vérifier la clé." };
+  }
+}
+
+async function validatePipedreamCredentials(clientId: string, clientSecret: string, projectId: string) {
+  try {
+    const response = await fetch("https://api.pipedream.com/v1/oauth/token", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) {
+      return { valid: false, status: "ERROR" as const, message: `Pipedream a refusé les identifiants (HTTP ${response.status}).` };
+    }
+    const payload = await response.json().catch(() => ({}));
+    if (!payload?.access_token) return { valid: false, status: "ERROR" as const, message: "Pipedream n'a pas renvoyé de jeton d'accès." };
+    if (!/^proj_/i.test(projectId)) return { valid: false, status: "ERROR" as const, message: "Project ID Pipedream invalide." };
+    return { valid: true, status: "OK" as const, message: "Pipedream Connect vérifié et prêt pour les fenêtres d'autorisation." };
+  } catch {
+    return { valid: false, status: "ERROR" as const, message: "Impossible de joindre Pipedream pour vérifier les identifiants." };
   }
 }
 
@@ -431,6 +455,24 @@ Deno.serve(async (req) => {
         return json(400, { error: "invalid_musicapi_client_id", message: musicApiValidation.message, validation: musicApiValidation });
       }
 
+      let pipedreamValidation: Awaited<ReturnType<typeof validatePipedreamCredentials>> | null = null;
+      let pipedreamBundleComplete = false;
+      if (key.startsWith("PIPEDREAM_")) {
+        if (key === "PIPEDREAM_ENVIRONMENT" && value !== "development" && value !== "production") {
+          return json(400, { error: "invalid_pipedream_environment", message: "Utilise development ou production." });
+        }
+        const [savedClientId, savedClientSecret, savedProjectId] = await Promise.all([
+          key === "PIPEDREAM_CLIENT_ID" ? Promise.resolve(value) : getSecret("PIPEDREAM_CLIENT_ID"),
+          key === "PIPEDREAM_CLIENT_SECRET" ? Promise.resolve(value) : getSecret("PIPEDREAM_CLIENT_SECRET"),
+          key === "PIPEDREAM_PROJECT_ID" ? Promise.resolve(value) : getSecret("PIPEDREAM_PROJECT_ID"),
+        ]);
+        pipedreamBundleComplete = Boolean(savedClientId && savedClientSecret && savedProjectId);
+        if (pipedreamBundleComplete) {
+          pipedreamValidation = await validatePipedreamCredentials(String(savedClientId), String(savedClientSecret), String(savedProjectId));
+          if (!pipedreamValidation.valid) return json(400, { error: "invalid_pipedream_credentials", message: pipedreamValidation.message, validation: pipedreamValidation });
+        }
+      }
+
       let acrValidation: AcrCloudValidation | null = null;
       let acrBundleComplete = false;
       if (key.startsWith("ACRCLOUD_")) {
@@ -465,10 +507,14 @@ Deno.serve(async (req) => {
         await setRecognitionRuntimeStatus("ACRCLOUD", "NOT_CONFIGURED", "Configuration ACRCloud incomplète : renseigne Host + Access Key + Access Secret.");
       } else if (key === "MUSICAPI_CLIENT_ID" && musicApiValidation) {
         await setRecognitionRuntimeStatus("MUSICAPI_CLIENT_ID", musicApiValidation.status, musicApiValidation.message);
+      } else if (key.startsWith("PIPEDREAM_") && pipedreamValidation) {
+        await setRecognitionRuntimeStatus("PIPEDREAM_CONNECT", pipedreamValidation.status, pipedreamValidation.message);
+      } else if (key.startsWith("PIPEDREAM_") && !pipedreamBundleComplete) {
+        await setRecognitionRuntimeStatus("PIPEDREAM_CONNECT", "NOT_CONFIGURED", "Configuration Pipedream incomplète : Client ID + Client Secret + Project ID requis.");
       } else {
         await resetIntegrationRuntimeStatus(key, true);
       }
-      const validation = providerValidation ?? acrValidation ?? musicApiValidation;
+      const validation = providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation;
       await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint, validation });
       return json(200, { ok: true, key, configured: true, hint: valueHint, validation, recognitionReady: key.startsWith("ACRCLOUD_") ? Boolean(acrValidation?.valid) : undefined });
     }

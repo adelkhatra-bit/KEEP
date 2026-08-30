@@ -5,7 +5,7 @@
     "identity": ["Supabase Auth", "password recovery", "username login", "email recovery"],
     "communication": ["Brevo transactional email", "Supabase Realtime support", "Expo push notifications"],
     "musicRecognition": ["ShazamKit iOS", "keyless Apple and Deezer cross-check", "AudD", "ACRCloud fallback"],
-    "musicInteroperability": ["Spotify OAuth", "Deezer OAuth", "Apple MusicKit", "MusicAPI unified catalog optional"],
+    "musicInteroperability": ["Spotify OAuth", "Deezer OAuth", "Apple MusicKit", "MusicAPI unified catalog optional", "Pipedream Connect managed OAuth gateway"],
     "storage": ["Supabase Postgres", "Supabase Storage avatars", "GitHub artifacts"],
     "delivery": ["GitHub Pages", "Expo EAS Build", "EAS Submit", "TestFlight"],
     "quality": ["TypeScript", "Jest", "Playwright Chromium", "Playwright WebKit iPhone", "Android viewport guardian", "iOS simulator compile", "CodeQL"]

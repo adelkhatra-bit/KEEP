@@ -3,7 +3,8 @@ import { getSupabaseAccessToken } from './supabaseClient';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-export type SyncProvider = 'spotify' | 'deezer';
+export type SyncProvider = 'spotify' | 'deezer' | 'youtube_music' | 'soundcloud';
+export type ImportProvider = 'spotify' | 'deezer';
 export type ImportedMusicVisibility = 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE';
 
 export type ProviderConnectionState = {
@@ -20,11 +21,13 @@ export type ProviderConnectionState = {
 export type ProviderConnectionMap = {
   spotify: ProviderConnectionState;
   deezer: ProviderConnectionState;
+  youtube_music: ProviderConnectionState;
+  soundcloud: ProviderConnectionState;
 };
 
 export type ImportedMusicItem = {
   id: string;
-  provider: SyncProvider;
+  provider: ImportProvider;
   provider_track_id: string;
   provider_uri?: string | null;
   isrc?: string | null;
@@ -72,6 +75,8 @@ export async function loadProviderConnectionStates(): Promise<ProviderConnection
   return {
     spotify: { ...empty, ...(providers.spotify ?? {}) },
     deezer: { ...empty, ...(providers.deezer ?? {}) },
+    youtube_music: { ...empty, ...(providers.youtube_music ?? {}) },
+    soundcloud: { ...empty, ...(providers.soundcloud ?? {}) },
   };
 }
 
@@ -106,7 +111,7 @@ export async function disconnectProvider(provider: SyncProvider): Promise<void> 
   await readJson(response);
 }
 
-export async function importProviderFavorites(provider: SyncProvider): Promise<{ provider: SyncProvider; imported: number; syncedAt: string }> {
+export async function importProviderFavorites(provider: ImportProvider): Promise<{ provider: ImportProvider; imported: number; syncedAt: string }> {
   const response = await fetch(`${baseUrl()}/api/music/library/import/${provider}`, {
     method: 'POST',
     headers: await headers(),

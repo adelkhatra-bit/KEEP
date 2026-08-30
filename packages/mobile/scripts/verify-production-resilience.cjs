@@ -43,6 +43,10 @@ pass('Super Admin valide AudD auprès du fournisseur avant sauvegarde', contains
 pass('Super Admin valide le bundle ACRCloud avant activation', contains(adminControl, 'validateAcrCloudCredentials') && contains(adminControl, 'invalid_acrcloud_credentials'));
 pass('Test global des moteurs de reconnaissance existe', exists('supabase/functions/keep-recognition-admin-test/index.ts'));
 pass('Écran intégrations expose le test global', contains('packages/admin/pages/integrations.tsx', 'keep-recognition-admin-test'));
+pass('Passerelle Pipedream reste serveur uniquement', exists('packages/backend/src/lib/pipedreamConnect.ts') && !contains('packages/mobile/src/services/musicProviderSyncService.ts', 'PIPEDREAM_CLIENT_SECRET'));
+pass('Pipedream crée un jeton court par utilisateur KEEP', contains('packages/backend/src/lib/pipedreamConnect.ts', 'externalUserId: args.profileId') && contains('packages/backend/src/lib/pipedreamConnect.ts', 'expiresIn: 600'));
+pass('Super Admin valide Pipedream avant activation', contains(adminControl, 'validatePipedreamCredentials') && contains(adminControl, 'invalid_pipedream_credentials'));
+pass('Connexions directes restent disponibles en secours', contains('packages/backend/src/routes/musicConnections.ts', "provider === 'spotify' || provider === 'deezer'") && contains('packages/backend/src/routes/musicConnections.ts', 'createPipedreamConnectLink'));
 
 const mic = 'packages/mobile/src/services/micCapture.ts';
 const root = 'packages/mobile/index.js';

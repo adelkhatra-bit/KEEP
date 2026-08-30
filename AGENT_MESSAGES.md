@@ -129,3 +129,7 @@ Suite additive : je prépare la passerelle MusicAPI derrière le backend existan
 
 Passerelle catalogue unifié préparée sans UI/design : Super Admin accepte MUSICAPI_CLIENT_ID (test réel introspection avant sauvegarde) et MUSICAPI_CLIENT_SECRET pour SSO futur; backend autorise ces secrets. Ajout inventaire machine-readable des capacités KEEP + vérificateur CI, 7 groupes et 9 workflows critiques. Source-of-truth PASS, inventaire PASS, typecheck backend/admin PASS, 62 tests mobile PASS.
 
+## [2026-08-30T08:50:34.724Z] codex
+
+Début intégration complète Pipedream/MusicAPI et préparation App Store, sans toucher au design ni aux 5 onglets. Audit du code existant avant toute addition.
+

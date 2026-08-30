@@ -18,6 +18,7 @@ import {
 } from '../services/musicServiceSelectionService';
 import {
   importProviderFavorites,
+  ImportProvider,
   loadProviderConnectionStates,
   ProviderConnectionMap,
   startProviderConnection,
@@ -30,11 +31,17 @@ const EMPTY_SELECTION: MusicServiceSelectionState = { services: [], used: 0, lim
 const EMPTY_PROVIDER_CONNECTIONS: ProviderConnectionMap = {
   spotify: { configured: false, connected: false, connection: null },
   deezer: { configured: false, connected: false, connection: null },
+  youtube_music: { configured: false, connected: false, connection: null },
+  soundcloud: { configured: false, connected: false, connection: null },
 };
 
 type ActivationPrompt = { service: MusicServiceKey; name: string };
 
 function isSyncProvider(service: MusicServiceKey): service is SyncProvider {
+  return service === 'spotify' || service === 'deezer' || service === 'youtube_music' || service === 'soundcloud';
+}
+
+function isImportProvider(service: SyncProvider): service is ImportProvider {
   return service === 'spotify' || service === 'deezer';
 }
 
@@ -139,7 +146,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     }
   };
 
-  const importFavorites = async (provider: SyncProvider, name: string) => {
+  const importFavorites = async (provider: ImportProvider, name: string) => {
     if (providerBusy || busy) return;
     setProviderBusy(provider);
     try {
@@ -242,7 +249,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           void connectProvider(service, name);
           return;
         }
-        if (!queue?.tracks.length) {
+        if (!queue?.tracks.length && isImportProvider(service)) {
           void importFavorites(service, name);
           return;
         }
@@ -361,7 +368,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
             ? 'PATIENTER…'
             : active
               ? connected
-                ? (queue?.tracks.length ? 'CHOISIR' : 'IMPORTER')
+                ? (queue?.tracks.length ? 'CHOISIR' : syncProvider && isImportProvider(syncProvider) ? 'IMPORTER' : 'OUVRIR')
                 : syncProvider ? 'CONNECTER' : (queue?.tracks.length ? 'CHOISIR' : 'OUVRIR')
               : slotFull || reserved ? '🔒' : 'ACTIVER';
 
@@ -392,7 +399,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
         <View style={styles.ruleCard}>
           <Text style={styles.ruleTitle}>KEEP range pour toi</Text>
-          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans KEEP. Pour Spotify et Deezer connectés, tes favoris peuvent être importés en métadonnées privées puis tes playlists KEEP peuvent être resynchronisées vers ton compte fournisseur.</Text>
+          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans KEEP. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à KEEP.</Text>
         </View>
 
         <View style={styles.limitCard}>
