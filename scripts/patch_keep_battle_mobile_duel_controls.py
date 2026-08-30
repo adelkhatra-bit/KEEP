@@ -4,26 +4,21 @@ p = Path('packages/mobile/src/components/KeepBattleMobileGameV3.tsx')
 s = p.read_text()
 
 repls = {
-"<Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={44} />": "<Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} />",
-"hitSlop={10}": "hitSlop={12}",
-"invite: { marginTop: 8, borderWidth: 1, borderColor: 'rgba(229,242,102,.58)', borderRadius: 13, backgroundColor: 'rgba(13,13,16,.97)', padding: 8, gap: 7 },": "invite: { marginTop: 9, borderWidth: 2, borderColor: 'rgba(229,242,102,.72)', borderRadius: 15, backgroundColor: 'rgba(13,13,16,.98)', padding: 11, gap: 9, minHeight: 126 },",
-"inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },": "inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },",
-"inviteQuestion: { color: '#FFF', fontSize: 12, lineHeight: 15, fontWeight: '700' },": "inviteQuestion: { color: '#FFF', fontSize: 14, lineHeight: 18, fontWeight: '700' },",
-"inviteName: { color: '#E5F266', fontWeight: '900' },": "inviteName: { color: '#E5F266', fontSize: 14, fontWeight: '900' },",
-"inviteLabel: { color: '#E5F266', fontSize: 10, fontWeight: '900', marginTop: 2 },": "inviteLabel: { color: '#E5F266', fontSize: 12, lineHeight: 16, fontWeight: '900', marginTop: 3 },",
-"inviteActions: { flexDirection: 'row', gap: 8 },": "inviteActions: { flexDirection: 'row', gap: 10, width: '100%' },",
-"no: { minHeight: 48, flex: 1, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.28)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },": "no: { minHeight: 56, flex: 1, borderRadius: 14, borderWidth: 2, borderColor: 'rgba(255,255,255,.34)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },",
-"yes: { minHeight: 48, flex: 1, borderRadius: 12, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },": "yes: { minHeight: 56, flex: 1, borderRadius: 14, borderWidth: 2, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },",
-"noText: { color: '#FFF', fontSize: 11, fontWeight: '900' },": "noText: { color: '#FFF', fontSize: 13, lineHeight: 17, fontWeight: '900' },",
-"yesText: { color: '#15110B', fontSize: 11, fontWeight: '900' },": "yesText: { color: '#15110B', fontSize: 13, lineHeight: 17, fontWeight: '900' },",
-"duelName: { color: '#FFF', fontSize: 10, fontWeight: '900' },": "duelName: { color: '#FFF', fontSize: 12, lineHeight: 16, fontWeight: '900' },",
-"duelScore: { color: '#E5F266', fontSize: 12, fontWeight: '900' },": "duelScore: { color: '#E5F266', fontSize: 14, lineHeight: 18, fontWeight: '900' },",
-"duelTimer: { color: '#FFF', fontSize: 9, fontWeight: '900', marginTop: 1 },": "duelTimer: { color: '#FFF', fontSize: 11, lineHeight: 14, fontWeight: '900', marginTop: 1 },",
-"duelPoints: { color: '#FFF', fontSize: 10, fontWeight: '900', marginTop: 2 },": "duelPoints: { color: '#FFF', fontSize: 12, lineHeight: 16, fontWeight: '900', marginTop: 2 },",
+"<Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={44} />": "<Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={50} />",
+"hitSlop={10}": "hitSlop={14}",
+"invite: { marginTop: 9, minHeight: 118, paddingHorizontal: 14, paddingVertical: 14, borderRadius: 22, borderWidth: 2, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' },": "invite: { marginTop: 9, minHeight: 138, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 24, borderWidth: 2, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' },",
+"inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 10 },": "inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },",
+"inviteLabel: { color: '#E5F266', fontSize: 14, lineHeight: 18, fontWeight: '900', marginTop: 4 },": "inviteLabel: { color: '#E5F266', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 4 },",
+"inviteName: { color: '#FFF', fontSize: 16, lineHeight: 20, fontWeight: '900' },": "inviteName: { color: '#FFF', fontSize: 17, lineHeight: 22, fontWeight: '900' },",
+"inviteQuestion: { color: '#F3EDF7', fontSize: 15, lineHeight: 20, fontWeight: '800' },": "inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22, fontWeight: '800' },",
+"no: { flex: 1, minHeight: 56, paddingHorizontal: 14, borderRadius: 28, borderWidth: 2, borderColor: '#75627F', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },": "no: { flex: 1, minHeight: 60, paddingHorizontal: 16, borderRadius: 30, borderWidth: 2, borderColor: '#8B7696', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },",
+"noText: { color: '#FFF', fontSize: 14, fontWeight: '900' },": "noText: { color: '#FFF', fontSize: 15, lineHeight: 20, fontWeight: '900' },",
+"yes: { flex: 1, minHeight: 56, paddingHorizontal: 14, borderRadius: 28, borderWidth: 2, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' },": "yes: { flex: 1, minHeight: 60, paddingHorizontal: 16, borderRadius: 30, borderWidth: 2, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' },",
+"yesText: { color: '#17130B', fontSize: 14, fontWeight: '900' },": "yesText: { color: '#17130B', fontSize: 15, lineHeight: 20, fontWeight: '900' },",
 }
 for old, new in repls.items():
     if old not in s:
-        raise SystemExit(f'missing anchor: {old[:80]}')
+        raise SystemExit(f'missing anchor: {old[:90]}')
     s = s.replace(old, new)
 
 old = """setRespondingChallengeId(item.id);\n    if (!accept) setIncoming((rows) => rows.filter((x) => x.id !== item.id));\n    try {\n      const response = await respondBattleChallenge(item.id, accept);"""
@@ -35,9 +30,9 @@ p.write_text(s)
 
 t = Path('packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts')
 ts = t.read_text()
-if "uses large phone touch targets for Battle decisions" not in ts:
+if "uses extra-large phone touch targets for Battle decisions" not in ts:
     marker = "\n  it('pauses the solo round while the player decides on an invite, including audio loading', () => {"
-    test = """\n  it('uses large phone touch targets for Battle decisions', () => {\n    expect(source).toContain(\"no: { minHeight: 56\");\n    expect(source).toContain(\"yes: { minHeight: 56\");\n    expect(source).toContain(\"noText: { color: '#FFF', fontSize: 13\");\n    expect(source).toContain(\"yesText: { color: '#15110B', fontSize: 13\");\n    expect(source).toContain(\"inviteQuestion: { color: '#FFF', fontSize: 14\");\n    expect(source).toContain('hitSlop={12}');\n  });\n"""
+    test = """\n  it('uses extra-large phone touch targets for Battle decisions', () => {\n    expect(source).toContain(\"no: { flex: 1, minHeight: 60\");\n    expect(source).toContain(\"yes: { flex: 1, minHeight: 60\");\n    expect(source).toContain(\"inviteQuestion: { color: '#F3EDF7', fontSize: 16\");\n    expect(source).toContain('hitSlop={14}');\n  });\n"""
     if marker not in ts:
         raise SystemExit('test marker missing')
     ts = ts.replace(marker, test + marker, 1)
