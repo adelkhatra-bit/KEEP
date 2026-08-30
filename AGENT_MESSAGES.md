@@ -121,3 +121,11 @@ Je commence l’intégration demandée sans doublon : audit et complétion du vr
 
 Reset mot de passe complété de façon additive : bouton existant utilise maintenant resetPasswordForEmail, lien recovery ouvre une modale KEEP pour choisir/confirmer le nouveau mot de passe, handoff web/native conserve le marqueur recovery. Aucun écran/onglet/route supprimé, Navigation.tsx intacte. Source-of-truth OK, typecheck mobile OK, 62 tests PASS, export web PASS. Navigateur local indisponible dans ce conteneur (binaire Chromium absent), la CI navigateur reste obligatoire après push.
 
+## [2026-08-30T08:42:17.355Z] codex
+
+Suite additive : je prépare la passerelle MusicAPI derrière le backend existant et un inventaire machine-readable des capacités/contrôles GitHub. Aucun design, écran, Navigation.tsx ou fonction existante supprimés.
+
+## [2026-08-30T08:43:47.023Z] codex
+
+Passerelle catalogue unifié préparée sans UI/design : Super Admin accepte MUSICAPI_CLIENT_ID (test réel introspection avant sauvegarde) et MUSICAPI_CLIENT_SECRET pour SSO futur; backend autorise ces secrets. Ajout inventaire machine-readable des capacités KEEP + vérificateur CI, 7 groupes et 9 workflows critiques. Source-of-truth PASS, inventaire PASS, typecheck backend/admin PASS, 62 tests mobile PASS.
+

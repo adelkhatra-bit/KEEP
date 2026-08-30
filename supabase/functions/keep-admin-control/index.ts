@@ -27,6 +27,8 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   APPLE_MUSICKIT_TEAM_ID: { category: "music", label: "Apple MusicKit Team ID" },
   APPLE_MUSICKIT_KEY_ID: { category: "music", label: "Apple MusicKit Key ID" },
   APPLE_MUSICKIT_PRIVATE_KEY: { category: "music", label: "Apple MusicKit Private Key", secret: true },
+  MUSICAPI_CLIENT_ID: { category: "music", label: "MusicAPI — clé catalogue unifié", secret: true },
+  MUSICAPI_CLIENT_SECRET: { category: "music", label: "MusicAPI — secret SSO bibliothèques", secret: true },
   AUDD_API_KEY: { category: "recognition", label: "AudD API key", secret: true },
   ACRCLOUD_ACCESS_KEY: { category: "recognition", label: "ACRCloud Access Key", secret: true },
   ACRCLOUD_ACCESS_SECRET: { category: "recognition", label: "ACRCloud Access Secret", secret: true },
@@ -102,6 +104,33 @@ async function validateAuddToken(value: string): Promise<AuddValidation> {
     return { valid: true, status: "ACTIVE", message: "Token AudD vérifié par le fournisseur." };
   }
   return { valid: false, status: "ERROR", message: `AudD n'a pas confirmé le token (${providerMessage.slice(0, 160)}). Rien n'a été enregistré.` };
+}
+
+async function validateMusicApiClientId(value: string) {
+  const clean = value.trim();
+  if (clean.length < 16 || clean.length > 160 || /\s/.test(clean)) {
+    return { valid: false, status: "ERROR" as const, message: "Clé MusicAPI invalide ou incomplète." };
+  }
+  try {
+    const response = await fetch("https://api.musicapi.com/search/introspection", {
+      headers: { Authorization: `Token ${clean}`, "content-type": "application/json; charset=utf-8" },
+      signal: AbortSignal.timeout(10000),
+    });
+    const payload = await response.json().catch(() => null);
+    const sources = Array.isArray(payload?.sources) ? payload.sources : [];
+    if (!response.ok || sources.length === 0) {
+      return { valid: false, status: "ERROR" as const, message: `MusicAPI a refusé la clé (HTTP ${response.status}).` };
+    }
+    return {
+      valid: true,
+      status: "ACTIVE" as const,
+      message: `MusicAPI vérifié : ${sources.length} catalogues unifiés disponibles.`,
+      sources,
+      authSources: Array.isArray(payload?.authSources) ? payload.authSources : [],
+    };
+  } catch {
+    return { valid: false, status: "ERROR" as const, message: "Impossible de joindre MusicAPI pour vérifier la clé." };
+  }
 }
 
 type AcrCloudValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string; providerCode?: number };
@@ -396,6 +425,11 @@ Deno.serve(async (req) => {
         await resetIntegrationRuntimeStatus(key, false);
         return json(400, { error: "invalid_audd_token", message: providerValidation.message, validation: providerValidation });
       }
+      const musicApiValidation = key === "MUSICAPI_CLIENT_ID" ? await validateMusicApiClientId(value) : null;
+      if (musicApiValidation && !musicApiValidation.valid) {
+        await resetIntegrationRuntimeStatus(key, false);
+        return json(400, { error: "invalid_musicapi_client_id", message: musicApiValidation.message, validation: musicApiValidation });
+      }
 
       let acrValidation: AcrCloudValidation | null = null;
       let acrBundleComplete = false;
@@ -429,10 +463,12 @@ Deno.serve(async (req) => {
         await setRecognitionRuntimeStatus("ACRCLOUD", acrValidation.status, acrValidation.message);
       } else if (key.startsWith("ACRCLOUD_") && !acrBundleComplete) {
         await setRecognitionRuntimeStatus("ACRCLOUD", "NOT_CONFIGURED", "Configuration ACRCloud incomplète : renseigne Host + Access Key + Access Secret.");
+      } else if (key === "MUSICAPI_CLIENT_ID" && musicApiValidation) {
+        await setRecognitionRuntimeStatus("MUSICAPI_CLIENT_ID", musicApiValidation.status, musicApiValidation.message);
       } else {
         await resetIntegrationRuntimeStatus(key, true);
       }
-      const validation = providerValidation ?? acrValidation;
+      const validation = providerValidation ?? acrValidation ?? musicApiValidation;
       await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint, validation });
       return json(200, { ok: true, key, configured: true, hint: valueHint, validation, recognitionReady: key.startsWith("ACRCLOUD_") ? Boolean(acrValidation?.valid) : undefined });
     }

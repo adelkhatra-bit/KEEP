@@ -27,6 +27,8 @@ const ALLOWED_KEYS: Record<string, string> = {
   APPLE_MUSICKIT_TEAM_ID: 'music',
   APPLE_MUSICKIT_KEY_ID: 'music',
   APPLE_MUSICKIT_PRIVATE_KEY: 'music',
+  MUSICAPI_CLIENT_ID: 'music',
+  MUSICAPI_CLIENT_SECRET: 'music',
   AUDD_API_KEY: 'recognition',
   ACRCLOUD_ACCESS_KEY: 'recognition',
   ACRCLOUD_ACCESS_SECRET: 'recognition',
