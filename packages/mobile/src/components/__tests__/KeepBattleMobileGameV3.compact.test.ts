@@ -21,6 +21,15 @@ describe('KEEP Battle mobile style selector', () => {
     expect(source).toContain('ACCEPTER');
   });
 
+  it('uses phone-sized Battle decision controls and immediate accept feedback', () => {
+    expect(source).toContain('minHeight: 142');
+    expect(source).toContain('minHeight: 64');
+    expect(source).toContain('borderWidth: 3');
+    expect(source).toContain('CONNEXION AU BATTLE…');
+    expect(source).toContain("if (!response.arenaId) throw new Error('BATTLE_ACCEPTED_WITHOUT_ARENA')");
+    expect(source).toContain('setAudioReady(false);\n      void stopTrackPreview();');
+  });
+
   it('pauses the solo round while the player decides on an invite, including audio loading', () => {
     expect(source).toContain('pausedSoloRemaining');
     expect(source).toContain("incoming[0] ? 'PAUSE'");
