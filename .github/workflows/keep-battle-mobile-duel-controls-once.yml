@@ -1,0 +1,38 @@
+name: KEEP Battle mobile duel controls
+on:
+  push:
+    branches: [reconcile/claude-main-20260825]
+    paths:
+      - scripts/patch_keep_battle_mobile_duel_controls.py
+      - .github/workflows/keep-battle-mobile-duel-controls-once.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply larger mobile Battle controls
+        run: python scripts/patch_keep_battle_mobile_duel_controls.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify mobile Battle
+        run: |
+          npm run type-check --workspace=@keep/mobile
+          npm test --workspace=@keep/mobile -- --runInBand src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts src/screens/__tests__/BattleNotificationActions.contract.test.ts
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
+          git commit -m "fix(battle): enlarge duel controls and instant accept feedback"
+          git push origin HEAD:reconcile/claude-main-20260825
