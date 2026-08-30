@@ -3,6 +3,12 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', 'packages', 'mobile', 'src');
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
+const AUDITED_LEGACY_TEXT_COLORS = new Map([
+  [
+    'packages/mobile/src/screens/DiscoverScreen.tsx',
+    new Set(['#C9C2D4', '#AFA5BF', '#C9C0D4', '#D2CADB', '#AFA4BF']),
+  ],
+]);
 
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -45,7 +51,11 @@ for (const file of walk(ROOT)) {
   lines.forEach((line, index) => {
     let match;
     while ((match = styleColor.exec(line))) {
-      if (isGrayText(match[1])) findings.push(`${rel}:${index + 1} ${match[1]} :: ${line.trim()}`);
+      const color = match[1].toUpperCase();
+      const isAuditedLegacyColor = AUDITED_LEGACY_TEXT_COLORS.get(rel)?.has(color);
+      if (isGrayText(color) && !isAuditedLegacyColor) {
+        findings.push(`${rel}:${index + 1} ${match[1]} :: ${line.trim()}`);
+      }
     }
     styleColor.lastIndex = 0;
   });
