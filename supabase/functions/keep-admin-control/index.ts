@@ -1,5 +1,3 @@
-[reconcile/claude-main-20260825 20b0ba6] fix(admin): generalize integration runtime status
- 1 file changed, 1 insertion(+), 1 deletion(-)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
