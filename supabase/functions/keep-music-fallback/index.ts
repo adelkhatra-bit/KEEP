@@ -9,7 +9,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-device-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-device-id, x-keep-platform",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
