@@ -142,8 +142,8 @@ public class KeepIAPModule: Module {
       "originalTransactionId": String(transaction.originalID),
       "productId": transaction.productID,
       "purchaseDateMs": transaction.purchaseDate.timeIntervalSince1970 * 1000,
-      "expirationDateMs": transaction.expirationDate?.timeIntervalSince1970.multiplied(by: 1000),
-      "revocationDateMs": transaction.revocationDate?.timeIntervalSince1970.multiplied(by: 1000),
+      "expirationDateMs": transaction.expirationDate.map { $0.timeIntervalSince1970 * 1000 },
+      "revocationDateMs": transaction.revocationDate.map { $0.timeIntervalSince1970 * 1000 },
       "appAccountToken": transaction.appAccountToken?.uuidString,
       "jwsRepresentation": verification.jwsRepresentation,
     ]
