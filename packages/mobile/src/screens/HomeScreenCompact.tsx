@@ -347,19 +347,19 @@ export default function HomeScreenCompact({ navigation }: any) {
       <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »), ou colle un lien Spotify/Deezer/Apple Music. KEEP cherche dans les catalogues.</Text>
+          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, KEEP ne peut pas lire ces pages-là.</Text>
           <TextInput
             style={s.manualSearchInput}
             value={manualSearchQuery}
             onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
-            placeholder="Artiste - Titre, ou lien Spotify/Deezer…"
+            placeholder="Artiste - Titre, ou lien Spotify/Deezer/Apple Music…"
             placeholderTextColor={C.muted}
             editable={!manualSearchBusy}
             autoFocus
             returnKeyType="search"
             onSubmitEditing={runManualSearch}
           />
-          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Rien trouvé avec ce texte -- réessaie avec un intitulé plus précis.</Text> : null}
+          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Rien trouvé -- ce morceau n'est peut-être disponible sur aucune plateforme officielle, ou réessaie avec un intitulé plus précis.</Text> : null}
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
