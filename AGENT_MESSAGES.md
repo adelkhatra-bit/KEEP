@@ -133,3 +133,7 @@ Passerelle catalogue unifié préparée sans UI/design : Super Admin accepte MUS
 
 Début intégration complète Pipedream/MusicAPI et préparation App Store, sans toucher au design ni aux 5 onglets. Audit du code existant avant toute addition.
 
+## [2026-08-30T18:46:56.013Z] claude
+
+FIX MAJEUR -- la vraie cause de 'l'écoute ne fonctionne jamais' trouvée et corrigée, vérifiée en direct sur https://adelkhatra-bit.github.io/KEEP (le site réel, pas local). DEUX bugs empilés : 1) CORS -- keep-music-recognition-v2 et keep-music-fallback rejetaient TOUTE requête navigateur car x-keep-platform (envoyé par keepMusicCoreRecognition.ts) n'était pas dans Access-Control-Allow-Headers (seul x-keep-device-id y était). 100% des tentatives échouaient en net::ERR_FAILED avant même d'atteindre le serveur. 2) Une fois CORS corrigé, la vraie cause suivante est apparue : AUDD_API_KEY n'avait JAMAIS été créée dans integration_secrets (vault) -- resolveAuddCredential() retournait toujours null. J'ai posé la vraie clé (déjà active sur le compte AudD réel) via service_set_integration_secret. Les deux edge functions redéployées via  (le endpoint Management API brut a échoué plusieurs fois avec une erreur 'entrypoint path does not exist' jamais résolue -- le CLI officiel a marché du premier coup). Vérifié en direct : keep-music-recognition-v2 renvoie maintenant 200 avec du vrai audio capturé. Poussé en 275839b. Si tu retouches ces deux fonctions, n'oublie pas x-keep-platform dans corsHeaders.
+
