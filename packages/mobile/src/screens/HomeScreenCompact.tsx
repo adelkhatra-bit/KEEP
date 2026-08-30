@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, SafeAreaView, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
 import { useSessionStore } from '../store/useSessionStore';
@@ -11,6 +11,7 @@ import SwipeDeck from '../components/SwipeDeck';
 import ListenEnergyAura from '../components/ListenEnergyAura';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
+import { captureTabAudioSample, MicPermissionDeniedError } from '../services/micCapture';
 
 const C = {
   bg: '#090610', card: '#151020', line: '#312348', purple: '#8B5CF6', purpleLight: '#B79CFF',
@@ -162,6 +163,32 @@ export default function HomeScreenCompact({ navigation }: any) {
     await Share.share({ message: `${current.track.title} — ${current.track.artist} · découvert avec KEEP 🎵` });
   };
 
+  // Idée du 30/08/2026 (Adel : "il faut régler le souci pour l'écoute...
+  // idée gratuite, innove") : capter l'audio d'un onglet/écran (web) au lieu
+  // du micro évite le pire cas acoustique -- micro + haut-parleurs du même
+  // ordinateur (écho, distorsion). Action ponctuelle volontairement séparée
+  // de la session normale : ne touche ni son état ni son design validé.
+  const [tabTestBusy, setTabTestBusy] = useState(false);
+  const testTabCapture = async () => {
+    if (tabTestBusy || musicEngine.isDemoMode) return;
+    setTabTestBusy(true);
+    try {
+      const sample = await captureTabAudioSample();
+      const recognition = await musicEngine.recognitionProvider.recognize(sample);
+      if (recognition) {
+        Alert.alert('Reconnu !', `${recognition.title} — ${recognition.artist}`);
+      } else {
+        Alert.alert('Aucun résultat', "L'onglet a bien été capté mais aucun morceau n'a été reconnu sur cet extrait.");
+      }
+    } catch (e: any) {
+      if (!(e instanceof MicPermissionDeniedError)) {
+        Alert.alert('Capture d’onglet', e?.message || 'Impossible de capter le son de cet onglet.');
+      }
+    } finally {
+      setTabTestBusy(false);
+    }
+  };
+
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}>
@@ -173,6 +200,11 @@ export default function HomeScreenCompact({ navigation }: any) {
           {error ? <Text style={s.error}>{error}</Text> : null}
           <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>♪  ÉCOUTER</Text></TouchableOpacity>
           {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
+          {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours…' : '🖥️ Test : capter le son d’un onglet'}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </SafeAreaView>
     );
@@ -338,6 +370,8 @@ const s = StyleSheet.create({
   start: { minWidth: 220, minHeight: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   startText: { color: '#fff', fontWeight: '900', fontSize: 15, letterSpacing: .6 },
   demo: { marginTop: 10, color: C.purpleLight, fontSize: 10, fontWeight: '800' },
+  tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12 },
+  tabTestText: { color: C.muted, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   main: { flex: 1 },
   mainContent: { paddingHorizontal: 14, paddingBottom: 8 },

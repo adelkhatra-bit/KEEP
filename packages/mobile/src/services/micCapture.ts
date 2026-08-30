@@ -256,21 +256,43 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-async function captureAudioSampleWeb(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
-  const versionAtStart = cancellationVersion;
-  const stream = await ensureWebStream();
-
-  // Même garde-fou que sur natif : si ARRÊTER est pressé pendant la demande
-  // getUserMedia, le flux qui arrive ensuite est fermé immédiatement.
-  if (versionAtStart !== cancellationVersion) {
-    releaseCaptureResources();
-    throw new MicCaptureCancelledError();
+// BUG RÉEL / demande du 30/08/2026 (Adel : test réel "j'écoute sur YouTube,
+// ça ne détecte rien") -- capter la musique via micro + haut-parleurs du
+// même ordinateur est le pire cas acoustique possible (écho, distorsion des
+// petits haut-parleurs, la même source repasse dans le micro). Sur web, le
+// navigateur peut capter l'audio d'un onglet/écran DIRECTEMENT, sans jamais
+// repasser par un haut-parleur ni un micro physique -- signal numérique
+// propre, zéro perte acoustique. Ajouté comme option supplémentaire, jamais
+// un remplacement : le micro reste indispensable pour l'usage réel (TV,
+// soirée, voiture) où il n'y a pas d'onglet à partager.
+async function ensureTabAudioStream(): Promise<MediaStream> {
+  let display: MediaStream;
+  try {
+    display = await (navigator.mediaDevices as any).getDisplayMedia({ video: true, audio: true });
+  } catch (e: any) {
+    if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') throw new MicPermissionDeniedError();
+    throw e;
   }
+  // On ne veut jamais l'image -- coupée immédiatement, jamais affichée ni envoyée.
+  display.getVideoTracks().forEach((t) => t.stop());
+  const audioTracks = display.getAudioTracks();
+  if (!audioTracks.length) {
+    display.getTracks().forEach((t) => t.stop());
+    throw new Error("Aucun son partagé -- coche « Partager l'audio de l'onglet » dans la fenêtre de partage du navigateur.");
+  }
+  return new MediaStream(audioTracks);
+}
 
+async function captureStreamToWav(
+  stream: MediaStream,
+  versionAtStart: number,
+  onLevel?: (level: number) => void,
+  durationMs = DEFAULT_SAMPLE_DURATION_MS
+): Promise<Blob> {
   const audioCtx = getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
   if (audioCtx.state !== 'running') {
-    throw new Error("Micro indisponible (contexte audio suspendu par le navigateur) -- réessaie d'écouter.");
+    throw new Error("Capture audio indisponible (contexte audio suspendu par le navigateur) -- réessaie d'écouter.");
   }
 
   const source = audioCtx.createMediaStreamSource(stream);
@@ -307,10 +329,7 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
   source.disconnect();
   muteGain.disconnect();
 
-  if (versionAtStart !== cancellationVersion) {
-    releaseCaptureResources();
-    throw new MicCaptureCancelledError();
-  }
+  if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
 
   const sampleRate = audioCtx.sampleRate;
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -340,6 +359,43 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
   }
 
   return encodeWav(merged, sampleRate);
+}
+
+async function captureAudioSampleWeb(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+  const versionAtStart = cancellationVersion;
+  const stream = await ensureWebStream();
+
+  // Même garde-fou que sur natif : si ARRÊTER est pressé pendant la demande
+  // getUserMedia, le flux qui arrive ensuite est fermé immédiatement.
+  if (versionAtStart !== cancellationVersion) {
+    releaseCaptureResources();
+    throw new MicCaptureCancelledError();
+  }
+
+  try {
+    return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs);
+  } catch (e) {
+    if (versionAtStart !== cancellationVersion) releaseCaptureResources();
+    throw e;
+  }
+}
+
+/**
+ * Capture l'audio d'un onglet/écran partagé (web uniquement) au lieu du
+ * micro physique -- voir le commentaire au-dessus de ensureTabAudioStream.
+ * Doit être déclenché par un vrai geste utilisateur (clic) : getDisplayMedia
+ * l'exige, comme getUserMedia.
+ */
+export async function captureTabAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+  if (Platform.OS !== 'web') throw new Error('Capture d’onglet disponible uniquement sur navigateur.');
+  const versionAtStart = cancellationVersion;
+  const stream = await ensureTabAudioStream();
+  try {
+    if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
+    return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs);
+  } finally {
+    stream.getTracks().forEach((t) => t.stop());
+  }
 }
 
 export function releaseCaptureResources(): void {
