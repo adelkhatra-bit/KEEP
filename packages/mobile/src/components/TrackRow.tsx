@@ -30,6 +30,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
   const previewKey = `session:${entry.id}`;
   const externalPlayUrl = track.externalUrls?.appleMusic
     || track.externalUrls?.spotify
+    || track.externalUrls?.deezer
     || track.externalUrls?.universal
     || track.externalUrls?.youtubeSearch;
 

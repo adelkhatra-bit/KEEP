@@ -87,29 +87,37 @@ async function fetchJsonSafe(url: string, init?: RequestInit) {
   } catch { return null; }
 }
 
+type CatalogEnrichment = { artworkUrl?: string; appleTrackId?: string; appleTrackViewUrl?: string };
+
 // ACRCloud identifie l'empreinte audio mais ne renvoie quasiment jamais de
-// jaquette exploitable (juste des identifiants Spotify/Deezer/YouTube). Deux
-// sources gratuites, sans compte, comblent ça : un lookup exact Deezer quand
-// son ID est présent, sinon une recherche iTunes par titre+artiste (même
-// technique déjà éprouvée côté AudD dans keep-music-recognition-v2).
-async function resolveArtwork(title: string, artist: string, deezerTrackId?: string): Promise<string | undefined> {
+// jaquette ni de lien Apple Music exploitables (juste des identifiants
+// Spotify/Deezer/YouTube). Deux sources gratuites, sans compte, comblent ça :
+// un lookup exact Deezer quand son ID est présent (jaquette uniquement, Deezer
+// n'a pas de recherche croisée Apple Music), sinon une recherche iTunes par
+// titre+artiste (même technique déjà éprouvée côté AudD) qui donne à la fois
+// la jaquette et le lien Apple Music en un seul appel.
+async function resolveCatalogEnrichment(title: string, artist: string, deezerTrackId?: string): Promise<CatalogEnrichment> {
   if (deezerTrackId) {
     const track = await fetchJsonSafe(`https://api.deezer.com/track/${encodeURIComponent(deezerTrackId)}`);
     const cover = track?.album?.cover_xl || track?.album?.cover_big || track?.album?.cover_medium;
-    if (cover) return String(cover);
+    if (cover) return { artworkUrl: String(cover) };
   }
   const payload = await fetchJsonSafe(
     `https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}&entity=song&limit=8&country=FR`,
     { headers: { "User-Agent": "KEEP/1.0" } },
   );
   const rows = Array.isArray(payload?.results) ? payload.results : [];
-  if (!rows.length) return undefined;
+  if (!rows.length) return {};
   const wantedTitle = normalizeText(title);
   const wantedArtist = normalizeText(artist);
   const best = rows.find((row: any) => normalizeText(row?.trackName) === wantedTitle && normalizeText(row?.artistName) === wantedArtist)
     ?? rows.find((row: any) => normalizeText(row?.trackName).includes(wantedTitle) && normalizeText(row?.artistName).includes(wantedArtist))
     ?? rows[0];
-  return best?.artworkUrl100 ? upscaleAppleArtwork(String(best.artworkUrl100)) : undefined;
+  return {
+    artworkUrl: best?.artworkUrl100 ? upscaleAppleArtwork(String(best.artworkUrl100)) : undefined,
+    appleTrackId: best?.trackId ? String(best.trackId) : undefined,
+    appleTrackViewUrl: best?.trackViewUrl ? String(best.trackViewUrl) : undefined,
+  };
 }
 
 // Capture ambiante (micro/onglet) sur un extrait court : ACRCloud peut
@@ -153,10 +161,16 @@ async function normalizeAcrMusic(music: any) {
   const youtubeId = youtube?.vid ? String(youtube.vid) : youtube?.track?.id ? String(youtube.track.id) : undefined;
   const deezerId = deezer?.track?.id ? String(deezer.track.id) : undefined;
 
+  const score = Number(music.score ?? 100);
+  const title = String(music.title);
+  const enrichment = await resolveCatalogEnrichment(title, String(artist), deezerId);
+  const appleId = enrichment.appleTrackId;
+
   const providerIds: Record<string, string> = {};
   if (spotifyId) providerIds.spotify = spotifyId;
   if (youtubeId) providerIds.youtubeMusic = youtubeId;
   if (deezerId) providerIds.deezer = deezerId;
+  if (appleId) providerIds.appleMusic = appleId;
 
   const availableOn: string[] = [];
   const externalUrls: Record<string, string> = {};
@@ -172,18 +186,19 @@ async function normalizeAcrMusic(music: any) {
     availableOn.push("Deezer");
     externalUrls.deezer = `https://www.deezer.com/track/${encodeURIComponent(deezerId)}`;
   }
+  if (enrichment.appleTrackViewUrl) {
+    availableOn.push("Apple Music");
+    externalUrls.appleMusic = enrichment.appleTrackViewUrl;
+  }
   externalUrls.youtubeSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${music.title}`)}`;
 
-  const score = Number(music.score ?? 100);
-  const title = String(music.title);
-  const artworkUrl = await resolveArtwork(title, String(artist), deezerId);
   return {
     confidence: Number.isFinite(score) ? Math.max(0, Math.min(1, score / 100)) : 1,
     title,
     artist: String(artist),
     album: music.album?.name ? String(music.album.name) : undefined,
     isrc: firstString(music.external_ids?.isrc),
-    artworkUrl,
+    artworkUrl: enrichment.artworkUrl,
     availableOn,
     externalUrls,
     providerIds,

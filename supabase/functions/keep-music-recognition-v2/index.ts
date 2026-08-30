@@ -119,20 +119,48 @@ async function freeCatalog(title: string, artist: string) {
   }
 }
 
+// AudD ne renvoie que Apple Music/Spotify (paramètre `return`). Deezer est
+// cherché séparément (API publique, sans clé) pour que "où trouver ce
+// morceau" soit complet quel que soit le moteur qui a reconnu l'audio.
+async function freeDeezer(title: string, artist: string) {
+  try {
+    const query = encodeURIComponent(`${artist} ${title}`);
+    const response = await fetch(`https://api.deezer.com/search?q=${query}&limit=8`);
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    if (!rows.length) return null;
+    const wantedTitle = normalizeText(title);
+    const wantedArtist = normalizeText(artist);
+    return rows.find((row: any) => normalizeText(row?.title) === wantedTitle && normalizeText(row?.artist?.name) === wantedArtist)
+      ?? rows.find((row: any) => normalizeText(row?.title).includes(wantedTitle) && normalizeText(row?.artist?.name).includes(wantedArtist))
+      ?? rows[0];
+  } catch {
+    return null;
+  }
+}
+
 async function normalizeResult(result: any) {
   if (!result?.title || !result?.artist) return null;
   const apple = result.apple_music ?? null;
   const spotify = result.spotify ?? null;
-  const catalog = await freeCatalog(String(result.title), String(result.artist));
+  const [catalog, deezer] = await Promise.all([
+    freeCatalog(String(result.title), String(result.artist)),
+    freeDeezer(String(result.title), String(result.artist)),
+  ]);
   const appleId = apple?.playParams?.id ?? apple?.id ?? catalog?.trackId ?? undefined;
   const spotifyId = spotify?.id ?? undefined;
-  const artwork = apple?.artwork?.url || spotify?.album?.images?.[0]?.url || catalog?.artworkUrl100 || undefined;
+  const deezerId = deezer?.id ?? undefined;
+  const artwork = apple?.artwork?.url || spotify?.album?.images?.[0]?.url || catalog?.artworkUrl100
+    || deezer?.album?.cover_xl || deezer?.album?.cover_big || undefined;
   const providerIds: Record<string, string> = {};
   if (appleId) providerIds.appleMusic = String(appleId);
   if (spotifyId) providerIds.spotify = String(spotifyId);
+  if (deezerId) providerIds.deezer = String(deezerId);
   const externalUrls: Record<string, string> = {};
   if (spotifyId) externalUrls.spotify = `https://open.spotify.com/track/${encodeURIComponent(String(spotifyId))}`;
   if (catalog?.trackViewUrl) externalUrls.appleMusic = String(catalog.trackViewUrl);
+  if (deezer?.link) externalUrls.deezer = String(deezer.link);
   if (result.song_link) externalUrls.universal = String(result.song_link);
   externalUrls.youtubeSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${result.artist} ${result.title}`)}`;
 
@@ -140,11 +168,11 @@ async function normalizeResult(result: any) {
     confidence: 1,
     title: String(result.title),
     artist: String(result.artist),
-    album: result.album ? String(result.album) : catalog?.collectionName ? String(catalog.collectionName) : undefined,
+    album: result.album ? String(result.album) : catalog?.collectionName ? String(catalog.collectionName) : deezer?.album?.title ? String(deezer.album.title) : undefined,
     isrc: result.isrc ? String(result.isrc) : apple?.isrc ? String(apple.isrc) : spotify?.external_ids?.isrc ? String(spotify.external_ids.isrc) : undefined,
     artworkUrl: artwork ? upscaleArtwork(String(artwork)) : undefined,
-    previewUrl: catalog?.previewUrl ? String(catalog.previewUrl) : undefined,
-    availableOn: [spotifyId ? "Spotify" : null, (appleId || catalog?.trackViewUrl) ? "Apple Music" : null].filter(Boolean),
+    previewUrl: catalog?.previewUrl ? String(catalog.previewUrl) : deezer?.preview ? String(deezer.preview) : undefined,
+    availableOn: [spotifyId ? "Spotify" : null, (appleId || catalog?.trackViewUrl) ? "Apple Music" : null, deezerId ? "Deezer" : null].filter(Boolean),
     externalUrls,
     providerIds,
     recognitionProviderTrackId: result.song_link ? String(result.song_link) : undefined,
