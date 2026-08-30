@@ -36,3 +36,4 @@ jobs:
           git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
           git commit -m "fix(battle): enlarge duel controls and instant accept feedback"
           git push origin HEAD:reconcile/claude-main-20260825
+# v2: 60px decision controls + immediate accept feedback
