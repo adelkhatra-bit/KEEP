@@ -8,6 +8,7 @@ import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import SessionPulse from '../components/SessionPulse';
 import SwipeDeck from '../components/SwipeDeck';
+import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
@@ -279,6 +280,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
               </View>
+              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} />
               {alreadySaved ? (
                 <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
               ) : current.status === 'kept' ? (
@@ -471,7 +473,7 @@ const s = StyleSheet.create({
   manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', color: C.text, fontSize: 14, paddingHorizontal: 12 },
   manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
   footerActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
-  secondary: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
+  secondary: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   modalCard: { width: '100%', maxWidth: 360, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 20 },

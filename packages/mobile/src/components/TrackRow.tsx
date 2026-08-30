@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Linking, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
-import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
-import { cancelAudioCapture } from '../services/micCapture';
-import { useSessionStore } from '../store/useSessionStore';
+import TrackListenControls from './TrackListenControls';
 
 interface Props {
   entry: SessionTrackEntry;
@@ -23,22 +21,11 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
   const { track, status } = entry;
   const topPlaylistName = entry.recommendations[0]?.playlistName;
   const visibility: KeepVisibility = entry.visibility ?? 'PRIVATE';
-  const [previewBusy, setPreviewBusy] = useState(false);
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | undefined>(undefined);
   const [keepSubmitting, setKeepSubmitting] = useState(false);
-  const previewKey = `session:${entry.id}`;
-  const externalPlayUrl = track.externalUrls?.appleMusic
-    || track.externalUrls?.spotify
-    || track.externalUrls?.deezer
-    || track.externalUrls?.universal
-    || track.externalUrls?.youtubeSearch;
 
   const destinationOptions = useMemo(() => playlists ?? [], [playlists]);
-
-  useEffect(() => () => {
-    void stopTrackPreview(previewKey);
-  }, [previewKey]);
 
   useEffect(() => {
     if (!keepPromptOpen) return;
@@ -66,62 +53,6 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
     }
   };
 
-  const stopKeepListening = async () => {
-    const session = useSessionStore.getState();
-    if (session.isActive) session.requestEndSession();
-    await cancelAudioCapture().catch(() => {});
-  };
-
-  const playSnippetNow = async (positionMillis: number) => {
-    if (!track.previewUrl || previewBusy) return;
-    setPreviewBusy(true);
-    try {
-      await playTrackPreviewSegment(previewKey, track.previewUrl, positionMillis, 7000);
-    } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
-    } finally {
-      setPreviewBusy(false);
-    }
-  };
-
-  const playSnippet = (positionMillis: number) => {
-    if (!track.previewUrl || previewBusy) return;
-    if (useSessionStore.getState().isActive) {
-      Alert.alert(
-        'Écoute KEEP en cours',
-        'Le micro KEEP est encore actif. Arrête la session avant de lire un extrait afin que KEEP n’identifie pas le son de ton propre téléphone.',
-        [
-          { text: 'Continuer l’écoute', style: 'cancel' },
-          { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await playSnippetNow(positionMillis); })() },
-        ],
-      );
-      return;
-    }
-    void playSnippetNow(positionMillis);
-  };
-
-  const openExternalNow = async () => {
-    if (!externalPlayUrl) return;
-    try { await Linking.openURL(externalPlayUrl); }
-    catch { Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'); }
-  };
-
-  const openExternal = () => {
-    if (!externalPlayUrl) return;
-    if (useSessionStore.getState().isActive) {
-      Alert.alert(
-        'Écoute KEEP en cours',
-        'Le micro KEEP est encore actif. Arrête la session avant d’ouvrir ce morceau sur une plateforme afin d’éviter une fausse détection.',
-        [
-          { text: 'Continuer l’écoute', style: 'cancel' },
-          { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await openExternalNow(); })() },
-        ],
-      );
-      return;
-    }
-    void openExternalNow();
-  };
-
   const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
 
   return (
@@ -133,14 +64,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
           <Text style={styles.artist} numberOfLines={1}>{track.artist}</Text>
           {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
-          {(track.previewUrl || externalPlayUrl) ? <View style={styles.previewRow}>
-            {track.previewUrl ? <>
-              <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
-            </> : null}
-            {externalPlayUrl ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{track.previewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
-          </View> : <Text style={styles.audioUnavailable}>Audio indisponible</Text>}
+          <TrackListenControls track={track} previewKey={`session:${entry.id}`} />
           {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
         </View>
 
@@ -210,12 +134,6 @@ const styles = StyleSheet.create({
   artist: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   album: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontStyle: 'italic' },
   platforms: { fontSize: 10, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
-  previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
-  previewPill: { minHeight: 24, paddingHorizontal: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
-  previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
-  youtubePill: { minHeight: 24, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
-  youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
-  audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
   passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
