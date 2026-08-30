@@ -11,6 +11,7 @@ import { ProfileKind, SocialLink } from '../types';
 import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
@@ -72,6 +73,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [playlistTracks, setPlaylistTracks] = useState<Record<string, CanonicalTrack[]>>({});
   const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(null);
   const [playlistPreferences, setPlaylistPreferences] = useState<Record<string, KeepPlaylistPreference>>({});
+  // BUG RÉEL trouvé le 30/08/2026 (audit Super Admin vs côté utilisateur,
+  // Adel : "je ne pense pas qu'on soit prêt") : le flag `keep_dna` existe
+  // dans Feature Flags mais rien ne le lisait -- la section KEEP DNA
+  // s'affichait pour 100% des utilisateurs quel que soit son état. Décision
+  // Adel : brancher le flag pour de vrai plutôt que de laisser un bouton
+  // décoratif dans Super Admin.
+  const [dnaFeatureEnabled, setDnaFeatureEnabled] = useState(false);
+  useEffect(() => { let live = true; isFeatureEnabled('keep_dna').then((enabled) => live && setDnaFeatureEnabled(enabled)); return () => { live = false; }; }, []);
 
   const accountRequired = isLocalGuest || isDemoMode;
   const providerId = musicEngine.musicProvider.providerId || 'KEEP';
@@ -488,10 +497,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
       </View>
 
-      <View style={s.dna}>
-        <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>KEEP DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
-        {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session KEEP pour construire ton ADN musical.</Text>}
-      </View>
+      {dnaFeatureEnabled && (
+        <View style={s.dna}>
+          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>KEEP DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
+          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session KEEP pour construire ton ADN musical.</Text>}
+        </View>
+      )}
 
       <View style={s.keepCounters}>
         <ProfileCounterRow kind="keeps" items={[

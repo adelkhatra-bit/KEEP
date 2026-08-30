@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { isFeatureEnabled } from './featureFlagService';
 
 export type KeepBattleArenaRules = {
   stakeFree: number;
@@ -99,18 +100,7 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8):
 }
 
 export async function isKeepBattleEnabled(): Promise<boolean> {
-  if (!supabase) return false;
-  try {
-    const { data, error } = await client()
-      .from('feature_flags')
-      .select('is_enabled_globally,rollout_percent')
-      .eq('key', 'keep_battle')
-      .maybeSingle();
-    if (error || !data) return false;
-    return Boolean((data as any).is_enabled_globally) && Number((data as any).rollout_percent ?? 100) > 0;
-  } catch {
-    return false;
-  }
+  return isFeatureEnabled('keep_battle');
 }
 
 export { FALLBACK_RULES as DEFAULT_KEEP_BATTLE_RULES };
