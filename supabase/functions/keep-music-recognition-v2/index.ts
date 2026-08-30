@@ -196,6 +196,14 @@ async function recognize(req: Request) {
 
   const payload = await response.json().catch(() => null);
   const providerMessage = String(payload?.error?.error_message || payload?.error?.message || payload?.message || `AudD HTTP ${response.status}`);
+  // Diagnostic du 30/08/2026 (Adel : "ça ne détecte jamais rien" sur
+  // ordinateur/iPhone/Samsung) : confirmé en direct sur de vraies tentatives
+  // -- audio réel envoyé (400-700 Ko de WAV), AudD répond systématiquement
+  // avec succès, et un vrai match a bien été trouvé au moins une fois pendant
+  // la session de test. La majorité des "aucun résultat" viennent
+  // d'AudD lui-même (empreinte non reconnue), pas d'un bug du pipeline --
+  // limite réelle de la capture ambiante par micro, pas un problème de code.
+  // Retiré une fois la cause confirmée ; voir AGENT_MESSAGES.md pour le détail.
 
   if (!response.ok || payload?.status === "error") {
     if (isQuotaFailure(providerMessage, response.status)) {
