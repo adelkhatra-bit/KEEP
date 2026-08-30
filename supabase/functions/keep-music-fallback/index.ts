@@ -87,34 +87,36 @@ async function fetchJsonSafe(url: string, init?: RequestInit) {
   } catch { return null; }
 }
 
-type CatalogEnrichment = { artworkUrl?: string; appleTrackId?: string; appleTrackViewUrl?: string };
+type CatalogEnrichment = { artworkUrl?: string; previewUrl?: string; appleTrackId?: string; appleTrackViewUrl?: string };
 
-// ACRCloud identifie l'empreinte audio mais ne renvoie quasiment jamais de
-// jaquette ni de lien Apple Music exploitables (juste des identifiants
-// Spotify/Deezer/YouTube). Deux sources gratuites, sans compte, comblent ça :
-// un lookup exact Deezer quand son ID est présent (jaquette uniquement, Deezer
-// n'a pas de recherche croisée Apple Music), sinon une recherche iTunes par
-// titre+artiste (même technique déjà éprouvée côté AudD) qui donne à la fois
-// la jaquette et le lien Apple Music en un seul appel.
+// ACRCloud identifie l'empreinte audio mais ne renvoie ni jaquette, ni extrait
+// écoutable, ni lien Apple Music (juste des identifiants Spotify/Deezer/
+// YouTube). Deux sources gratuites, sans compte, comblent ça, en parallèle :
+// un lookup exact Deezer quand son ID est présent (jaquette + extrait 30s),
+// et une recherche iTunes par titre+artiste (même technique déjà éprouvée
+// côté AudD) pour le lien Apple Music et un extrait de secours. L'extrait
+// joue dans KEEP -- ouvrir la plateforme externe reste une action séparée,
+// volontaire, jamais forcée juste parce qu'aucun aperçu n'était disponible.
 async function resolveCatalogEnrichment(title: string, artist: string, deezerTrackId?: string): Promise<CatalogEnrichment> {
-  if (deezerTrackId) {
-    const track = await fetchJsonSafe(`https://api.deezer.com/track/${encodeURIComponent(deezerTrackId)}`);
-    const cover = track?.album?.cover_xl || track?.album?.cover_big || track?.album?.cover_medium;
-    if (cover) return { artworkUrl: String(cover) };
-  }
-  const payload = await fetchJsonSafe(
-    `https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}&entity=song&limit=8&country=FR`,
-    { headers: { "User-Agent": "KEEP/1.0" } },
-  );
-  const rows = Array.isArray(payload?.results) ? payload.results : [];
-  if (!rows.length) return {};
+  const [deezerTrack, itunesPayload] = await Promise.all([
+    deezerTrackId ? fetchJsonSafe(`https://api.deezer.com/track/${encodeURIComponent(deezerTrackId)}`) : Promise.resolve(null),
+    fetchJsonSafe(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}&entity=song&limit=8&country=FR`,
+      { headers: { "User-Agent": "KEEP/1.0" } },
+    ),
+  ]);
+
+  const rows = Array.isArray(itunesPayload?.results) ? itunesPayload.results : [];
   const wantedTitle = normalizeText(title);
   const wantedArtist = normalizeText(artist);
   const best = rows.find((row: any) => normalizeText(row?.trackName) === wantedTitle && normalizeText(row?.artistName) === wantedArtist)
     ?? rows.find((row: any) => normalizeText(row?.trackName).includes(wantedTitle) && normalizeText(row?.artistName).includes(wantedArtist))
     ?? rows[0];
+
+  const deezerCover = deezerTrack?.album?.cover_xl || deezerTrack?.album?.cover_big || deezerTrack?.album?.cover_medium;
   return {
-    artworkUrl: best?.artworkUrl100 ? upscaleAppleArtwork(String(best.artworkUrl100)) : undefined,
+    artworkUrl: deezerCover ? String(deezerCover) : best?.artworkUrl100 ? upscaleAppleArtwork(String(best.artworkUrl100)) : undefined,
+    previewUrl: deezerTrack?.preview ? String(deezerTrack.preview) : best?.previewUrl ? String(best.previewUrl) : undefined,
     appleTrackId: best?.trackId ? String(best.trackId) : undefined,
     appleTrackViewUrl: best?.trackViewUrl ? String(best.trackViewUrl) : undefined,
   };
@@ -199,6 +201,7 @@ async function normalizeAcrMusic(music: any) {
     album: music.album?.name ? String(music.album.name) : undefined,
     isrc: firstString(music.external_ids?.isrc),
     artworkUrl: enrichment.artworkUrl,
+    previewUrl: enrichment.previewUrl,
     availableOn,
     externalUrls,
     providerIds,
