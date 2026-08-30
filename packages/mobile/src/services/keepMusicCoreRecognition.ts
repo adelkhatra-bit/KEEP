@@ -232,7 +232,7 @@ type RecognitionAttempt = {
 };
 
 async function recognitionAttempt(
-  functionName: 'keep-music-core' | 'keep-music-recognition-v2' | 'keep-music-fallback',
+  functionName: 'keep-music-core' | 'keep-music-recognition-v2' | 'keep-music-fallback' | 'keep-music-memory',
   blob: Blob,
   accessToken: string | null,
   deviceId: string,
@@ -254,6 +254,19 @@ async function recognitionAttempt(
   } catch (error: any) {
     return { ok: false, status: 0, payload: { error: 'network_error', message: error?.message ?? 'Réseau indisponible' } };
   }
+}
+
+/**
+ * Mémoire musicale collective KEEP : empreintes calculées localement à
+ * partir des extraits légaux déjà récupérés (Deezer/iTunes) quand un
+ * morceau a été identifié avec confiance une première fois (recherche
+ * manuelle ou partage). Couvre le contenu indépendant/underground absent
+ * des catalogues AudD/ACRCloud, à condition qu'il ait déjà été vu une fois.
+ */
+async function keepMemoryRecognition(blob: Blob, accessToken: string | null, deviceId: string): Promise<RecognitionResult | null> {
+  const attempt = await recognitionAttempt('keep-music-memory', blob, accessToken, deviceId);
+  if (attempt.ok && attempt.payload?.recognition) return attempt.payload.recognition as RecognitionResult;
+  return null;
 }
 
 async function keylessSourceRecognition(accessToken: string | null): Promise<RecognitionResult | null> {
@@ -368,6 +381,11 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // extrait le même aller-retour 409. On retente périodiquement pour que
     // l'activation future dans le Super Admin soit prise en compte sans reload.
     if (fallbackKnownUnavailable()) {
+      const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+      if (memory) {
+        recognitionBackoffUntil = 0;
+        return memory;
+      }
       const keyless = await keylessSourceRecognition(accessToken);
       if (keyless) {
         recognitionBackoffUntil = 0;
@@ -387,6 +405,15 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       fallbackUnavailableUntil = 0;
       recognitionBackoffUntil = 0;
       return fallback.payload.recognition as RecognitionResult;
+    }
+
+    // Ni AudD ni ACRCloud : dernier recours avant le mode sans clé, la
+    // mémoire KEEP elle-même (même échantillon, pas de nouvelle capture).
+    const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+    if (memory) {
+      fallbackUnavailableUntil = 0;
+      recognitionBackoffUntil = 0;
+      return memory;
     }
 
     const keyless = await keylessSourceRecognition(accessToken);
