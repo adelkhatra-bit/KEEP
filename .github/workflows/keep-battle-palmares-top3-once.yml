@@ -1,0 +1,40 @@
+name: KEEP Battle palmares Top 3
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_keep_battle_palmares_top3.py'
+      - '.github/workflows/keep-battle-palmares-top3-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply Top 3 palmares
+        run: python3 scripts/patch_keep_battle_palmares_top3.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Battle palmares
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts BattleNotificationActions.contract.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat(battle): show winner history top 3"
+          git push origin HEAD:reconcile/claude-main-20260825
