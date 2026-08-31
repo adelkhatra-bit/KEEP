@@ -18,8 +18,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.adelkhatra.keep",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "KEEP utilise le microphone uniquement pendant une session d’écoute afin d’identifier les morceaux diffusés autour de vous.",
-        "NSLocationWhenInUseUsageDescription": "Avec votre accord, KEEP utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement.",
+        "NSMicrophoneUsageDescription": "Loki utilise le microphone uniquement pendant une session d’écoute afin d’identifier les morceaux diffusés autour de vous.",
+        "NSLocationWhenInUseUsageDescription": "Avec votre accord, Loki utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "audio"
@@ -56,7 +56,7 @@
       [
         "expo-share-intent",
         {
-          "iosShareExtensionName": "KEEPShareExtension",
+          "iosShareExtensionName": "LokiShareExtension",
           "iosHideView": true,
           "iosActivationRules": {
             "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
@@ -71,13 +71,13 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "KEEP peut accéder à vos photos uniquement lorsque vous choisissez une photo de profil."
+          "photosPermission": "Loki peut accéder à vos photos uniquement lorsque vous choisissez une photo de profil."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Avec votre accord, KEEP utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement."
+          "locationWhenInUsePermission": "Avec votre accord, Loki utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement."
         }
       ],
       "expo-notifications",
