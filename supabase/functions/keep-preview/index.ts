@@ -35,7 +35,7 @@ function canonicalUrl(req: Request) {
 
 Deno.serve((req) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
-    return new Response("Legacy KEEP preview is read-only", {
+    return new Response("Legacy Loki preview is read-only", {
       status: 405,
       headers: { "Allow": "GET, HEAD", "Cache-Control": "no-store" },
     });

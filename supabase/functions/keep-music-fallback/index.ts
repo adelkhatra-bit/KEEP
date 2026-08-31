@@ -224,7 +224,7 @@ async function identify(req: Request) {
   if (!accessKey || !accessSecret || !rawHost) {
     return json(409, {
       error: "fallback_not_configured",
-      message: "ACRCloud n'est pas encore configuré dans le Super Admin KEEP.",
+      message: "ACRCloud n'est pas encore configuré dans le Super Admin Loki.",
     });
   }
 

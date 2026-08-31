@@ -225,7 +225,7 @@ async function recognize(req: Request) {
     await setRecognitionStatus("NOT_CONFIGURED", "Aucune clé AudD active");
     return json(409, {
       error: "recognition_not_configured",
-      message: "La reconnaissance musicale KEEP n’est pas encore branchée dans le Super Admin.",
+      message: "La reconnaissance musicale Loki n’est pas encore branchée dans le Super Admin.",
     });
   }
 

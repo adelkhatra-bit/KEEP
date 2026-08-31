@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       const { error } = await admin.from("remote_config").upsert({
         key: "auth_require_verified_email",
         value: enabled,
-        description: "Activation globale depuis le Super Admin : demande une adresse e-mail vérifiée aux comptes KEEP existants sans supprimer ni recréer leur profil.",
+        description: "Activation globale depuis le Super Admin : demande une adresse e-mail vérifiée aux comptes Loki existants sans supprimer ni recréer leur profil.",
         updated_at: new Date().toISOString(),
       }, { onConflict: "key" });
       if (error) throw error;

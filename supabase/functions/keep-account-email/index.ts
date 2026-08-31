@@ -65,7 +65,7 @@ function verificationEmailHtml(code: string, username: string) {
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <meta name="supported-color-schemes" content="dark" />
-  <title>Valide ton adresse e-mail KEEP</title>
+  <title>Valide ton adresse e-mail Loki</title>
 </head>
 <body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
@@ -74,9 +74,9 @@ function verificationEmailHtml(code: string, username: string) {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
           <tr>
             <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">KEEP</div>
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
               <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">Valide ton adresse e-mail</h1>
-              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${handle ? `<strong style="color:#ffffff">${handle}</strong>, ` : ""}saisis ce code dans KEEP pour sécuriser ton compte et faciliter sa récupération.</p>
+              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${handle ? `<strong style="color:#ffffff">${handle}</strong>, ` : ""}saisis ce code dans Loki pour sécuriser ton compte et faciliter sa récupération.</p>
             </td>
           </tr>
           <tr>
@@ -88,11 +88,11 @@ function verificationEmailHtml(code: string, username: string) {
           <tr>
             <td style="padding:20px 26px 30px;">
               <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
-              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail. KEEP ne te demandera jamais ton mot de passe ni ce code par e-mail.</p>
+              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail. Loki ne te demandera jamais ton mot de passe ni ce code par e-mail.</p>
             </td>
           </tr>
         </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">KEEP · Ton univers musical, gardé au même endroit.</p>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
       </td>
     </tr>
   </table>
@@ -103,10 +103,10 @@ function verificationEmailHtml(code: string, username: string) {
 async function sendBrevoCode(to: string, code: string, username: string) {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "KEEP";
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
   if (!apiKey || !senderEmail) return { ok: false as const, error: "email_provider_unconfigured" };
 
-  const subject = "Ton code de vérification KEEP";
+  const subject = "Ton code de vérification Loki";
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
@@ -115,7 +115,7 @@ async function sendBrevoCode(to: string, code: string, username: string) {
       to: [{ email: to }],
       subject,
       htmlContent: verificationEmailHtml(code, username),
-      textContent: `${username ? `@${username}, ` : ""}ton code de vérification KEEP est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
+      textContent: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
       tags: ["keep", "account", "email-verification"],
     }),
   });

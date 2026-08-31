@@ -100,7 +100,7 @@ async function testAudd(): Promise<ProviderResult> {
   if (!plausibleAuddToken(token)) {
     const result: ProviderResult = {
       provider: "AUDD", status: "NOT_CONFIGURED", configured: false,
-      message: "Aucun token AudD valide n'est configuré. KEEP continue avec ShazamKit/fallback gratuit.", checkedAt,
+      message: "Aucun token AudD valide n'est configuré. Loki continue avec ShazamKit/fallback gratuit.", checkedAt,
     };
     await setRuntimeStatus("AUDD_API_KEY", result.status, result.message);
     return result;

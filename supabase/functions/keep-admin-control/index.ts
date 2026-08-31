@@ -18,8 +18,8 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   BREVO_API_KEY: { category: "email", label: "Brevo API key", secret: true },
   BREVO_SMTP_KEY: { category: "email", label: "Brevo SMTP key", secret: true },
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
-  BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur KEEP" },
-  BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur KEEP" },
+  BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki" },
+  BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki" },
   SPOTIFY_CLIENT_ID: { category: "music", label: "Spotify Client ID" },
   SPOTIFY_CLIENT_SECRET: { category: "music", label: "Spotify Client Secret", secret: true },
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
@@ -541,7 +541,7 @@ Deno.serve(async (req) => {
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
       const apiKey = await getSecret("BREVO_API_KEY");
       const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "KEEP";
+      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
       if (!apiKey || !senderEmail) return json(409, { error: "brevo_not_configured", message: "Renseigne BREVO_API_KEY et BREVO_SENDER_EMAIL." });
 
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -550,9 +550,9 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           sender: { email: senderEmail, name: senderName },
           to: [{ email }],
-          subject: "KEEP — test e-mail réussi",
-          htmlContent: `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">KEEP</div><h2 style="margin-top:28px">Ton e-mail KEEP est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.</p></div></div>`,
-          textContent: "KEEP — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton KEEP DNA, fais grandir ta communauté.",
+          subject: "Loki — test e-mail réussi",
+          htmlContent: `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">Loki</div><h2 style="margin-top:28px">Ton e-mail Loki est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p></div></div>`,
+          textContent: "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.",
         }),
       });
       const details = await response.text();
@@ -593,7 +593,7 @@ Deno.serve(async (req) => {
       const { data: authData, error: authError } = await admin.auth.admin.getUserById(profile.id);
       if (authError || !authData.user) return json(404, { error: "auth_user_not_found" });
       if (!authData.user.is_anonymous) {
-        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte KEEP." });
+        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte Loki." });
       }
 
       const temporaryPassword = generateTemporaryPassword();
@@ -636,13 +636,13 @@ Deno.serve(async (req) => {
       const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
       const { data: profile } = await admin.from("profiles").select("id,username").eq("id", user.id).maybeSingle();
-      if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir KEEP une première fois avant l’attribution." });
+      if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir Loki une première fois avant l’attribution." });
       const { data, error } = await admin.rpc("service_grant_plan", {
         p_profile_id: user.id,
         p_plan_code: planCode,
         p_months: months,
         p_granted_by: actor.id,
-        p_reason: reason || "Offert depuis le Super Admin KEEP",
+        p_reason: reason || "Offert depuis le Super Admin Loki",
       });
       if (error) throw error;
       await audit(actor.id, "subscription.admin_granted", "profile", user.id, { identity, username: profile.username, planCode, months, reason });

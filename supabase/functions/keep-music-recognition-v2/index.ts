@@ -191,7 +191,7 @@ function isQuotaFailure(message: string, status: number) {
 async function recognize(req: Request) {
   const userId = await optionalUserId(req);
   if (!(await allowRecognition(req, userId))) {
-    return json(429, { error: "recognition_rate_limited", message: "KEEP écoute toujours. Nouvelle analyse dans quelques secondes." });
+    return json(429, { error: "recognition_rate_limited", message: "Loki écoute toujours. Nouvelle analyse dans quelques secondes." });
   }
 
   const credential = await resolveAuddCredential();
@@ -199,7 +199,7 @@ async function recognize(req: Request) {
     await setRuntimeStatus("NOT_CONFIGURED", "Clé AudD absente ou invalide dans Vault/Edge Secret");
     return json(409, {
       error: "recognition_not_configured",
-      message: "Reconnaissance musicale indisponible : remplace la clé AudD dans le Super Admin KEEP.",
+      message: "Reconnaissance musicale indisponible : remplace la clé AudD dans le Super Admin Loki.",
     });
   }
 
@@ -221,7 +221,7 @@ async function recognize(req: Request) {
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     await setRuntimeStatus("ERROR", detail);
-    return json(503, { error: "recognition_network_error", message: "KEEP n’arrive pas à joindre le moteur musical. L’écoute reste active." });
+    return json(503, { error: "recognition_network_error", message: "Loki n’arrive pas à joindre le moteur musical. L’écoute reste active." });
   }
 
   const payload = await response.json().catch(() => null);
@@ -244,10 +244,10 @@ async function recognize(req: Request) {
     }
     if (isAuthorizationFailure(providerMessage)) {
       await setRuntimeStatus("NOT_CONFIGURED", providerMessage);
-      return json(409, { error: "recognition_not_configured", message: "La clé AudD enregistrée n’est pas valide. Remplace-la dans le Super Admin KEEP." });
+      return json(409, { error: "recognition_not_configured", message: "La clé AudD enregistrée n’est pas valide. Remplace-la dans le Super Admin Loki." });
     }
     await setRuntimeStatus("ERROR", providerMessage);
-    return json(502, { error: "recognition_provider_error", message: "Le moteur de reconnaissance a rencontré une erreur. KEEP va réessayer automatiquement." });
+    return json(502, { error: "recognition_provider_error", message: "Le moteur de reconnaissance a rencontré une erreur. Loki va réessayer automatiquement." });
   }
 
   await setRuntimeStatus("ACTIVE");
@@ -278,6 +278,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await setRuntimeStatus("ERROR", message);
-    return json(500, { error: "recognition_gateway_error", message: "Reconnaissance temporairement indisponible. KEEP va réessayer automatiquement." });
+    return json(500, { error: "recognition_gateway_error", message: "Reconnaissance temporairement indisponible. Loki va réessayer automatiquement." });
   }
 });

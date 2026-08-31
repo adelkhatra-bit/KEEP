@@ -61,7 +61,7 @@ const MIN_VOTE_RATIO = 0.08;
 async function identify(req: Request) {
   const userId = await optionalUserId(req);
   if (!(await allowLookup(req, userId))) {
-    return json(429, { error: "memory_rate_limited", message: "Mémoire KEEP temporairement limitée. Réessaie dans quelques secondes." });
+    return json(429, { error: "memory_rate_limited", message: "Mémoire Loki temporairement limitée. Réessaie dans quelques secondes." });
   }
 
   const input = await req.formData().catch(() => null);

@@ -4,7 +4,7 @@ const ADMIN_URL = "https://adelkhatra-bit.github.io/KEEP/admin-preview/";
 
 Deno.serve((req) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
-    return new Response("Legacy KEEP admin preview retired", {
+    return new Response("Legacy Loki admin preview retired", {
       status: 410,
       headers: { "Cache-Control": "no-store" },
     });

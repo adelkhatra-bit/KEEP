@@ -39,7 +39,7 @@ function canonicalUrl(req: Request) {
 
 Deno.serve((req) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
-    return new Response("Legacy KEEP endpoint is read-only", {
+    return new Response("Legacy Loki endpoint is read-only", {
       status: 405,
       headers: { "Allow": "GET, HEAD", "Cache-Control": "no-store" },
     });
