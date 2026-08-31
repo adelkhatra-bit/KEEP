@@ -1,6 +1,6 @@
 import React from 'react';
-import { Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { Platform, Text } from 'react-native';
+import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreenCompact from '../screens/HomeScreenCompact';
@@ -49,6 +49,22 @@ const linking = {
       AppleMusicConnect: 'apple-music-connect',
     },
   },
+  // DIAGNOSTIC TEMPORAIRE (31/08/2026) : un chargement plein-page direct sur
+  // /Main/Profile, /Main/Parties ou /Main/MyMusic retombe silencieusement sur
+  // Listen en prod (confirme en direct, aucune erreur console). L'extraction
+  // du prefixe fonctionne correctement en isolation (verifie hors app) --
+  // ce log confirme si le probleme est dans getStateFromPath lui-meme ou
+  // ailleurs. A retirer une fois la cause confirmee.
+  getStateFromPath: Platform.OS === 'web'
+    ? (path: string, options: any) => {
+        const state = getStateFromPath(path, options);
+        try {
+          // eslint-disable-next-line no-console
+          console.log('[KEEP_ROUTING_DIAG]', JSON.stringify({ path, locationHref: typeof window !== 'undefined' ? window.location.href : null, state }));
+        } catch {}
+        return state;
+      }
+    : undefined,
 };
 
 const TAB = {
