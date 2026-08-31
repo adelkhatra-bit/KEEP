@@ -49,23 +49,36 @@ const linking = {
       AppleMusicConnect: 'apple-music-connect',
     },
   },
-  // DIAGNOSTIC TEMPORAIRE (31/08/2026) : un chargement plein-page direct sur
-  // /Main/Profile, /Main/Parties ou /Main/MyMusic retombe silencieusement sur
-  // Listen en prod (confirme en direct, aucune erreur console). L'extraction
-  // du prefixe fonctionne correctement en isolation (verifie hors app) --
-  // ce log confirme si le probleme est dans getStateFromPath lui-meme ou
-  // ailleurs. A retirer une fois la cause confirmee.
+  // BUG REEL confirme en direct puis dans le code source (31/08/2026) : un
+  // chargement plein-page direct sur /Main/Profile, /Main/Parties ou
+  // /Main/MyMusic retombait silencieusement sur Listen. Cause exacte trouvee
+  // dans node_modules/@react-navigation/native/src/useLinking.tsx (fonction
+  // getInitialState, et le handler history.listen pour precedent/suivant) :
+  // web calcule `path = location.pathname + location.search` BRUT, sans
+  // jamais passer par `prefixes`/extractPathFromURL. Sur un site racine ca
+  // marche par hasard (pathname commence deja par /Main/...) ; sous GitHub
+  // Pages (/KEEP/...) le premier segment est "KEEP", ne correspond a aucun
+  // screen de `config.screens`, getStateFromPath renvoie undefined, et
+  // React Navigation retombe sur l'etat initial par defaut (Main -> Listen).
+  // La navigation par clic n'est pas touchee car elle ne repasse jamais par
+  // ce calcul de path brut. Symetrique au history_guard deja injecte par
+  // web-preview-pages.yml qui AJOUTE /KEEP quand React Navigation ECRIT une
+  // URL (getPathFromState) ; ici on RETIRE /KEEP quand React Navigation LIT
+  // l'URL (getStateFromPath), pour les deux memes raisons.
   getStateFromPath: Platform.OS === 'web'
-    ? (path: string, options: any) => {
-        const state = getStateFromPath(path, options);
-        try {
-          // eslint-disable-next-line no-console
-          console.log('[KEEP_ROUTING_DIAG]', JSON.stringify({ path, locationHref: typeof window !== 'undefined' ? window.location.href : null, state }));
-        } catch {}
-        return state;
-      }
+    ? (path: string, options: any) => getStateFromPath(stripGitHubPagesBasePath(path), options)
     : undefined,
 };
+
+const GITHUB_PAGES_BASE_PATH = '/KEEP';
+
+function stripGitHubPagesBasePath(path: string): string {
+  if (path === GITHUB_PAGES_BASE_PATH) return '/';
+  if (path.startsWith(`${GITHUB_PAGES_BASE_PATH}/`) || path.startsWith(`${GITHUB_PAGES_BASE_PATH}?`)) {
+    return path.slice(GITHUB_PAGES_BASE_PATH.length);
+  }
+  return path;
+}
 
 const TAB = {
   bg: '#0E0A14',
