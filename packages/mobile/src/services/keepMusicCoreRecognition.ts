@@ -9,9 +9,17 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 30 * 1000;
+const PRIMARY_RECHECK_MS = 30 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
+// AJOUT (31/08/2026, demande Adel : "la recherche est trop longue, il
+// devrait la trouver plus vite") : AudD est actuellement en panne serveur
+// (502 recognition_provider_error) et n'avait, contrairement a ACRCloud,
+// aucun disjoncteur -- chaque tentative de reconnaissance appelait quand
+// meme AudD, attendait sa reponse d'erreur, avant de basculer sur ACRCloud.
+// Meme logique de repli que fallbackUnavailableUntil, cote AudD.
+let primaryUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
 let lastKeylessSourceSignature = '';
 let lastKeylessSourceAttemptAt = 0;
@@ -345,6 +353,22 @@ function markFallbackUnavailable() {
   fallbackUnavailableUntil = Date.now() + FALLBACK_RECHECK_MS;
 }
 
+function primaryKnownUnavailable() {
+  return Date.now() < primaryUnavailableUntil;
+}
+
+function markPrimaryUnavailable() {
+  primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
+}
+
+// 502/500 generique cote AudD (pas un no-match legitime, pas un quota/cle
+// deja geres avec leurs propres codes 402/409 par la fonction serveur) --
+// voir supabase/functions/keep-music-recognition-v2/index.ts, branche
+// recognition_provider_error.
+function isPrimaryProviderError(attempt: RecognitionAttempt) {
+  return attempt.status >= 500 || attempt.payload?.error === 'recognition_provider_error';
+}
+
 /**
  * Reconnaissance musicale en cascade :
  * 1. AudD via `keep-music-recognition-v2` (clé serveur/Vault validée),
@@ -390,12 +414,19 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       return memory;
     }
 
-    const primary = await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
+    // AJOUT (31/08/2026, meme demande de rapidite) : si AudD a deja repondu
+    // une panne serveur recemment, ne pas reperdre le temps d'un aller-retour
+    // dont l'issue est deja connue -- on saute directement a ACRCloud.
+    const primary = primaryKnownUnavailable()
+      ? { ok: false, status: 0, payload: null }
+      : await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
     const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
     if (primary.ok && primary.payload?.recognition) {
       recognitionBackoffUntil = 0;
+      primaryUnavailableUntil = 0;
       return primary.payload.recognition as RecognitionResult;
     }
+    if (isPrimaryProviderError(primary)) markPrimaryUnavailable();
 
     // Si ACRCloud a déjà répondu « non configuré », ne pas répéter à chaque
     // extrait le même aller-retour 409. On retente périodiquement pour que
