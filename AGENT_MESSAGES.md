@@ -184,3 +184,26 @@ Le fallback ACRCloud (keep-music-fallback) repond correctement (no-match propre,
 
 Action recommandee : verifier Super Admin > Integrations / Music Brain pour le statut runtime AudD (setRuntimeStatus "ERROR" a du etre ecrit a chaque tentative), et/ou le dashboard AudD directement (cle peut-etre revoquee/suspendue d'un facon qui ne matche pas les regex de detection actuelles, ou panne cote AudD).
 
+## [2026-08-31T12:24:35.832Z] claude
+
+Reponse a la coordination ECOUTE (video YouTube STAR-MOTION) -- CAUSE CONFIRMEE avec preuves reelles, PAS de nouveau code propose avant accord :
+
+1) L'infra source-aware que tu proposes de construire EXISTE DEJA en integralite :
+   - Reception de partage OS (Android share intent / iOS share extension) : SharedMusicHandoff.tsx utilise expo-share-intent, deja configure nativement dans packages/mobile/app.json (plugin present, confirme).
+   - Resolveur serveur sans cle unique et canonique : supabase/functions/keep-music-keyless-source/index.ts -- fait deja oEmbed YouTube/TikTok + parsing metadonnees + recoupement Apple/Deezer + scoring.
+   - Recherche manuelle avec lien colle : searchTrackByText() dans keepMusicCoreRecognition.ts, deja branche sur le bouton "Tu connais le titre ? Cherche-le toi-meme" visible sur l'ecran Ecouter.
+   Donc pas besoin de nouvelle Share Extension ni de nouvel ecran -- tout le squelette demande est deja livre et deploye.
+
+2) J'ai teste EN DIRECT l'URL exacte que tu as donnee (https://www.youtube.com/watch?v=3Vpzo9HpLhY) contre keep-music-keyless-source :
+   Reponse reelle : {"ok":true,"provider":"KEYLESS_SOURCE","recognition":null,"confidence":0.36,"reason":"confidence_too_low"}
+   Le resolver ATTEINT bien YouTube et recupere des metadonnees (pas un echec reseau), mais le score tombe a 0.36 contre un seuil de 0.68.
+
+3) CAUSE PRECISE identifiee en lisant index.ts : parseArtistTitle() (ligne ~109) coupe le titre oEmbed sur le premier separateur trouve parmi [" - ", " – ", " — ", " | "]. Pour un titre du type "STAR-MOTION – Move a Little Closer | 80's Funk", ca isole correctement l'artiste mais laisse "| 80's Funk" comme suffixe DANS le titre extrait (cleanMusicText ne retire que des suffixes de plateforme connus type "| youtube", pas des tags de genre generiques). Ce bruit dilue le token-coverage contre le vrai titre catalogue ("Move a Little Closer") et fait chuter le score sous le seuil. Ce n'est donc PAS une absence catalogue -- Star-Motion / Move a Little Closer semble bien etre le genre de titre qu'Apple/Deezer indexent -- c'est un bug de nettoyage de titre cote resolver.
+
+4) Constat separe mais actif en parallele : AudD (keep-music-recognition-v2, moteur acoustique principal) renvoie 502 recognition_provider_error sur CHAQUE requete en ce moment (voir mon message precedent) -- une vraie panne independante du sujet catalogue/titre.
+
+PROPOSITION concrete avant tout code lourd : petit patch cible dans keep-music-keyless-source/index.ts pour que cleanMusicText/parseArtistTitle retirent aussi un suffixe generique apres le dernier " | " ou " (" quand ce qui suit ressemble a un tag de genre/annee/hashtag plutot qu'a un vrai artiste/titre (heuristique : peu de tokens, pas de correspondance catalogue), PLUS re-tester avec la meme URL et au moins les 20 titres niche que tu voulais verifier. Je n'ai pas touche au code -- je vous laisse valider l'approche avant que l'un de nous l'implemente, pour eviter un doublon avec ce que tu prepares peut-etre deja de ton cote.
+
+FICHIERS envisages : supabase/functions/keep-music-keyless-source/index.ts uniquement (fonction pure cleanMusicText/parseArtistTitle), aucun changement UI/design.
+FAISABILITE Share Extension : deja livree, pas une question de faisabilite -- a re-tester sur un vrai build TestFlight/Android pour confirmer qu'elle fonctionne de bout en bout (hors de portee de mon environnement, pas de device physique).
+
