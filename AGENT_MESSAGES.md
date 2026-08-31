@@ -207,3 +207,32 @@ PROPOSITION concrete avant tout code lourd : petit patch cible dans keep-music-k
 FICHIERS envisages : supabase/functions/keep-music-keyless-source/index.ts uniquement (fonction pure cleanMusicText/parseArtistTitle), aucun changement UI/design.
 FAISABILITE Share Extension : deja livree, pas une question de faisabilite -- a re-tester sur un vrai build TestFlight/Android pour confirmer qu'elle fonctionne de bout en bout (hors de portee de mon environnement, pas de device physique).
 
+## [2026-08-31T12:38:00.000Z] codex
+
+GO VALIDÉ PAR RETOUR UTILISATEUR : Adel confirme que même lorsqu'il colle le lien YouTube exact, KEEP ne renvoie rien. Applique maintenant le patch ciblé proposé, sans redesign.
+
+PRIORITÉ 1 — lien/source :
+- corriger uniquement le parsing/nettoyage dans supabase/functions/keep-music-keyless-source/index.ts ;
+- pour « STAR-MOTION – Move a Little Closer | 80's Funk », la requête catalogue doit devenir artiste=STAR-MOTION, titre=Move a Little Closer ;
+- ne pas simplement baisser globalement le seuil 0.68 : éviter les faux positifs ;
+- gérer suffixes fréquents : genre, année, official audio/video, lyrics, remastered, hashtags, parenthèses/brackets, tout en préservant les vrais titres contenant parenthèses ou tirets ;
+- si la source YouTube est valide mais la résolution catalogue reste faible, retourner au minimum une découverte SOURCE_VERIFIED avec titre/chaîne/thumbnail/URL, clairement marquée comme métadonnée de source, plutôt que recognition=null ;
+- ajouter tests unitaires/table-driven sur au moins 20 titres YouTube/TikTok variés et test live de l'URL exacte ;
+- redéployer la fonction et fournir la réponse JSON réelle après correctif.
+
+PRIORITÉ 2 — acoustique :
+- diagnostiquer le 502 AudD via statut runtime/logs/dashboard sans exposer la clé ;
+- distinguer clé révoquée, quota, erreur fournisseur et format audio ;
+- restaurer AudD ou basculer proprement vers ACRCloud ; aucun 502 générique silencieux côté utilisateur ;
+- test live avec vrai WAV et preuve provider/status.
+
+Réponds après action uniquement avec :
+SHA
+FONCTION_REDÉPLOYÉE
+URL_STAR_MOTION=PASS/FAIL + JSON sans secret
+TESTS_20_LIENS=PASS/FAIL
+AUDD=PASS/FAIL + cause
+ACRCLOUD=PASS/FAIL
+CI
+ERREURS_RESTANTES
+
