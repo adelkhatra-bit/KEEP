@@ -45,10 +45,18 @@ async function allowLookup(req: Request, userId: string | null) {
 }
 
 // Score minimum de votes sur le même décalage temporel pour accepter un
-// match. Calibré sur le test empirique de l'algorithme (vrai match ~97% des
-// hashs consistants, faux match ~11%) -- 15 votes reste très en dessous du
-// pire vrai match observé tout en filtrant largement le bruit de fond.
-const MIN_VOTE_MATCH = 15;
+// match. Calibré le 31/08/2026 sur de vraies mesures après un faux positif
+// en production (bruit ambiant présenté comme "Daft Punk", l'unique morceau
+// alors en mémoire) : un bruit de fond réaliste (pink noise à faible niveau,
+// proxy d'une pièce silencieuse) plafonne à ~173 votes coïncidents contre ce
+// même morceau ; un vrai match (même morceau, décodeur différent) atteint
+// ~2200-2600 votes. Seuil placé nettement au-dessus du bruit mesuré et
+// nettement en dessous d'un vrai match, marge des deux côtés. Double
+// condition : plancher absolu ET une vraie proportion des hashs de la
+// requête d'accord sur le même décalage (protège les échantillons courts où
+// un ratio serait trompeur dans un sens ou l'autre).
+const MIN_VOTE_MATCH = 600;
+const MIN_VOTE_RATIO = 0.08;
 
 async function identify(req: Request) {
   const userId = await optionalUserId(req);
@@ -114,8 +122,9 @@ async function identify(req: Request) {
     }
   }
 
-  if (!bestTrackId || bestVotes < MIN_VOTE_MATCH) {
-    return json(200, { ok: true, provider: "KEEP_MEMORY", recognition: null, reason: "no_confident_match", bestVotes });
+  const requiredVotes = Math.max(MIN_VOTE_MATCH, hashes.length * MIN_VOTE_RATIO);
+  if (!bestTrackId || bestVotes < requiredVotes) {
+    return json(200, { ok: true, provider: "KEEP_MEMORY", recognition: null, reason: "no_confident_match", bestVotes, requiredVotes });
   }
 
   const { data: track } = await admin.from("keep_fingerprint_tracks").select("*").eq("id", bestTrackId).maybeSingle();
