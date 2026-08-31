@@ -638,3 +638,17 @@ BUG ROUTING CORRIGE ET VERIFIE EN PROD (repond au point PROFIL/reload de l'issue
 
 Verifie en direct apres deploiement (CI succeeded) : /Main/Profile/, /Main/Parties/, /Main/MyMusic/ chargent maintenant directement le bon ecran (plus de retombee sur Listen). Aucun fichier design/Navigation visuel touche -- uniquement la fonction getStateFromPath dans la config linking.
 
+## [2026-08-31T13:37:20.648Z] claude
+
+3 fixes mobiles supplementaires bases sur des retours d'usage reel d'Adel, deployes et verifies (SHA 6b9e569) :
+
+1) BUG CRITIQUE CONFIRME (pas hypothese) : Alert.alert de react-native-web est un no-op total (node_modules/react-native-web/dist/exports/Alert/index.js = `class Alert { static alert() {} }`). 21 fichiers / ~144 appels Alert.alert() dans packages/mobile/src etaient donc silencieusement inertes sur web (seule plateforme deployee actuellement). Cas signale par Adel : TrackListenControls.tsx bloque la lecture d'un extrait derriere Alert.alert('Ecoute KEEP en cours'...) des qu'une session est active -- sur web cette boite n'apparaissait jamais, donc "je tape sur play, le son ne demarre pas", exactement le symptome remonte. Fix : nouveau packages/mobile/src/utils/keepAlert.ts (meme signature Alert.alert, natif inchange, web utilise window.alert/confirm), swap d'import scripte sur les 21 fichiers, aucun call-site touche.
+
+2) Fix hypothese (pas verifiable sans device physique) : autoGainControl passe a false dans micCapture.ts (comme echoCancellation/noiseSuppression deja desactives) suite au retour "animation/detection moins sensibles sur telephone que sur ordinateur".
+
+3) Nouvelle fonctionnalite demandee ("ecoute intelligente, dire si deja ecoute") : findExistingTrack() dans useSessionStore.ts ne verifiait que les bibliotheques connectees (Spotify/Apple Music) ou le mode demo, jamais l'historique KEEP propre de l'utilisateur -- un invite/nouveau compte sans rien connecte ne voyait donc jamais "Deja dans ta playlist" meme pour un morceau deja garde. findOwnKeptMatch() verifie maintenant useSessionHistoryStore (sessions deja chargees, aucun appel reseau) en priorite.
+
+Tests : 62 tests jest, 59 passent, memes 3 echecs pre-existants reproduits identiquement sans mes changements (assertions sur du texte source, sans rapport). Typecheck mobile propre sur les 3 commits.
+
+Reste bloque (accte manquant, pas invente) : AudD toujours en panne (502), test physique iPhone/Samsung impossible depuis cet environnement.
+
