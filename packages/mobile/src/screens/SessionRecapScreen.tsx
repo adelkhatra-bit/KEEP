@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import { Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';

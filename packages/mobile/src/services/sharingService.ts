@@ -8,7 +8,8 @@
  * n'existaient pas sur le site public et pouvaient produire un 404/400 dans
  * WhatsApp, Messages ou un navigateur externe.
  */
-import { Alert, Linking, NativeModules, Platform, Share } from 'react-native';
+import { Linking, NativeModules, Platform, Share } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from './planService';
 import { hasFeature } from './entitlementService';

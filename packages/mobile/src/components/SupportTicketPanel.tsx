@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import {

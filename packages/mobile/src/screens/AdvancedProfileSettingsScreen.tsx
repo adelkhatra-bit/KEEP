@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';

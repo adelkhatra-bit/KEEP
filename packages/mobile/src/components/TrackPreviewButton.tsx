@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';

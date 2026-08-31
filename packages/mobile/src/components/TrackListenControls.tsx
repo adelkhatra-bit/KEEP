@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Platform } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';

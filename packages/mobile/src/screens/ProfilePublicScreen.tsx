@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
 import { CanonicalTrack, computeMusicDNA, DnaSourceDecision, ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';

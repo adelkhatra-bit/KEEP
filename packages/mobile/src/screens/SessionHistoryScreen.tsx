@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
+import { Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { broadcastEventToFollowers, createCreatorEvent } from '../services/creatorEventService';
 import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
 import { hasFeature, requiredPlan } from '../services/entitlementService';
