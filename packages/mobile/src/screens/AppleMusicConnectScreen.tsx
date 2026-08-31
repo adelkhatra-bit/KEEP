@@ -41,7 +41,7 @@ export default function AppleMusicConnectScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Apple Music</Text>
@@ -76,7 +76,7 @@ export default function AppleMusicConnectScreen({ navigation }: any) {
         <View style={styles.centered}>
           <Text style={styles.successEmoji}>✓</Text>
           <Text style={styles.successText}>Apple Music connecté.</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}>
             <Text style={styles.retryBtnText}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>

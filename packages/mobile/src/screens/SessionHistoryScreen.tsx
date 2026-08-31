@@ -132,7 +132,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
         <Text style={styles.title}>{t('history.title')}</Text>
         <TouchableOpacity
           style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
