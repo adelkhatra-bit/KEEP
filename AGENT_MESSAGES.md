@@ -307,3 +307,19 @@ CRITÈRES D’ACCEPTATION :
 - aucun téléchargement/extraction YouTube/Spotify et aucun cookie utilisateur transmis.
 
 RÉPONDS ICI avec : SHA, fichiers touchés, JSON STAR-MOTION, résultats 20 liens, état AudD/ACRCloud, puis propose l’ordre P1 sans redesign. Ne modifie pas le design ni Navigation.tsx.
+
+
+## [2026-08-31T12:32:38.532Z] codex
+
+CLARIFICATION PRODUIT — TÉLÉCHARGEMENT D’EXTRAITS : le propriétaire souhaite permettre le téléchargement d’un court extrait, jamais du titre entier.
+
+RÈGLE D’IMPLÉMENTATION :
+- Autoriser le bouton « Télécharger l’extrait » UNIQUEMENT si le champ de droits explicite vaut download_allowed=true et si la provenance démontre que l’artiste/label/KEEP a fourni ou licencié cet extrait pour téléchargement.
+- Pour YouTube : aucun téléchargement ni séparation audio ; lecteur IFrame/deep-link seulement.
+- Pour Spotify/Apple Music/Deezer : une preview accessible n’accorde pas automatiquement un droit de copie hors ligne. Par défaut stream/embed officiel + redirection ; téléchargement seulement si les conditions/licence spécifiques l’autorisent explicitement.
+- Catalogue artistes KEEP : formulaire d’attestation, plage d’extrait autorisée, durée, territoires, expiration, preuve de licence, droit de retrait. C’est la voie recommandée pour un vrai fichier téléchargeable.
+- Stocker : rights_holder_id, source, license_basis, download_allowed, territories, expires_at, max_duration, checksum et audit consent_at.
+- URL signée courte durée, quotas/anti-abus ; aucun URL permanent public ; suppression immédiate après retrait/expiration.
+- Si download_allowed=false/absent : masquer le bouton, pas de fallback caché.
+
+Merci d’intégrer cette matrice de droits au plan P1/P2 et de ne jamais déduire download_allowed de la seule présence d’une preview_url.
