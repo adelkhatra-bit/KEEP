@@ -146,7 +146,24 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => loop.stop();
   }, [isActive, recognizing, signalScan]);
 
-  const current = tracks[0];
+  // AJOUT (31/08/2026, retour Adel : "il y a plus de 50 musiques en attente
+  // dans ma session... je veux pouvoir faire le tour et ensuite decider").
+  // `current` etait fige sur tracks[0] (le tout dernier detecte) sans aucun
+  // moyen d'atteindre les entrees plus anciennes tant qu'une nouvelle
+  // detection ne les repoussait pas -- avec une session longue, les dizaines
+  // de morceaux precedents devenaient invisibles/inaccessibles. viewedTrackId
+  // permet de parcourir librement la file (plus recent <-> plus ancien) sans
+  // jamais forcer une decision PASSER/GARDER ; navigue par id, pas par index,
+  // pour rester correct meme quand une nouvelle detection s'ajoute en tete
+  // pendant qu'on parcourt une entree plus ancienne.
+  const [viewedTrackId, setViewedTrackId] = useState<string | null>(null);
+  useEffect(() => { if (!isActive) setViewedTrackId(null); }, [isActive]);
+  const current = (viewedTrackId ? tracks.find((tr) => tr.id === viewedTrackId) : undefined) ?? tracks[0];
+  const currentIndex = current ? tracks.findIndex((tr) => tr.id === current.id) : -1;
+  const canGoNewer = currentIndex > 0;
+  const canGoOlder = currentIndex >= 0 && currentIndex < tracks.length - 1;
+  const goNewer = () => { if (canGoNewer) setViewedTrackId(tracks[currentIndex - 1].id); };
+  const goOlder = () => { if (canGoOlder) setViewedTrackId(tracks[currentIndex + 1].id); };
   const detected = tracks.length;
   const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
@@ -261,6 +278,18 @@ export default function HomeScreenCompact({ navigation }: any) {
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
         <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
+
+        {tracks.length > 1 ? (
+          <View style={s.queueNav}>
+            <TouchableOpacity style={[s.queueNavBtn, !canGoNewer && s.disabled]} onPress={goNewer} disabled={!canGoNewer} accessibilityLabel="Morceau plus récent">
+              <Text style={s.queueNavBtnText}>‹ Plus récent</Text>
+            </TouchableOpacity>
+            <Text style={s.queueNavCount}>{currentIndex + 1} / {tracks.length}</Text>
+            <TouchableOpacity style={[s.queueNavBtn, !canGoOlder && s.disabled]} onPress={goOlder} disabled={!canGoOlder} accessibilityLabel="Morceau plus ancien">
+              <Text style={s.queueNavBtnText}>Plus ancien ›</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {current ? (
           <SwipeDeck
@@ -440,6 +469,10 @@ const s = StyleSheet.create({
   errorBanner: { marginTop: 7, minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: C.pink, justifyContent: 'center', paddingHorizontal: 10 },
   errorBannerText: { color: C.pink, fontSize: 11, textAlign: 'center' },
   sectionTitle: { color: C.text, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 9, marginBottom: 6 },
+  queueNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7, gap: 8 },
+  queueNavBtn: { minHeight: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  queueNavBtnText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
+  queueNavCount: { color: C.muted, fontSize: 11, fontWeight: '800' },
   trackCard: { borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 14, padding: 10 },
   trackHead: { flexDirection: 'row', alignItems: 'center' },
   cover: { width: 58, height: 58, borderRadius: 10, marginRight: 10 },
