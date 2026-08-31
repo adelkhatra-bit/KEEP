@@ -85,8 +85,30 @@ function hannWindow(size: number): Float32Array {
 
 type Peak = { frame: number; bin: number; magnitude: number };
 
+// Différents décodeurs MP3 (ex. mpg123 vs ffmpeg) ne gèrent pas le même
+// nombre d'échantillons de silence/padding en tête de flux (délai
+// d'encodeur LAME classique) -- deux décodages du même morceau peuvent donc
+// démarrer à des offsets légèrement différents, ce qui décale toutes les
+// frames et change tous les hashs même si le contenu réel est identique.
+// Recaler sur le vrai début du signal (première fenêtre où l'énergie
+// dépasse un seuil bas) rend l'empreinte indépendante du décodeur utilisé,
+// côté ensemencement comme côté requête -- les deux passent par cette même
+// fonction.
+function trimLeadingSilence(samples: Float32Array): Float32Array {
+  const probeWindow = 512;
+  const energyThreshold = 0.003;
+  for (let start = 0; start + probeWindow <= samples.length; start += probeWindow) {
+    let sumSquares = 0;
+    for (let i = start; i < start + probeWindow; i++) sumSquares += samples[i] * samples[i];
+    const rms = Math.sqrt(sumSquares / probeWindow);
+    if (rms > energyThreshold) return start > 0 ? samples.subarray(start) : samples;
+  }
+  return samples;
+}
+
 export function computeFingerprint(samples: Float32Array, sampleRate: number): FingerprintHash[] {
-  if (samples.length < FRAME_SIZE) return [];
+  const trimmed = trimLeadingSilence(samples);
+  if (trimmed.length < FRAME_SIZE) return [];
 
   const fft = new FFT(FRAME_SIZE);
   const window = hannWindow(FRAME_SIZE);
@@ -97,13 +119,13 @@ export function computeFingerprint(samples: Float32Array, sampleRate: number): F
   const minBin = Math.max(1, Math.floor(MIN_FREQ_HZ / binHz));
   const maxBin = Math.min(FRAME_SIZE / 2 - 1, Math.ceil(MAX_FREQ_HZ / binHz));
 
-  const frameCount = Math.floor((samples.length - FRAME_SIZE) / HOP_SIZE) + 1;
+  const frameCount = Math.floor((trimmed.length - FRAME_SIZE) / HOP_SIZE) + 1;
   const peaksByFrame: Peak[][] = [];
 
   for (let f = 0; f < frameCount; f++) {
     const start = f * HOP_SIZE;
     complexIn.fill(0);
-    for (let i = 0; i < FRAME_SIZE; i++) complexIn[2 * i] = samples[start + i] * window[i];
+    for (let i = 0; i < FRAME_SIZE; i++) complexIn[2 * i] = trimmed[start + i] * window[i];
     fft.transform(complexOut, complexIn);
 
     const magnitudes = new Float32Array(maxBin - minBin + 1);
