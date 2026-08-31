@@ -2,9 +2,14 @@
 import fs from 'fs';
 import path from 'path';
 
+// Ce fichier est stocké avec des fins de ligne CRLF ; on les normalise en LF
+// pour que les assertions littérales multi-lignes restent stables quel que
+// soit l'OS/checkout Git qui exécute les tests.
+const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
+
 describe('Loki Battle mobile style selector', () => {
-  const source = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
-  const audioSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'audioPreviewService.ts'), 'utf8');
+  const source = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+  const audioSource = readNormalized(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
   it('renders one inline Battle invite between artwork and Qui chante', () => {
     const visual = source.indexOf('<View style={s.visual}>');
@@ -155,8 +160,8 @@ describe('Loki Battle mobile style selector', () => {
 });
 
 describe('Loki Battle accept reliability', () => {
-  const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
-  const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
+  const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+  const live = readNormalized(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
 
   it('uses the arena state returned by accept without requiring a second network call', () => {
     expect(live).toContain('arenaState: (data as any)?.arenaState ?? null');
@@ -174,8 +179,8 @@ describe('Loki Battle accept reliability', () => {
 });
 
 describe('Loki Battle persistent group invitations', () => {
-  const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
-  const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
+  const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+  const live = readNormalized(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
 
   it('invites additional players into the same arena instead of replacing the group', () => {
     expect(live).toContain("rpc('keep_battle_arena_challenge_send'");

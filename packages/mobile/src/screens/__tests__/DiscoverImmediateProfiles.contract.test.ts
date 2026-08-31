@@ -13,7 +13,7 @@ describe('Loki Découvertes immediate public profiles', () => {
   it('supports direct username lookup', () => {
     expect(source).toContain('Rechercher un pseudo Loki');
     expect(source).toContain("profile.username.toLowerCase().includes(needle)");
-    expect(source).toContain("profileQuery.trim().replace(/^@/, '').toLowerCase()");
+    expect(source).toContain("committedQuery.trim().replace(/^@/, '').toLowerCase()");
   });
 
   it('keeps GPS as an optional proximity refinement', () => {
