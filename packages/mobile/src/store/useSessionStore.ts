@@ -38,6 +38,40 @@ function isCreditsExhausted(error: unknown): boolean {
   return error instanceof Error && error.message === 'CREDITS_EXHAUSTED';
 }
 
+// AJOUT (31/08/2026, incident reel : 51 morceaux "en attente" disparus apres
+// un rechargement de page/fermeture de fenetre). Les morceaux non decides
+// ne sont jamais ecrits sur le serveur (seul Garder ecrit dans
+// keep_decisions) -- startSession() repartait donc TOUJOURS avec
+// `tracks: []`, silencieusement, meme si la derniere session n'avait jamais
+// ete fermee proprement (rechargement, fermeture d'onglet, crash). Avant de
+// considerer une session comme abandonnee, on cherche une session encore
+// "ouverte" (endedAt == null) recente avec des morceaux et on la REPREND au
+// lieu d'en creer une vide -- l'utilisateur retrouve exactement la ou il en
+// etait. Fenetre de reprise volontairement courte (45 min) pour ne jamais
+// reprendre une session vieille de plusieurs jours par surprise.
+const RESUMABLE_SESSION_WINDOW_MS = 45 * 60 * 1000;
+
+function findResumableSession(): KeepSession | null {
+  const sessions = useSessionHistoryStore.getState().sessions;
+  const now = Date.now();
+  let best: KeepSession | null = null;
+  let bestActivity = 0;
+  for (const session of sessions) {
+    if (session.endedAt != null || !session.tracks.length) continue;
+    const startedAt = new Date(session.startedAt).getTime();
+    const latestActivity = session.tracks.reduce((latest, track) => {
+      const detectedAt = new Date(track.detectedAt).getTime();
+      return Number.isFinite(detectedAt) ? Math.max(latest, detectedAt) : latest;
+    }, Number.isFinite(startedAt) ? startedAt : 0);
+    if (!latestActivity || now - latestActivity > RESUMABLE_SESSION_WINDOW_MS) continue;
+    if (latestActivity > bestActivity) {
+      best = session;
+      bestActivity = latestActivity;
+    }
+  }
+  return best;
+}
+
 async function withSoftTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
   return Promise.race([
     promise.catch(() => null),
@@ -288,12 +322,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
     void clearSharedMusicSource();
-    useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
+    const resumable = findResumableSession();
+    useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(resumable?.id ?? null);
     lastDetectionAt = Date.now();
     nextRecognitionAllowedAt = 0;
     consecutiveNoMatches = 0;
     consecutiveWeakSamples = 0;
-    set({ isActive: true, sessionId: newId(), startedAt: new Date().toISOString(), tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    set({
+      isActive: true,
+      sessionId: resumable?.id ?? newId(),
+      startedAt: resumable?.startedAt ?? new Date().toISOString(),
+      tracks: resumable?.tracks ?? [],
+      showEndPrompt: false,
+      recognizing: false,
+      micLevel: 0,
+      error: null,
+      signalHint: null,
+      locationLabel: resumable?.locationLabel,
+      lat: resumable?.lat,
+      lng: resumable?.lng,
+    });
 
     const tick = async () => {
       if (!get().isActive || get().recognizing) return;
