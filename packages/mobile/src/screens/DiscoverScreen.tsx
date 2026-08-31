@@ -74,6 +74,11 @@ export default function DiscoverScreen({ navigation }: any) {
   const [followNotice, setFollowNotice] = useState('');
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
+  // BUG RÉEL trouvé le 31/08/2026 (Adel : "j'ai un utilisateur, je le suis
+  // déjà, et ça me dit de le suivre") : Découvertes ne chargeait jamais les
+  // abonnements existants du compte, donc "+ SUIVRE" s'affichait pour tout le
+  // monde sans exception, même les profils déjà suivis.
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -137,6 +142,22 @@ export default function DiscoverScreen({ navigation }: any) {
     void load();
     return () => { live = false; };
   }, [isDemoMode, user?.id]);
+
+  useEffect(() => {
+    let live = true;
+    const loadFollowing = async () => {
+      if (!user?.id || isLocalGuest || isDemoMode || !supabase) { if (live) setFollowingIds(new Set()); return; }
+      try {
+        const { data, error } = await supabase.from('follows').select('followee_id').eq('follower_id', user.id);
+        if (error) throw error;
+        if (live) setFollowingIds(new Set((data ?? []).map((row: any) => row.followee_id)));
+      } catch {
+        if (live) setFollowingIds(new Set());
+      }
+    };
+    void loadFollowing();
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
 
   useEffect(() => {
     let live = true;
@@ -305,8 +326,10 @@ export default function DiscoverScreen({ navigation }: any) {
   const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
   const openAccount = () => navigation.navigate('Main', { screen: 'Profile' });
 
+  const alreadyFollowingCurrent = Boolean(currentProfile && followingIds.has(currentProfile.id));
+
   const followCurrent = async () => {
-    if (!currentProfile || followBusy || !discoveryAccess?.allowed) return;
+    if (!currentProfile || followBusy || !discoveryAccess?.allowed || alreadyFollowingCurrent) return;
     if (!user || isLocalGuest || isDemoMode || !supabase) {
       setFollowNotice('Crée ton compte Loki pour pouvoir suivre cet utilisateur.');
       Alert.alert('Compte Loki requis', 'Crée ton compte Loki pour pouvoir suivre cet utilisateur.', [
@@ -320,6 +343,7 @@ export default function DiscoverScreen({ navigation }: any) {
     try {
       const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: currentProfile.id });
       if (error) throw error;
+      setFollowingIds((prev) => new Set(prev).add(currentProfile.id));
       setFollowNotice(`Tu suis maintenant @${currentProfile.username}.`);
       nextProfile();
     } catch {
@@ -378,7 +402,7 @@ export default function DiscoverScreen({ navigation }: any) {
             </TouchableOpacity>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
             <View style={styles.matchRow}><View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View><View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
-            <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity><TouchableOpacity style={styles.followButton} onPress={() => void followCurrent()} disabled={followBusy}><Text style={styles.followText}>{followBusy ? '…' : '+ SUIVRE'}</Text></TouchableOpacity></View>
+            <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity><TouchableOpacity style={[styles.followButton, alreadyFollowingCurrent && styles.followButtonOn]} onPress={() => void followCurrent()} disabled={followBusy || alreadyFollowingCurrent}><Text style={styles.followText}>{followBusy ? '…' : alreadyFollowingCurrent ? '✓ ABONNÉ(E)' : '+ SUIVRE'}</Text></TouchableOpacity></View>
             {followNotice ? <Text style={styles.followNotice}>{followNotice}</Text> : null}
           </View>
         )}
@@ -397,5 +421,5 @@ const styles = StyleSheet.create({
   searchPanel:{padding:10,borderRadius:15,backgroundColor:'#130F1B',borderWidth:1,borderColor:'#332642',marginBottom:8},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:'#C8B7E5',fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:'#23192F',alignItems:'center'},radiusValueText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:'#2B2037',overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:'#9B6DFF'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:6,marginBottom:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:4,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#6543A0'},radiusChoiceText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{minHeight:48,borderRadius:14,backgroundColor:'#6D46AE',alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:'#AFA5BF',fontSize:8,marginTop:5,textAlign:'center'},
   lockCard:{padding:16,borderRadius:20,backgroundColor:'#181121',borderWidth:1,borderColor:'#5C3E78',alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:'#C9C0D4',fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:'#D9C3FF',fontSize:12,fontWeight:'900',marginTop:12},
   emptyCard:{padding:18,borderRadius:18,backgroundColor:'#120E18',borderWidth:1,borderColor:'#30233C'},
-  profileCard:{padding:12,borderRadius:22,backgroundColor:'#15101D',borderWidth:1,borderColor:'#4D3762'},profileHero:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241B30'},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarInitial:{color:'#FFFFFF',fontSize:30,fontWeight:'900'},profileInfo:{flex:1},profileNameRow:{flexDirection:'row',alignItems:'center',gap:6},profileName:{color:'#FFFFFF',fontSize:17,fontWeight:'900'},profileBio:{color:'#D2CADB',fontSize:12,lineHeight:17,marginTop:3},proximity:{color:'#A98BE2',fontSize:11,fontWeight:'800',marginTop:4},matchRow:{flexDirection:'row',gap:8,marginTop:12},matchBlock:{flex:1,minHeight:52,borderRadius:15,backgroundColor:'#20172A',alignItems:'center',justifyContent:'center'},matchValue:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},matchLabel:{color:'#AFA4BF',fontSize:8,fontWeight:'900',marginTop:2},cardActions:{flexDirection:'row',gap:9,marginTop:12},passButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#28202F',alignItems:'center',justifyContent:'center'},passText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#6945A8',alignItems:'center',justifyContent:'center'},followText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followNotice:{color:'#82EEB6',fontSize:11,fontWeight:'800',textAlign:'center',marginTop:8},
+  profileCard:{padding:12,borderRadius:22,backgroundColor:'#15101D',borderWidth:1,borderColor:'#4D3762'},profileHero:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241B30'},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarInitial:{color:'#FFFFFF',fontSize:30,fontWeight:'900'},profileInfo:{flex:1},profileNameRow:{flexDirection:'row',alignItems:'center',gap:6},profileName:{color:'#FFFFFF',fontSize:17,fontWeight:'900'},profileBio:{color:'#D2CADB',fontSize:12,lineHeight:17,marginTop:3},proximity:{color:'#A98BE2',fontSize:11,fontWeight:'800',marginTop:4},matchRow:{flexDirection:'row',gap:8,marginTop:12},matchBlock:{flex:1,minHeight:52,borderRadius:15,backgroundColor:'#20172A',alignItems:'center',justifyContent:'center'},matchValue:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},matchLabel:{color:'#AFA4BF',fontSize:8,fontWeight:'900',marginTop:2},cardActions:{flexDirection:'row',gap:9,marginTop:12},passButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#28202F',alignItems:'center',justifyContent:'center'},passText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#6945A8',alignItems:'center',justifyContent:'center'},followButtonOn:{backgroundColor:'#28202F',borderWidth:1,borderColor:'#6945A8'},followText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followNotice:{color:'#82EEB6',fontSize:11,fontWeight:'800',textAlign:'center',marginTop:8},
 });

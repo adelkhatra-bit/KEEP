@@ -3,6 +3,7 @@ import { Platform, Text } from 'react-native';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { colors } from '../theme/colors';
 import HomeScreenCompact from '../screens/HomeScreenCompact';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MyMusicScreen from '../screens/MyMusicScreen';
@@ -83,9 +84,12 @@ function stripGitHubPagesBasePath(path: string): string {
 const TAB = {
   bg: '#0E0A14',
   border: '#2B2038',
-  // Règle KEEP : les 5 libellés restent blancs pour ne jamais disparaître
-  // visuellement sur le fond sombre, actif ou non.
-  active: '#FFFFFF',
+  // Règle Loki : les libellés inactifs restent blancs pour ne jamais
+  // disparaître visuellement sur le fond sombre (jamais de gris fonctionnel).
+  // L'onglet actif utilise le violet de marque pour rester identifiable --
+  // observation réelle d'Adel (31/08/2026) : les deux couleurs étaient
+  // identiques, impossible de savoir sur quel onglet on se trouvait.
+  active: colors.primaryLight,
   inactive: '#FFFFFF',
 };
 
