@@ -575,3 +575,60 @@ Souhaites-tu que je continue ?
 Termine TOUJOURS chaque réponse destinée à Adel par la phrase exacte : **« Souhaites-tu que je continue ? »**
 
 Ne marque jamais FAIT sur la seule lecture du code. « FAIT » exige déploiement ou exécution réelle adaptée au point. La robustesse prime : aucun faux succès.
+
+
+## [2026-08-31T13:15:00.000Z] codex
+
+### PRIORITÉ APP STORE — AUDIT CODEX DU 31/08/2026
+
+Claude, poursuis maintenant la checklist centrale avec ce lot Apple prioritaire. Ne change pas le design et ne déclare rien « prêt » sans preuve d’exécution.
+
+#### ÉTAT CONSTATÉ DANS LE DÉPÔT
+- Bundle ID : `com.adelkhatra.keep`.
+- Expo SDK 54, EAS projectId présent, profil production et autoIncrement présents.
+- Workflow `.github/workflows/eas-build-ios.yml` préparé pour EAS + TestFlight.
+- Module natif ShazamKit présent.
+- Module natif StoreKit 2 `KeepIAP` présent avec produits, purchase, restore et finish.
+- Share Extension iOS configurée.
+- Suppression de compte prouvée côté serveur.
+- Pack de métadonnées App Store préparé.
+- MAIS : cela ne prouve ni compilation finale, ni build EAS signé, ni upload TestFlight, ni fonctionnement physique, ni achat sandbox.
+
+#### LOT APPLE À EXÉCUTER DANS CET ORDRE
+- [ ] Vérifier le dernier run réel de `app-store-native-preflight.yml` : prébuild iOS + compilation simulateur. Donner URL/run ID, SHA et logs. S’il n’a jamais tourné ou échoue, corriger uniquement la cause démontrée.
+- [ ] Exécuter le contrat `scripts/verify-app-store-readiness.cjs` sur le HEAD exact et fournir la sortie complète.
+- [ ] Vérifier que `KeepIAP` est réellement relié à l’écran Offre & crédits : chargement produits Apple, achat, attente, annulation, restauration, révocation, expiration, transaction.finish uniquement après confirmation serveur.
+- [ ] Vérifier la validation serveur du JWS StoreKit et l’idempotence par transactionId/originalTransactionId. Aucun abonnement/crédit accordé sur une simple réponse client.
+- [ ] Définir les identifiants produits App Store Connect stables pour Premium, Creator Pro, Venue Pro et éventuels packs de Free. Ne pas inventer ni activer des produits inexistants.
+- [ ] Sur iOS, toute fonction numérique payante doit passer par StoreKit/IAP ; ne pas utiliser Stripe ou un paiement web pour débloquer les plans dans l’app hors cadre Apple applicable.
+- [ ] Vérifier bouton « Restaurer mes achats » visible et fonctionnel, page gestion abonnement et textes prix/période/renouvellement conformes.
+- [ ] Auditer `PrivacyInfo.xcprivacy` réellement générés après Expo prebuild ; joindre l’inventaire des manifests et corriger uniquement les Required Reason APIs réellement utilisées.
+- [ ] Vérifier App Privacy contre la build réelle : identifiants, email, position, avatar/contenus, interactions, achats, échantillons audio et politiques AudD/ACRCloud.
+- [ ] Vérifier UGC/social : signaler, bloquer un utilisateur, filtrage/modération, contact support publié. Apple 1.2 exige ces quatre éléments.
+- [ ] Tester le mode arrière-plan iOS uniquement pour une session démarrée explicitement par l’utilisateur. Ne jamais promettre une surveillance silencieuse permanente de TikTok/YouTube.
+- [ ] Valider sur iPhone physique/TestFlight : installation propre, permissions, Écouter/Arrêter, arrière-plan, notification, partage vers KEEP, persistance profil, reset, suppression compte, IAP sandbox, restauration.
+- [ ] Préparer compte App Review stable, notes exactes, captures issues de la build soumise, App Privacy, Age Rating, Content Rights, DSA/trader, support/privacy URLs.
+- [ ] Déclencher le build réel seulement quand `EXPO_TOKEN` existe.
+- [ ] Auto-submit TestFlight seulement quand `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID` sont tous réels et présents dans GitHub Secrets/EAS, jamais dans le dépôt.
+- [ ] Donner un verdict final : NO-GO / TESTFLIGHT READY / APP REVIEW READY, avec chaque blocage attribué à CODE / COMPTE ADEL / APP STORE CONNECT / TEST PHYSIQUE.
+
+#### RÈGLES DE ROBUSTESSE
+- Tests happy path + refus permission + réseau coupé + provider 502 + achat annulé/pending + double callback + restauration + compte supprimé.
+- Aucun secret/log audio brut.
+- Timeout et retry bornés, idempotence, arrêt micro garanti.
+- Aucun faux PASS basé sur une lecture de code ou une simulation.
+- Ne pousse pas en production commerciale avant achat sandbox et restauration validés sur appareil.
+
+Utilise toujours le format :
+```
+ÉTAPE :
+STATUT : FAIT / BLOQUÉ / À FAIRE
+SHA :
+PREUVE :
+TEST RÉEL :
+ERREURS RESTANTES :
+PROCHAINE ÉTAPE :
+Souhaites-tu que je continue ?
+```
+
+Termine chaque réponse destinée à Adel exactement par : **« Souhaites-tu que je continue ? »**
