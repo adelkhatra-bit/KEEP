@@ -1,8 +1,8 @@
 /**
- * Point d'assemblage unique du moteur musical KEEP côté mobile.
+ * Point d'assemblage unique du moteur musical Loki côté mobile.
  *
  * La reconnaissance et le service musical sont volontairement découplés :
- * KEEP peut identifier un morceau avec le micro même si l'utilisateur n'a
+ * Loki peut identifier un morceau avec le micro même si l'utilisateur n'a
  * encore connecté ni Apple Music ni Spotify. Sur iOS, ShazamKit est tenté en
  * premier ; les clés AudD/ACRCloud restent uniquement dans Supabase Vault.
  */
@@ -18,6 +18,7 @@ import {
   TrackResolver,
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
 import { NativeFirstRecognitionProvider } from './nativeFirstRecognitionProvider';
 import { NotifyingRecognitionProvider } from './notifyingRecognitionProvider';
@@ -35,7 +36,7 @@ async function fetchAppleMusicDeveloperToken(apiUrl: string): Promise<string> {
   const accessToken = await getSupabaseAccessToken();
   if (!accessToken) {
     throw new Error(
-      'Apple Music : aucune session KEEP active. Connecte-toi avant de pouvoir récupérer un developer token.'
+      `Apple Music : aucune session ${APP_NAME} active. Connecte-toi avant de pouvoir récupérer un developer token.`
     );
   }
   const res = await fetch(`${apiUrl}/api/music/apple/developer-token`, {
@@ -54,7 +55,7 @@ function createBackendDeveloperTokenProvider(apiUrl: string): DeveloperTokenProv
 
 export async function getAppleMusicDeveloperToken(): Promise<string> {
   if (isPlaceholder(API_URL)) {
-    throw new Error('EXPO_PUBLIC_API_URL manquant -- impossible de joindre le backend KEEP.');
+    throw new Error(`EXPO_PUBLIC_API_URL manquant -- impossible de joindre le backend ${APP_NAME}.`);
   }
   return fetchAppleMusicDeveloperToken(API_URL!);
 }
@@ -62,8 +63,8 @@ export async function getAppleMusicDeveloperToken(): Promise<string> {
 function createRealMusicProvider(): MusicProviderAdapter {
   if (isPlaceholder(API_URL)) {
     throw new Error(
-      'KEEP est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ' +
-        'Renseigne l’URL du backend KEEP déployé.'
+      `${APP_NAME} est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ` +
+        `Renseigne l’URL du backend ${APP_NAME} déployé.`
     );
   }
   return new AppleMusicProvider(createBackendDeveloperTokenProvider(API_URL!));
@@ -130,7 +131,7 @@ class MusicEngine {
   }
 
   /**
-   * Isole strictement la bibliothèque locale quand l'identité KEEP change.
+   * Isole strictement la bibliothèque locale quand l'identité Loki change.
    * Cette méthode ne touche jamais Spotify/Apple Music et n'efface aucune
    * donnée Supabase : elle vide uniquement la mémoire de test locale.
    */

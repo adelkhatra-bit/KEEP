@@ -152,7 +152,7 @@ function buildRecoveredSession(sessionId: string, keeps: PersistedKeepDecision[]
 /**
  * Réconciliation serveur NON DESTRUCTIVE.
  *
- * Le serveur confirme/enrichit les KEEP déjà synchronisés et restaure les KEEP
+ * Le serveur confirme/enrichit les morceaux gardés déjà synchronisés et restaure les morceaux gardés
  * absents du téléphone. Une absence dans une réponse distante n'est JAMAIS une
  * preuve suffisante pour supprimer l'historique local : réseau partiel, ancien
  * backfill, déduplication ou changement de version pouvaient auparavant vider
@@ -181,7 +181,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
     }),
   }));
 
-  // Si un vrai historique local contient déjà le KEEP, ne pas le dupliquer
+  // Si un vrai historique local contient déjà le morceau gardé, ne pas le dupliquer
   // dans la session générique de récupération cloud.
   const visibleDecisionIds = new Set<string>();
   for (const session of next) {
@@ -234,7 +234,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
     }
   }
 
-  // Les anciens KEEP n'ont pas de sessionId : ils restent accessibles dans une
+  // Les anciens morceaux gardés n'ont pas de sessionId : ils restent accessibles dans une
   // seule session de récupération, sans jamais effacer les sessions réelles.
   const existingCloudIndex = next.findIndex(isCloudProfileRecoverySession);
   if (legacyMissing.length) {
@@ -254,7 +254,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
       id: CLOUD_PROFILE_RECOVERY_SESSION_ID,
       startedAt: new Date(earliest || latest || fallbackNow).toISOString(),
       endedAt: new Date(latest || earliest || fallbackNow).toISOString(),
-      title: 'KEEP sauvegardés',
+      title: 'Morceaux sauvegardés',
       tracks: cloudTracks,
     };
     if (existingCloudIndex >= 0) next[existingCloudIndex] = cloudSession;

@@ -107,7 +107,7 @@ export default function TeamPage() {
   return (
     <AdminLayout>
       <div className="page-title">Équipe Super Admin</div>
-      <div className="page-subtitle">Accès nominatifs, rôles séparés et désactivation sans supprimer les comptes KEEP.</div>
+      <div className="page-subtitle">Accès nominatifs, rôles séparés et désactivation sans supprimer les comptes Loki.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
@@ -115,7 +115,7 @@ export default function TeamPage() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter un collaborateur</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          Aucun lien magique n’est envoyé. Si l’adresse n’a pas encore de compte KEEP, un compte est créé avec un mot de passe temporaire affiché une seule fois. Si elle a déjà un compte KEEP, son compte utilisateur est conservé et seul le rôle d’administration est ajouté.
+          Aucun lien magique n’est envoyé. Si l’adresse n’a pas encore de compte Loki, un compte est créé avec un mot de passe temporaire affiché une seule fois. Si elle a déjà un compte Loki, son compte utilisateur est conservé et seul le rôle d’administration est ajouté.
         </p>
         <form onSubmit={createMember} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) minmax(220px,1fr) auto', gap: 10 }}>
           <input type="email" placeholder="collaborateur@email.fr" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />

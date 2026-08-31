@@ -188,7 +188,7 @@ export type KeepBattleCatalogRefresh = {
 /**
  * Enrichit la réserve centrale Battle sans utiliser la bibliothèque personnelle
  * du joueur. La fonction serveur ne nécessite aucune clé musicale privée : elle
- * complète uniquement les morceaux déjà connus de KEEP avec des extraits
+ * complète uniquement les morceaux déjà connus de Loki avec des extraits
  * promotionnels publics disponibles.
  */
 export async function refreshKeepBattleCatalog(limit = 24): Promise<KeepBattleCatalogRefresh | null> {

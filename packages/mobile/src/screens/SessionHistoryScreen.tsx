@@ -23,7 +23,7 @@ function pendingTracks(session: KeepSession): number {
 export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
   const sessions = useSessionHistoryStore((s) => s.sessions);
-  // Les KEEP restaurés depuis Supabase alimentent le profil musical/KEEP DNA,
+  // Les morceaux gardés restaurés depuis Supabase alimentent le profil musical/Loki DNA,
   // mais ne constituent pas un historique complet de session (les PASS/pending
   // ne sont pas sur le serveur). La session technique de récupération reste
   // donc invisible ici pour ne jamais inventer une fausse écoute utilisateur.
@@ -137,7 +137,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
         <TouchableOpacity
           style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
           onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
-          accessibilityLabel="Voir mon offre KEEP"
+          accessibilityLabel="Voir mon offre Loki"
         >
           <Text style={[styles.planBadgeText, planBadge.paid ? styles.planBadgePaidText : styles.planBadgeFreeText]}>{planBadge.label}</Text>
         </TouchableOpacity>

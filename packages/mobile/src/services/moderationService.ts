@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 
 /**
  * Signaler + bloquer un utilisateur (exigence Apple Guideline 1.2 pour tout
- * contenu genere par les utilisateurs -- profils publics, KEEP partages,
+ * contenu genere par les utilisateurs -- profils publics, morceaux partages,
  * Battle). Cote serveur : supabase/migrations/20260831180000_user_moderation_block_report.sql
  * (RPC block_user/unblock_user/report_user + table user_blocks/user_reports,
  * RLS proprietaire uniquement). Aucune lecture cote client de qui a bloque

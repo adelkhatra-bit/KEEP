@@ -8,6 +8,7 @@ import {
   listIntegrationSecrets,
   setIntegrationSecret,
 } from '../lib/integrationSecrets';
+import { APP_NAME } from '../config/brand';
 
 const router = Router();
 const verifier = createSupabaseTokenVerifier();
@@ -84,9 +85,9 @@ if (!verifier || !adminClient || !roleChecker) {
     try {
       const result = await sendBrevoEmail({
         to: [{ email }],
-        subject: 'KEEP — test Brevo réussi',
-        htmlContent: '<div style="font-family:Arial,sans-serif"><h2>KEEP</h2><p>Votre configuration Brevo fonctionne correctement.</p></div>',
-        textContent: 'KEEP — votre configuration Brevo fonctionne correctement.',
+        subject: `${APP_NAME} — test Brevo réussi`,
+        htmlContent: `<div style="font-family:Arial,sans-serif"><h2>${APP_NAME}</h2><p>Votre configuration Brevo fonctionne correctement.</p></div>`,
+        textContent: `${APP_NAME} — votre configuration Brevo fonctionne correctement.`,
       });
       await audit(req, 'integration_email.tested', 'brevo', { recipient: email, ok: true });
       res.json({ ok: true, provider: 'brevo', ...result });

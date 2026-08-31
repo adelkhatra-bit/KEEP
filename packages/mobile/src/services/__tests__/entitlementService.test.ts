@@ -4,7 +4,7 @@ jest.mock('../planService', () => ({
 
 import { hasFeature, requiredPlan } from '../entitlementService';
 
-describe('KEEP entitlements', () => {
+describe('Loki entitlements', () => {
   test('FREE access', () => {
     expect(hasFeature('FREE', 'PROFILE_SHARE')).toBe(true);
     expect(hasFeature('FREE', 'PUBLIC_PLAYLISTS')).toBe(false);

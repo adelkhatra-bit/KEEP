@@ -22,7 +22,7 @@ export const CERTIFICATION_META: Record<ProfileCertificationTier, TierMeta> = {
   PREMIUM: { label: 'PREMIUM', colors: ['#8EAAFF', '#5575F2'], ring: '#C3D0FF', check: '#FFFFFF' },
   CREATOR_PRO: { label: 'CREATOR PRO', colors: ['#D2B9FF', '#8B5CF6'], ring: '#E7D9FF', check: '#FFFFFF' },
   // Reflet volontairement asymétrique : la formule 29,99 € doit se lire comme
-  // le niveau « or » de KEEP, pas comme une simple pastille jaune.
+  // le niveau « or » de Loki, pas comme une simple pastille jaune.
   VENUE_PRO: { label: 'VENUE PRO', colors: ['#FFF4B8', '#C99722', '#FFF0A1', '#8D6310'], ring: '#FFF2A8', check: '#352300' },
 };
 
@@ -30,7 +30,7 @@ export default function ProfileCertificationBadge({ tier, compact = false, showL
   const meta = CERTIFICATION_META[tier] ?? CERTIFICATION_META.UNVERIFIED;
   const size = compact ? 20 : 26;
   return (
-    <View style={styles.wrap} accessibilityLabel={`Certification KEEP ${meta.label}`}>
+    <View style={styles.wrap} accessibilityLabel={`Certification Loki ${meta.label}`}>
       <View style={[styles.ring, { width: size, height: size, borderRadius: size / 2, borderColor: meta.ring }]}>
         <LinearGradient colors={meta.colors as [string, string, ...string[]]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={[styles.medallion, { borderRadius: size / 2 }]}>
           <Text style={[styles.check, compact && styles.checkCompact, { color: meta.check }]}>✓</Text>

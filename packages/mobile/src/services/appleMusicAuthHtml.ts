@@ -33,7 +33,7 @@ export function buildAppleMusicAuthHtml(developerToken: string): string {
       try {
         await MusicKit.configure({
           developerToken: ${safeToken},
-          app: { name: 'KEEP', build: '1.0.0' },
+          app: { name: 'Loki', build: '1.0.0' },
         });
         const music = MusicKit.getInstance();
         const musicUserToken = await music.authorize();

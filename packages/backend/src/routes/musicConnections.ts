@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 import { requireKeepAuth, KeepAuthedRequest } from '../lib/keepAuth';
+import { APP_NAME } from '../config/brand';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
 import { getIntegrationSecret } from '../lib/integrationSecrets';
 import {
@@ -225,9 +226,9 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
 
 async function callbackHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
-  if (provider !== 'spotify' && provider !== 'deezer') return res.status(404).send('KEEP: callback fournisseur non pris en charge.');
+  if (provider !== 'spotify' && provider !== 'deezer') return res.status(404).send(`${APP_NAME}: callback fournisseur non pris en charge.`);
   const state = verifyState(String(req.query.state || ''));
-  if (!state || state.provider !== provider) return res.status(400).send('KEEP: état OAuth invalide ou expiré.');
+  if (!state || state.provider !== provider) return res.status(400).send(`${APP_NAME}: état OAuth invalide ou expiré.`);
   const code = String(req.query.code || '');
   if (!code) return res.redirect(connectionReturnUrl(state, provider, { error: 'access_denied' }));
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;

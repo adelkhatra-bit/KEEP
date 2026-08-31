@@ -24,7 +24,7 @@ export default function SwipeDeck({
   onSwipeLeft,
   onSwipeRight,
   leftLabel = 'PASSER',
-  rightLabel = 'KEEP',
+  rightLabel = 'Loki',
   hint = 'Glisse à gauche pour passer · à droite pour garder',
 }: Props) {
   const x = useRef(new Animated.Value(0)).current;

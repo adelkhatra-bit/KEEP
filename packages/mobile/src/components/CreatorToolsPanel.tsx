@@ -26,7 +26,7 @@ const KIND_LABELS: Record<ProfileKind, string> = {
 type TierBadgeProps = { tier: 'PREMIUM' | 'CREATOR' | 'VENUE'; active?: boolean };
 
 function TierBadge({ tier, active = false }: TierBadgeProps) {
-  const label = tier === 'PREMIUM' ? 'KEEP PREMIUM' : tier === 'CREATOR' ? 'KEEP CREATOR PRO' : 'KEEP VENUE PRO';
+  const label = tier === 'PREMIUM' ? 'Loki PREMIUM' : tier === 'CREATOR' ? 'Loki CREATOR PRO' : 'Loki VENUE PRO';
   return <View style={[s.tierBadge, tier === 'PREMIUM' ? s.tierPremium : tier === 'CREATOR' ? s.tierCreator : s.tierVenue]}>
     <View style={[s.tierDot, active && s.tierDotActive]} />
     <Text style={s.tierBadgeText}>{label}</Text>
@@ -95,7 +95,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
   const changeKind = async (kind: ProfileKind, feature?: 'CREATOR_KIND' | 'VENUE_KIND') => {
     if (feature && !hasFeature(planCode, feature)) return openPaywall(feature);
-    if (isLocalGuest || isDemoMode || !supabase) return void Alert.alert('Compte requis', 'Crée ton compte KEEP avant de modifier le type de profil.');
+    if (isLocalGuest || isDemoMode || !supabase) return void Alert.alert('Compte requis', 'Crée ton compte Loki avant de modifier le type de profil.');
     if (kind === user.kind) return;
     setBusy(true);
     try {
@@ -135,7 +135,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
       setEventOpen(false);
       setName(''); setStartsAt(''); setVenueName(''); setDescription(''); setMessage('');
       setEventAccess(await getEventCreationAccess().catch(() => eventAccess));
-      Alert.alert('Événement publié', notifyFollowers ? `${event.name} est créé. ${sent} abonné(s) ont reçu l’invitation dans KEEP.` : `${event.name} est créé.`);
+      Alert.alert('Événement publié', notifyFollowers ? `${event.name} est créé. ${sent} abonné(s) ont reçu l’invitation dans Loki.` : `${event.name} est créé.`);
     } catch (e: any) {
       const code = String(e?.message || '');
       if (code.includes('VENUE_PRO_EVENT_LIMIT')) openPaywall('CREATE_EVENT', 'VENUE_PRO');

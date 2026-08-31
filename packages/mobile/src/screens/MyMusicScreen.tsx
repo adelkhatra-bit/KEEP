@@ -37,7 +37,7 @@ function trackIdentity(track: CanonicalTrack) {
 }
 
 function sortGateLabel(access: QuotaAccess | null) {
-  if (!access) return 'VIBES KEEP';
+  if (!access) return 'VIBES Loki';
   if (access.unlimited) return 'VIBES AUTO · ILLIMITÉ';
   if (access.allowed && (access.remaining ?? 0) > 0) return `TESTER VIBES AUTO · ${access.remaining} RESTANT${access.remaining === 1 ? '' : 'S'}`;
   return '🔒 VIBES AUTOMATIQUES';
@@ -87,7 +87,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
   const publicKeepCount = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PUBLIC').length, [localKeptEntries]);
   const privateKeepCount = localKeptEntries.length - publicKeepCount;
-  const providerId = musicEngine.musicProvider.providerId || 'KEEP';
+  const providerId = musicEngine.musicProvider.providerId || 'Loki';
 
   const refreshSmartState = async () => {
     if (!userId || isLocalGuest || isDemoMode) {
@@ -139,7 +139,7 @@ export default function MyMusicScreen({ navigation }: any) {
       result.push({
         id: ALL_KEEP_VIEW_ID,
         name: 'Toute ma musique',
-        description: 'Tous tes KEEP au même endroit.',
+        description: 'Tous tes morceaux au même endroit.',
         trackCount: localKeptTracks.length,
         isKeepManaged: true,
       });
@@ -231,7 +231,7 @@ export default function MyMusicScreen({ navigation }: any) {
       const nextGate = await getSmartSortAccess(false).catch(() => gate);
       setSortAccess(nextGate);
     } catch (e: any) {
-      Alert.alert('Vibes KEEP', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
+      Alert.alert('Vibes Loki', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
     } finally {
       setAnalyzing(false);
     }
@@ -254,8 +254,8 @@ export default function MyMusicScreen({ navigation }: any) {
     ? analysis.totalTracks === 0
       ? 'Aucun morceau à analyser pour le moment.'
       : analysis.totalTracks === 1
-        ? '1 morceau trouvé · KEEP attend davantage de matière.'
-        : `${analysis.totalTracks} morceaux analysés · ${smartAlbums.length} Vibe${smartAlbums.length > 1 ? 's' : ''} KEEP disponible${smartAlbums.length > 1 ? 's' : ''}.`
+        ? '1 morceau trouvé · Loki attend davantage de matière.'
+        : `${analysis.totalTracks} morceaux analysés · ${smartAlbums.length} Vibe${smartAlbums.length > 1 ? 's' : ''} Loki disponible${smartAlbums.length > 1 ? 's' : ''}.`
     : null;
 
   const openEdit = (playlist: ProviderPlaylist) => {
@@ -283,7 +283,7 @@ export default function MyMusicScreen({ navigation }: any) {
       setSmartAlbums((rows) => rows.map((row) => `keep-smart:${row.id}` === editing.id ? { ...row, name: preference.name, description: preference.description, isPublic: preference.isPublic } : row));
       setEditing(null);
     } catch (e: any) {
-      Alert.alert('Vibe KEEP', e?.message ?? 'Impossible d’enregistrer les modifications.');
+      Alert.alert('Vibe Loki', e?.message ?? 'Impossible d’enregistrer les modifications.');
     } finally {
       setSavingEdit(false);
     }
@@ -360,7 +360,7 @@ export default function MyMusicScreen({ navigation }: any) {
   };
 
   const confirmRemoveTrack = (track: CanonicalTrack) => {
-    const message = `${track.title} sera retiré de KEEP et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`;
+    const message = `${track.title} sera retiré de Loki et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`;
     if (Platform.OS === 'web') {
       const confirmFn = typeof globalThis !== 'undefined' ? (globalThis as any).confirm : undefined;
       if (typeof confirmFn === 'function' && confirmFn(`Supprimer ce morceau ?\n\n${message}`)) void removeTrackNow(track);
@@ -386,7 +386,7 @@ export default function MyMusicScreen({ navigation }: any) {
     const clean = sourceUsername?.trim().replace(/^@+/, '');
     if (!sourceProfileId || !clean) return openSourceProfile(sourceUsername);
     if (!user || isLocalGuest || isDemoMode || !supabase) {
-      Alert.alert('Compte KEEP requis', `Crée ton compte KEEP pour suivre @${clean}.`, [
+      Alert.alert('Compte Loki requis', `Crée ton compte Loki pour suivre @${clean}.`, [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Voir son profil', onPress: () => openSourceProfile(clean) },
       ]);
@@ -438,7 +438,7 @@ export default function MyMusicScreen({ navigation }: any) {
             style={styles.deleteTrackButton}
             onPress={() => confirmRemoveTrack(track)}
             disabled={busy}
-            accessibilityLabel="Supprimer ce morceau de KEEP"
+            accessibilityLabel="Supprimer ce morceau de Loki"
           >
             {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
           </TouchableOpacity> : null}
@@ -489,13 +489,13 @@ export default function MyMusicScreen({ navigation }: any) {
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Mes musiques</Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>KEEP · Vibes · services</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>Loki · Vibes · services</Text>
         </View>
         <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux"><Text style={styles.servicesButtonText}>＋ Services</Text></TouchableOpacity>
       </View>
 
       <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
-        <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'KEEP RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
+        <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'Loki RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
         <Text style={styles.vibeArrow}>{sortAccess?.allowed || sortAccess?.unlimited ? '✦' : '🔒'}</Text>
       </TouchableOpacity>
 
@@ -519,7 +519,7 @@ export default function MyMusicScreen({ navigation }: any) {
       {analysis && analysisExpanded ? <View style={styles.analysisCard}>
         <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
         {genreSummary.length ? <Text style={styles.genreLine}>Styles : {genreSummary.map(([genre, count]) => `${genre} ${count}`).join(' · ')}</Text> : null}
-        <Text style={styles.analysisHelp}>KEEP crée les Vibes par style sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
+        <Text style={styles.analysisHelp}>Loki crée les Vibes par style sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
 
       <FlatList
@@ -529,7 +529,7 @@ export default function MyMusicScreen({ navigation }: any) {
         contentContainerStyle={styles.list}
         refreshing={isLoading}
         onRefresh={() => { void refreshLibrary(); }}
-        ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : KEEP construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+        ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
       />
 
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>

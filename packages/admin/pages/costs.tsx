@@ -144,7 +144,7 @@ export default function Costs() {
           </div>
         </>
       )}
-      <p className="save-hint">Ce tableau prépare la gestion interne KEEP. Il ne remplace pas une comptabilité légale ni les exports fiscaux du prestataire de paiement.</p>
+      <p className="save-hint">Ce tableau prépare la gestion interne Loki. Il ne remplace pas une comptabilité légale ni les exports fiscaux du prestataire de paiement.</p>
     </AdminLayout>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Registre des langues KEEP.
+ * Registre des langues Loki.
  *
  * Statut honnête par langue — ne jamais annoncer une langue "disponible"
  * si ses traductions n'existent pas réellement (règle "aucun faux résultat").

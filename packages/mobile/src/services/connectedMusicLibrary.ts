@@ -7,6 +7,7 @@ import {
   tracksRepresentSameKeep,
 } from './keepTrackIdentity';
 import { loadOwnProfileKeeps } from './publicProfileStateService';
+import { APP_NAME } from '../config/brand';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -77,7 +78,7 @@ async function latestOwnKeep(profileId: string, trackIds: string[]): Promise<Lib
 /**
  * Construit la file d'un Swipe social AVANT toute lecture audio.
  * Un seul chargement de la bibliothèque du visiteur suffit : comparaison par
- * UUID KEEP, ISRC, identifiants Spotify/Apple/Deezer puis titre/artiste.
+ * UUID Loki, ISRC, identifiants Spotify/Apple/Deezer puis titre/artiste.
  *
  * Si le contrôle distant est indisponible, `verified=false` et on rend la liste
  * d'origine. Le contrôle individuel `checkOwnKeepLibrary` reste alors la
@@ -103,12 +104,12 @@ export async function filterSocialSwipeAgainstOwnKeep(tracks: CanonicalTrack[]):
 }
 
 /**
- * Vérification gratuite de la bibliothèque KEEP du compte lui-même.
+ * Vérification gratuite de la bibliothèque Loki du compte lui-même.
  *
  * L'identité d'un morceau n'est jamais limitée au seul `track.id` : selon le
- * chemin (reconnaissance, Swipe, Apple/Spotify, ancien KEEP), cet id peut être
- * un UUID KEEP OU un identifiant fournisseur. On vérifie donc, dans cet ordre :
- * UUID KEEP, identifiants fournisseur, ISRC, puis titre/artiste normalisés.
+ * chemin (reconnaissance, Swipe, Apple/Spotify, ancien Loki), cet id peut être
+ * un UUID Loki OU un identifiant fournisseur. On vérifie donc, dans cet ordre :
+ * UUID Loki, identifiants fournisseur, ISRC, puis titre/artiste normalisés.
  *
  * `null` signifie « vérification impossible » et ne doit PAS être interprété
  * comme « morceau absent » par l'UI : on préfère bloquer temporairement GARDER
@@ -203,7 +204,7 @@ export async function checkConnectedLibraries(track: CanonicalTrack): Promise<Li
   });
 
   if (!response.ok) {
-    // Une panne d'une plateforme ne doit pas bloquer toute la session KEEP.
+    // Une panne d'une plateforme ne doit pas bloquer toute la session Loki.
     return ownKeep;
   }
   const external = await response.json();
@@ -238,7 +239,7 @@ export async function addToConnectedPlaylist(args: {
 }) {
   const base = usableApiUrl();
   const headers = await authHeaders();
-  if (!base || !headers) throw new Error('Backend KEEP ou session utilisateur non disponible.');
+  if (!base || !headers) throw new Error(`Backend ${APP_NAME} ou session utilisateur non disponible.`);
   const response = await fetch(`${base}/api/music/library/add`, {
     method: 'POST',
     headers,

@@ -7,6 +7,7 @@
 import { Platform } from 'react-native';
 import { Audio, InterruptionModeIOS } from 'expo-av';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from './backgroundListeningService';
+import { APP_NAME } from '../config/brand';
 
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
@@ -30,7 +31,7 @@ function safeSampleDuration(durationMs?: number) {
 
 export class MicPermissionDeniedError extends Error {
   constructor() {
-    super('Permission microphone refusée -- KEEP ne peut pas identifier les morceaux sans elle.');
+    super(`Permission microphone refusée -- ${APP_NAME} ne peut pas identifier les morceaux sans elle.`);
     this.name = 'MicPermissionDeniedError';
   }
 }
@@ -131,7 +132,7 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
   if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
 
   // Android 14+ n'autorise le micro en arrière-plan que si un foreground
-  // service de type `microphone` a été démarré pendant que KEEP est encore au
+  // service de type `microphone` a été démarré pendant que Loki est encore au
   // premier plan et après l'accord RECORD_AUDIO. Le module est idempotent :
   // les échantillons suivants réutilisent le même service tant que la session
   // d'écoute reste active.

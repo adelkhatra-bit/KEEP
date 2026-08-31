@@ -64,7 +64,7 @@ export default function Dashboard() {
   return (
     <AdminLayout>
       <div className="page-title">Dashboard</div>
-      <div className="page-subtitle">Statistiques réelles KEEP — filtres par période et pays</div>
+      <div className="page-subtitle">Statistiques réelles Loki — filtres par période et pays</div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
@@ -90,7 +90,7 @@ export default function Dashboard() {
             <div className="kpi-card"><div className="kpi-value">{data.newUsers}</div><div className="kpi-label">Nouveaux sur la période</div></div>
             <div className="kpi-card"><div className="kpi-value">{data.verifiedEmails}</div><div className="kpi-label">E-mails vérifiés</div></div>
             <div className="kpi-card"><div className="kpi-value">{data.activePaid}</div><div className="kpi-label">Abonnements payants actifs</div></div>
-            <div className="kpi-card"><div className="kpi-value">{data.keeps}</div><div className="kpi-label">KEEP sur la période</div></div>
+            <div className="kpi-card"><div className="kpi-value">{data.keeps}</div><div className="kpi-label">Morceaux gardés sur la période</div></div>
             <div className="kpi-card"><div className="kpi-value">{data.follows}</div><div className="kpi-label">Nouveaux abonnements / suivis</div></div>
             <div className="kpi-card"><div className="kpi-value">{data.shares}</div><div className="kpi-label">Partages</div></div>
             <div className="kpi-card"><div className="kpi-value">{data.eventsCreated}</div><div className="kpi-label">Événements créés</div></div>

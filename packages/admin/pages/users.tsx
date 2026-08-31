@@ -180,7 +180,7 @@ export default function Users() {
     if (!selected) return;
     setBusy('grant'); setError(null);
     try {
-      const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin KEEP' });
+      const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin Loki' });
       const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
       setMessage(`${plan} offert à @${selected.username} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : ''}.`);
       await load(); await refreshSelected();
@@ -283,7 +283,7 @@ export default function Users() {
 
     <div className="card" style={{ padding:0, overflowX:'auto', overflowY:'hidden', width:'100%', WebkitOverflowScrolling:'touch' }}>
       <table style={{ margin:0, width:'100%', minWidth:860, tableLayout:'fixed' }}>
-        <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Certification</th><th>Reconnu</th><th>KEEP débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
+        <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Certification</th><th>Reconnu</th><th>Morceaux débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
         <tbody>
           {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
           {!loading && filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
@@ -299,7 +299,7 @@ export default function Users() {
 
     <details style={{marginTop:18,display:canRequirements?'block':'none'}}><summary style={{cursor:'pointer',color:'var(--text-muted)'}}>Récupérer un ancien profil de test</summary>
       <div className="card" style={{marginTop:10}}><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        <input value={legacyUsername} onChange={(e)=>setLegacyUsername(e.target.value)} placeholder="Pseudo KEEP" style={{flex:'1 1 260px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}/>
+        <input value={legacyUsername} onChange={(e)=>setLegacyUsername(e.target.value)} placeholder="Pseudo Loki" style={{flex:'1 1 260px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}/>
         <button onClick={()=>void recoverLegacy()} disabled={!legacyUsername.trim()||busy!==null}>Récupérer</button>
       </div>
       {legacyRecovery && <div style={{marginTop:10,fontFamily:'monospace'}}>@{legacyRecovery.username} · mot de passe temporaire : {legacyRecovery.temporaryPassword}</div>}
@@ -309,7 +309,7 @@ export default function Users() {
     {selected && <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
       <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',overflowX:'hidden',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
-          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification KEEP : {certificationLabel(selected)}</div></div></div>
+          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification Loki : {certificationLabel(selected)}</div></div></div>
           <button onClick={()=>setSelected(null)}>Fermer</button>
         </div>
 
@@ -319,9 +319,9 @@ export default function Users() {
               ['Certification', selected.account_verified ? certificationLabel(selected) : 'Compte non validé'],
               ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
               ['Reconnaissances', String(snapshot.usage.recognizedCount)],
-              ['KEEP débités', String(snapshot.usage.ownKeeps)],
-              ['KEEP utilisateurs', String(snapshot.usage.socialKeeps)],
-              ['KEEP total', String(snapshot.usage.kept)],
+              ['Morceaux débités', String(snapshot.usage.ownKeeps)],
+              ['Reprises', String(snapshot.usage.socialKeeps)],
+              ['Morceaux total', String(snapshot.usage.kept)],
               ['Publics', String(snapshot.usage.publicKeeps)],
               ['Playlists', String(snapshot.usage.playlists)],
               ['Réseaux', String(snapshot.socialLinks.length)],
@@ -335,12 +335,12 @@ export default function Users() {
             <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
             <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
-            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo KEEP ou l’e-mail réel + ce mot de passe.</div></div>}
+            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div></div>}
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>
             <h3 style={{margin:'0 0 4px'}}>À imposer à cet utilisateur</h3>
-            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que KEEP devra lui demander de compléter.</div>
+            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que Loki devra lui demander de compléter.</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:7}}>
               {REQUIREMENTS.map(([key,label])=><label key={key} style={{display:'flex',gap:8,alignItems:'center',border:'1px solid var(--border)',borderRadius:9,padding:'9px 10px',cursor:'pointer'}}><input type="checkbox" checked={requirements.includes(key)} onChange={()=>toggleRequirement(key)}/><span>{label}</span></label>)}
             </div>

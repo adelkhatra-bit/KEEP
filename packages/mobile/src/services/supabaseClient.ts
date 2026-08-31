@@ -4,7 +4,7 @@
  *
  * Le même client sert Expo natif et Expo Web. Sur le web uniquement,
  * `detectSessionInUrl` est activé afin qu'un clic sur l'e-mail de confirmation
- * Supabase revienne sur KEEP et récupère automatiquement la session. Sur iOS /
+ * Supabase revienne sur Loki et récupère automatiquement la session. Sur iOS /
  * Android natifs, le comportement historique AsyncStorage reste inchangé.
  */
 import 'react-native-url-polyfill/auto';
@@ -32,7 +32,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null;
 
-/** Jeton d'accès de la session KEEP courante, ou `null` si non connecté / Supabase non configuré. */
+/** Jeton d'accès de la session Loki courante, ou `null` si non connecté / Supabase non configuré. */
 export async function getSupabaseAccessToken(): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();

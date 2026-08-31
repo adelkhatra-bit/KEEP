@@ -20,7 +20,7 @@ function isBattleChallenge(notification: KeepNotification): boolean {
   const type = String(notification.type || '').toUpperCase();
   if (BATTLE_INLINE_TYPES.has(type)) return true;
   const title = String(notification.title || '').toUpperCase();
-  return title.includes('BATTLE KEEP') || title.includes('BATTLE ?');
+  return title.includes('BATTLE Loki') || title.includes('BATTLE ?');
 }
 
 export default function GlobalNotificationBanner() {
@@ -67,7 +67,7 @@ export default function GlobalNotificationBanner() {
     const unsubscribe = subscribeToNotifications(user.id, (notification) => {
       if (!active || !notificationsEnabled.current) return;
 
-      // KEEP Battle invitations are actionable inside the music card itself.
+      // Loki Battle invitations are actionable inside the music card itself.
       // Never stack the global banner over REFUSER / ACCEPTER.
       if (isBattleChallenge(notification)) return;
 
@@ -144,7 +144,7 @@ export default function GlobalNotificationBanner() {
         )}
         <View style={styles.copy}>
           <View style={styles.eyebrowRow}>
-            <Text style={styles.eyebrow}>{isMusic ? 'KEEP LIVE' : 'KEEP'}</Text>
+            <Text style={styles.eyebrow}>{isMusic ? 'Loki LIVE' : 'Loki'}</Text>
             <Text style={styles.closeHint}>toucher = lu</Text>
           </View>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>

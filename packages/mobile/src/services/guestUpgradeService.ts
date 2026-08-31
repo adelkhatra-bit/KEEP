@@ -45,7 +45,7 @@ export async function stageGuestProfileForUpgrade(user: User): Promise<void> {
 /**
  * Snapshot des sessions musicales de l'essai AVANT le changement d'identité.
  * Les identifiants serveur éventuels sont volontairement supprimés : après la
- * création du vrai compte, chaque KEEP doit être réécrit sous le nouvel
+ * création du vrai compte, chaque morceau gardé doit être réécrit sous le nouvel
  * auth.uid() et ne jamais réutiliser la décision d'un autre profil.
  */
 export async function stageGuestMusicForUpgrade(sessions: KeepSession[]): Promise<void> {

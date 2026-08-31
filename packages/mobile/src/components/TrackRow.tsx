@@ -86,7 +86,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
       <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={() => !keepSubmitting && setKeepPromptOpen(false)}>
         <View style={styles.keepOverlay}>
           <View style={styles.keepPromptCard}>
-            <Text style={styles.keepPromptEyebrow}>TON KEEP · TA VISIBILITÉ</Text>
+            <Text style={styles.keepPromptEyebrow}>TON MORCEAU · TA VISIBILITÉ</Text>
             <Text style={styles.keepPromptTitle}>Garder ce morceau ?</Text>
             <Text style={styles.keepPromptTrack} numberOfLines={2}>{track.title} · {track.artist}</Text>
             <Text style={styles.keepPromptBody}>Même fonctionnement que dans SWIPER : choisis d’abord où ranger le morceau, puis s’il apparaît sur ton profil.</Text>
@@ -105,7 +105,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
 
             <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} onPress={() => { void confirmIndividualKeep('PUBLIC'); }} disabled={keepSubmitting} accessibilityLabel="Visible sur mon profil">
               <Text style={styles.keepChoicePublicTitle}>{keepSubmitting ? 'ENREGISTREMENT…' : 'VISIBLE SUR MON PROFIL'}</Text>
-              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers KEEP.</Text>
+              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki.</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} onPress={() => { void confirmIndividualKeep('PRIVATE'); }} disabled={keepSubmitting} accessibilityLabel="Garder en privé">

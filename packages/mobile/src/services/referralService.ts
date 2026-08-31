@@ -60,9 +60,9 @@ export async function loadMyReferralCode(): Promise<string> {
 }
 
 /**
- * Une invitation KEEP n'oblige plus l'utilisateur à recopier un code.
+ * Une invitation Loki n'oblige plus l'utilisateur à recopier un code.
  * - lien explicite : ?ref=KXXXXXXXXXX
- * - partage de profil KEEP : ?u=pseudo&share=profile
+ * - partage de profil Loki : ?u=pseudo&share=profile
  * Dans le second cas le pseudo sert d'alias de parrainage côté RPC.
  */
 export function referralCodeFromUrl(url?: string | null): string {

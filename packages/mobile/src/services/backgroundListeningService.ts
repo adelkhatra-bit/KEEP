@@ -4,7 +4,7 @@ import KeepBackgroundListening from '../../modules/keep-background-listening';
 let starting: Promise<boolean> | null = null;
 
 /**
- * Android 14+ exige que le service microphone soit démarré pendant que KEEP est
+ * Android 14+ exige que le service microphone soit démarré pendant que Loki est
  * encore visible et possède déjà RECORD_AUDIO. `micCapture` appelle donc cette
  * fonction juste après l'obtention de la permission et avant le premier
  * Audio.Recording. Web/iOS restent strictement inchangés.

@@ -10,7 +10,7 @@ import { getSupabaseAdminClient } from '../lib/supabaseAdmin';
  * Supabase) -- cette route est le seul morceau qui devait passer par le
  * backend : `push_tokens` n'a pas de policy INSERT côté client par design
  * (jamais un profil qui écrit un token pour un autre), le serveur vérifie le
- * VRAI utilisateur via son jeton KEEP avant d'écrire.
+ * VRAI utilisateur via son jeton Loki avant d'écrire.
  */
 const router = Router();
 const tokenVerifier = createSupabaseTokenVerifier();

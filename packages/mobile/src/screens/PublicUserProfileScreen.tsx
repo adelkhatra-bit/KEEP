@@ -240,7 +240,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const toggleFollow = async () => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour suivre ce profil.', [
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour suivre ce profil.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
@@ -260,7 +260,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const requireAccountForModeration = () => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour signaler ou bloquer un profil.', [
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour signaler ou bloquer un profil.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
@@ -307,7 +307,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const toggleLike = async (trackId: string) => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour liker ce morceau.', [
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour liker ce morceau.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return;
@@ -331,13 +331,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const alreadyInMyKeep = (trackId: string) => viewerKeepTrackIds.has(trackId);
 
   const showAlreadyKept = (title: string) => {
-    Alert.alert('Déjà dans ton KEEP', `« ${title} » est déjà dans tes musiques. KEEP ne crée pas de doublon.`);
+    Alert.alert('Déjà dans ta collection', `« ${title} » est déjà dans tes musiques. Loki ne crée pas de doublon.`);
   };
 
   const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
     if (!viewer || isLocalGuest || isDemoMode) {
       setSwipeOpen(false);
-      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte pour ajouter cette musique à ton KEEP.', [
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return false;
@@ -354,7 +354,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       if (e?.message === 'CREDITS_EXHAUSTED') {
         setSwipeOpen(false);
-        Alert.alert('Crédits gratuits utilisés', 'Passe à Premium pour continuer à ajouter les découvertes à ton KEEP.', [
+        Alert.alert('Crédits gratuits utilisés', 'Passe à Premium pour continuer à ajouter les découvertes à ta collection.', [
           { text: 'Plus tard', style: 'cancel' },
           { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
         ]);
@@ -366,7 +366,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const addToMyKeep = async (track: PublicKeepTrack) => {
     if (!viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte pour ajouter cette musique à ton KEEP.', [
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return;
@@ -395,7 +395,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       await commitKeep(canonical, [], undefined, { visibility: 'PRIVATE', context: { source: 'public_profile', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));
-      Alert.alert('Ajouté à ton KEEP', `« ${track.title} » est maintenant dans tes musiques.`);
+      Alert.alert('Ajouté à ta collection', `« ${track.title} » est maintenant dans tes musiques.`);
     } catch (e: any) {
       if (e?.message === 'CREDITS_EXHAUSTED') {
         Alert.alert('Crédits gratuits utilisés', 'Tu peux toujours écouter les extraits et continuer tes sessions. Passe à Premium pour débloquer les fonctions payantes.', [
@@ -403,7 +403,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
         ]);
       } else {
-        Alert.alert('KEEP', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
+        Alert.alert('Loki', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
       }
     } finally {
       setAddingTrackIds((current) => { const next = new Set(current); next.delete(track.trackId); return next; });
@@ -468,24 +468,24 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.dna}>
-          <View style={styles.dnaHeader}><View><Text style={styles.dnaEyebrow}>KEEP DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View><Text style={styles.publicCount}>{tracks.length}</Text></View>
+          <View style={styles.dnaHeader}><View><Text style={styles.dnaEyebrow}>Loki DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View><Text style={styles.publicCount}>{tracks.length}</Text></View>
           {(profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0)
             ? <View style={styles.chips}>{[...profile.favoriteGenres, ...profile.favoriteArtists].slice(0,8).map((item) => <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>)}</View>
             : <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>}
           {albums.length > 0 ? <Text style={styles.albumSummaryText} numberOfLines={2}>Albums : {albums.slice(0,5).join(' · ')}</Text> : null}
         </View>
 
-        {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · KEEP te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
+        {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
 
         <View style={styles.visitorKeepCounters}>
           <ProfileCounterRow kind="keeps" items={[
-            { value: directKeepCount, label: 'KEEP' },
-            { value: socialKeepCount, label: 'KEEP utilisateurs' },
+            { value: directKeepCount, label: 'Morceaux' },
+            { value: socialKeepCount, label: 'Reprises' },
           ]} />
         </View>
 
         <View style={styles.publicMusicSection}>
-          <View style={styles.musicSectionHeader}><Text style={styles.sectionTitle}>KEEP publics</Text><Text style={styles.publicCount}>{tracks.length}</Text></View>
+          <View style={styles.musicSectionHeader}><Text style={styles.sectionTitle}>Morceaux publics</Text><Text style={styles.publicCount}>{tracks.length}</Text></View>
           {tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : (
             <View style={styles.musicList}>{tracks.map((track) => {
               const liked = likedTrackIds.has(track.trackId);
@@ -511,7 +511,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   </View>
                   <DiscoveryImpactLabel impact={discoveryImpact} />
                   <View style={styles.trackActions}>
-                    {viewer?.id !== profile.id ? <TouchableOpacity style={[styles.keepButton, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : void addToMyKeep(track)} disabled={adding}><Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]}>{adding ? '…' : alreadyKept ? '✓ DÉJÀ DANS TON KEEP' : '+ KEEP'}</Text></TouchableOpacity> : null}
+                    {viewer?.id !== profile.id ? <TouchableOpacity style={[styles.keepButton, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : void addToMyKeep(track)} disabled={adding}><Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]}>{adding ? '…' : alreadyKept ? '✓ DÉJÀ DANS TA COLLECTION' : '+ GARDER'}</Text></TouchableOpacity> : null}
                     <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
                     <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{likeCounts[track.trackId] || 0}</Text></TouchableOpacity>
                   </View>
@@ -525,8 +525,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       <MusicSwipeDeckModal
         visible={swipeOpen}
         tracks={swipeTracks}
-        title={`Le KEEP de @${profile.username}`}
-        subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ton KEEP, aucun doublon n’est créé."
+        title={`La collection de @${profile.username}`}
+        subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         onClose={() => setSwipeOpen(false)}
         onKeep={addCanonicalToMyKeep}

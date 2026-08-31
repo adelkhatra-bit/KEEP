@@ -1,5 +1,6 @@
 import type { MusicServiceKey } from './keylessMusicBridge';
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 export type MusicServiceSelectionState = {
   services: MusicServiceKey[];
@@ -39,7 +40,7 @@ export async function loadMusicServiceSelections(): Promise<MusicServiceSelectio
 }
 
 export async function claimMusicService(service: MusicServiceKey): Promise<MusicServiceSelectionState & { ok: boolean; error?: string }> {
-  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { data, error } = await supabase.rpc('keep_claim_music_service', { p_service: service });
   if (error) throw error;
 

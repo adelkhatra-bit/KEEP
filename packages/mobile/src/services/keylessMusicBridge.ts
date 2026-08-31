@@ -86,7 +86,7 @@ export async function prepareKeylessMusicExport(name: string, tracks: CanonicalT
   }
 
   const queue: KeylessExportQueue = {
-    name: name.trim() || 'Ma sélection KEEP',
+    name: name.trim() || 'Ma sélection Loki',
     tracks: Array.from(unique.values()),
     createdAt: new Date().toISOString(),
   };

@@ -9,9 +9,9 @@ import { claimPendingReferral, stageReferralFromUrl } from '../services/referral
 import { supabase } from '../services/supabaseClient';
 
 /**
- * TikTok / Instagram / Snapchat / YouTube -> Partager -> KEEP.
+ * TikTok / Instagram / Snapchat / YouTube -> Partager -> Loki.
  *
- * Aucun écran intermédiaire : KEEP reçoit le lien, ouvre Écouter, démarre la
+ * Aucun écran intermédiaire : Loki reçoit le lien, ouvre Écouter, démarre la
  * session si besoin et mémorise la provenance. En parallèle, un resolver sans
  * clé tente les métadonnées publiques + catalogues publics. Le micro et les
  * moteurs AudD/ACRCloud restent actifs : les voies se complètent au lieu de se

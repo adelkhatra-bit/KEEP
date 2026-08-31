@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { getIntegrationSecret } from './integrationSecrets';
 import { isBrevoSmtpConfigured, sendBrevoSmtpEmail } from './brevoSmtp';
+import { APP_NAME } from '../config/brand';
 
 export interface BrevoMessage {
   to: { email: string; name?: string }[];
@@ -30,7 +31,7 @@ export async function sendBrevoEmail(message: BrevoMessage): Promise<{ messageId
     const response = await axios.post(
       'https://api.brevo.com/v3/smtp/email',
       {
-        sender: { email: senderEmail, name: senderName || 'KEEP' },
+        sender: { email: senderEmail, name: senderName || APP_NAME },
         to: message.to,
         subject: message.subject,
         htmlContent: message.htmlContent,

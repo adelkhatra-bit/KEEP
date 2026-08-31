@@ -47,7 +47,7 @@ export async function commitKeep(
 
   // Barrière centrale : même si un écran oublie un jour son contrôle visuel,
   // GARDER un morceau déjà présent reste une action idempotente et gratuite.
-  // On réutilise la décision KEEP existante : aucun crédit, aucun second ajout
+  // On réutilise la décision existante : aucun crédit, aucun second ajout
   // fournisseur, aucune nouvelle ligne de profil.
   if (!userState.isDemoMode && !userState.isLocalGuest) {
     const existing = await checkOwnKeepLibrary(track).catch(() => null);
@@ -65,7 +65,7 @@ export async function commitKeep(
   }
 
   // Une reprise depuis le profil d'un autre membre est un cadeau communautaire :
-  // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/KEEP.
+  // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/Loki.
   const consumesCredit = !userState.isDemoMode && !isSocialCopy && options?.consumeCredit !== false;
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
@@ -79,7 +79,7 @@ export async function commitKeep(
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
       requestedRecommendation?.playlistName?.trim() || 'Mes KEEP',
-      'Morceaux rangés par KEEP. Le nom et la visibilité peuvent être modifiés depuis Mes musiques.'
+      'Morceaux rangés par Loki. Le nom et la visibilité peuvent être modifiés depuis Mes musiques.'
     ));
   }
 
@@ -89,7 +89,7 @@ export async function commitKeep(
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
       'Mes KEEP',
-      'Morceaux gardés avec KEEP.'
+      'Morceaux gardés avec Loki.'
     ));
   }
 
@@ -121,7 +121,7 @@ export async function commitKeep(
   let keepDecisionId: string | undefined;
   let profileSyncFailed = false;
   try {
-    // KEEP ne stocke jamais l'audio. Pour permettre la réécoute sur un profil
+    // Loki ne stocke jamais l'audio. Pour permettre la réécoute sur un profil
     // public, on conserve uniquement les petits liens catalogue déjà renvoyés
     // par la reconnaissance (extrait promotionnel + deep links fournisseurs).
     const decisionContext = {
@@ -142,7 +142,7 @@ export async function commitKeep(
     keepDecisionId = recorded?.decisionId;
 
     // L'Edge Function enregistre elle-même l'origine sociale uniquement lors
-    // de la création du KEEP. Si le morceau existait déjà sur ce compte, son
+    // de la création du morceau gardé. Si le morceau existait déjà sur ce compte, son
     // origine historique doit rester intacte : on ne la réécrit jamais ici.
     if (recorded?.trackId) {
       await syncPlaylistTrack({

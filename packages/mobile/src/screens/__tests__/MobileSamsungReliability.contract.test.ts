@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('KEEP Samsung mobile reliability', () => {
+describe('Loki Samsung mobile reliability', () => {
   const index = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', 'index.js'), 'utf8');
   const discover = fs.readFileSync(path.resolve(__dirname, '..', 'DiscoverScreen.tsx'), 'utf8');
   const mic = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'micCapture.ts'), 'utf8');

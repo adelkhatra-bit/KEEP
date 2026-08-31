@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 export type SupportCategory = 'TECHNICAL' | 'ACCOUNT' | 'RECOGNITION' | 'PAYMENT' | 'SAFETY' | 'IDEA' | 'OTHER';
 export type SupportStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_USER' | 'RESOLVED' | 'CLOSED';
@@ -28,7 +29,7 @@ export type SupportMessage = {
 };
 
 function requireSupabase() {
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   return supabase;
 }
 

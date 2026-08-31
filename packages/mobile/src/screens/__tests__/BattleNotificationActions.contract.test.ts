@@ -3,7 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('KEEP Battle challenge UX', () => {
+describe('Loki Battle challenge UX', () => {
   const notifications = fs.readFileSync(path.resolve(__dirname, '..', 'NotificationsScreen.tsx'), 'utf8');
   const parties = fs.readFileSync(path.resolve(__dirname, '..', 'PartiesScreen.tsx'), 'utf8');
   const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');

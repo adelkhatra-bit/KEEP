@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('KEEP Découvertes immediate public profiles', () => {
+describe('Loki Découvertes immediate public profiles', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'DiscoverScreen.tsx'), 'utf8');
 
   it('does not require GPS before public profiles can be shown', () => {
@@ -11,7 +11,7 @@ describe('KEEP Découvertes immediate public profiles', () => {
   });
 
   it('supports direct username lookup', () => {
-    expect(source).toContain('Rechercher un pseudo KEEP');
+    expect(source).toContain('Rechercher un pseudo Loki');
     expect(source).toContain("profile.username.toLowerCase().includes(needle)");
     expect(source).toContain("profileQuery.trim().replace(/^@/, '').toLowerCase()");
   });

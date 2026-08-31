@@ -61,7 +61,7 @@ export default function MusicBrain() {
       const row = (configRes.data ?? []).find((item: any) => item.key === 'smart_album_config');
       if (row?.value && typeof row.value === 'object') setConfig({ ...DEFAULT_CONFIG, ...row.value });
     } catch (e: any) {
-      setError(e?.message ?? 'Impossible de charger KEEP Music Brain.');
+      setError(e?.message ?? 'Impossible de charger Loki Music Brain.');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function MusicBrain() {
       const { error: saveError } = await supabase.rpc('admin_remote_config_set', {
         p_key: 'smart_album_config',
         p_value: config,
-        p_description: 'Cerveau musical KEEP : création locale des albums intelligents sans clé API externe.',
+        p_description: 'Cerveau musical Loki : création locale des albums intelligents sans clé API externe.',
       });
       if (saveError) throw saveError;
       setSaved(`Configuration enregistrée à ${new Date().toLocaleTimeString('fr-FR')}`);
@@ -96,8 +96,8 @@ export default function MusicBrain() {
 
   return (
     <AdminLayout>
-      <div className="page-title">KEEP Music Brain</div>
-      <div className="page-subtitle">Classement automatique propriétaire : Vibes, styles et collections KEEP. Aucune clé API externe n’est requise pour le moteur de rangement.</div>
+      <div className="page-title">Loki Music Brain</div>
+      <div className="page-subtitle">Classement automatique propriétaire : Vibes, styles et collections Loki. Aucune clé API externe n’est requise pour le moteur de rangement.</div>
 
       {error ? <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div> : null}
       {!error && !loading ? <div className="demo-banner">● MODE RÉEL — paramètres distants, statistiques Supabase et journalisation Admin.</div> : null}
@@ -105,7 +105,7 @@ export default function MusicBrain() {
       <div className="cards" style={{ marginTop: 16 }}>
         <Metric label="Titres connus" value={stats.tracks_total ?? 0} />
         <Metric label="Styles exploitables" value={`${coverage}%`} />
-        <Metric label="KEEP enregistrés" value={stats.kept_total ?? 0} />
+        <Metric label="Morceaux enregistrés" value={stats.kept_total ?? 0} />
         <Metric label="Vibes intelligentes" value={stats.smart_albums ?? 0} />
         <Metric label="Titres rangés" value={stats.smart_memberships ?? 0} />
         <Metric label="API externe rangement" value={stats.external_api_required === false ? 'NON' : '—'} />
@@ -113,7 +113,7 @@ export default function MusicBrain() {
 
       <div className="card" style={{ marginTop: 18 }}>
         <h2 style={{ marginTop: 0 }}>Pilotage automatique</h2>
-        <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Le moteur crée des Vibes KEEP à partir des styles déjà connus, les met à jour après les KEEP et laisse toujours l’utilisateur renommer et choisir Public/Privé.</p>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Le moteur crée des Vibes Loki à partir des styles déjà connus, les met à jour après les morceaux gardés et laisse toujours l’utilisateur renommer et choisir Public/Privé.</p>
         <div style={grid}>
           <Toggle label="Music Brain actif" value={config.enabled} onClick={() => toggle('enabled')} />
           <Toggle label="Créer automatiquement" value={config.auto_create} onClick={() => toggle('auto_create')} />
@@ -122,7 +122,7 @@ export default function MusicBrain() {
           <NumberField label="Maximum de Vibes automatiques" value={config.max_albums} min={1} max={30} onChange={(value) => setConfig((c) => ({ ...c, max_albums: value }))} />
           <NumberField label="Version taxonomie" value={config.taxonomy_version} min={1} max={99} onChange={(value) => setConfig((c) => ({ ...c, taxonomy_version: value }))} />
         </div>
-        <button onClick={() => void save()} disabled={saving} style={primaryButton}>{saving ? 'ENREGISTREMENT…' : 'ENREGISTRER LE CERVEAU KEEP'}</button>
+        <button onClick={() => void save()} disabled={saving} style={primaryButton}>{saving ? 'ENREGISTREMENT…' : 'ENREGISTRER LE CERVEAU LOKI'}</button>
         {saved ? <div style={{ color: '#86efac', marginTop: 10, fontSize: 12 }}>{saved}</div> : null}
       </div>
 

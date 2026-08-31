@@ -8,6 +8,7 @@ import {
 } from './keepMusicCoreRecognition';
 import { musicEngine } from './musicEngine';
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 function normalize(value: string | undefined): string {
   return (value || '')
@@ -64,14 +65,14 @@ function matchingKeeps(track: CanonicalTrack, keeps: PersistedKeepDecision[]): P
 }
 
 /**
- * Le fournisseur `demo` est la bibliothèque locale KEEP utilisée par la PWA et
+ * Le fournisseur `demo` est la bibliothèque locale Loki utilisée par la PWA et
  * par les tests quand aucun service externe n'est connecté. Supprimer seulement
  * la décision Supabase laissait auparavant la même piste dans `Mes KEEP` : la
  * ligne disparaissait du profil, mais l'extrait restait visible dans la playlist.
  *
  * On purge donc TOUTES les copies de cette piste dans la bibliothèque locale
- * KEEP. Les bibliothèques Apple Music / Spotify ne sont volontairement jamais
- * modifiées ici : une suppression KEEP ne doit pas effacer la musique chez un
+ * Loki. Les bibliothèques Apple Music / Spotify ne sont volontairement jamais
+ * modifiées ici : une suppression Loki ne doit pas effacer la musique chez un
  * service tiers sans action explicite de l'utilisateur.
  */
 async function purgeKeepLocalPlaylistCopies(track: CanonicalTrack): Promise<void> {
@@ -92,7 +93,7 @@ async function purgeKeepLocalPlaylistCopies(track: CanonicalTrack): Promise<void
 /**
  * Source de vérité du bouton Public / Privé dans « Mes musiques ».
  *
- * Une piste peut posséder plusieurs anciennes décisions KEEP (anciens clients,
+ * Une piste peut posséder plusieurs anciennes décisions Loki (anciens clients,
  * import invité, resynchronisation). Le profil public retient la décision la
  * plus récente. L'ancien code utilisait `find()` sur une liste triée de la plus
  * ancienne à la plus récente : il pouvait donc passer une vieille décision en
@@ -109,9 +110,9 @@ export async function persistOwnTrackVisibility(
   track: CanonicalTrack,
   visibility: KeepVisibility,
 ): Promise<{ decisionId: string; visibility: KeepVisibility }> {
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.user?.id) throw new Error('Connecte ton compte KEEP pour modifier la visibilité.');
+  if (!sessionData.session?.user?.id) throw new Error(`Connecte ton compte ${APP_NAME} pour modifier la visibilité.`);
 
   let keeps = await loadOwnPersistedKeeps();
   let matches = matchingKeeps(track, keeps);
@@ -121,7 +122,7 @@ export async function persistOwnTrackVisibility(
       source: 'visibility_repair',
       repairedAt: new Date().toISOString(),
     });
-    if (!created?.decisionId) throw new Error('Impossible de synchroniser ce KEEP avec ton profil.');
+    if (!created?.decisionId) throw new Error('Impossible de synchroniser ce morceau avec ton profil.');
   } else {
     for (const match of matches) {
       if (match.visibility === visibility) continue;
@@ -142,7 +143,7 @@ export async function persistOwnTrackVisibility(
 }
 
 /**
- * Retire définitivement une piste de la bibliothèque KEEP du compte actif.
+ * Retire définitivement une piste de la bibliothèque Loki du compte actif.
  * Toutes les décisions historiques de cette piste sont supprimées côté serveur
  * afin qu'une ancienne décision PUBLIC ne puisse jamais la faire réapparaître
  * sur le profil après un rechargement.
@@ -150,12 +151,12 @@ export async function persistOwnTrackVisibility(
  * Les Vibes automatiques renvoient l'ID canonique Supabase de la piste. On
  * l'utilise donc directement en plus de la recherche historique locale : la
  * suppression reste fonctionnelle après redémarrage de l'app, même si la
- * session locale n'a plus l'entrée qui avait créé le KEEP.
+ * session locale n'a plus l'entrée qui avait créé le morceau gardé.
  */
 export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<number> {
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.user?.id) throw new Error('Connecte ton compte KEEP pour supprimer ce morceau.');
+  if (!sessionData.session?.user?.id) throw new Error(`Connecte ton compte ${APP_NAME} pour supprimer ce morceau.`);
 
   const keeps = await loadOwnPersistedKeeps();
   const matches = matchingKeeps(track, keeps);
@@ -178,7 +179,7 @@ export async function removeOwnTrackFromKeep(track: CanonicalTrack): Promise<num
   }
 
   // La suppression n'est considérée terminée qu'après avoir retiré aussi la
-  // copie qui alimentait l'extrait dans la playlist locale KEEP.
+  // copie qui alimentait l'extrait dans la playlist locale Loki.
   await purgeKeepLocalPlaylistCopies(track);
 
   const remaining = matchingKeeps(track, await loadOwnPersistedKeeps());

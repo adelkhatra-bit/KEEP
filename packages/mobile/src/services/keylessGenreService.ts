@@ -29,7 +29,7 @@ function localStyleHints(title: string, artist: string, catalogGenre: string, co
 }
 
 /**
- * Enrichissement gratuit et sans clé. KEEP utilise uniquement le catalogue
+ * Enrichissement gratuit et sans clé. Loki utilise uniquement le catalogue
  * public déjà employé pour les jaquettes/extraits : aucune clé, aucun quota
  * payant et aucun secret n'est ajouté à l'application.
  */

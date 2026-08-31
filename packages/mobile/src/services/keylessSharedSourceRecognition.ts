@@ -22,7 +22,7 @@ function validRecognition(value: any): value is RecognitionResult {
 }
 
 /**
- * Résout un lien musical/social tout juste partagé vers KEEP sans credential
+ * Résout un lien musical/social tout juste partagé vers Loki sans credential
  * fournisseur. La fonction Edge utilise uniquement les métadonnées publiques
  * du lien puis recoupe Apple iTunes Search + Deezer public.
  *

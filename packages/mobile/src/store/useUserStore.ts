@@ -129,7 +129,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
     // du même utilisateur. On purge uniquement lorsqu'on sait qu'il s'agit
     // réellement d'une AUTRE identité, ou lorsqu'on quitte volontairement la
     // démo. Une conversion invité -> compte conserve également ses sessions,
-    // conformément au parcours d'inscription KEEP.
+    // conformément au parcours d'inscription Loki.
     const switchingRealAccount = Boolean(nextRealId && currentRealId && currentRealId !== nextRealId);
     const leavingDemoForReal = Boolean(nextRealId && state.isDemoMode);
     if (switchingRealAccount || leavingDemoForReal) clearLocalMusicIdentity();

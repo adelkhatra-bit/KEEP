@@ -89,7 +89,7 @@ if (!nav.includes('name="Notifications" component={NotificationsScreen}')) failu
 if (!nav.includes(expectedPublicRoot)) failures.push('NAVIGATION PUBLIC PREFIX IS NOT CANONICAL KEEP URL');
 
 const admin = fs.readFileSync(path.join(root, 'packages/admin/pages/_app.tsx'), 'utf8');
-for (const expected of ['KEEP LIVE · RECONCILE', 'admin_users', 'signInWithPassword', 'Aucun lien e-mail n’est envoyé']) {
+for (const expected of ['{APP_NAME} LIVE · RECONCILE', 'admin_users', 'signInWithPassword', 'Aucun lien e-mail n’est envoyé']) {
   if (!admin.includes(expected)) failures.push(`ADMIN LOGIN MARKER MISSING: ${expected}`);
 }
 if (/signInWithOtp|Recevoir un lien de secours|emailRedirectTo/i.test(admin)) failures.push('BROKEN ADMIN MAGIC-LINK FLOW REINTRODUCED');
@@ -135,7 +135,7 @@ if (!authService.includes("username_only: '1'")) failures.push('USERNAME AUTH DO
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 
 const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
-for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Pseudo KEEP']) {
+for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Pseudo Loki']) {
   if (!accountForm.includes(expected)) failures.push(`USERNAME/PASSWORD ACCOUNT MARKER MISSING: ${expected}`);
 }
 if (!/aucun e-mail[^\n]*(?:aucun code|n[’']est nécessaire|n'est nécessaire)/i.test(accountForm)) {
@@ -152,7 +152,7 @@ for (const expected of ['usernameFlow', 'emailFlow', 'syntheticEmail', 'username
 if (!usernameAuth.includes('@keep.local')) failures.push('SERVER-SIDE SYNTHETIC AUTH IDENTITY MISSING');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
-for (const marker of ['QRCode', 'Mon QR KEEP', 'Partager par e-mail']) {
+for (const marker of ['QRCode', 'Mon QR Loki', 'Partager par e-mail']) {
   if (!publicProfile.includes(marker)) failures.push(`PROFILE SHARE MARKER MISSING: ${marker}`);
 }
 

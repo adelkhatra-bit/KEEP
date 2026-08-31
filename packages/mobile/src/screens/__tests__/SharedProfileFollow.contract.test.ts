@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('KEEP shared profile follow handoff', () => {
+describe('Loki shared profile follow handoff', () => {
   const share = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', 'share-profile.html'), 'utf8');
   const onboarding = fs.readFileSync(path.resolve(__dirname, '..', 'onboarding', 'OnboardingScreen.tsx'), 'utf8');
 

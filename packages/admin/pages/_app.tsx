@@ -2,12 +2,13 @@ import type { AppProps } from 'next/app';
 import { FormEvent, useEffect, useState } from 'react';
 import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { APP_NAME } from '../lib/brand';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
-  return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>KEEP LIVE · RECONCILE</div>;
+  return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
 }
 
 async function hasActiveAdminRole():Promise<boolean>{
@@ -21,7 +22,7 @@ function friendlyAuthError(message?:string){
   if(!message)return 'Impossible de se connecter pour le moment.';
   if(/rate|security purposes|seconds/i.test(message))return 'Trop de demandes de connexion. Attends quelques instants puis réessaie.';
   if(/invalid login credentials|invalid credentials/i.test(message))return 'Adresse e-mail ou mot de passe incorrect.';
-  if(/not found|signup|user/i.test(message))return 'Ce compte n’est pas autorisé pour le Super Admin KEEP.';
+  if(/not found|signup|user/i.test(message))return `Ce compte n’est pas autorisé pour le Super Admin ${APP_NAME}.`;
   return 'Connexion impossible. Vérifie les informations puis réessaie.';
 }
 
@@ -66,10 +67,10 @@ function AdminLogin(){
     if(!result.ok)setError(result.error);
   };
 
-  if(!isSupabaseConfigured)return <main style={page}><LiveMarker/><div style={card}><div style={brand}>KEEP</div><h1 style={title}>Super Admin</h1><p style={muted}>Supabase n’est pas configuré dans cet environnement.</p></div></main>;
+  if(!isSupabaseConfigured)return <main style={page}><LiveMarker/><div style={card}><div style={brand}>{APP_NAME}</div><h1 style={title}>Super Admin</h1><p style={muted}>Supabase n’est pas configuré dans cet environnement.</p></div></main>;
 
   return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
-    <div style={brand}>KEEP</div>
+    <div style={brand}>{APP_NAME}</div>
     <h1 style={title}>Super Admin</h1>
     <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
     <label style={label}>Adresse e-mail Super Admin</label>

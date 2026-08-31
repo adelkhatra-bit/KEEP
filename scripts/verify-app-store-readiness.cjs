@@ -75,15 +75,15 @@ check('Choix de confidentialité accessibles dans l’app', contains(settings, '
 check('CGU accessibles dans l’app', contains(settings, 'Conditions d’utilisation'));
 check(
   'Support accessible dans l’app',
-  contains(settings, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support KEEP') && contains(supportPanel, 'Envoyer à KEEP'),
+  contains(settings, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support Loki') && contains(supportPanel, 'Envoyer à Loki'),
 );
 check('Liens légaux ouvrables via Linking', contains(settings, 'Linking.openURL'));
 
 for (const [file, marker, label] of [
-  ['packages/mobile/legal/privacy.html', 'Politique de confidentialité KEEP', 'Politique de confidentialité publique'],
+  ['packages/mobile/legal/privacy.html', 'Politique de confidentialité Loki', 'Politique de confidentialité publique'],
   ['packages/mobile/legal/privacy-choices.html', 'Choix de confidentialité', 'Page choix de confidentialité'],
-  ['packages/mobile/legal/terms.html', 'Conditions d’utilisation KEEP', 'Conditions d’utilisation publiques'],
-  ['packages/mobile/legal/support.html', 'Support KEEP', 'Page support publique'],
+  ['packages/mobile/legal/terms.html', 'Conditions d’utilisation Loki', 'Conditions d’utilisation publiques'],
+  ['packages/mobile/legal/support.html', 'Support Loki', 'Page support publique'],
 ]) {
   check(label, exists(file) && contains(file, marker));
 }

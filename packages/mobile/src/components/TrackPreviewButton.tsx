@@ -127,7 +127,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
         Alert.alert(
           'Extrait en cours de renouvellement',
           resolvedFallbackUrl
-            ? 'Cet ancien extrait n’est plus lisible. KEEP a recherché une nouvelle source. Tu peux aussi ouvrir le morceau sur sa plateforme.'
+            ? 'Cet ancien extrait n’est plus lisible. Loki a recherché une nouvelle source. Tu peux aussi ouvrir le morceau sur sa plateforme.'
             : 'Cet ancien extrait n’est plus lisible et aucune nouvelle source audio n’est disponible pour le moment.',
         );
       }
@@ -176,8 +176,8 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
     if (useSessionStore.getState().isActive) {
       Alert.alert(
-        'Écoute KEEP en cours',
-        'Le micro KEEP est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant de lancer un extrait ou d’ouvrir le morceau sur une plateforme.',
+        'Écoute Loki en cours',
+        'Le micro Loki est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant de lancer un extrait ou d’ouvrir le morceau sur une plateforme.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
           resolvedPreviewUrl

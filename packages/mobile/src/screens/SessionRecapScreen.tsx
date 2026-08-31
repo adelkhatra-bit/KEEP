@@ -137,7 +137,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   };
 
   const handleDelete = () => {
-    const message = 'Supprimer cette session de ton historique KEEP ? Les morceaux déjà envoyés vers Spotify ou Apple Music ne seront pas supprimés de ces services.';
+    const message = 'Supprimer cette session de ton historique Loki ? Les morceaux déjà envoyés vers Spotify ou Apple Music ne seront pas supprimés de ces services.';
     const run = () => {
       deleteSession(sessionId);
       if (navigation.canGoBack()) navigation.goBack();
@@ -234,11 +234,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       {lockedCount > 0 ? (
         <TouchableOpacity style={styles.lockedBanner} onPress={() => { void openUnlock(); }}>
           <Text style={styles.lockedBannerTitle}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente</Text>
-          <Text style={styles.lockedBannerText}>KEEP vérifie d’abord ton solde. S’il reste des crédits, le cadenas disparaît automatiquement ; sinon appuie ici pour voir Premium.</Text>
+          <Text style={styles.lockedBannerText}>Loki vérifie d’abord ton solde. S’il reste des crédits, le cadenas disparaît automatiquement ; sinon appuie ici pour voir Premium.</Text>
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil KEEP · Privé = visible seulement par toi.</Text>
+      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki · Privé = visible seulement par toi.</Text>
 
       <FlatList
         data={sortedTracks}

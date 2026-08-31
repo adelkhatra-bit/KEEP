@@ -30,33 +30,33 @@ assertOrdered(owner, [
   'accessibilityLabel="Partager mon profil"',
   '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
   '<View style={s.keepCounters}>',
-  "{ value: profileTotalKeepCount, label: 'KEEP total' }",
+  "{ value: profileTotalKeepCount, label: 'Morceaux' }",
   '<View style={s.tabs}>',
 ], 'Owner profile collective hierarchy');
 
 if ((owner.match(/accessibilityLabel="Partager mon profil"/g) || []).length !== 1) {
   throw new Error('Owner profile must expose exactly one PARTAGER action');
 }
-if ((owner.match(/accessibilityLabel="Prévisualiser mon KEEP en Swipe"/g) || []).length !== 1) {
+if ((owner.match(/accessibilityLabel="Prévisualiser ma collection en Swipe"/g) || []).length !== 1) {
   throw new Error('Owner profile must expose exactly one SWIPE action');
 }
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
-assertIncludes(owner, 'keepCounters:{marginHorizontal:18}', 'Owner KEEP counter frame');
+assertIncludes(owner, 'keepCounters:{marginHorizontal:18}', 'Owner Loki counter frame');
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
   "{ value: followerCount, label: 'Abonnés' }",
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
   '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
-  '<Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SON KEEP EN SWIPE</Text>',
+  '<Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text>',
   '<View style={styles.visitorKeepCounters}>',
-  "{ value: directKeepCount, label: 'KEEP' }",
+  "{ value: directKeepCount, label: 'Morceaux' }",
   '<View style={styles.publicMusicSection}>',
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
-assertIncludes(visitor, 'visitorKeepCounters:{marginHorizontal:18}', 'Visited KEEP counter frame');
+assertIncludes(visitor, 'visitorKeepCounters:{marginHorizontal:18}', 'Visited Loki counter frame');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
 assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
@@ -64,4 +64,4 @@ if (sharedCounters.includes("width: '100%',\n    maxWidth: '100%'")) {
   throw new Error('Shared counter must not force 100% width plus border; it can overflow its profile frame');
 }
 
-console.log('KEEP profile hierarchy + alignment contract: PASS');
+console.log('Loki profile hierarchy + alignment contract: PASS');

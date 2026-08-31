@@ -118,7 +118,7 @@ export default function SupportCenterAdmin() {
 
   return <AdminLayout>
     <div className="page-title">Support utilisateurs</div>
-    <div className="page-subtitle">Conversation directe KEEP ↔ utilisateurs · données Supabase réelles</div>
+    <div className="page-subtitle">Conversation directe Loki ↔ utilisateurs · données Supabase réelles</div>
     <div className="demo-banner">● MODE RÉEL — les demandes viennent de l’application et les réponses repartent dans Réglages avancés.</div>
 
     <div style={{ display:'flex', gap:8, margin:'14px 0' }}>
@@ -150,13 +150,13 @@ export default function SupportCenterAdmin() {
           <details style={{ marginTop:12 }}><summary>Contexte technique</summary><pre style={{ whiteSpace:'pre-wrap', fontSize:11, color:'#a79db5' }}>{JSON.stringify(selected.app_context || {}, null, 2)}</pre></details>
           <div style={{ marginTop:16, display:'grid', gap:8 }}>
             {messages.map((message) => <div key={message.id} style={{ maxWidth:'88%', justifySelf: message.sender_role === 'ADMIN' ? 'end' : 'start', padding:'10px 12px', borderRadius:12, background: message.sender_role === 'ADMIN' ? '#28184a' : '#120e1b', border:'1px solid #3a2d50' }}>
-              <div style={{ color:'#a78bfa', fontSize:10, fontWeight:900 }}>{message.sender_role === 'ADMIN' ? 'KEEP' : message.sender_role === 'SYSTEM' ? 'SYSTÈME' : 'UTILISATEUR'}</div>
+              <div style={{ color:'#a78bfa', fontSize:10, fontWeight:900 }}>{message.sender_role === 'ADMIN' ? 'Loki' : message.sender_role === 'SYSTEM' ? 'SYSTÈME' : 'UTILISATEUR'}</div>
               <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>{message.body}</div>
               <div style={{ marginTop:5, color:'#80768f', fontSize:9 }}>{new Date(message.created_at).toLocaleString('fr-FR')}</div>
             </div>)}
           </div>
           <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={5} placeholder="Répondre à l’utilisateur…" style={{ width:'100%', marginTop:16, boxSizing:'border-box', borderRadius:12, padding:12, background:'#0d0a13', color:'#fff', border:'1px solid #3b3150' }}/>
-          <button disabled={busy || !reply.trim()} onClick={() => void sendReply()} style={{ marginTop:8 }}>{busy ? 'Envoi…' : 'Envoyer la réponse KEEP'}</button>
+          <button disabled={busy || !reply.trim()} onClick={() => void sendReply()} style={{ marginTop:8 }}>{busy ? 'Envoi…' : 'Envoyer la réponse Loki'}</button>
         </>}
       </div>
     </div>

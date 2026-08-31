@@ -8,7 +8,7 @@ let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
 // Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
-// deux manches. Sur le web, KEEP Battle réutilise donc le même HTMLAudioElement
+// deux manches. Sur le web, Loki Battle réutilise donc le même HTMLAudioElement
 // pendant toute la session. L'élément est seulement mis en pause entre les titres ;
 // il n'est pas détruit, ce qui conserve l'autorisation de lecture acquise.
 let webAudio: any = null;
@@ -216,7 +216,7 @@ async function playWebSegment(
 }
 
 /**
- * Joue un extrait promotionnel fourni par le catalogue. KEEP ne télécharge et
+ * Joue un extrait promotionnel fourni par le catalogue. Loki ne télécharge et
  * ne stocke jamais le fichier audio. Un seul extrait peut jouer à la fois :
  * lancer un autre morceau coupe automatiquement le précédent.
  */
@@ -256,7 +256,7 @@ export async function toggleTrackPreview(
 }
 
 /**
- * Lit un segment court pour KEEP Battle. Quand aucun point de départ explicite
+ * Lit un segment court pour Loki Battle. Quand aucun point de départ explicite
  * n'est fourni, on saute les 9 premières secondes du preview : cela évite les
  * intros silencieuses/instrumentales et donne plus souvent une zone vocale ou
  * mélodique reconnaissable, sans exposer tout le morceau.

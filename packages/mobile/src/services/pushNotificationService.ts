@@ -3,17 +3,18 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 /**
  * Enregistrement du token push réel + pont temps réel web.
  *
- * - iOS/Android natifs : token Expo Push, afin qu'une notification KEEP puisse
+ * - iOS/Android natifs : token Expo Push, afin qu'une notification Loki puisse
  *   apparaître même lorsque l'utilisateur est dans TikTok, Snapchat, etc.
  * - Web : on écoute `notifications` via Supabase Realtime et on affiche un
- *   petit popup KEEP tant que la page est ouverte.
+ *   petit popup Loki tant que la page est ouverte.
  * - Détection musicale native : catégorie interactive GARDER / PASSER. Cela
  *   permet au système d'afficher les deux actions dans la notification sans
- *   modifier le design des écrans KEEP.
+ *   modifier le design des écrans Loki.
  *
  * Aucune donnée audio n'est envoyée par ce mécanisme.
  */
@@ -78,7 +79,7 @@ function showWebKeepToast(title: string, body: string, row?: Record<string, unkn
   });
 
   const brand = doc.createElement('div');
-  brand.textContent = 'KEEP · NOUVEAU';
+  brand.textContent = `${APP_NAME} · NOUVEAU`;
   Object.assign(brand.style, { fontSize: '10px', fontWeight: '900', letterSpacing: '1.1px', color: '#B79CFF', marginBottom: '4px' });
   const titleNode = doc.createElement('div');
   titleNode.textContent = title;
@@ -116,8 +117,8 @@ async function startWebRealtimeNotificationBridge(): Promise<boolean> {
       (payload) => {
         const row = (payload as any)?.new ?? {};
         if (String(row?.data?.presentation || '') === 'battle_inline') return;
-        const title = String(row.title || 'Nouveau sur KEEP');
-        const body = String(row.body || 'Ouvre KEEP pour voir la nouveauté.');
+        const title = String(row.title || `Nouveau sur ${APP_NAME}`);
+        const body = String(row.body || `Ouvre ${APP_NAME} pour voir la nouveauté.`);
         showWebKeepToast(title, body, row);
       },
     )
@@ -207,8 +208,8 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'KEEP',
-      description: 'Nouveaux abonnés, nouveaux KEEP et événements',
+      name: APP_NAME,
+      description: 'Nouveaux abonnés, nouveaux morceaux gardés et événements',
       importance: Notifications.AndroidImportance.HIGH,
     });
   }

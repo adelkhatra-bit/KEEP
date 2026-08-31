@@ -67,8 +67,8 @@ function compatiblePlanCodes(feature: string, focusPlan: string): string[] {
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
-  if (feature === 'SMART_SORTING') return `KEEP Vibes classe automatiquement ta musique par ambiances et styles. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
-  if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte KEEP pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
+  if (feature === 'SMART_SORTING') return `Loki Vibes classe automatiquement ta musique par ambiances et styles. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
+  if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte Loki pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
   if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro permet ensuite 1 soirée par mois ; Venue Pro passe les soirées en illimité.`;
@@ -86,10 +86,10 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   if (planCode === 'PREMIUM') return [
     `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
     'Découvertes de profils en illimité.',
-    `${rules.premiumSmartSortTrials} essais de KEEP Vibes.`,
+    `${rules.premiumSmartSortTrials} essais de Loki Vibes.`,
   ];
   if (planCode === 'CREATOR_PRO') return [
-    'Téléchargements et KEEP Vibes illimités.',
+    'Téléchargements et Loki Vibes illimités.',
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
@@ -104,10 +104,10 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
 }
 
 function planSummary(planCode: string): string {
-  if (planCode === 'PREMIUM') return 'Pour profiter de KEEP au quotidien avec davantage de liberté.';
+  if (planCode === 'PREMIUM') return 'Pour profiter de Loki au quotidien avec davantage de liberté.';
   if (planCode === 'CREATOR_PRO') return 'Pour les DJs, artistes et créateurs qui développent leur communauté.';
   if (planCode === 'VENUE_PRO') return 'Pour les lieux et établissements qui organisent et animent leur audience.';
-  return 'Les fonctions essentielles de KEEP pour commencer.';
+  return 'Les fonctions essentielles de Loki pour commencer.';
 }
 
 export default function OffersScreen({ navigation, route }: any) {
@@ -214,15 +214,15 @@ export default function OffersScreen({ navigation, route }: any) {
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
-            <Text style={s.promiseEyebrow}>KEEP</Text>
+            <Text style={s.promiseEyebrow}>Loki</Text>
             <Text style={s.promiseTitle}>Écoute. Garde. Partage. Recharge.</Text>
             <Text style={s.promiseCommunity}>Fais grandir ta communauté musicale.</Text>
           </View>
 
           <View style={s.discoveryCard}>
-            <Text style={s.discoveryEyebrow}>DÉCOUVERTE KEEP</Text>
+            <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
-            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, KEEP associe cette découverte à ton profil. Si d’autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
+            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, Loki associe cette découverte à ton profil. Si d’autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
@@ -234,8 +234,8 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur KEEP de cette occurrence.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un KEEP issu de la communauté.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur Loki de cette occurrence.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un morceau issu de la communauté.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s’il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l’enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
             </View> : null}
@@ -270,12 +270,12 @@ export default function OffersScreen({ navigation, route }: any) {
               <View style={s.rechargeBox}>
                 <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
                 <Text style={s.rechargeTitle}>Pas besoin de payer pour continuer.</Text>
-                <Text style={s.rechargeIntro}>Partage KEEP et fais grandir ta communauté : certaines actions te redonnent réellement des Free.</Text>
+                <Text style={s.rechargeIntro}>Partage Loki et fais grandir ta communauté : certaines actions te redonnent réellement des Free.</Text>
 
                 <View style={s.rechargeItem}>
                   <Text style={s.rechargeIcon}>↗</Text>
                   <View style={s.rechargeCopy}>
-                    <Text style={s.rechargeItemTitle}>Partage KEEP</Text>
+                    <Text style={s.rechargeItemTitle}>Partage Loki</Text>
                     <Text style={s.rechargeItemText}>{s2} partages qualifiés → +{sr.tier2Credits} Free · {s3} partages → +{sr.tier3Credits} Free.</Text>
                     <Text style={s.rechargeHint}>Limite actuelle : {rules.shareDailyCap} partages comptabilisés par jour.</Text>
                   </View>
@@ -298,13 +298,13 @@ export default function OffersScreen({ navigation, route }: any) {
 
               <View style={s.otherRewards}>
                 <Text style={s.otherRewardsTitle}>BONUS GRATUITS EN PLUS DE TON OFFRE</Text>
-                <Text style={s.otherRewardsIntro}>Tu les gagnes en faisant vivre ta communauté musicale et en partageant KEEP.</Text>
+                <Text style={s.otherRewardsIntro}>Tu les gagnes en faisant vivre ta communauté musicale et en partageant Loki.</Text>
                 <Text style={s.otherRewardsLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
                 <Text style={s.otherRewardsLine}>{f2} abonnés → +{fr.tier2Sort} essai Vibes</Text>
                 <Text style={s.otherRewardsLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes</Text>
                 <Text style={s.otherRewardsLine}>{s1} partages → +{sr.tier1Discovery} Découvertes</Text>
                 <Text style={s.otherRewardsLine}>{s3} partages → +{sr.tier3Sort} essai Vibes en plus des Free</Text>
-                <Text style={s.vibesDefinition}>Vibes = KEEP range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
+                <Text style={s.vibesDefinition}>Vibes = Loki range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
               </View>
             </> : null}
           </View>
@@ -312,7 +312,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.battleCard}>
             <View style={s.battleHeader}>
               <View style={s.battleHeaderCopy}>
-                <Text style={s.battleEyebrow}>KEEP BATTLES</Text>
+                <Text style={s.battleEyebrow}>Loki BATTLES</Text>
                 <Text style={s.battleTitle}>⚡ Affronte. Gagne des Free.</Text>
               </View>
             </View>
@@ -320,7 +320,7 @@ export default function OffersScreen({ navigation, route }: any) {
               style={s.disclosureButton}
               onPress={() => setBattleExpanded((value) => !value)}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur les KEEP Battles"
+              accessibilityLabel="En savoir plus sur les Loki Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
               <Text style={s.disclosureText}>{battleExpanded ? 'Réduire' : 'En savoir plus'}</Text>

@@ -12,8 +12,8 @@ interface RemoteConfigRow {
 type GroupKey = 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
 
 const FRIENDLY_LABELS: Record<string, string> = {
-  guest_success_limit: 'KEEP offerts avant inscription',
-  signup_bonus_successes: 'KEEP offerts après inscription',
+  guest_success_limit: 'Morceaux offerts avant inscription',
+  signup_bonus_successes: 'Morceaux offerts après inscription',
   growth_share_daily_cap: 'Partages comptés maximum / jour',
   growth_share_tier1_threshold: 'Partages · palier 1',
   growth_share_tier2_threshold: 'Partages · palier 2',
@@ -39,7 +39,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
-  smart_album_config: 'Configuration KEEP Vibes automatique',
+  smart_album_config: 'Configuration Loki Vibes automatique',
 };
 
 function editableValue(row: RemoteConfigRow) {
@@ -60,7 +60,7 @@ const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
   { key: 'PLANS', title: 'Essai, crédits & limites', subtitle: 'Réglages transversaux. Les limites propres à chaque formule se gèrent aussi dans Abonnements, Prix & Quotas.' },
   { key: 'SERVICES', title: 'Services musicaux · emplacements par formule', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },
   { key: 'LISTEN', title: 'Écouter & compte', subtitle: 'Textes et comportement à distance de l’écran Écouter.' },
-  { key: 'VIBES', title: 'KEEP Vibes', subtitle: 'Configuration du rangement musical intelligent.' },
+  { key: 'VIBES', title: 'Loki Vibes', subtitle: 'Configuration du rangement musical intelligent.' },
   { key: 'OTHER', title: 'Configuration avancée', subtitle: 'Autres réglages distants.' },
 ];
 
@@ -106,8 +106,8 @@ export default function RemoteConfig() {
   };
 
   return <AdminLayout>
-    <div className="page-title">Textes, Paliers & Règles KEEP</div>
-    <div className="page-subtitle">Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et KEEP Vibes directement depuis Supabase.</div>
+    <div className="page-title">Textes, Paliers & Règles Loki</div>
+    <div className="page-subtitle">Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et Loki Vibes directement depuis Supabase.</div>
 
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {!error && !loading && <div className="demo-banner">● MODE RÉEL — chaque changement est audité et appliqué sans republier l’application.</div>}

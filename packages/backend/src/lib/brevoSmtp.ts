@@ -1,6 +1,7 @@
 import tls from 'tls';
 import { getIntegrationSecret } from './integrationSecrets';
 import type { BrevoMessage } from './brevo';
+import { APP_NAME } from '../config/brand';
 
 function encodeHeader(value: string): string {
   if (/^[\x20-\x7E]*$/.test(value)) return value;
@@ -87,7 +88,7 @@ export async function sendBrevoSmtpEmail(message: BrevoMessage): Promise<{ messa
     await command(socket, 'DATA', [354]);
 
     const messageId = `<${Date.now()}.${Math.random().toString(36).slice(2)}@keep.app>`;
-    const fromName = encodeHeader(senderName || 'KEEP');
+    const fromName = encodeHeader(senderName || APP_NAME);
     const to = message.to.map((recipient) => recipient.name ? `${encodeHeader(recipient.name)} <${recipient.email}>` : recipient.email).join(', ');
     const boundary = `keep-${Date.now().toString(36)}`;
     const body = [

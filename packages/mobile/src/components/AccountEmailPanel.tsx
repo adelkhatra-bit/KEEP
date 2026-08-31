@@ -40,7 +40,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
       setCodeSent(true);
       setCode('');
       await refresh();
-      Alert.alert('Code envoyé', `KEEP a envoyé un code à ${result.emailHint}. Il expire dans 10 minutes.`);
+      Alert.alert('Code envoyé', `Loki a envoyé un code à ${result.emailHint}. Il expire dans 10 minutes.`);
     } catch (e: any) {
       Alert.alert('Validation e-mail', e?.message || 'Impossible d’envoyer le code.');
     } finally { setBusy(false); }
@@ -54,7 +54,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
       setStatus(next);
       setCodeSent(false);
       setCode('');
-      Alert.alert('Adresse validée', `Tu peux maintenant te connecter à KEEP avec @${username} ou ${next.email}.`);
+      Alert.alert('Adresse validée', `Tu peux maintenant te connecter à Loki avec @${username} ou ${next.email}.`);
     } catch (e: any) {
       Alert.alert('Validation e-mail', e?.message || 'Impossible de valider ce code.');
     } finally { setBusy(false); }
@@ -63,7 +63,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
   if (!enabled) {
     return <View style={s.card}>
       <Text style={s.title}>Sécurité du compte</Text>
-      <Text style={s.help}>Crée ou connecte ton compte KEEP pour ajouter une adresse e-mail de récupération facultative.</Text>
+      <Text style={s.help}>Crée ou connecte ton compte Loki pour ajouter une adresse e-mail de récupération facultative.</Text>
     </View>;
   }
 

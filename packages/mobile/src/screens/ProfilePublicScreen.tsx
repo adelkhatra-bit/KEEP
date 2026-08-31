@@ -28,13 +28,13 @@ import CommunityConnectionsPanel from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 
-type ProfileTab = 'KEEP' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
+type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
 type AccountMode = 'create' | 'login';
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
 const TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'KEEP', label: 'KEEP' }, { key: 'PLAYLISTS', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
+  { key: 'TRACKS', label: 'Musiques' }, { key: 'PLAYLISTS', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
 ];
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' }, { platform: 'tiktok', label: 'TikTok' }, { platform: 'snapchat', label: 'Snapchat' }, { platform: 'youtube', label: 'YouTube' }, { platform: 'x', label: 'X' }, { platform: 'facebook', label: 'Facebook' },
@@ -52,7 +52,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
-  const [activeTab, setActiveTab] = useState<ProfileTab>('KEEP');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
   const [planCode, setPlanCode] = useState('FREE');
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
@@ -76,7 +76,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [playlistPreferences, setPlaylistPreferences] = useState<Record<string, KeepPlaylistPreference>>({});
   // BUG RÉEL trouvé le 30/08/2026 (audit Super Admin vs côté utilisateur,
   // Adel : "je ne pense pas qu'on soit prêt") : le flag `keep_dna` existe
-  // dans Feature Flags mais rien ne le lisait -- la section KEEP DNA
+  // dans Feature Flags mais rien ne le lisait -- la section Loki DNA
   // s'affichait pour 100% des utilisateurs quel que soit son état. Décision
   // Adel : brancher le flag pour de vrai plutôt que de laisser un bouton
   // décoratif dans Super Admin.
@@ -84,7 +84,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   useEffect(() => { let live = true; isFeatureEnabled('keep_dna').then((enabled) => live && setDnaFeatureEnabled(enabled)); return () => { live = false; }; }, []);
 
   const accountRequired = isLocalGuest || isDemoMode;
-  const providerId = musicEngine.musicProvider.providerId || 'KEEP';
+  const providerId = musicEngine.musicProvider.providerId || 'Loki';
 
   useEffect(() => {
     let live = true;
@@ -257,12 +257,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (providerPlaylists.length) result.push(...providerPlaylists);
     if (!result.length && publicKeptTracks.length) {
       const localPreference = preferenceFor(playlistPreferences, providerId, LOCAL_PROFILE_PLAYLIST_ID);
-      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes KEEP', description: localPreference?.description || 'Morceaux publics gardés avec KEEP', trackCount: publicKeptTracks.length, isKeepManaged: true });
+      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes musiques', description: localPreference?.description || 'Morceaux publics gardés avec Loki', trackCount: publicKeptTracks.length, isKeepManaged: true });
     }
     return result;
   }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length, smartAlbums]);
 
-  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil KEEP</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil Loki</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
   const publicProfileLink = buildPublicProfileLink(user.username);
@@ -294,7 +294,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openProfileSwipe = () => {
     if (!publicSwipeTracks.length) {
-      Alert.alert('KEEP Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
+      Alert.alert('Loki Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
       return;
     }
     setProfileSwipeOpen(true);
@@ -365,7 +365,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
       return visibleTracks;
     } catch {
-      Alert.alert('Vibe KEEP', 'Impossible de charger les morceaux de cette collection pour le moment.');
+      Alert.alert('Vibe Loki', 'Impossible de charger les morceaux de cette collection pour le moment.');
       return [];
     } finally {
       setLoadingPlaylistId(null);
@@ -380,8 +380,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openPlaylistSwipe = async (playlist: ProviderPlaylist) => {
     const tracks = await loadPlaylistTracks(playlist);
-    if (!tracks.length) return Alert.alert('Vibe KEEP', 'Cette collection ne contient pas encore de morceau à swiper.');
-    setSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection KEEP, morceau après morceau.', tracks });
+    if (!tracks.length) return Alert.alert('Vibe Loki', 'Cette collection ne contient pas encore de morceau à swiper.');
+    setSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
   };
 
   const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null, originKind?: 'SELF' | 'SOCIAL' | null) => (
@@ -409,16 +409,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
   );
 
   const tabContent = () => {
-    if (activeTab === 'KEEP') {
-      if (!publicKeptTracks.length) return <Empty text="Tes morceaux KEEP apparaîtront ici." />;
+    if (activeTab === 'TRACKS') {
+      if (!publicKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
-        <Text style={s.ownerKeepHint}>KEEP construit ton univers : Vibes, artistes et albums. Tu gardes le contrôle du Public/Privé et des noms.</Text>
+        <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes, artistes et albums. Tu gardes le contrôle du Public/Privé et des noms.</Text>
         {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF'))}
       </View>;
     }
 
     if (activeTab === 'PLAYLISTS') {
-      if (!displayPlaylists.length) return <Empty text="Tes Vibes KEEP apparaîtront ici automatiquement." />;
+      if (!displayPlaylists.length) return <Empty text="Tes Vibes apparaîtront ici automatiquement." />;
       return <View style={s.list}>{displayPlaylists.map((playlist) => {
         const expanded = expandedPlaylistId === playlist.id;
         const tracks = playlistTracks[playlist.id] ?? [];
@@ -444,7 +444,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (!items.length) return <Empty text={activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
     return <View style={s.list}>{items.map((item) => {
       const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item : track.album === item);
-      return <TouchableOpacity key={item} style={s.listRow} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ton KEEP.' : 'Cet album dans ton KEEP, prêt à swiper.', tracks: selected })}>
+      return <TouchableOpacity key={item} style={s.listRow} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}>
         <View style={s.note}><Text style={s.noteText}>♪</Text></View>
         <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'} · ▶ SWIPE</Text></View>
         <Text style={s.chevron}>›</Text>
@@ -476,7 +476,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
         </View>
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte KEEP</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant KEEP et ton mot de passe. Aucun e-mail n’est obligatoire.</Text></TouchableOpacity> : null}
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki et ton mot de passe. Aucun e-mail n’est obligatoire.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <ProfileCounterRow kind="connections" items={[
           { value: profileFollowerCount, label: 'Abonnés' },
@@ -495,20 +495,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       <View style={[s.ownerActions, { marginHorizontal: 18 }]}>
         <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
-        <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon KEEP en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
+        <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser ma collection en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
       </View>
 
       {dnaFeatureEnabled && (
         <View style={s.dna}>
-          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>KEEP DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
-          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session KEEP pour construire ton ADN musical.</Text>}
+          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
+          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session Loki pour construire ton ADN musical.</Text>}
         </View>
       )}
 
       <View style={s.keepCounters}>
         <ProfileCounterRow kind="keeps" items={[
-          { value: profileTotalKeepCount, label: 'KEEP total' },
-          { value: profileUserKeepCount, label: 'KEEP utilisateurs' },
+          { value: profileTotalKeepCount, label: 'Morceaux' },
+          { value: profileUserKeepCount, label: 'Reprises' },
         ]} />
       </View>
 
@@ -519,7 +519,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={profileSwipeOpen}
       tracks={publicSwipeTracks}
-      title="Mon KEEP public"
+      title="Ma collection publique"
       subtitle="Aperçu exact du Swipe proposé à tes abonnés."
       emptyTitle="Aucun morceau public à prévisualiser."
       backLabel="REVENIR AU PROFIL"
@@ -530,8 +530,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
       tracks={selectionSwipe?.tracks ?? []}
-      title={selectionSwipe?.title ?? 'Vibe KEEP'}
-      subtitle={selectionSwipe?.subtitle ?? 'Ta sélection KEEP.'}
+      title={selectionSwipe?.title ?? 'Vibe Loki'}
+      subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"
       previewOnly
@@ -562,12 +562,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
-          <Text style={s.shareTitle}>Partager mon profil KEEP</Text>
-          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton KEEP DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
+          <Text style={s.shareTitle}>Partager mon profil Loki</Text>
+          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON KEEP</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki</Text></TouchableOpacity>
           <TouchableOpacity style={s.shareAction} onPress={shareEmail}><Text style={s.shareActionText}>✉  Partager par e-mail</Text><Text style={s.shareActionHint}>Ton application Mail s’ouvre, tu choisis les destinataires</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR KEEP</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR Loki</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
@@ -576,10 +576,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.qrShell}>
-          <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR KEEP"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
+          <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
           <ScrollView style={s.qrScroll} contentContainerStyle={s.qrScrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.qrCard}>
-            <View style={s.qrBrandRow}><Text style={s.qrLogo}>KEEP</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
+            <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
             <View style={s.qrIdentityRow}>
               {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>K</Text></View>}
               <View style={s.qrIdentityText}><Text style={s.qrUsername}>@{user.username}</Text><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
@@ -589,7 +589,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.qrBox}><QRCode value={publicProfileLink} size={164} color="#FFFFFF" backgroundColor="#0E0A14" /></View>
             <Text style={s.qrScan}>SCAN POUR DÉCOUVRIR MON PROFIL</Text>
             <Text style={s.qrTagline}>Tes goûts te ressemblent.</Text>
-            <Text style={s.qrWebsite}>KEEP · adelkhatra-bit.github.io/KEEP</Text>
+            <Text style={s.qrWebsite}>Loki · adelkhatra-bit.github.io/KEEP</Text>
           </View>
           <Text style={s.screenshotHint}>Ta carte d’identité musicale : photo, bio, ville, styles et QR. Fais une capture ou partage-la pour donner envie de découvrir ton univers.</Text>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON UNIVERS</Text></TouchableOpacity>

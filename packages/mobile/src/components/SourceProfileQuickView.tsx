@@ -83,7 +83,7 @@ export default function SourceProfileQuickView({
   const toggleFollow = async () => {
     if (!profile || followBusy) return;
     if (profile.id === currentUserId) {
-      setMessage('C’est ton profil KEEP.');
+      setMessage('C’est ton profil Loki.');
       return;
     }
     if (accountRequired || !supabase || !currentUserId) {

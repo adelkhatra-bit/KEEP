@@ -71,7 +71,7 @@ export default function MusicSwipeDeckModal({
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
   // Le Swipe social est le seul mode interactif qui boucle par défaut et demande
   // Public/Privé. On le prépare avant toute lecture pour ne proposer que les
-  // morceaux que le visiteur n'a pas déjà dans son KEEP.
+  // morceaux que le visiteur n'a pas déjà dans sa collection.
   const socialDiscoveryMode = !previewOnly && askVisibilityOnKeep && loop;
 
   const advanceIndex = useCallback(() => {
@@ -329,30 +329,30 @@ export default function MusicSwipeDeckModal({
   const swipeHint = previewOnly
     ? 'Aperçu exact de ce que verront tes abonnés · glisse ← pour passer · → pour garder'
     : currentAlreadyKept
-      ? 'Déjà dans ton KEEP · aucun doublon possible · glisse ← pour passer'
+      ? 'Déjà dans ta collection · aucun doublon possible · glisse ← pour passer'
       : askVisibilityOnKeep
         ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé'
-        : 'Glisse ← pour passer · → pour ajouter à ton KEEP';
+        : 'Glisse ← pour passer · → pour ajouter à ta collection';
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || previewInfoOpen || alreadyKeepInfoOpen;
   const resolvedSubtitle = prefilterRemovedCount > 0
-    ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ton KEEP ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
+    ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
     : subtitle;
   const resolvedEmptyTitle = socialDiscoveryMode && prefilterVerified && prefilterRemovedCount > 0
     ? prefilterRemovedCount >= tracksRef.current.length
-      ? 'Tu as déjà tous les morceaux publics de ce profil dans ton KEEP.'
+      ? 'Tu as déjà tous les morceaux publics de ce profil dans ta collection.'
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
   return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <View style={s.headerText}><Text style={s.eyebrow}>KEEP SWIPE</Text><Text style={s.title}>{title}</Text>{resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}</View>
+        <View style={s.headerText}><Text style={s.eyebrow}>Loki SWIPE</Text><Text style={s.title}>{title}</Text>{resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}</View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
 
       <View style={s.body}>
-        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>KEEP retire d’abord les morceaux déjà présents dans tes musiques.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
+        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki retire d’abord les morceaux déjà présents dans tes musiques.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
@@ -360,7 +360,7 @@ export default function MusicSwipeDeckModal({
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={() => { void requestKeep(); }}
               leftLabel="PASSER"
-              rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'KEEP'}
+              rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               hint={swipeHint}
             >
               <View style={s.card}>
@@ -387,9 +387,9 @@ export default function MusicSwipeDeckModal({
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
                 disabled={controlsLocked}
-                accessibilityLabel={currentAlreadyKept ? 'Déjà dans ton KEEP' : 'Garder cette musique'}
+                accessibilityLabel={currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]}>{currentAlreadyKept ? '✓ DÉJÀ DANS TON KEEP' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]}>{currentAlreadyKept ? '✓ DÉJÀ DANS TA COLLECTION' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -399,14 +399,14 @@ export default function MusicSwipeDeckModal({
       {!previewOnly ? <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={cancelKeep}>
         <View style={s.keepOverlay}>
           <View style={s.keepPromptCard}>
-            <Text style={s.keepPromptEyebrow}>TON KEEP · TA VISIBILITÉ</Text>
+            <Text style={s.keepPromptEyebrow}>TON MORCEAU · TA VISIBILITÉ</Text>
             <Text style={s.keepPromptTitle}>Garder ce morceau ?</Text>
             <Text style={s.keepPromptTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
             <Text style={s.keepPromptBody}>Choisis seulement si tu veux vraiment le garder. Rien n’est enregistré tant que tu n’as pas choisi.</Text>
 
             <TouchableOpacity style={[s.keepChoice, s.keepChoicePublic]} onPress={() => { void confirmKeep('PUBLIC'); }} accessibilityLabel="Visible sur mon profil">
               <Text style={s.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
-              <Text style={s.keepChoiceText}>Tes abonnés pourront voir ce morceau dans ton univers KEEP.</Text>
+              <Text style={s.keepChoiceText}>Tes abonnés pourront voir ce morceau dans ton univers Loki.</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[s.keepChoice, s.keepChoicePrivate]} onPress={() => { void confirmKeep('PRIVATE'); }} accessibilityLabel="Garder en privé">
@@ -426,12 +426,12 @@ export default function MusicSwipeDeckModal({
         <View style={s.keepOverlay}>
           <View style={s.ownerPreviewCard}>
             <Text style={s.alreadyKeepEyebrow}>DOUBLON BLOQUÉ</Text>
-            <Text style={s.ownerPreviewTitle}>Déjà dans ton KEEP</Text>
+            <Text style={s.ownerPreviewTitle}>Déjà dans ta collection</Text>
             <Text style={s.ownerPreviewTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
-            <Text style={s.ownerPreviewBody}>Tu as déjà gardé ce morceau. KEEP ne le rajoute pas une deuxième fois et n’ouvre pas le choix Public/Privé.</Text>
+            <Text style={s.ownerPreviewBody}>Tu as déjà gardé ce morceau. Loki ne le rajoute pas une deuxième fois et n’ouvre pas le choix Public/Privé.</Text>
             <View style={s.alreadyKeepRule}>
               <Text style={s.alreadyKeepRuleTitle}>Aucune action supplémentaire</Text>
-              <Text style={s.ownerPreviewRuleText}>Ton morceau existant reste exactement comme il est dans ton KEEP.</Text>
+              <Text style={s.ownerPreviewRuleText}>Ton morceau existant reste exactement comme il est dans ta collection.</Text>
             </View>
             <TouchableOpacity style={s.alreadyKeepNext} onPress={() => { void continueAfterAlreadyKept(); }} accessibilityLabel="Passer au morceau suivant"><Text style={s.alreadyKeepNextText}>MORCEAU SUIVANT ›</Text></TouchableOpacity>
             <TouchableOpacity style={s.alreadyKeepStay} onPress={closeAlreadyKeepInfo}><Text style={s.alreadyKeepStayText}>RESTER SUR CE MORCEAU</Text></TouchableOpacity>
@@ -443,12 +443,12 @@ export default function MusicSwipeDeckModal({
         <View style={s.keepOverlay}>
           <View style={s.ownerPreviewCard}>
             <Text style={s.ownerPreviewEyebrow}>APERÇU DE TON PROFIL</Text>
-            <Text style={s.ownerPreviewTitle}>Déjà dans ton KEEP</Text>
+            <Text style={s.ownerPreviewTitle}>Déjà dans ta collection</Text>
             <Text style={s.ownerPreviewTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
             <Text style={s.ownerPreviewBody}>Tu possèdes déjà ce morceau. Le bouton GARDER est ici pour te montrer exactement ce que verront tes abonnés.</Text>
             <View style={s.ownerPreviewRule}>
               <Text style={s.ownerPreviewRuleTitle}>Pour un abonné</Text>
-              <Text style={s.ownerPreviewRuleText}>GARDER ajoute le morceau à son KEEP, puis il choisit « Visible sur mon profil » ou « Garder en privé ».</Text>
+              <Text style={s.ownerPreviewRuleText}>GARDER ajoute le morceau à sa collection, puis il choisit « Visible sur mon profil » ou « Garder en privé ».</Text>
             </View>
             <TouchableOpacity style={s.ownerPreviewOk} onPress={closePreviewInfo}><Text style={s.ownerPreviewOkText}>COMPRIS</Text></TouchableOpacity>
             <Text style={s.ownerPreviewHint}>Cette fonction est destinée à tes abonnés.</Text>

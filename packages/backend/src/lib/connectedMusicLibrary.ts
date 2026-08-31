@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 import { getIntegrationSecret } from './integrationSecrets';
+import { APP_NAME } from '../config/brand';
 
 type Provider = 'spotify' | 'deezer';
 
@@ -412,7 +413,7 @@ export async function syncKeepPlaylistToConnectedProvider(args: {
     .eq('owner_id', args.profileId)
     .maybeSingle();
   if (playlistError) throw playlistError;
-  if (!playlist) throw new Error('Playlist KEEP introuvable');
+  if (!playlist) throw new Error(`Playlist ${APP_NAME} introuvable`);
 
   const { data: rows, error: tracksError } = await database
     .from('playlist_tracks')

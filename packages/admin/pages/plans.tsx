@@ -28,7 +28,7 @@ const LIMIT_COLUMNS: Array<{ key: LimitKey; label: string; help: string }> = [
   { key: 'providers_max', label: 'Services', help: 'Nombre de services musicaux connectés.' },
   { key: 'follows_max', label: 'Suivis max', help: 'Nombre maximum de profils suivis.' },
   { key: 'compares_per_month', label: 'Comparaisons', help: 'Nombre maximum de comparaisons mensuelles.' },
-  { key: 'keeps_per_month', label: 'KEEP / mois', help: 'Ancien quota mensuel, conservé pour compatibilité.' },
+  { key: 'keeps_per_month', label: 'Morceaux / mois', help: 'Ancien quota mensuel, conservé pour compatibilité.' },
   { key: 'events_max', label: 'Événements legacy', help: 'Ancienne limite événement, conservée pour compatibilité.' },
 ];
 
@@ -115,7 +115,7 @@ export default function Plans() {
 
   return <AdminLayout>
     <div className="page-title">Abonnements, Prix & Quotas</div>
-    <div className="page-subtitle">Prix, essais et limites réellement appliqués par KEEP.</div>
+    <div className="page-subtitle">Prix, essais et limites réellement appliqués par Loki.</div>
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {!error && !loading && <div className="demo-banner">● MODE RÉEL — chaque modification est enregistrée dans Supabase et auditée.</div>}
 

@@ -88,7 +88,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
       if (isLocalGuest || !supabase) {
         setUser(nextUser);
         if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
-        Alert.alert('Réseau enregistré', 'Le lien est conservé sur cet appareil. Il sera repris automatiquement lorsque tu créeras ton compte KEEP.');
+        Alert.alert('Réseau enregistré', 'Le lien est conservé sur cet appareil. Il sera repris automatiquement lorsque tu créeras ton compte Loki.');
         return;
       }
       await createProfileService(supabase).saveOwnProfile(nextUser);
@@ -151,7 +151,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   };
 
   const confirmSignOut = () => {
-    const message = 'Ton profil KEEP reste enregistré. Tu pourras revenir avec ton identifiant KEEP et ton mot de passe.';
+    const message = 'Ton profil Loki reste enregistré. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm(`Se déconnecter ?\n\n${message}`)) void signOutNow();
       return;
@@ -178,10 +178,10 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
 
   const confirmDeleteAccount = () => {
     if (isLocalGuest || isDemoMode) {
-      Alert.alert('Aucun compte serveur', 'Cet essai n’a pas encore de compte KEEP permanent. Utilise Déconnexion pour effacer l’identité locale de cet appareil.');
+      Alert.alert('Aucun compte serveur', 'Cet essai n’a pas encore de compte Loki permanent. Utilise Déconnexion pour effacer l’identité locale de cet appareil.');
       return;
     }
-    const message = 'Cette action supprime définitivement ton compte KEEP, ton profil, tes KEEP, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée. Si tu as plus tard un abonnement App Store actif, il faudra aussi le résilier dans les abonnements Apple.';
+    const message = 'Cette action supprime définitivement ton compte Loki, ton profil, tes musiques gardées, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée. Si tu as plus tard un abonnement App Store actif, il faudra aussi le résilier dans les abonnements Apple.';
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm(`Supprimer définitivement mon compte ?\n\n${message}`)) void deleteAccountNow();
       return;
@@ -277,14 +277,14 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
 
         <View style={s.section}>
           <Text style={s.sectionTitle}>Compte</Text>
-          <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données KEEP restent enregistrés.</Text>
-          <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount} accessibilityRole="button" accessibilityLabel="Se déconnecter de KEEP">
+          <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données Loki restent enregistrés.</Text>
+          <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount} accessibilityRole="button" accessibilityLabel="Se déconnecter de Loki">
             <Text style={s.signOutText}>{signingOut ? 'Déconnexion…' : 'Se déconnecter'}</Text>
           </TouchableOpacity>
           <View style={s.deleteDivider} />
           <Text style={s.deleteTitle}>Suppression définitive</Text>
           <Text style={s.help}>Supprime le compte serveur et les données associées. Cette action est différente d’une simple déconnexion.</Text>
-          <TouchableOpacity style={s.deleteAccountButton} onPress={confirmDeleteAccount} disabled={deletingAccount || signingOut} accessibilityRole="button" accessibilityLabel="Supprimer définitivement mon compte KEEP">
+          <TouchableOpacity style={s.deleteAccountButton} onPress={confirmDeleteAccount} disabled={deletingAccount || signingOut} accessibilityRole="button" accessibilityLabel="Supprimer définitivement mon compte Loki">
             <Text style={s.deleteAccountText}>{deletingAccount ? 'Suppression…' : 'Supprimer définitivement mon compte'}</Text>
           </TouchableOpacity>
         </View>

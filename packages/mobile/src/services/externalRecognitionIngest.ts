@@ -70,7 +70,7 @@ export async function ingestExternalRecognition(recognition: RecognitionResult):
   // Le fallback social ne passe pas par NotifyingRecognitionProvider. Sans cet
   // appel, un titre résolu après que l'utilisateur est retourné dans TikTok,
   // Instagram ou une autre app était bien ajouté à la session mais restait
-  // silencieux. La fonction est elle-même no-op quand KEEP est au premier plan.
+  // silencieux. La fonction est elle-même no-op quand Loki est au premier plan.
   void notifyRecognitionOutsideKeep(recognition);
 
   void (async () => {

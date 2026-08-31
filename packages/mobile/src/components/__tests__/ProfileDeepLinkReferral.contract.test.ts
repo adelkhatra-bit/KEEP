@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('KEEP profile deep-link + referral lifecycle', () => {
+describe('Loki profile deep-link + referral lifecycle', () => {
   const handoff = fs.readFileSync(path.resolve(__dirname, '..', 'SharedMusicHandoff.tsx'), 'utf8');
   const referral = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'referralService.ts'), 'utf8');
   const navigation = fs.readFileSync(path.resolve(__dirname, '..', '..', 'navigation', 'Navigation.tsx'), 'utf8');

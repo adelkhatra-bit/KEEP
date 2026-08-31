@@ -8,7 +8,7 @@ const failures = [];
 const pass = (label, condition) => condition ? console.log(`PASS  ${label}`) : failures.push(label);
 const contains = (file, value) => exists(file) && read(file).includes(value);
 
-console.log('\nKEEP — PRODUCTION RESILIENCE CONTRACT');
+console.log('\nLoki — PRODUCTION RESILIENCE CONTRACT');
 
 const nativeFirst = 'packages/mobile/src/services/nativeFirstRecognitionProvider.ts';
 const nativeShazam = 'packages/mobile/src/services/nativeShazamRecognition.ts';
@@ -73,11 +73,11 @@ pass('Lien e-mail token_hash est vérifié réellement', contains(authHandoff, '
 pass('Lien e-mail peut revenir dans l’app native', contains(authHandoff, 'keep://auth/callback') && contains(authHandoff, 'getSession()'));
 pass('Lifecycle auth e-mail est monté hors navigation', contains(root, 'AuthEmailLinkLifecycle'));
 pass('Mot de passe oublié utilise le vrai flux de réinitialisation', contains(accountForm, 'requestPasswordReset(email)') && contains(authService, 'resetPasswordForEmail') && contains(authService, 'updateUser({ password })'));
-pass('Réinitialisation affiche un choix de nouveau mot de passe', contains('packages/mobile/src/components/AuthEmailLinkLifecycle.tsx', 'Nouveau mot de passe KEEP') && contains('packages/mobile/src/components/AuthEmailLinkLifecycle.tsx', "event === 'PASSWORD_RECOVERY'"));
+pass('Réinitialisation affiche un choix de nouveau mot de passe', contains('packages/mobile/src/components/AuthEmailLinkLifecycle.tsx', 'Nouveau mot de passe Loki') && contains('packages/mobile/src/components/AuthEmailLinkLifecycle.tsx', "event === 'PASSWORD_RECOVERY'"));
 
 if (failures.length) {
-  console.error('\nKEEP production resilience failures:');
+  console.error('\nLoki production resilience failures:');
   for (const label of failures) console.error(`FAIL  ${label}`);
   process.exit(1);
 }
-console.log('\nKEEP production resilience: OK');
+console.log('\nLoki production resilience: OK');

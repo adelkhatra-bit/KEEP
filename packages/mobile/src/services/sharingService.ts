@@ -1,5 +1,5 @@
 /**
- * Partage KEEP — source unique pour TOUS les liens et messages partagés.
+ * Partage Loki — source unique pour TOUS les liens et messages partagés.
  *
  * Règle produit : aucune fonctionnalité ne construit son URL sociale dans son
  * coin. Tous les profils, morceaux, Vibes, sessions, comparaisons et événements
@@ -14,9 +14,10 @@ import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from './planService';
 import { hasFeature } from './entitlementService';
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
-export const KEEP_SHARE_SLOGAN = 'KEEP — Tes goûts te ressemblent.';
+export const KEEP_SHARE_SLOGAN = `${APP_NAME} — Tes goûts te ressemblent.`;
 
 function isPlaceholder(value: string | undefined): boolean {
   return !value || value.startsWith('your_') || value === 'undefined';
@@ -120,7 +121,7 @@ async function shareEmail(copy: ShareCopy): Promise<void> {
 }
 
 /**
- * « Copier le lien » copie volontairement le message complet KEEP : contexte,
+ * « Copier le lien » copie volontairement le message complet Loki : contexte,
  * nom du profil ou du morceau, slogan et URL HTTPS. C'est ce texte qui doit
  * arriver dans WhatsApp quand l'utilisateur fait Coller.
  */
@@ -162,7 +163,7 @@ async function openQrLanding(copy: ShareCopy): Promise<void> {
   const qrLink = `${copy.link}${separator}qr=1`;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     // Safari iOS peut conserver un onglet intermédiaire about:blank lorsqu'un
-    // lien est lancé avec window.open. KEEP reste donc volontairement dans le
+    // lien est lancé avec window.open. Loki reste donc volontairement dans le
     // même onglet ; le bouton Retour du navigateur revient à l'écran précédent.
     window.location.assign(qrLink);
     return;
@@ -193,7 +194,7 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
     Object.assign(handle.style, { width: '42px', height: '4px', borderRadius: '4px', background: '#6E5C80', margin: '0 auto 14px' });
 
     const brand = document.createElement('div');
-    brand.textContent = 'KEEP';
+    brand.textContent = APP_NAME;
     Object.assign(brand.style, { color: '#B79CFF', fontSize: '10px', fontWeight: '1000', letterSpacing: '3px', textAlign: 'center' });
 
     const heading = document.createElement('div');
@@ -228,13 +229,13 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
       return button;
     };
 
-    const system = makeButton(copy.kind === 'profile' ? 'FAIRE DÉCOUVRIR MON KEEP' : 'PARTAGER SUR MES APPLICATIONS', true, () => shareSystem(copy));
+    const system = makeButton(copy.kind === 'profile' ? `FAIRE DÉCOUVRIR MON ${APP_NAME}` : 'PARTAGER SUR MES APPLICATIONS', true, () => shareSystem(copy));
     const email = makeButton('✉  PARTAGER PAR E-MAIL', false, () => shareEmail(copy));
-    const qr = makeButton('▦  MON QR CODE KEEP', false, () => openQrLanding(copy));
+    const qr = makeButton(`▦  MON QR CODE ${APP_NAME}`, false, () => openQrLanding(copy));
 
     const copyButton = document.createElement('button');
     copyButton.type = 'button';
-    copyButton.textContent = 'COPIER LE LIEN KEEP';
+    copyButton.textContent = `COPIER LE LIEN ${APP_NAME}`;
     Object.assign(copyButton.style, {
       width: '100%', minHeight: '48px', marginTop: '10px', borderRadius: '16px', cursor: 'pointer',
       border: '1px solid #493369', background: '#211A2B', color: '#FFFFFF', fontWeight: '900', fontSize: '12px',
@@ -245,7 +246,7 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
         .then((copied) => {
           if (copied) {
             copyButton.textContent = '✓ COPIÉ';
-            status.textContent = 'Copié. Le texte contient KEEP, le slogan, le contexte et le lien.';
+            status.textContent = `Copié. Le texte contient ${APP_NAME}, le slogan, le contexte et le lien.`;
           } else {
             copyButton.textContent = 'COPIER DEPUIS LA FEUILLE OUVERTE';
             status.textContent = 'Choisis « Copier » dans la feuille de partage.';
@@ -277,7 +278,7 @@ function showNativeShareSheet(copy: ShareCopy): Promise<void> {
     const doCopy = async () => {
       try {
         const copied = await copyShareText(copy);
-        if (copied) Alert.alert('Copié', 'Le texte KEEP, le slogan et le lien ont bien été copiés.');
+        if (copied) Alert.alert('Copié', `Le texte ${APP_NAME}, le slogan et le lien ont bien été copiés.`);
       } finally { resolve(); }
     };
     Alert.alert(
@@ -285,7 +286,7 @@ function showNativeShareSheet(copy: ShareCopy): Promise<void> {
       `${KEEP_SHARE_SLOGAN}\n\nQR code · e-mail · partage · copie du lien.`,
       [
         { text: 'Annuler', style: 'cancel', onPress: () => resolve() },
-        { text: 'QR KEEP', onPress: () => { void openQrLanding(copy).catch(() => {}).finally(resolve); } },
+        { text: `QR ${APP_NAME}`, onPress: () => { void openQrLanding(copy).catch(() => {}).finally(resolve); } },
         { text: 'E-mail', onPress: () => { void shareEmail(copy).catch(() => {}).finally(resolve); } },
         { text: 'Copier', onPress: () => { void doCopy(); } },
         { text: 'Partager', onPress: () => { void shareSystem(copy).catch(() => {}).finally(resolve); } },
@@ -306,12 +307,12 @@ function buildProfileCopy(username: string): ShareCopy {
   const own = Boolean(current?.username && cleanUsername(current.username).toLowerCase() === clean.toLowerCase());
   const link = buildPublicProfileLink(clean);
   const identity = own ? [current?.city, current?.countryCode].filter(Boolean).join(' · ') : '';
-  const profileLine = own ? `Découvre mon profil KEEP @${clean}` : `Découvre le profil KEEP @${clean}`;
-  const message = `${profileLine} 🎧\nKEEP DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
+  const profileLine = own ? `Découvre mon profil ${APP_NAME} @${clean}` : `Découvre le profil ${APP_NAME} @${clean}`;
+  const message = `${profileLine} 🎧\n${APP_NAME} DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'profile',
-    heading: own ? 'Partager mon profil KEEP' : `Partager le KEEP de @${clean}`,
-    subject: own ? `Mon profil KEEP — @${clean}` : `Le profil KEEP de @${clean}`,
+    heading: own ? `Partager mon profil ${APP_NAME}` : `Partager la collection de @${clean}`,
+    subject: own ? `Mon profil ${APP_NAME} — @${clean}` : `Le profil ${APP_NAME} de @${clean}`,
     message,
     emailBody: `${message}\n\nUn scan, un clic, et tu entres dans cet univers musical.`,
     link,
@@ -326,13 +327,13 @@ function buildTrackCopy(username: string, title: string, artist: string): ShareC
   const link = buildPublicTrackLink(clean, title, artist);
   const own = cleanUsername(useUserStore.getState().user?.username).toLowerCase() === clean.toLowerCase();
   const origin = own ? `mon profil @${clean}` : `le profil @${clean}`;
-  const message = `🎵 ${title.trim()} — ${artist.trim()}\nRetrouve ce morceau sur ${origin} dans KEEP.\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
+  const message = `🎵 ${title.trim()} — ${artist.trim()}\nRetrouve ce morceau sur ${origin} dans ${APP_NAME}.\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'track',
     heading: `Partager ${title.trim()} — ${artist.trim()}`,
-    subject: `${title.trim()} — ${artist.trim()} · KEEP`,
+    subject: `${title.trim()} — ${artist.trim()} · ${APP_NAME}`,
     message,
-    emailBody: `${message}\n\nLe lien ouvre le profil KEEP avec le contexte de ce morceau.`,
+    emailBody: `${message}\n\nLe lien ouvre le profil ${APP_NAME} avec le contexte de ce morceau.`,
     link,
     eventName: 'profile_share',
     channel: 'track',
@@ -348,26 +349,26 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
   const details: Record<typeof kind, { heading: string; subject: string; intro: string; eventName: ShareEvent }> = {
     vibe: {
       heading: `Partager la Vibe « ${label} »`,
-      subject: `${label} · Vibe KEEP`,
-      intro: `🎵 Cette Vibe KEEP me ressemble : « ${label} ». Swipe-la et vois ce que tu garderais.`,
+      subject: `${label} · Vibe ${APP_NAME}`,
+      intro: `🎵 Cette Vibe ${APP_NAME} me ressemble : « ${label} ». Swipe-la et vois ce que tu garderais.`,
       eventName: 'playlist_share',
     },
     session: {
       heading: `Partager la session « ${label} »`,
-      subject: `${label} · Session KEEP`,
-      intro: `🎧 Session KEEP « ${label} »${typeof count === 'number' ? ` · ${count} morceau${count > 1 ? 'x' : ''} gardé${count > 1 ? 's' : ''}` : ''}.`,
+      subject: `${label} · Session ${APP_NAME}`,
+      intro: `🎧 Session ${APP_NAME} « ${label} »${typeof count === 'number' ? ` · ${count} morceau${count > 1 ? 'x' : ''} gardé${count > 1 ? 's' : ''}` : ''}.`,
       eventName: 'profile_share',
     },
     compare: {
       heading: `Comparer avec @${label}`,
-      subject: `Compare ton KEEP DNA avec @${label}`,
-      intro: `🧬 On écoute vraiment la même chose ? Compare ton KEEP DNA avec celui de @${label}.`,
+      subject: `Compare ton ${APP_NAME} DNA avec @${label}`,
+      intro: `🧬 On écoute vraiment la même chose ? Compare ton ${APP_NAME} DNA avec celui de @${label}.`,
       eventName: 'compare_share',
     },
     event: {
       heading: `Partager « ${label} »`,
-      subject: `${label} · KEEP`,
-      intro: `🎉 « ${label} » est sur KEEP. Découvre l’ambiance et rejoins-nous.`,
+      subject: `${label} · ${APP_NAME}`,
+      intro: `🎉 « ${label} » est sur ${APP_NAME}. Découvre l’ambiance et rejoins-nous.`,
       eventName: 'event_share',
     },
   };
@@ -417,13 +418,13 @@ export async function shareSession(sessionId: string, title: string, keptCount: 
 export async function sharePlaylist(playlistId: string, playlistName: string): Promise<void> {
   const state = useUserStore.getState();
   if (!state.user || state.isLocalGuest || state.isDemoMode) {
-    Alert.alert('Compte KEEP requis', 'Crée ton compte KEEP pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.');
+    Alert.alert('Compte Loki requis', `Crée ton compte ${APP_NAME} pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.`);
     return;
   }
 
   const planCode = await loadCurrentPlanCode(state.user.id).catch(() => 'FREE');
   if (!hasFeature(planCode, 'PUBLIC_PLAYLISTS')) {
-    Alert.alert('Premium requis', 'Le partage de Vibes publiques est inclus à partir de KEEP Premium (2,99 €/mois).');
+    Alert.alert('Premium requis', `Le partage de Vibes publiques est inclus à partir de ${APP_NAME} Premium (2,99 €/mois).`);
     return;
   }
 

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 export type KeepNotification = {
   id: string;
@@ -120,7 +121,7 @@ export function subscribeToNotificationChanges(profileId: string, onChange: () =
 }
 
 export async function requestSocialLink(targetProfileId: string, platform: string): Promise<void> {
-  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { error } = await supabase.rpc('request_social_link', {
     target_profile_id: targetProfileId,
     requested_platform: platform,

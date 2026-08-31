@@ -1,5 +1,5 @@
 /**
- * KEEP Design System — Spacing, radius, typography scale.
+ * Loki Design System — Spacing, radius, typography scale.
  * Centralisé pour éviter toute valeur magique dispersée dans les écrans
  * (cohérence mobile/tablette obligatoire — cf. cahier des charges).
  */

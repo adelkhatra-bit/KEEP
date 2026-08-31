@@ -122,7 +122,7 @@ export default function EmailTestPage() {
   return (
     <AdminLayout>
       <div className="page-title">Test e-mail Brevo</div>
-      <div className="page-subtitle">Vérification réelle du circuit KEEP → Supabase sécurisé → Brevo → boîte mail</div>
+      <div className="page-subtitle">Vérification réelle du circuit Loki → Supabase sécurisé → Brevo → boîte mail</div>
 
       <div className="kpi-card" style={{ maxWidth: 900, marginTop: 24 }}>
         <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 12 }}>

@@ -10,7 +10,7 @@ type State = { kind: 'loadingToken' } | { kind: 'ready'; developerToken: string 
 
 /**
  * Écran de connexion Apple Music réel — récupère le developer token auprès
- * du backend KEEP (voir services/musicEngine.ts) puis lance le flux
+ * du backend Loki (voir services/musicEngine.ts) puis lance le flux
  * MusicKit JS (WebView). Premier point d'entrée UI réel pour
  * AppleMusicAuthScreen, jusqu'ici jamais atteignable depuis la navigation.
  */

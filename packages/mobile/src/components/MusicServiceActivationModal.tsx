@@ -41,22 +41,22 @@ export default function MusicServiceActivationModal({
               <MusicServiceIcon service={service} size={31} />
             </View>
             <View style={s.heroText}>
-              <Text style={s.eyebrow}>SERVICE MUSICAL KEEP</Text>
+              <Text style={s.eyebrow}>SERVICE MUSICAL Loki</Text>
               <Text style={s.title}>Activer {name}</Text>
-              <Text style={s.subtitle}>{supportsAccountSync ? `Tu gardes le contrôle. Après l’activation KEEP, ${name} te demandera directement l’autorisation de connecter ton compte.` : 'Tu gardes le contrôle. KEEP mémorise uniquement que tu veux utiliser ce service.'}</Text>
+              <Text style={s.subtitle}>{supportsAccountSync ? `Tu gardes le contrôle. Après l’activation Loki, ${name} te demandera directement l’autorisation de connecter ton compte.` : 'Tu gardes le contrôle. Loki mémorise uniquement que tu veux utiliser ce service.'}</Text>
             </View>
           </View>
 
           <View style={s.infoBox}>
             <Text style={s.infoTitle}>Comment ça va fonctionner</Text>
-            <Step n="1" text={`KEEP réserve 1 emplacement de ta formule ${planLabel}.`} />
-            <Step n="2" text="Ce choix est sauvegardé dans ton compte KEEP et reste présent après fermeture ou changement d’appareil." />
-            <Step n="3" text={supportsAccountSync ? `Tu autorises ensuite ${name} avec sa page officielle. KEEP pourra importer uniquement les métadonnées autorisées de tes favoris/playlists et synchroniser tes Vibes vers tes playlists.` : `Quand tu envoies un morceau ou une Vibe vers ${name}, KEEP prépare la musique puis ouvre le service choisi.`} />
+            <Step n="1" text={`Loki réserve 1 emplacement de ta formule ${planLabel}.`} />
+            <Step n="2" text="Ce choix est sauvegardé dans ton compte Loki et reste présent après fermeture ou changement d’appareil." />
+            <Step n="3" text={supportsAccountSync ? `Tu autorises ensuite ${name} avec sa page officielle. Loki pourra importer uniquement les métadonnées autorisées de tes favoris/playlists et synchroniser tes Vibes vers tes playlists.` : `Quand tu envoies un morceau ou une Vibe vers ${name}, Loki prépare la musique puis ouvre le service choisi.`} />
           </View>
 
           <View style={s.safeBox}>
             <Text style={s.safeTitle}>✓ Tes accès restent privés</Text>
-            <Text style={s.safeText}>{supportsAccountSync ? `KEEP ne reçoit jamais ton mot de passe ${name}. La connexion passe par OAuth officiel. KEEP stocke le jeton serveur nécessaire et les métadonnées que tu autorises ; aucun fichier audio protégé n’est téléchargé, copié ou ré-uploadé.` : `KEEP ne demande pas ton mot de passe ${name} et ne publie rien à ta place. Sans connexion API du fournisseur, KEEP utilise simplement le passage sécurisé vers l’application ou le site du service.`}</Text>
+            <Text style={s.safeText}>{supportsAccountSync ? `Loki ne reçoit jamais ton mot de passe ${name}. La connexion passe par OAuth officiel. Loki stocke le jeton serveur nécessaire et les métadonnées que tu autorises ; aucun fichier audio protégé n’est téléchargé, copié ou ré-uploadé.` : `Loki ne demande pas ton mot de passe ${name} et ne publie rien à ta place. Sans connexion API du fournisseur, Loki utilise simplement le passage sécurisé vers l’application ou le site du service.`}</Text>
           </View>
 
           <View style={s.slotRow}>

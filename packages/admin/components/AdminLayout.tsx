@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import { APP_NAME } from '../lib/brand';
 
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
@@ -12,7 +13,7 @@ const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', roles: ALL_ROLES },
   { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-  { href: '/music-brain', label: 'KEEP Music Brain', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
@@ -55,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="layout">
       <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
-        <div className="logo">KEEP</div>
+        <div className="logo">{APP_NAME}</div>
         <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>
         <nav>
           {visibleNav.map((item) => (
@@ -76,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             lineHeight: 1.4,
           }}
         >
-          Accès par rôle. Les actions sensibles restent liées à la session KEEP, au rôle Admin actif et au journal d’audit.
+          Accès par rôle. Les actions sensibles restent liées à la session {APP_NAME}, au rôle Admin actif et au journal d’audit.
         </div>
       </aside>
       <main className="main">

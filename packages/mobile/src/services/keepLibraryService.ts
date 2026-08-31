@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import type { KeepVisibility } from '../types';
+import { APP_NAME } from '../config/brand';
 import { isSmartAlbumUiId, smartAlbumDatabaseId, smartAlbumUiId } from './smartAlbumService';
 
 const LOCAL_KEY_PREFIX = '@keep/playlist-preferences-v2';
@@ -89,7 +90,7 @@ export async function savePlaylistPreference(preference: KeepPlaylistPreference)
   if (isSmartAlbumUiId(preference.providerPlaylistId)) {
     const databaseId = smartAlbumDatabaseId(preference.providerPlaylistId);
     const { error } = await supabase.from('playlists').update({
-      name: preference.name.trim() || 'Album KEEP',
+      name: preference.name.trim() || 'Album Loki',
       description: preference.description.trim() || null,
       is_public: preference.isPublic,
       updated_at: new Date().toISOString(),
@@ -132,7 +133,7 @@ export async function savePlaylistPreference(preference: KeepPlaylistPreference)
 }
 
 export async function setAllOwnKeepVisibility(visibility: KeepVisibility): Promise<number> {
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const { data, error } = await supabase.rpc('keep_set_all_keep_visibility', { p_visibility: visibility });
   if (error) throw error;
   return Number(data ?? 0);
@@ -174,7 +175,7 @@ export async function syncPlaylistTrack(params: {
       provider: keyProvider,
       provider_playlist_id: providerPlaylistId,
       name: params.playlistName || 'Mes KEEP',
-      description: params.playlistDescription || 'Morceaux gardés avec KEEP.',
+      description: params.playlistDescription || 'Morceaux gardés avec Loki.',
       is_public: false,
       is_smart: false,
       cover_url: params.coverUrl || null,

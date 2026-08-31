@@ -82,7 +82,7 @@ async function withSoftTimeout<T>(promise: Promise<T>, timeoutMs: number): Promi
 // AJOUT P0 (31/08/2026, demande Adel : "ecoute intelligente -- si il l'a deja
 // ecoute, il dit qu'il l'a deja ecoute") : findExistingTrack ne verifiait
 // QUE les bibliotheques connectees (Spotify/Apple Music) ou le mode demo --
-// jamais l'historique KEEP propre de l'utilisateur. Sans compte musical
+// jamais l'historique musical propre de l'utilisateur. Sans compte musical
 // connecte (le cas invite/nouveau compte le plus courant), un morceau deja
 // garde une fois n'etait donc jamais reconnu comme "deja garde" a la
 // prochaine detection, meme dans une session ulterieure. Verification 100%
@@ -95,7 +95,7 @@ function findOwnKeptMatch(track: CanonicalTrack) {
       if (entry.status === 'kept' && sameTrack(entry.track, track)) {
         return {
           playlistId: 'keep-history',
-          playlistName: 'ton historique KEEP',
+          playlistName: 'ton historique de morceaux gardés',
           provider: 'KEEP',
           decisionId: entry.keepDecisionId,
           trackId: entry.track.id,
@@ -283,7 +283,7 @@ let consecutiveWeakSamples = 0;
 const WEAK_SIGNAL_PEAK = 0.05;
 
 function recognitionSampleDurationMs() {
-  // Premier essai court = résultat plus vite. Après un no-match, KEEP donne au
+  // Premier essai court = résultat plus vite. Après un no-match, Loki donne au
   // fournisseur un extrait plus long pour améliorer la couverture sans rendre
   // chaque tentative lente par défaut.
   if (consecutiveNoMatches >= 3) return 7500;
@@ -455,7 +455,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (entry.keepDecisionId) await updateKeepDecisionVisibility(entry.keepDecisionId, visibility);
       set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, visibility } : t), error: null }));
       persistLiveSession(get());
-    } catch (e: any) { set({ error: e?.message ?? 'Impossible de modifier la visibilité de ce KEEP.' }); }
+    } catch (e: any) { set({ error: e?.message ?? 'Impossible de modifier la visibilité de ce morceau.' }); }
   },
 
   keepAllPending: async () => {

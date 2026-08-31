@@ -8,10 +8,10 @@ type Props = {
 
 export default function DiscoveryImpactLabel({ impact }: Props) {
   if (!impact || impact.recoveryCount <= 0) return null;
-  const keepWord = impact.recoveryCount > 1 ? 'KEEP générés' : 'KEEP généré';
+  const keepWord = impact.recoveryCount > 1 ? 'reprises générées' : 'reprise générée';
   const userWord = impact.uniqueUsers > 1 ? 'utilisateurs' : 'utilisateur';
   return (
-    <View style={styles.row} accessibilityLabel={`${impact.recoveryCount} KEEP générés par cette découverte`}>
+    <View style={styles.row} accessibilityLabel={`${impact.recoveryCount} reprises générées par cette découverte`}>
       <Text style={styles.text}>↗ {impact.recoveryCount} {keepWord} par {impact.uniqueUsers} {userWord}</Text>
     </View>
   );

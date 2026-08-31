@@ -1,6 +1,7 @@
 import { buildSmartAlbumSuggestions, type CanonicalTrack, type ProviderPlaylist } from '@keep/music';
 import { supabase } from './supabaseClient';
 import { enrichMissingGenres } from './keylessGenreService';
+import { APP_NAME } from '../config/brand';
 
 export type SmartAlbumConfig = {
   enabled: boolean;
@@ -112,7 +113,7 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   return (playlists ?? []).map((row: any) => ({
     id: String(row.id),
     smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
-    name: String(row.name ?? 'Vibe KEEP'),
+    name: String(row.name ?? 'Vibe Loki'),
     description: String(row.description ?? ''),
     isPublic: Boolean(row.is_public),
     trackCount: counts.get(String(row.id)) ?? 0,
@@ -190,7 +191,7 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
     });
   }
 
-  // Les anciens morceaux de la base n'avaient pas de genre. KEEP les enrichit
+  // Les anciens morceaux de la base n'avaient pas de genre. Loki les enrichit
   // lui-même, sans clé ni abonnement API, via le même catalogue public gratuit
   // déjà utilisé pour les jaquettes. Le résultat est mis en cache 30 jours.
   const enrichedTracks = await enrichMissingGenres(Array.from(unique.values()));
@@ -277,7 +278,7 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
 }
 
 export async function renameOwnSmartAlbum(id: string, name: string): Promise<void> {
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const userId = await currentUserId();
   if (!userId) throw new Error('Connecte-toi pour renommer cette Vibe.');
   const next = name.trim();
@@ -288,7 +289,7 @@ export async function renameOwnSmartAlbum(id: string, name: string): Promise<voi
 }
 
 export async function setOwnSmartAlbumPublic(id: string, isPublic: boolean): Promise<void> {
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const userId = await currentUserId();
   if (!userId) throw new Error('Connecte-toi pour modifier cette Vibe.');
   const { error } = await supabase.from('playlists').update({ is_public: isPublic, updated_at: new Date().toISOString() })

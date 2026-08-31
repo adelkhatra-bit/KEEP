@@ -2,12 +2,12 @@ import { Linking, Platform } from 'react-native';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Auth e-mail KEEP sans code à recopier.
+ * Auth e-mail Loki sans code à recopier.
  *
  * Le flux accepte les deux formes Supabase :
  * - tokens access_token/refresh_token après une redirection standard ;
- * - token_hash + type dans notre lien KEEP personnalisé.
- * Cette seconde forme permet au template e-mail KEEP de pointer directement
+ * - token_hash + type dans notre lien Loki personnalisé.
+ * Cette seconde forme permet au template e-mail Loki de pointer directement
  * vers le site public, sans dépendre d'un ancien Site URL localhost.
  */
 export async function consumeSupabaseAuthUrl(client: SupabaseClient, url: string): Promise<boolean> {

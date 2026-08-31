@@ -31,7 +31,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [createOpen, setCreateOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
   // BUG RÉEL trouvé le 30/08/2026 (audit Soirées en direct) : le lanceur
-  // KEEP BATTLE s'affichait pour 100% des utilisateurs réels alors qu'Adel
+  // Loki BATTLE s'affichait pour 100% des utilisateurs réels alors qu'Adel
   // a explicitement choisi de garder keep_battle désactivé (rollout_percent
   // à 0, voir feature-flags.tsx) -- aucun code ne lisait jamais le flag ici.
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
@@ -81,7 +81,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited) && audienceReady;
   const nextEvent = () => { if (events.length) setEventIndex((value) => (value + 1) % events.length); };
 
-  const requireAccount = () => Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour répondre aux soirées.', [
+  const requireAccount = () => Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour répondre aux soirées.', [
     { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) },
   ]);
 
@@ -140,7 +140,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       let sent = 0; if (notifyFollowers) sent = await broadcastEventToFollowers(created.id, message.trim());
       setCreateOpen(false); setName(''); setStartsAt(''); setVenueName(''); setDescription(''); setMessage('');
       await reload();
-      Alert.alert('Soirée publiée', notifyFollowers ? `${sent} abonné(s) ont reçu l’invitation KEEP.` : 'La soirée est maintenant visible dans KEEP.');
+      Alert.alert('Soirée publiée', notifyFollowers ? `${sent} abonné(s) ont reçu l’invitation Loki.` : 'La soirée est maintenant visible dans Loki.');
     } catch (e: any) {
       const code = String(e?.message || '');
       if (code.includes('EVENT_FOLLOWERS_REQUIRED')) {
@@ -185,10 +185,10 @@ export default function PartiesScreen({ navigation, route }: any) {
             : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : soirées illimitées · seuil {minEventFollowers} abonnés atteint.</Text></View>}
 
       {battleFeatureEnabled && (
-        <TouchableOpacity style={styles.battleLauncher} onPress={() => setBattleOpen(true)} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon KEEP Battle">
+        <TouchableOpacity style={styles.battleLauncher} onPress={() => setBattleOpen(true)} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Battle">
           <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
           <View style={styles.battleLauncherCopy}>
-            <Text style={styles.battleLauncherKicker}>KEEP BATTLE</Text>
+            <Text style={styles.battleLauncherKicker}>Loki BATTLE</Text>
             <Text style={styles.battleLauncherTitle}>Salon musical</Text>
             <Text style={styles.battleLauncherMeta}>Solo ou multijoueur · mode plein écran · aucun code à écrire</Text>
           </View>

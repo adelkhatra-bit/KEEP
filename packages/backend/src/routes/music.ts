@@ -2,15 +2,16 @@ import { Router, Response } from 'express';
 import { getOrCreateAppleMusicDeveloperToken } from '../lib/appleDeveloperToken';
 import { requireKeepAuth, KeepAuthedRequest } from '../lib/keepAuth';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
+import { APP_NAME } from '../config/brand';
 
 /**
- * Routes musicales du backend KEEP.
+ * Routes musicales du backend Loki.
  *
  * SÉCURITÉ — corrigé le 22/08/2026 (voir docs/PROJECT_STATUS.md) : cet
  * endpoint distribue un secret (developer token Apple Music) et doit donc
- * être protégé par une session KEEP valide avant tout déploiement public
+ * être protégé par une session Loki valide avant tout déploiement public
  * -- sans ça, n'importe qui pourrait appeler l'API Apple Music au nom du
- * compte développeur KEEP (usage abusif du quota, pas une fuite de
+ * compte développeur Loki (usage abusif du quota, pas une fuite de
  * données utilisateur, mais un vrai risque). Le gate est actif dès que
  * SUPABASE_URL/SUPABASE_ANON_KEY existent ; en leur absence, l'endpoint
  * répond honnêtement 503 plutôt que d'être servi sans contrôle d'accès.
@@ -52,7 +53,7 @@ if (tokenVerifier) {
     res.status(503).json({
       error: 'auth_not_configured',
       message:
-        'Authentification KEEP non configurée côté backend (SUPABASE_URL / SUPABASE_ANON_KEY manquants) -- ' +
+        `Authentification ${APP_NAME} non configurée côté backend (SUPABASE_URL / SUPABASE_ANON_KEY manquants) -- ` +
         'endpoint désactivé par sécurité plutôt que servi sans contrôle d’accès.',
     });
   });

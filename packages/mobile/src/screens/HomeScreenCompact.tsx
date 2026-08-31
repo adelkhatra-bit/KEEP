@@ -366,7 +366,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
           <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePublic]} onPress={() => current && void doKeep(current.id, keepPlaylistId, 'PUBLIC')} disabled={keepBusy}>
             <Text style={s.visibilityChoiceTitlePublic}>PUBLIC SUR MON PROFIL</Text>
-            <Text style={s.visibilityChoiceText}>Le morceau apparaîtra dans ton univers KEEP partagé.</Text>
+            <Text style={s.visibilityChoiceText}>Le morceau apparaîtra dans ton univers Loki partagé.</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePrivate]} onPress={() => current && void doKeep(current.id, keepPlaylistId, 'PRIVATE')} disabled={keepBusy}>
             <Text style={s.visibilityChoiceTitlePrivate}>GARDER EN PRIVÉ</Text>
@@ -379,7 +379,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, KEEP ne peut pas lire ces pages-là.</Text>
+          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, Loki ne peut pas lire ces pages-là.</Text>
           <TextInput
             style={s.manualSearchInput}
             value={manualSearchQuery}
@@ -418,7 +418,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 function TopBar({ navigation }: any) {
   return <View style={s.topBar}>
     <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')}><Text style={s.roundText}>☰</Text></TouchableOpacity>
-    <Text style={s.brand}>KEEP</Text>
+    <Text style={s.brand}>Loki</Text>
     <View style={s.topBarSpacer} />
   </View>;
 }

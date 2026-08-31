@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('KEEP Battle mobile style selector', () => {
+describe('Loki Battle mobile style selector', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const audioSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'audioPreviewService.ts'), 'utf8');
 
@@ -154,7 +154,7 @@ describe('KEEP Battle mobile style selector', () => {
   });
 });
 
-describe('KEEP Battle accept reliability', () => {
+describe('Loki Battle accept reliability', () => {
   const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
 
@@ -173,7 +173,7 @@ describe('KEEP Battle accept reliability', () => {
   });
 });
 
-describe('KEEP Battle persistent group invitations', () => {
+describe('Loki Battle persistent group invitations', () => {
   const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const live = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts'), 'utf8');
 

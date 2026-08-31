@@ -58,7 +58,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [dateDraft, setDateDraft] = useState({ year: parsed.year, month: parsed.month, day: parsed.day });
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
-  const keepSupportNumber = `KEEP-${user.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+  const keepSupportNumber = `Loki-${user.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
 
   const goToTab = (screen: 'Listen' | 'Discover' | 'MyMusic' | 'Parties' | 'Profile') => {
     navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
@@ -87,14 +87,14 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   const handleSessionAction = () => {
     if (!hasRealAccount) return requireAccount();
-    const message = 'Tes données enregistrées dans KEEP restent sur ton compte. Tu pourras revenir avec ton identifiant KEEP et ton mot de passe.';
+    const message = 'Tes données enregistrées dans Loki restent sur ton compte. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Se déconnecter de KEEP ?\
+      if (window.confirm(`Se déconnecter de Loki ?\
 \
 ${message}`)) void signOutNow();
       return;
     }
-    Alert.alert('Se déconnecter de KEEP ?', message, [
+    Alert.alert('Se déconnecter de Loki ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
     ]);
@@ -138,7 +138,7 @@ ${message}`)) void signOutNow();
           }).eq('id', user.id);
           if (locationError) throw locationError;
         }
-        Alert.alert('Profil enregistré', 'Tes informations sont sauvegardées dans KEEP.');
+        Alert.alert('Profil enregistré', 'Tes informations sont sauvegardées dans Loki.');
       }
       goToTab('Profile');
     } catch (e: any) {
@@ -240,11 +240,11 @@ ${message}`)) void signOutNow();
     </View>
 
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte KEEP">
-        <Text style={s.accountGateTitle}>Créer mon compte KEEP</Text>
+      {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki">
+        <Text style={s.accountGateTitle}>Créer mon compte Loki</Text>
         <Text style={s.accountGateText}>Tu peux préparer tout ton profil maintenant. L’inscription débloque ensuite la synchronisation, le partage public et le suivi.</Text>
-      </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte KEEP">
-        <Text style={s.accountGateTitle}>🔒 Créer mon compte KEEP</Text>
+      </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki">
+        <Text style={s.accountGateTitle}>🔒 Créer mon compte Loki</Text>
         <Text style={s.accountGateText}>Débloque photo, profil, localisation, réseaux et partage. Tout est facultatif.</Text>
       </TouchableOpacity> : null}
 
@@ -261,13 +261,13 @@ ${message}`)) void signOutNow();
         <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur toi" multiline editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
-      <Section title="Localisation" subtitle="Facultatif · KEEP peut préremplir automatiquement la ville et le pays.">
+      <Section title="Localisation" subtitle="Facultatif · Loki peut préremplir automatiquement la ville et le pays.">
         <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Utiliser ma position' : '⌖ Utiliser ma position'}</Text>}</TouchableOpacity>
         <Field label="Ville" value={city} onChangeText={handleCityChange} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
         <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>{Platform.OS === 'web' ? 'Valider cette ville' : 'Rechercher et préremplir'}</Text>}</TouchableOpacity>
         <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} />
         {locationStatus ? <Text style={[s.hint,{color:'#74F3B6'}]}>{locationStatus}</Text> : null}
-        <Text style={s.hint}>Confidentialité : KEEP n’affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d’environ 1 km sont conservés pour la découverte locale.</Text>
+        <Text style={s.hint}>Confidentialité : Loki n’affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d’environ 1 km sont conservés pour la découverte locale.</Text>
         <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
@@ -278,11 +278,11 @@ ${message}`)) void signOutNow();
         <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive]} onPress={()=>accountRequired ? requireAccount() : setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
       </Section>
 
-      <Section title="KEEP">
+      <Section title="Loki">
         <View style={s.supportCard}>
           <Text style={s.supportLabel}>N° membre / support</Text>
           <Text style={s.supportNumber}>{isLocalGuest || isDemoMode ? 'Créé après inscription' : keepSupportNumber}</Text>
-          <Text style={s.hint}>À communiquer au support KEEP en cas de problème. Ce numéro n’est pas affiché sur ton profil public.</Text>
+          <Text style={s.hint}>À communiquer au support Loki en cas de problème. Ce numéro n’est pas affiché sur ton profil public.</Text>
         </View>
         <QuickLink label="Notifications" onPress={()=>navigation.navigate('Notifications')} />
         <QuickLink label="Services musicaux" onPress={()=>navigation.navigate('MusicConnections')} />
@@ -297,7 +297,7 @@ ${message}`)) void signOutNow();
         onPress={handleSessionAction}
         disabled={sessionBusy}
         accessibilityRole="button"
-        accessibilityLabel={hasRealAccount ? 'Se déconnecter de KEEP' : 'Se connecter ou créer un compte KEEP'}
+        accessibilityLabel={hasRealAccount ? 'Se déconnecter de Loki' : 'Se connecter ou créer un compte Loki'}
       >
         {sessionBusy ? <ActivityIndicator color={hasRealAccount ? '#FF7A86' : colors.primaryLight}/> : <Text style={hasRealAccount ? s.disconnectText : s.connectText}>{hasRealAccount ? 'SE DÉCONNECTER' : 'SE CONNECTER / CRÉER UN COMPTE'}</Text>}
       </TouchableOpacity>

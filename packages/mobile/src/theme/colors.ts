@@ -1,7 +1,7 @@
 /**
- * KEEP Design System — Colors
+ * Loki Design System — Colors
  *
- * Direction: premium, moderne, sombre, violet KEEP, lisible, international.
+ * Direction: premium, moderne, sombre, violet Loki, lisible, international.
  * Règle absolue du cahier des charges : PASSER = rouge/corail, GARDER = turquoise/vert menthe.
  * Ne jamais inverser ces deux couleurs (risque de confusion d'action destructrice vs positive).
  */
@@ -13,7 +13,7 @@ export const colors = {
   backgroundCard: '#1C1930',
   border: '#2A2640',
 
-  // Marque — violet KEEP
+  // Marque — violet Loki
   primary: '#7C5CFC',
   primaryDark: '#5B3FE0',
   primaryLight: '#A78BFA',
@@ -24,7 +24,7 @@ export const colors = {
   pass: '#FF5C72', // corail — bouton PASSER (jamais utilisé pour GARDER)
   passPressed: '#E14A5F',
 
-  // Texte — règle globale KEEP : aucun texte fonctionnel gris sur fond sombre.
+  // Texte — règle globale Loki : aucun texte fonctionnel gris sur fond sombre.
   textPrimary: '#FFFFFF',
   textSecondary: '#FFFFFF',
   textMuted: '#FFFFFF',

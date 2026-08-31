@@ -14,7 +14,7 @@ const base = {
   providerIds: { appleMusic: '1659483185' },
 };
 
-describe('KEEP duplicate track identity', () => {
+describe('Loki duplicate track identity', () => {
   it('reconnaît le même morceau via Apple Music même sans ISRC et avec un titre différent', () => {
     expect(tracksRepresentSameKeep(base as any, {
       id: 'provider-b',

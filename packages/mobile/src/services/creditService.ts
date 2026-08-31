@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { useUserStore } from '../store/useUserStore';
+import { APP_NAME } from '../config/brand';
 
 export type DownloadCreditStatus = {
   planCode: string;
@@ -94,7 +95,7 @@ export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
     return { planCode: 'DEMO', isAnonymous: false, consumed: 0, limit: null, remaining: null, unlimited: true };
   }
   if (state.isLocalGuest) return getLocalGuestCreditStatus();
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const { data, error } = await supabase.rpc('keep_download_credit_status');
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
@@ -129,7 +130,7 @@ export async function consumeDownloadCredit(): Promise<DownloadCreditStatus> {
       remaining: Math.max(LOCAL_GUEST_LIMIT - consumed, 0),
     };
   }
-  if (!supabase) throw new Error('KEEP n’est pas connecté au serveur.');
+  if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const { data, error } = await supabase.rpc('keep_consume_download_credit');
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;

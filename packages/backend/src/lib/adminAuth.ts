@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { requireKeepAuth, KeepAuthedRequest, TokenVerifier } from './keepAuth';
+import { APP_NAME } from '../config/brand';
 
 export type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
@@ -13,7 +14,7 @@ export interface AdminAuthedRequest extends KeepAuthedRequest {
 }
 
 /**
- * Gate Super Admin en deux étapes : (1) session KEEP valide (comme
+ * Gate Super Admin en deux étapes : (1) session Loki valide (comme
  * `requireKeepAuth`), (2) ce compte est bien une ligne active de
  * `admin_users` avec un rôle autorisé pour CETTE route. Refuse 401 si (1)
  * échoue, 403 si (2) échoue -- distinction volontaire ("pas connecté" vs
@@ -30,7 +31,7 @@ export function requireAdminRole(verifier: TokenVerifier, roleChecker: AdminRole
     await baseAuth(req, res, async () => {
       const role = await roleChecker.checkAdminRole(req.keepUserId as string);
       if (!role) {
-        res.status(403).json({ error: 'not_admin', message: 'Ce compte KEEP n’a pas accès au Super Admin.' });
+        res.status(403).json({ error: 'not_admin', message: `Ce compte ${APP_NAME} n’a pas accès au Super Admin.` });
         return;
       }
       if (allowedRoles && !allowedRoles.includes(role)) {

@@ -183,7 +183,7 @@ export default function Integrations() {
     setBusy('EMAIL_TEST'); setError(null); setMessage(null);
     try {
       await invokeAdmin({ action: 'integrations.test_email', email: testEmail.trim() });
-      setMessage(`E-mail KEEP envoyé à ${testEmail.trim()} via Brevo.`);
+      setMessage(`E-mail Loki envoyé à ${testEmail.trim()} via Brevo.`);
     } catch (e: any) {
       setError(e?.message ?? 'Test Brevo impossible.');
     } finally {
@@ -196,7 +196,7 @@ export default function Integrations() {
   return (
     <AdminLayout>
       <div className="page-title">Intégrations</div>
-      <div className="page-subtitle">Clés et connexions externes de KEEP — stockées chiffrées dans Supabase Vault.</div>
+      <div className="page-subtitle">Clés et connexions externes de Loki — stockées chiffrées dans Supabase Vault.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
@@ -205,7 +205,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — santé réelle</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
-          KEEP fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
+          Loki fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
         </p>
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginTop: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -239,7 +239,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Services à quota / payants</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
-          KEEP surveille l’état remonté par le fournisseur pendant les vraies utilisations. Si une clé est épuisée, le statut passe automatiquement en <strong>Quota épuisé</strong>. La clé peut ensuite être remplacée ici sans redéployer l’application.
+          Loki surveille l’état remonté par le fournisseur pendant les vraies utilisations. Si une clé est épuisée, le statut passe automatiquement en <strong>Quota épuisé</strong>. La clé peut ensuite être remplacée ici sans redéployer l’application.
         </p>
         {paidRows.map((row) => {
           const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
@@ -248,7 +248,7 @@ export default function Integrations() {
               <div>
                 <strong>AudD — reconnaissance musicale</strong>
                 <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
-                  Sans clé, KEEP exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
+                  Sans clé, Loki exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
                 </div>
               </div>
               <div style={{ color: STATUS_COLORS[status], fontWeight: 800 }}>● {STATUS_LABELS[status]}</div>
@@ -269,9 +269,9 @@ export default function Integrations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>E-mails KEEP</h3>
+        <h3 style={{ marginTop: 0 }}>E-mails Loki</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          Les comptes utilisateurs KEEP utilisent maintenant <strong>identifiant KEEP + mot de passe</strong> : aucun e-mail n’est obligatoire pour créer ou utiliser un compte. Les e-mails restent optionnels pour les invitations, messages système et récupération future. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi KEEP.
+          Les comptes utilisateurs Loki utilisent maintenant <strong>identifiant Loki + mot de passe</strong> : aucun e-mail n’est obligatoire pour créer ou utiliser un compte. Les e-mails restent optionnels pour les invitations, messages système et récupération future. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
@@ -285,7 +285,7 @@ export default function Integrations() {
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Tester l’envoi Brevo</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant de la connexion utilisateur KEEP.</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant de la connexion utilisateur Loki.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             type="email"
@@ -295,7 +295,7 @@ export default function Integrations() {
             style={{ flex: '1 1 280px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
           />
           <button onClick={() => void sendTest()} disabled={busy === 'EMAIL_TEST' || !testEmail.trim()}>
-            {busy === 'EMAIL_TEST' ? 'Envoi…' : 'Envoyer un test KEEP'}
+            {busy === 'EMAIL_TEST' ? 'Envoi…' : 'Envoyer un test Loki'}
           </button>
         </div>
       </div>

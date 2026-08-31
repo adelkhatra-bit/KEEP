@@ -35,7 +35,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     || track.externalUrls?.universal
     || track.externalUrls?.youtubeSearch;
   // Lecteur officiel intégré (widget Spotify/Deezer, ou IFrame Player API
-  // YouTube) : reste dans KEEP au lieu d'ouvrir la plateforme dans un nouvel
+  // YouTube) : reste dans Loki au lieu d'ouvrir la plateforme dans un nouvel
   // onglet. Web uniquement pour l'instant -- une iframe n'a pas d'équivalent
   // React Native direct sans dépendance WebView côté natif. Priorité Spotify
   // (widget le plus universellement disponible), Deezer puis YouTube en repli
@@ -76,8 +76,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     if (!track.previewUrl || previewBusy) return;
     if (useSessionStore.getState().isActive) {
       Alert.alert(
-        'Écoute KEEP en cours',
-        'Le micro KEEP est encore actif. Arrête la session avant de lire un extrait afin que KEEP n’identifie pas le son de ton propre téléphone.',
+        'Écoute Loki en cours',
+        'Le micro Loki est encore actif. Arrête la session avant de lire un extrait afin que Loki n’identifie pas le son de ton propre téléphone.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
           { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await playSnippetNow(positionMillis); })() },
@@ -99,8 +99,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     if (!embedUrl && !externalPlayUrl) return;
     if (useSessionStore.getState().isActive) {
       Alert.alert(
-        'Écoute KEEP en cours',
-        'Le micro KEEP est encore actif. Arrête la session avant d’ouvrir ce morceau afin d’éviter une fausse détection.',
+        'Écoute Loki en cours',
+        'Le micro Loki est encore actif. Arrête la session avant d’ouvrir ce morceau afin d’éviter une fausse détection.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
           { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await openExternalNow(); })() },
@@ -144,7 +144,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
                     style: { border: 0, borderRadius: 12 },
                   })
                 : null}
-              <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur KEEP.</Text>
+              <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki.</Text>
             </View>
           </View>
         </Modal>

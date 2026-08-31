@@ -13,7 +13,7 @@ export type PaidFeature =
 
 const ACCESS: Record<PaidFeature, PlanCode[]> = {
   // Après création d'un vrai compte, un utilisateur Free peut partager son
-  // profil limité et les KEEP réellement acquis avec ses crédits. Premium
+  // profil limité et les morceaux réellement acquis avec ses crédits. Premium
   // débloque les playlists publiques et la visibilité étendue.
   PROFILE_SHARE: ['FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],
   PUBLIC_PLAYLISTS: ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'],

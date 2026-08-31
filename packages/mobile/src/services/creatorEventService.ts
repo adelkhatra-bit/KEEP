@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 export type CreatorEvent = {
   id: string;
@@ -47,7 +48,7 @@ export async function loadMyRsvps(profileId: string): Promise<Record<string, Eve
 }
 
 export async function setEventRsvp(profileId: string, eventId: string, status: EventRsvpStatus): Promise<void> {
-  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { error } = await supabase.from('event_rsvps').upsert({ event_id: eventId, profile_id: profileId, status }, { onConflict: 'event_id,profile_id' });
   if (error) throw error;
 }
@@ -62,7 +63,7 @@ export async function createCreatorEvent(input: {
   ticketUrl?: string;
   djArtistNames?: string[];
 }): Promise<{ id: string; name: string }> {
-  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.create', ...input } });
   if (error && !data) throw error;
   if (!data?.ok) {
@@ -75,7 +76,7 @@ export async function createCreatorEvent(input: {
 }
 
 export async function broadcastEventToFollowers(eventId: string, message?: string): Promise<number> {
-  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.broadcast', eventId, message } });
   if (error && !data) throw error;
   if (!data?.ok) {

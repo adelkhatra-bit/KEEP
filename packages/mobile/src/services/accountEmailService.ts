@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 export type AccountEmailStatus = {
   email: string | null;
@@ -8,20 +9,20 @@ export type AccountEmailStatus = {
 };
 
 function requireSupabase() {
-  if (!supabase) throw new Error('Connexion KEEP indisponible.');
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   return supabase;
 }
 
 function mapError(code: string) {
   if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
   if (code === 'rate_limited') return 'Un code vient déjà d’être envoyé. Attends quelques instants.';
-  if (code === 'email_provider_unconfigured') return 'L’envoi e-mail KEEP n’est pas encore configuré dans le Super Admin.';
-  if (code === 'email_send_failed') return 'KEEP n’a pas pu envoyer l’e-mail. Réessaie plus tard.';
+  if (code === 'email_provider_unconfigured') return `L’envoi e-mail ${APP_NAME} n’est pas encore configuré dans le Super Admin.`;
+  if (code === 'email_send_failed') return `${APP_NAME} n’a pas pu envoyer l’e-mail. Réessaie plus tard.`;
   if (code === 'invalid_code') return 'Ce code est incorrect.';
   if (code === 'code_expired') return 'Ce code a expiré. Demande un nouveau code.';
   if (code === 'too_many_attempts') return 'Trop d’essais. Demande un nouveau code.';
-  if (code === 'email_taken') return 'Cette adresse e-mail est déjà liée à un autre compte KEEP.';
-  if (code === 'unauthorized') return 'Reconnecte-toi à KEEP pour modifier la sécurité du compte.';
+  if (code === 'email_taken') return `Cette adresse e-mail est déjà liée à un autre compte ${APP_NAME}.`;
+  if (code === 'unauthorized') return `Reconnecte-toi à ${APP_NAME} pour modifier la sécurité du compte.`;
   return 'La sécurité du compte est momentanément indisponible.';
 }
 

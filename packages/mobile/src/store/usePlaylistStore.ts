@@ -5,7 +5,7 @@ import { musicEngine } from '../services/musicEngine';
 /**
  * Source des playlists du fournisseur musical connecté.
  *
- * Les Vibes intelligentes KEEP sont gérées séparément par les écrans qui les
+ * Les Vibes intelligentes Loki sont gérées séparément par les écrans qui les
  * affichent (`MyMusicScreen` et `ProfilePublicScreen`) via `smartAlbumService`.
  * Les injecter aussi ici créait exactement le même smart album deux fois :
  * une fois via ce store, puis une seconde fois via `smartAlbums` dans l'écran.

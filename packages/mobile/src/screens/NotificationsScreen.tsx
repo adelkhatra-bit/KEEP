@@ -20,8 +20,8 @@ function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
   if (key === 'NEW_FOLLOWER') return 'NOUVEL ABONNÉ';
   if (key === 'FOLLOWER_LEFT') return 'DÉSABONNEMENT';
-  if (key === 'NEW_PUBLIC_KEEP') return 'NOUVEAU KEEP';
-  if (key === 'MUSIC_TAKEN') return 'KEEP PARTAGÉ';
+  if (key === 'NEW_PUBLIC_KEEP') return 'NOUVEAU MORCEAU';
+  if (key === 'MUSIC_TAKEN') return 'MORCEAU REPRIS';
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
@@ -256,7 +256,7 @@ export default function NotificationsScreen({ navigation }: any) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Réglages des notifications</Text>
-          <Text style={styles.preferenceHint}>Active ou désactive ce que KEEP peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
+          <Text style={styles.preferenceHint}>Active ou désactive ce que Loki peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
           <Preference label="Système" value={prefs.systemEnabled} onValueChange={(v) => updatePrefs({ systemEnabled: v })} />
           <Preference label="DJ & soirées" value={prefs.djEnabled} onValueChange={(v) => updatePrefs({ djEnabled: v })} />
           <Preference label="Social" value={prefs.socialEnabled} onValueChange={(v) => updatePrefs({ socialEnabled: v })} />

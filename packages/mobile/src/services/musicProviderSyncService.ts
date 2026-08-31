@@ -1,5 +1,6 @@
 import { Linking, Platform } from 'react-native';
 import { getSupabaseAccessToken } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -44,7 +45,7 @@ export type ImportedMusicItem = {
 
 function baseUrl(): string {
   if (!API_URL || API_URL === 'undefined' || API_URL.startsWith('your_')) {
-    throw new Error('Backend KEEP non configuré.');
+    throw new Error(`Backend ${APP_NAME} non configuré.`);
   }
   return API_URL.replace(/\/$/, '');
 }
@@ -81,10 +82,10 @@ export async function loadProviderConnectionStates(): Promise<ProviderConnection
 }
 
 /**
- * Demande au backend KEEP une URL OAuth signée pour le compte connecté, puis
+ * Demande au backend Loki une URL OAuth signée pour le compte connecté, puis
  * ouvre le fournisseur. Le secret Spotify/Deezer ne transite jamais dans le
  * mobile. Le backend encode aussi la surface de départ dans le state signé :
- * web -> retour HTTPS KEEP, natif -> keep://music-connections.
+ * web -> retour HTTPS Loki, natif -> keep://music-connections.
  */
 export async function startProviderConnection(provider: SyncProvider): Promise<void> {
   const client = Platform.OS === 'web' ? 'web' : 'native';
@@ -95,7 +96,7 @@ export async function startProviderConnection(provider: SyncProvider): Promise<v
   const url = String(payload?.authorizationUrl || '');
   if (!/^https:\/\//i.test(url)) throw new Error('URL OAuth fournisseur invalide.');
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    // Navigation dans l'onglet courant : Safari iOS revient ensuite sur KEEP
+    // Navigation dans l'onglet courant : Safari iOS revient ensuite sur Loki
     // au lieu de conserver un onglet intermédiaire about:blank.
     window.location.assign(url);
     return;

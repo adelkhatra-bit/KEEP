@@ -19,7 +19,7 @@ export class KeepLocationPermissionError extends Error {
   }
 }
 
-// ~1 km selon la latitude : assez précis pour la découverte locale, mais KEEP
+// ~1 km selon la latitude : assez précis pour la découverte locale, mais Loki
 // ne conserve jamais la position GPS exacte dans le profil.
 export function roundKeepCoordinates(latitude: number, longitude: number): KeepApproximateCoordinates {
   return {

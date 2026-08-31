@@ -27,7 +27,7 @@ const CATEGORIES: Array<{ key: SupportCategory; label: string }> = [
 const STATUS_LABEL: Record<SupportTicket['status'], string> = {
   OPEN: 'Ouvert',
   IN_PROGRESS: 'En cours',
-  WAITING_USER: 'Réponse KEEP',
+  WAITING_USER: 'Réponse Loki',
   RESOLVED: 'Résolu',
   CLOSED: 'Fermé',
 };
@@ -80,9 +80,9 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
       setSelectedId(ticket.id);
       await refreshTickets();
       await loadSupportMessages(ticket.id).then(setMessages);
-      Alert.alert('Message envoyé', 'Ta demande est enregistrée dans KEEP. La réponse apparaîtra ici.');
+      Alert.alert('Message envoyé', 'Ta demande est enregistrée dans Loki. La réponse apparaîtra ici.');
     } catch (e: any) {
-      Alert.alert('Support KEEP', e?.message || 'Impossible d’envoyer la demande pour le moment.');
+      Alert.alert('Support Loki', e?.message || 'Impossible d’envoyer la demande pour le moment.');
     } finally { setBusy(false); }
   };
 
@@ -95,25 +95,25 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
       await refreshMessages();
       await refreshTickets();
     } catch (e: any) {
-      Alert.alert('Support KEEP', e?.message || 'Impossible d’envoyer la réponse.');
+      Alert.alert('Support Loki', e?.message || 'Impossible d’envoyer la réponse.');
     } finally { setBusy(false); }
   };
 
   if (!enabled) {
-    return <View style={s.wrap}><Text style={s.title}>Aide & support KEEP</Text><Text style={s.help}>Crée ou connecte ton compte KEEP pour écrire directement à l’équipe et conserver l’historique de tes demandes.</Text></View>;
+    return <View style={s.wrap}><Text style={s.title}>Aide & support Loki</Text><Text style={s.help}>Crée ou connecte ton compte Loki pour écrire directement à l’équipe et conserver l’historique de tes demandes.</Text></View>;
   }
 
   const selected = tickets.find((ticket) => ticket.id === selectedId) ?? null;
 
   return <View style={s.wrap}>
-    <Text style={s.title}>Aide & support KEEP</Text>
-    <Text style={s.help}>Signale un problème, une erreur de reconnaissance, un souci de compte ou propose une idée. KEEP joint automatiquement le contexte technique utile, jamais ton mot de passe.</Text>
+    <Text style={s.title}>Aide & support Loki</Text>
+    <Text style={s.help}>Signale un problème, une erreur de reconnaissance, un souci de compte ou propose une idée. Loki joint automatiquement le contexte technique utile, jamais ton mot de passe.</Text>
 
     <Text style={s.label}>Type de demande</Text>
     <View style={s.chips}>{CATEGORIES.map((item) => <TouchableOpacity key={item.key} style={[s.chip, category === item.key && s.chipActive]} onPress={() => setCategory(item.key)}><Text style={[s.chipText, category === item.key && s.chipTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
     <TextInput style={s.input} value={subject} onChangeText={setSubject} placeholder="Objet" placeholderTextColor={colors.textMuted} maxLength={140} />
     <TextInput style={[s.input, s.messageInput]} value={message} onChangeText={setMessage} placeholder="Décris précisément ce qui se passe…" placeholderTextColor={colors.textMuted} multiline maxLength={5000} />
-    <TouchableOpacity style={s.send} onPress={sendNew} disabled={busy}><Text style={s.sendText}>{busy ? 'Envoi…' : 'Envoyer à KEEP'}</Text></TouchableOpacity>
+    <TouchableOpacity style={s.send} onPress={sendNew} disabled={busy}><Text style={s.sendText}>{busy ? 'Envoi…' : 'Envoyer à Loki'}</Text></TouchableOpacity>
 
     <View style={s.divider} />
     <View style={s.row}><Text style={s.label}>Mes demandes</Text>{loading ? <ActivityIndicator color={colors.primaryLight} size="small"/> : null}</View>
@@ -125,8 +125,8 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
 
     {selected ? <View style={s.thread}>
       <Text style={s.threadTitle}>{selected.subject}</Text>
-      {messages.map((item) => <View key={item.id} style={[s.bubble, item.senderRole === 'ADMIN' ? s.adminBubble : s.userBubble]}><Text style={s.bubbleAuthor}>{item.senderRole === 'ADMIN' ? 'KEEP' : 'Moi'}</Text><Text style={s.bubbleText}>{item.body}</Text></View>)}
-      <TextInput style={[s.input, s.replyInput]} value={reply} onChangeText={setReply} placeholder="Répondre à KEEP…" placeholderTextColor={colors.textMuted} multiline maxLength={5000}/>
+      {messages.map((item) => <View key={item.id} style={[s.bubble, item.senderRole === 'ADMIN' ? s.adminBubble : s.userBubble]}><Text style={s.bubbleAuthor}>{item.senderRole === 'ADMIN' ? 'Loki' : 'Moi'}</Text><Text style={s.bubbleText}>{item.body}</Text></View>)}
+      <TextInput style={[s.input, s.replyInput]} value={reply} onChangeText={setReply} placeholder="Répondre à Loki…" placeholderTextColor={colors.textMuted} multiline maxLength={5000}/>
       <TouchableOpacity style={s.replyButton} onPress={sendReply} disabled={busy || !reply.trim()}><Text style={s.replyText}>Répondre</Text></TouchableOpacity>
     </View> : null}
   </View>;

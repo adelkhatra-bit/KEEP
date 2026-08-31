@@ -4,6 +4,7 @@ import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
+import { APP_NAME } from '../config/brand';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -67,7 +68,7 @@ function audioExtension(blob: Blob): string {
 }
 
 /**
- * Enregistre le KEEP dans le profil réel quand un compte est connecté.
+ * Enregistre le morceau gardé dans le profil réel quand un compte est connecté.
  * Un invité reste 100 % local : aucune auth Supabase artificielle n'est créée.
  */
 export async function recordKeepDecision(
@@ -109,7 +110,7 @@ export async function recordKeepDecision(
     : null;
 }
 
-/** Met à jour uniquement la visibilité d'un KEEP appartenant au compte actif. */
+/** Met à jour uniquement la visibilité d'un morceau gardé appartenant au compte actif. */
 export async function updateKeepDecisionVisibility(decisionId: string, visibility: KeepVisibility): Promise<boolean> {
   if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return false;
   const accessToken = await getSupabaseAccessToken();
@@ -130,7 +131,7 @@ export async function updateKeepDecisionVisibility(decisionId: string, visibilit
 /**
  * Lorsqu'un membre avait d'abord récupéré gratuitement un titre depuis un
  * autre profil, puis le reconnaît ensuite lui-même avec Écouter, sa propre
- * écoute devient la source de ses futurs partages. Le KEEP reste unique et
+ * écoute devient la source de ses futurs partages. Le morceau gardé reste unique et
  * l'ancienne provenance sociale reste conservée dans l'historique serveur.
  */
 export async function markDirectRediscovery(
@@ -161,10 +162,10 @@ export interface PersistedKeepDecision {
 }
 
 /**
- * Recharge les KEEP d'un compte depuis Supabase.
+ * Recharge les morceaux gardés d'un compte depuis Supabase.
  *
  * L'historique détaillé de session reste disponible hors-ligne dans
- * AsyncStorage, mais le profil musical (KEEP DNA / morceaux gardés) ne doit pas
+ * AsyncStorage, mais le profil musical (Loki DNA / morceaux gardés) ne doit pas
  * dépendre d'un seul navigateur ou téléphone. Cette lecture transforme donc
  * les décisions persistées côté serveur en CanonicalTrack réutilisables par le
  * store local après une mise à jour, une reconnexion ou un nouvel appareil.
@@ -257,7 +258,7 @@ async function recognitionAttempt(
 }
 
 /**
- * Mémoire musicale collective KEEP : empreintes calculées localement à
+ * Mémoire musicale collective Loki : empreintes calculées localement à
  * partir des extraits légaux déjà récupérés (Deezer/iTunes) quand un
  * morceau a été identifié avec confiance une première fois (recherche
  * manuelle ou partage). Couvre le contenu indépendant/underground absent
@@ -360,7 +361,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
     if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
-      throw new Error('Reconnaissance KEEP indisponible : Supabase n’est pas configuré.');
+      throw new Error(`Reconnaissance ${APP_NAME} indisponible : Supabase n’est pas configuré.`);
     }
 
     const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample], { type: 'audio/wav' });
@@ -374,7 +375,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // AJOUT P0 (31/08/2026, demande Adel : "notre systeme devrait devenir de
     // plus en plus intelligent et retenir les musiques deja ecoutees" --
     // constate en reel avec un second compte/appareil qui redetectait trop
-    // lentement un morceau deja reconnu une premiere fois). La memoire KEEP
+    // lentement un morceau deja reconnu une premiere fois). La memoire Loki
     // (empreinte acoustique auto-alimentee a chaque reconnaissance reussie,
     // collective entre TOUS les utilisateurs) etait verifiee EN DERNIER, apres
     // AudD ET ACRCloud -- donc meme un morceau deja appris par le systeme
@@ -408,7 +409,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       }
       if (primaryRateLimited) recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
       // AudD/ACRCloud absents ou indisponibles ne deviennent jamais une erreur
-      // rouge utilisateur : KEEP continue d'écouter et le partage social reste actif.
+      // rouge utilisateur : Loki continue d'écouter et le partage social reste actif.
       return null;
     }
 

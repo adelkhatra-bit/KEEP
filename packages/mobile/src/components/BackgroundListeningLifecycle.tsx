@@ -5,14 +5,14 @@ import { useSessionStore } from '../store/useSessionStore';
 import { cancelAudioCapture } from '../services/micCapture';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from '../services/backgroundListeningService';
 
-const WEB_BACKGROUND_MESSAGE = 'KEEP Web est en pause pendant que Safari est en arrière-plan. L’écoute reprend automatiquement à ton retour. Pour TikTok / Instagram / Snapchat, utilise aussi Partager → KEEP ou le build natif KEEP.';
+const WEB_BACKGROUND_MESSAGE = 'Loki Web est en pause pendant que Safari est en arrière-plan. L’écoute reprend automatiquement à ton retour. Pour TikTok / Instagram / Snapchat, utilise aussi Partager → Loki ou le build natif Loki.';
 
 function notifyWebBackgroundPause() {
   if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
   if (Notification.permission !== 'granted') return;
   try {
-    new Notification('KEEP — écoute Web en pause', {
-      body: 'Safari suspend le microphone en arrière-plan. KEEP reprendra à ton retour ; Partager → KEEP reste disponible.',
+    new Notification('Loki — écoute Web en pause', {
+      body: 'Safari suspend le microphone en arrière-plan. Loki reprendra à ton retour ; Partager → Loki reste disponible.',
       tag: 'keep-web-listening-paused',
       silent: true,
     });
@@ -22,14 +22,14 @@ function notifyWebBackgroundPause() {
 }
 
 /**
- * Cycle global de l'écoute KEEP.
+ * Cycle global de l'écoute Loki.
  *
- * Android : démarre le foreground service microphone pendant que KEEP est
+ * Android : démarre le foreground service microphone pendant que Loki est
  * encore visible, conformément aux restrictions Android 14+.
  *
  * Web/Safari : un onglet Web ne peut pas garantir le microphone une fois mis
  * en arrière-plan. On ne simule donc jamais une écoute fictive : la capture en
- * cours est libérée proprement, la session KEEP reste active, puis la boucle
+ * cours est libérée proprement, la session Loki reste active, puis la boucle
  * reprend automatiquement quand la page redevient visible. Si l'utilisateur a
  * déjà autorisé les notifications Web, un rappel explicite est affiché.
  */

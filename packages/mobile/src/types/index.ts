@@ -50,7 +50,7 @@ export interface ExistingLibraryMatch {
   provider?: string;
 }
 
-/** Un morceau détecté pendant une session KEEP, avec sa décision GARDER/PASSER. */
+/** Un morceau détecté pendant une session Loki, avec sa décision GARDER/PASSER. */
 export interface SessionTrackEntry {
   id: string;
   track: CanonicalTrack;
@@ -62,17 +62,17 @@ export interface SessionTrackEntry {
   visibility?: KeepVisibility;
   /** Identifiant Supabase de la décision, présent dès qu'un vrai compte est synchronisé. */
   keepDecisionId?: string;
-  /** Attribution sociale : présent lorsque ce KEEP provient du profil d'un autre membre. */
+  /** Attribution sociale : présent lorsque ce morceau gardé provient du profil d'un autre membre. */
   sourceProfileId?: string;
   sourceUsername?: string;
   creditSource?: 'FREE' | 'SOCIAL';
   /**
    * Le morceau reste intégralement dans Mes Sessions (métadonnées + extrait distant)
-   * quand le quota gratuit est épuisé. Aucun audio n'est stocké par KEEP et aucune
+   * quand le quota gratuit est épuisé. Aucun audio n'est stocké par Loki et aucune
    * écriture vers le profil/playlist externe n'est effectuée tant qu'il est verrouillé.
    */
   creditLocked?: boolean;
-  /** Défini lorsque KEEP retrouve déjà le morceau dans une playlist connectée. */
+  /** Défini lorsque Loki retrouve déjà le morceau dans une playlist connectée. */
   existingMatch?: ExistingLibraryMatch;
 }
 
