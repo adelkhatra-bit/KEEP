@@ -1,0 +1,9 @@
+{
+  "name": "keep-background-listening",
+  "version": "1.0.0",
+  "description": "KEEP native Android foreground microphone service module.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "license": "UNLICENSED",
+  "private": true
+}
