@@ -214,8 +214,18 @@ export function prepareAudioCaptureFromUserGesture(): void {
 async function ensureWebStream(): Promise<MediaStream> {
   if (webStream && webStream.active) return webStream;
   try {
+    // autoGainControl reste desactive comme echoCancellation/noiseSuppression
+    // (retour utilisateur 31/08/2026 : animation/detection nettement moins
+    // sensibles sur mobile qu'ordinateur pour le meme son reel). L'AGC des
+    // micros telephone est generalement plus agressif que sur un micro
+    // laptop -- il comprime la dynamique du signal (aplati les variations
+    // fortes/faibles), ce qui reduit a la fois la reactivite visuelle de
+    // l'animation (basee sur le RMS reel) et la distinctivite acoustique
+    // dont un moteur d'empreinte (ACRCloud/AudD) a besoin. Meme raisonnement
+    // que pour les deux autres options : du son brut, pas du son "telephonie"
+    // deja retouche par le navigateur.
     webStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
   } catch (e: any) {
     if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') throw new MicPermissionDeniedError();
