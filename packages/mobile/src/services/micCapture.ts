@@ -12,7 +12,16 @@ const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
 const MAX_SAMPLE_DURATION_MS = 8000;
 const NATIVE_VISUAL_NOISE_FLOOR_DB = -52;
-const WEB_VISUAL_RMS_FLOOR = 0.008;
+// Retour utilisateur 31/08/2026 (apres desactivation d'autoGainControl) :
+// l'animation reste peu sensible specifiquement sur iPhone -- devrait bouger
+// des qu'un son est audible, pas seulement sur un son fort. Sans AGC, le
+// signal brut d'un micro telephone pour un son ambiant normal est
+// generalement plus bas qu'avec AGC (qui boostait artificiellement les sons
+// faibles) -- le seuil et la courbe, calibres a l'origine avec AGC actif,
+// sont restes inchanges alors que le signal d'entree a change. Seuil abaisse
+// et gain augmente pour compenser, a confirmer sur device reel (aucun moyen
+// de le verifier perceptuellement depuis cet environnement).
+const WEB_VISUAL_RMS_FLOOR = 0.004;
 
 function safeSampleDuration(durationMs?: number) {
   if (!Number.isFinite(durationMs)) return DEFAULT_SAMPLE_DURATION_MS;
@@ -324,8 +333,11 @@ async function captureStreamToWav(
       if (rms <= WEB_VISUAL_RMS_FLOOR) {
         onLevel(0);
       } else {
-        const normalized = Math.min(1, (rms - WEB_VISUAL_RMS_FLOOR) * 12);
-        onLevel(Math.min(1, Math.pow(normalized, 0.46) * 1.15));
+        // Gain double (12 -> 24) pour que l'animation reagisse a des sons
+        // ambiants normaux plutot que seulement a un son fort, cohérent avec
+        // le seuil abaisse ci-dessus.
+        const normalized = Math.min(1, (rms - WEB_VISUAL_RMS_FLOOR) * 24);
+        onLevel(Math.min(1, Math.pow(normalized, 0.4) * 1.2));
       }
     }
   };
