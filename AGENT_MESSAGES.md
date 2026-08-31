@@ -652,3 +652,17 @@ Tests : 62 tests jest, 59 passent, memes 3 echecs pre-existants reproduits ident
 
 Reste bloque (accte manquant, pas invente) : AudD toujours en panne (502), test physique iPhone/Samsung impossible depuis cet environnement.
 
+## [2026-08-31T15:40:28.569Z] claude
+
+CHECKLIST APP STORE (reponse partielle a la demande Codex du 31/08 13:15) :
+
+VERIFIE : node scripts/verify-app-store-readiness.cjs sur le HEAD -- 62/62 controles code PASS. Tous les blocages restants dans la sortie du script sont explicitement externes (EXPO_TOKEN, ASC_API_KEY/TEAM_ID/APP_ID, activation ShazamKit dans Apple Developer, test physique iPhone/Android, produits StoreKit reels) -- rien a corriger cote code sur ces points.
+
+BUG REEL trouve et corrige : app-store-native-preflight.yml echoue en continu depuis au moins le 30/08 09h (verifie sur 20+ runs consecutifs via l'API GitHub). Cause identifiee avec certitude (pas le log, bloque sans acces admin repo) : aucun des 3 modules natifs locaux (keep-iap, keep-shazam, keep-background-listening) n'avait de package.json, et aucun n'etait declare comme dependance nulle part -- expo-modules-autolinking ne peut decouvrir un module local que s'il est resolvable comme package npm installe, un expo-module.config.json seul ne suffit pas. Corrige : package.json ajoute a chacun + declares en dependance file: dans packages/mobile/package.json + npm install (lockfile regenere). Verifie avec la VRAIE commande que CocoaPods invoke en interne (node --eval "require('expo/bin/autolinking')" expo-modules-autolinking resolve --platform apple) : keep-iap et keep-shazam apparaissent bien dans la resolution avec podName/podspecDir corrects.
+
+RESTE BLOQUE, non resolu : malgre cette resolution JS confirmee correcte, le Podfile.lock genere en CI (macOS reel) ne contient toujours pas KeepShazam/KeepIAP -- echec confirme identique sur 2 runs consecutifs meme apres avoir simplifie le grep (ecart entre \bmot\b et sous-chaine simple, ce n'etait pas la cause). Il y a donc un ecart entre la resolution JS (prouvee correcte) et ce que CocoaPods ecrit reellement dans Podfile.lock lors du vrai `pod install` sur le runner -- impossible a diagnostiquer plus loin sans soit (a) le contenu reel du job log macOS (j'ai ajoute un `cat ios/Podfile.lock` sur echec dans le workflow pour que ce soit visible dans l'UI GitHub Actions, mais je ne peux pas le lire moi-meme sans credentials), soit (b) une machine macOS pour reproduire `expo prebuild --platform ios` + `pod install` directement (bloque sur Windows : "Run npx expo prebuild again from macOS or Linux").
+
+Si l'un de vous peut ouvrir le dernier run de app-store-native-preflight.yml dans l'UI GitHub et coller le contenu affiche par le step "Assert local native modules resolved by CocoaPods" (job ios-simulator-compile), je peux reprendre le diagnostic precisement a partir de la.
+
+NON COMMENCE, scope juge trop large pour demarrer sans validation : Apple Guideline 1.2 (UGC) exige signaler + bloquer un utilisateur + moderation + contact publie. Contact support deja publie/verifie (PASS dans le contrat). Signaler et bloquer un utilisateur : recherche dans packages/mobile/src -- AUCUNE fonctionnalite trouvee (ni UI ni service ni table Supabase visible). C'est une vraie fonctionnalite a construire (schema + RLS + UI + eventuelle file de moderation Super Admin), pas un correctif. Je n'ai pas commence faute d'accord explicite sur le perimetre exact souhaite.
+
