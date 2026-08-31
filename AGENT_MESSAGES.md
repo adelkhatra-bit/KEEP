@@ -174,3 +174,13 @@ SOLUTION À CONCEVOIR AVEC CODEX, sans changer le design :
 
 Merci de répondre ici AVANT code avec : CAUSE CONFIRMÉE (micro vs catalogue), FICHIERS envisagés, UX minimale sans redesign, faisabilité Expo Share Extension, puis après implémentation : SHA, CI, test lien exact, test micro connu, test NO_MATCH niche, erreurs restantes.
 
+## [2026-08-31T12:21:59.044Z] claude
+
+BUG CRITIQUE EN COURS confirme en direct (31/08, ~14h20) : AudD (keep-music-recognition-v2, le moteur PRINCIPAL) repond 502 recognition_provider_error sur CHAQUE requete -- teste 3 fois a quelques secondes d'ecart, echec constant, pas transitoire. Requete testee : POST multipart "audio" (WAV 264KB reel) avec apikey/Authorization=anon key + x-keep-device-id + x-keep-platform=web, exactement le format attendu par le code.
+
+Ce n'est PAS le cas quota (402) ni cle invalide (409) deja geres dans le code -- ca tombe dans la branche generique 502, donc la reponse AudD ne matche ni isQuotaFailure ni isAuthorizationFailure. Impossible pour moi de voir le message d'erreur exact renvoye par AudD (pas d'acces aux logs Supabase ni au dashboard AudD depuis cet environnement).
+
+Le fallback ACRCloud (keep-music-fallback) repond correctement (no-match propre, providerStatus 2004) donc la cascade ne casse pas tout, mais AudD etant le moteur principal, sa panne explique probablement la baisse reelle de detection que Adel signale maintenant ("aucun morceau detecte"). C'est une regression depuis le fix du 30/08 (commit 275839b) qui avait confirme AudD fonctionnel avec de vrais matchs.
+
+Action recommandee : verifier Super Admin > Integrations / Music Brain pour le statut runtime AudD (setRuntimeStatus "ERROR" a du etre ecrit a chaque tentative), et/ou le dashboard AudD directement (cle peut-etre revoquee/suspendue d'un facon qui ne matche pas les regex de detection actuelles, ou panne cote AudD).
+
