@@ -72,13 +72,15 @@ async function identify(req: Request) {
   }
   if (hashes.length < 20) return json(200, { ok: true, provider: "KEEP_MEMORY", recognition: null, reason: "signal_too_short" });
 
-  // Un seul aller-retour DB : toutes les valeurs de hash de l'échantillon en
-  // une requête, regroupement/vote fait ensuite en mémoire côté fonction.
+  // Un seul aller-retour DB via RPC (POST + corps JSON) plutôt qu'un filtre
+  // .in() classique : avec plusieurs milliers de valeurs de hash, .in()
+  // construit une URL GET de dizaines de milliers de caractères qui échoue
+  // silencieusement ("TypeError: error sending request", confirmé en
+  // production le 31/08/2026) -- le corps de requête RPC n'a pas cette
+  // limite.
   const hashValues = Array.from(new Set(hashes.map((h) => h.hash)));
   const { data: rows, error: lookupError } = await admin
-    .from("keep_fingerprint_hashes")
-    .select("hash, track_id, time_offset_ms")
-    .in("hash", hashValues.slice(0, 4000));
+    .rpc("service_lookup_fingerprint_hashes", { p_hashes: hashValues });
   if (lookupError) {
     console.error("[keep-music-memory] lookup query failed", JSON.stringify(lookupError));
     return json(200, { ok: true, provider: "KEEP_MEMORY", recognition: null, reason: "no_candidates" });
