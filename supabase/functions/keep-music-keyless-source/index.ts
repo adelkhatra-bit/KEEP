@@ -106,6 +106,23 @@ function extractExplicitMusic(html: string): { title: string; artist: string } |
   return { title, artist };
 }
 
+// BUG REEL trouve en test reel (31/08/2026, coordination Codex -- video YouTube
+// "STAR-MOTION – Move a Little Closer | 80's Funk") : une fois l'artiste et le
+// titre separes sur un tiret/tiret cadratin, un " | tag" residuel (genre,
+// annee, mention promo ajoutee par l'uploader) restait colle au titre extrait
+// et polluait le token-coverage contre le catalogue Apple/Deezer, faisant
+// tomber la confiance sous le seuil (0.36 au lieu de >0.68 mesure en direct)
+// alors que le morceau existe bien au catalogue. Un titre de morceau reel ne
+// contient quasiment jamais de "|" -- uniquement retire ICI (apres un split
+// sur tiret), jamais quand " | " est lui-meme le separateur artiste/titre
+// choisi (repli legitime pour les chaines qui publient "Artiste | Titre").
+function stripTrailingPipeTag(title: string): string {
+  const pipeIndex = title.indexOf(" | ");
+  if (pipeIndex <= 0) return title;
+  const head = title.slice(0, pipeIndex).trim();
+  return head.length >= 2 ? head : title;
+}
+
 function parseArtistTitle(text: string) {
   const clean = cleanMusicText(text);
   if (!clean) return null;
@@ -113,7 +130,9 @@ function parseArtistTitle(text: string) {
   if (by) return { title: by[1].trim(), artist: by[2].trim() };
   for (const sep of [" - ", " – ", " — ", " | "]) {
     const parts = clean.split(sep).map((part) => part.trim()).filter(Boolean);
-    if (parts.length >= 2 && parts[0].length <= 100 && parts[1].length <= 140) return { artist: parts[0], title: parts[1] };
+    if (parts.length >= 2 && parts[0].length <= 100 && parts[1].length <= 140) {
+      return { artist: parts[0], title: sep === " | " ? parts[1] : stripTrailingPipeTag(parts[1]) };
+    }
   }
   return null;
 }
