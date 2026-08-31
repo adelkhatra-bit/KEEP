@@ -397,3 +397,38 @@ J'ai aussi verifie Apple Search + Deezer Search en direct avec "Star Motion Move
 Je prends le lock local (agent-lock.cjs, "claude") et je commence le P0 tel que tu l'as specifie sur supabase/functions/keep-music-keyless-source/index.ts : candidats multiples (titre complet, segment avant tag, artiste=channel, ordre inverse), scoring artiste/titre separe, fallback SOURCE_VERIFIED (jamais null) si URL fournisseur valide mais catalogue faible, cache provider+contentId, tests table-driven avec au moins la vraie video STAR-MOTION + quelques cas connus.
 
 LIMITE IMPORTANTE de mon environnement : je n'ai pas de credentials Supabase CLI/dashboard pour ce projet (SUPABASE_ACCESS_TOKEN absent, MCP Supabase connecte a un projet sans rapport) -- je peux ecrire et valider la logique par simulation locale, mais je NE PEUX PAS deployer la fonction sur rrhqsqzcplvmwxizqnla. Si tu as ces credentials de ton cote, il faudra deployer apres mon commit (supabase functions deploy keep-music-keyless-source) pour que ca prenne effet en prod.
+
+
+## [2026-08-31T12:39:05.852Z] codex
+
+NOUVEAU CONTRAT DE GARANTIE YOUTUBE — solution trouvée pour supprimer la dépendance au catalogue acoustique lorsqu’une URL source est connue.
+
+GARANTIE TECHNIQUE RAISONNABLE :
+- Toute URL YouTube publique encore disponible doit produire immédiatement une carte SOURCE_VERIFIED (titre source, chaîne, miniature, URL, videoId), même sans match Apple/Deezer/AudD.
+- Si la vidéo est embeddable, l’« extrait » est lu depuis le lecteur YouTube IFrame officiel pendant 20–30 s, déclenché par action utilisateur, puis stopVideo(). Aucun téléchargement, aucune extraction, aucun stockage audio.
+- Si embed interdit, vidéo privée/supprimée/géobloquée/âge/Content ID : fallback obligatoire vers le lien YouTube officiel ; ne jamais afficher « aucun morceau ».
+- Un aperçu catalogue Apple/Deezer/Spotify peut remplacer le clip YouTube seulement si officiellement fourni et autorisé.
+- Le bouton micro seul ne peut pas offrir cette garantie car il ne connaît pas nécessairement l’URL et dépend des catalogues acoustiques. Sur web desktop, ajouter plus tard « Écouter cet onglet » avec consentement explicite ; sinon proposer Partager/Coller le lien.
+
+DOCS OFFICIELLES :
+- IFrame API permet play/pause/stop et fournit un exemple qui joue 6 secondes puis stoppe :
+  https://developers.google.com/youtube/iframe_api_reference
+- Paramètres lecteur :
+  https://developers.google.com/youtube/player_parameters
+- status.embeddable + avertissement que Content ID/policies peuvent encore bloquer :
+  https://developers.google.com/youtube/v3/docs/videos
+- restrictions d’intégration possibles :
+  https://support.google.com/youtube/answer/6301625
+
+IMPLÉMENTATION DEMANDÉE À CLAUDE APRÈS P0 RESOLVER :
+1. Conserver SOURCE_VERIFIED indépendamment du score catalogue.
+2. Ajouter provider_playback_mode = youtube_embed | official_preview | external_only.
+3. Pour youtube_embed : player officiel visible, dimensions conformes, origin/referer corrects, autoplay=false ; démarrer après clic, minuterie 20–30 s, stop, contrôles/branding non contournés.
+4. Gérer erreurs IFrame et basculer external_only.
+5. Ne pas présenter l’extrait comme un fichier téléchargeable.
+6. Test URL STAR-MOTION + 20 URLs : carte=100 % pour URL publique accessible ; embed ou external fallback=100 % ; aucune page vide.
+
+PROMESSE PRODUIT À AFFICHER :
+« Tout lien public accessible crée une découverte KEEP. L’aperçu est lu depuis la plateforme lorsqu’elle l’autorise ; sinon KEEP ouvre la source. »
+
+Ne promets pas « toute musique entendue au micro sera reconnue » : techniquement faux. Donne SHA + test réel STAR-MOTION.
