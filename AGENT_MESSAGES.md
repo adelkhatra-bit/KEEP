@@ -432,3 +432,44 @@ PROMESSE PRODUIT À AFFICHER :
 « Tout lien public accessible crée une découverte KEEP. L’aperçu est lu depuis la plateforme lorsqu’elle l’autorise ; sinon KEEP ouvre la source. »
 
 Ne promets pas « toute musique entendue au micro sera reconnue » : techniquement faux. Donne SHA + test réel STAR-MOTION.
+
+
+## [2026-08-31T12:40:26.717Z] codex
+
+UX ZÉRO COPIER/COLLER — l’utilisateur refuse que « partager/coller un lien » soit le parcours principal. Concevoir un bouton Écouter/KEEP Now Playing qui sélectionne automatiquement le meilleur connecteur.
+
+ORDRE DES CONNECTEURS :
+1. KEEP_PLAYER : si contenu joué dans un lecteur/embed KEEP, utiliser immédiatement provider+contentId.
+2. PROVIDER_NOW_PLAYING : pour compte connecté et API autorisée (ex. Spotify Currently Playing avec OAuth), récupérer le morceau en cours ; aucune analyse audio.
+3. BROWSER_ACTIVE_TAB : extension WebExtensions commune Chrome/Edge/Firefox + Safari Web Extension, permission activeTab seulement après clic. Lire URL+titre de l’onglet actif, jamais cookies/historique global. Envoyer au resolver SOURCE_VERIFIED.
+4. ANDROID_MEDIA_SESSION : avec consentement explicite/accès notification requis, lire les metadata de session média exposées par l’app ; fallback si fournisseur ne les expose pas. Vérifier conformité Play Store/privacy avant activation.
+5. WEB_TAB_AUDIO : getDisplayMedia avec geste utilisateur/consentement, analyse temporaire audio de l’onglet, arrêt immédiat.
+6. AMBIENT_MIC : ShazamKit/AudD/ACRCloud.
+7. MANUAL_SHARE/PASTE : secours uniquement, pas UX principale.
+
+LIMITES À AFFICHER HONNÊTEMENT :
+- iOS sandbox : KEEP ne peut pas lire silencieusement l’URL ou l’audio interne de l’app YouTube native. Aucune « faille » conforme ne garantit cela.
+- Safari iOS peut être couvert par Safari Web Extension après permission activeTab :
+  https://developer.apple.com/documentation/safariservices/safari-web-extensions
+  https://developer.apple.com/documentation/safariservices/managing-safari-web-extension-permissions
+- Spotify expose Currently Playing via Web API/OAuth :
+  https://developer.spotify.com/documentation/web-api
+- Android expose des sessions médias selon permissions et metadata publiées :
+  https://developer.android.com/reference/android/media/session/MediaSessionManager
+
+MEILLEURE UX MOBILE IOS :
+- ajouter un navigateur/lecteur de découverte officiel dans KEEP (YouTube IFrame, Spotify Embed, Apple Music preview) : quand l’utilisateur écoute à l’intérieur de KEEP, GARDER fonctionne instantanément sans reconnaissance ;
+- pour YouTube natif iOS, proposer une Action/Share Extension KEEP très courte en un tap, ou micro ambiant, mais ne pas prétendre à un accès invisible interdit par l’OS ;
+- étudier App Intent/Shortcut comme raccourci ergonomique, sans accès aux données d’une autre app.
+
+BOUTON UNIQUE :
+Écouter → détecte source automatiquement → affiche « Trouvé via Spotify », « Trouvé dans cet onglet », « Reconnu par ShazamKit », etc. L’utilisateur ne choisit pas la technique.
+
+CRITÈRES :
+- desktop navigateur YouTube : un clic KEEP, aucune copie/partage, carte source immédiate ;
+- Spotify connecté : morceau en cours immédiat ;
+- lecteur KEEP : immédiat ;
+- iOS YouTube natif : fallback explicite, jamais écran vide ;
+- permissions minimales et texte App Store clair.
+
+Prépare architecture/fichiers/risques App Store après P0, sans implémenter d’espionnage, Accessibility détournée, interception réseau, cookies ou DRM.
