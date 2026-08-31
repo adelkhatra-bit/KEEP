@@ -236,3 +236,74 @@ ACRCLOUD=PASS/FAIL
 CI
 ERREURS_RESTANTES
 
+
+
+## [2026-08-31T12:32:08.002Z] codex
+
+RECHERCHE DÉVELOPPEURS + CADRE CONFORME — suite au GO précédent. Objectif produit confirmé : KEEP ne fournit jamais une musique entière. KEEP identifie, affiche uniquement un extrait officiellement fourni/licencié, puis redirige l’utilisateur vers sa plateforme. Ne pas chercher de « faille » de sécurité ni déléguer à l’utilisateur un téléchargement interdit : si KEEP organise/facilite l’extraction, le risque reste côté produit.
+
+SOURCES TECHNIQUES/OFFICIELLES ÉTUDIÉES (11+) :
+1. Apple ShazamKit — catalogue Shazam + catalogues personnalisés : https://developer.apple.com/documentation/shazamkit
+2. Forums développeurs Apple/ShazamKit : https://developer.apple.com/forums/tags/shazamkit
+3. YouTube IFrame Player API — lecture intégrée officielle : https://developers.google.com/youtube/iframe_api_reference
+4. YouTube Developer Policies — interdit téléchargement/séparation de piste audio : https://developers.google.com/youtube/terms/developer-policies-guide
+5. Spotify Embeds : https://developer.spotify.com/documentation/embeds
+6. Spotify Developer Policy (widgets/extraits/streaming) : https://developer.spotify.com/policy
+7. Apple Music API Preview : https://developer.apple.com/documentation/applemusicapi/preview
+8. Deezer API/plugins + conditions : https://developers.deezer.com/ et https://developers.deezer.com/termsofuse
+9. MusicBrainz API/recherche : https://musicbrainz.org/doc/MusicBrainz_API
+10. AcoustID/Chromaprint : https://acoustid.org/ et https://github.com/acoustid/chromaprint
+11. Panako : https://github.com/JorenSix/Panako
+12. audfprint : https://github.com/dpwe/audfprint
+13. Olaf : https://github.com/JorenSix/Olaf
+14. W3C Screen Capture/getDisplayMedia : https://www.w3.org/TR/screen-capture/
+15. ACRCloud identification/custom content : https://docs.acrcloud.com/reference/identification-api
+16. AudD API : https://docs.audd.io/
+
+CONCLUSION : aucun service gratuit ne donne légalement le catalogue acoustique mondial. La meilleure couverture conforme est un WATERFALL MULTI-SOURCE, pas un contournement.
+
+P0 — exécute d’abord le correctif déjà autorisé :
+- corriger parseArtistTitle/cleanMusicText pour l’URL STAR-MOTION ;
+- générer plusieurs candidats plutôt qu’une seule chaîne destructive : titre complet nettoyé, segment avant « | », retrait tags Official/Lyrics/Remastered/genre/année/hashtags, channel comme candidat artiste, ordre artiste-titre et ordre inversé ;
+- scorer artiste et titre séparément ;
+- ne pas baisser le seuil global ;
+- si URL fournisseur valide mais catalogue faible : retourner SOURCE_VERIFIED (provider, contentId, titre source, chaîne, miniature, URL) au lieu de null ;
+- cache par provider+contentId ;
+- tests table-driven 20+ titres et réponse live de l’URL exacte.
+
+P1 — orchestrateur de reconnaissance :
+1. URL partagée/collée → resolveur source (zéro audio téléchargé).
+2. iOS audio ambiant → ShazamKit.
+3. Web desktop, consentement explicite → option « Écouter l’onglet » avec getDisplayMedia(audio) ; traiter en mémoire, arrêter immédiatement après fenêtre, ne rien conserver. Compatibilité à détecter, micro reste fallback.
+4. Micro/radio/autre appareil → AudD puis ACRCloud avec timeouts/circuit breaker et codes NO_AUDIO/NO_MATCH/PROVIDER_ERROR/QUOTA.
+5. AcoustID/Chromaprint seulement comme tentative complémentaire sur extrait propre/assez long ; pas moteur principal court/bruité.
+6. Panako/Olaf/audfprint uniquement pour un catalogue KEEP de contenus dont artiste/label confirme les droits.
+
+P1 — extraits et redirections conformes :
+- YouTube : IFrame/embed officiel ou deep-link ; jamais extraire/télécharger la piste.
+- Spotify : Embed officiel et/ou redirection ; preview_url est nullable/déprécié et ne doit pas être un service autonome.
+- Apple Music : utiliser l’objet Preview officiel lorsqu’il existe, sinon deep-link.
+- Deezer : plugin/preview uniquement selon leurs conditions, sinon deep-link.
+- pour chaque carte, stocker preview_source, preview_license_mode, provider_url, fetched_at ; si aucune preview autorisée, afficher métadonnées + bouton Ouvrir, sans audio.
+- aucune connexion Netflix/Spotify par QR bricolé, cookies ou jetons copiés ; uniquement OAuth/deep-link/SDK officiel.
+
+P2 — catalogue communautaire légal :
+- portail artiste/label : preuve/attestation de droits + fichier de référence autorisé ;
+- générer une empreinte Panako/Olaf/audfprint, stocker empreinte+metadata ; supprimer l’audio brut si aucune licence de conservation ;
+- modération/retrait/DMCA, audit de provenance, blocage de doublons ;
+- cela améliore réellement les titres niche, récents et IA que les catalogues mondiaux n’ont pas.
+
+P2 — qualité signal :
+- vérifier silence/niveau avant envoi, mono + fréquence uniforme + normalisation légère ;
+- fenêtres chevauchantes 8–12 s ;
+- télémétrie non sensible : source_type, signal_level, provider, latency, failure_code, jamais audio brut par défaut.
+
+CRITÈRES D’ACCEPTATION :
+- URL STAR-MOTION retourne SOURCE_VERIFIED ou meilleur, jamais null ;
+- 20 liens niche ≥ 95 % de cartes source exploitables ;
+- 10 titres catalogue connus : taux de reconnaissance mesuré par fournisseur ;
+- panne AudD : ACRCloud prend le relais et l’UI distingue PROVIDER_ERROR de NO_MATCH ;
+- chaque extrait possède une provenance officielle vérifiable ;
+- aucun téléchargement/extraction YouTube/Spotify et aucun cookie utilisateur transmis.
+
+RÉPONDS ICI avec : SHA, fichiers touchés, JSON STAR-MOTION, résultats 20 liens, état AudD/ACRCloud, puis propose l’ordre P1 sans redesign. Ne modifie pas le design ni Navigation.tsx.
