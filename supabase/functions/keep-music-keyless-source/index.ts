@@ -10,6 +10,36 @@ function seedInBackground(rec: unknown) {
   seedFingerprintInBackground(admin, rec as any);
 }
 
+async function integrationSecret(key: string): Promise<string> {
+  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
+  if (!error && typeof data === "string" && data.trim()) return data.trim();
+  return String(Deno.env.get(key) ?? "").trim();
+}
+
+// Lien de secours YouTube plus précis (31/08/2026) : par défaut on ne propose
+// qu'une page de résultats de recherche générique. Quand une clé YouTube
+// Data API est renseignée dans le Super Admin, on résout la vraie vidéo la
+// plus pertinente à la place -- l'API a un quota gratuit très bas (100
+// unités/jour), donc cet appel ne doit JAMAIS remplacer la reconnaissance
+// principale : il n'intervient que sur ce lien de secours déjà en repli, et
+// le cache en mémoire de ce fichier (resultCache) évite de re-consommer le
+// quota pour un même lien social déjà résolu.
+async function resolveYoutubeVideoLink(artist: string, title: string): Promise<string | null> {
+  const apiKey = await integrationSecret("YOUTUBE_API_KEY");
+  if (!apiKey) return null;
+  try {
+    const query = `${artist} ${title}`.trim();
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    const videoId = payload?.items?.[0]?.id?.videoId;
+    return typeof videoId === "string" && videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
+  } catch {
+    return null;
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-device-id",
@@ -425,14 +455,15 @@ function sourceVerifiedRecognition(input: { url: string; title: string; artist: 
   };
 }
 
-function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating?: CatalogTrack | null) {
+async function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating?: CatalogTrack | null) {
   const providerIds: Record<string, string> = {};
   const externalUrls: Record<string, string> = { source: sourceUrl };
   for (const item of [track, corroborating].filter(Boolean) as CatalogTrack[]) {
     if (item.source === "apple") { providerIds.appleMusic = item.id; if (item.externalUrl) externalUrls.appleMusic = item.externalUrl; }
     if (item.source === "deezer") { providerIds.deezer = item.id; if (item.externalUrl) externalUrls.deezer = item.externalUrl; }
   }
-  externalUrls.youtubeSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.title}`)}`;
+  const preciseYoutubeLink = await resolveYoutubeVideoLink(track.artist, track.title);
+  externalUrls.youtubeSearch = preciseYoutubeLink || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.title}`)}`;
   return {
     confidence: Math.max(0.55, Math.min(0.99, confidence)), title: track.title, artist: track.artist, album: track.album,
     artworkUrl: track.artworkUrl || corroborating?.artworkUrl, previewUrl: track.previewUrl || corroborating?.previewUrl,
@@ -466,7 +497,7 @@ Deno.serve(async (req) => {
       if (/^\d+$/.test(id)) {
         const exact = await appleLookup(id);
         if (exact) {
-          const rec = recognition(exact, 0.99, sourceUrl.toString());
+          const rec = await recognition(exact, 0.99, sourceUrl.toString());
           seedInBackground(rec);
           return json(200, { ok: true, provider: "KEYLESS_SOURCE", strategy: "apple-direct", recognition: rec, evidence: { direct: true, crossCatalogConfirmed: false } });
         }
@@ -478,7 +509,7 @@ Deno.serve(async (req) => {
       if (match?.[1]) {
         const exact = await deezerLookup(match[1]);
         if (exact) {
-          const rec = recognition(exact, 0.99, sourceUrl.toString());
+          const rec = await recognition(exact, 0.99, sourceUrl.toString());
           seedInBackground(rec);
           return json(200, { ok: true, provider: "KEYLESS_SOURCE", strategy: "deezer-direct", recognition: rec, evidence: { direct: true, crossCatalogConfirmed: false } });
         }
@@ -553,7 +584,7 @@ Deno.serve(async (req) => {
     const threshold = directMusicHost ? 0.58 : 0.68;
     if (confidence < threshold) return sourceVerifiedFallback();
 
-    const finalRecognition = recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
+    const finalRecognition = await recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
     seedInBackground(finalRecognition);
     return respond({
       ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",

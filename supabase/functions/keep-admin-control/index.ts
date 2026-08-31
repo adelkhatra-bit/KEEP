@@ -24,6 +24,7 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   SPOTIFY_CLIENT_SECRET: { category: "music", label: "Spotify Client Secret", secret: true },
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
   DEEZER_APP_SECRET: { category: "music", label: "Deezer App Secret", secret: true },
+  YOUTUBE_API_KEY: { category: "music", label: "YouTube Data API key (liens de secours précis)", secret: true },
   APPLE_MUSICKIT_TEAM_ID: { category: "music", label: "Apple MusicKit Team ID" },
   APPLE_MUSICKIT_KEY_ID: { category: "music", label: "Apple MusicKit Key ID" },
   APPLE_MUSICKIT_PRIVATE_KEY: { category: "music", label: "Apple MusicKit Private Key", secret: true },
