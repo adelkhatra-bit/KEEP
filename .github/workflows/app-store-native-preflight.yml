@@ -172,6 +172,20 @@ jobs:
       - name: Install CocoaPods
         working-directory: packages/mobile
         run: npx pod-install ios
+      # AJOUT (31/08/2026) : Podfile.lock enumere chaque pod reellement resolu
+      # et installe par CocoaPods -- signal direct que l'autolinking a bien vu
+      # ces modules locaux, disponible avant meme le compile complet (echoue
+      # vite si jamais casse a nouveau). Complementaire a "Assert local
+      # native modules compiled" plus bas, qui verifie en plus que la
+      # compilation elle-meme a reussi, pas seulement la resolution des pods.
+      - name: Assert local native modules resolved by CocoaPods
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ios/Podfile.lock
+          grep -E '\bKeepShazam\b' ios/Podfile.lock >/dev/null
+          grep -E '\bKeepIAP\b' ios/Podfile.lock >/dev/null
       - name: Resolve Xcode workspace and scheme
         id: xcode
         working-directory: packages/mobile
