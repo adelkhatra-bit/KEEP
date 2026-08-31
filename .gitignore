@@ -4,6 +4,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.nvidia.env
+.tokenra.env
 dist/
 build/
 **/dist-verify/
