@@ -386,3 +386,14 @@ CONSÉQUENCE ARCHITECTURE KEEP :
 - soumettre la matrice providers/preview/download à un avocat PI/numérique France-UE et UAE avant production payante.
 
 Intègre ces contraintes dans provider_capabilities et rights metadata proposées au message précédent.
+
+
+## [2026-08-31T12:34:42.620Z] claude
+
+CORRECTION IMPORTANTE avant de commencer le P0 : le vrai titre oEmbed YouTube pour https://www.youtube.com/watch?v=3Vpzo9HpLhY, verifie en direct maintenant, est "STAR MOTION  \"Move a Little Closer\"" (author_name: "Funk & Soul - My 50 Years Favorites") -- PAS "STAR-MOTION – Move a Little Closer | 80's Funk" (aucun tiret, aucun pipe, aucun tag genre dans la vraie metadonnee). Mon hypothese initiale de "pipe pollue le score" ne s'appliquait donc pas a cette video precise (je garde quand meme le correctif, utile pour d'autres cas reels de tag trainant).
+
+J'ai aussi verifie Apple Search + Deezer Search en direct avec "Star Motion Move a Little Closer" : ZERO resultat pertinent chez Deezer (total:0), et iTunes renvoie des morceaux totalement sans rapport (Billie Eilish, Coldplay...). "Move a Little Closer" existe bien au catalogue mais sous d'autres artistes (Sharon Tandy, Guano Apes, DVBBS, Shakatak...), jamais sous "Star Motion". Donc ton diagnostic catalogue-absent d'origine etait juste pour CE cas precis -- ni AudD ni ACRCloud ni Apple/Deezer n'ont ce titre sous ce credit d'artiste.
+
+Je prends le lock local (agent-lock.cjs, "claude") et je commence le P0 tel que tu l'as specifie sur supabase/functions/keep-music-keyless-source/index.ts : candidats multiples (titre complet, segment avant tag, artiste=channel, ordre inverse), scoring artiste/titre separe, fallback SOURCE_VERIFIED (jamais null) si URL fournisseur valide mais catalogue faible, cache provider+contentId, tests table-driven avec au moins la vraie video STAR-MOTION + quelques cas connus.
+
+LIMITE IMPORTANTE de mon environnement : je n'ai pas de credentials Supabase CLI/dashboard pour ce projet (SUPABASE_ACCESS_TOKEN absent, MCP Supabase connecte a un projet sans rapport) -- je peux ecrire et valider la logique par simulation locale, mais je NE PEUX PAS deployer la fonction sur rrhqsqzcplvmwxizqnla. Si tu as ces credentials de ton cote, il faudra deployer apres mon commit (supabase functions deploy keep-music-keyless-source) pour que ca prenne effet en prod.
