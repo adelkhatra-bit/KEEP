@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -13,6 +13,7 @@ import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/
 import { createAuthService } from '../services/authService';
 import { deleteOwnKeepAccount } from '../services/accountDeletionService';
 import { supabase } from '../services/supabaseClient';
+import { BlockedUserSummary, listBlockedUsers, unblockUser } from '../services/moderationService';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' },
@@ -40,6 +41,30 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
   const [signingOut, setSigningOut] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [blockedListOpen, setBlockedListOpen] = React.useState(false);
+  const [blockedUsers, setBlockedUsers] = React.useState<BlockedUserSummary[]>([]);
+  const [blockedLoading, setBlockedLoading] = React.useState(false);
+  const [unblockingId, setUnblockingId] = React.useState<string | null>(null);
+
+  const openBlockedList = async () => {
+    setBlockedListOpen(true);
+    setBlockedLoading(true);
+    setBlockedUsers(await listBlockedUsers());
+    setBlockedLoading(false);
+  };
+
+  const handleUnblock = async (id: string) => {
+    if (unblockingId) return;
+    setUnblockingId(id);
+    try {
+      await unblockUser(id);
+      setBlockedUsers((list) => list.filter((u) => u.id !== id));
+    } catch {
+      Alert.alert('Action impossible', 'Réessaie dans un instant.');
+    } finally {
+      setUnblockingId(null);
+    }
+  };
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
 
@@ -246,6 +271,11 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
         </View>
 
         <View style={s.section}>
+          <Text style={s.sectionTitle}>Confidentialité</Text>
+          <Action label="Comptes bloqués" onPress={() => void openBlockedList()} />
+        </View>
+
+        <View style={s.section}>
           <Text style={s.sectionTitle}>Compte</Text>
           <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données KEEP restent enregistrés.</Text>
           <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount} accessibilityRole="button" accessibilityLabel="Se déconnecter de KEEP">
@@ -259,6 +289,34 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal visible={blockedListOpen} transparent animationType="fade" onRequestClose={() => setBlockedListOpen(false)}>
+        <View style={s.blockedOverlay}>
+          <View style={s.blockedCard}>
+            <View style={s.blockedHead}>
+              <Text style={s.blockedTitle}>Comptes bloqués</Text>
+              <TouchableOpacity onPress={() => setBlockedListOpen(false)} hitSlop={8}><Text style={s.blockedClose}>✕</Text></TouchableOpacity>
+            </View>
+            {blockedLoading ? (
+              <ActivityIndicator color={colors.primaryLight} style={{ marginVertical: 20 }} />
+            ) : blockedUsers.length === 0 ? (
+              <Text style={s.help}>Aucun compte bloqué pour l’instant.</Text>
+            ) : (
+              <ScrollView style={s.blockedScroll}>
+                {blockedUsers.map((u) => (
+                  <View key={u.id} style={s.blockedRow}>
+                    {u.avatarUrl ? <Image source={{ uri: u.avatarUrl }} style={s.blockedAvatar} /> : <View style={[s.blockedAvatar, s.blockedAvatarFallback]}><Text style={s.blockedAvatarText}>K</Text></View>}
+                    <Text style={s.blockedUsername} numberOfLines={1}>@{u.username}</Text>
+                    <TouchableOpacity style={s.blockedUnblockButton} disabled={unblockingId === u.id} onPress={() => void handleUnblock(u.id)}>
+                      <Text style={s.blockedUnblockText}>{unblockingId === u.id ? '…' : 'Débloquer'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -273,6 +331,19 @@ const s = StyleSheet.create({
   headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
   content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
   label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
+  blockedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 22 },
+  blockedCard: { width: '100%', maxWidth: 380, maxHeight: '75%', borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: 14 },
+  blockedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  blockedTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
+  blockedClose: { color: colors.textMuted, fontSize: 16, fontWeight: '900', paddingHorizontal: 4 },
+  blockedScroll: { maxHeight: 340 },
+  blockedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderBottomWidth: 1, borderBottomColor: colors.border },
+  blockedAvatar: { width: 34, height: 34, borderRadius: 17 },
+  blockedAvatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  blockedAvatarText: { color: colors.primaryLight, fontSize: 13, fontWeight: '900' },
+  blockedUsername: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
+  blockedUnblockButton: { minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  blockedUnblockText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
   networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
   primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
   signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' }, deleteAccountButton: { minHeight: 44, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 11, fontWeight: '900', textAlign: 'center' },

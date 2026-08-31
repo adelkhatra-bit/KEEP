@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
@@ -18,6 +18,7 @@ import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { commitKeep } from '../services/keepTrackAction';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
+import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 
 type PublicKeepTrack = {
   id: string;
@@ -81,6 +82,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [followBusy, setFollowBusy] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [swipeOpen, setSwipeOpen] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [moderationMenuOpen, setModerationMenuOpen] = useState(false);
+  const [reportPickerOpen, setReportPickerOpen] = useState(false);
+  const [moderationBusy, setModerationBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +100,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         const result = await createProfileService(supabase).loadPublicProfileByUsername(username);
         if (cancelled) return;
         if (!result) { setError('Ce profil est privé ou introuvable.'); return; }
+        // AJOUT (31/08/2026, exigence Apple 1.2 UGC) : si l'un a bloque l'autre
+        // (dans n'importe quel sens), le contenu reste cache -- reutilise l'etat
+        // d'erreur existant, deja affiche a la place du contenu, sans nouvel ecran.
+        if (viewer && viewer.id !== result.id) {
+          const blocked = await isBlockedEitherWay(result.id).catch(() => false);
+          if (cancelled) return;
+          if (blocked) { setIsBlocked(true); setError('Ce profil est indisponible.'); return; }
+        }
         setProfile(result);
         setFollowerCount(result.followerCount);
 
@@ -245,6 +258,53 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setFollowBusy(false);
   };
 
+  const requireAccountForModeration = () => {
+    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour signaler ou bloquer un profil.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return false;
+    }
+    return true;
+  };
+
+  const handleToggleBlock = async () => {
+    if (!requireAccountForModeration() || !profile || moderationBusy) return;
+    setModerationMenuOpen(false);
+    setModerationBusy(true);
+    try {
+      if (isBlocked) {
+        await unblockUser(profile.id);
+        setIsBlocked(false);
+        Alert.alert('Débloqué', `@${profile.username} peut à nouveau apparaître pour toi.`);
+      } else {
+        await blockUser(profile.id);
+        setIsBlocked(true);
+        setIsFollowing(false);
+        Alert.alert('Bloqué', `@${profile.username} ne pourra plus interagir avec ton profil, et son contenu ne s’affichera plus pour toi.`);
+      }
+    } catch {
+      Alert.alert('Action impossible', 'Réessaie dans un instant.');
+    } finally {
+      setModerationBusy(false);
+    }
+  };
+
+  const handleReport = async (reason: ReportReason) => {
+    if (!profile || moderationBusy) return;
+    setReportPickerOpen(false);
+    setModerationBusy(true);
+    try {
+      await reportUser(profile.id, reason, undefined, { source: 'public_profile' });
+      Alert.alert('Signalement envoyé', 'Merci, notre équipe va l’examiner.');
+    } catch {
+      Alert.alert('Envoi impossible', 'Réessaie dans un instant.');
+    } finally {
+      setModerationBusy(false);
+    }
+  };
+
   const toggleLike = async (trackId: string) => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
       Alert.alert('Compte KEEP requis', 'Crée ou connecte ton compte KEEP pour liker ce morceau.', [
@@ -363,6 +423,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
           <View style={styles.topSpacer} />
+          {viewer?.id !== profile.id ? (
+            <TouchableOpacity style={styles.shareTopButton} onPress={() => setModerationMenuOpen(true)} accessibilityLabel="Signaler ou bloquer ce profil"><Text style={styles.shareTopText}>⋯</Text></TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.shareTopButton} onPress={() => void shareThisProfile()} accessibilityLabel="Partager ce profil"><Text style={styles.shareTopText}>↗</Text></TouchableOpacity>
         </View>
 
@@ -468,13 +531,45 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         onClose={() => setSwipeOpen(false)}
         onKeep={addCanonicalToMyKeep}
       />
+
+      <Modal visible={moderationMenuOpen} transparent animationType="fade" onRequestClose={() => setModerationMenuOpen(false)}>
+        <View style={styles.moderationOverlay}>
+          <View style={styles.moderationCard}>
+            <TouchableOpacity style={styles.moderationRow} onPress={() => { setModerationMenuOpen(false); setReportPickerOpen(true); }}>
+              <Text style={styles.moderationRowText}>Signaler ce profil</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.moderationRow} disabled={moderationBusy} onPress={() => void handleToggleBlock()}>
+              <Text style={[styles.moderationRowText, styles.moderationRowDanger]}>{isBlocked ? 'Débloquer ce profil' : 'Bloquer ce profil'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.moderationRow} onPress={() => setModerationMenuOpen(false)}>
+              <Text style={styles.moderationRowText}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={reportPickerOpen} transparent animationType="fade" onRequestClose={() => setReportPickerOpen(false)}>
+        <View style={styles.moderationOverlay}>
+          <View style={styles.moderationCard}>
+            <Text style={styles.moderationTitle}>Pourquoi signales-tu ce profil ?</Text>
+            {REPORT_REASONS.map((r) => (
+              <TouchableOpacity key={r.value} style={styles.moderationRow} disabled={moderationBusy} onPress={() => void handleReport(r.value)}>
+                <Text style={styles.moderationRowText}>{r.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.moderationRow} onPress={() => setReportPickerOpen(false)}>
+              <Text style={styles.moderationRowText}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},topSpacer:{flex:1},shareTopButton:{width:36,height:36,borderRadius:18,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},kindBadge:{minHeight:21,paddingHorizontal:7,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},
+  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},topSpacer:{flex:1},shareTopButton:{width:36,height:36,borderRadius:18,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:21,paddingHorizontal:7,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:8,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:68,height:68,borderRadius:34,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
   followButton:{minHeight:28,paddingHorizontal:10,borderRadius:14,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:'#173529',borderColor:'#38D990'},followButtonText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},followButtonTextActive:{color:'#FFFFFF'},swipePreview:{minHeight:28,paddingHorizontal:10,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},swipePreviewText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},
 
