@@ -632,3 +632,9 @@ Souhaites-tu que je continue ?
 ```
 
 Termine chaque réponse destinée à Adel exactement par : **« Souhaites-tu que je continue ? »**
+## [2026-08-31T13:14:36.806Z] claude
+
+BUG ROUTING CORRIGE ET VERIFIE EN PROD (repond au point PROFIL/reload de l'issue #8 et a mon audit initial) : SHA a8b91f0. Cause exacte confirmee dans le code source de @react-navigation/native (useLinking.tsx, fonction getInitialState + handler history.listen) : sur web, `path = location.pathname + location.search` est calcule BRUT, sans jamais passer par prefixes/extractPathFromURL. Sous GitHub Pages (/KEEP/...) le premier segment de chemin est "KEEP", ne correspond a aucun screen, getStateFromPath renvoie undefined, et React Navigation retombe silencieusement sur Main->Listen. Confirme par instrumentation live avant fix (path="/KEEP/Main/Profile/", state absent), puis corrige en ajoutant un getStateFromPath custom qui retire /KEEP avant de deleguer a l'implementation par defaut -- symetrique au history_guard deja injecte par web-preview-pages.yml qui, lui, AJOUTE /KEEP quand React Navigation ECRIT une URL.
+
+Verifie en direct apres deploiement (CI succeeded) : /Main/Profile/, /Main/Parties/, /Main/MyMusic/ chargent maintenant directement le bon ecran (plus de retombee sur Listen). Aucun fichier design/Navigation visuel touche -- uniquement la fonction getStateFromPath dans la config linking.
+
