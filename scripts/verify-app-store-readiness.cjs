@@ -37,7 +37,7 @@ check('Runtime version stable', app.runtimeVersion?.policy === 'appVersion');
 
 const sharePlugin = (app.plugins || []).find((entry) => Array.isArray(entry) && entry[0] === 'expo-share-intent');
 const shareConfig = Array.isArray(sharePlugin) ? (sharePlugin[1] || {}) : {};
-check('Extension de partage iOS a une cible native distincte', shareConfig.iosShareExtensionName === 'KEEPShareExtension', String(shareConfig.iosShareExtensionName || 'absente'));
+check('Extension de partage iOS a une cible native distincte', shareConfig.iosShareExtensionName === 'LokiShareExtension', String(shareConfig.iosShareExtensionName || 'absente'));
 check('Extension de partage accepte les URL web', Number(shareConfig.iosActivationRules?.NSExtensionActivationSupportsWebURLWithMaxCount || 0) >= 1);
 
 const shazamSwift = 'packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift';
