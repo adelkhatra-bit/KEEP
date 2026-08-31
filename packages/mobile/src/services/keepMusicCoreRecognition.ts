@@ -370,6 +370,26 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     if (Date.now() < recognitionBackoffUntil) return null;
 
     const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
+
+    // AJOUT P0 (31/08/2026, demande Adel : "notre systeme devrait devenir de
+    // plus en plus intelligent et retenir les musiques deja ecoutees" --
+    // constate en reel avec un second compte/appareil qui redetectait trop
+    // lentement un morceau deja reconnu une premiere fois). La memoire KEEP
+    // (empreinte acoustique auto-alimentee a chaque reconnaissance reussie,
+    // collective entre TOUS les utilisateurs) etait verifiee EN DERNIER, apres
+    // AudD ET ACRCloud -- donc meme un morceau deja appris par le systeme
+    // attendait deux allers-retours vers des fournisseurs externes (lents,
+    // et AudD est actuellement en panne serveur) avant d'etre retrouve.
+    // Verifiee ici en premier : auto-hebergee (pas de latence/quota externe),
+    // et seulement peuplee depuis des matchs deja confirmes avec confiance
+    // -- donc pas moins fiable, seulement plus rapide pour ce cas precis.
+    const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+    if (memory) {
+      recognitionBackoffUntil = 0;
+      fallbackUnavailableUntil = 0;
+      return memory;
+    }
+
     const primary = await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
     const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
     if (primary.ok && primary.payload?.recognition) {
@@ -381,11 +401,6 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // extrait le même aller-retour 409. On retente périodiquement pour que
     // l'activation future dans le Super Admin soit prise en compte sans reload.
     if (fallbackKnownUnavailable()) {
-      const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
-      if (memory) {
-        recognitionBackoffUntil = 0;
-        return memory;
-      }
       const keyless = await keylessSourceRecognition(accessToken);
       if (keyless) {
         recognitionBackoffUntil = 0;
@@ -405,15 +420,6 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       fallbackUnavailableUntil = 0;
       recognitionBackoffUntil = 0;
       return fallback.payload.recognition as RecognitionResult;
-    }
-
-    // Ni AudD ni ACRCloud : dernier recours avant le mode sans clé, la
-    // mémoire KEEP elle-même (même échantillon, pas de nouvelle capture).
-    const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
-    if (memory) {
-      fallbackUnavailableUntil = 0;
-      recognitionBackoffUntil = 0;
-      return memory;
     }
 
     const keyless = await keylessSourceRecognition(accessToken);
