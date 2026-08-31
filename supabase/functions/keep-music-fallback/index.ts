@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { seedInBackground } from "../_shared/fingerprintSeed.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -261,15 +262,19 @@ async function identify(req: Request) {
   if (statusCode !== 0) {
     // ACRCloud renvoie aussi un statut JSON pour un simple no-match. KEEP le
     // traite comme une absence de reconnaissance et non comme une page d'erreur.
+    console.log("keep-music-fallback diag", JSON.stringify({ statusCode, statusMsg: body?.status?.msg ?? null }));
     return json(200, { ok: true, provider: "ACRCloud", recognition: null, providerStatus: statusCode });
   }
 
   const music = Array.isArray(body?.metadata?.music) ? body.metadata.music[0] : null;
   const rawScore = Number(music?.score ?? 100);
+  console.log("keep-music-fallback diag", JSON.stringify({ statusCode, hasMusic: Boolean(music), rawScore, title: music?.title ?? null, artist: first(music?.artists)?.name ?? music?.artist ?? null, minAcrScore: MIN_ACR_SCORE }));
   if (music && Number.isFinite(rawScore) && rawScore < MIN_ACR_SCORE) {
     return json(200, { ok: true, provider: "ACRCloud", recognition: null, providerStatus: statusCode, lowConfidenceScore: rawScore });
   }
-  return json(200, { ok: true, provider: "ACRCloud", recognition: await normalizeAcrMusic(music) });
+  const acrRecognition = await normalizeAcrMusic(music);
+  if (acrRecognition) seedInBackground(admin, acrRecognition as any);
+  return json(200, { ok: true, provider: "ACRCloud", recognition: acrRecognition });
 }
 
 Deno.serve(async (req) => {

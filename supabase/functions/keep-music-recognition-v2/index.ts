@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { seedInBackground } from "../_shared/fingerprintSeed.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -207,6 +208,7 @@ async function recognize(req: Request) {
   if (!(audio instanceof File)) return json(400, { error: "audio_required" });
   if (audio.size < 1000) return json(400, { error: "audio_too_small" });
   if (audio.size > 6 * 1024 * 1024) return json(413, { error: "audio_too_large" });
+  console.log("keep-music-recognition-v2 diag", JSON.stringify({ audioSizeBytes: audio.size, audioType: audio.type, platform: req.headers.get("x-keep-platform") }));
 
   const form = new FormData();
   form.append("api_token", credential.token);
@@ -231,7 +233,9 @@ async function recognize(req: Request) {
   // la session de test. La majorité des "aucun résultat" viennent
   // d'AudD lui-même (empreinte non reconnue), pas d'un bug du pipeline --
   // limite réelle de la capture ambiante par micro, pas un problème de code.
-  // Retiré une fois la cause confirmée ; voir AGENT_MESSAGES.md pour le détail.
+  // Réactivé brièvement pour confirmer que ça tient toujours sur le nouveau
+  // round de tests du 30/08/2026 (ordinateur + téléphone).
+  console.log("keep-music-recognition-v2 diag", JSON.stringify({ ok: response.ok, status: payload?.status, hasResult: Boolean(payload?.result) }));
 
   if (!response.ok || payload?.status === "error") {
     if (isQuotaFailure(providerMessage, response.status)) {
@@ -248,6 +252,7 @@ async function recognize(req: Request) {
 
   await setRuntimeStatus("ACTIVE");
   const recognition = await normalizeResult(payload?.result);
+  if (recognition) seedInBackground(admin, recognition as any);
   return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition });
 }
 
