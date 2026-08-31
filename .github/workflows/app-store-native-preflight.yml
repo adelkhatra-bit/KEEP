@@ -184,8 +184,15 @@ jobs:
         run: |
           set -euo pipefail
           test -f ios/Podfile.lock
-          grep -E '\bKeepShazam\b' ios/Podfile.lock >/dev/null
-          grep -E '\bKeepIAP\b' ios/Podfile.lock >/dev/null
+          # `\b` (limite de mot) se comporte differemment selon l'implementation
+          # de grep du runner (BSD sur macOS vs GNU ailleurs) -- correspondance
+          # simple sur la sous-chaine, largement suffisante pour ces noms.
+          if ! grep -q 'KeepShazam' ios/Podfile.lock || ! grep -q 'KeepIAP' ios/Podfile.lock; then
+            echo "--- ios/Podfile.lock (pour diagnostic) ---"
+            cat ios/Podfile.lock
+            echo "--- fin Podfile.lock ---"
+            exit 1
+          fi
       - name: Resolve Xcode workspace and scheme
         id: xcode
         working-directory: packages/mobile
