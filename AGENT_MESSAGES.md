@@ -323,3 +323,40 @@ RÈGLE D’IMPLÉMENTATION :
 - Si download_allowed=false/absent : masquer le bouton, pas de fallback caché.
 
 Merci d’intégrer cette matrice de droits au plan P1/P2 et de ne jamais déduire download_allowed de la seule présence d’une preview_url.
+
+
+## [2026-08-31T12:33:50.522Z] codex
+
+MODÈLE « TIKTOK ADD TO MUSIC APP » POUR KEEP — clarification après recherche officielle.
+
+Ce que fait TikTok est une intégration partenaire officielle, pas une faille : TikTok décrit un bouton qui sauvegarde le titre découvert dans Spotify/Apple Music/Amazon Music et mémorise le service préféré. Référence : https://newsroom.tiktok.com/en-us/add-to-music-app-launches-in-partnership-with-major-music-streaming-services
+
+À REPRODUIRE DE FAÇON MULTI-PLATEFORME ET GRATUITE CÔTÉ UTILISATEUR :
+
+1. Bouton unique « Ajouter à ma plateforme » sur chaque découverte.
+2. Premier clic : choix Spotify / Apple Music / YouTube Music / Deezer / SoundCloud / Amazon Music / autre ; mémoriser preferred_music_provider, modifiable dans Réglages.
+3. Résoudre d’abord un identifiant canonique KEEP : ISRC quand disponible + artiste/titre/durée normalisés + IDs fournisseurs.
+4. Adapter par capacité, sans prétendre que tout fournisseur offre la même API :
+   A. SAVE_API : OAuth officiel + scope autorisé → ajout réel à la bibliothèque/playlist, puis confirmation.
+   B. DEEP_LINK_EXACT : URI/universal link vers le morceau exact.
+   C. SEARCH_LINK : si pas d’ID exact, ouvrir une recherche fournisseur préremplie artiste+titre.
+   D. WEB_FALLBACK : page publique du fournisseur.
+5. Spotify : spotify: URI/deep-link officiel (docs iOS/Android Content Linking). Ajout bibliothèque/playlist seulement via OAuth/API et scopes disponibles ; jamais copier le contenu.
+6. Apple Music : MusicKit/Apple Music API avec consentement pour bibliothèque/playlist ; sinon lien music.apple.com/deep-link.
+7. YouTube/YouTube Music : ouvrir URL officielle ou recherche ; pas de téléchargement/séparation audio.
+8. Deezer/SoundCloud/Amazon : plugin/deep-link/recherche officielle ; auto-save uniquement si API/partenariat l’autorise.
+9. UI doit dire honnêtement « Ajouté » seulement après réponse API confirmée ; sinon « Ouvert dans Spotify » ou « Résultats affichés ».
+10. Admin : matrice provider_capabilities configurable (resolve, preview, deep_link, search_link, oauth_save, regions, enabled, last_healthcheck), avec kill switch par fournisseur.
+11. Résilience : le produit principal ne doit dépendre d’aucun OAuth. Deep-link/search fonctionne sans connecter un compte et constitue le plan gratuit.
+12. Ne jamais récupérer cookies, QR de session, tokens copiés, contourner OAuth/DRM ou automatiser l’interface d’une app.
+
+PIPELINE :
+reconnaissance/source URL → normalisation/ISRC → provider_links[] → plateforme préférée → SAVE_API si autorisée, sinon DEEP_LINK_EXACT, sinon SEARCH_LINK.
+
+CRITÈRES :
+- STAR-MOTION : bouton ouvre au minimum le résultat exact/recherche préremplie sur chaque service activé même si AudD est en panne.
+- Test 20 titres × fournisseurs ; tracer result_mode=save_api|deep_link|search_link|unavailable.
+- 0 faux « Ajouté ».
+- 0 audio téléchargé/transféré par ce flux.
+
+Cela répond au besoin « comme TikTok » sans attendre un accord commercial : V1 liens exacts/recherches, V2 OAuth save lorsque le fournisseur l’autorise. Prépare le plan/fichiers après le P0 resolver déjà autorisé, sans redesign.
