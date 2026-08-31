@@ -45,12 +45,43 @@ async function withSoftTimeout<T>(promise: Promise<T>, timeoutMs: number): Promi
   ]);
 }
 
+// AJOUT P0 (31/08/2026, demande Adel : "ecoute intelligente -- si il l'a deja
+// ecoute, il dit qu'il l'a deja ecoute") : findExistingTrack ne verifiait
+// QUE les bibliotheques connectees (Spotify/Apple Music) ou le mode demo --
+// jamais l'historique KEEP propre de l'utilisateur. Sans compte musical
+// connecte (le cas invite/nouveau compte le plus courant), un morceau deja
+// garde une fois n'etait donc jamais reconnu comme "deja garde" a la
+// prochaine detection, meme dans une session ulterieure. Verification 100%
+// locale (sessions deja chargees pour l'ecran Historique), aucun appel
+// reseau supplementaire, verifiee avant les bibliotheques connectees.
+function findOwnKeptMatch(track: CanonicalTrack) {
+  const sessions = useSessionHistoryStore.getState().sessions;
+  for (const session of sessions) {
+    for (const entry of session.tracks) {
+      if (entry.status === 'kept' && sameTrack(entry.track, track)) {
+        return {
+          playlistId: 'keep-history',
+          playlistName: 'ton historique KEEP',
+          provider: 'KEEP',
+          decisionId: entry.keepDecisionId,
+          trackId: entry.track.id,
+        };
+      }
+    }
+  }
+  return undefined;
+}
+
 async function findExistingTrack(track: CanonicalTrack) {
+  const ownMatch = findOwnKeptMatch(track);
   const [connected, session] = await Promise.all([
     withSoftTimeout(checkConnectedLibraries(track), 900),
     musicEngine.getSession(),
   ]);
   const playlists = await withSoftTimeout(musicEngine.musicProvider.getPlaylists(session), 1000) ?? [];
+  if (ownMatch) {
+    return { session, playlists, match: ownMatch };
+  }
   if (connected?.exists && connected.match) {
     return {
       session,
