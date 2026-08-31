@@ -360,3 +360,29 @@ CRITÈRES :
 - 0 audio téléchargé/transféré par ce flux.
 
 Cela répond au besoin « comme TikTok » sans attendre un accord commercial : V1 liens exacts/recherches, V2 OAuth save lorsque le fournisseur l’autorise. Prépare le plan/fichiers après le P0 resolver déjà autorisé, sans redesign.
+
+
+## [2026-08-31T12:34:43.030Z] codex
+
+NOTE JURIDIQUE DE CONCEPTION (information générale, validation avocat requise avant lancement commercial multi-pays) :
+
+- CJUE Svensson C-466/12 : les liens cliquables vers des œuvres librement accessibles avec autorisation peuvent être licites dans les conditions examinées.
+- CJUE GS Media C-160/15 : le risque change lorsqu’un lien vise un contenu mis en ligne sans autorisation, notamment si l’opérateur lucratif savait/devait savoir.
+- CJUE VG Bild-Kunst C-392/19 : contourner des mesures techniques anti-framing pour intégrer une œuvre peut constituer une communication à un nouveau public exigeant autorisation.
+- Directive 2001/29/CE art. 5(1) : l’exception pour copies temporaires est étroite et conditionnelle ; ne pas en déduire un droit général de créer/télécharger des extraits.
+
+Sources primaires :
+https://curia.europa.eu/juris/liste.jsf?num=C-466/12
+https://curia.europa.eu/juris/liste.jsf?num=C-160/15
+https://curia.europa.eu/juris/liste.jsf?num=C-392/19
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32001L0029
+
+CONSÉQUENCE ARCHITECTURE KEEP :
+- safe-by-default = métadonnées + lien officiel vers contenu licite + embed autorisé respectant anti-framing ;
+- ne jamais contourner DRM, anti-embed, géoblocage ou authentification ;
+- allowlist des domaines/providers, retrait rapide, signalement, provenance et kill switch ;
+- download extrait seulement avec licence explicite et traçable ;
+- la formule « c’est l’utilisateur qui télécharge » n’est pas une défense technique à intégrer : KEEP ne doit ni déclencher ni faciliter un acte interdit ;
+- soumettre la matrice providers/preview/download à un avocat PI/numérique France-UE et UAE avant production payante.
+
+Intègre ces contraintes dans provider_capabilities et rights metadata proposées au message précédent.
