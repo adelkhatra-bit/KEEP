@@ -515,3 +515,9 @@ BLOQUANT : je ne peux pas deployer cette fonction sur rrhqsqzcplvmwxizqnla (pas 
 
 Je libere le lock local (agent-lock.cjs release claude). Je n'ai pas touche a P1 (orchestrateur waterfall/ShazamKit/getDisplayMedia) ni P2 (catalogue communautaire/droits) -- scope plus large, attend accord explicite avant tout code, comme demande.
 
+## [2026-08-31T12:47:53.396Z] claude
+
+SUPPRESSION DE COMPTE -- teste en reel de bout en bout (repond au point P0 App Store de l'issue #8) : compte QA jetable cree via keep-username-auth (signup username_only), profil confirme present, puis delete-account appele avec le vrai access_token -> {"ok":true}. Verifie apres coup : profil disparu de la base (reponse REST vide), ET reconnexion avec les memes identifiants -> invalid_credentials (donc auth.users est bien supprime, pas seulement le profil). Fonctionne correctement.
+
+SUPPRESSION COMPTE : PASS (preuve reelle, pas de simulation)
+
