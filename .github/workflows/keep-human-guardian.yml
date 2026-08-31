@@ -1,0 +1,184 @@
+name: KEEP — Human Guardian
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'packages/admin/**'
+      - 'supabase/functions/keep-admin-control/**'
+      - 'scripts/verify-source-of-truth.cjs'
+      - '.github/workflows/keep-human-guardian.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '23 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  human-guardian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Canonical source-of-truth
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Typecheck all workspaces
+        run: npm run type-check
+      - name: Unit tests
+        run: npm test -- --runInBand
+      - name: Build Super Admin
+        run: npm --workspace packages/admin run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start exact KEEP runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-guardian-runtime.log 2>&1 &
+          echo $! >/tmp/keep-guardian-runtime.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-guardian-runtime.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keep-guardian-runtime.log
+          exit 1
+      - name: Human-style mobile loop 390x844
+        run: |
+          mkdir -p artifacts/human-guardian
+          cat > keep-human-guardian.cjs <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          (async()=>{
+            const browser = await chromium.launch({ headless:true });
+            const context = await browser.newContext({
+              viewport:{width:390,height:844},
+              deviceScaleFactor:1,
+              geolocation:{latitude:45.764,longitude:4.8357},
+            });
+            await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
+            const page = await context.newPage();
+            const errors=[];
+            page.on('pageerror',e=>errors.push(`PAGE: ${String(e)}`));
+            page.on('console',m=>{ if(m.type()==='error') errors.push(`CONSOLE: ${m.text()}`); });
+            page.on('dialog',async d=>d.accept().catch(()=>{}));
+            const t=(v,o={})=>page.getByText(v,o).last();
+            const shot=async n=>page.screenshot({path:`artifacts/human-guardian/${n}.png`,fullPage:true});
+            const inViewport=async(loc,label)=>{ await loc.waitFor({state:'visible',timeout:15000}); const b=await loc.boundingBox(); if(!b||b.y<0||b.y+b.height>844) throw new Error(`${label} outside viewport ${JSON.stringify(b)}`); };
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
+            await t('ESSAYER GRATUITEMENT',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await t('ESSAYER GRATUITEMENT',{exact:true}).click();
+            for(const x of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
+            await shot('01-listen-idle');
+
+            const start=page.getByLabel('Démarrer une écoute').last();
+            await inViewport(start,'Listen start');
+            await start.click();
+            await t(/MICRO · (?:ANALYSE|ACTIF)/i).waitFor({state:'visible',timeout:15000});
+            await inViewport(t(/Partager/i),'Listen share');
+            const end=t(/Terminer la session|Arrêter|End session/i);
+            await inViewport(end,'Listen stop');
+            await shot('02-listen-active');
+            await end.click();
+            await start.waitFor({state:'visible',timeout:15000});
+
+            // Découvertes : aucun profil ne doit apparaître à l'ouverture.
+            // L'utilisateur doit d'abord choisir sa distance puis appuyer sur
+            // RECHERCHER. Cette assertion empêche le retour d'un profil par
+            // défaut qui consommerait aussi une découverte Free sans action.
+            await t('Découvertes',{exact:true}).click();
+            await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await t('Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.',{exact:true}).waitFor({state:'visible',timeout:15000});
+            if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
+            if(await page.getByLabel('Passer ce profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed Pass before search');
+            if(await page.getByLabel('Suivre ce profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed Follow before search');
+            await shot('03-discover-before-search-empty');
+
+            // Vrai geste utilisateur : choisir le rayon, rechercher, attendre le
+            // résultat, puis garantir que les actions restent utilisables.
+            await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
+            const world=page.getByLabel('Rayon Monde').last();
+            await world.waitFor({state:'visible',timeout:15000});
+            await world.click();
+            // Le changement de distance doit lui aussi vider les anciens
+            // résultats jusqu'au prochain clic sur RECHERCHER.
+            if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover kept a stale profile after radius change');
+            const search=page.getByLabel('Rechercher des profils autour de moi').last();
+            await inViewport(search,'Discover search');
+            await search.click();
+            const seeProfile=page.getByLabel('Voir le profil').last();
+            await seeProfile.waitFor({state:'visible',timeout:15000});
+            await inViewport(page.getByLabel('Passer ce profil').last(),'Discover pass');
+            await inViewport(seeProfile,'Discover profile');
+            await inViewport(page.getByLabel('Suivre ce profil').last(),'Discover follow');
+            const discoverBody=await page.locator('body').innerText();
+            if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
+            await shot('04-discover-after-search');
+
+            await t('Playlists',{exact:true}).click();
+            await page.waitForTimeout(300);
+            await shot('05-playlists');
+
+            await t('Soirées',{exact:true}).click();
+            await page.waitForTimeout(300);
+            await t(/Creator Pro|Venue Pro|CRÉER|ILLIMITÉ|abonnés/i).waitFor({state:'visible',timeout:15000});
+            await shot('06-parties');
+
+            await t('Profil',{exact:true}).click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await t('PARTAGER',{exact:true}).waitFor({state:'visible',timeout:15000});
+            if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
+            await page.getByLabel('Notifications').last().waitFor({state:'visible',timeout:15000});
+            await shot('07-profile');
+
+            const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+            if(dims.scrollWidth>dims.width+1) throw new Error(`Horizontal overflow ${JSON.stringify(dims)}`);
+            const pageErrors=errors.filter(x=>x.startsWith('PAGE:'));
+            if(pageErrors.length) throw new Error(pageErrors.join('\n'));
+            fs.writeFileSync('artifacts/human-guardian/report.txt',[
+              'KEEP HUMAN GUARDIAN: PASS',
+              'Viewport 390x844: PASS',
+              'Five tabs: PASS',
+              'Listen start/stop/share: PASS',
+              'Discover default profile before search: ABSENT',
+              'Discover radius change clears stale result: PASS',
+              'Discover distance then explicit search: PASS',
+              'Discover GPS permission simulation: PASS',
+              'Discover real profile loaded only after search: PASS',
+              'Discover Pass / Voir profil / Suivre without swipe-up: PASS',
+              'Playlists reachable: PASS',
+              'Parties entitlement UI reachable: PASS',
+              'Own profile menu/share/no self-follow: PASS',
+              'No horizontal overflow: PASS',
+              `Console/page messages captured: ${errors.length}`
+            ].join('\n'));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node keep-human-guardian.cjs
+      - name: Show runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-guardian-runtime.log || true
+      - name: Upload human audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-human-guardian-${{ github.run_id }}
+          path: artifacts/human-guardian
+          if-no-files-found: ignore

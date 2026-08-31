@@ -1,0 +1,79 @@
+name: KEEP Battle Offers System Patch
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - scripts/one_time_battle_offers_system.py
+      - scripts/one_time_battle_offers_trigger.txt
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply Battle and offers patch
+        run: |
+          python3 scripts/one_time_battle_offers_system.py
+          sed -i 's/loadBattleFreeCreditStatus/loadMyKeepBattleCreditStatus/g' packages/mobile/src/screens/OffersScreen.tsx
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - name: Canonical source-of-truth
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Typecheck mobile
+        run: npm run type-check --workspace=packages/mobile
+      - name: Test mobile
+        run: npm test --workspace=packages/mobile -- --runInBand
+      - name: Verify system contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          offers = Path('packages/mobile/src/screens/OffersScreen.tsx').read_text()
+          sessions = Path('packages/mobile/src/screens/SessionHistoryScreen.tsx').read_text()
+          service = Path('packages/mobile/src/services/keepBattleService.ts').read_text()
+          arena = Path('packages/mobile/src/components/KeepBattleArenaPanel.tsx').read_text()
+          parties = Path('packages/mobile/src/screens/PartiesScreen.tsx').read_text()
+          required = [
+            (offers, 'Tes Free disponibles'),
+            (offers, 'loadMyKeepBattleCreditStatus'),
+            (offers, 'freeBalanceLabel'),
+            (sessions, '`Free · ${status.remaining}`'),
+            (service, "functions.invoke('keep-battle-catalog-refresh'"),
+            (arena, 'refreshKeepBattleCatalog(24)'),
+            (parties, 'Ouvrir le Salon KEEP Battle'),
+            (parties, '<KeepBattleArenaPanel'),
+            (parties, 'aucune bibliothèque personnelle requise'),
+          ]
+          missing = [needle for haystack, needle in required if needle not in haystack]
+          if missing:
+            raise SystemExit('Missing Battle/Free system contract: ' + repr(missing))
+          if 'const freeTotal = useMemo' in offers:
+            raise SystemExit('Offers still exposes theoretical Free total as current balance')
+          PY
+      - name: Commit verified source
+        run: |
+          git config user.name "KEEP QA Bot"
+          git config user.email "keep-qa-bot@users.noreply.github.com"
+          git add packages/mobile/src/screens/OffersScreen.tsx packages/mobile/src/screens/SessionHistoryScreen.tsx packages/mobile/src/services/keepBattleService.ts packages/mobile/src/components/KeepBattleArenaPanel.tsx packages/mobile/src/screens/PartiesScreen.tsx
+          if git diff --cached --quiet; then
+            echo "No source changes"
+            exit 0
+          fi
+          git commit -m "feat(battle): open Salon and use real Free balance"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825

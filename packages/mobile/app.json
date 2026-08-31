@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "KEEP",
+    "name": "Loki",
     "slug": "keep",
     "owner": "saleme01s-team",
     "version": "1.0.0",
@@ -15,13 +15,15 @@
       "**/*"
     ],
     "ios": {
-      "supportsTabletMode": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.adelkhatra.keep",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "KEEP uses your microphone during a session to identify the songs playing around you.",
-        "NSLocationWhenInUseUsageDescription": "KEEP can attach an approximate location to a session and show nearby profiles/events in Discover — only if you turn this on in your profile.",
-        "NSLocalNetworkUsageDescription": "KEEP needs local network access",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSMicrophoneUsageDescription": "Loki utilise le microphone uniquement pendant une session d’écoute afin d’identifier les morceaux diffusés autour de vous.",
+        "NSLocationWhenInUseUsageDescription": "Avec votre accord, Loki utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -32,6 +34,9 @@
       "package": "com.adelkhatra.keep",
       "permissions": [
         "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ]
@@ -49,17 +54,33 @@
         }
       ],
       [
+        "expo-share-intent",
+        {
+          "iosShareExtensionName": "LokiShareExtension",
+          "iosHideView": true,
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
+            "NSExtensionActivationSupportsText": true
+          },
+          "androidIntentFilters": [
+            "text/*"
+          ]
+        }
+      ],
+      [
         "expo-image-picker",
         {
-          "photosPermission": "Allow KEEP to access your photos"
+          "photosPermission": "Loki peut accéder à vos photos uniquement lorsque vous choisissez une photo de profil."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "KEEP can attach an approximate location to a session and show nearby profiles/events in Discover — only if you turn this on in your profile."
+          "locationWhenInUsePermission": "Avec votre accord, Loki utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement."
         }
       ],
+      "expo-notifications",
       "expo-localization",
       "expo-secure-store"
     ],

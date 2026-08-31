@@ -1,0 +1,41 @@
+name: KEEP Push direct Supabase repair
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_keep_push_direct_supabase.py'
+      - '.github/workflows/keep-push-direct-supabase-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply direct Supabase push registration
+        run: python3 scripts/patch_keep_push_direct_supabase.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify mobile push contract
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand pushNotificationService.directSupabase.test.ts BattleNotificationActions.contract.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/src/services/pushNotificationService.ts packages/mobile/src/services/__tests__/pushNotificationService.directSupabase.test.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(push): register devices directly in Supabase"
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825

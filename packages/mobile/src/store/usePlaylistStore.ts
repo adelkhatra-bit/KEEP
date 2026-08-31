@@ -3,9 +3,14 @@ import { ProviderPlaylist } from '@keep/music';
 import { musicEngine } from '../services/musicEngine';
 
 /**
- * Les playlists affichées viennent TOUJOURS de musicEngine.musicProvider
- * (source unique — cf. règle "une donnée créée une seule fois puis
- * réutilisée partout"). Aucune liste mock parallèle ici.
+ * Source des playlists du fournisseur musical connecté.
+ *
+ * Les Vibes intelligentes Loki sont gérées séparément par les écrans qui les
+ * affichent (`MyMusicScreen` et `ProfilePublicScreen`) via `smartAlbumService`.
+ * Les injecter aussi ici créait exactement le même smart album deux fois :
+ * une fois via ce store, puis une seconde fois via `smartAlbums` dans l'écran.
+ * Résultat visible : Vibes/Albums mélangés et listes qui semblaient rester
+ * affichées après un changement d'onglet.
  */
 interface PlaylistStore {
   playlists: ProviderPlaylist[];
@@ -18,8 +23,12 @@ export const usePlaylistStore = create<PlaylistStore>((set) => ({
   isLoading: false,
   refresh: async () => {
     set({ isLoading: true });
-    const session = await musicEngine.getSession();
-    const playlists = await musicEngine.musicProvider.getPlaylists(session);
-    set({ playlists, isLoading: false });
+    try {
+      const session = await musicEngine.getSession();
+      const providerPlaylists = await musicEngine.musicProvider.getPlaylists(session).catch(() => [] as ProviderPlaylist[]);
+      set({ playlists: providerPlaylists, isLoading: false });
+    } catch {
+      set({ playlists: [], isLoading: false });
+    }
   },
 }));

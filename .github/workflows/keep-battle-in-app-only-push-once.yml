@@ -1,0 +1,48 @@
+name: KEEP Battle in-app-only invitation cleanup
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'scripts/patch_keep_battle_in_app_only_push.py'
+      - '.github/workflows/keep-battle-in-app-only-push-once.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-battle-in-app-only-push
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sync branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply in-app-only Battle notification cleanup
+        run: python scripts/patch_keep_battle_in_app_only_push.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify
+        run: |
+          ! grep -Fq "categoryId: BATTLE_CATEGORY" packages/backend/src/lib/pushNotifications.ts
+          ! grep -Fq "const BATTLE_CATEGORY = 'KEEP_BATTLE_CHALLENGE'" packages/backend/src/lib/pushNotifications.ts
+          grep -Fq "souhaite faire un Battle avec vous. Acceptez-vous ?" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          npm --prefix packages/backend run build
+          npm --prefix packages/mobile test -- --runInBand BattleNotificationActions.contract.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/backend/src/lib/pushNotifications.ts packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts
+          git commit -m 'fix(battle): keep challenge invitation in app only'
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825

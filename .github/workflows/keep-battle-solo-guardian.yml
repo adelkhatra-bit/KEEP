@@ -1,0 +1,108 @@
+name: KEEP — Battle Solo Guardian
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/components/KeepBattleArenaPanel.tsx'
+      - 'packages/mobile/src/services/keepBattleExperienceService.ts'
+      - '.github/workflows/keep-battle-solo-guardian.yml'
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/components/KeepBattleArenaPanel.tsx'
+      - 'packages/mobile/src/services/keepBattleExperienceService.ts'
+      - '.github/workflows/keep-battle-solo-guardian.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  battle-solo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck mobile
+        run: npm run type-check --workspace packages/mobile
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start KEEP Web runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-battle-solo.log 2>&1 &
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-battle-solo.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keep-battle-solo.log
+          exit 1
+      - name: Test Jouer maintenant solo at 390x844
+        run: |
+          cat > battle-solo.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', e => errors.push(String(e)));
+            page.on('dialog', async d => d.accept().catch(() => {}));
+            await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            const tryFree = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
+            if (await tryFree.isVisible().catch(() => false)) await tryFree.click();
+            await page.getByText('Soirées', { exact: true }).last().click();
+            const openSalon = page.getByLabel('Ouvrir le Salon KEEP Battle').last();
+            await openSalon.waitFor({ state: 'visible', timeout: 15000 });
+            await openSalon.click();
+            await page.getByText('KEEP BATTLE · SALONS UTILISATEURS', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            const playNow = page.getByText('⚡ JOUER MAINTENANT', { exact: true }).last();
+            await playNow.waitFor({ state: 'visible', timeout: 15000 });
+            await playNow.click();
+            await page.getByText('KEEP BATTLE · SOLO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+            await page.getByText('PARTAGER', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText(/MORCEAU 1\//).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('Écoute. Qui est l’artiste ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            const candidate = page.locator('div[role="button"]').filter({ hasText: /.+/ });
+            const count = await candidate.count();
+            let answered = false;
+            for (let i = 0; i < count; i++) {
+              const el = candidate.nth(i);
+              const box = await el.boundingBox().catch(() => null);
+              const text = (await el.innerText().catch(() => '')).trim();
+              if (box && box.height >= 40 && box.width > 100 && text && !/PARTAGER|MORCEAU|RETOUR|SOLO|SCORE|JOUER|SON/i.test(text)) {
+                await el.click();
+                answered = true;
+                break;
+              }
+            }
+            if (!answered) throw new Error('Could not click a solo answer choice');
+            await page.getByText(/BONNE RÉPONSE|RÉPONSE :/).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('MORCEAU SUIVANT', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            const dims = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+            if (dims.scrollWidth > dims.width + 1) throw new Error(`Battle solo overflow: ${JSON.stringify(dims)}`);
+            if (errors.length) throw new Error(`Page errors: ${errors.join('\n')}`);
+            await browser.close();
+            console.log('BATTLE SOLO 390x844 OK: play-now, round, answer, next, share visible, no manual code');
+          })().catch(e => { console.error(e); process.exit(1); });
+          JS
+          node battle-solo.cjs
+      - name: Runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-battle-solo.log || true

@@ -1,0 +1,50 @@
+name: KEEP Battle synchronized invite style hotfix
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/keep-battle-sync-invite-style-hotfix-once.yml'
+      - 'scripts/patch_keep_battle_sync_style.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-battle-sync-style-hotfix
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync latest branch
+        run: git pull --rebase origin reconcile/claude-main-20260825
+      - name: Apply Battle patch
+        run: python scripts/patch_keep_battle_sync_style.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Battle contracts
+        run: |
+          grep -Fq 'scheduleTrackPreviewSegment' packages/mobile/src/services/audioPreviewService.ts
+          grep -Fq 'STYLE DU MATCH' packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          grep -Fq 'Style proposé :' packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          grep -Fq "incoming[0] ? 'PAUSE'" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          grep -Fq 'await sendBattleChallenge(player.profileId, themeCode)' packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          npm --prefix packages/mobile run type-check
+          npm --prefix packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts
+      - name: Commit hotfix
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/services/audioPreviewService.ts packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          git commit -m 'fix(battle): synchronize invites audio and match style'
+          git pull --rebase origin reconcile/claude-main-20260825
+          git push origin HEAD:reconcile/claude-main-20260825

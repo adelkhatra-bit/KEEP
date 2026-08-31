@@ -24,16 +24,14 @@
       "channel": "production",
       "autoIncrement": true,
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "image": "sdk-54"
       }
     }
   },
   "submit": {
     "production": {
-      "ios": {
-        "appleTeamId": "REMPLACER_APRES_INSCRIPTION_APPLE_DEVELOPER",
-        "ascAppId": "REMPLACER_APRES_CREATION_FICHE_APP_STORE_CONNECT"
-      }
+      "ios": {}
     }
   }
 }

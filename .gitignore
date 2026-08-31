@@ -4,7 +4,21 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.nvidia.env
+.tokenra.env
 dist/
 build/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+**/dist-verify/
+**/dist-web/
+**/dist-ios/
 .expo/
 .expo-shared/
+
+# Bridge de synchronisation local ChatGPT -> PC (état runtime machine-spécifique, jamais partagé)
+CHATGPT_RUNTIME_STATUS.json
+
+# Verrou de coordination local entre agents (Claude Code / Codex) -- état machine-spécifique
+.agent-lock.json

@@ -1,165 +1,182 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, Platform, TextInput, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme/colors';
-import { spacing, radius, typography } from '../../theme/spacing';
+import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
+import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
+import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
 import { useUserStore } from '../../store/useUserStore';
-import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
-import { createAuthService } from '../../services/authService';
+import { colors } from '../../theme/colors';
+import { radius, spacing, typography } from '../../theme/spacing';
 
-type EmailStep = 'idle' | 'codeSent';
+const LOCAL_GUEST_ID_KEY = '@keep/local-guest-id-v1';
 
-/**
- * Écran d'onboarding — premier écran vu par un nouvel utilisateur.
- *
- * "Continuer avec e-mail" est le seul flux réellement branché (Supabase
- * Auth, code à 6 chiffres -- pas de deep link à gérer) dès que
- * EXPO_PUBLIC_SUPABASE_URL/ANON_KEY sont configurées. Apple/Google restent
- * honnêtement "pas encore connecté" (Sign in with Apple et l'OAuth Google
- * demandent chacun une configuration native séparée, voir
- * docs/RESTE_A_FAIRE.md) -- jamais de simulation de connexion réussie.
- */
+type WebIntent = { mode: UsernameAccountMode | null; followUsername: string };
+
+function createLocalGuestId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    const nibble = char === 'x' ? value : (value & 0x3) | 0x8;
+    return nibble.toString(16);
+  });
+}
+
+function readWebIntent(): WebIntent {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return { mode: null, followUsername: '' };
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('__keep_auth');
+  return {
+    mode: requested === 'login' ? 'login' : requested === 'create' ? 'create' : null,
+    followUsername: (params.get('__keep_follow') || '').trim().replace(/^@+/, ''),
+  };
+}
+
+function clearWebIntent() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('__keep_auth');
+  url.searchParams.delete('__keep_follow');
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
 export default function OnboardingScreen() {
   const { t } = useTranslation();
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
-
-  const [emailFormVisible, setEmailFormVisible] = useState(false);
-  const [emailStep, setEmailStep] = useState<EmailStep>('idle');
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const enterGuestMode = useUserStore((s) => s.enterGuestMode);
+  const [intent] = useState<WebIntent>(() => readWebIntent());
+  const [accountOpen, setAccountOpen] = useState(Boolean(intent.mode || intent.followUsername));
+  const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || (intent.followUsername ? 'login' : 'create'));
   const [busy, setBusy] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const authService = supabase ? createAuthService(supabase) : null;
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    // Les liens de profil partagés sont déjà des invitations préremplies :
+    // aucun code ami à recopier. Le pseudo du profil est stocké localement et
+    // sera réclamé seulement après la création d'un vrai compte.
+    void stageReferralFromUrl(window.location.href).catch(() => {});
+  }, []);
 
-  const handleAuthPress = (provider: 'apple' | 'google') => {
-    Alert.alert(
-      t('common.notConnected'),
-      provider === 'apple'
-        ? "Sign in with Apple n'est pas encore connecté sur ce backend. Veux-tu explorer KEEP en Mode Démo en attendant ?"
-        : "La connexion Google n'est pas encore connectée sur ce backend. Veux-tu explorer KEEP en Mode Démo en attendant ?",
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Mode Démo', onPress: () => enterDemoMode() },
-      ]
+  const restoreGuest = async (guestId: string) => {
+    enterGuestMode(guestId);
+    const staged = await loadStagedGuestProfile();
+    const current = useUserStore.getState().user;
+    if (staged && current) useUserStore.getState().setUser(mergeStagedGuestProfile(current, staged));
+  };
+
+  // L'essai est local et ne crée aucun utilisateur Supabase. Une intention
+  // explicite de création/connexion (ex. + Suivre depuis un profil partagé)
+  // doit avoir priorité et ne peut pas être écrasée par un ancien essai local.
+  // Le profil préparé pendant l'essai est rechargé sur le même appareil : un
+  // refresh navigateur ne doit jamais effacer pseudo, bio, ville ou réseaux.
+  useEffect(() => {
+    if (accountOpen || intent.followUsername) return;
+    let active = true;
+    void AsyncStorage.getItem(LOCAL_GUEST_ID_KEY)
+      .then(async (guestId) => {
+        if (!active || !guestId || useUserStore.getState().user) return;
+        await restoreGuest(guestId);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [accountOpen, enterGuestMode, intent.followUsername]);
+
+  const handleGuestPress = async () => {
+    setBusy(true);
+    let guestId = createLocalGuestId();
+    try {
+      const existing = await AsyncStorage.getItem(LOCAL_GUEST_ID_KEY);
+      guestId = existing || guestId;
+      if (!existing) await AsyncStorage.setItem(LOCAL_GUEST_ID_KEY, guestId);
+    } catch {
+      // L'essai gratuit reste utilisable même si le stockage local échoue.
+    }
+    try {
+      await restoreGuest(guestId);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeAccount = () => {
+    clearWebIntent();
+    setAccountOpen(false);
+  };
+
+  const finishAccount = () => {
+    void claimPendingReferral().catch(() => false).finally(closeAccount);
+  };
+
+  const continueWithoutSignup = async () => {
+    clearWebIntent();
+    await handleGuestPress();
+  };
+
+  // Le vrai parcours de test utilisateur est ESSAYER GRATUITEMENT. Le compte
+  // démo interne ne doit jamais apparaître par accident dans une preview ou un
+  // lien partagé : il reste disponible uniquement si un développeur l'active
+  // explicitement dans un build __DEV__.
+  const showDemo = __DEV__ && process.env.EXPO_PUBLIC_KEEP_SHOW_DEMO === '1';
+
+  if (accountOpen) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView
+          style={styles.accountScroll}
+          contentContainerStyle={styles.accountScrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.accountCard}>
+            <TouchableOpacity style={styles.backChoice} onPress={closeAccount} accessibilityRole="button" accessibilityLabel="Retour sans créer de compte">
+              <Text style={styles.backChoiceText}>← Retour</Text>
+            </TouchableOpacity>
+            <UsernameAccountForm
+              initialMode={accountMode}
+              followUsername={intent.followUsername}
+              onSuccess={finishAccount}
+            />
+            <TouchableOpacity
+              style={[styles.button, styles.accountButton, styles.continueTrialButton]}
+              onPress={continueWithoutSignup}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Continuer sans inscription"
+            >
+              {busy ? <ActivityIndicator color={colors.textPrimary} /> : <Text style={styles.accountButtonText}>CONTINUER SANS INSCRIPTION</Text>}
+            </TouchableOpacity>
+            <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte Loki plus tard.</Text>
+            <Text style={styles.legal}>{t('onboarding.legalNotice')}</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
-  };
-
-  const handleEmailPress = () => {
-    if (!isSupabaseConfigured || !authService) {
-      Alert.alert(
-        t('common.notConnected'),
-        "L'authentification réelle (Supabase Auth) n'est pas encore connectée sur ce backend. Veux-tu explorer KEEP en Mode Démo en attendant ?",
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Mode Démo', onPress: () => enterDemoMode() },
-        ]
-      );
-      return;
-    }
-    setEmailFormVisible(true);
-    setErrorMsg(null);
-  };
-
-  const handleSendCode = async () => {
-    if (!authService) return;
-    const trimmed = email.trim();
-    if (!trimmed.includes('@')) {
-      setErrorMsg('Adresse e-mail invalide.');
-      return;
-    }
-    setBusy(true);
-    setErrorMsg(null);
-    const { error } = await authService.requestEmailCode(trimmed);
-    setBusy(false);
-    if (error) {
-      setErrorMsg(error);
-      return;
-    }
-    setEmailStep('codeSent');
-  };
-
-  const handleVerifyCode = async () => {
-    if (!authService) return;
-    if (code.trim().length < 6) {
-      setErrorMsg('Code à 6 chiffres requis.');
-      return;
-    }
-    setBusy(true);
-    setErrorMsg(null);
-    const { error } = await authService.verifyEmailCode(email.trim(), code.trim());
-    setBusy(false);
-    if (error) {
-      setErrorMsg(error);
-      return;
-    }
-    // Succès : App.tsx écoute onSessionChange et bascule automatiquement
-    // vers <Navigation /> -- rien d'autre à faire ici.
-  };
-
-  const showEmailForm = isSupabaseConfigured && emailFormVisible;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.logo}>KEEP</Text>
+        <Text style={styles.logo}>Loki</Text>
         <Text style={styles.tagline}>{t('onboarding.welcomeSubtitle')}</Text>
+        <Text style={styles.valueLine}>Partage tes goûts musicaux. Crée ta communauté.</Text>
       </View>
 
       <View style={styles.actions}>
-        {Platform.OS === 'ios' && (
-          <TouchableOpacity style={[styles.button, styles.appleButton]} onPress={() => handleAuthPress('apple')}>
-            <Text style={styles.appleButtonText}> {t('onboarding.continueApple')}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={() => handleAuthPress('google')}>
-          <Text style={styles.googleButtonText}>{t('onboarding.continueGoogle')}</Text>
+        <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
+          {busy ? <ActivityIndicator color={colors.white} /> : <>
+            <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
+            <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>
+          </>}
         </TouchableOpacity>
 
-        {!showEmailForm && (
-          <TouchableOpacity style={styles.emailButton} onPress={handleEmailPress}>
-            <Text style={styles.emailButtonText}>{t('onboarding.continueEmail')}</Text>
+        <TouchableOpacity style={[styles.button, styles.accountButton]} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
+          <Text style={styles.accountButtonText}>SE CONNECTER / CRÉER MON COMPTE</Text>
+        </TouchableOpacity>
+
+        {showDemo ? (
+          <TouchableOpacity style={styles.demoButton} onPress={() => enterDemoMode()} accessibilityRole="button" accessibilityLabel="Entrer en mode démo" testID="onboarding-demo-button">
+            <Text style={styles.demoButtonText}>Mode démo</Text>
           </TouchableOpacity>
-        )}
-
-        {showEmailForm && emailStep === 'idle' && (
-          <View style={styles.emailForm}>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="ton@email.com"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onSubmitEditing={handleSendCode}
-            />
-            {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleSendCode} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Envoyer le code</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {showEmailForm && emailStep === 'codeSent' && (
-          <View style={styles.emailForm}>
-            <Text style={styles.codeHint}>Code envoyé à {email.trim()}</Text>
-            <TextInput
-              style={styles.input}
-              value={code}
-              onChangeText={setCode}
-              placeholder="123456"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={6}
-              onSubmitEditing={handleVerifyCode}
-            />
-            {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleVerifyCode} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Valider</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
+        ) : null}
 
         <Text style={styles.legal}>{t('onboarding.legalNotice')}</Text>
       </View>
@@ -168,96 +185,26 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'space-between',
-  },
-  hero: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logo: {
-    fontSize: 56,
-    fontWeight: '800',
-    color: colors.primaryLight,
-    letterSpacing: 4,
-  },
-  tagline: {
-    marginTop: spacing.md,
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  actions: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl,
-    gap: spacing.md,
-  },
-  button: {
-    minHeight: 52,
-    borderRadius: radius.pill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  appleButton: {
-    backgroundColor: colors.white,
-  },
-  appleButtonText: {
-    ...typography.button,
-    color: colors.black,
-  },
-  googleButton: {
-    backgroundColor: colors.backgroundCard,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  googleButtonText: {
-    ...typography.button,
-    color: colors.textPrimary,
-  },
-  emailButton: {
-    minHeight: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emailButtonText: {
-    ...typography.bodyBold,
-    color: colors.primaryLight,
-  },
-  emailForm: {
-    gap: spacing.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.textPrimary,
-    fontSize: 15,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.white,
-  },
-  codeHint: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
-  errorText: {
-    color: colors.danger,
-    fontSize: 12,
-  },
-  legal: {
-    marginTop: spacing.sm,
-    fontSize: 11,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
+  container:{flex:1,backgroundColor:colors.background,justifyContent:'space-between'},
+  hero:{flex:1,justifyContent:'center',alignItems:'center'},
+  logo:{fontSize:56,fontWeight:'800',color:colors.primaryLight,letterSpacing:4},
+  tagline:{marginTop:spacing.md,fontSize:16,color:colors.textSecondary,textAlign:'center',paddingHorizontal:spacing.xl},
+  valueLine:{marginTop:spacing.sm,color:colors.primaryLight,fontSize:12,fontWeight:'800',textAlign:'center'},
+  actions:{paddingHorizontal:spacing.xl,paddingBottom:spacing.xxl,gap:spacing.md},
+  button:{minHeight:52,borderRadius:radius.pill,justifyContent:'center',alignItems:'center'},
+  trialButton:{minHeight:58,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},
+  trialButtonText:{...typography.button,color:colors.white,fontWeight:'900'},
+  trialHint:{color:colors.white,fontSize:10,opacity:.82,marginTop:2},
+  accountButton:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
+  accountButtonText:{...typography.button,color:colors.textPrimary,fontWeight:'800'},
+  accountScroll:{flex:1},
+  accountScrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl,paddingVertical:spacing.xl},
+  accountCard:{width:'100%',maxWidth:520,alignSelf:'center',gap:spacing.sm},
+  backChoice:{minHeight:40,alignSelf:'flex-start',justifyContent:'center',paddingHorizontal:spacing.xs},
+  backChoiceText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},
+  continueTrialButton:{marginTop:spacing.xs},
+  continueTrialHint:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center'},
+  demoButton:{minHeight:38,alignItems:'center',justifyContent:'center'},
+  demoButtonText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},
+  legal:{marginTop:spacing.sm,fontSize:11,color:colors.textMuted,textAlign:'center'},
 });

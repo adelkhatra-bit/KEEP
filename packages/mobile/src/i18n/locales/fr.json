@@ -1,14 +1,14 @@
 {
   "onboarding": {
-    "welcomeTitle": "KEEP",
-    "welcomeSubtitle": "Tu l'aimes. KEEP la range.",
+    "welcomeTitle": "{{appName}}",
+    "welcomeSubtitle": "Tu l'aimes. {{appName}} la range.",
     "continueApple": "Continuer avec Apple",
     "continueGoogle": "Continuer avec Google",
     "continueEmail": "Continuer avec e-mail",
-    "legalNotice": "En continuant, tu acceptes les CGU et la politique de confidentialité de KEEP."
+    "legalNotice": "En continuant, tu acceptes les CGU et la politique de confidentialité de {{appName}}."
   },
   "nav": {
-    "listen": "Session KEEP",
+    "listen": "Session {{appName}}",
     "discover": "Découvrir",
     "myMusic": "Mes musiques",
     "profile": "Profil"
@@ -19,18 +19,18 @@
   },
   "session": {
     "emptyTitle": "Garde les musiques de tes moments",
-    "emptySubtitle": "Démarre une session : KEEP identifie les morceaux entendus autour de toi jusqu'à ce que tu l'arrêtes.",
+    "emptySubtitle": "Démarre une session : {{appName}} identifie les morceaux entendus autour de toi jusqu'à ce que tu l'arrêtes.",
     "start": "DÉMARRER UNE SESSION",
     "inProgress": "SESSION EN COURS",
     "detected": "{{count}} morceaux détectés",
     "kept": "{{count}} gardés",
-    "waitingForMusic": "KEEP écoute… aucun morceau détecté pour l'instant.",
+    "waitingForMusic": "{{appName}} écoute… aucun morceau détecté pour l'instant.",
     "endNow": "Terminer la session",
     "endPromptTitle": "La musique semble terminée",
     "endPromptBody": "Aucun nouveau morceau détecté depuis un moment. Terminer la session ?",
     "continueListening": "Continuer la session",
     "recapNotFound": "Session introuvable.",
-    "recapTitle": "Ta session KEEP",
+    "recapTitle": "Ta session {{appName}}",
     "namePlaceholder": "Nommer cette session (ex. Chez Paul, Ibiza…)",
     "keepAll": "Garder tout ({{count}})",
     "chooseDestination": "Choisir où ranger ce morceau",
@@ -39,7 +39,7 @@
   },
   "history": {
     "title": "Mes Sessions",
-    "empty": "Aucune session pour l'instant. Démarre ta première session KEEP pour commencer ton historique de moments."
+    "empty": "Aucune session pour l'instant. Démarre ta première session {{appName}} pour commencer ton historique de moments."
   },
   "myMusic": {
     "title": "Mes musiques",
@@ -52,10 +52,10 @@
   },
   "profile": {
     "title": "Profil",
-    "shareProfile": "Partager mon KEEP",
+    "shareProfile": "Partager mon {{appName}}",
     "settings": "Réglages",
     "logout": "Déconnexion",
-    "completion": "Ton KEEP est complété à {{percent}} %",
+    "completion": "Ton {{appName}} est complété à {{percent}} %",
     "followers": "Abonnés",
     "following": "Abonnements",
     "edit": "Modifier",
@@ -73,7 +73,7 @@
     "public": "Public",
     "private": "Privé",
     "publicProfile": "Profil public",
-    "publicProfileHint": "Visible par les autres utilisateurs KEEP.",
+    "publicProfileHint": "Visible par les autres utilisateurs {{appName}}.",
     "locationOptIn": "Localisation approximative",
     "locationOptInHint": "Utilisée pour Découvrir (profils/événements proches). Jamais ta position exacte.",
     "privateInfoTitle": "Informations privées (facultatif)",
@@ -91,14 +91,14 @@
     "kindProducer": "Producteur",
     "kindVenue": "Lieu / Venue",
     "qrTitle": "QR Profil",
-    "qrHint": "Scanne pour voir mon KEEP",
-    "compareKeep": "Comparer nos KEEP",
+    "qrHint": "Scanne pour voir mon {{appName}}",
+    "compareKeep": "Comparer nos {{appName}}",
     "shareCompareInvite": "Partager pour comparer",
     "photoPermissionDenied": "Autorise l'accès à tes photos dans les réglages iPhone pour changer ta photo de profil.",
     "connectAppleMusic": "Connecter Apple Music",
     "compareResult": "Compatibilité musicale avec {{name}} : {{percent}} %",
     "compareNeedsData": "Garde au moins un morceau pendant une session pour calculer ton ADN musical.",
-    "keepDnaTitle": "KEEP DNA — ton ADN musical",
+    "keepDnaTitle": "{{appName}} DNA — ton ADN musical",
     "keepDnaHint": "Calculé uniquement à partir de tes GARDER — jamais du contenu Spotify/Apple Music.",
     "keepDnaEmpty": "Garde des morceaux pendant tes sessions pour voir apparaître ton ADN musical.",
     "diversity": "Diversité musicale"
@@ -108,14 +108,14 @@
     "compatibleProfiles": "Profils compatibles",
     "djsArtists": "DJ & artistes",
     "events": "Événements",
-    "yourTrends": "Tes tendances KEEP",
+    "yourTrends": "Tes tendances {{appName}}",
     "viewProfile": "Voir le profil",
     "interested": "Intéressé(e)",
     "interestedMarked": "✓ Intéressé(e)",
     "compatibility": "{{percent}}% compatible",
     "noLocation": "Active la localisation dans ton profil pour voir les profils/événements proches.",
     "emptyTrends": "Garde des morceaux pour voir apparaître tes tendances ici.",
-    "demoProfilesNote": "Profils de démonstration — la découverte réelle s'active une fois des utilisateurs KEEP réels connectés (voir docs/PROJECT_STATUS.md)."
+    "demoProfilesNote": "Profils de démonstration — la découverte réelle s'active une fois des utilisateurs {{appName}} réels connectés (voir docs/PROJECT_STATUS.md)."
   },
   "demo": {
     "badge": "🎭 MODE DÉMO — données fictives, réinitialisées au rafraîchissement"

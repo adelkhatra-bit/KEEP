@@ -1,26 +1,65 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabaseClient';
+import { APP_NAME } from '../lib/brand';
 
-const NAV = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/users', label: 'Utilisateurs' },
-  { href: '/plans', label: 'Abonnements & Prix' },
-  { href: '/costs', label: 'Coûts & Rentabilité' },
-  { href: '/feature-flags', label: 'Feature Flags' },
-  { href: '/integrations', label: 'Clés & intégrations' },
-  { href: '/email-test', label: 'Tester les e-mails' },
+type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
+
+type NavItem = { href: string; label: string; roles?: AdminRole[] };
+
+const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
+const NAV: NavItem[] = [
+  { href: '/', label: 'Dashboard', roles: ALL_ROLES },
+  { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+  { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+  { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
+  { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  { href: '/team', label: 'Équipe Super Admin', roles: ['SUPER_ADMIN'] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [role, setRole] = useState<AdminRole | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth < 1180) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!supabase) return () => { active = false; };
+    void Promise.resolve(supabase.rpc('get_my_admin_role'))
+      .then(({ data }) => {
+        if (!active) return;
+        const value = String(data || '') as AdminRole;
+        setRole(ALL_ROLES.includes(value) ? value : null);
+      })
+      .catch(() => { if (active) setRole(null); });
+    return () => { active = false; };
+  }, []);
+
+  const visibleNav = useMemo(
+    () => NAV.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)),
+    [role],
+  );
+  const currentItem = NAV.find((item) => item.href === router.pathname);
+  const routeAllowed = !currentItem || !currentItem.roles || (role ? currentItem.roles.includes(role) : false);
+
   return (
     <div className="layout">
-      <aside className="sidebar">
-        <div className="logo">KEEP</div>
-        <div className="subtitle">Super Admin</div>
+      <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
+        <div className="logo">{APP_NAME}</div>
+        <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>
         <nav>
-          {NAV.map((item) => (
+          {visibleNav.map((item) => (
             <Link key={item.href} href={item.href} className={router.pathname === item.href ? 'active' : ''}>
               {item.label}
             </Link>
@@ -38,10 +77,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             lineHeight: 1.4,
           }}
         >
-          Mode preview : accès démo isolé. En production, les mutations sensibles passent par la session KEEP + rôle Super Admin et sont journalisées.
+          Accès par rôle. Les actions sensibles restent liées à la session {APP_NAME}, au rôle Admin actif et au journal d’audit.
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <div className="admin-toolbar">
+          <button
+            className="admin-menu-toggle"
+            type="button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? 'Masquer le menu Super Admin' : 'Afficher le menu Super Admin'}
+            aria-expanded={sidebarOpen}
+          >
+            ☰
+          </button>
+          <span className="admin-toolbar-label">{sidebarOpen ? 'Masquer le menu' : 'Menu Super Admin'}</span>
+        </div>
+        {routeAllowed ? children : (
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Accès limité</h2>
+            <p style={{ color: 'var(--text-muted)' }}>Ton rôle {role || 'inconnu'} n’autorise pas cette section.</p>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

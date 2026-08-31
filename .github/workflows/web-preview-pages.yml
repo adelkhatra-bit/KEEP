@@ -2,11 +2,14 @@ name: KEEP — Web public officiel
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
       - 'packages/admin/**'
+      - 'supabase/functions/keep-admin-control/**'
+      - 'supabase/templates/**'
+      - 'scripts/verify-source-of-truth.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/web-preview-pages.yml'
@@ -18,28 +21,38 @@ permissions:
   id-token: write
 
 concurrency:
-  group: keep-pages
+  group: keep-pages-reconcile-claude-main-20260825
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 35
     env:
+      KEEP_PROJECT_REPOSITORY: 'adelkhatra-bit/KEEP'
+      KEEP_PROJECT_BRANCH: 'reconcile/claude-main-20260825'
       EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+      EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+      NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
 
     steps:
+      - name: Lock repository + branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$KEEP_PROJECT_REPOSITORY"
+          test "$GITHUB_REF_NAME" = "$KEEP_PROJECT_BRANCH"
+          echo "KEEP PROJECT LOCK OK: $GITHUB_REPOSITORY @ $GITHUB_REF_NAME"
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure GitHub Pages and enable if needed
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,7 +76,7 @@ jobs:
         working-directory: packages/mobile
         run: npx expo export --platform web --output-dir dist-web
 
-      - name: Apply verified browser bootstrap + Pages paths
+      - name: Apply browser bootstrap + project-safe asset paths
         working-directory: packages/mobile
         run: |
           node scripts/fix-web-export.cjs dist-web
@@ -71,22 +84,119 @@ jobs:
           from pathlib import Path
           p = Path('dist-web/index.html')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('src="/_expo/', 'src="./_expo/')
-          s = s.replace('href="/_expo/', 'href="./_expo/')
-          s = s.replace('href="/favicon.ico"', 'href="./favicon.ico"')
+          s = s.replace('src="/_expo/', 'src="/KEEP/_expo/')
+          s = s.replace('href="/_expo/', 'href="/KEEP/_expo/')
+          s = s.replace('src="./_expo/', 'src="/KEEP/_expo/')
+          s = s.replace('href="./_expo/', 'href="/KEEP/_expo/')
+          s = s.replace('href="/favicon.ico"', 'href="/KEEP/favicon.ico"')
+          s = s.replace('href="./favicon.ico"', 'href="/KEEP/favicon.ico"')
+
+          history_guard = r'''<script>(function(){
+          try{
+            var base='/KEEP';
+            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect'];
+            function normalize(raw){
+              if(raw==null)return raw;
+              var u=new URL(String(raw),location.href);
+              u.pathname=u.pathname.replace(/^\/KEEP\/KEEP(?=\/|$)/,'/KEEP');
+              if(u.pathname.indexOf('/KEEP')!==0 && appRoots.some(function(r){return u.pathname.indexOf(r)===0;})){
+                u.pathname=base+u.pathname;
+              }
+              return u.pathname+u.search+u.hash;
+            }
+            var push=history.pushState.bind(history), repl=history.replaceState.bind(history);
+            history.pushState=function(state,title,url){return push(state,title,normalize(url));};
+            history.replaceState=function(state,title,url){return repl(state,title,normalize(url));};
+            if(location.pathname.indexOf('/KEEP/KEEP')===0){
+              repl(null,'',location.pathname.replace('/KEEP/KEEP','/KEEP')+location.search+location.hash);
+            }
+          }catch(e){}
+          })();</script>'''
+
+          restore = """<script>(function(){try{var u=new URL(location.href),r=u.searchParams.get('__keep_route');if(r){history.replaceState(null,'','/KEEP'+decodeURIComponent(r));}}catch(e){}})();</script>"""
+          if '<head>' in s:
+              if 'history.pushState=function' not in s:
+                  s = s.replace('<head>', '<head>'+history_guard, 1)
+              if '__keep_route' not in s:
+                  s = s.replace('<head>', '<head>'+restore, 1)
           p.write_text(s, encoding='utf-8')
           PY
 
       - name: Build Super Admin
         run: npm --workspace packages/admin run build
 
-      - name: Assemble public site
+      - name: Assemble public site + no-404 route shells
+        shell: bash
         run: |
+          set -euo pipefail
           rm -rf _site
-          mkdir -p _site/admin-preview
+          mkdir -p _site/admin-preview _site/share-profile _site/superadmin \
+            _site/privacy _site/privacy-choices _site/terms _site/support
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
+          cp packages/mobile/share-profile.html _site/share-profile/index.html
+          cp packages/mobile/assets/icon.png _site/keep-share.png
+          cp packages/mobile/legal/privacy.html _site/privacy/index.html
+          cp packages/mobile/legal/privacy-choices.html _site/privacy-choices/index.html
+          cp packages/mobile/legal/terms.html _site/terms/index.html
+          cp packages/mobile/legal/support.html _site/support/index.html
+
+          cat > _site/superadmin/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir Loki Super Admin</a>
+          HTML
+
+          for route in \
+            Main Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
+            session-recap session-history profile-settings profile-settings/advanced \
+            music-connections notifications offers apple-music-connect; do
+            mkdir -p "_site/$route"
+            cp _site/index.html "_site/$route/index.html"
+          done
+
+          cat > _site/404.html <<'HTML'
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki</title></head><body style="margin:0;background:#0E0A14"><script>
+          (function(){
+            var p=location.pathname,q=location.search,h=location.hash;
+            if(p.indexOf('/KEEP/admin-preview')===0){
+              if(!p.endsWith('/')) return location.replace(p+'/'+q+h);
+              return location.replace('/KEEP/admin-preview/'+q+h);
+            }
+            if(p.indexOf('/KEEP/superadmin')===0) return location.replace('/KEEP/admin-preview/'+q+h);
+            if(p.indexOf('/KEEP/share-profile')===0) return location.replace('/KEEP/share-profile/'+q+h);
+            var route=p.replace(/^\/KEEP/,'')+q+h;
+            location.replace('/KEEP/?__keep_route='+encodeURIComponent(route));
+          })();
+          </script><noscript><a href="/KEEP/">Ouvrir Loki</a></noscript></body></html>
+          HTML
+
           touch _site/.nojekyll
+
+      - name: Verify generated route shells
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f _site/index.html
+          test -f _site/404.html
+          test -f _site/Main/index.html
+          test -f _site/Main/Listen/index.html
+          test -f _site/Main/Profile/index.html
+          test -f _site/admin-preview/index.html
+          test -f _site/superadmin/index.html
+          test -f _site/share-profile/index.html
+          test -f _site/privacy/index.html
+          test -f _site/privacy-choices/index.html
+          test -f _site/terms/index.html
+          test -f _site/support/index.html
+          test -f _site/keep-share.png
+          grep -q '/KEEP/_expo/' _site/index.html
+          grep -q '__keep_route' _site/404.html
+          grep -q 'history.pushState=function' _site/index.html
+          grep -q 'og:image' _site/share-profile/index.html
+          grep -q 'keep-share.png' _site/share-profile/index.html
+          grep -q 'Politique de confidentialité Loki' _site/privacy/index.html
+          grep -q 'Supprimer définitivement mon compte' _site/privacy/index.html
+          grep -q 'Support Loki' _site/support/index.html
+          grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -97,7 +207,116 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Show public URLs
+      - name: Live refresh + direct-link HTTP smoke
+        shell: bash
         run: |
-          echo "KEEP APP: ${{ steps.deployment.outputs.page_url }}"
-          echo "KEEP ADMIN: ${{ steps.deployment.outputs.page_url }}admin-preview/"
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP'
+          sleep 5
+          urls=(
+            "$base/"
+            "$base/Main/"
+            "$base/Main/Listen/"
+            "$base/Main/Listen"
+            "$base/Main/Discover/"
+            "$base/Main/MyMusic/"
+            "$base/Main/Parties/"
+            "$base/Main/Profile/"
+            "$base/profile-settings/"
+            "$base/notifications/"
+            "$base/offers/"
+            "$base/admin-preview/"
+            "$base/superadmin/"
+            "$base/share-profile/"
+            "$base/privacy/"
+            "$base/privacy-choices/"
+            "$base/terms/"
+            "$base/support/"
+            "$base/keep-share.png"
+          )
+          for url in "${urls[@]}"; do
+            code="$(curl -L --retry 5 --retry-delay 2 --connect-timeout 10 --max-time 30 -sS -o /tmp/keep-live.html -w '%{http_code}' "$url")"
+            echo "$code $url"
+            test "$code" = '200'
+          done
+          curl --retry 5 --retry-delay 2 -fsSL "$base/share-profile/" -o /tmp/keep-share-profile.html
+          grep -q 'og:image' /tmp/keep-share-profile.html
+          grep -q 'keep-share.png' /tmp/keep-share-profile.html
+          curl --retry 5 --retry-delay 2 -fsSL "$base/privacy/" -o /tmp/keep-privacy.html
+          grep -q 'Politique de confidentialité Loki' /tmp/keep-privacy.html
+          curl --retry 5 --retry-delay 2 -fsSL "$base/support/" -o /tmp/keep-support.html
+          grep -q 'Support Loki' /tmp/keep-support.html
+          curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
+          grep -q 'Loki' /tmp/keep-admin.html
+          dynamic_code="$(curl -sS -o /tmp/keep-dynamic.html -w '%{http_code}' "$base/profile/__keep_route_smoke__/")"
+          echo "$dynamic_code dynamic-profile-fallback"
+          test "$dynamic_code" = '404'
+          grep -q '__keep_route' /tmp/keep-dynamic.html
+
+      - name: Install real browser engines
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium firefox webkit --with-deps
+
+      - name: Live browser matrix — no blank page and refresh survives
+        shell: bash
+        run: |
+          mkdir -p artifacts/public-browser-matrix
+          cat > keep-public-browser-matrix.cjs <<'JS'
+          const { chromium, firefox, webkit, devices } = require('@playwright/test');
+          const fs = require('fs');
+          const BASE = 'https://adelkhatra-bit.github.io/KEEP';
+          const routes = [
+            '/', '/Main/', '/Main/Listen/', '/Main/Discover/', '/Main/MyMusic/',
+            '/Main/Parties/', '/Main/Profile/', '/profile-settings/', '/notifications/',
+            '/offers/', '/share-profile/?u=__keep_public_smoke__', '/admin-preview/', '/superadmin/',
+            '/privacy/', '/privacy-choices/', '/terms/', '/support/'
+          ];
+          const scenarios = [
+            { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 900 } } },
+            { name: 'android-pixel7', engine: chromium, context: { ...devices['Pixel 7'] } },
+            { name: 'iphone-safari', engine: webkit, context: { ...devices['iPhone 15'] } },
+            { name: 'desktop-firefox', engine: firefox, context: { viewport: { width: 1366, height: 768 } } },
+          ];
+          const blank = (text, html) => !text || text.trim().length < 4 || !html || html.trim().length < 20;
+          const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');
+
+          (async () => {
+            const report = [];
+            for (const scenario of scenarios) {
+              const browser = await scenario.engine.launch({ headless: true });
+              const context = await browser.newContext(scenario.context);
+              const page = await context.newPage();
+              const pageErrors = [];
+              page.on('pageerror', e => pageErrors.push(String(e)));
+              for (const route of routes) {
+                const url = BASE + route;
+                const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => null);
+                await page.waitForTimeout(1400);
+                const text = await page.locator('body').innerText().catch(() => '');
+                const html = await page.content().catch(() => '');
+                const status = response ? response.status() : 0;
+                const ok = status >= 200 && status < 500 && !blank(text, html) && !bad404(text);
+                report.push({ scenario: scenario.name, route, status, ok, pageErrors: [...pageErrors] });
+                if (!ok) throw new Error(`${scenario.name} ${route} failed: status=${status} text=${text.slice(0,120)}`);
+                pageErrors.length = 0;
+                if (!route.includes('share-profile') && !route.includes('admin-preview') && !route.includes('superadmin')) {
+                  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+                  await page.waitForTimeout(900);
+                  const refreshed = await page.locator('body').innerText().catch(() => '');
+                  if (!refreshed || bad404(refreshed)) throw new Error(`${scenario.name} refresh ${route} failed`);
+                }
+              }
+              await browser.close();
+            }
+            fs.writeFileSync('artifacts/public-browser-matrix/report.json', JSON.stringify(report, null, 2));
+          })().catch(err => { console.error(err); process.exit(1); });
+          JS
+          node keep-public-browser-matrix.cjs
+
+      - name: Upload browser audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-public-browser-matrix
+          path: artifacts/public-browser-matrix

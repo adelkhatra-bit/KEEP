@@ -1,0 +1,257 @@
+name: KEEP — Mobile + Desktop Guardian
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - '.github/workflows/keep-dual-viewport-guardian.yml'
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - '.github/workflows/keep-dual-viewport-guardian.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '41 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  dual-viewport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run type-check
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start KEEP Web runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-dual-runtime.log 2>&1 &
+          echo $! >/tmp/keep-dual-runtime.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-dual-runtime.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keep-dual-runtime.log
+          exit 1
+
+      - name: Test KEEP critical loop — mobile 390x844 + desktop smoke 1440x900
+        run: |
+          mkdir -p artifacts/dual-viewport
+          cat > keep-critical-loop.cjs <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          const ORIGIN = 'http://127.0.0.1:8081';
+          const CITY = 'Saint-Jean-de-Thurigneux';
+          const USERNAME = 'guardian390';
+          const BIO = 'Profil test mobile 390x844';
+          const WEBSITE = 'https://keep.test/guardian390';
+          const INSTAGRAM = 'https://instagram.com/guardian390';
+          const tabs = ['Écouter','Découvertes','Playlists','Soirées','Profil'];
+
+          async function openKeep(page) {
+            await page.goto(ORIGIN,{waitUntil:'networkidle',timeout:60000});
+            const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
+            if (await tryFree.isVisible().catch(()=>false)) await tryFree.click();
+            for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function openEdit(page) {
+            await page.getByText('Profil',{exact:true}).last().click();
+            const menu=page.getByLabel('Menu du profil').last();
+            await menu.waitFor({state:'visible',timeout:15000});
+            await menu.click();
+            const edit=page.getByText('Modifier le profil',{exact:true}).last();
+            await edit.waitFor({state:'visible',timeout:15000});
+            await edit.click();
+            await page.getByPlaceholder('tonpseudo').last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function assertProfileForm(page) {
+            const username=page.getByPlaceholder('tonpseudo').last();
+            const bio=page.getByPlaceholder('Quelques mots sur toi').last();
+            const city=page.getByPlaceholder('Commence à saisir une ville').last();
+            const website=page.getByPlaceholder('https://...').last();
+            if(await username.inputValue()!==USERNAME) throw new Error(`username not persisted: ${await username.inputValue()}`);
+            if(await bio.inputValue()!==BIO) throw new Error(`bio not persisted: ${await bio.inputValue()}`);
+            if(await city.inputValue()!==CITY) throw new Error(`city not persisted: ${await city.inputValue()}`);
+            if(await website.inputValue()!==WEBSITE) throw new Error(`website not persisted: ${await website.inputValue()}`);
+            await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function openAdvancedFromEdit(page) {
+            const advanced=page.getByText('Réglages avancés du profil',{exact:true}).last();
+            await advanced.waitFor({state:'visible',timeout:15000});
+            await advanced.scrollIntoViewIfNeeded();
+            await advanced.click();
+            await page.getByText('Réglages avancés',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          }
+
+          async function assertNoOverflow(page,label) {
+            const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+            if(dims.scrollWidth>dims.width+1) throw new Error(`${label}: horizontal overflow ${JSON.stringify(dims)}`);
+          }
+
+          (async()=>{
+            const browser = await chromium.launch({ headless:true });
+            const report=[];
+
+            {
+              const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1});
+              const page=await context.newPage();
+              await openKeep(page);
+              await page.getByText('Profil',{exact:true}).last().click();
+              await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+              await assertNoOverflow(page,'desktop-1440x900');
+              await page.screenshot({path:'artifacts/dual-viewport/desktop-1440x900-profile.png',fullPage:true});
+              report.push('desktop-1440x900: PASS');
+              await context.close();
+            }
+
+            const context=await browser.newContext({
+              viewport:{width:390,height:844},
+              deviceScaleFactor:1,
+              geolocation:{latitude:45.95,longitude:4.884},
+            });
+            await context.grantPermissions(['geolocation'], {origin:ORIGIN});
+            const page=await context.newPage();
+            const pageErrors=[];
+            page.on('pageerror',e=>pageErrors.push(String(e)));
+            page.on('dialog',async d=>d.accept().catch(()=>{}));
+
+            await page.route('https://api.bigdatacloud.net/**', async route => route.fulfill({
+              status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
+              body:JSON.stringify({city:CITY,locality:CITY,countryCode:'FR'}),
+            }));
+            await page.route('https://nominatim.openstreetmap.org/**', async route => route.fulfill({
+              status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
+              body:JSON.stringify({address:{village:CITY,country_code:'fr'}}),
+            }));
+
+            await openKeep(page);
+            await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
+
+            const start=page.getByLabel('Démarrer une écoute').last();
+            await start.waitFor({state:'visible',timeout:15000});
+            await start.click();
+            await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000});
+            const stop=page.getByText(/Terminer la session|Arrêter|End session/i).last();
+            await stop.waitFor({state:'visible',timeout:15000});
+            await page.screenshot({path:'artifacts/dual-viewport/02-listen-active.png',fullPage:true});
+            await stop.click();
+            await start.waitFor({state:'visible',timeout:15000});
+
+            await page.getByText('Découvertes',{exact:true}).last().click();
+            await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('Playlists',{exact:true}).last().click();
+            await page.getByText('Soirées',{exact:true}).last().click();
+            const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
+            await openSalon.waitFor({state:'visible',timeout:15000});
+            await openSalon.click();
+            await page.getByText('KEEP BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('10 secondes réelles d’écoute · 3 choix · aucun swipe',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('JOUER SOLO',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('BATTLE EN LIGNE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await assertNoOverflow(page,'battle-390x844');
+            await page.screenshot({path:'artifacts/dual-viewport/03-battle-v3.png',fullPage:true});
+            await page.getByText('‹',{exact:true}).last().click();
+            await page.getByText('Soirées',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+
+            await openEdit(page);
+            await page.getByPlaceholder('tonpseudo').last().fill(USERNAME);
+            await page.getByPlaceholder('Quelques mots sur toi').last().fill(BIO);
+            await page.getByPlaceholder('https://...').last().fill(WEBSITE);
+
+            const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
+            const locate=page.getByText('⌖ Utiliser ma position',{exact:true}).last();
+            await locate.waitFor({state:'visible',timeout:15000});
+            await locate.click();
+            await page.waitForFunction((expected) => {
+              const field=[...document.querySelectorAll('input,textarea')].find(el=>el.getAttribute('placeholder')==='Commence à saisir une ville');
+              return Boolean(field && String(field.value || '')===expected);
+            }, CITY, {timeout:15000});
+            if(await cityInput.inputValue()!==CITY) throw new Error(`GPS city mismatch: ${await cityInput.inputValue()}`);
+            await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText(/Position trouvée/i).last().waitFor({state:'visible',timeout:15000});
+
+            await page.getByText('Choisir une date',{exact:true}).last().click();
+            await page.getByText('Date de naissance',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('Valider la date',{exact:true}).last().click();
+            await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
+
+            const save=page.getByText('Enregistrer sur cet appareil',{exact:true}).last();
+            await save.waitFor({state:'visible',timeout:15000});
+            await save.click();
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+
+            await openEdit(page);
+            await assertProfileForm(page);
+            await openAdvancedFromEdit(page);
+            const instagram=page.getByPlaceholder('Lien Instagram').last();
+            await instagram.waitFor({state:'visible',timeout:15000});
+            await instagram.fill(INSTAGRAM);
+            await page.getByLabel('Enregistrer Instagram').last().click();
+            await page.getByText('Connecté au profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+
+            await page.reload({waitUntil:'networkidle',timeout:60000});
+            const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
+            if(await tryFree.isVisible().catch(()=>false)) await tryFree.click();
+            await openEdit(page);
+            await assertProfileForm(page);
+            await openAdvancedFromEdit(page);
+            const instagramReload=page.getByPlaceholder('Lien Instagram').last();
+            await instagramReload.waitFor({state:'visible',timeout:15000});
+            if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
+            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+
+            await assertNoOverflow(page,'mobile-390x844');
+            if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
+            await page.screenshot({path:'artifacts/dual-viewport/05-after-reload.png',fullPage:true});
+
+            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, full-screen Battle V3, profile edit, GPS city+country, date, save, advanced settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
+            fs.writeFileSync('artifacts/dual-viewport/report.txt',report.join('\n'));
+            await context.close();
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node keep-critical-loop.cjs
+
+      - name: Runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-dual-runtime.log || true
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-dual-viewport-${{ github.run_id }}
+          path: artifacts/dual-viewport
+          if-no-files-found: ignore
+          retention-days: 3

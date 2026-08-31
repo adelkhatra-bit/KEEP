@@ -1,0 +1,36 @@
+name: KEEP Battle endgame
+
+on:
+  push:
+    paths:
+      - '.github/workflows/keep-battle-endgame-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch winner podium score
+        run: python3 scripts/patch-keep-battle-winner-score.py
+      - name: Verify mobile
+        run: |
+          npm ci
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand KeepBattleMobileGameV3.compact.test.ts
+          node scripts/verify-mobile-text-contrast.cjs
+      - name: Commit patch
+        run: |
+          git config user.name "KEEP CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          git diff --cached --quiet || git commit -m "fix(battle): show winner score on podium"
+          git push origin HEAD:reconcile/claude-main-20260825

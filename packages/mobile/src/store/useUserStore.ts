@@ -1,18 +1,16 @@
 import { create } from 'zustand';
 import { User, SocialLink, ProfilePrivateInfo } from '../types';
 import { KeepAuthSession } from '../services/authService';
+import { musicEngine } from '../services/musicEngine';
+import { usePlaylistStore } from './usePlaylistStore';
+import { useSessionHistoryStore } from './useSessionHistoryStore';
 
-/**
- * Construit un `User` minimal à partir d'une session Supabase réelle.
- * Les champs au-delà de id/email restent à leurs valeurs par défaut tant
- * que la table `profiles` n'est pas lue (aucun projet Supabase KEEP
- * déployé, voir docs/PROJECT_STATUS.md) -- pas de données de profil
- * inventées, juste une identité réelle minimale.
- */
 function userFromAuthSession(session: KeepAuthSession): User {
+  const authUsername = session.username?.trim().replace(/^@+/, '');
+  const emailPrefix = session.email?.split('@')[0];
   return {
     id: session.userId,
-    username: session.email?.split('@')[0] ?? session.userId.slice(0, 8),
+    username: authUsername || emailPrefix || `invite-${session.userId.slice(0, 6)}`,
     email: session.email ?? '',
     avatar: '',
     bio: '',
@@ -29,16 +27,35 @@ function userFromAuthSession(session: KeepAuthSession): User {
   };
 }
 
-// DEMO uniquement — jamais utilisé en Mode Réel (voir docs/PROJECT_STATUS.md).
+function localGuestUser(guestId: string): User {
+  return {
+    id: guestId,
+    username: `invite-${guestId.replace(/-/g, '').slice(0, 6)}`,
+    email: '',
+    avatar: '',
+    bio: '',
+    playlistCount: 0,
+    followerCount: 0,
+    followingCount: 0,
+    kind: 'USER',
+    favoriteGenres: [],
+    favoriteArtists: [],
+    socialLinks: [],
+    isPublic: true,
+    locationOptIn: false,
+    privateInfo: {},
+  };
+}
+
 const DEMO_USER: User = {
   id: 'demo-user-1',
   username: 'demouser',
-  email: 'demo@keep.app',
-  avatar: 'https://via.placeholder.com/100?text=Avatar',
-  bio: 'Music lover 🎵',
-  playlistCount: 12,
-  followerCount: 342,
-  followingCount: 128,
+  email: '',
+  avatar: '',
+  bio: '',
+  playlistCount: 0,
+  followerCount: 0,
+  followingCount: 0,
   kind: 'USER',
   favoriteGenres: [],
   favoriteArtists: [],
@@ -48,17 +65,29 @@ const DEMO_USER: User = {
   privateInfo: {},
 };
 
+function clearLocalMusicIdentity() {
+  // Un changement EXPLICITE d'identité (déconnexion, autre vrai compte, démo)
+  // repart sans la musique du compte précédent. En revanche, le bootstrap
+  // d'authentification d'un même compte ne doit jamais vider l'historique déjà
+  // hydraté depuis AsyncStorage : c'était la cause de sessions qui semblaient
+  // disparaître après un reload.
+  useSessionHistoryStore.getState().clearSessions();
+  void useSessionHistoryStore.persist.clearStorage();
+  usePlaylistStore.setState({ playlists: [], isLoading: false });
+  musicEngine.resetLocalLibrary();
+}
+
 interface UserStore {
   user: User | null;
   isDemoMode: boolean;
+  isAnonymous: boolean;
+  isLocalGuest: boolean;
   setUser: (user: User) => void;
   enterDemoMode: () => void;
+  enterGuestMode: (guestId: string) => void;
   logout: () => void;
-  /** Reflète une session Supabase réelle (voir services/authService.ts) -- `null` = déconnecté. */
   syncFromAuthSession: (session: KeepAuthSession | null) => void;
-  /** Score de complétion de profil, 0-100 — utilisé par ProfileScreen. Calcul réel, pas une valeur fixe. */
   profileCompletion: () => number;
-
   updateUser: (patch: Partial<User>) => void;
   addFavoriteGenre: (genre: string) => void;
   removeFavoriteGenre: (genre: string) => void;
@@ -73,16 +102,65 @@ interface UserStore {
 export const useUserStore = create<UserStore>((set, get) => ({
   user: null,
   isDemoMode: false,
-  setUser: (user) => set({ user, isDemoMode: false }),
-  enterDemoMode: () => set({ user: DEMO_USER, isDemoMode: true }),
-  logout: () => set({ user: null, isDemoMode: false }),
-  syncFromAuthSession: (session) =>
+  isAnonymous: false,
+  isLocalGuest: false,
+  setUser: (user) => set((s) => ({ user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest })),
+  enterDemoMode: () => {
+    clearLocalMusicIdentity();
+    set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false });
+  },
+  enterGuestMode: (guestId) => {
+    const state = get();
+    if (!state.isLocalGuest || state.user?.id !== guestId) clearLocalMusicIdentity();
+    set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true });
+  },
+  logout: () => {
+    clearLocalMusicIdentity();
+    set({ user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false });
+  },
+  syncFromAuthSession: (session) => {
+    const state = get();
+    const currentIsReal = Boolean(state.user && !state.isDemoMode && !state.isLocalGuest);
+    const currentRealId = currentIsReal ? state.user?.id ?? null : null;
+    const nextRealId = session?.userId ?? null;
+
+    // Ne jamais effacer au simple bootstrap null -> compte réel : le store
+    // d'historique peut déjà avoir été hydraté et contient alors les sessions
+    // du même utilisateur. On purge uniquement lorsqu'on sait qu'il s'agit
+    // réellement d'une AUTRE identité, ou lorsqu'on quitte volontairement la
+    // démo. Une conversion invité -> compte conserve également ses sessions,
+    // conformément au parcours d'inscription Loki.
+    const switchingRealAccount = Boolean(nextRealId && currentRealId && currentRealId !== nextRealId);
+    const leavingDemoForReal = Boolean(nextRealId && state.isDemoMode);
+    if (switchingRealAccount || leavingDemoForReal) clearLocalMusicIdentity();
+
     set((s) => {
-      // Une session Mode Démo active reste prioritaire (ne pas l'écraser
-      // par un état "déconnecté" venant du client Supabase inutilisé).
-      if (s.isDemoMode) return s;
-      return { user: session ? userFromAuthSession(session) : null, isDemoMode: false };
-    }),
+      if (s.isDemoMode && !session) return s;
+      if (s.isLocalGuest && !session) return s;
+      if (!session) return { user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
+
+      if (s.user && s.user.id === session.userId) {
+        const sessionUsername = session.username?.trim().replace(/^@+/, '');
+        return {
+          user: {
+            ...s.user,
+            username: s.user.username || sessionUsername || s.user.username,
+            email: session.email ?? s.user.email,
+          },
+          isDemoMode: false,
+          isAnonymous: session.isAnonymous,
+          isLocalGuest: false,
+        };
+      }
+
+      return {
+        user: userFromAuthSession(session),
+        isDemoMode: false,
+        isAnonymous: session.isAnonymous,
+        isLocalGuest: false,
+      };
+    });
+  },
   profileCompletion: () => {
     const user = get().user;
     if (!user) return 0;
@@ -94,54 +172,38 @@ export const useUserStore = create<UserStore>((set, get) => ({
       user.favoriteGenres.length > 0 || user.favoriteArtists.length > 0,
       user.socialLinks.some((l) => l.visibility === 'PUBLIC'),
       !!user.city || !!user.countryCode,
-      // Reste à 0 tant que provider musical réel n'est pas branché — pas de fausse complétion.
-      false, // service musical connecté
+      false,
     ];
-    const done = checks.filter(Boolean).length;
-    return Math.round((done / checks.length) * 100);
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   },
 
   updateUser: (patch) => set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
-
-  addFavoriteGenre: (genre) =>
-    set((s) => {
-      const trimmed = genre.trim();
-      if (!s.user || !trimmed || s.user.favoriteGenres.includes(trimmed)) return s;
-      return { user: { ...s.user, favoriteGenres: [...s.user.favoriteGenres, trimmed] } };
-    }),
-  removeFavoriteGenre: (genre) =>
-    set((s) => (s.user ? { user: { ...s.user, favoriteGenres: s.user.favoriteGenres.filter((g) => g !== genre) } } : s)),
-
-  addFavoriteArtist: (artist) =>
-    set((s) => {
-      const trimmed = artist.trim();
-      if (!s.user || !trimmed || s.user.favoriteArtists.includes(trimmed)) return s;
-      return { user: { ...s.user, favoriteArtists: [...s.user.favoriteArtists, trimmed] } };
-    }),
-  removeFavoriteArtist: (artist) =>
-    set((s) => (s.user ? { user: { ...s.user, favoriteArtists: s.user.favoriteArtists.filter((a) => a !== artist) } } : s)),
-
-  addSocialLink: (link) =>
-    set((s) => {
-      if (!s.user) return s;
-      const withoutExisting = s.user.socialLinks.filter((l) => l.platform !== link.platform);
-      return { user: { ...s.user, socialLinks: [...withoutExisting, link] } };
-    }),
-  removeSocialLink: (platform) =>
-    set((s) => (s.user ? { user: { ...s.user, socialLinks: s.user.socialLinks.filter((l) => l.platform !== platform) } } : s)),
-  toggleSocialLinkVisibility: (platform) =>
-    set((s) => {
-      if (!s.user) return s;
-      return {
-        user: {
-          ...s.user,
-          socialLinks: s.user.socialLinks.map((l) =>
-            l.platform === platform ? { ...l, visibility: l.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC' } : l
-          ),
-        },
-      };
-    }),
-
-  setPrivateInfo: (patch) =>
-    set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
+  addFavoriteGenre: (genre) => set((s) => {
+    const trimmed = genre.trim();
+    if (!s.user || !trimmed || s.user.favoriteGenres.includes(trimmed)) return s;
+    return { user: { ...s.user, favoriteGenres: [...s.user.favoriteGenres, trimmed] } };
+  }),
+  removeFavoriteGenre: (genre) => set((s) => (s.user ? { user: { ...s.user, favoriteGenres: s.user.favoriteGenres.filter((g) => g !== genre) } } : s)),
+  addFavoriteArtist: (artist) => set((s) => {
+    const trimmed = artist.trim();
+    if (!s.user || !trimmed || s.user.favoriteArtists.includes(trimmed)) return s;
+    return { user: { ...s.user, favoriteArtists: [...s.user.favoriteArtists, trimmed] } };
+  }),
+  removeFavoriteArtist: (artist) => set((s) => (s.user ? { user: { ...s.user, favoriteArtists: s.user.favoriteArtists.filter((a) => a !== artist) } } : s)),
+  addSocialLink: (link) => set((s) => {
+    if (!s.user) return s;
+    const withoutExisting = s.user.socialLinks.filter((l) => l.platform !== link.platform);
+    return { user: { ...s.user, socialLinks: [...withoutExisting, link] } };
+  }),
+  removeSocialLink: (platform) => set((s) => (s.user ? { user: { ...s.user, socialLinks: s.user.socialLinks.filter((l) => l.platform !== platform) } } : s)),
+  toggleSocialLinkVisibility: (platform) => set((s) => {
+    if (!s.user) return s;
+    return {
+      user: {
+        ...s.user,
+        socialLinks: s.user.socialLinks.map((l) => l.platform === platform ? { ...l, visibility: l.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC' } : l),
+      },
+    };
+  }),
+  setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
 }));

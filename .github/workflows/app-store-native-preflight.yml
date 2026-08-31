@@ -1,0 +1,237 @@
+name: KEEP — App Store native preflight
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/app.json'
+      - 'packages/mobile/package.json'
+      - 'packages/mobile/eas.json'
+      - 'packages/mobile/src/**'
+      - 'packages/mobile/modules/**'
+      - 'packages/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/verify-app-store-readiness.cjs'
+      - '.github/workflows/app-store-native-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-native-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact workspace dependencies
+        run: npm ci
+      - name: App Store readiness contract
+        run: node scripts/verify-app-store-readiness.cjs
+      - name: Expo configuration resolves
+        working-directory: packages/mobile
+        run: npx expo config --type public --json > /tmp/keep-expo-public.json
+      - name: Generate native iOS project — no Apple account required
+        working-directory: packages/mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Audit generated iOS project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/app-store-native-preflight
+          python - <<'PY'
+          import json, plistlib
+          from pathlib import Path
+
+          ios = Path('packages/mobile/ios')
+          if not ios.exists():
+              raise SystemExit('FAIL: Expo prebuild did not create packages/mobile/ios')
+
+          infos = []
+          main = None
+          extension_info = None
+          for p in ios.rglob('Info.plist'):
+              if 'Pods' in p.parts:
+                  continue
+              try:
+                  data = plistlib.loads(p.read_bytes())
+              except Exception:
+                  continue
+              infos.append((p, data))
+              if data.get('NSMicrophoneUsageDescription'):
+                  main = (p, data)
+              if data.get('NSExtension'):
+                  extension_info = (p, data)
+
+          if not main:
+              raise SystemExit('FAIL: no generated main Info.plist with NSMicrophoneUsageDescription')
+          p, data = main
+          required = ['NSMicrophoneUsageDescription', 'NSLocationWhenInUseUsageDescription']
+          for key in required:
+              if not str(data.get(key, '')).strip():
+                  raise SystemExit(f'FAIL: {key} missing from {p}')
+          if data.get('ITSAppUsesNonExemptEncryption') is not False:
+              raise SystemExit('FAIL: ITSAppUsesNonExemptEncryption must be false')
+          modes = data.get('UIBackgroundModes') or []
+          if 'audio' not in modes:
+              raise SystemExit('FAIL: UIBackgroundModes audio missing')
+          if 'NSLocalNetworkUsageDescription' in data:
+              raise SystemExit('FAIL: unjustified NSLocalNetworkUsageDescription generated')
+
+          pbx = next(iter(ios.rglob('project.pbxproj')), None)
+          if not pbx:
+              raise SystemExit('FAIL: Xcode project.pbxproj not generated')
+          pbx_text = pbx.read_text(encoding='utf-8', errors='ignore')
+          if 'TARGETED_DEVICE_FAMILY = 1;' not in pbx_text and 'TARGETED_DEVICE_FAMILY = "1";' not in pbx_text:
+              raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
+
+          has_extension_target = ('com.apple.product-type.app-extension' in pbx_text or '.appex' in pbx_text)
+          if not extension_info and not has_extension_target:
+              raise SystemExit('FAIL: expo-share-intent did not generate an iOS app-extension target')
+
+          podfile = ios / 'Podfile'
+          podfile_text = podfile.read_text(encoding='utf-8', errors='ignore') if podfile.exists() else ''
+          shazam_module_present = (
+              'KeepShazam' in podfile_text
+              or any('KeepShazam' in p.name for p in ios.rglob('*KeepShazam*'))
+              or Path('packages/mobile/modules/keep-shazam/expo-module.config.json').exists()
+          )
+          if not shazam_module_present:
+              raise SystemExit('FAIL: local KeepShazam module is missing from the mobile source/prebuild inputs')
+
+          iap_module_present = (
+              'KeepIAP' in podfile_text
+              or any('KeepIAP' in p.name for p in ios.rglob('*KeepIAP*'))
+              or Path('packages/mobile/modules/keep-iap/expo-module.config.json').exists()
+          )
+          if not iap_module_present:
+              raise SystemExit('FAIL: local KeepIAP StoreKit module is missing from the mobile source/prebuild inputs')
+          iap_swift = Path('packages/mobile/modules/keep-iap/ios/KeepIAPModule.swift')
+          if not iap_swift.exists() or 'import StoreKit' not in iap_swift.read_text(encoding='utf-8', errors='ignore'):
+              raise SystemExit('FAIL: KeepIAP StoreKit 2 Swift implementation is missing')
+
+          manifests = []
+          for base in [Path('packages/mobile/ios'), Path('node_modules')]:
+              if base.exists():
+                  manifests.extend(str(p) for p in base.rglob('PrivacyInfo.xcprivacy'))
+          if not manifests:
+              raise SystemExit('FAIL: no PrivacyInfo.xcprivacy found in generated app/dependencies')
+
+          report = {
+              'mainInfoPlist': str(main[0]),
+              'shareExtensionInfoPlist': str(extension_info[0]) if extension_info else None,
+              'shareExtensionTargetDetected': bool(extension_info or has_extension_target),
+              'infoPlists': [str(p) for p, _ in infos],
+              'privacyManifestCount': len(manifests),
+              'privacyManifests': manifests[:120],
+              'backgroundModes': modes,
+              'microphoneDescription': data.get('NSMicrophoneUsageDescription'),
+              'locationDescription': data.get('NSLocationWhenInUseUsageDescription'),
+              'targetedDeviceFamilyIPhoneOnly': True,
+              'keepShazamSourcePresent': shazam_module_present,
+              'keepIAPSourcePresent': iap_module_present,
+          }
+          Path('artifacts/app-store-native-preflight/report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+      - name: Verify no native secrets were generated
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R --exclude-dir=Pods -E 'AUDD_API_KEY|ACRCLOUD_ACCESS_SECRET|BREVO_API_KEY|STRIPE_SECRET_KEY' packages/mobile/ios
+      - name: Upload native App Store preflight report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-app-store-native-preflight
+          path: artifacts/app-store-native-preflight
+
+  ios-simulator-compile:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact workspace dependencies
+        run: npm ci
+      - name: Generate iOS project
+        working-directory: packages/mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Install CocoaPods
+        working-directory: packages/mobile
+        run: npx pod-install ios
+      # AJOUT (31/08/2026) : Podfile.lock enumere chaque pod reellement resolu
+      # et installe par CocoaPods -- signal direct que l'autolinking a bien vu
+      # ces modules locaux, disponible avant meme le compile complet (echoue
+      # vite si jamais casse a nouveau). Complementaire a "Assert local
+      # native modules compiled" plus bas, qui verifie en plus que la
+      # compilation elle-meme a reussi, pas seulement la resolution des pods.
+      - name: Assert local native modules resolved by CocoaPods
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ios/Podfile.lock
+          # `\b` (limite de mot) se comporte differemment selon l'implementation
+          # de grep du runner (BSD sur macOS vs GNU ailleurs) -- correspondance
+          # simple sur la sous-chaine, largement suffisante pour ces noms.
+          if ! grep -q 'KeepShazam' ios/Podfile.lock || ! grep -q 'KeepIAP' ios/Podfile.lock; then
+            echo "--- ios/Podfile.lock (pour diagnostic) ---"
+            cat ios/Podfile.lock
+            echo "--- fin Podfile.lock ---"
+            exit 1
+          fi
+      - name: Resolve Xcode workspace and scheme
+        id: xcode
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(xcodebuild -workspace "$workspace" -list -json | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("workspace",{}).get("schemes",[]); print("KEEP" if "KEEP" in s else (s[0] if s else ""))')"
+          test -n "$scheme"
+          echo "workspace=$workspace" >> "$GITHUB_OUTPUT"
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
+          echo "Xcode workspace: $workspace"
+          echo "Xcode scheme: $scheme"
+      - name: Compile iOS Simulator — ShazamKit + StoreKit + share extension
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ../../artifacts/ios-simulator-compile
+          xcodebuild \
+            -workspace '${{ steps.xcode.outputs.workspace }}' \
+            -scheme '${{ steps.xcode.outputs.scheme }}' \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ../../artifacts/ios-simulator-compile/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build | tee ../../artifacts/ios-simulator-compile/xcodebuild.log
+      - name: Assert local native modules compiled
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -E 'KeepShazam|KeepShazamModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
+          grep -E 'KeepIAP|KeepIAPModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
+      - name: Upload native compile log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-ios-simulator-compile
+          path: artifacts/ios-simulator-compile/xcodebuild.log

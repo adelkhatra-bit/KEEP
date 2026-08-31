@@ -1,62 +1,42 @@
 /**
- * Point d'assemblage unique du moteur musical KEEP côté mobile.
+ * Point d'assemblage unique du moteur musical Loki côté mobile.
  *
- * Une seule instance de chaque brique (pas de doublon d'état) :
- * DemoMusicProvider = SOURCE UNIQUE des playlists en Mode Démo (usePlaylistStore
- * les lit ici plutôt que de maintenir sa propre liste, pour éviter toute
- * divergence entre écrans).
- *
- * EXPO_PUBLIC_DEMO_MODE contrôle explicitement le provider actif : en Mode
- * Réel (DEMO_MODE=false), les providers réels (AudD + Apple Music) sont
- * instanciés ici -- s'il manque une variable d'env requise, l'erreur est
- * levée immédiatement au démarrage avec un message exact sur ce qui manque,
- * jamais un repli silencieux vers le Mode Démo (cf. règle "jamais de faux
- * résultat").
+ * La reconnaissance et le service musical sont volontairement découplés :
+ * Loki peut identifier un morceau avec le micro même si l'utilisateur n'a
+ * encore connecté ni Apple Music ni Spotify. Sur iOS, ShazamKit est tenté en
+ * premier ; les clés AudD/ACRCloud restent uniquement dans Supabase Vault.
  */
 import {
   AppleMusicProvider,
-  AudDRecognitionProvider,
   DemoMusicProvider,
   DemoRecognitionProvider,
   DeveloperTokenProvider,
   InMemoryRoutingWeightsStore,
   MusicProviderAdapter,
   MusicRecognitionProvider,
-  ProviderPlaylist,
   SmartPlaylistRouter,
   TrackResolver,
 } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
+import { APP_NAME } from '../config/brand';
+import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
+import { NativeFirstRecognitionProvider } from './nativeFirstRecognitionProvider';
+import { NotifyingRecognitionProvider } from './notifyingRecognitionProvider';
+import { isSmartAlbumUiId, loadSmartAlbumTracks } from './smartAlbumService';
 
-const IS_DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
+const USE_DEMO_MUSIC_PROVIDER = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
+const USE_REAL_RECOGNITION = isSecureRecognitionConfigured && process.env.EXPO_PUBLIC_KEEP_REAL_RECOGNITION !== 'false';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
-const AUDD_API_KEY = process.env.EXPO_PUBLIC_AUDD_API_KEY;
-
-const SEED_PLAYLISTS: ProviderPlaylist[] = [
-  { id: 'playlist-piscine', name: 'Piscine', description: 'Sons d’été, ambiance chill au bord de l’eau', trackCount: 32 },
-  { id: 'playlist-afro', name: 'Afro House', description: 'Rythmes afro house, sets DJ', trackCount: 28 },
-  { id: 'playlist-voiture', name: 'Voiture', description: 'Pour la route, énergie et rythme', trackCount: 45 },
-  { id: 'playlist-chill', name: 'Chill Evening', description: 'Sons ambiants, soirée détente', trackCount: 19 },
-];
 
 function isPlaceholder(value: string | undefined): boolean {
   return !value || value.startsWith('your_') || value === 'undefined';
 }
 
-/**
- * Le developer token Apple Music ne doit JAMAIS vivre dans l'app mobile
- * (voir packages/music/src/providers/AppleMusicProvider.ts) -- ce provider
- * appelle le backend KEEP, qui le signe côté serveur avec la clé MusicKit.
- * L'appel backend est protégé par une session KEEP réelle (voir
- * packages/backend/src/routes/music.ts), d'où la dépendance à
- * getSupabaseAccessToken() ici : sans utilisateur connecté, cet appel
- * échoue honnêtement (401), pas de contournement.
- */
 async function fetchAppleMusicDeveloperToken(apiUrl: string): Promise<string> {
   const accessToken = await getSupabaseAccessToken();
   if (!accessToken) {
     throw new Error(
-      'Apple Music : aucune session KEEP active. Connecte-toi (Supabase Auth) avant de pouvoir récupérer un developer token.'
+      `Apple Music : aucune session ${APP_NAME} active. Connecte-toi avant de pouvoir récupérer un developer token.`
     );
   }
   const res = await fetch(`${apiUrl}/api/music/apple/developer-token`, {
@@ -73,42 +53,27 @@ function createBackendDeveloperTokenProvider(apiUrl: string): DeveloperTokenProv
   return { getDeveloperToken: () => fetchAppleMusicDeveloperToken(apiUrl) };
 }
 
-/**
- * Utilisé par l'écran de connexion Apple Music (voir
- * screens/AppleMusicConnectScreen.tsx) pour obtenir le developer token à
- * injecter dans la WebView MusicKit JS -- indépendant de `getSession()`
- * puisque connecter Apple Music est justement ce qui manque pour qu'une
- * session existe (pas de dépendance circulaire).
- */
 export async function getAppleMusicDeveloperToken(): Promise<string> {
   if (isPlaceholder(API_URL)) {
-    throw new Error('EXPO_PUBLIC_API_URL manquant -- impossible de joindre le backend KEEP.');
+    throw new Error(`EXPO_PUBLIC_API_URL manquant -- impossible de joindre le backend ${APP_NAME}.`);
   }
   return fetchAppleMusicDeveloperToken(API_URL!);
-}
-
-function createRealRecognitionProvider(): MusicRecognitionProvider {
-  if (isPlaceholder(AUDD_API_KEY)) {
-    throw new Error(
-      'KEEP est en Mode Réel mais EXPO_PUBLIC_AUDD_API_KEY est manquant ou factice. ' +
-        'Crée un compte sur audd.io (free tier 300 requêtes) et renseigne la clé dans packages/mobile/.env.'
-    );
-  }
-  return new AudDRecognitionProvider({ apiToken: AUDD_API_KEY! });
 }
 
 function createRealMusicProvider(): MusicProviderAdapter {
   if (isPlaceholder(API_URL)) {
     throw new Error(
-      'KEEP est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ' +
-        'Renseigne l’URL du backend KEEP déployé dans packages/mobile/.env.'
+      `${APP_NAME} est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ` +
+        `Renseigne l’URL du backend ${APP_NAME} déployé.`
     );
   }
   return new AppleMusicProvider(createBackendDeveloperTokenProvider(API_URL!));
 }
 
 class MusicEngine {
-  readonly isDemoMode = IS_DEMO_MODE;
+  readonly isDemoMode = !USE_REAL_RECOGNITION;
+  readonly usesRealRecognition = USE_REAL_RECOGNITION;
+  readonly usesDemoMusicProvider = USE_DEMO_MUSIC_PROVIDER;
   readonly recognitionProvider: MusicRecognitionProvider;
   readonly musicProvider: MusicProviderAdapter;
   readonly trackResolver: TrackResolver;
@@ -116,25 +81,40 @@ class MusicEngine {
   private session: { provider: string; userId: string; accessToken: string } | null = null;
 
   constructor() {
-    if (IS_DEMO_MODE) {
-      this.recognitionProvider = new DemoRecognitionProvider();
-      this.musicProvider = new DemoMusicProvider(SEED_PLAYLISTS);
-    } else {
-      this.recognitionProvider = createRealRecognitionProvider();
-      this.musicProvider = createRealMusicProvider();
-    }
+    const serverRecognitionProvider: MusicRecognitionProvider = USE_REAL_RECOGNITION
+      ? new KeepMusicCoreRecognitionProvider()
+      : new DemoRecognitionProvider();
+    // En Mode Réel, iOS tente ShazamKit avant de consommer AudD/ACRCloud.
+    // Le module est optionnel : web et Android continuent directement vers le
+    // provider serveur sans divergence de navigation ou d'interface.
+    const baseRecognitionProvider: MusicRecognitionProvider = USE_REAL_RECOGNITION
+      ? new NativeFirstRecognitionProvider(serverRecognitionProvider)
+      : serverRecognitionProvider;
+    this.recognitionProvider = new NotifyingRecognitionProvider(baseRecognitionProvider);
+
+    this.musicProvider = USE_DEMO_MUSIC_PROVIDER
+      ? new DemoMusicProvider()
+      : createRealMusicProvider();
+
+    // Les écrans existants continuent d'utiliser exactement le même contrat
+    // MusicProviderAdapter. Seule l'ouverture d'un identifiant `keep-smart:*`
+    // est interceptée : les morceaux viennent alors de Supabase, sans changer
+    // la navigation, le design ni les flux Apple Music / démo.
+    const providerGetPlaylistTracks = this.musicProvider.getPlaylistTracks.bind(this.musicProvider);
+    this.musicProvider.getPlaylistTracks = async (session, playlistId) => {
+      if (isSmartAlbumUiId(playlistId)) return loadSmartAlbumTracks(playlistId);
+      return providerGetPlaylistTracks(session, playlistId);
+    };
+
     this.trackResolver = new TrackResolver();
     this.router = new SmartPlaylistRouter(new InMemoryRoutingWeightsStore());
   }
 
   async getSession() {
     if (!this.session) {
-      if (IS_DEMO_MODE) {
-        this.session = await this.musicProvider.connect('demo-auth-code');
+      if (USE_DEMO_MUSIC_PROVIDER) {
+        this.session = await this.musicProvider.connect('keep-local-library');
       } else {
-        // Mode Réel : le Music User Token vient du flux WebView MusicKit JS
-        // (voir screens/auth/AppleMusicAuthScreen.tsx), stocké via
-        // expo-secure-store -- jamais un "auth-code" inventé.
         const { getSavedMusicUserToken } = await import('./appleMusicAuth');
         const musicUserToken = await getSavedMusicUserToken();
         if (!musicUserToken) {
@@ -146,9 +126,20 @@ class MusicEngine {
     return this.session;
   }
 
-  /** Réinitialise la session en cache -- utilisé après (re)connexion Apple Music. */
   resetSession() {
     this.session = null;
+  }
+
+  /**
+   * Isole strictement la bibliothèque locale quand l'identité Loki change.
+   * Cette méthode ne touche jamais Spotify/Apple Music et n'efface aucune
+   * donnée Supabase : elle vide uniquement la mémoire de test locale.
+   */
+  resetLocalLibrary() {
+    this.resetSession();
+    if (this.musicProvider instanceof DemoMusicProvider) {
+      this.musicProvider.resetLibrary();
+    }
   }
 }
 

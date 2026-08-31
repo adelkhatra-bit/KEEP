@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
+import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
 import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
@@ -10,6 +12,14 @@ import { colors } from './src/theme/colors';
 import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
+import { importStagedGuestCreditsForAuthenticatedAccount } from './src/services/creditService';
+import { registerForPushNotifications } from './src/services/pushNotificationService';
+import {
+  clearLocalGuestMarker,
+  clearStagedGuestProfile,
+  loadStagedGuestProfile,
+  mergeStagedGuestProfile,
+} from './src/services/guestUpgradeService';
 
 // __DEV__ uniquement, jamais en build production/TestFlight -- pratique pour
 // débugger (console/web) sans dépendre de flux UI natifs.
@@ -27,19 +37,50 @@ if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' && !useUserStore.getState().use
 
 export default function App() {
   const user = useUserStore((s) => s.user);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const updateUser = useUserStore((s) => s.updateUser);
 
-  // Garde-fou si le store est réinitialisé pendant une preview web.
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
     const state = useUserStore.getState();
     if (!state.user) state.enterDemoMode();
   }, []);
 
-  // Une session Supabase réelle charge maintenant le vrai profil KEEP
-  // (profiles + social_links + profile_private_info + compteurs follows).
-  // Les changements du store sont ensuite persistés avec un petit debounce :
-  // l'ancien ProfileScreen peut donc rester l'écran de réglages sans perdre
-  // les fonctions déjà construites, tout en écrivant réellement en base.
+  useEffect(() => {
+    if (!user || isDemoMode || (user.city && user.countryCode)) return;
+    let cancelled = false;
+
+    const autoFillLocation = async () => {
+      try {
+        let permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== 'granted' && permission.canAskAgain) {
+          permission = await Location.requestForegroundPermissionsAsync();
+        }
+        if (cancelled || permission.status !== 'granted') return;
+
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (cancelled) return;
+        const places = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (cancelled || !places[0]) return;
+
+        const place = places[0];
+        const city = place.city || place.subregion || place.region || user.city;
+        const countryCode = place.isoCountryCode?.toUpperCase() || user.countryCode;
+        if (city !== user.city || countryCode !== user.countryCode) {
+          updateUser({ city: city || undefined, countryCode: countryCode || undefined, locationOptIn: true });
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('[KEEP] automatic location unavailable', error);
+      }
+    };
+
+    void autoFillLocation();
+    return () => { cancelled = true; };
+  }, [isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
@@ -51,8 +92,6 @@ export default function App() {
     const handleSession = async (session: KeepAuthSession | null) => {
       if (!session) {
         profileLoadedFor = null;
-        // Dans la preview publique on conserve le Mode Démo au lieu de
-        // retourner à l'onboarding quand aucune session Supabase n'existe.
         if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1') {
           const state = useUserStore.getState();
           if (!state.user) state.enterDemoMode();
@@ -62,16 +101,48 @@ export default function App() {
         return;
       }
 
-      // Donne immédiatement une identité minimale pendant le chargement.
       useUserStore.getState().syncFromAuthSession(session);
 
       try {
-        const profile = await profileService.loadOrCreateOwnProfile(session);
+        let profile = await profileService.loadOrCreateOwnProfile(session);
+
+        if (!session.isAnonymous) {
+          const staged = await loadStagedGuestProfile();
+          if (staged) {
+            const merged = mergeStagedGuestProfile(profile, staged);
+            try {
+              await profileService.saveOwnProfile(merged);
+              profile = merged;
+              await clearStagedGuestProfile();
+            } catch (upgradeError) {
+              if (merged.username !== profile.username) {
+                const withoutConflictingUsername = { ...merged, username: profile.username };
+                await profileService.saveOwnProfile(withoutConflictingUsername);
+                profile = withoutConflictingUsername;
+                await clearStagedGuestProfile();
+              } else {
+                throw upgradeError;
+              }
+            }
+          }
+
+          // Même si le lien de confirmation e-mail ouvre directement KEEP et
+          // crée la session sans repasser par le formulaire, on conserve le
+          // compteur de l'essai local. Exemple : 3 essais consommés + 20 bonus
+          // = 20 crédits restants, et les cadenas des morceaux en attente sont
+          // retirés automatiquement sans les valider à la place de l'utilisateur.
+          await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
+          await useSessionHistoryStore.getState().syncUnsyncedKeeps();
+          await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+          await clearLocalGuestMarker();
+        }
+
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
+        if (!session.isAnonymous) {
+          registerForPushNotifications().catch(() => {});
+        }
       } catch (error) {
-        // L'auth reste utilisable même si la lecture du profil échoue : on
-        // conserve l'identité minimale et on rend l'erreur visible en dev.
         if (__DEV__) console.error('[KEEP] profile load failed', error);
       }
     };
@@ -105,6 +176,7 @@ export default function App() {
   return (
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
+      {user ? <GlobalNotificationBanner /> : null}
       <StatusBar style="light" backgroundColor={colors.background} />
     </>
   );

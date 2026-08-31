@@ -23,6 +23,12 @@ export interface CanonicalTrack {
   album?: string;
   durationSec?: number;
   artworkUrl?: string;
+  /** Extrait promotionnel court fourni par un catalogue public, jamais stocké par KEEP. */
+  previewUrl?: string;
+  /** Plateformes réellement confirmées par les métadonnées de reconnaissance/catalogue. */
+  availableOn?: string[];
+  /** Liens externes vers les plateformes ou recherches associées. */
+  externalUrls?: Record<string, string>;
   /** Genres/tags disponibles légalement (métadonnées provider), utilisés par le SmartPlaylistRouter. */
   genres?: string[];
   providerIds: ProviderTrackIds;
@@ -36,6 +42,12 @@ export interface RecognitionResult {
   album?: string;
   isrc?: string;
   artworkUrl?: string;
+  previewUrl?: string;
+  availableOn?: string[];
+  externalUrls?: Record<string, string>;
+  providerIds?: ProviderTrackIds;
+  /** Genres issus de catalogues de métadonnées, jamais inférés d'un fichier audio protégé. */
+  genres?: string[];
   /** Identifiant du morceau chez le provider de reconnaissance (pas encore résolu en CanonicalTrack). */
   recognitionProviderTrackId?: string;
 }

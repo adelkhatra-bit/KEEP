@@ -1,0 +1,350 @@
+import React from 'react';
+import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
+import { useUserStore } from '../store/useUserStore';
+import { colors } from '../theme/colors';
+import { radius } from '../theme/spacing';
+import { SocialLink } from '../types';
+import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
+import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import SupportCenterPanel from '../components/SupportCenterPanel';
+import { createProfileService } from '../services/profileService';
+import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { createAuthService } from '../services/authService';
+import { deleteOwnKeepAccount } from '../services/accountDeletionService';
+import { supabase } from '../services/supabaseClient';
+import { BlockedUserSummary, listBlockedUsers, unblockUser } from '../services/moderationService';
+
+const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
+  { platform: 'instagram', label: 'Instagram' },
+  { platform: 'tiktok', label: 'TikTok' },
+  { platform: 'snapchat', label: 'Snapchat' },
+  { platform: 'youtube', label: 'YouTube' },
+  { platform: 'x', label: 'X' },
+  { platform: 'facebook', label: 'Facebook' },
+];
+
+const LEGAL_URLS = {
+  privacy: 'https://adelkhatra-bit.github.io/KEEP/privacy/',
+  privacyChoices: 'https://adelkhatra-bit.github.io/KEEP/privacy-choices/',
+  terms: 'https://adelkhatra-bit.github.io/KEEP/terms/',
+  support: 'https://adelkhatra-bit.github.io/KEEP/support/',
+} as const;
+
+export default function AdvancedProfileSettingsScreen({ navigation }: any) {
+  const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
+  const logout = useUserStore((s) => s.logout);
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const [drafts, setDrafts] = React.useState<Record<string, string>>({});
+  const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
+  const [signingOut, setSigningOut] = React.useState(false);
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [blockedListOpen, setBlockedListOpen] = React.useState(false);
+  const [blockedUsers, setBlockedUsers] = React.useState<BlockedUserSummary[]>([]);
+  const [blockedLoading, setBlockedLoading] = React.useState(false);
+  const [unblockingId, setUnblockingId] = React.useState<string | null>(null);
+
+  const openBlockedList = async () => {
+    setBlockedListOpen(true);
+    setBlockedLoading(true);
+    setBlockedUsers(await listBlockedUsers());
+    setBlockedLoading(false);
+  };
+
+  const handleUnblock = async (id: string) => {
+    if (unblockingId) return;
+    setUnblockingId(id);
+    try {
+      await unblockUser(id);
+      setBlockedUsers((list) => list.filter((u) => u.id !== id));
+    } catch {
+      Alert.alert('Action impossible', 'Réessaie dans un instant.');
+    } finally {
+      setUnblockingId(null);
+    }
+  };
+
+  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
+
+  const goToTab = (screen: 'MyMusic' | 'Profile') => navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
+  const linkFor = (platform: SocialLink['platform']) => user.socialLinks.find((l) => l.platform === platform);
+  const openExternal = (url: string) => {
+    void Linking.openURL(url).catch(() => {
+      Alert.alert('Lien indisponible', 'Impossible d’ouvrir cette page pour le moment.');
+    });
+  };
+
+  const persistSocialLinks = async (links: SocialLink[], platform: SocialLink['platform'], successMessage: string) => {
+    const nextUser = { ...user, socialLinks: links };
+    setSavingNetwork(platform);
+    try {
+      if (isDemoMode) {
+        setUser(nextUser);
+        Alert.alert('Mode démo', 'Ce réglage est temporaire dans le mode démo.');
+        return;
+      }
+      if (isLocalGuest || !supabase) {
+        setUser(nextUser);
+        if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
+        Alert.alert('Réseau enregistré', 'Le lien est conservé sur cet appareil. Il sera repris automatiquement lorsque tu créeras ton compte Loki.');
+        return;
+      }
+      await createProfileService(supabase).saveOwnProfile(nextUser);
+      setUser(nextUser);
+      Alert.alert('Réseau enregistré', successMessage);
+    } catch (e: any) {
+      Alert.alert('Réseau social', e?.message || 'Impossible d’enregistrer ce réseau pour le moment.');
+    } finally {
+      setSavingNetwork(null);
+    }
+  };
+
+  const updateProfileVisibility = async (value: boolean) => {
+    const nextUser = { ...user, isPublic: value };
+    setUser(nextUser);
+    try {
+      if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
+      else if (supabase && !isDemoMode) await createProfileService(supabase).saveOwnProfile(nextUser);
+    } catch {
+      Alert.alert('Profil public', 'La visibilité sera resynchronisée à la prochaine connexion.');
+    }
+  };
+
+  const saveNetwork = async (platform: SocialLink['platform']) => {
+    const value = (drafts[platform] ?? linkFor(platform)?.url ?? '').trim();
+    if (!value) return void Alert.alert('Lien manquant', 'Ajoute le lien de ton réseau social.');
+    const existing = linkFor(platform);
+    const links = [
+      ...user.socialLinks.filter((l) => l.platform !== platform),
+      { platform, url: value, visibility: existing?.visibility ?? 'PUBLIC' } as SocialLink,
+    ];
+    await persistSocialLinks(links, platform, 'Le logo s’allume maintenant avec la couleur du réseau sur ton profil.');
+    setDrafts((prev) => ({ ...prev, [platform]: value }));
+  };
+
+  const toggleNetworkVisibility = async (platform: SocialLink['platform']) => {
+    const links = user.socialLinks.map((link) => link.platform === platform ? { ...link, visibility: link.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC' } as SocialLink : link);
+    const next = links.find((link) => link.platform === platform);
+    await persistSocialLinks(links, platform, next?.visibility === 'PUBLIC' ? 'Ce réseau est maintenant visible sur ton profil.' : 'Ce réseau est maintenant privé.');
+  };
+
+  const removeNetwork = async (platform: SocialLink['platform']) => {
+    const links = user.socialLinks.filter((link) => link.platform !== platform);
+    await persistSocialLinks(links, platform, 'Le réseau a été retiré de ton profil.');
+    setDrafts((prev) => ({ ...prev, [platform]: '' }));
+  };
+
+  const signOutNow = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      if (supabase && !isLocalGuest && !isDemoMode) await createAuthService(supabase).signOut();
+      await clearLocalGuestMarker();
+    } catch {
+      await clearLocalGuestMarker();
+    } finally {
+      logout();
+      setSigningOut(false);
+    }
+  };
+
+  const confirmSignOut = () => {
+    const message = 'Ton profil Loki reste enregistré. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`Se déconnecter ?\n\n${message}`)) void signOutNow();
+      return;
+    }
+    Alert.alert('Se déconnecter ?', message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
+    ]);
+  };
+
+  const deleteAccountNow = async () => {
+    if (deletingAccount || isLocalGuest || isDemoMode) return;
+    setDeletingAccount(true);
+    try {
+      await deleteOwnKeepAccount();
+      await clearLocalGuestMarker();
+      logout();
+    } catch (e: any) {
+      Alert.alert('Suppression du compte', e?.message || 'Impossible de supprimer le compte pour le moment.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const confirmDeleteAccount = () => {
+    if (isLocalGuest || isDemoMode) {
+      Alert.alert('Aucun compte serveur', 'Cet essai n’a pas encore de compte Loki permanent. Utilise Déconnexion pour effacer l’identité locale de cet appareil.');
+      return;
+    }
+    const message = 'Cette action supprime définitivement ton compte Loki, ton profil, tes musiques gardées, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée. Si tu as plus tard un abonnement App Store actif, il faudra aussi le résilier dans les abonnements Apple.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`Supprimer définitivement mon compte ?\n\n${message}`)) void deleteAccountNow();
+      return;
+    }
+    Alert.alert('Supprimer définitivement mon compte ?', message, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'SUPPRIMER MON COMPTE', style: 'destructive', onPress: () => { void deleteAccountNow(); } },
+    ]);
+  };
+
+  return (
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity style={s.headerButton} onPress={() => goToTab('Profile')} accessibilityLabel="Retour au profil"><Text style={s.headerText}>‹ Profil</Text></TouchableOpacity>
+        <Text style={s.title}>Réglages avancés</Text>
+        <TouchableOpacity style={s.headerButton} onPress={() => goToTab('MyMusic')} accessibilityLabel="Revenir aux Playlists"><Text style={[s.headerText, s.right]}>Playlists</Text></TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Navigation</Text>
+          <Action label="← Revenir aux Playlists" onPress={() => goToTab('MyMusic')} />
+          <Action label="Retour au profil" onPress={() => goToTab('Profile')} />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Raccourcis</Text>
+          <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
+          <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
+          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Profil public</Text>
+          <View style={s.switchRow}>
+            <View style={s.switchText}><Text style={s.label}>Profil visible</Text><Text style={s.help}>Permet aux autres utilisateurs de découvrir tes goûts musicaux.</Text></View>
+            <Switch value={user.isPublic} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.background, true: colors.primary }} />
+          </View>
+        </View>
+
+        <View style={s.creatorSection}>
+          <Text style={s.sectionTitle}>Espace créateur</Text>
+          <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>
+          <CreatorToolsPanel navigation={navigation} />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Réseaux sociaux</Text>
+          <Text style={s.help}>Un logo en couleur signifie que le réseau est renseigné. Un logo sombre signifie qu’il n’est pas encore connecté à ton profil.</Text>
+          {NETWORKS.map(({ platform, label }) => {
+            const existing = linkFor(platform);
+            const connected = !!existing?.url.trim();
+            const brandColor = SOCIAL_BRAND_COLORS[platform] ?? '#FFFFFF';
+            const value = drafts[platform] ?? existing?.url ?? '';
+            return (
+              <View key={platform} style={s.networkBlock}>
+                <View style={s.networkTitle}>
+                  <View style={[s.logo, connected ? { backgroundColor: `${brandColor}26`, borderColor: brandColor } : s.logoOff]}>
+                    <SocialPlatformIcon platform={platform} size={20} color={connected ? brandColor : colors.textMuted} />
+                  </View>
+                  <View style={s.networkLabelWrap}>
+                    <Text style={s.label}>{label}</Text>
+                    <Text style={[s.connectionState, connected && { color: brandColor }]}>{connected ? 'Connecté au profil' : 'Non renseigné'}</Text>
+                  </View>
+                </View>
+                <TextInput style={s.input} value={value} onChangeText={(text) => setDrafts((prev) => ({ ...prev, [platform]: text }))} placeholder={`Lien ${label}`} placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} />
+                <View style={s.row}>
+                  <TouchableOpacity style={s.primaryButton} onPress={() => saveNetwork(platform)} disabled={savingNetwork === platform} accessibilityLabel={`Enregistrer ${label}`}><Text style={s.primaryText}>{savingNetwork === platform ? 'Enregistrement…' : 'Enregistrer'}</Text></TouchableOpacity>
+                  {existing ? <>
+                    <TouchableOpacity style={s.secondaryButton} onPress={() => toggleNetworkVisibility(platform)} disabled={savingNetwork === platform} accessibilityLabel={`${existing.visibility === 'PUBLIC' ? 'Rendre privé' : 'Rendre public'} ${label}`}><Text style={s.secondaryText}>{existing.visibility === 'PUBLIC' ? 'Public' : 'Privé'}</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.secondaryButton} onPress={() => removeNetwork(platform)} disabled={savingNetwork === platform} accessibilityLabel={`Supprimer ${label}`}><Text style={s.dangerText}>Supprimer</Text></TouchableOpacity>
+                  </> : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <SupportCenterPanel profileId={user.id} username={user.username} enabled={!isLocalGuest && !isDemoMode} />
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Informations & confidentialité</Text>
+          <Action label="Politique de confidentialité" onPress={() => openExternal(LEGAL_URLS.privacy)} />
+          <Action label="Choix de confidentialité" onPress={() => openExternal(LEGAL_URLS.privacyChoices)} />
+          <Action label="Conditions d’utilisation" onPress={() => openExternal(LEGAL_URLS.terms)} />
+          <Action label="Centre d’aide public" onPress={() => openExternal(LEGAL_URLS.support)} />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Confidentialité</Text>
+          <Action label="Comptes bloqués" onPress={() => void openBlockedList()} />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Compte</Text>
+          <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données Loki restent enregistrés.</Text>
+          <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount} accessibilityRole="button" accessibilityLabel="Se déconnecter de Loki">
+            <Text style={s.signOutText}>{signingOut ? 'Déconnexion…' : 'Se déconnecter'}</Text>
+          </TouchableOpacity>
+          <View style={s.deleteDivider} />
+          <Text style={s.deleteTitle}>Suppression définitive</Text>
+          <Text style={s.help}>Supprime le compte serveur et les données associées. Cette action est différente d’une simple déconnexion.</Text>
+          <TouchableOpacity style={s.deleteAccountButton} onPress={confirmDeleteAccount} disabled={deletingAccount || signingOut} accessibilityRole="button" accessibilityLabel="Supprimer définitivement mon compte Loki">
+            <Text style={s.deleteAccountText}>{deletingAccount ? 'Suppression…' : 'Supprimer définitivement mon compte'}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <Modal visible={blockedListOpen} transparent animationType="fade" onRequestClose={() => setBlockedListOpen(false)}>
+        <View style={s.blockedOverlay}>
+          <View style={s.blockedCard}>
+            <View style={s.blockedHead}>
+              <Text style={s.blockedTitle}>Comptes bloqués</Text>
+              <TouchableOpacity onPress={() => setBlockedListOpen(false)} hitSlop={8}><Text style={s.blockedClose}>✕</Text></TouchableOpacity>
+            </View>
+            {blockedLoading ? (
+              <ActivityIndicator color={colors.primaryLight} style={{ marginVertical: 20 }} />
+            ) : blockedUsers.length === 0 ? (
+              <Text style={s.help}>Aucun compte bloqué pour l’instant.</Text>
+            ) : (
+              <ScrollView style={s.blockedScroll}>
+                {blockedUsers.map((u) => (
+                  <View key={u.id} style={s.blockedRow}>
+                    {u.avatarUrl ? <Image source={{ uri: u.avatarUrl }} style={s.blockedAvatar} /> : <View style={[s.blockedAvatar, s.blockedAvatarFallback]}><Text style={s.blockedAvatarText}>K</Text></View>}
+                    <Text style={s.blockedUsername} numberOfLines={1}>@{u.username}</Text>
+                    <TouchableOpacity style={s.blockedUnblockButton} disabled={unblockingId === u.id} onPress={() => void handleUnblock(u.id)}>
+                      <Text style={s.blockedUnblockText}>{unblockingId === u.id ? '…' : 'Débloquer'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+function Action({ label, onPress }: { label: string; onPress: () => void }) {
+  return <TouchableOpacity style={s.action} onPress={onPress}><Text style={s.actionText}>{label}</Text><Text style={s.actionArrow}>›</Text></TouchableOpacity>;
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, muted: { color: colors.textMuted },
+  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
+  label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
+  blockedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 22 },
+  blockedCard: { width: '100%', maxWidth: 380, maxHeight: '75%', borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: 14 },
+  blockedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  blockedTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
+  blockedClose: { color: colors.textMuted, fontSize: 16, fontWeight: '900', paddingHorizontal: 4 },
+  blockedScroll: { maxHeight: 340 },
+  blockedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderBottomWidth: 1, borderBottomColor: colors.border },
+  blockedAvatar: { width: 34, height: 34, borderRadius: 17 },
+  blockedAvatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  blockedAvatarText: { color: colors.primaryLight, fontSize: 13, fontWeight: '900' },
+  blockedUsername: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
+  blockedUnblockButton: { minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  blockedUnblockText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
+  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
+  primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
+  signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' }, deleteAccountButton: { minHeight: 44, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+});

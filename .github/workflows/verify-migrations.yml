@@ -1,22 +1,24 @@
 name: KEEP — Vérification migrations SQL (PostgreSQL réel)
 
-# Aucun secret nécessaire (contrairement à eas-build-ios.yml) : ce workflow
-# utilise un vrai service PostgreSQL fourni par GitHub Actions, applique les
-# 7 migrations, et exécute les assertions métier réelles (triggers,
-# cohérence devise, RLS) via supabase/scripts/verify-migrations.sh.
-# Tourne sur toute PR qui touche supabase/migrations -- aucune régression
-# de schéma/RLS ne doit jamais atteindre main sans que ce job passe.
+# Aucun secret nécessaire : ce workflow utilise un vrai service PostgreSQL 16,
+# applique toutes les migrations présentes dans supabase/migrations, puis
+# exécute les assertions métier réelles (triggers, cohérence devise, RLS,
+# confidentialité Public/Privé, suppression KEEP et invitation ami préremplie).
+# La branche de travail unique KEEP est la seule source active.
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - "supabase/migrations/**"
-      - "supabase/scripts/verify-migrations.sh"
+      - "supabase/scripts/**"
+      - ".github/workflows/verify-migrations.yml"
   pull_request:
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - "supabase/migrations/**"
-      - "supabase/scripts/verify-migrations.sh"
+      - "supabase/scripts/**"
+      - ".github/workflows/verify-migrations.yml"
   workflow_dispatch:
 
 jobs:
@@ -44,4 +46,46 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Vérifier les migrations + triggers + RLS
-        run: bash supabase/scripts/verify-migrations.sh
+        shell: bash
+        run: |
+          set +e
+          bash supabase/scripts/verify-migrations.sh 2>&1 | tee verify-migrations.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Vérifier confidentialité Public / Privé
+        shell: bash
+        run: |
+          set +e
+          bash supabase/scripts/verify-profile-privacy.sh 2>&1 | tee verify-profile-privacy.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Vérifier suppression KEEP de bout en bout
+        shell: bash
+        run: |
+          set +e
+          bash supabase/scripts/verify-keep-delete.sh 2>&1 | tee verify-keep-delete.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Vérifier invitation ami préremplie
+        shell: bash
+        run: |
+          set +e
+          bash supabase/scripts/verify-referral-profile-link.sh 2>&1 | tee verify-referral-profile-link.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Conserver les diagnostics SQL
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-migrations-log
+          path: |
+            verify-migrations.log
+            verify-profile-privacy.log
+            verify-keep-delete.log
+            verify-referral-profile-link.log
+          if-no-files-found: ignore
+          retention-days: 2

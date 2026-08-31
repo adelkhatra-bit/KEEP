@@ -3,13 +3,24 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 import { requireKeepAuth, KeepAuthedRequest } from '../lib/keepAuth';
+import { APP_NAME } from '../config/brand';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
 import { getIntegrationSecret } from '../lib/integrationSecrets';
+import {
+  createPipedreamConnectLink,
+  disconnectPipedreamMusicAccount,
+  findPipedreamMusicAccount,
+  pipedreamConfigured,
+  supportsPipedreamProvider,
+} from '../lib/pipedreamConnect';
 
 const router = Router();
 const verifier = createSupabaseTokenVerifier();
 
-type Provider = 'spotify' | 'deezer';
+type Provider = 'spotify' | 'deezer' | 'youtube_music' | 'soundcloud';
+type DirectProvider = 'spotify' | 'deezer';
+type OAuthClient = 'web' | 'native';
+type OAuthState = { userId: string; provider: Provider; exp: number; client: OAuthClient };
 
 function serviceClient() {
   const url = process.env.SUPABASE_URL;
@@ -30,7 +41,7 @@ function signState(payload: object): string {
   return `${body}.${sig}`;
 }
 
-function verifyState(value: string): { userId: string; provider: Provider; exp: number } | null {
+function verifyState(value: string): OAuthState | null {
   const secret = stateSecret();
   if (!secret) return null;
   const [body, sig] = value.split('.');
@@ -41,14 +52,42 @@ function verifyState(value: string): { userId: string; provider: Provider; exp: 
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
   if (!data?.userId || !data?.provider || !data?.exp || Date.now() > data.exp) return null;
-  return data;
+  if (!['spotify', 'deezer'].includes(String(data.provider))) return null;
+  return {
+    userId: String(data.userId),
+    provider: data.provider as DirectProvider,
+    exp: Number(data.exp),
+    // Legacy signed states created before this change stay native-safe.
+    client: data.client === 'web' ? 'web' : 'native',
+  };
 }
 
 function backendBaseUrl(req: KeepAuthedRequest): string {
   return process.env.PUBLIC_BACKEND_URL || `${req.protocol}://${req.get('host')}`;
 }
 
-async function credentials(provider: Provider) {
+function clientFromRequest(req: KeepAuthedRequest): OAuthClient {
+  return String(req.query.client || '').toLowerCase() === 'web' ? 'web' : 'native';
+}
+
+function webReturnBase(): string {
+  const configured = String(process.env.KEEP_WEB_URL || process.env.PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').trim();
+  try {
+    const parsed = new URL(configured);
+    if (parsed.protocol !== 'https:') throw new Error('KEEP_WEB_URL must be https');
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return 'https://adelkhatra-bit.github.io/KEEP';
+  }
+}
+
+function connectionReturnUrl(state: OAuthState, provider: Provider, values: Record<string, string>): string {
+  const query = new URLSearchParams({ provider, ...values }).toString();
+  if (state.client === 'web') return `${webReturnBase()}/music-connections/?${query}`;
+  return `keep://music-connections?${query}`;
+}
+
+async function credentials(provider: DirectProvider) {
   if (provider === 'spotify') {
     const [id, secret] = await Promise.all([
       getIntegrationSecret('SPOTIFY_CLIENT_ID'),
@@ -96,30 +135,72 @@ async function statusHandler(req: KeepAuthedRequest, res: Response) {
     credentials('spotify'),
     credentials('deezer'),
   ]);
-  const { data, error } = await database
+  const [{ data, error }, gatewayConfigured] = await Promise.all([
+    database
     .from('music_provider_connections')
     .select('provider,provider_user_id,connected_at,expires_at')
-    .eq('profile_id', req.keepUserId!);
+    .eq('profile_id', req.keepUserId!),
+    pipedreamConfigured(),
+  ]);
   if (error) return res.status(500).json({ error: error.message });
+  const [pipedreamSpotify, pipedreamYoutube, pipedreamSoundcloud] = gatewayConfigured
+    ? await Promise.all([
+      findPipedreamMusicAccount(req.keepUserId!, 'spotify').catch(() => null),
+      findPipedreamMusicAccount(req.keepUserId!, 'youtube_music').catch(() => null),
+      findPipedreamMusicAccount(req.keepUserId!, 'soundcloud').catch(() => null),
+    ])
+    : [null, null, null];
   return res.json({
+    gateway: { provider: 'pipedream', configured: gatewayConfigured },
     providers: {
       apple_music: { configured: Boolean(await getIntegrationSecret('APPLE_MUSICKIT_TEAM_ID')), connected: false, connection: null },
-      spotify: { configured: Boolean(spotifyId && spotifySecret), connected: data?.some((x) => x.provider === 'spotify') ?? false, connection: data?.find((x) => x.provider === 'spotify') ?? null },
+      spotify: { configured: Boolean((spotifyId && spotifySecret) || gatewayConfigured), connected: (data?.some((x) => x.provider === 'spotify') ?? false) || Boolean(pipedreamSpotify), connection: data?.find((x) => x.provider === 'spotify') ?? pipedreamSpotify ?? null, gateway: pipedreamSpotify ? 'pipedream' : 'direct' },
       deezer: { configured: Boolean(deezerId && deezerSecret), connected: data?.some((x) => x.provider === 'deezer') ?? false, connection: data?.find((x) => x.provider === 'deezer') ?? null },
-      youtube_music: { configured: false, connected: false, connection: null },
-      soundcloud: { configured: false, connected: false, connection: null },
+      youtube_music: { configured: gatewayConfigured, connected: Boolean(pipedreamYoutube), connection: pipedreamYoutube ?? null, gateway: 'pipedream' },
+      soundcloud: { configured: gatewayConfigured, connected: Boolean(pipedreamSoundcloud), connection: pipedreamSoundcloud ?? null, gateway: 'pipedream' },
       tidal: { configured: false, connected: false, connection: null },
     },
   });
 }
 
+function wantsJson(req: KeepAuthedRequest): boolean {
+  return String(req.query.response || '').toLowerCase() === 'json' || req.accepts(['json', 'html']) === 'json';
+}
+
+function sendAuthorization(req: KeepAuthedRequest, res: Response, provider: Provider, authorizationUrl: string, client: OAuthClient) {
+  if (wantsJson(req)) {
+    return res.json({
+      provider,
+      authorizationUrl,
+      expiresInSeconds: 600,
+      callbackScheme: client === 'web' ? `${webReturnBase()}/music-connections/` : 'keep://music-connections',
+    });
+  }
+  return res.redirect(authorizationUrl);
+}
+
 async function startHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
-  if (!['spotify', 'deezer'].includes(provider)) return res.status(404).json({ error: 'provider_not_supported' });
-  const { id, secret } = await credentials(provider);
-  if (!id || !secret) return res.status(501).json({ error: `${provider}_not_configured` });
+  if (!['spotify', 'deezer', 'youtube_music', 'soundcloud'].includes(provider)) return res.status(404).json({ error: 'provider_not_supported' });
 
-  const state = signState({ userId: req.keepUserId, provider, exp: Date.now() + 10 * 60 * 1000 });
+  const client = clientFromRequest(req);
+  const directCredentials = provider === 'spotify' || provider === 'deezer' ? await credentials(provider) : null;
+  const gatewayConfigured = await pipedreamConfigured();
+  if (supportsPipedreamProvider(provider) && gatewayConfigured) {
+    const success = connectionReturnUrl({ userId: req.keepUserId!, provider: 'spotify', client, exp: Date.now() + 600_000 }, provider, { connected: '1', gateway: 'pipedream' });
+    const error = connectionReturnUrl({ userId: req.keepUserId!, provider: 'spotify', client, exp: Date.now() + 600_000 }, provider, { error: 'connection_failed', gateway: 'pipedream' });
+    try {
+      const link = await createPipedreamConnectLink({ profileId: req.keepUserId!, provider, successRedirectUri: success, errorRedirectUri: error });
+      return sendAuthorization(req, res, provider, link.authorizationUrl, client);
+    } catch (gatewayError: any) {
+      return res.status(501).json({ error: `${provider}_not_configured`, message: gatewayError?.message });
+    }
+  }
+
+  if (provider !== 'spotify' && provider !== 'deezer') return res.status(501).json({ error: `${provider}_not_configured` });
+  const { id, secret } = directCredentials!;
+  if (!id || !secret) return res.status(501).json({ error: `${provider}_not_configured` });
+  const state = signState({ userId: req.keepUserId, provider, client, exp: Date.now() + 10 * 60 * 1000 });
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;
 
   if (provider === 'spotify') {
@@ -131,7 +212,7 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
       scope: 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read user-library-modify',
       show_dialog: 'false',
     });
-    return res.redirect(`https://accounts.spotify.com/authorize?${query.toString()}`);
+    return sendAuthorization(req, res, provider, `https://accounts.spotify.com/authorize?${query.toString()}`, client);
   }
 
   const query = new URLSearchParams({
@@ -140,15 +221,16 @@ async function startHandler(req: KeepAuthedRequest, res: Response) {
     perms: 'basic_access,email,manage_library,delete_library,listening_history',
     state,
   });
-  return res.redirect(`https://connect.deezer.com/oauth/auth.php?${query.toString()}`);
+  return sendAuthorization(req, res, provider, `https://connect.deezer.com/oauth/auth.php?${query.toString()}`, client);
 }
 
 async function callbackHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
+  if (provider !== 'spotify' && provider !== 'deezer') return res.status(404).send(`${APP_NAME}: callback fournisseur non pris en charge.`);
   const state = verifyState(String(req.query.state || ''));
-  if (!state || state.provider !== provider) return res.status(400).send('KEEP: état OAuth invalide ou expiré.');
+  if (!state || state.provider !== provider) return res.status(400).send(`${APP_NAME}: état OAuth invalide ou expiré.`);
   const code = String(req.query.code || '');
-  if (!code) return res.redirect('keep://music-connections?error=access_denied');
+  if (!code) return res.redirect(connectionReturnUrl(state, provider, { error: 'access_denied' }));
   const callback = `${backendBaseUrl(req)}/api/music/connections/callback/${provider}`;
 
   try {
@@ -191,15 +273,19 @@ async function callbackHandler(req: KeepAuthedRequest, res: Response) {
         expiresIn: Number(tokenRes.data.expires || 0) || undefined,
       });
     }
-    return res.redirect(`keep://music-connections?provider=${provider}&connected=1`);
+    return res.redirect(connectionReturnUrl(state, provider, { connected: '1' }));
   } catch (error: any) {
-    const detail = encodeURIComponent(error?.response?.data?.error?.message || error?.message || 'oauth_failed');
-    return res.redirect(`keep://music-connections?provider=${provider}&error=${detail}`);
+    const detail = String(error?.response?.data?.error?.message || error?.message || 'oauth_failed');
+    return res.redirect(connectionReturnUrl(state, provider, { error: detail.slice(0, 300) }));
   }
 }
 
 async function disconnectHandler(req: KeepAuthedRequest, res: Response) {
   const provider = req.params.provider as Provider;
+  if (supportsPipedreamProvider(provider)) {
+    const removed = await disconnectPipedreamMusicAccount(req.keepUserId!, provider).catch(() => false);
+    if (removed && provider !== 'spotify') return res.json({ ok: true, gateway: 'pipedream' });
+  }
   const database = serviceClient();
   if (!database) return res.status(503).json({ error: 'supabase_service_not_configured' });
   const { error } = await database.from('music_provider_connections').delete().eq('profile_id', req.keepUserId!).eq('provider', provider);

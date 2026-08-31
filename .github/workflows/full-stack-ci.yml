@@ -2,14 +2,24 @@ name: KEEP — CI complète
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/**'
       - 'scripts/**'
       - 'supabase/**'
+      - 'render.yaml'
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - '.github/copilot-instructions.md'
+      - '.github/workflows/codeql.yml'
+      - '.github/dependabot.yml'
       - 'package.json'
       - 'package-lock.json'
       - 'START_KEEP_LIVE_CLEAN.bat'
+      - 'START_KEEP_PRO.ps1'
+      - 'START_KEEP_PRO.bat'
+      - 'START_KEEP_LATEST.bat'
+      - 'FORCE_START_LATEST_KEEP.bat'
       - '.github/workflows/full-stack-ci.yml'
   workflow_dispatch:
 
@@ -26,14 +36,66 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Verify KEEP capability inventory
+        run: node scripts/verify-capability-inventory.cjs
       - name: Verify KEEP source of truth
         run: node scripts/verify-source-of-truth.cjs
+      - name: Verify App Store readiness contract
+        run: node scripts/verify-app-store-readiness.cjs
+      - name: Verify Super Admin to user contract
+        run: node scripts/verify-admin-user-loop.cjs
+      - name: Verify direct Supabase push architecture
+        run: node scripts/verify-push-direct-supabase.cjs
       - name: Install
         run: npm ci
       - name: Typecheck all workspaces
         run: npm run type-check
       - name: Unit tests
         run: npm test -- --runInBand
+      - name: Live keyless recognition smoke — text + shared YouTube URL, no private API key
+        env:
+          KEEP_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+          KEEP_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+        shell: bash
+        run: |
+          set -euo pipefail
+          common_headers=(
+            -H "apikey: $KEEP_SUPABASE_ANON_KEY"
+            -H "Authorization: Bearer $KEEP_SUPABASE_ANON_KEY"
+            -H 'Content-Type: application/json'
+          )
+
+          curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -fsS \
+            -X POST "$KEEP_SUPABASE_URL/functions/v1/keep-music-keyless-source" \
+            "${common_headers[@]}" \
+            -H 'x-keep-device-id: github-ci-keyless-text-smoke' \
+            --data '{"rawText":"Rick Astley - Never Gonna Give You Up","title":"Rick Astley - Never Gonna Give You Up","platform":"WEB"}' \
+            -o /tmp/keep-keyless-text.json
+
+          curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -fsS \
+            -X POST "$KEEP_SUPABASE_URL/functions/v1/keep-music-keyless-source" \
+            "${common_headers[@]}" \
+            -H 'x-keep-device-id: github-ci-keyless-youtube-smoke' \
+            --data '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","platform":"YOUTUBE"}' \
+            -o /tmp/keep-keyless-youtube.json
+
+          node - <<'NODE'
+          const fs = require('fs');
+          function assertRick(path, label) {
+            const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const r = payload && payload.recognition;
+            if (!payload || payload.provider !== 'KEYLESS_SOURCE') throw new Error(`${label}: unexpected provider ${JSON.stringify(payload)}`);
+            if (!r || !r.title || !r.artist) throw new Error(`${label}: no keyless recognition ${JSON.stringify(payload)}`);
+            const title = String(r.title).toLowerCase();
+            const artist = String(r.artist).toLowerCase();
+            if (!title.includes('never gonna give you up') || !artist.includes('rick astley')) {
+              throw new Error(`${label}: wrong keyless match ${r.artist} — ${r.title}`);
+            }
+            console.log(`${label} OK: ${r.artist} — ${r.title} (${payload.strategy || 'unknown'})`);
+          }
+          assertRick('/tmp/keep-keyless-text.json', 'KEYLESS TEXT LIVE');
+          assertRick('/tmp/keep-keyless-youtube.json', 'KEYLESS YOUTUBE LIVE');
+          NODE
       - name: Build backend
         run: npm --workspace packages/backend run build
       - name: Build Super Admin

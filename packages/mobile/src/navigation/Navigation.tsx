@@ -1,45 +1,102 @@
 import React from 'react';
-import { Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { Platform, Text } from 'react-native';
+import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import HomeScreen from '../screens/HomeScreen';
+import { colors } from '../theme/colors';
+import HomeScreenCompact from '../screens/HomeScreenCompact';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MyMusicScreen from '../screens/MyMusicScreen';
 import PartiesScreen from '../screens/PartiesScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import ProfileSettingsMobileScreen from '../screens/ProfileSettingsMobileScreen';
+import AdvancedProfileSettingsScreen from '../screens/AdvancedProfileSettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
+import OffersScreen from '../screens/OffersScreen';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 
 const linking = {
-  prefixes: ['keep://'],
+  // Le sous-chemin GitHub Pages appartient au prefix, pas a `config.path`.
+  // React Navigation v6 refuse `path` a la racine de config et plantait le
+  // runtime avant le premier rendu (page blanche). Aucun rendu/onglet ne change.
+  prefixes: ['keep://', 'https://adelkhatra-bit.github.io/KEEP'],
   config: {
     screens: {
+      Main: {
+        path: 'Main',
+        screens: {
+          Listen: 'Listen',
+          Discover: 'Discover',
+          MyMusic: 'MyMusic',
+          Parties: 'Parties',
+          Profile: 'Profile',
+        },
+      },
+      SessionRecap: 'session-recap',
+      SessionHistory: 'session-history',
+      ProfileSettings: 'profile-settings',
+      AdvancedProfileSettings: 'profile-settings/advanced',
       PublicProfile: 'profile/:username',
       MusicConnections: 'music-connections',
       Notifications: 'notifications',
+      Offers: 'offers',
+      AppleMusicConnect: 'apple-music-connect',
     },
   },
+  // BUG REEL confirme en direct puis dans le code source (31/08/2026) : un
+  // chargement plein-page direct sur /Main/Profile, /Main/Parties ou
+  // /Main/MyMusic retombait silencieusement sur Listen. Cause exacte trouvee
+  // dans node_modules/@react-navigation/native/src/useLinking.tsx (fonction
+  // getInitialState, et le handler history.listen pour precedent/suivant) :
+  // web calcule `path = location.pathname + location.search` BRUT, sans
+  // jamais passer par `prefixes`/extractPathFromURL. Sur un site racine ca
+  // marche par hasard (pathname commence deja par /Main/...) ; sous GitHub
+  // Pages (/KEEP/...) le premier segment est "KEEP", ne correspond a aucun
+  // screen de `config.screens`, getStateFromPath renvoie undefined, et
+  // React Navigation retombe sur l'etat initial par defaut (Main -> Listen).
+  // La navigation par clic n'est pas touchee car elle ne repasse jamais par
+  // ce calcul de path brut. Symetrique au history_guard deja injecte par
+  // web-preview-pages.yml qui AJOUTE /KEEP quand React Navigation ECRIT une
+  // URL (getPathFromState) ; ici on RETIRE /KEEP quand React Navigation LIT
+  // l'URL (getStateFromPath), pour les deux memes raisons.
+  getStateFromPath: Platform.OS === 'web'
+    ? (path: string, options: any) => getStateFromPath(stripGitHubPagesBasePath(path), options)
+    : undefined,
 };
+
+const GITHUB_PAGES_BASE_PATH = '/KEEP';
+
+function stripGitHubPagesBasePath(path: string): string {
+  if (path === GITHUB_PAGES_BASE_PATH) return '/';
+  if (path.startsWith(`${GITHUB_PAGES_BASE_PATH}/`) || path.startsWith(`${GITHUB_PAGES_BASE_PATH}?`)) {
+    return path.slice(GITHUB_PAGES_BASE_PATH.length);
+  }
+  return path;
+}
 
 const TAB = {
   bg: '#0E0A14',
   border: '#2B2038',
-  active: '#A884FA',
-  inactive: '#756B84',
+  // Règle Loki : les libellés inactifs restent blancs pour ne jamais
+  // disparaître visuellement sur le fond sombre (jamais de gris fonctionnel).
+  // L'onglet actif utilise le violet de marque pour rester identifiable --
+  // observation réelle d'Adel (31/08/2026) : les deux couleurs étaient
+  // identiques, impossible de savoir sur quel onglet on se trouvait.
+  active: colors.primaryLight,
+  inactive: '#FFFFFF',
 };
 
 function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Listen"
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,
@@ -50,12 +107,20 @@ function MainTabs() {
           height: 68,
           paddingBottom: 8,
           paddingTop: 7,
+          display: 'flex',
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Listen" component={HomeScreen} options={{ tabBarLabel: 'Écouter', tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} /> }} />
+      <Tab.Screen
+        name="Listen"
+        component={HomeScreenCompact}
+        options={{
+          tabBarLabel: 'Écouter',
+          tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
+        }}
+      />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
       <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }} />
       <Tab.Screen name="Parties" component={PartiesScreen} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
@@ -67,12 +132,14 @@ function MainTabs() {
 export default function Navigation() {
   return (
     <NavigationContainer linking={linking}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
-        <RootStack.Screen name="ProfileSettings" component={ProfileScreen} />
+        <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
+        <RootStack.Screen name="AdvancedProfileSettings" component={AdvancedProfileSettingsScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+        <RootStack.Screen name="Offers" component={OffersScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />

@@ -8,6 +8,7 @@ import {
   listIntegrationSecrets,
   setIntegrationSecret,
 } from '../lib/integrationSecrets';
+import { APP_NAME } from '../config/brand';
 
 const router = Router();
 const verifier = createSupabaseTokenVerifier();
@@ -27,7 +28,16 @@ const ALLOWED_KEYS: Record<string, string> = {
   APPLE_MUSICKIT_TEAM_ID: 'music',
   APPLE_MUSICKIT_KEY_ID: 'music',
   APPLE_MUSICKIT_PRIVATE_KEY: 'music',
+  MUSICAPI_CLIENT_ID: 'music',
+  MUSICAPI_CLIENT_SECRET: 'music',
+  PIPEDREAM_CLIENT_ID: 'automation',
+  PIPEDREAM_CLIENT_SECRET: 'automation',
+  PIPEDREAM_PROJECT_ID: 'automation',
+  PIPEDREAM_ENVIRONMENT: 'automation',
   AUDD_API_KEY: 'recognition',
+  ACRCLOUD_ACCESS_KEY: 'recognition',
+  ACRCLOUD_ACCESS_SECRET: 'recognition',
+  ACRCLOUD_HOST: 'recognition',
 };
 
 async function audit(req: AdminAuthedRequest, action: string, targetId: string, after: unknown) {
@@ -75,9 +85,9 @@ if (!verifier || !adminClient || !roleChecker) {
     try {
       const result = await sendBrevoEmail({
         to: [{ email }],
-        subject: 'KEEP — test Brevo réussi',
-        htmlContent: '<div style="font-family:Arial,sans-serif"><h2>KEEP</h2><p>Votre configuration Brevo fonctionne correctement.</p></div>',
-        textContent: 'KEEP — votre configuration Brevo fonctionne correctement.',
+        subject: `${APP_NAME} — test Brevo réussi`,
+        htmlContent: `<div style="font-family:Arial,sans-serif"><h2>${APP_NAME}</h2><p>Votre configuration Brevo fonctionne correctement.</p></div>`,
+        textContent: `${APP_NAME} — votre configuration Brevo fonctionne correctement.`,
       });
       await audit(req, 'integration_email.tested', 'brevo', { recipient: email, ok: true });
       res.json({ ok: true, provider: 'brevo', ...result });

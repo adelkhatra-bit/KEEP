@@ -1,0 +1,235 @@
+name: KEEP — Real Browser Web Runtime Audit
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'packages/mobile/**'
+      - '.github/workflows/mobile-web-importmeta-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-browser-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install KEEP dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Start exact KEEP web runtime
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-web
+          node scripts/start-web.cjs --port 8081 --clear > /tmp/keep-real-runtime.log 2>&1 &
+          echo $! > /tmp/keep-real-runtime.pid
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              echo "KEEP runtime ready on 8081"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "KEEP runtime failed to start"
+          cat /tmp/keep-real-runtime.log
+          exit 1
+
+      - name: Real Chromium visual/runtime audit
+        shell: bash
+        run: |
+          mkdir -p artifacts/real-browser
+          cat > real-browser-audit.cjs <<'JS'
+          const { chromium } = require('@playwright/test');
+          const fs = require('fs');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const errors = [];
+            const httpFailures = [];
+
+            page.on('pageerror', error => errors.push(`PAGE ERROR: ${error.message}`));
+            page.on('console', msg => {
+              if (msg.type() === 'error') {
+                const loc = msg.location();
+                const suffix = loc?.url ? ` @ ${loc.url}:${loc.lineNumber ?? 0}:${loc.columnNumber ?? 0}` : '';
+                errors.push(`CONSOLE ERROR: ${msg.text()}${suffix}`);
+              }
+            });
+            page.on('response', response => {
+              if (response.status() >= 400) httpFailures.push(`HTTP ${response.status()} ${response.request().method()} ${response.url()}`);
+            });
+            page.on('requestfailed', request => {
+              httpFailures.push(`REQUEST FAILED ${request.method()} ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`);
+            });
+            page.on('dialog', async dialog => {
+              if (dialog.type() === 'confirm') await dialog.accept();
+              else await dialog.dismiss();
+            });
+
+            const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            if (!response || !response.ok()) throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
+            await page.waitForTimeout(1500);
+
+            const bodyText = (await page.locator('body').innerText()).trim();
+            const bodyBox = await page.locator('body').boundingBox();
+            const rootHtml = await page.locator('#root').innerHTML().catch(() => '');
+            await page.screenshot({ path: 'artifacts/real-browser/keep-mobile-runtime.png', fullPage: true });
+
+            if (!bodyText || bodyText.length < 10) throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
+            if (!rootHtml || rootHtml.trim().length < 20) throw new Error('Visual audit failed: #root is empty or effectively blank');
+            if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
+
+            // Samsung/Chrome Android : un swipe vertical ne doit jamais faire sortir
+            // la barre des 5 onglets du viewport visible.
+            const bottomProfileTab = page.getByText('Profil', { exact: true }).last();
+            if (await bottomProfileTab.count() === 0) throw new Error('Profile bottom tab not found');
+            const bottomBefore = await bottomProfileTab.boundingBox();
+            await page.mouse.wheel(0, 1400);
+            await page.waitForTimeout(300);
+            const bottomAfter = await bottomProfileTab.boundingBox();
+            if (!bottomBefore || !bottomAfter) throw new Error('Bottom tab lost during vertical swipe');
+            if (bottomAfter.y < 0 || bottomAfter.y + bottomAfter.height > 844) {
+              throw new Error(`Samsung bottom navigation left viewport after swipe: ${JSON.stringify(bottomAfter)}`);
+            }
+            if (Math.abs(bottomAfter.y - bottomBefore.y) > 4) {
+              throw new Error(`Samsung bottom navigation moved with page scroll: ${bottomBefore.y} -> ${bottomAfter.y}`);
+            }
+
+            await bottomProfileTab.click();
+            await page.waitForTimeout(700);
+
+            // Cible les vrais onglets du profil via leur libellé d'accessibilité,
+            // pas un texte KEEP/Vibes/Albums pouvant exister ailleurs sur la page.
+            const vibesTab = page.getByLabel('Profil Vibes');
+            const albumsTab = page.getByLabel('Profil Albums');
+            const keepTab = page.getByLabel('Profil KEEP');
+            if (await vibesTab.count() === 0 || await albumsTab.count() === 0 || await keepTab.count() === 0) throw new Error('Profile music tabs not found');
+
+            await vibesTab.click();
+            await page.waitForTimeout(250);
+            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Vibes tab kept KEEP content mounted');
+
+            await albumsTab.click();
+            await page.waitForTimeout(250);
+            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Albums tab kept KEEP content mounted');
+
+            await keepTab.click();
+            await page.waitForTimeout(250);
+            if (await page.getByText(/KEEP construit ton univers/i).count() === 0) throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
+
+            await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
+
+            // Boucle complète SUPPRIMER : Playlists -> bouton -> confirmation ->
+            // disparition -> Profil -> reload -> toujours absent.
+            const playlistsBottomTab = page.getByText('Playlists', { exact: true }).last();
+            if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
+            await playlistsBottomTab.click();
+            await page.waitForTimeout(500);
+
+            const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
+            if (await allMusic.count() === 0) throw new Error('Delete audit fixture missing: Toute ma musique');
+            await allMusic.click();
+            await page.waitForTimeout(400);
+
+            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
+            const beforeDeleteCount = await deleteButtons.count();
+            if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
+            const deleteButton = deleteButtons.first();
+            const trackBody = deleteButton.locator('xpath=../..');
+            const trackBodyText = (await trackBody.innerText()).trim();
+            const deletedTitle = trackBodyText.split('\n').map(v => v.trim()).find(Boolean) || '';
+            if (!deletedTitle) throw new Error('Unable to identify track title before delete');
+
+            await deleteButton.click();
+            await page.waitForTimeout(800);
+            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de KEEP').count();
+            if (afterDeleteCount !== beforeDeleteCount - 1) throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
+            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
+
+            await page.getByText('Profil', { exact: true }).last().click();
+            await page.waitForTimeout(500);
+            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
+
+            await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(900);
+            const profileAfterReload = page.getByText('Profil', { exact: true }).last();
+            if (await profileAfterReload.count() === 0) throw new Error('Profile tab missing after reload');
+            await profileAfterReload.click();
+            await page.waitForTimeout(400);
+            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track returned after full reload: ${deletedTitle}`);
+
+            await page.screenshot({ path: 'artifacts/real-browser/keep-delete-loop-390x844.png', fullPage: true });
+
+            const report = [
+              `URL: ${page.url()}`,
+              `TITLE: ${await page.title()}`,
+              `BODY_LENGTH: ${bodyText.length}`,
+              `ROOT_HTML_LENGTH: ${rootHtml.length}`,
+              `BODY_BOX: ${JSON.stringify(bodyBox)}`,
+              'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
+              'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
+              `DELETE_TRACK: ${deletedTitle}`,
+              'DELETE_PLAYLIST_TO_PROFILE_TO_RELOAD: PASS',
+              `ERROR_COUNT: ${errors.length}`,
+              `HTTP_FAILURE_COUNT: ${httpFailures.length}`,
+              '',
+              'VISIBLE_TEXT:',
+              bodyText.slice(0, 12000),
+              '',
+              'HTTP FAILURES:',
+              ...httpFailures,
+              '',
+              'ERRORS:',
+              ...errors,
+            ].join('\n');
+            fs.writeFileSync('artifacts/real-browser/report.txt', report);
+
+            if (errors.length > 0 || httpFailures.length > 0) throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          JS
+          node real-browser-audit.cjs
+
+      - name: Show runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-real-runtime.log || true
+
+      - name: Upload real browser screenshot and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KEEP-Real-Browser-${{ github.sha }}
+          path: artifacts/real-browser
+          retention-days: 14
+          if-no-files-found: warn

@@ -1,0 +1,124 @@
+name: KEEP — Essai gratuit public mobile
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/screens/onboarding/OnboardingScreen.tsx'
+      - 'packages/mobile/src/screens/ProfilePublicScreen.tsx'
+      - 'packages/mobile/src/screens/OffersScreen.tsx'
+      - 'packages/mobile/src/components/CreatorToolsPanel.tsx'
+      - 'packages/mobile/src/components/UsernameAccountForm.tsx'
+      - 'packages/mobile/src/store/useUserStore.ts'
+      - 'packages/mobile/src/services/creditService.ts'
+      - 'packages/mobile/src/services/sharingService.ts'
+      - 'packages/mobile/share-profile.html'
+      - 'supabase/functions/keep-public/**'
+      - 'supabase/functions/keep-preview/**'
+      - 'supabase/functions/keep-admin-preview/**'
+      - 'scripts/keep-public-trial-smoke.cjs'
+      - '.github/workflows/public-trial-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  free-trial-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact KEEP commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Assert official KEEP source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
+          test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "KEEP EXACT SOURCE OK: $GITHUB_REPOSITORY @ $GITHUB_REF_NAME @ $GITHUB_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck mobile
+        run: npm --workspace packages/mobile run type-check
+
+      - name: Prove every legacy KEEP URL redirects to the canonical site
+        shell: bash
+        run: |
+          set -euo pipefail
+          canonical='https://adelkhatra-bit.github.io/KEEP/'
+          supabase='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1'
+
+          check_redirect() {
+            local source="$1"
+            local expected="$2"
+            local result
+            result="$(curl --connect-timeout 10 --max-time 20 -sS -o /dev/null -w '%{http_code}|%{redirect_url}' "$source")"
+            echo "$source -> $result"
+            test "$result" = "308|$expected"
+          }
+
+          check_redirect "$supabase/keep-public" "$canonical"
+          check_redirect "$supabase/keep-preview" "$canonical"
+          check_redirect "$supabase/keep-public/share-profile/?u=keep-smoke" "${canonical}share-profile/?u=keep-smoke"
+          check_redirect "$supabase/keep-preview/share-profile/?u=keep-smoke" "${canonical}share-profile/?u=keep-smoke"
+          check_redirect "$supabase/keep-admin-preview" "${canonical}admin-preview/"
+
+      - name: Install Chromium + Firefox + WebKit
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium firefox webkit --with-deps
+
+      - name: Wait until corrected public KEEP is deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP/'
+          for i in {1..60}; do
+            if curl -L --connect-timeout 10 --max-time 20 -fsS "$base" -o /tmp/keep-public.html; then
+              echo "KEEP public reachable — attempt $i"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'KEEP public unreachable'
+          exit 1
+
+      - name: Prove trial creator paywall and sharing on desktop Android and iPhone
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-browser-matrix
+          # The Pages deployment for the same source push may still be finishing.
+          # Retry the real interaction until the new public bundle is visible.
+          for i in {1..24}; do
+            echo "PUBLIC TRIAL ATTEMPT $i/24"
+            rm -f artifacts/public-browser-matrix/*-FAIL.*
+            if node scripts/keep-public-trial-smoke.cjs; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Public KEEP never exposed the corrected free-trial/share flow in time.'
+          exit 1
+
+      - name: Upload mobile/desktop evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KEEP-Free-Trial-Live-${{ github.sha }}
+          path: artifacts/public-browser-matrix
+          retention-days: 14
+          if-no-files-found: warn

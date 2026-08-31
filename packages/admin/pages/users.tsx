@@ -1,86 +1,373 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { DEMO_USERS, PlanCode } from '../lib/demoData';
-import { filterUsers } from '../lib/aggregate';
+import { supabase } from '../lib/supabaseClient';
 
-const PLAN_OPTIONS: (PlanCode | 'ALL')[] = ['ALL', 'FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'];
+const PLAN_OPTIONS = ['ALL', 'FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
+type PlanFilter = typeof PLAN_OPTIONS[number];
+type PaidPlan = 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
+type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'MODERATOR';
 
-/**
- * Écran Utilisateurs — cf. RESTE_A_FAIRE.md Priorité 4. En Mode Démo,
- * lit DEMO_USERS ; en Mode Réel, lira `profiles` + `subscriptions` via le
- * backend (service role, jamais la clé anon côté admin -- RLS bloque de
- * toute façon un accès direct multi-utilisateurs avec la clé anon).
- */
+type DirectoryUser = {
+  id: string;
+  email: string | null;
+  email_confirmed_at: string | null;
+  username: string;
+  display_name: string | null;
+  country_code: string | null;
+  kind: string | null;
+  created_at: string;
+  plan_code: string;
+  keeps_this_month: number;
+  avatar_url: string | null;
+  free_keeps_used: number;
+  social_keeps: number;
+  credit_consumed: number;
+  credit_limit: number | null;
+  credit_remaining: number | null;
+  playlist_tracks: number;
+  recognized_count: number;
+  account_verified: boolean;
+  certification_tier: string;
+};
+
+type UserSnapshot = {
+  profile: {
+    id: string; username: string; display_name: string | null; bio: string | null; avatar_url: string | null;
+    city: string | null; country_code: string | null; kind: string | null; website: string | null; is_public: boolean;
+    discovery_hidden: boolean;
+  };
+  privateInfo: { birth_date?: string | null; gender?: string | null } | null;
+  socialLinks: Array<{ platform: string; url: string; visibility: string }>;
+  requirements: string[];
+  auth: { email: string | null; emailVerified: boolean; emailConfirmedAt: string | null; isAnonymous: boolean; bannedUntil: string | null };
+  usage: {
+    kept: number; ownKeeps: number; socialKeeps: number; passed: number; publicKeeps: number; playlists: number;
+    downloadsConsumed: number; recognizedCount: number; lastRecognizedAt: string | null;
+  };
+};
+
+type LegacyRecovery = { username: string; temporaryPassword: string; message?: string };
+
+const REQUIREMENTS = [
+  ['BIRTH_DATE', 'Date de naissance'], ['GENDER', 'Genre'],
+  ['AVATAR', 'Photo'], ['CITY', 'Ville'], ['COUNTRY', 'Pays'], ['BIO', 'Bio'],
+  ['SOCIAL_LINK', 'Au moins un réseau'], ['WEBSITE', 'Site web'],
+] as const;
+
+async function invokeAdmin(body: Record<string, unknown>) {
+  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.message || data.error);
+  return data;
+}
+
+async function invokeUserControl(body: Record<string, unknown>) {
+  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+  const { data, error } = await supabase.functions.invoke('keep-admin-user-control', { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.message || data.error);
+  return data;
+}
+
+function visibleEmail(email: string | null) {
+  if (!email || email.endsWith('@keep.local')) return 'Sans e-mail';
+  return email;
+}
+function memberNumber(id: string) { return `KEEP-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`; }
+function durationLabel(months: number) { return months === 0 ? 'Illimité' : months === 12 ? '1 an' : months === 24 ? '2 ans' : `${months} mois`; }
+function isBanned(until: string | null | undefined) { return Boolean(until && new Date(until).getTime() > Date.now()); }
+function planColor(plan: string) {
+  if (plan === 'VENUE_PRO') return '#d6aa36';
+  if (plan === 'CREATOR_PRO') return '#b788ff';
+  if (plan === 'PREMIUM') return '#6f8cff';
+  return '#31c981';
+}
+function certificationLabel(user: DirectoryUser) {
+  if (!user.account_verified) return 'ESSAI';
+  return user.certification_tier || user.plan_code || 'FREE';
+}
+
 export default function Users() {
   const [query, setQuery] = useState('');
-  const [planFilter, setPlanFilter] = useState<PlanCode | 'ALL'>('ALL');
+  const [planFilter, setPlanFilter] = useState<PlanFilter>('ALL');
+  const [users, setUsers] = useState<DirectoryUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
 
-  const filtered = useMemo(() => filterUsers(DEMO_USERS, query, planFilter), [query, planFilter]);
+  const [selected, setSelected] = useState<DirectoryUser | null>(null);
+  const [snapshot, setSnapshot] = useState<UserSnapshot | null>(null);
+  const [requirements, setRequirements] = useState<string[]>([]);
+  const [plan, setPlan] = useState<PaidPlan>('PREMIUM');
+  const [months, setMonths] = useState(12);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
 
-  return (
-    <AdminLayout>
-      <div className="page-title">Utilisateurs</div>
-      <div className="page-subtitle">{filtered.length} / {DEMO_USERS.length} utilisateur(s) — France (EUR)</div>
+  const [legacyUsername, setLegacyUsername] = useState('');
+  const [legacyRecovery, setLegacyRecovery] = useState<LegacyRecovery | null>(null);
 
-      <div className="demo-banner">
-        🎭 MODE DÉMO — {DEMO_USERS.length} utilisateurs d'exemple, aucun projet
-        Supabase connecté. En Mode Réel, cet écran lira `profiles` +
-        `subscriptions` via le backend (service role).
-      </div>
+  const load = async () => {
+    setLoading(true); setError(null);
+    try {
+      if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error('Session Super Admin expirée. Reconnecte-toi.');
+      let result = await supabase.rpc('admin_user_directory');
+      if (result.error && /jwt|token|session|auth/i.test(String(result.error.message || ''))) {
+        await supabase.auth.refreshSession();
+        result = await supabase.rpc('admin_user_directory');
+      }
+      if (result.error) throw result.error;
+      const rows = Array.isArray(result.data) ? result.data : [];
+      setUsers(rows as DirectoryUser[]);
+      if (!rows.length) setError('Annuaire chargé mais aucun profil n’est remonté. Actualise la session Super Admin.');
+    } catch (e: any) { setUsers([]); setError(e?.message ?? 'Impossible de charger les utilisateurs.'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.rpc('get_my_admin_role').then(
+      ({ data }) => {
+        const role = String(data || '') as AdminRole;
+        setAdminRole(['SUPER_ADMIN','ADMIN','SUPPORT','MODERATOR'].includes(role) ? role : null);
+      },
+      () => setAdminRole(null),
+    );
+  }, []);
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        <input
-          type="text"
-          placeholder="Rechercher (pseudo, pays)…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{
-            flex: 1,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            borderRadius: 8,
-            padding: '10px 14px',
-            fontSize: 13,
-          }}
-        />
-        <select
-          value={planFilter}
-          onChange={(e) => setPlanFilter(e.target.value as PlanCode | 'ALL')}
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            borderRadius: 8,
-            padding: '10px 14px',
-            fontSize: 13,
-          }}
-        >
-          {PLAN_OPTIONS.map((p) => (
-            <option key={p} value={p}>{p === 'ALL' ? 'Tous les plans' : p}</option>
-          ))}
-        </select>
-      </div>
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return users.filter((u) => {
+      if (planFilter !== 'ALL' && u.plan_code !== planFilter) return false;
+      if (!needle) return true;
+      return [u.username, u.display_name ?? '', visibleEmail(u.email), u.country_code ?? '', u.kind ?? '', u.plan_code, memberNumber(u.id)]
+        .some((value) => value.toLowerCase().includes(needle));
+    });
+  }, [users, query, planFilter]);
 
-      <table>
-        <thead>
-          <tr><th>Utilisateur</th><th>Pays</th><th>Plan</th><th>GARDER ce mois</th><th>Inscrit le</th></tr>
-        </thead>
+  const openUser = async (u: DirectoryUser) => {
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setMessage(null); setError(null); setBusy('load');
+    try {
+      const result = await invokeUserControl({ action: 'get', profileId: u.id });
+      setSnapshot(result.data as UserSnapshot);
+      setRequirements(Array.isArray(result.data?.requirements) ? result.data.requirements : []);
+    } catch (e: any) { setError(e?.message ?? 'Impossible de charger ce profil.'); }
+    finally { setBusy(null); }
+  };
+
+  const refreshSelected = async () => {
+    if (!selected) return;
+    const result = await invokeUserControl({ action: 'get', profileId: selected.id });
+    setSnapshot(result.data as UserSnapshot);
+    setRequirements(Array.isArray(result.data?.requirements) ? result.data.requirements : []);
+  };
+
+  const saveRequirements = async () => {
+    if (!selected) return;
+    setBusy('requirements'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'set_requirements', profileId: selected.id, requirements });
+      setSnapshot(result.data as UserSnapshot);
+      setMessage('Obligations enregistrées pour cet utilisateur.');
+    } catch (e: any) { setError(e?.message ?? 'Enregistrement impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const grant = async () => {
+    if (!selected) return;
+    setBusy('grant'); setError(null);
+    try {
+      const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin Loki' });
+      const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
+      setMessage(`${plan} offert à @${selected.username} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : ''}.`);
+      await load(); await refreshSelected();
+    } catch (e: any) { setError(e?.message ?? 'Attribution impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const revoke = async () => {
+    if (!selected) return;
+    setBusy('revoke'); setError(null);
+    try {
+      await invokeAdmin({ action: 'users.revoke_grant', identity: selected.username });
+      setMessage(`Avantage offert retiré pour @${selected.username}. Le compte et les données restent intacts.`);
+      await load(); await refreshSelected();
+    } catch (e: any) { setError(e?.message ?? 'Révocation impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const resetPassword = async () => {
+    if (!selected) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Générer un nouveau mot de passe temporaire pour @${selected.username} ? L’ancien ne fonctionnera plus.`)) return;
+    setBusy('password'); setError(null); setTemporaryPassword(null);
+    try {
+      const result = await invokeUserControl({ action: 'reset_password', profileId: selected.id });
+      setTemporaryPassword(String(result.temporaryPassword || ''));
+      setMessage(`Mot de passe temporaire généré pour @${selected.username}. Aucun e-mail n’a été envoyé.`);
+      if (result.data) setSnapshot(result.data as UserSnapshot);
+    } catch (e: any) { setError(e?.message ?? 'Réinitialisation impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const toggleBlocked = async () => {
+    if (!selected || !snapshot) return;
+    const blocked = !isBanned(snapshot.auth.bannedUntil);
+    setBusy('block'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'set_blocked', profileId: selected.id, blocked });
+      setSnapshot(result.data as UserSnapshot);
+      setMessage(blocked ? `@${selected.username} est bloqué.` : `@${selected.username} peut de nouveau se connecter.`);
+    } catch (e: any) { setError(e?.message ?? 'Action impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const toggleDiscoveryHidden = async () => {
+    if (!selected || !snapshot) return;
+    const hidden = !snapshot.profile.discovery_hidden;
+    setBusy('discovery'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'set_discovery_hidden', profileId: selected.id, hidden });
+      setSnapshot(result.data as UserSnapshot);
+      setMessage(hidden ? `@${selected.username} est masqué de Découvertes.` : `@${selected.username} est de nouveau visible dans Découvertes.`);
+    } catch (e: any) { setError(e?.message ?? 'Modification de visibilité impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const deleteUser = async () => {
+    if (!selected) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Supprimer définitivement @${selected.username} ? Profil, musiques, playlists et accès seront supprimés.`)) return;
+    setBusy('delete'); setError(null);
+    try {
+      await invokeUserControl({ action: 'delete', profileId: selected.id });
+      setMessage(`@${selected.username} a été supprimé.`);
+      setSelected(null); setSnapshot(null); setTemporaryPassword(null); await load();
+    } catch (e: any) { setError(e?.message ?? 'Suppression impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const recoverLegacy = async () => {
+    const username = legacyUsername.trim().replace(/^@+/, '');
+    if (!username) return;
+    setBusy('recover'); setError(null); setLegacyRecovery(null);
+    try {
+      const result = await invokeAdmin({ action: 'users.recover_legacy', username });
+      setLegacyRecovery({ username: String(result?.username || username), temporaryPassword: String(result?.temporaryPassword || ''), message: result?.message });
+      await load();
+    } catch (e: any) { setError(e?.message ?? 'Récupération impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const toggleRequirement = (key: string) => setRequirements((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  const canRequirements = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN' || adminRole === 'SUPPORT';
+  const canGrant = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN';
+  const canModerateDiscovery = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN' || adminRole === 'MODERATOR';
+  const canBlock = adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN';
+  const canDestruct = adminRole === 'SUPER_ADMIN';
+
+  return <AdminLayout>
+    <div className="page-title">Utilisateurs</div>
+    <div className="page-subtitle">{users.length} compte(s) réels · écoute, FREE, profil, certification, abonnement et récupération au même endroit</div>
+    {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
+    {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
+
+    <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+      <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Rechercher pseudo, e-mail, n° KEEP…" style={{ flex:'1 1 320px', minWidth:220, background:'var(--bg-card)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:10, padding:'11px 14px' }}/>
+      <select value={planFilter} onChange={(e)=>setPlanFilter(e.target.value as PlanFilter)} style={{ background:'var(--bg-card)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:10, padding:'11px 14px' }}>
+        {PLAN_OPTIONS.map((p)=><option key={p} value={p}>{p==='ALL'?'Tous les plans':p}</option>)}
+      </select>
+      <button onClick={()=>void load()} disabled={loading}>Actualiser</button>
+    </div>
+
+    <div className="card" style={{ padding:0, overflowX:'auto', overflowY:'hidden', width:'100%', WebkitOverflowScrolling:'touch' }}>
+      <table style={{ margin:0, width:'100%', minWidth:860, tableLayout:'fixed' }}>
+        <thead><tr><th style={{width:'28%'}}>Utilisateur</th><th style={{width:'12%'}}>Certification</th><th>Reconnu</th><th>Morceaux débités</th><th>Depuis utilisateurs</th><th>FREE restant</th><th>Bibliothèque</th><th style={{width:72}}></th></tr></thead>
         <tbody>
-          {filtered.length === 0 && (
-            <tr><td colSpan={5} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>Aucun utilisateur ne correspond à ces critères.</td></tr>
-          )}
-          {filtered.map((u) => (
-            <tr key={u.id}>
-              <td>{u.username}</td>
-              <td>{u.country}</td>
-              <td>{u.plan}</td>
-              <td>{u.keepsThisMonth}</td>
-              <td>{u.joinedAt}</td>
-            </tr>
-          ))}
+          {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
+          {!loading && filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
+          {filtered.map((u)=><tr key={u.id} onClick={()=>void openUser(u)} style={{ cursor:'pointer' }}>
+            <td><div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:32,height:32,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><strong style={{display:'block',overflow:'hidden',textOverflow:'ellipsis'}}>@{u.username}</strong><div style={{fontSize:10,color:'var(--text-muted)',overflow:'hidden',textOverflow:'ellipsis'}}>{visibleEmail(u.email)}</div></div></div></td>
+            <td><span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 6px',borderRadius:999,border:`1px solid ${u.account_verified ? planColor(u.certification_tier || u.plan_code) : '#6f6678'}`,color:u.account_verified ? planColor(u.certification_tier || u.plan_code) : '#9d94a8',fontWeight:800,fontSize:10}}>{u.account_verified?'●':'○'} {certificationLabel(u)}</span></td>
+            <td>{u.recognized_count ?? 0}</td><td>{u.free_keeps_used ?? 0}</td><td>{u.social_keeps ?? 0}</td><td>{u.credit_remaining == null ? '∞' : u.credit_remaining}</td><td>{u.playlist_tracks ?? 0}</td>
+            <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}} style={{padding:'7px 9px'}}>Gérer</button></td>
+          </tr>)}
         </tbody>
       </table>
-    </AdminLayout>
-  );
+    </div>
+
+    <details style={{marginTop:18,display:canRequirements?'block':'none'}}><summary style={{cursor:'pointer',color:'var(--text-muted)'}}>Récupérer un ancien profil de test</summary>
+      <div className="card" style={{marginTop:10}}><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+        <input value={legacyUsername} onChange={(e)=>setLegacyUsername(e.target.value)} placeholder="Pseudo Loki" style={{flex:'1 1 260px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}/>
+        <button onClick={()=>void recoverLegacy()} disabled={!legacyUsername.trim()||busy!==null}>Récupérer</button>
+      </div>
+      {legacyRecovery && <div style={{marginTop:10,fontFamily:'monospace'}}>@{legacyRecovery.username} · mot de passe temporaire : {legacyRecovery.temporaryPassword}</div>}
+      </div>
+    </details>
+
+    {selected && <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',overflowX:'hidden',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
+          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification Loki : {certificationLabel(selected)}</div></div></div>
+          <button onClick={()=>setSelected(null)}>Fermer</button>
+        </div>
+
+        {busy==='load' || !snapshot ? <div style={{padding:30,textAlign:'center'}}>Chargement du profil réel…</div> : <>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:8,marginTop:16}}>
+            {[
+              ['Certification', selected.account_verified ? certificationLabel(selected) : 'Compte non validé'],
+              ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
+              ['Reconnaissances', String(snapshot.usage.recognizedCount)],
+              ['Morceaux débités', String(snapshot.usage.ownKeeps)],
+              ['Reprises', String(snapshot.usage.socialKeeps)],
+              ['Morceaux total', String(snapshot.usage.kept)],
+              ['Publics', String(snapshot.usage.publicKeeps)],
+              ['Playlists', String(snapshot.usage.playlists)],
+              ['Réseaux', String(snapshot.socialLinks.length)],
+              ['Naissance', snapshot.privateInfo?.birth_date || 'Manquante'],
+              ['Ville / pays', [snapshot.profile.city,snapshot.profile.country_code].filter(Boolean).join(' · ') || 'Manquant'],
+              ['Découvertes', snapshot.profile.discovery_hidden ? 'Masqué' : 'Visible'],
+            ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10,minWidth:0}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong style={{overflowWrap:'anywhere'}}>{value}</strong></div>)}
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
+            <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
+            <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
+            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div></div>}
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>
+            <h3 style={{margin:'0 0 4px'}}>À imposer à cet utilisateur</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que Loki devra lui demander de compléter.</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:7}}>
+              {REQUIREMENTS.map(([key,label])=><label key={key} style={{display:'flex',gap:8,alignItems:'center',border:'1px solid var(--border)',borderRadius:9,padding:'9px 10px',cursor:'pointer'}}><input type="checkbox" checked={requirements.includes(key)} onChange={()=>toggleRequirement(key)}/><span>{label}</span></label>)}
+            </div>
+            <button style={{marginTop:10}} onClick={()=>void saveRequirements()} disabled={busy!==null}>{busy==='requirements'?'Enregistrement…':'Enregistrer les obligations'}</button>
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canGrant?'block':'none'}}>
+            <h3 style={{margin:'0 0 10px'}}>Abonnement offert</h3>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
+              <select value={plan} onChange={(e)=>setPlan(e.target.value as PaidPlan)} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value="PREMIUM">Premium · 2,99 €</option><option value="CREATOR_PRO">Creator Pro · 9,99 €</option><option value="VENUE_PRO">Venue Pro · 29,99 €</option></select>
+              <select value={months} onChange={(e)=>setMonths(Number(e.target.value))} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value={1}>1 mois</option><option value={3}>3 mois</option><option value={6}>6 mois</option><option value={12}>1 an</option><option value={24}>2 ans</option><option value={0}>Illimité</option></select>
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}><button onClick={()=>void grant()} disabled={busy!==null}>Offrir {plan}</button><button onClick={()=>void revoke()} disabled={busy!==null} style={{opacity:.8}}>Arrêter l’offre</button></div>
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canModerateDiscovery?'block':'none'}}>
+            <h3 style={{margin:'0 0 5px'}}>Visibilité Découvertes</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Masquer retire uniquement ce profil de l’onglet Découvertes. Son compte, ses données et son lien de profil restent intacts.</div>
+            <button onClick={()=>void toggleDiscoveryHidden()} disabled={busy!==null} style={{background:snapshot.profile.discovery_hidden?'#2e7d32':'#5b3f7f'}}>{busy==='discovery'?'Enregistrement…':snapshot.profile.discovery_hidden?'Rendre visible dans Découvertes':'Masquer de Découvertes'}</button>
+          </div>
+
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:(canBlock||canDestruct)?'flex':'none',gap:8,flexWrap:'wrap'}}>
+            <button onClick={()=>void toggleBlocked()} disabled={busy!==null} style={{display:canBlock?'inline-block':'none'}}>{isBanned(snapshot.auth.bannedUntil)?'Débloquer le compte':'Bloquer le compte'}</button>
+            <button onClick={()=>void deleteUser()} disabled={busy!==null} style={{background:'#7a1f2a',display:canDestruct?'inline-block':'none'}}>Supprimer définitivement</button>
+          </div>
+        </>}
+      </div>
+    </div>}
+  </AdminLayout>;
 }

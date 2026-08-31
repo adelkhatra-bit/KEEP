@@ -22,7 +22,7 @@ const BAR_COUNT = 5;
 /**
  * Animation centrale de "session en cours" — remplace l'ancienne grosse
  * pochette statique. Ondes concentriques + petit spectre au centre,
- * pour montrer que KEEP analyse réellement l'environnement plutôt que de
+ * pour montrer que Loki analyse réellement l'environnement plutôt que de
  * jouer un morceau (cf. corrections concept du 21/08/2026).
  */
 export default function SessionPulse({ active = true }: { active?: boolean }) {

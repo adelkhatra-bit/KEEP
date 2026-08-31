@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getBrevoStatus, sendBrevoEmail } from '../lib/brevo';
+import { APP_NAME } from '../config/brand';
 
 const router = Router();
 
@@ -24,9 +25,9 @@ router.post('/test', async (req, res) => {
   try {
     const result = await sendBrevoEmail({
       to: [{ email }],
-      subject: 'KEEP — test e-mail Brevo',
-      htmlContent: '<div style="font-family:Arial,sans-serif"><h2>KEEP</h2><p>Brevo est correctement connecté au backend KEEP.</p></div>',
-      textContent: 'KEEP — Brevo est correctement connecté au backend KEEP.',
+      subject: `${APP_NAME} — test e-mail Brevo`,
+      htmlContent: `<div style="font-family:Arial,sans-serif"><h2>${APP_NAME}</h2><p>Brevo est correctement connecté au backend ${APP_NAME}.</p></div>`,
+      textContent: `${APP_NAME} — Brevo est correctement connecté au backend ${APP_NAME}.`,
     });
     return res.json({ ok: true, provider: 'brevo', ...result });
   } catch (error: any) {

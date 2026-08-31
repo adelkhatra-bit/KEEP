@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "sourceBranch": "reconcile/claude-main-20260825",
+  "capabilities": {
+    "identity": ["Supabase Auth", "password recovery", "username login", "email recovery"],
+    "communication": ["Brevo transactional email", "Supabase Realtime support", "Expo push notifications"],
+    "musicRecognition": ["ShazamKit iOS", "keyless Apple and Deezer cross-check", "AudD", "ACRCloud fallback"],
+    "musicInteroperability": ["Spotify OAuth", "Deezer OAuth", "Apple MusicKit", "MusicAPI unified catalog optional", "Pipedream Connect managed OAuth gateway"],
+    "storage": ["Supabase Postgres", "Supabase Storage avatars", "GitHub artifacts"],
+    "delivery": ["GitHub Pages", "Expo EAS Build", "EAS Submit", "TestFlight"],
+    "quality": ["TypeScript", "Jest", "Playwright Chromium", "Playwright WebKit iPhone", "Android viewport guardian", "iOS simulator compile", "CodeQL"]
+  },
+  "requiredWorkflows": [
+    "mobile-ci.yml",
+    "full-stack-ci.yml",
+    "keep-human-guardian.yml",
+    "keep-dual-viewport-guardian.yml",
+    "mobile-samsung-reliability-once.yml",
+    "web-preview-pages.yml",
+    "app-store-native-preflight.yml",
+    "codeql.yml",
+    "verify-migrations.yml"
+  ],
+  "protectedFiles": [
+    "packages/mobile/App.tsx",
+    "packages/mobile/src/navigation/Navigation.tsx"
+  ]
+}

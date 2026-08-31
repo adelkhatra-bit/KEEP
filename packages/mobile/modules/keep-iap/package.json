@@ -1,0 +1,9 @@
+{
+  "name": "keep-iap",
+  "version": "1.0.0",
+  "description": "KEEP native StoreKit 2 in-app purchase module (iOS only).",
+  "main": "index.ts",
+  "types": "index.ts",
+  "license": "UNLICENSED",
+  "private": true
+}

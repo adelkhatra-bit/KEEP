@@ -4,6 +4,7 @@ import * as Localization from 'expo-localization';
 import fr from './locales/fr.json';
 import en from './locales/en.json';
 import { DEFAULT_LANGUAGE, FALLBACK_LANGUAGE, LANGUAGES } from './languages';
+import { APP_NAME } from '../config/brand';
 
 export { LANGUAGES, DEFAULT_LANGUAGE, FALLBACK_LANGUAGE } from './languages';
 export type { LanguageDef, LanguageStatus } from './languages';
@@ -30,7 +31,7 @@ i18n.use(initReactI18next).init({
   lng: resolveDeviceLanguage(),
   fallbackLng: FALLBACK_LANGUAGE,
   compatibilityJSON: 'v3',
-  interpolation: { escapeValue: false },
+  interpolation: { escapeValue: false, defaultVariables: { appName: APP_NAME } },
   returnEmptyString: false,
 });
 

@@ -2,16 +2,16 @@ import { MusicProviderAdapter } from './MusicProviderAdapter';
 import { CanonicalTrack, ProviderPlaylist, ProviderSession } from '../types';
 
 /**
- * Implémentation DEMO du MusicProviderAdapter — stockage en mémoire, aucune
- * connexion réseau réelle. Utilisée uniquement en Mode Démo (vitrine commerciale).
+ * Implémentation locale du MusicProviderAdapter utilisée pendant les tests
+ * gratuits tant qu'aucun service musical externe n'est connecté.
  *
- * IMPORTANT (règle "aucun faux résultat") : ce provider ne doit JAMAIS être
- * utilisé en Mode Réel. Le sélecteur de provider (packages/music/src/index.ts
- * -> resolveProviderForEnvironment) refuse explicitly ce provider hors DEMO.
+ * IMPORTANT : cette mémoire doit être isolée entre deux identités. Un nouvel
+ * utilisateur ou le mode démo ne doit jamais hériter des playlists du compte
+ * testé juste avant dans le même navigateur.
  */
 export class DemoMusicProvider implements MusicProviderAdapter {
   readonly providerId = 'demo';
-  readonly displayName = 'KEEP Demo';
+  readonly displayName = 'KEEP Local';
 
   private playlists: Map<string, ProviderPlaylist> = new Map();
   private playlistTracks: Map<string, CanonicalTrack[]> = new Map();
@@ -21,6 +21,11 @@ export class DemoMusicProvider implements MusicProviderAdapter {
       this.playlists.set(p.id, p);
       this.playlistTracks.set(p.id, []);
     }
+  }
+
+  resetLibrary(): void {
+    this.playlists.clear();
+    this.playlistTracks.clear();
   }
 
   async connect(): Promise<ProviderSession> {
@@ -36,7 +41,7 @@ export class DemoMusicProvider implements MusicProviderAdapter {
   }
 
   async getProfile() {
-    return { id: 'demo-user', displayName: 'Demo User' };
+    return { id: 'demo-user', displayName: 'KEEP Local' };
   }
 
   async getPlaylists(): Promise<ProviderPlaylist[]> {
@@ -52,7 +57,12 @@ export class DemoMusicProvider implements MusicProviderAdapter {
   }
 
   async createPlaylist(_session: ProviderSession, name: string, description?: string): Promise<ProviderPlaylist> {
-    const id = `demo-playlist-${Date.now()}`;
+    const normalizedName = name.trim().toLowerCase();
+    const isDefaultKeep = normalizedName === 'mes keep';
+    const id = isDefaultKeep ? 'keep-local-history' : `demo-playlist-${Date.now()}`;
+    const existing = this.playlists.get(id);
+    if (existing) return existing;
+
     const playlist: ProviderPlaylist = { id, name, description, trackCount: 0, isKeepManaged: true };
     this.playlists.set(id, playlist);
     this.playlistTracks.set(id, []);

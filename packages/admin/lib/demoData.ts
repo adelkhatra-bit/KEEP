@@ -50,12 +50,12 @@ export interface DemoFeatureFlag {
  * défaut dans l'UI sans que ce soit aussi le cas en base.
  */
 export const DEMO_FEATURE_FLAGS: DemoFeatureFlag[] = [
-  { key: 'compare_keep', description: 'Compare nos KEEP', isEnabledGlobally: true },
+  { key: 'compare_keep', description: 'Compare nos morceaux', isEnabledGlobally: true },
   { key: 'events', description: 'Événements', isEnabledGlobally: true },
   { key: 'local_discovery', description: 'Découverte locale', isEnabledGlobally: false },
   { key: 'creator', description: 'Profils Creator', isEnabledGlobally: true },
   { key: 'venue', description: 'Profils Venue', isEnabledGlobally: true },
-  { key: 'keep_dna', description: 'KEEP DNA — ADN musical (voir docs/INNOVATIONS.md)', isEnabledGlobally: false },
+  { key: 'keep_dna', description: 'Loki DNA — ADN musical (voir docs/INNOVATIONS.md)', isEnabledGlobally: false },
 ];
 
 export interface DemoAppSetting {
@@ -71,7 +71,7 @@ export interface DemoAppSetting {
  * (constante `DEFAULT_SESSION_SILENCE_TIMEOUT_MIN`) — corrections concept
  * du 21/08/2026 ("cette durée doit être modifiable depuis le Super Admin").
  * STATUT HONNÊTE : contrairement à `DEMO_FEATURE_FLAGS`, cette valeur n'a
- * PAS encore de table `app_settings` en base (aucun projet Supabase KEEP
+ * PAS encore de table `app_settings` en base (aucun projet Supabase Loki
  * déployé, voir docs/PROJECT_STATUS.md) — modifier ce réglage ici reste
  * Mode Démo pur, ça ne change rien côté mobile tant que la livraison
  * admin -> mobile n'est pas câblée. Ne pas prétendre le contraire.

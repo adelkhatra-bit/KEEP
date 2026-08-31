@@ -2,21 +2,33 @@ name: Mobile CI
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
+      - 'supabase/migrations/**'
+      - 'scripts/verify-profile-data-integrity.cjs'
+      - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
   pull_request:
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
+      - 'supabase/migrations/**'
+      - 'scripts/verify-profile-data-integrity.cjs'
+      - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   verify-mobile:
@@ -33,6 +45,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: KEEP source of truth
+        run: node scripts/verify-source-of-truth.cjs
+
+      - name: KEEP profile data integrity contract
+        run: node scripts/verify-profile-data-integrity.cjs
+
+      - name: KEEP mobile text contrast contract
+        run: node scripts/verify-mobile-text-contrast.cjs
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check

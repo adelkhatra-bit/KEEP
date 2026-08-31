@@ -1,0 +1,196 @@
+name: KEEP — Suppression morceau E2E 390x844
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/screens/MyMusicScreen.tsx'
+      - 'packages/mobile/src/screens/HomeScreenCompact.tsx'
+      - 'packages/mobile/src/services/keepVisibilityService.ts'
+      - 'packages/mobile/src/store/useSessionStore.ts'
+      - 'packages/mobile/src/store/useSessionHistoryStore.ts'
+      - 'packages/music/src/providers/DemoRecognitionProvider.ts'
+      - 'packages/music/src/providers/DemoMusicProvider.ts'
+      - '.github/workflows/delete-track-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  delete-track-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck mobile before browser test
+        run: npm --workspace packages/mobile run type-check
+      - name: Install Chromium
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start KEEP web runtime
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-delete-e2e.log 2>&1 &
+          echo $! >/tmp/keep-delete-e2e.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-delete-e2e.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/keep-delete-e2e.log
+          exit 1
+      - name: Listen → KEEP → Playlists → Supprimer → Profil → reload
+        shell: bash
+        run: |
+          mkdir -p artifacts/delete-track-e2e
+          cat > delete-track-e2e.cjs <<'JS'
+          const { chromium } = require('@playwright/test');
+          const fs = require('fs');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const page = await context.newPage();
+            const pageErrors = [];
+            page.on('pageerror', e => pageErrors.push(String(e)));
+            page.on('dialog', async dialog => {
+              if (dialog.type() === 'confirm') await dialog.accept();
+              else await dialog.dismiss();
+            });
+
+            const exact = value => page.getByText(value, { exact: true }).last();
+            const shot = name => page.screenshot({ path: `artifacts/delete-track-e2e/${name}.png`, fullPage: true });
+
+            await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(500);
+
+            const trial = exact('ESSAYER GRATUITEMENT');
+            if (await trial.isVisible().catch(() => false)) {
+              await trial.click();
+              await page.waitForTimeout(300);
+            }
+
+            for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
+              await exact(label).waitFor({ state: 'visible', timeout: 15000 });
+            }
+
+            // 1. Créer une vraie entrée dans la bibliothèque locale via le même
+            // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
+            await exact('Écouter').click();
+            const start = page.getByLabel('Démarrer une écoute').last();
+            if (await start.isVisible().catch(() => false)) await start.click();
+
+            const keep = exact('GARDER');
+            await keep.waitFor({ state: 'visible', timeout: 15000 });
+            const detectedCard = keep.locator('xpath=../..');
+            const detectedText = (await detectedCard.innerText()).trim();
+            await shot('01-detected');
+            await keep.click();
+
+            await page.getByText('Garder ce morceau', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByText('PUBLIC SUR MON PROFIL', { exact: true }).click();
+            await page.getByText('✓ Gardé', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+            await shot('02-kept-public');
+
+            const stop = page.getByText(/Terminer la session|Arrêter|End session/i).last();
+            if (await stop.isVisible().catch(() => false)) await stop.click();
+            await page.waitForTimeout(300);
+
+            // 2. Ouvrir la bibliothèque KEEP et identifier la piste créée.
+            await exact('Playlists').click();
+            const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
+            await allMusic.waitFor({ state: 'visible', timeout: 15000 });
+            await allMusic.click();
+            await page.waitForTimeout(300);
+
+            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
+            const before = await deleteButtons.count();
+            if (before < 1) throw new Error('SUPPRIMER absent après avoir gardé un morceau');
+            const deleteButton = deleteButtons.first();
+            const row = deleteButton.locator('xpath=../../..');
+            const rowText = (await row.innerText()).trim();
+            const lines = rowText.split('\n').map(v => v.trim()).filter(Boolean);
+            const deletedTitle = lines.find(v => !/^(PUBLIC|PRIVÉ|SUPPRIMER|APERÇU|▶|♪)/i.test(v)) || lines[0] || '';
+            if (!deletedTitle) throw new Error(`Titre de la piste introuvable dans ${JSON.stringify(lines)}`);
+            await shot('03-before-delete');
+
+            // 3. Clic utilisateur réel. Sur Web, KEEP ouvre window.confirm ; le
+            // listener dialog ci-dessus clique réellement sur confirmer.
+            await deleteButton.click();
+            await page.waitForTimeout(800);
+            const after = await page.getByLabel('Supprimer ce morceau de KEEP').count();
+            if (after !== before - 1) throw new Error(`SUPPRIMER n'a pas retiré la ligne: ${before} -> ${after}`);
+            await shot('04-after-delete');
+
+            // 4. Profil : la piste supprimée ne doit plus apparaître.
+            await exact('Profil').click();
+            await page.waitForTimeout(500);
+            const bodyAfterProfile = await page.locator('body').innerText();
+            if (deletedTitle && bodyAfterProfile.includes(deletedTitle)) {
+              throw new Error(`Piste supprimée encore visible sur Profil: ${deletedTitle}`);
+            }
+            await shot('05-profile-after-delete');
+
+            // 5. Rechargement complet : le store persistant ne doit pas la recréer.
+            await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(800);
+            await exact('Profil').waitFor({ state: 'visible', timeout: 15000 });
+            await exact('Profil').click();
+            await page.waitForTimeout(400);
+            const bodyAfterReload = await page.locator('body').innerText();
+            if (deletedTitle && bodyAfterReload.includes(deletedTitle)) {
+              throw new Error(`Piste supprimée revenue après reload: ${deletedTitle}`);
+            }
+            await shot('06-profile-after-reload');
+
+            if (pageErrors.length) throw new Error(`Erreurs page: ${pageErrors.join(' | ')}`);
+
+            fs.writeFileSync('artifacts/delete-track-e2e/report.txt', [
+              'KEEP DELETE E2E: PASS',
+              'Viewport: 390x844',
+              `Detected UI: ${detectedText.replace(/\s+/g, ' ').slice(0, 180)}`,
+              `Deleted track: ${deletedTitle}`,
+              'Listen -> Keep public: PASS',
+              'Playlists -> SUPPRIMER -> confirmation: PASS',
+              'Removed from Playlists: PASS',
+              'Removed from Profile: PASS',
+              'Still removed after full reload: PASS',
+            ].join('\n'));
+
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          JS
+          node delete-track-e2e.cjs
+      - name: Runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-delete-e2e.log || true
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-delete-e2e-${{ github.sha }}
+          path: artifacts/delete-track-e2e
+          retention-days: 14
+          if-no-files-found: ignore

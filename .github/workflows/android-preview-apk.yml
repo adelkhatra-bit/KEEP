@@ -2,7 +2,7 @@ name: KEEP — Android Preview APK (gratuit)
 
 on:
   push:
-    branches: [main]
+    branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
@@ -80,9 +80,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="keep-test-${GITHUB_RUN_NUMBER}"
+          SAFE_REF="${GITHUB_REF_NAME//\//-}"
+          TAG="keep-${SAFE_REF}-test-${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" KEEP-Android-Test.apk \
             --repo "$GITHUB_REPOSITORY" \
-            --title "KEEP Android Test ${GITHUB_RUN_NUMBER}" \
-            --notes "Version gratuite de test KEEP reliée au vrai projet Supabase. Permet la création d'un compte et les tests du profil/application." \
+            --target "$GITHUB_SHA" \
+            --title "KEEP ${GITHUB_REF_NAME} Android Test ${GITHUB_RUN_NUMBER}" \
+            --notes "APK de test construit depuis ${GITHUB_REF_NAME} @ ${GITHUB_SHA}. Relié au vrai projet Supabase KEEP." \
             --prerelease

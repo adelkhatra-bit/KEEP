@@ -4,7 +4,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    branch: main
+    branch: reconcile/claude-main-20260825
     buildCommand: npm install && npm run build --workspace=packages/backend
     startCommand: node packages/backend/dist/index.js
     healthCheckPath: /health
@@ -29,7 +29,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    branch: main
+    branch: reconcile/claude-main-20260825
     buildCommand: npm install && npm run build --workspace=packages/backend
     startCommand: node packages/backend/dist/index.js
     healthCheckPath: /health

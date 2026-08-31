@@ -40,6 +40,14 @@ function similarity(a: string, b: string): number {
   return 1 - dist / maxLen;
 }
 
+function discoveryLinks(title: string, artist: string): Record<string, string> {
+  const query = encodeURIComponent(`${artist} ${title}`.trim());
+  return {
+    youtubeSearch: `https://www.youtube.com/results?search_query=${query}`,
+    tiktokSearch: `https://www.tiktok.com/search?q=${query}`,
+  };
+}
+
 export interface TrackIndexEntry extends CanonicalTrack {}
 
 /**
@@ -95,8 +103,21 @@ export class TrackResolver {
 
   /** Résout à partir d'un résultat de reconnaissance, en créant un morceau canonique si besoin. */
   resolveFromRecognition(result: RecognitionResult, idFactory: () => string = () => cryptoRandomId()): CanonicalTrack {
+    const links = { ...discoveryLinks(result.title, result.artist), ...(result.externalUrls ?? {}) };
     const existing = this.findExisting({ isrc: result.isrc, title: result.title, artist: result.artist });
-    if (existing) return existing;
+    if (existing) {
+      // Enrichir un morceau déjà connu sans perdre son identité canonique.
+      if (!existing.artworkUrl && result.artworkUrl) existing.artworkUrl = result.artworkUrl;
+      if (!existing.album && result.album) existing.album = result.album;
+      if (!existing.previewUrl && result.previewUrl) existing.previewUrl = result.previewUrl;
+      if (result.availableOn?.length) existing.availableOn = Array.from(new Set([...(existing.availableOn ?? []), ...result.availableOn]));
+      existing.externalUrls = { ...(existing.externalUrls ?? {}), ...links };
+      if (result.genres?.length) existing.genres = Array.from(new Set([...(existing.genres ?? []), ...result.genres]));
+      for (const [provider, id] of Object.entries(result.providerIds ?? {})) {
+        if (id) this.linkProviderId(existing, provider, id);
+      }
+      return existing;
+    }
 
     const track: CanonicalTrack = {
       id: idFactory(),
@@ -105,7 +126,11 @@ export class TrackResolver {
       artist: result.artist,
       album: result.album,
       artworkUrl: result.artworkUrl,
-      providerIds: {},
+      previewUrl: result.previewUrl,
+      availableOn: result.availableOn,
+      externalUrls: links,
+      genres: result.genres ?? [],
+      providerIds: { ...(result.providerIds ?? {}) },
     };
     this.index(track);
     return track;

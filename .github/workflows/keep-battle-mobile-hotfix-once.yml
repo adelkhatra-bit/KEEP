@@ -1,0 +1,48 @@
+name: KEEP Battle compact mobile hotfix
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/keep-battle-mobile-hotfix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Compact Battle theme selector
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('packages/mobile/src/components/KeepBattleMobileGameV3.tsx')
+          s = p.read_text()
+          old = '<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>'
+          new = '<ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>'
+          if old not in s:
+              raise SystemExit('theme ScrollView target not found')
+          s = s.replace(old, new, 1)
+          old_styles = "section: { color: '#E5F266', fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 6 }, themeRow: { gap: 6, paddingRight: 12 }, theme: { minHeight: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }"
+          new_styles = "section: { color: '#E5F266', fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 5 }, themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }, themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }, theme: { height: 32, minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }"
+          if old_styles not in s:
+              raise SystemExit('theme style target not found')
+          s = s.replace(old_styles, new_styles, 1)
+          p.write_text(s)
+          PY
+      - name: Verify compact selector contract
+        run: |
+          grep -Fq "themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          grep -Fq "theme: { height: 32, minHeight: 32" packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+      - name: Commit hotfix
+        run: |
+          git config user.name 'KEEP Guardian'
+          git config user.email 'actions@github.com'
+          git add packages/mobile/src/components/KeepBattleMobileGameV3.tsx
+          git commit -m 'fix(battle): compact mobile music style chips'
+          git push origin HEAD:reconcile/claude-main-20260825

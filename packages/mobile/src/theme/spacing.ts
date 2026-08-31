@@ -1,5 +1,5 @@
 /**
- * KEEP Design System — Spacing, radius, typography scale.
+ * Loki Design System — Spacing, radius, typography scale.
  * Centralisé pour éviter toute valeur magique dispersée dans les écrans
  * (cohérence mobile/tablette obligatoire — cf. cahier des charges).
  */
@@ -23,13 +23,13 @@ export const radius = {
 } as const;
 
 export const typography = {
-  h1: { fontSize: 32, fontWeight: '700' as const },
-  h2: { fontSize: 24, fontWeight: '700' as const },
-  h3: { fontSize: 18, fontWeight: '600' as const },
-  body: { fontSize: 15, fontWeight: '400' as const },
-  bodyBold: { fontSize: 15, fontWeight: '600' as const },
-  caption: { fontSize: 12, fontWeight: '500' as const },
-  button: { fontSize: 15, fontWeight: '700' as const },
+  h1: { fontSize: 34, fontWeight: '700' as const },
+  h2: { fontSize: 26, fontWeight: '700' as const },
+  h3: { fontSize: 20, fontWeight: '600' as const },
+  body: { fontSize: 16, fontWeight: '400' as const },
+  bodyBold: { fontSize: 16, fontWeight: '600' as const },
+  caption: { fontSize: 14, fontWeight: '500' as const },
+  button: { fontSize: 16, fontWeight: '700' as const },
 };
 
 // Touch targets accessibles (Apple HIG / Material minimum ~44-48pt)

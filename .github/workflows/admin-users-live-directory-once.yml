@@ -1,0 +1,40 @@
+name: KEEP Admin users live directory repair
+on:
+  push:
+    branches: [reconcile/claude-main-20260825]
+    paths:
+      - scripts/patch_admin_users_live_directory.py
+      - .github/workflows/admin-users-live-directory-once.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply repair
+        run: python scripts/patch_admin_users_live_directory.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Verify admin
+        run: npm --workspace packages/admin run build
+      - name: Contract
+        run: |
+          grep -q "refreshSession" packages/admin/pages/users.tsx
+          grep -q "admin_user_directory" packages/admin/pages/users.tsx
+          grep -q "minWidth:860" packages/admin/pages/users.tsx
+      - name: Commit fix
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/admin/pages/users.tsx
+          git diff --cached --quiet || git commit -m "fix(admin): show live users reliably"
+          git push origin HEAD:reconcile/claude-main-20260825

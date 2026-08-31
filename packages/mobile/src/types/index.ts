@@ -8,6 +8,7 @@ import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 export type ProfileKind = 'USER' | 'CREATOR' | 'DJ' | 'ARTIST' | 'PRODUCER' | 'VENUE';
 export type GenderOption = 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
 export type LinkVisibility = 'PUBLIC' | 'PRIVATE';
+export type KeepVisibility = 'PUBLIC' | 'PRIVATE';
 
 export interface SocialLink {
   platform: 'instagram' | 'tiktok' | 'facebook' | 'snapchat' | 'youtube' | 'x' | 'website' | 'other';
@@ -49,7 +50,7 @@ export interface ExistingLibraryMatch {
   provider?: string;
 }
 
-/** Un morceau détecté pendant une session KEEP, avec sa décision GARDER/PASSER. */
+/** Un morceau détecté pendant une session Loki, avec sa décision GARDER/PASSER. */
 export interface SessionTrackEntry {
   id: string;
   track: CanonicalTrack;
@@ -57,7 +58,21 @@ export interface SessionTrackEntry {
   status: SessionTrackStatus;
   detectedAt: string;
   keptPlaylistId?: string;
-  /** Défini lorsque KEEP retrouve déjà le morceau dans une playlist connectée. */
+  /** PUBLIC = visible sur le profil partagé ; PRIVATE = gardé uniquement pour soi. */
+  visibility?: KeepVisibility;
+  /** Identifiant Supabase de la décision, présent dès qu'un vrai compte est synchronisé. */
+  keepDecisionId?: string;
+  /** Attribution sociale : présent lorsque ce morceau gardé provient du profil d'un autre membre. */
+  sourceProfileId?: string;
+  sourceUsername?: string;
+  creditSource?: 'FREE' | 'SOCIAL';
+  /**
+   * Le morceau reste intégralement dans Mes Sessions (métadonnées + extrait distant)
+   * quand le quota gratuit est épuisé. Aucun audio n'est stocké par Loki et aucune
+   * écriture vers le profil/playlist externe n'est effectuée tant qu'il est verrouillé.
+   */
+  creditLocked?: boolean;
+  /** Défini lorsque Loki retrouve déjà le morceau dans une playlist connectée. */
   existingMatch?: ExistingLibraryMatch;
 }
 

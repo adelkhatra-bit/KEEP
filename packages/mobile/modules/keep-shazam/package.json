@@ -1,0 +1,9 @@
+{
+  "name": "keep-shazam",
+  "version": "1.0.0",
+  "description": "KEEP native ShazamKit ambient recognition module (iOS only).",
+  "main": "index.ts",
+  "types": "index.ts",
+  "license": "UNLICENSED",
+  "private": true
+}

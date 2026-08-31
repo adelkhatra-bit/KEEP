@@ -1,0 +1,40 @@
+name: KEEP Samsung mobile reliability repair
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_mobile_samsung_discover_listen.py'
+      - '.github/workflows/mobile-samsung-reliability-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync branch
+        run: git pull --ff-only origin reconcile/claude-main-20260825
+      - name: Apply Samsung mobile reliability repair
+        run: python3 scripts/patch_mobile_samsung_discover_listen.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify mobile reliability
+        run: |
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/mobile test -- --runInBand MobileSamsungReliability.contract.test.ts DiscoverImmediateProfiles.contract.test.ts SharedProfileFollow.contract.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name "KEEP Guardian"
+          git config user.email "actions@github.com"
+          git add packages/mobile/index.js packages/mobile/src/screens/DiscoverScreen.tsx packages/mobile/src/services/micCapture.ts packages/mobile/src/store/useSessionStore.ts packages/mobile/src/screens/__tests__/MobileSamsungReliability.contract.test.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(mobile): stabilize Samsung tabs discovery and listen"
+          git push origin HEAD:reconcile/claude-main-20260825
