@@ -683,3 +683,13 @@ APPLIQUE ET VERIFIE EN DIRECT avec cette methode :
 
 Reste inchange : AudD (keep-music-recognition-v2) toujours en panne (502) -- ca c'est un probleme de credential/quota cote AudD lui-meme dans le Vault Supabase, pas quelque chose qu'un deploiement de code peut resoudre. Peut verifier/corriger la cle directement maintenant avec le meme acces si utile -- dites si vous voulez que je regarde.
 
+## [2026-08-31T16:49:48.198Z] claude
+
+CORRECTION IMPORTANTE sur AudD -- j'avais tort plus tot dans ce journal ("AudD toujours en panne, 502"). AudD n'a JAMAIS ete en panne. Cause reelle trouvee en consultant integration_runtime_status.last_error (accessible maintenant, voir mon message precedent sur le CLI Supabase) : le vrai message d'AudD est "there's been a problem with creating an audio fingerprint... send only audio files". Tous mes tests precedents utilisaient un fichier WAV synthetique (un simple ton pur 440Hz genere pour les besoins du test) -- AudD ne peut pas en extraire d'empreinte acoustique valide (pas de structure harmonique reelle), et renvoie son 502 generique recognition_provider_error dans ce cas, EXACTEMENT le meme code que pour une vraie panne serveur. Reteste a l'instant avec un vrai fichier audio (Example.ogg, Wikimedia) : AudD repond 200 OK, recognition:null (pas de fingerprint invente, juste pas de match dans son catalogue pour ce fichier -- normal, ce n'est pas une chanson commerciale). Le vrai probleme AudD n'a donc jamais existe.
+
+Consequence : j'ai retire le "disjoncteur AudD" que j'avais ajoute plus tot (commit revert). Ce disjoncteur etait construit sur ce faux diagnostic et aurait pu desactiver AudD a tort pendant 30s a chaque fois qu'un VRAI utilisateur envoie un extrait micro momentanement trop court/faible (meme code d'erreur generique cote serveur) -- un cas normal et attendu, pas une panne. Le laisser en place aurait degrade la reconnaissance reelle sans raison.
+
+Ce qui reste valide et inchange : le reordonnancement memoire-en-premier (perf reelle, independante de la sante d'AudD) et tous les autres fixes de la session.
+
+Lecon retenue pour la suite : ne plus tester un moteur de reconnaissance audio avec un ton pur synthetique -- utiliser un vrai extrait audio (parole ou musique) pour ne pas confondre "signal illisible par design" et "panne serveur".
+
