@@ -39,28 +39,48 @@ if (!html.includes('keep-mobile-form-nozoom') && html.includes('</head>')) {
 }
 
 // SEO sans toucher au rendu React Native : toutes les routes de l'application
-// web sont des variantes du même shell, donc elles déclarent la racine KEEP
+// web sont des variantes du même shell, donc elles déclarent la racine Loki
 // comme URL canonique. Les profils publics ont leur propre canonical dynamique
 // dans share-profile.html.
 const seoTags = [
-  '<meta name="description" content="KEEP reconnaît les morceaux de tes moments, construit ton KEEP DNA et te permet de partager ton univers musical." />',
+  '<meta name="description" content="Loki reconnaît les morceaux de tes moments, construit ton Loki DNA et te permet de partager ton univers musical." />',
   '<meta name="robots" content="index,follow" />',
   `<link rel="canonical" href="${canonicalRoot}" />`,
   '<meta property="og:type" content="website" />',
-  '<meta property="og:site_name" content="KEEP" />',
-  '<meta property="og:title" content="KEEP · Ton univers musical" />',
-  '<meta property="og:description" content="Reconnais, garde et partage les musiques de tes moments avec KEEP." />',
+  '<meta property="og:site_name" content="Loki" />',
+  '<meta property="og:title" content="Loki · Ton univers musical" />',
+  '<meta property="og:description" content="Reconnais, garde et partage les musiques de tes moments avec Loki." />',
   `<meta property="og:url" content="${canonicalRoot}" />`,
   '<meta name="twitter:card" content="summary" />',
-  '<meta name="twitter:title" content="KEEP · Ton univers musical" />',
-  '<meta name="twitter:description" content="Reconnais, garde et partage les musiques de tes moments avec KEEP." />',
+  '<meta name="twitter:title" content="Loki · Ton univers musical" />',
+  '<meta name="twitter:description" content="Reconnais, garde et partage les musiques de tes moments avec Loki." />',
 ].join('');
 
 if (!/rel=["']canonical["']/i.test(html) && html.includes('</head>')) {
   html = html.replace('</head>', `${seoTags}</head>`);
 }
 if (/<title>[^<]*<\/title>/i.test(html)) {
-  html = html.replace(/<title>[^<]*<\/title>/i, '<title>KEEP · Ton univers musical</title>');
+  html = html.replace(/<title>[^<]*<\/title>/i, '<title>Loki · Ton univers musical</title>');
+}
+
+// "Ajouter à l'écran d'accueil" (30/08/2026, demande d'Adel : pouvoir tester
+// une expérience proche d'une vraie app installée, gratuitement, sans Mac ni
+// compte développeur). Ces balises font que Safari iOS et Chrome Android
+// lancent le site en plein écran (sans barre d'adresse) avec sa propre icône
+// quand l'utilisateur fait "Ajouter à l'écran d'accueil" -- ça ne remplace pas
+// l'app native (pas de micro en arrière-plan, pas de notifications push),
+// mais ça donne une icône et un lancement en mode application, gratuitement.
+const homeScreenTags = [
+  '<meta name="mobile-web-app-capable" content="yes" />',
+  '<meta name="apple-mobile-web-app-capable" content="yes" />',
+  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
+  '<meta name="apple-mobile-web-app-title" content="Loki" />',
+  '<meta name="application-name" content="Loki" />',
+  '<meta name="theme-color" content="#0B0A12" />',
+  `<link rel="apple-touch-icon" href="${canonicalRoot}keep-share.png" />`,
+].join('');
+if (!html.includes('apple-mobile-web-app-capable') && html.includes('</head>')) {
+  html = html.replace('</head>', `${homeScreenTags}</head>`);
 }
 
 fs.writeFileSync(indexPath, html);
