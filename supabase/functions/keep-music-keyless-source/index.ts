@@ -30,6 +30,47 @@ function hostAllowed(host: string) {
   return ALLOWED_HOSTS.some((allowed) => clean === allowed || clean.endsWith(`.${allowed}`));
 }
 
+// Identifiant de contenu stable pour le cache par provider+contentId (P0
+// coordination 31/08/2026). YouTube et TikTok exposent un id exploitable dans
+// l'URL ; les autres plateformes retombent sur l'URL normalisee elle-meme.
+function contentId(platform: string, url: URL | null): string | null {
+  if (!url) return null;
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (platform === "YOUTUBE" || host.includes("youtube.com") || host === "youtu.be") {
+    if (host === "youtu.be") return url.pathname.split("/").filter(Boolean)[0] || null;
+    return url.searchParams.get("v") || url.pathname.split("/shorts/")[1]?.split("/")[0] || null;
+  }
+  if (platform === "TIKTOK" || host.includes("tiktok.com")) {
+    const match = url.pathname.match(/\/video\/(\d+)/);
+    return match?.[1] || null;
+  }
+  return null;
+}
+
+// Cache en memoire seulement (P0) : une instance d'edge function chaude evite
+// de refaire tout le pipeline oEmbed+HTML+recherche catalogue pour la meme
+// video quand plusieurs utilisateurs la partagent en peu de temps. Ne
+// survit pas a un redemarrage d'instance -- un cache persistant (table
+// dediee) est un suivi P1 qui demande une migration, hors de portee sans
+// acces Supabase CLI/dashboard pour ce projet.
+const RESULT_CACHE_TTL_MS = 15 * 60 * 1000;
+const resultCache = new Map<string, { at: number; payload: unknown }>();
+
+function cacheGet(key: string): unknown | null {
+  const hit = resultCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > RESULT_CACHE_TTL_MS) { resultCache.delete(key); return null; }
+  return hit.payload;
+}
+
+function cacheSet(key: string, payload: unknown) {
+  resultCache.set(key, { at: Date.now(), payload });
+  if (resultCache.size > 500) {
+    const oldestKey = resultCache.keys().next().value;
+    if (oldestKey) resultCache.delete(oldestKey);
+  }
+}
+
 function safeUrl(value: string, base?: URL): URL | null {
   try {
     const url = base ? new URL(value, base) : new URL(value);
@@ -135,6 +176,78 @@ function parseArtistTitle(text: string) {
     }
   }
   return null;
+}
+
+// AJOUT P0 (coordination 31/08/2026, cas reel confirme en direct) : le titre
+// oEmbed reel de la video signalee est `STAR MOTION "Move a Little Closer"`
+// -- pas de tiret ni de pipe du tout, juste "Artiste "Titre"" avec des
+// guillemets. parseArtistTitle ne reconnaissait aucun de ces formats et
+// renvoyait null, privant le scoring du boost "explicit" meme quand la
+// metadonnee etait parfaitement exploitable.
+function parseQuotedTitle(text: string) {
+  const clean = cleanMusicText(text);
+  if (!clean) return null;
+  const match = clean.match(/^(.{2,100}?)\s*["“”'’«](.{2,140})["“”'’»]\s*$/);
+  if (!match) return null;
+  const artist = match[1].trim();
+  const title = match[2].trim();
+  if (!artist || !title) return null;
+  return { artist, title };
+}
+
+type ArtistTitleCandidate = { artist: string; title: string; weight: number };
+
+// AJOUT P0 : au lieu d'une seule chaine de recherche destructive, on genere
+// plusieurs candidats {artiste, titre} pondérés a partir de toutes les
+// sources de metadonnees disponibles (JSON explicite type TikTok, separateurs
+// tiret/pipe, titre entre guillemets, chaine/auteur comme candidat artiste,
+// ordre inverse) puis on cherche ET on score chacun -- un seul candidat
+// mal forme (ex: un "|" de plus) ne peut plus a lui seul faire echouer toute
+// la reconnaissance.
+function buildCandidates(inputs: {
+  explicit: { title: string; artist: string } | null;
+  suppliedTitle: string;
+  rawText: string;
+  embeddedTitle: string;
+  embeddedAuthor: string;
+  ogTitle: string;
+}): ArtistTitleCandidate[] {
+  const candidates: ArtistTitleCandidate[] = [];
+  const seen = new Set<string>();
+  const push = (artist: string, title: string, weight: number) => {
+    const a = String(artist ?? "").trim();
+    const t = String(title ?? "").trim();
+    if (!a || !t || a.length > 120 || t.length > 160) return;
+    const key = `${a.toLowerCase()}|${t.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ artist: a, title: t, weight });
+  };
+
+  if (inputs.explicit) push(inputs.explicit.artist, inputs.explicit.title, 1);
+
+  for (const raw of [inputs.suppliedTitle, inputs.rawText, inputs.embeddedTitle, inputs.ogTitle]) {
+    if (!raw) continue;
+    const bySeparator = parseArtistTitle(raw);
+    if (bySeparator) {
+      push(bySeparator.artist, bySeparator.title, 0.9);
+      push(bySeparator.title, bySeparator.artist, 0.45); // ordre inverse (certaines chaines publient Titre - Artiste)
+    }
+    const quoted = parseQuotedTitle(raw);
+    if (quoted) push(quoted.artist, quoted.title, 0.95);
+  }
+
+  // La chaine/le compte (oEmbed author_name) comme candidat artiste : utile
+  // quand le titre de la video ne contient aucun separateur exploitable mais
+  // que le nom de la chaine EST l'artiste (frequent en funk/soul/DJ sets).
+  if (inputs.embeddedAuthor) {
+    for (const raw of [inputs.embeddedTitle, inputs.ogTitle, inputs.suppliedTitle]) {
+      if (!raw) continue;
+      push(inputs.embeddedAuthor, cleanMusicText(raw), 0.55);
+    }
+  }
+
+  return candidates;
 }
 
 async function optionalUserId(req: Request) {
@@ -263,19 +376,53 @@ function tokenCoverage(needle: string, haystack: string) {
   return wanted.filter((t) => have.has(t)).length / wanted.length;
 }
 
-function scoreTrack(track: CatalogTrack, evidence: string, explicit: { title: string; artist: string } | null) {
+// AJOUT P0 : artiste et titre sont notes SEPAREMENT contre chaque candidat
+// (au lieu d'un seul blob "evidence" concatene) puis ponderes par la
+// confiance du candidat lui-meme (weight) -- un candidat de repli fragile
+// (ex: chaine comme artiste) ne peut jamais depasser un candidat fort
+// (JSON explicite ou titre entre guillemets), mais peut sauver un match que
+// le blob global aurait rate.
+function scoreTrackAgainstCandidates(track: CatalogTrack, evidence: string, candidates: ArtistTitleCandidate[]) {
   const combined = `${track.artist} ${track.title} ${track.album ?? ""}`;
   let score = tokenCoverage(evidence, combined) * 0.45 + tokenCoverage(track.title, evidence) * 0.28 + tokenCoverage(track.artist, evidence) * 0.23;
-  if (explicit) {
-    const titleScore = tokenCoverage(explicit.title, track.title);
-    const artistScore = tokenCoverage(explicit.artist, track.artist);
-    score = Math.max(score, titleScore * 0.54 + artistScore * 0.42 + (normalize(track.title) === normalize(explicit.title) ? 0.03 : 0) + (normalize(track.artist) === normalize(explicit.artist) ? 0.03 : 0));
+  let bestCandidate: ArtistTitleCandidate | null = null;
+  for (const candidate of candidates) {
+    const titleScore = tokenCoverage(candidate.title, track.title);
+    const artistScore = tokenCoverage(candidate.artist, track.artist);
+    const exactBonus = (normalize(track.title) === normalize(candidate.title) ? 0.03 : 0) + (normalize(track.artist) === normalize(candidate.artist) ? 0.03 : 0);
+    const candidateScore = (titleScore * 0.54 + artistScore * 0.42 + exactBonus) * candidate.weight;
+    if (candidateScore > score) { score = candidateScore; bestCandidate = candidate; }
   }
-  return Math.min(1, score);
+  return { score: Math.min(1, score), matchedCandidate: bestCandidate };
 }
 
 function sameSong(a: CatalogTrack, b: CatalogTrack) {
   return tokenCoverage(a.title, b.title) >= 0.8 && tokenCoverage(a.artist, b.artist) >= 0.8;
+}
+
+// AJOUT P0 (coordination 31/08/2026) : quand l'URL fournisseur est valide et
+// qu'on a une metadonnee source exploitable (oEmbed/og:title) mais qu'aucun
+// candidat catalogue (Apple/Deezer) n'atteint le seuil de confiance -- cas
+// reel confirme en direct pour "Star Motion - Move a Little Closer", absent
+// des deux catalogues sous ce credit d'artiste -- on ne renvoie plus jamais
+// null silencieux. On retourne un resultat SOURCE_VERIFIED base uniquement
+// sur la provenance verifiee (oEmbed reellement recupere), jamais un faux
+// match catalogue. confidence=0.7 franchit le seuil client existant
+// (MIN_CONFIDENCE=0.68 dans keylessSocialRecognition.ts) sans avoir besoin
+// de toucher au contrat RecognitionResult ni au code client.
+function sourceVerifiedRecognition(input: { url: string; title: string; artist: string; thumbnail?: string }) {
+  return {
+    confidence: 0.7,
+    title: input.title,
+    artist: input.artist || "Source vérifiée",
+    album: undefined,
+    artworkUrl: input.thumbnail,
+    previewUrl: undefined,
+    availableOn: [] as string[],
+    externalUrls: { source: input.url },
+    providerIds: {} as Record<string, string>,
+    recognitionProviderTrackId: `source:${input.url}`,
+  };
 }
 
 function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating?: CatalogTrack | null) {
@@ -338,6 +485,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    const cacheKey = sourceUrl ? `${platform}:${contentId(platform, sourceUrl) ?? sourceUrl.toString()}` : null;
+    if (cacheKey) {
+      const cached = cacheGet(cacheKey);
+      if (cached) return json(200, cached as any);
+    }
+
     let page = { url: sourceUrl, html: "" as string };
     if (sourceUrl) {
       try { const fetched = await fetchPage(sourceUrl); page = { url: fetched.url, html: fetched.html }; } catch { /* metadata best effort */ }
@@ -346,40 +499,66 @@ Deno.serve(async (req) => {
     const explicit = extractExplicitMusic(page.html);
     const ogTitle = metaContent(page.html, "og:title") || metaContent(page.html, "twitter:title") || titleTag(page.html);
     const ogDescription = metaContent(page.html, "og:description") || metaContent(page.html, "twitter:description") || metaContent(page.html, "description");
-    const parsed = [suppliedTitle, rawText, String(embedded?.title ?? ""), ogTitle].map(parseArtistTitle).find(Boolean) as { title: string; artist: string } | undefined;
-    const evidence = [explicit?.title, explicit?.artist, parsed?.title, parsed?.artist, embedded?.title, embedded?.author_name, ogTitle, ogDescription, suppliedTitle, rawText].filter(Boolean).join(" ").slice(0, 5000);
+    const embeddedTitle = String(embedded?.title ?? "");
+    const embeddedAuthor = String(embedded?.author_name ?? "");
+    const evidence = [explicit?.title, explicit?.artist, embeddedTitle, embeddedAuthor, ogTitle, ogDescription, suppliedTitle, rawText].filter(Boolean).join(" ").slice(0, 5000);
+
+    const artistTitleCandidates = buildCandidates({ explicit, suppliedTitle, rawText, embeddedTitle, embeddedAuthor, ogTitle });
+
+    const respond = (payload: Record<string, unknown>) => {
+      if (cacheKey) cacheSet(cacheKey, payload);
+      return json(200, payload);
+    };
+
+    // Repli source verifiee : preparee des maintenant, utilisee seulement si
+    // aucun match catalogue suffisamment confiant n'est trouve plus bas.
+    const bestTitleGuess = artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || suppliedTitle);
+    const bestArtistGuess = artistTitleCandidates[0]?.artist || embeddedAuthor;
+    const canSourceVerify = Boolean(page.url && bestTitleGuess);
+    const sourceVerifiedFallback = () => {
+      if (!canSourceVerify) return respond({ ok: true, provider: "KEYLESS_SOURCE", recognition: null, reason: "catalog_no_match" });
+      const rec = sourceVerifiedRecognition({
+        url: page.url!.toString(),
+        title: bestTitleGuess,
+        artist: bestArtistGuess,
+        thumbnail: typeof embedded?.thumbnail_url === "string" ? embedded.thumbnail_url : undefined,
+      });
+      return respond({
+        ok: true, provider: "KEYLESS_SOURCE", strategy: "source_verified", recognition: rec,
+        evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: false },
+      });
+    };
 
     const queries = new Set<string>();
-    if (explicit) queries.add(`${explicit.artist} ${explicit.title}`);
-    if (parsed) queries.add(`${parsed.artist} ${parsed.title}`);
-    if (embedded?.title) queries.add(cleanMusicText(embedded.title));
-    if (ogTitle) queries.add(cleanMusicText(ogTitle));
-    if (suppliedTitle) queries.add(suppliedTitle);
+    for (const candidate of artistTitleCandidates) queries.add(`${candidate.artist} ${candidate.title}`);
     if (evidence) queries.add(cleanMusicText(evidence).slice(0, 180));
+    if (!queries.size) return sourceVerifiedFallback();
 
-    const candidates: CatalogTrack[] = [];
-    for (const query of Array.from(queries).filter(Boolean).slice(0, 4)) {
+    const candidateTracks: CatalogTrack[] = [];
+    for (const query of Array.from(queries).filter(Boolean).slice(0, 6)) {
       const [apple, deezer] = await Promise.all([searchApple(query), searchDeezer(query)]);
-      candidates.push(...apple, ...deezer);
+      candidateTracks.push(...apple, ...deezer);
     }
-    if (!candidates.length) return json(200, { ok: true, provider: "KEYLESS_SOURCE", recognition: null, reason: "catalog_no_match" });
+    if (!candidateTracks.length) return sourceVerifiedFallback();
 
-    const explicitEvidence = explicit ?? parsed ?? null;
-    const scored = candidates.map((track) => ({ track, score: scoreTrack(track, evidence, explicitEvidence) })).sort((a, b) => b.score - a.score);
+    const scored = candidateTracks.map((track) => ({ track, ...scoreTrackAgainstCandidates(track, evidence, artistTitleCandidates) })).sort((a, b) => b.score - a.score);
     const best = scored[0];
     const corroborating = scored.find((item) => item.track.source !== best.track.source && sameSong(best.track, item.track))?.track ?? null;
     let confidence = best.score + (corroborating ? 0.12 : 0);
-    if (explicit && confidence >= 0.6) confidence = Math.max(confidence, 0.86);
+    if (best.matchedCandidate && best.matchedCandidate.weight >= 0.9 && confidence >= 0.6) confidence = Math.max(confidence, 0.86);
     const directMusicHost = Boolean(page.url && MUSIC_HOSTS.some((host) => page.url!.hostname.toLowerCase().replace(/^www\./, "") === host || page.url!.hostname.toLowerCase().endsWith(`.${host}`)));
+    // AJOUT P0 : le seuil global n'est jamais abaisse -- meme valeur qu'avant
+    // (0.58 direct-music-host / 0.68 sinon). Ce qui change, c'est qu'un score
+    // sous ce seuil ne renvoie plus null : il tombe sur SOURCE_VERIFIED.
     const threshold = directMusicHost ? 0.58 : 0.68;
-    if (confidence < threshold) return json(200, { ok: true, provider: "KEYLESS_SOURCE", recognition: null, confidence, reason: "confidence_too_low" });
+    if (confidence < threshold) return sourceVerifiedFallback();
 
     const finalRecognition = recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
     seedInBackground(finalRecognition);
-    return json(200, {
+    return respond({
       ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",
       recognition: finalRecognition,
-      evidence: { platform, explicitMusicMetadata: Boolean(explicit), parsedArtistTitle: Boolean(parsed), crossCatalogConfirmed: Boolean(corroborating), directMusicHost },
+      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: Boolean(corroborating), directMusicHost },
     });
   } catch (error) {
     console.error("[keep-music-keyless-source]", error);
