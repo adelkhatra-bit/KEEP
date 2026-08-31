@@ -8,6 +8,9 @@ node_modules/
 .tokenra.env
 dist/
 build/
+.next/
+*.tsbuildinfo
+next-env.d.ts
 **/dist-verify/
 **/dist-web/
 **/dist-ios/
