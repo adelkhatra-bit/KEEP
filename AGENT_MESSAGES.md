@@ -521,3 +521,57 @@ SUPPRESSION DE COMPTE -- teste en reel de bout en bout (repond au point P0 App S
 
 SUPPRESSION COMPTE : PASS (preuve reelle, pas de simulation)
 
+
+
+## [2026-08-31T12:49:37.247Z] codex
+
+CONSIGNE DIRECTE À CLAUDE — CHECKLIST CENTRALE ROBUSTE (« par la plaque/plan », selon la formulation utilisateur).
+
+À partir de maintenant, travaille depuis cette liste ordonnée, coche chaque point uniquement avec une preuve réelle, et ne perds aucun élément entre deux sessions.
+
+### A. RECONNAISSANCE / TIKTOK / ARRIÈRE-PLAN
+- [ ] Déployer le commit P0 `1ab11b5b5bc8ae9152a8946f77ceba48ca4b68b1` sur le vrai projet Supabase KEEP.
+- [ ] Retester l’URL STAR-MOTION sur l’endpoint réellement déployé et joindre le JSON.
+- [ ] Diagnostiquer et restaurer AudD 502 ; conserver ACRCloud en fallback avec circuit breaker.
+- [ ] Implémenter l’orchestrateur bouton unique : KEEP_PLAYER → PROVIDER_NOW_PLAYING → BROWSER_ACTIVE_TAB → WEB_TAB_AUDIO → SHAZAM/AudD/ACRCloud → secours partage manuel.
+- [ ] Ne jamais prétendre pouvoir lire silencieusement l’app YouTube/TikTok native iOS ; respecter sandbox/App Store.
+- [ ] Valider sur iPhone physique/TestFlight : démarrer Écouter dans KEEP → passer dans TikTok → musique réelle → notification locale avec GARDER/PASSER → arrêt micro réel.
+- [ ] Valider Android physique avec foreground service.
+- [ ] Ajouter logs non sensibles : source, fournisseur, latence, NO_AUDIO/NO_MATCH/PROVIDER_ERROR/QUOTA ; aucun audio brut dans les logs.
+- [ ] Tests minimum : 20 liens niche + 10 morceaux micro connus + 5 no-match + changement rapide de morceaux.
+- [ ] Une source publique accessible ne doit jamais produire un écran vide : SOURCE_VERIFIED/embed officiel/external fallback.
+
+### B. ROBUSTESSE
+- [ ] Corriger l’échec actuel « CI complète → Unit tests » avant tout GO.
+- [ ] CodeQL, typecheck, tests unitaires, tests de concurrence/dédoublonnage et arrêt/reprise doivent être verts.
+- [ ] Timeouts, retry borné, circuit breaker et fallback par fournisseur.
+- [ ] Permissions minimales, refus permission géré, aucune boucle infinie ni session fantôme.
+- [ ] Vérifier consommation batterie/mémoire et libération micro en arrière-plan/foreground.
+- [ ] Aucun redesign et aucune modification de Navigation.tsx sans cause démontrée.
+- [ ] Aucun secret dans le code, les logs ou les commentaires GitHub.
+
+### C. APP STORE PAR EXPO EAS
+- [ ] Exécuter le préflight natif App Store et la compilation simulateur iOS.
+- [ ] Vérifier ShazamKit + StoreKit + Share Extension + PrivacyInfo.xcprivacy dans le projet généré.
+- [ ] Vérifier/obtenir : Apple Developer actif, App Store Connect KEEP, EXPO_TOKEN, clé .p8, Key ID, Issuer ID, Team ID, ascAppId.
+- [ ] Lancer `eas build --platform ios --profile production`.
+- [ ] Auto-submit vers TestFlight uniquement quand tous les identifiants réels sont présents.
+- [ ] Exécuter le parcours TestFlight physique complet : micro, TikTok arrière-plan, notifications, profil, reset e-mail, suppression compte, IAP sandbox/restauration.
+- [ ] Préparer captures réelles, App Privacy, âge, Content Rights, DSA/trader, URLs support/confidentialité et compte review.
+- [ ] GO App Store uniquement lorsque CI + TestFlight physique + reconnaissance + e-mail + IAP sont prouvés.
+
+### FORMAT OBLIGATOIRE DE CHAQUE RETOUR
+```
+ÉTAPE :
+STATUT : FAIT / BLOQUÉ / À FAIRE
+SHA :
+PREUVE :
+TEST RÉEL :
+ERREURS RESTANTES :
+PROCHAINE ÉTAPE :
+Souhaites-tu que je continue ?
+```
+
+Termine TOUJOURS chaque réponse destinée à Adel par la phrase exacte : **« Souhaites-tu que je continue ? »**
+
+Ne marque jamais FAIT sur la seule lecture du code. « FAIT » exige déploiement ou exécution réelle adaptée au point. La robustesse prime : aucun faux succès.
