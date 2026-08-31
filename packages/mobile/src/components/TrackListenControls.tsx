@@ -11,6 +11,13 @@ import { useSessionStore } from '../store/useSessionStore';
 interface Props {
   track: CanonicalTrack;
   previewKey: string;
+  // AJOUT (31/08/2026, demande Adel : "des qu'il a fini son extrait, il
+  // passe a la suivante, si je ne fais rien"). Appele quand l'extrait
+  // termine SEUL (duree ecoulee), jamais quand l'utilisateur l'arrete lui-
+  // meme ou change d'ecran -- comme dans MusicSwipeDeckModal.tsx, la fin
+  // d'un extrait ne doit jamais valoir decision PASSER/GARDER, seulement
+  // avancer la consultation.
+  onPreviewFinished?: () => void;
 }
 
 /**
@@ -18,7 +25,7 @@ interface Props {
  * d'être détecté" (HomeScreenCompact) et les lignes d'historique (TrackRow) --
  * les deux endroits doivent proposer exactement la même expérience d'écoute.
  */
-export default function TrackListenControls({ track, previewKey }: Props) {
+export default function TrackListenControls({ track, previewKey, onPreviewFinished }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
 
@@ -57,7 +64,7 @@ export default function TrackListenControls({ track, previewKey }: Props) {
     if (!track.previewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      await playTrackPreviewSegment(previewKey, track.previewUrl, positionMillis, 7000);
+      await playTrackPreviewSegment(previewKey, track.previewUrl, positionMillis, 7000, undefined, onPreviewFinished);
     } catch {
       Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
     } finally {

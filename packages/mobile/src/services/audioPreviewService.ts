@@ -135,12 +135,44 @@ async function createSoundWithRetry(
   throw lastError instanceof Error ? lastError : new Error('AUDIO_PREVIEW_LOAD_FAILED');
 }
 
+// BUG REEL trouve en test reel (31/08/2026, retour Adel : "il faut appuyer
+// deux ou trois fois pour ecouter l'extrait"). Quand la source changeait
+// (nouveau morceau), le code appelait element.play() immediatement apres
+// avoir change .src -- sur un <audio> dont le nouveau media n'a pas encore
+// fini de charger, .play() echoue silencieusement (rejette ou ne demarre
+// rien) la plupart du temps. Le tap suivant reussissait seulement parce que
+// le chargement avait eu le temps de finir en arriere-plan entretemps, pas
+// grace a une vraie correction. Attend maintenant que le navigateur signale
+// le media pret (canplay / readyState suffisant) avant de lancer la lecture,
+// avec un timeout de securite pour ne jamais bloquer indefiniment sur un
+// flux qui ne declenche jamais l'evenement.
+function waitForPlayable(element: any, timeoutMs = 4000): Promise<void> {
+  if (element.readyState >= 2) return Promise.resolve(); // HAVE_CURRENT_DATA ou plus : deja lisible.
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      element.removeEventListener('canplay', finish);
+      element.removeEventListener('loadeddata', finish);
+      element.removeEventListener('error', finish);
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    element.addEventListener('canplay', finish);
+    element.addEventListener('loadeddata', finish);
+    element.addEventListener('error', finish);
+  });
+}
+
 async function playWebSegment(
   key: string,
   previewUrl: string,
   positionMillis: number,
   durationMillis: number,
   onStateChange?: (playing: boolean) => void,
+  onEnded?: () => void,
 ): Promise<void> {
   const element = getWebAudio();
   if (!element) throw new Error('WEB_AUDIO_UNAVAILABLE');
@@ -150,10 +182,14 @@ async function playWebSegment(
   webAudioKey = key;
   webAudioListener = onStateChange ?? null;
 
-  if (element.src !== previewUrl) {
+  const sourceChanged = element.src !== previewUrl;
+  if (sourceChanged) {
     element.src = previewUrl;
     try { element.load(); } catch {}
   }
+  if (webAudioKey !== key) return;
+  if (sourceChanged) await waitForPlayable(element);
+  if (webAudioKey !== key) return;
 
   const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
   try {
@@ -175,6 +211,7 @@ async function playWebSegment(
     webAudioListener?.(false);
     webAudioListener = null;
     webAudioKey = null;
+    onEnded?.();
   }, Math.max(1000, Math.round(durationMillis)));
 }
 
@@ -230,10 +267,11 @@ export async function playTrackPreviewSegment(
   positionMillis: number,
   durationMillis = 8000,
   onStateChange?: (playing: boolean) => void,
+  onEnded?: () => void,
 ): Promise<void> {
   return serialize(async () => {
     if (canUseWebAudio()) {
-      await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange);
+      await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange, onEnded);
       return;
     }
 
@@ -261,6 +299,7 @@ export async function playTrackPreviewSegment(
     activeTimer = setTimeout(() => {
       if (activeSound !== createdSound) return;
       void serialize(async () => { await unloadActive(); });
+      onEnded?.();
     }, Math.max(1000, Math.round(durationMillis)));
   });
 }
