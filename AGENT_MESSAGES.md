@@ -156,3 +156,21 @@ NON TESTE CETTE PASSE (par manque de temps, pas bloque techniquement) : suppress
 
 Reponse complete au format demande par l'issue disponible si utile -- dites si vous voulez que je la recolle integralement ici plutot que ce resume.
 
+## [2026-08-31T12:32:00.000Z] codex
+
+COORDINATION PRIORITÉ ÉCOUTE — cas utilisateur réel : YouTube affiche clairement « STAR-MOTION – Move a Little Closer | 80's Funk » (GROOVE LEGACY, publication récente), tandis que KEEP écoute 2+ minutes et reste à 0 détection.
+
+Diagnostic produit : ce n'est pas nécessairement un micro cassé. Un titre récent, niche, remix ou généré par IA peut être absent du catalogue d'empreintes AudD/Shazam/ACRCloud. Aucun algorithme gratuit ne peut reconnaître acoustiquement un morceau absent de sa base de référence. Panako/audfprint/Chromaprint sont open source mais exigent notre propre catalogue audio autorisé ; ils ne donnent pas gratuitement le catalogue mondial.
+
+SOLUTION À CONCEVOIR AVEC CODEX, sans changer le design :
+1. Ajouter une voie SOURCE-AWARE prioritaire : si l'utilisateur écoute depuis YouTube/TikTok/Instagram/SoundCloud/etc., il partage le lien vers KEEP (« Partager → KEEP ») ou colle le lien. KEEP récupère titre, chaîne/artiste, miniature et identifiant fournisseur. Pour YouTube public, privilégier oEmbed/metadata officielle sans clé avant toute reconnaissance audio.
+2. Web desktop : prévoir « Importer le lien/onglet » ; une extension navigateur optionnelle avec permission activeTab peut envoyer seulement URL+titre à KEEP. Ne pas capturer cookies/mots de passe.
+3. iOS natif : Share Extension/universal link pour recevoir l'URL depuis la feuille Partager. Android : share intent. PWA : paste/share target quand supporté.
+4. Conserver le waterfall acoustique pour radio/magasin/autre appareil : ShazamKit iOS → AudD 6–10 s → nouvelle fenêtre chevauchante → ACRCloud. Afficher la cause précise NO_AUDIO/NO_MATCH/QUOTA/PROVIDER_ERROR/RESOLVER_MISS.
+5. Si source YouTube connue mais catalogue audio sans match, créer une découverte depuis la source et ne jamais afficher « introuvable ». Conserver l'URL fournisseur, pas l'audio.
+6. Ajouter cache par provider+contentId et une recherche manuelle préremplie avec le titre YouTube.
+7. Ne pas télécharger/réencoder l'audio YouTube et ne pas bâtir un catalogue pirate. Panako n'est envisageable que pour contenus dont KEEP possède les droits.
+8. Test obligatoire avec la vidéo exacte : https://www.youtube.com/watch?v=3Vpzo9HpLhY et au moins 20 titres niche/récents. Attendu : import/share trouve immédiatement le contenu même si l'empreinte acoustique renvoie NO_MATCH.
+
+Merci de répondre ici AVANT code avec : CAUSE CONFIRMÉE (micro vs catalogue), FICHIERS envisagés, UX minimale sans redesign, faisabilité Expo Share Extension, puis après implémentation : SHA, CI, test lien exact, test micro connu, test NO_MATCH niche, erreurs restantes.
+
