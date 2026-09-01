@@ -9,7 +9,7 @@ interface RemoteConfigRow {
   updated_at?: string | null;
 }
 
-type GroupKey = 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
+type GroupKey = 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
 
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'Morceaux offerts avant inscription',
@@ -40,6 +40,8 @@ const FRIENDLY_LABELS: Record<string, string> = {
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
   smart_album_config: 'Configuration Loki Vibes automatique',
+  legal_publisher_name: 'Nom de l’éditeur (mentions légales/CGU)',
+  legal_publisher_contact: 'Contact de l’éditeur (mentions légales)',
 };
 
 function editableValue(row: RemoteConfigRow) {
@@ -47,6 +49,7 @@ function editableValue(row: RemoteConfigRow) {
 }
 
 function groupFor(key: string): GroupKey {
+  if (key.startsWith('legal_')) return 'LEGAL';
   if (key.startsWith('growth_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
   if (key.startsWith('guest_') || key.startsWith('signup_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
@@ -56,6 +59,7 @@ function groupFor(key: string): GroupKey {
 }
 
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
+  { key: 'LEGAL', title: 'Informations légales', subtitle: 'Nom et contact affichés dans les mentions légales, CGU et politique de confidentialité publiques -- un seul changement ici met à jour toutes les pages automatiquement, sans republier l’app.' },
   { key: 'GROWTH', title: 'Croissance Free · paliers & cadeaux', subtitle: 'Transforme partages et abonnés en bonus sans modifier l’application. Les règles serveur utilisent ces valeurs.' },
   { key: 'PLANS', title: 'Essai, crédits & limites', subtitle: 'Réglages transversaux. Les limites propres à chaque formule se gèrent aussi dans Abonnements, Prix & Quotas.' },
   { key: 'SERVICES', title: 'Services musicaux · emplacements par formule', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },

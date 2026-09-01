@@ -132,7 +132,7 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site/admin-preview _site/share-profile _site/superadmin \
-            _site/privacy _site/privacy-choices _site/terms _site/support
+            _site/privacy _site/privacy-choices _site/terms _site/support _site/mentions-legales
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
@@ -141,6 +141,7 @@ jobs:
           cp packages/mobile/legal/privacy-choices.html _site/privacy-choices/index.html
           cp packages/mobile/legal/terms.html _site/terms/index.html
           cp packages/mobile/legal/support.html _site/support/index.html
+          cp packages/mobile/legal/mentions-legales.html _site/mentions-legales/index.html
 
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir Loki Super Admin</a>
@@ -188,6 +189,7 @@ jobs:
           test -f _site/privacy-choices/index.html
           test -f _site/terms/index.html
           test -f _site/support/index.html
+          test -f _site/mentions-legales/index.html
           test -f _site/keep-share.png
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
@@ -197,6 +199,7 @@ jobs:
           grep -q 'Politique de confidentialité Loki' _site/privacy/index.html
           grep -q 'Supprimer définitivement mon compte' _site/privacy/index.html
           grep -q 'Support Loki' _site/support/index.html
+          grep -q 'Mentions légales' _site/mentions-legales/index.html
           grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
       - name: Upload Pages artifact
@@ -233,6 +236,7 @@ jobs:
             "$base/privacy-choices/"
             "$base/terms/"
             "$base/support/"
+            "$base/mentions-legales/"
             "$base/keep-share.png"
           )
           for url in "${urls[@]}"; do
@@ -271,7 +275,7 @@ jobs:
             '/', '/Main/', '/Main/Listen/', '/Main/Discover/', '/Main/MyMusic/',
             '/Main/Parties/', '/Main/Profile/', '/profile-settings/', '/notifications/',
             '/offers/', '/share-profile/?u=__keep_public_smoke__', '/admin-preview/', '/superadmin/',
-            '/privacy/', '/privacy-choices/', '/terms/', '/support/'
+            '/privacy/', '/privacy-choices/', '/terms/', '/support/', '/mentions-legales/'
           ];
           const scenarios = [
             { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 900 } } },
