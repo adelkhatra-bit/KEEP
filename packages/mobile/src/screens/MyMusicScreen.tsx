@@ -27,6 +27,19 @@ import { spacing, radius, typography } from '../theme/spacing';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
+// Adel (02/09/2026) : "il devrait avoir quatre briques comme sur le profil
+// dans ma playlist ... un utilisateur télécharge plusieurs musiques de
+// Maître Gims, ça devrait créer un [groupe] vu que c'est le même chanteur
+// ... il manque connecté au profil." Même repère à 4 onglets que
+// ProfilePublicScreen (Musiques/Vibes/Artistes/Albums), pour que le
+// rangement soit cohérent partout au lieu de deux systèmes séparés.
+type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES' | 'ALBUMS';
+const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
+  { key: 'MUSIQUES', label: 'Musiques' }, { key: 'VIBES', label: 'Vibes' },
+  { key: 'ARTISTES', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
+];
+const ARTIST_ID_PREFIX = 'keep-artist:';
+const ALBUM_ID_PREFIX = 'keep-album:';
 
 function trackIdentity(track: CanonicalTrack) {
   const isrc = track.isrc?.trim().toUpperCase();
@@ -71,6 +84,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const [bulkVisibilityBusy, setBulkVisibilityBusy] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
   const [trackVisibilityBusy, setTrackVisibilityBusy] = useState<string | null>(null);
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
 
   const localKeptEntries = useMemo(() => {
     const all = sessions.flatMap((session) => session.tracks
@@ -156,6 +170,28 @@ export default function MyMusicScreen({ navigation }: any) {
     return pref ? { ...playlist, name: pref.name || playlist.name, description: pref.description || playlist.description } : playlist;
   }), [basePlaylists, preferences, providerId]);
 
+  // Adel (02/09/2026) : même tri alphabétique par artiste/album que le
+  // Profil (ProfilePublicScreen) -- si plusieurs morceaux de Maître Gims
+  // sont gardés, ils se retrouvent dans le même groupe au lieu d'être
+  // éparpillés un par un.
+  const artistPlaylists = useMemo<ProviderPlaylist[]>(() => {
+    const counts = new Map<string, number>();
+    for (const track of localKeptTracks) counts.set(track.artist, (counts.get(track.artist) ?? 0) + 1);
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([artist, count]) => ({ id: `${ARTIST_ID_PREFIX}${artist}`, name: artist, trackCount: count, isKeepManaged: true }));
+  }, [localKeptTracks]);
+
+  const albumPlaylists = useMemo<ProviderPlaylist[]>(() => {
+    const counts = new Map<string, number>();
+    for (const track of localKeptTracks) { if (track.album) counts.set(track.album, (counts.get(track.album) ?? 0) + 1); }
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([album, count]) => ({ id: `${ALBUM_ID_PREFIX}${album}`, name: album, trackCount: count, isKeepManaged: true }));
+  }, [localKeptTracks]);
+
+  const tabPlaylists = activeTab === 'ARTISTES' ? artistPlaylists : activeTab === 'ALBUMS' ? albumPlaylists : displayPlaylists;
+
   const loadProviderTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
     if (tracksByPlaylist[playlist.id]) return tracksByPlaylist[playlist.id];
     const session = await musicEngine.getSession();
@@ -168,6 +204,18 @@ export default function MyMusicScreen({ navigation }: any) {
     if (playlist.id === ALL_KEEP_VIEW_ID) {
       setTracksByPlaylist((state) => ({ ...state, [ALL_KEEP_VIEW_ID]: localKeptTracks }));
       return localKeptTracks;
+    }
+    if (playlist.id.startsWith(ARTIST_ID_PREFIX)) {
+      const artist = playlist.id.slice(ARTIST_ID_PREFIX.length);
+      const tracks = localKeptTracks.filter((track) => track.artist === artist);
+      setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
+      return tracks;
+    }
+    if (playlist.id.startsWith(ALBUM_ID_PREFIX)) {
+      const album = playlist.id.slice(ALBUM_ID_PREFIX.length);
+      const tracks = localKeptTracks.filter((track) => track.album === album);
+      setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
+      return tracks;
     }
     setLoadingPlaylist(playlist.id);
     try {
@@ -451,20 +499,21 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => {
     const isAllKeepView = item.id === ALL_KEEP_VIEW_ID;
+    const isGroupView = item.id.startsWith(ARTIST_ID_PREFIX) || item.id.startsWith(ALBUM_ID_PREFIX);
     const isSmart = isSmartAlbumUiId(item.id);
-    const pref = isAllKeepView ? null : preferenceFor(preferences, providerId, item.id);
+    const pref = isAllKeepView || isGroupView ? null : preferenceFor(preferences, providerId, item.id);
     const expanded = expandedId === item.id;
     const tracks = isAllKeepView ? (tracksByPlaylist[ALL_KEEP_VIEW_ID] ?? localKeptTracks) : (tracksByPlaylist[item.id] ?? []);
     const actualCount = isAllKeepView ? localKeptTracks.length : item.trackCount;
-    const visibility = isAllKeepView ? `${publicKeepCount} public · ${privateKeepCount} privé` : (pref?.isPublic ? 'Public' : 'Privé');
+    const visibility = isAllKeepView ? `${publicKeepCount} public · ${privateKeepCount} privé` : isGroupView ? null : (pref?.isPublic ? 'Public' : 'Privé');
     return <View style={[styles.playlistBlock, isSmart && styles.smartBlock]}>
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
         {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>{isSmart ? '✦' : '♪'}</Text></View>}
         <View style={styles.playlistInfo}>
           <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>VIBE</Text></View> : null}</View>
-          <Text style={styles.songCount}>{actualCount} morceau{actualCount > 1 ? 'x' : ''} · {visibility}</Text>
+          <Text style={styles.songCount}>{actualCount} morceau{actualCount > 1 ? 'x' : ''}{visibility ? ` · ${visibility}` : ''}</Text>
         </View>
-        {!isAllKeepView ? <TouchableOpacity style={styles.miniEdit} onPress={() => openEdit(item)}><Text style={styles.miniEditText}>✎</Text></TouchableOpacity> : null}
+        {!isAllKeepView && !isGroupView ? <TouchableOpacity style={styles.miniEdit} onPress={() => openEdit(item)}><Text style={styles.miniEditText}>✎</Text></TouchableOpacity> : null}
         <Text style={styles.chevron}>{expanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity>
       {expanded ? <View style={styles.tracksPanel}>
@@ -496,10 +545,17 @@ export default function MyMusicScreen({ navigation }: any) {
         <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux"><Text style={styles.servicesButtonText}>＋ Services</Text></TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
+      <View style={styles.tabs}>{LIBRARY_TABS.map((tab) => (
+        <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} accessibilityLabel={tab.label}>
+          <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>
+          {activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}
+        </TouchableOpacity>
+      ))}</View>
+
+      {activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
         <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'Loki RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
         <Text style={styles.vibeArrow}>{sortAccess?.allowed || sortAccess?.unlimited ? '✦' : '🔒'}</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> : null}
 
       {localKeptEntries.length ? <View style={styles.libraryStrip}>
         <View style={styles.stat}><Text style={styles.statValue}>{publicKeepCount}</Text><Text style={[styles.statLabel, styles.statLabelPublic]}>PUBLIC</Text></View>
@@ -515,10 +571,10 @@ export default function MyMusicScreen({ navigation }: any) {
         </View>
       </View> : null}
 
-      {analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
+      {activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
         <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text><Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity> : null}
-      {analysis && analysisExpanded ? <View style={styles.analysisCard}>
+      {activeTab === 'VIBES' && analysis && analysisExpanded ? <View style={styles.analysisCard}>
         <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
         {topGenres.length ? (
           <TouchableOpacity
@@ -544,15 +600,27 @@ export default function MyMusicScreen({ navigation }: any) {
         <Text style={styles.analysisHelp}>Loki crée les Vibes par style sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
 
-      <FlatList
-        data={displayPlaylists}
-        renderItem={renderPlaylist}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        refreshing={isLoading}
-        onRefresh={() => { void refreshLibrary(); }}
-        ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
-      />
+      {activeTab === 'MUSIQUES' ? (
+        <FlatList
+          data={localKeptTracks}
+          renderItem={({ item }) => renderTrack(item)}
+          keyExtractor={(item) => trackIdentity(item)}
+          contentContainerStyle={styles.list}
+          refreshing={isLoading}
+          onRefresh={() => { void refreshLibrary(); }}
+          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+        />
+      ) : (
+        <FlatList
+          data={tabPlaylists}
+          renderItem={renderPlaylist}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshing={isLoading}
+          onRefresh={() => { void refreshLibrary(); }}
+          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : activeTab === 'ALBUMS' ? 'Tes albums apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+        />
+      )}
 
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
@@ -572,6 +640,7 @@ export default function MyMusicScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:36,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:8,lineHeight:12,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
