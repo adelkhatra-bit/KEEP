@@ -665,6 +665,48 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, revoked: Number(data ?? 0) });
     }
 
+    if (action === "notifications.broadcast") {
+      // Adel (01/09/2026) : "envoyer un message à tous les utilisateurs en
+      // même temps, ou choisir individuellement/collectivement." Réutilise
+      // la table notifications déjà branchée à la fois sur l'écran
+      // Notifications de l'app ET sur le worker push existant -- un message
+      // envoyé d'ici arrive comme n'importe quelle autre notification Loki,
+      // en push compris, sans nouveau système de livraison.
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MARKETING"]);
+      const title = String(body?.title ?? "").trim();
+      const message = String(body?.body ?? "").trim();
+      const usernames: string[] = Array.isArray(body?.usernames)
+        ? Array.from(new Set(body.usernames.map((u: unknown) => String(u).trim().toLowerCase()).filter(Boolean)))
+        : [];
+      if (!title || title.length > 140) return json(400, { error: "invalid_title" });
+      if (!message || message.length > 2000) return json(400, { error: "invalid_body" });
+
+      const { data: allProfiles, error: profilesError } = await admin.from("profiles").select("id,username");
+      if (profilesError) throw profilesError;
+
+      let targets = allProfiles ?? [];
+      if (usernames.length) {
+        const found = new Set((allProfiles ?? []).map((row: any) => String(row.username).toLowerCase()));
+        const missing = usernames.filter((u) => !found.has(u));
+        if (missing.length) return json(404, { error: "username_not_found", missing });
+        const wanted = new Set(usernames);
+        targets = (allProfiles ?? []).filter((row: any) => wanted.has(String(row.username).toLowerCase()));
+      }
+      if (!targets.length) return json(400, { error: "no_recipients" });
+
+      const rows = targets.map((row: any) => ({
+        profile_id: row.id,
+        type: "ADMIN_BROADCAST",
+        title,
+        body: message,
+        data: { source: "super_admin", sent_by: actor.id },
+      }));
+      const { error: insertError } = await admin.from("notifications").insert(rows);
+      if (insertError) throw insertError;
+      await audit(actor.id, "notifications.broadcast", "profiles", usernames.length ? usernames.join(",") : "ALL", { title, body: message, recipientCount: targets.length });
+      return json(200, { ok: true, recipientCount: targets.length });
+    }
+
     if (action === "admins.list") {
       assertRole(actor, ["SUPER_ADMIN"]);
       const { data: rows, error } = await admin
