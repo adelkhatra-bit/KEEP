@@ -58,6 +58,25 @@ const eqStyles = StyleSheet.create({
   bar: { width: 8, borderRadius: 4 },
 });
 
+// Adel (01/09/2026) : "enlève ton éclair, mets une animation à la place ...
+// selon le score, une animation différente." Remplace l'icône figée par un
+// léger balancement en boucle, sans changer la taille/l'espace occupé (donc
+// sans reproduire le problème de boutons coupés en bas d'écran).
+function ResultIcon({ icon, big }: { icon: string; big?: boolean }) {
+  const pulse = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 480, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 480, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] });
+  const rotate = pulse.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '5deg'] });
+  return <Animated.Text style={[s.finishTrophy, big && s.finishTrophyBig, { transform: [{ scale }, { rotate }] }]}>{icon}</Animated.Text>;
+}
+
 type Props = {
   enabled: boolean;
   onOpenProfile: (username: string) => void;
@@ -658,7 +677,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <Text style={s.finishSpark}>✦ ⚡ ✦</Text>
-            <Text style={[s.finishTrophy, perfect && s.finishTrophyBig]}>{perfect ? '👑' : soloScore >= 6 ? '🏆' : '⚡'}</Text>
+            <ResultIcon icon={perfect ? '👑' : soloScore >= 6 ? '🏆' : soloScore >= 4 ? '🎯' : '💪'} big={perfect} />
             <Text style={s.finishTitle}>{perfect ? 'PARFAIT · 8/8' : `${soloScore}/8`}</Text>
             <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
             <View style={s.finishScore}><Text style={s.finishScoreBig}>{soloScore}</Text><Text style={s.finishScoreSlash}> / 8</Text></View>
@@ -750,7 +769,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <Text style={s.finishSpark}>✦ 👑 ✦</Text>
-            {winner ? <Avatar name={winner.username} url={winner.avatarUrl} size={72} /> : <Text style={s.finishTrophy}>🏆</Text>}
+            {winner ? <Avatar name={winner.username} url={winner.avatarUrl} size={72} /> : <ResultIcon icon="🏆" />}
             <Text style={s.finishTitle}>{winner ? `@${winner.username}` : 'BATTLE TERMINÉ'}</Text>
             <Text style={s.finishSub}>{winner ? 'remporte ce Battle' : 'Résultat enregistré'}</Text>
             <View style={s.finishScore}><Text style={s.finishScoreBig}>{winner?.score ?? arena.lastResult.score}</Text><Text style={s.finishScoreSlash}> pts</Text></View>
