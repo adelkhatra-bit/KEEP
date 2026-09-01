@@ -106,6 +106,8 @@ export default function Users() {
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [copied, setCopied] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailSavedAt, setEmailSavedAt] = useState<string | null>(null);
 
   const [legacyUsername, setLegacyUsername] = useState('');
   const [legacyRecovery, setLegacyRecovery] = useState<LegacyRecovery | null>(null);
@@ -151,7 +153,7 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setMessage(null); setError(null); setBusy('load');
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load');
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
@@ -222,6 +224,8 @@ export default function Users() {
       if (result.data) setSnapshot(result.data as UserSnapshot);
       setMessage(`Adresse e-mail enregistrée pour @${selected.username}.`);
       setEmailInput('');
+      setEditingEmail(false);
+      setEmailSavedAt(new Date().toLocaleTimeString('fr-FR'));
       await load();
     } catch (e: any) {
       const code = String(e?.message || '');
@@ -372,16 +376,27 @@ export default function Users() {
             <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
               <div style={{fontWeight:700,marginBottom:4}}>Attribuer une adresse e-mail</div>
               <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:8}}>Pour un compte créé avant le 01/09/2026 (proche, ami...) sans e-mail -- utile aussi pour que « mot de passe oublié » fonctionne pour lui.</div>
-              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                <input
-                  type="email"
-                  value={emailInput}
-                  onChange={(e)=>setEmailInput(e.target.value)}
-                  placeholder={snapshot?.auth.email || 'nom@exemple.com'}
-                  style={{flex:'1 1 220px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}
-                />
-                <button onClick={()=>void setUserEmail()} disabled={busy!==null || !emailInput.trim()}>{busy==='email'?'Enregistrement…':'Enregistrer l’e-mail'}</button>
-              </div>
+              {snapshot.auth.email && !editingEmail ? (
+                <div style={{padding:12,border:'1px solid #2e7d32',borderRadius:10,background:'#0f1f14',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:'#7fd99a',fontWeight:900}}>✓ E-mail enregistré{emailSavedAt ? ` à ${emailSavedAt}` : ''}</div>
+                    <div style={{fontWeight:700,marginTop:2,overflowWrap:'anywhere'}}>{snapshot.auth.email}</div>
+                  </div>
+                  <button onClick={()=>{setEditingEmail(true); setEmailInput(snapshot.auth.email || '');}} style={{flexShrink:0}}>Modifier</button>
+                </div>
+              ) : (
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e)=>setEmailInput(e.target.value)}
+                    placeholder="nom@exemple.com"
+                    style={{flex:'1 1 220px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}
+                  />
+                  <button onClick={()=>void setUserEmail()} disabled={busy!==null || !emailInput.trim()}>{busy==='email'?'Enregistrement…':'Enregistrer l’e-mail'}</button>
+                  {snapshot.auth.email && <button onClick={()=>{setEditingEmail(false); setEmailInput('');}} disabled={busy!==null}>Annuler</button>}
+                </div>
+              )}
             </div>
           </div>
 
