@@ -11,6 +11,7 @@ import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -79,6 +80,19 @@ export default function DiscoverScreen({ navigation }: any) {
   // abonnements existants du compte, donc "+ SUIVRE" s'affichait pour tout le
   // monde sans exception, même les profils déjà suivis.
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  // Adel : brancher le flag "local_discovery" pour de vrai plutôt que de
+  // laisser un interrupteur décoratif dans Super Admin -- coupe-circuit
+  // d'urgence réel pour tout l'écran Découvertes. `true` par défaut tant que
+  // la vérification n'est pas revenue pour éviter un flash "indisponible" à
+  // chaque ouverture ; une fois vérifiée, false coupe réellement l'écran.
+  const [localDiscoveryEnabled, setLocalDiscoveryEnabled] = useState(true);
+  const [localDiscoveryChecked, setLocalDiscoveryChecked] = useState(false);
+  useEffect(() => { let live = true; isFeatureEnabled('local_discovery').then((enabled) => { if (live) { setLocalDiscoveryEnabled(enabled); setLocalDiscoveryChecked(true); } }); return () => { live = false; }; }, []);
+  // Adel : le bloc "AFFINITÉ %" ci-dessous est la vraie fonctionnalité
+  // derrière le flag Super Admin "compare_keep" ("Comparer nos KEEP") --
+  // jamais branché jusqu'ici. Coupe-circuit réel, pas décoratif.
+  const [compareFeatureEnabled, setCompareFeatureEnabled] = useState(true);
+  useEffect(() => { let live = true; isFeatureEnabled('compare_keep').then((enabled) => live && setCompareFeatureEnabled(enabled)); return () => { live = false; }; }, []);
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -368,6 +382,17 @@ export default function DiscoverScreen({ navigation }: any) {
   const discoveryUnlocked = isDemoMode || discoveryAccess?.allowed === true;
   const freeRemaining = discoveryAccess?.planCode === 'FREE' ? discoveryAccess.remaining : null;
 
+  if (localDiscoveryChecked && !localDiscoveryEnabled) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyCard}>
+          <Text style={styles.title}>{t('nav.discover')}</Text>
+          <Text style={styles.mutedHint}>Les découvertes sont temporairement indisponibles. Reviens un peu plus tard.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -401,7 +426,7 @@ export default function DiscoverScreen({ navigation }: any) {
               <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>@{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki'}</Text></View>
             </TouchableOpacity>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
-            <View style={styles.matchRow}><View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View><View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
+            <View style={styles.matchRow}>{compareFeatureEnabled ? <View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View> : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
             <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity><TouchableOpacity style={[styles.followButton, alreadyFollowingCurrent && styles.followButtonOn]} onPress={() => void followCurrent()} disabled={followBusy || alreadyFollowingCurrent}><Text style={styles.followText}>{followBusy ? '…' : alreadyFollowingCurrent ? '✓ ABONNÉ(E)' : '+ SUIVRE'}</Text></TouchableOpacity></View>
             {followNotice ? <Text style={styles.followNotice}>{followNotice}</Text> : null}
           </View>

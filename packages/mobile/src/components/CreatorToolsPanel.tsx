@@ -4,6 +4,7 @@ import { Alert } from '../utils/keepAlert';
 import { broadcastEventToFollowers, createCreatorEvent } from '../services/creatorEventService';
 import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
 import { hasFeature, requiredPlan } from '../services/entitlementService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadCurrentPlanCode, loadPlans } from '../services/planService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
@@ -49,6 +50,10 @@ export default function CreatorToolsPanel({ navigation }: any) {
   const [countryCode, setCountryCode] = useState(user?.countryCode || 'FR');
   const [description, setDescription] = useState('');
   const [message, setMessage] = useState('');
+  // Adel : brancher le flag "events" pour de vrai plutôt que de laisser un
+  // interrupteur décoratif dans Super Admin -- coupe-circuit d'urgence réel.
+  const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(false);
+  useEffect(() => { let live = true; isFeatureEnabled('events').then((enabled) => live && setEventsFeatureEnabled(enabled)); return () => { live = false; }; }, []);
 
   useEffect(() => {
     let live = true;
@@ -108,6 +113,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
   };
 
   const openEventComposer = async () => {
+    if (!eventsFeatureEnabled) return Alert.alert('Événements', 'La création d’événements est temporairement suspendue.');
     if (!creatorEnabled) return openPaywall('CREATE_EVENT', 'CREATOR_PRO');
     const access = await getEventCreationAccess().catch(() => eventAccess);
     if (access) setEventAccess(access);
@@ -123,6 +129,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
   };
 
   const publish = async (notifyFollowers: boolean) => {
+    if (!eventsFeatureEnabled) return Alert.alert('Événements', 'La création d’événements est temporairement suspendue.');
     if (!creatorEnabled) return openPaywall('CREATE_EVENT', 'CREATOR_PRO');
     const iso = parseDate();
     if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom d’événement.');
@@ -166,7 +173,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
     <Text style={s.subscriptionNote}>Le plan actif pilote réellement les cadenas. Si l’abonnement s’arrête, les données restent mais les fonctions payantes se reverrouillent.</Text>
 
-    {creatorEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? 'Venue Pro : créations illimitées.' : eventAccess?.planCode === 'CREATOR_PRO' ? 'Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite.' : 'Les réponses Oui / Peut-être / Non restent dans l’onglet Soirées.'}</Text></> : null}
+    {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? 'Venue Pro : créations illimitées.' : eventAccess?.planCode === 'CREATOR_PRO' ? 'Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite.' : 'Les réponses Oui / Peut-être / Non restent dans l’onglet Soirées.'}</Text></> : null}
 
     <Modal visible={eventOpen} transparent animationType="slide" onRequestClose={() => setEventOpen(false)}>
       <View style={s.backdrop}><View style={s.sheet}>
