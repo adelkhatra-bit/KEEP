@@ -5,6 +5,7 @@ import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
+import AlertHost from './src/components/AlertHost';
 import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
@@ -177,6 +178,7 @@ export default function App() {
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
       {user ? <GlobalNotificationBanner /> : null}
+      <AlertHost />
       <StatusBar style="light" backgroundColor={colors.background} />
     </>
   );
