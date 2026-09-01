@@ -153,9 +153,9 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('Il te faut au moins 3 Free');
   });
 
-  it('advances solo rapidly after an answer', () => {
-    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
-    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 950)');
+  it('leaves enough time to see the cover art before advancing (Adel, 01/09/2026: "on a même pas eu le temps de voir la jaquette")', () => {
+    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 1800)');
+    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
   });
 });
 

@@ -6,6 +6,7 @@ import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
 
 interface Props {
@@ -28,6 +29,13 @@ interface Props {
 export default function TrackListenControls({ track, previewKey, onPreviewFinished }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
+  // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
+  // se met indisponible") : ce composant affichait "Audio indisponible" dès
+  // que le fournisseur de reconnaissance ne renvoyait aucun previewUrl/lien
+  // externe direct, sans jamais tenter le même repli iTunes déjà utilisé et
+  // fonctionnel dans TrackPreviewButton.tsx/MusicSwipeDeckModal.tsx.
+  const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl ?? null);
+  const [resolvingPreview, setResolvingPreview] = useState(false);
 
   const externalPlayUrl = track.externalUrls?.appleMusic
     || track.externalUrls?.spotify
@@ -50,6 +58,18 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
         : undefined;
   const embedProviderLabel = track.providerIds?.spotify ? 'Spotify' : track.providerIds?.deezer ? 'Deezer' : 'YouTube';
 
+  useEffect(() => {
+    setResolvedPreviewUrl(track.previewUrl ?? null);
+    if (track.previewUrl || embedUrl || externalPlayUrl) return;
+    let live = true;
+    setResolvingPreview(true);
+    resolveTrackPreviewUrl(track)
+      .then((url) => { if (live) setResolvedPreviewUrl(url); })
+      .finally(() => { if (live) setResolvingPreview(false); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.title, track.artist, track.previewUrl, embedUrl, externalPlayUrl]);
+
   useEffect(() => () => {
     void stopTrackPreview(previewKey);
   }, [previewKey]);
@@ -61,10 +81,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   };
 
   const playSnippetNow = async (positionMillis: number) => {
-    if (!track.previewUrl || previewBusy) return;
+    if (!resolvedPreviewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      await playTrackPreviewSegment(previewKey, track.previewUrl, positionMillis, 7000, undefined, onPreviewFinished);
+      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, undefined, onPreviewFinished);
     } catch {
       Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
     } finally {
@@ -73,7 +93,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   };
 
   const playSnippet = (positionMillis: number) => {
-    if (!track.previewUrl || previewBusy) return;
+    if (!resolvedPreviewUrl || previewBusy) return;
     if (useSessionStore.getState().isActive) {
       Alert.alert(
         'Écoute Loki en cours',
@@ -111,19 +131,20 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     void openExternalNow();
   };
 
-  if (!track.previewUrl && !embedUrl && !externalPlayUrl) {
+  if (!resolvedPreviewUrl && !embedUrl && !externalPlayUrl) {
+    if (resolvingPreview) return <Text style={styles.audioUnavailable}>Recherche de l’extrait…</Text>;
     return <Text style={styles.audioUnavailable}>Audio indisponible</Text>;
   }
 
   return (
     <>
       <View style={styles.previewRow}>
-        {track.previewUrl ? <>
+        {resolvedPreviewUrl ? <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
         </> : null}
-        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : track.previewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
+        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : resolvedPreviewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
       </View>
 
       {Platform.OS === 'web' && embedUrl ? (
