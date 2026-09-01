@@ -115,11 +115,6 @@ type Props = {
   // une écoute classique). Optionnel : sans navigation fournie, le bouton
   // reste caché plutôt que de planter.
   onOpenSession?: (sessionId: string) => void;
-  // Adel (02/09/2026) : "il faudrait ... dire que qui devrait partager son
-  // profil pour recruter des Free ... ou sinon prendre un abonnement à
-  // 2,99€" -- le message "pas assez de Free" doit proposer les deux vraies
-  // solutions plutôt que juste constater le blocage.
-  onOpenPremium?: () => void;
 };
 
 function buildBattleSession(pack: KeepBattleSoloPack, rounds: KeepBattleSoloRound[]): KeepSession {
@@ -180,7 +175,7 @@ function buildArenaSession(tracksPlayed: ArenaPlayedTrack[]): KeepSession {
   };
 }
 
-export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenPremium }: Props) {
+export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   const [solo, setSolo] = React.useState<KeepBattleSoloPack | null>(null);
@@ -533,14 +528,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     finally { setBusy(false); }
   };
 
+  // Adel (02/09/2026) : "c'est pas que je prenne des abonnements, c'est
+  // surtout qu'ils partagent pour avoir des Free ... tu partages leurs
+  // goûts musicaux afin de gagner une communauté" -- le but de ce message
+  // est de faire grandir la communauté par le partage, pas de vendre
+  // Premium ici. Un seul bouton d'action ("Partager") + Annuler, pour que
+  // les deux tiennent proprement côte à côte au lieu de trois boutons mal
+  // alignés.
   const notEnoughFreeAlert = (title: string) => {
     Alert.alert(
       title,
-      'Deux façons de récupérer des Free : partage ton profil à tes amis pour en gagner en les recrutant, ou passe Premium à 2,99 € pour jouer sans limite.',
+      'Partage ton profil à tes amis : plus ta communauté musicale grandit, plus tu gagnes de Free pour jouer.',
       [
         { text: 'Plus tard', style: 'cancel' },
-        { text: 'Partager mon profil', onPress: () => { const username = useUserStore.getState().user?.username; if (username) void shareProfile(username); } },
-        { text: 'Voir Premium 2,99 €', onPress: () => onOpenPremium?.() },
+        { text: 'Partager', onPress: () => { const username = useUserStore.getState().user?.username; if (username) void shareProfile(username); } },
       ],
     );
   };
