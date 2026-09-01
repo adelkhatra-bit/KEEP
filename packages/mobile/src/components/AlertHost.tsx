@@ -45,12 +45,18 @@ const s = StyleSheet.create({
   card: { width: '100%', maxWidth: 400, backgroundColor: colors.backgroundCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 10 },
   title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', lineHeight: 22 },
   message: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 10 },
-  button: { minHeight: 42, minWidth: 84, borderRadius: radius.pill, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  // Adel (02/09/2026) : "je les aurais fait un tout petit peu plus petits et
+  // je les aurais mis en face ... pas l'un sur l'autre" -- avec 3 boutons
+  // (Annuler/Plus tard + 2 actions), l'ancien minWidth:84 + paddingHorizontal:16
+  // dépassait la largeur d'un écran de téléphone et le retour à la ligne
+  // (flexWrap) empilait le dernier bouton seul en dessous. Rétréci pour que
+  // 2-3 boutons tiennent réellement côte à côte au lieu de s'empiler.
+  buttons: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6, marginTop: 10 },
+  button: { minHeight: 38, borderRadius: radius.pill, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   buttonDefault: { backgroundColor: colors.primary, borderColor: colors.primary },
   buttonDestructive: { backgroundColor: colors.danger, borderColor: colors.danger },
   buttonCancel: { backgroundColor: 'transparent', borderColor: colors.border },
-  buttonText: { fontSize: 12, fontWeight: '900' },
+  buttonText: { fontSize: 11, fontWeight: '900' },
   buttonTextSolid: { color: colors.white },
   buttonTextCancel: { color: colors.textSecondary },
 });

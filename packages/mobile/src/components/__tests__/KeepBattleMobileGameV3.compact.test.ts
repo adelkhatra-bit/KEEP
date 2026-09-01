@@ -180,6 +180,20 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('ENREGISTRER CE BATTLE DANS MA SESSION');
     expect(source).toContain('VOIR CES MORCEAUX DANS MA SESSION');
   });
+
+  // Adel (02/09/2026) : "l'humain ne voit pas très bien ... trouve une
+  // solution dans le code pour ne plus avoir ce problème" -- plusieurs
+  // écritures (kicker "Loki BATTLE", clockHint, username des joueurs en
+  // ligne, badges d'équipe...) étaient tombées à 8-9px au fil des
+  // itérations précédentes. Un plancher de 11px a été appliqué partout dans
+  // ce fichier ; ce test empêche qu'une future retouche fasse redescendre
+  // une taille de police en dessous.
+  it('never lets any Battle text size drop below the 11px readability floor', () => {
+    const sizes = Array.from(source.matchAll(/fontSize: ?(\d+(?:\.\d+)?)/g)).map((m) => Number(m[1]));
+    expect(sizes.length).toBeGreaterThan(0);
+    const tooSmall = sizes.filter((size) => size < 11);
+    expect(tooSmall).toEqual([]);
+  });
 });
 
 describe('Loki Battle accept reliability', () => {
