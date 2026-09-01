@@ -13,8 +13,10 @@ import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
-// Source-of-truth auth Loki : pseudo + mot de passe restent suffisants ; un
-// e-mail vérifié, lorsqu'il existe, sert aussi de récupération sécurisée.
+// Source-of-truth auth Loki (Adel, 24/08/2026) : pseudo + mot de passe +
+// e-mail vérifié sont tous les trois obligatoires à la création, pour que
+// "mot de passe oublié" fonctionne toujours. La connexion, elle, accepte
+// toujours pseudo OU e-mail -- ne casse pas les anciens comptes pseudo-only.
 export type UsernameAccountMode = 'create' | 'login';
 
 type Props = {
@@ -27,6 +29,7 @@ function errorText(code: string) {
   if (code === 'invalid_username') return 'Ce pseudo Loki ne peut pas être utilisé.';
   if (code === 'invalid_password') return 'Choisis un autre mot de passe.';
   if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
+  if (code === 'email_taken') return 'Cette adresse e-mail est déjà utilisée par un autre compte Loki.';
   if (code === 'rate_limited') return 'Trop de demandes rapprochées. Attends un instant puis réessaie.';
   if (code === 'email_link_invalid') return 'Ce lien e-mail est expiré ou invalide. Demande un nouveau lien.';
   if (code === 'username_taken') return 'Ce pseudo Loki est déjà utilisé. Choisis-en un autre.';
@@ -34,7 +37,12 @@ function errorText(code: string) {
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
   if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki.';
   if (code === 'invalid_credentials') return 'Identifiant Loki, e-mail ou mot de passe incorrect.';
+  if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki indisponible pour le moment. Réessaie plus tard.';
   return 'Connexion Loki indisponible pour le moment. Réessaie dans un instant.';
+}
+
+function isValidEmail(value: string) {
+  return /^\S+@\S+\.\S+$/.test(value.trim());
 }
 
 function generateKeepPassword(): string {
@@ -74,11 +82,16 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const [mode, setMode] = useState<UsernameAccountMode>(initialMode);
   const [username, setUsername] = useState(initialUsername);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Adel : e-mail obligatoire à la création (24/08/2026) pour que "mot de
+  // passe oublié" fonctionne toujours -- un compte pseudo-only recevait un
+  // e-mail interne @keep.local que la récupération refuse explicitement.
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState('');
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
   const strength = useMemo(() => passwordStrength(password), [password]);
@@ -135,6 +148,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     const loginByEmail = mode === 'login' && identity.includes('@');
 
     if (mode === 'create' && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
+    if (mode === 'create' && !isValidEmail(email)) return setError(errorText('invalid_email'));
     if (mode === 'login' && !loginByEmail && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
     if (password.length < 6) return setError(errorText('invalid_password'));
     if (mode === 'create' && password !== password2) return setError('Les deux mots de passe ne correspondent pas.');
@@ -151,14 +165,33 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
       const auth = createAuthService(supabase);
       const result = mode === 'create'
-        ? await auth.signUpWithUsername(normalizedUsername, password)
+        ? await auth.signUpWithEmailIdentity(email.trim(), normalizedUsername, password, followUsername)
         : loginByEmail
           ? await auth.signInWithEmailIdentity(identity, password)
           : await auth.signInWithUsername(normalizedUsername, password);
       if (result.error) return setError(errorText(result.error));
+      if (mode === 'create' && result.requiresEmailConfirmation) {
+        setPendingConfirmationEmail(email.trim());
+        return;
+      }
       await finishAuthenticatedFlow();
     } catch {
       setError('Connexion Loki indisponible pour le moment. Réessaie dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    if (!supabase || !pendingConfirmationEmail) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await createAuthService(supabase).resendSignupConfirmation(pendingConfirmationEmail);
+      if (result.error) return setError(errorText(result.error));
+      Alert.alert('E-mail renvoyé', `Un nouveau lien de confirmation a été envoyé à ${pendingConfirmationEmail}.`);
+    } catch {
+      setError('Impossible de renvoyer l’e-mail pour le moment. Réessaie dans un instant.');
     } finally {
       setBusy(false);
     }
@@ -196,6 +229,20 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
   const passwordAutocomplete = mode === 'create' ? 'new-password' : 'current-password';
 
+  if (pendingConfirmationEmail) {
+    return <ScrollView style={s.scroll} contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+      <Text style={s.title}>Confirme ton e-mail</Text>
+      <Text style={s.subtitle}>Loki a envoyé un lien de confirmation à {pendingConfirmationEmail}. Ouvre cet e-mail et touche le lien pour activer ton compte, puis reviens te connecter ici.</Text>
+      {error ? <Text style={s.error}>{error}</Text> : null}
+      <TouchableOpacity style={s.primary} onPress={resendConfirmation} disabled={busy}>
+        {busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>RENVOYER L’E-MAIL</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity style={s.switchMode} onPress={() => { setPendingConfirmationEmail(''); setMode('login'); setUsername(''); setPassword(''); setPassword2(''); setError(''); }}>
+        <Text style={s.switchText}>J’ai confirmé, me connecter</Text>
+      </TouchableOpacity>
+    </ScrollView>;
+  }
+
   return <ScrollView
     style={s.scroll}
     contentContainerStyle={s.container}
@@ -207,7 +254,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
-        ? 'Ton pseudo Loki et ton mot de passe suffisent. Aucun e-mail n’est obligatoire.'
+        ? 'Ton pseudo, ton mot de passe et une adresse e-mail vérifiée sont nécessaires pour créer ton compte.'
         : 'Connecte-toi avec ton pseudo Loki ou ton e-mail, puis ton mot de passe.'}
     </Text>
 
@@ -225,7 +272,20 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     />
 
     {mode === 'create' ? <>
-      <Text style={s.usernameHint}>Ton identifiant est public et unique. Aucun e-mail n’est nécessaire pour créer le compte.</Text>
+      <Text style={s.usernameHint}>Ton pseudo est public et unique.</Text>
+      <TextInput
+        style={s.input}
+        value={email}
+        onChangeText={(value) => { setEmail(value); if (error) setError(''); }}
+        placeholder="Adresse e-mail"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        autoComplete="email"
+        textContentType="emailAddress"
+      />
+      <Text style={s.usernameHint}>Ton e-mail reste privé -- il sert uniquement à activer ton compte et à récupérer ton mot de passe.</Text>
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
         <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE Loki</Text>
       </TouchableOpacity>
