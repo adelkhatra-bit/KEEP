@@ -83,6 +83,7 @@ export default function Integrations() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState('');
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
   const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
 
@@ -130,6 +131,8 @@ export default function Integrations() {
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
     if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
+    if (/\s/.test(value)) return setError(`${row.label} : cette valeur contient un espace -- vérifie que tu n'as pas copié un caractère en trop.`);
+    if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return setError(`${row.label} : cette valeur ressemble à un exemple/placeholder, pas à une vraie clé. Colle la vraie valeur du fournisseur.`);
     setBusy(row.key); setError(null); setMessage(null);
     try {
       const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value });
@@ -324,13 +327,26 @@ export default function Integrations() {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    type={row.secret ? 'password' : 'text'}
-                    placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
-                    value={values[row.key] ?? ''}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                    style={{ flex: '1 1 360px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
-                  />
+                  <div style={{ position: 'relative', flex: '1 1 360px' }}>
+                    <input
+                      type={row.secret && !revealed[row.key] ? 'password' : 'text'}
+                      placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
+                      value={values[row.key] ?? ''}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
+                    />
+                    {row.secret && (
+                      <button
+                        type="button"
+                        onClick={() => setRevealed((prev) => ({ ...prev, [row.key]: !prev[row.key] }))}
+                        aria-label={revealed[row.key] ? 'Masquer la valeur' : 'Afficher la valeur'}
+                        title={revealed[row.key] ? 'Masquer' : 'Afficher'}
+                        style={{ position: 'absolute', right: 4, top: 4, bottom: 4, width: 32, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}
+                      >
+                        {revealed[row.key] ? '🙈' : '👁'}
+                      </button>
+                    )}
+                  </div>
                   <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
                     {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
                   </button>

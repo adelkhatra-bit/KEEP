@@ -32,6 +32,13 @@ const STATUS_LABEL: Record<SupportTicket['status'], string> = {
   CLOSED: 'Fermé',
 };
 
+function floodErrorText(e: any): string | null {
+  const raw = String(e?.message || '');
+  if (raw.includes('SUPPORT_AWAITING_REPLY')) return 'Ta dernière demande est déjà envoyée -- attends la réponse de Loki avant d’ajouter un nouveau message ici.';
+  if (raw.includes('SUPPORT_TOO_MANY_OPEN_TICKETS')) return 'Tu as déjà 3 demandes en attente de réponse. Attends que Loki réponde à l’une d’elles avant d’en ouvrir une nouvelle.';
+  return null;
+}
+
 export default function SupportTicketPanel({ profileId, username, enabled }: { profileId: string; username: string; enabled: boolean }) {
   const [tickets, setTickets] = React.useState<SupportTicket[]>([]);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -82,7 +89,7 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
       await loadSupportMessages(ticket.id).then(setMessages);
       Alert.alert('Message envoyé', 'Ta demande est enregistrée dans Loki. La réponse apparaîtra ici.');
     } catch (e: any) {
-      Alert.alert('Support Loki', e?.message || 'Impossible d’envoyer la demande pour le moment.');
+      Alert.alert('Support Loki', floodErrorText(e) || e?.message || 'Impossible d’envoyer la demande pour le moment.');
     } finally { setBusy(false); }
   };
 
@@ -95,7 +102,7 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
       await refreshMessages();
       await refreshTickets();
     } catch (e: any) {
-      Alert.alert('Support Loki', e?.message || 'Impossible d’envoyer la réponse.');
+      Alert.alert('Support Loki', floodErrorText(e) || e?.message || 'Impossible d’envoyer la réponse.');
     } finally { setBusy(false); }
   };
 
