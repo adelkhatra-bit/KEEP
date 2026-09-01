@@ -99,6 +99,26 @@ const confettiStyles = StyleSheet.create({
   particle: { position: 'absolute', borderRadius: 3 },
 });
 
+// Adel (01/09/2026) : "selon la note obtenue, mets-lui un logo avec un :-),
+// une petite animation ... selon le degré qu'il a gagné" -- un petit smiley
+// qui rebondit en boucle, choisi selon le palier de score, à côté du message
+// déjà affiché (qui variait déjà par palier, mais sans réaction visuelle).
+function FinishFace({ face }: { face: string }) {
+  const bounce = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(bounce, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.timing(bounce, { toValue: 0, duration: 420, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [bounce]);
+  const translateY = bounce.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+  const scale = bounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
+  return <Animated.Text style={[finishFaceStyles.face, { transform: [{ translateY }, { scale }] }]}>{face}</Animated.Text>;
+}
+const finishFaceStyles = StyleSheet.create({ face: { fontSize: 38, textAlign: 'center', marginTop: 4 } });
+
 type Props = {
   enabled: boolean;
   onOpenProfile: (username: string) => void;
@@ -688,6 +708,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const pct = audioReady && !incoming[0] ? (displayedSoloRemaining / ROUND_MS) * 100 : 100;
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
+      const finishFace = perfect ? '🤩' : soloScore >= 6 ? '😄' : soloScore >= 4 ? '🙂' : '😅';
       return <View style={s.root}>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>8/8</Text></View>
         <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
@@ -696,6 +717,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <Text style={[s.finishTrophy, perfect && s.finishTrophyBig]}>{perfect ? '👑' : soloScore >= 6 ? '🏆' : '⚡'}</Text>
           <Text style={s.finishTitle}>{perfect ? 'PARFAIT · 8/8' : `${soloScore}/8`}</Text>
           <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
+          <FinishFace face={finishFace} />
           <View style={s.finishScore}><Text style={s.finishScoreBig}>{soloScore}</Text><Text style={s.finishScoreSlash}> / 8</Text></View>
         </Animated.View>
         <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>

@@ -227,6 +227,25 @@ export async function toggleTrackPreview(
   onEnded?: () => void,
 ): Promise<void> {
   return serialize(async () => {
+    // BUG RÉEL (Adel, 01/09/2026 : "les musiques ne partent pas" puis "j'appuie
+    // sur passer, ça bloque", dans le Swipe de Mes Sessions). Cette fonction
+    // n'avait pas le même repli web que playTrackPreviewSegment/
+    // scheduleTrackPreviewSegment plus haut dans ce fichier -- sur le web, elle
+    // tombait dans le chemin expo-av natif ci-dessous au lieu de réutiliser le
+    // <audio> HTML partagé. Résultat : pas de lecture fiable, et l'appel suivant
+    // (stopTrackPreview, appelé par PASSER) attendait dans la même file
+    // `serialize` derrière cette tentative expo-av qui ne se termine jamais
+    // proprement sur ce moteur -- d'où le blocage.
+    if (canUseWebAudio()) {
+      if (webAudioKey === key) {
+        clearActiveTimer();
+        await stopWebAudio();
+        return;
+      }
+      await playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded);
+      return;
+    }
+
     if (activeKey === key && activeSound) {
       await unloadActive();
       return;
