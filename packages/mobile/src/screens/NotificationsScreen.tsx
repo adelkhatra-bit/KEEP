@@ -16,6 +16,19 @@ import {
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
 
+// Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
+// abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
+// pour aller directement sur le profil de la personne concernée. Le nom
+// du champ change selon le type de notification (héritage de plusieurs
+// migrations écrites séparément) -- on vérifie donc toutes les variantes
+// connues plutôt que de supposer un seul nom de champ.
+function notificationProfileUsername(item: KeepNotification): string | null {
+  const data = item.data as Record<string, unknown> | null;
+  if (!data) return null;
+  const candidate = data.username ?? data.actorUsername ?? data.actor_username;
+  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
+}
+
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
   if (key === 'NEW_FOLLOWER') return 'NOUVEL ABONNÉ';
@@ -231,9 +244,19 @@ export default function NotificationsScreen({ navigation }: any) {
           </View>
           {loading ? <ActivityIndicator color="#A884FA" /> : error && items.length === 0 ? <Text style={styles.error}>{error}</Text> : items.length === 0 ? (
             <View style={styles.empty}><Text style={styles.emptyIcon}>♩</Text><Text style={styles.muted}>Aucune notification pour le moment.</Text></View>
-          ) : items.map((item) => (
+          ) : items.map((item) => {
+            const profileUsername = notificationProfileUsername(item);
+            return (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
-              <TouchableOpacity style={styles.cardMain} onPress={() => { void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
+              <TouchableOpacity
+                style={styles.cardMain}
+                onPress={() => {
+                  void readOne(item);
+                  if (profileUsername) navigation.navigate('PublicProfile', { username: profileUsername });
+                }}
+                activeOpacity={0.84}
+                accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}${profileUsername ? `. Voir le profil de @${profileUsername}` : ''}`}
+              >
                 <View style={styles.cardTop}>
                   <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>
                   <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
@@ -241,7 +264,10 @@ export default function NotificationsScreen({ navigation }: any) {
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.cardBody}>{item.body}</Text>
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
-                <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
+                <View style={styles.cardBottomRow}>
+                  <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
+                  {profileUsername ? <Text style={styles.cardProfileLink}>Voir @{profileUsername} ›</Text> : null}
+                </View>
               </TouchableOpacity>
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
@@ -250,7 +276,8 @@ export default function NotificationsScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             </View>
-          ))}
+            );
+          })}
           {error && items.length > 0 && <Text style={styles.error}>{error}</Text>}
         </View>
 
@@ -300,7 +327,9 @@ const styles = StyleSheet.create({
   readText: { color:'#FFFFFF', fontSize: 8, fontWeight: '900', letterSpacing: .8 },
   cardTitle: { color: '#F8F6FC', fontSize: 14, fontWeight: '900', marginTop: 7 },
   cardBody: { color:'#FFFFFF', fontSize: 12, lineHeight: 18, marginTop: 4 },
-  cardDate: { color:'#FFFFFF', fontSize: 10, marginTop: 8 },
+  cardDate: { color:'#FFFFFF', fontSize: 10 },
+  cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  cardProfileLink: { color: '#A884FA', fontSize: 11, fontWeight: '800' },
   battleTheme: { marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: '#5D3D7B', backgroundColor: '#241630', paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   battleThemeLabel: { color: '#D8C7FF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   battleThemeValue: { color: '#E5F266', fontSize: 12, fontWeight: '900' },
