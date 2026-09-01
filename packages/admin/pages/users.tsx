@@ -104,6 +104,8 @@ export default function Users() {
   const [months, setMonths] = useState(12);
   const [busy, setBusy] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const [legacyUsername, setLegacyUsername] = useState('');
   const [legacyRecovery, setLegacyRecovery] = useState<LegacyRecovery | null>(null);
@@ -149,7 +151,7 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setMessage(null); setError(null); setBusy('load');
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setMessage(null); setError(null); setBusy('load');
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
@@ -210,6 +212,29 @@ export default function Users() {
       if (result.data) setSnapshot(result.data as UserSnapshot);
     } catch (e: any) { setError(e?.message ?? 'Réinitialisation impossible.'); }
     finally { setBusy(null); }
+  };
+
+  const setUserEmail = async () => {
+    if (!selected || !emailInput.trim()) return;
+    setBusy('email'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'set_email', profileId: selected.id, email: emailInput.trim() });
+      if (result.data) setSnapshot(result.data as UserSnapshot);
+      setMessage(`Adresse e-mail enregistrée pour @${selected.username}.`);
+      setEmailInput('');
+      await load();
+    } catch (e: any) {
+      const code = String(e?.message || '');
+      setError(code === 'invalid_email' ? 'Adresse e-mail invalide.' : code === 'email_taken' ? 'Cette adresse est déjà utilisée par un autre compte Loki.' : e?.message ?? 'Enregistrement impossible.');
+    } finally { setBusy(null); }
+  };
+
+  const copyTemporaryPassword = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { setError('Copie impossible -- sélectionne le mot de passe manuellement.'); }
   };
 
   const toggleBlocked = async () => {
@@ -335,7 +360,29 @@ export default function Users() {
             <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
             <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
-            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div></div>}
+            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}>
+              <div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,wordBreak:'break-all',flex:1}}>{temporaryPassword}</div>
+                <button onClick={()=>void copyTemporaryPassword(temporaryPassword)} style={{flexShrink:0,background:copied?'#2e7d32':'#3a3450'}}>{copied?'Copié ✓':'Copier'}</button>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div>
+            </div>}
+
+            <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+              <div style={{fontWeight:700,marginBottom:4}}>Attribuer une adresse e-mail</div>
+              <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:8}}>Pour un compte créé avant le 01/09/2026 (proche, ami...) sans e-mail -- utile aussi pour que « mot de passe oublié » fonctionne pour lui.</div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e)=>setEmailInput(e.target.value)}
+                  placeholder={snapshot?.auth.email || 'nom@exemple.com'}
+                  style={{flex:'1 1 220px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}
+                />
+                <button onClick={()=>void setUserEmail()} disabled={busy!==null || !emailInput.trim()}>{busy==='email'?'Enregistrement…':'Enregistrer l’e-mail'}</button>
+              </div>
+            </div>
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>

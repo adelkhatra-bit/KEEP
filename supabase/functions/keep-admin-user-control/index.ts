@@ -186,6 +186,31 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, temporaryPassword, data: await getUserSnapshot(profileId) });
     }
 
+    if (action === "set_email") {
+      // Adel (01/09/2026) : pour les comptes créés avant que l'e-mail devienne
+      // obligatoire (frère, amis...), permet d'attribuer une adresse a
+      // posteriori depuis Super Admin plutôt que de dépendre de l'utilisateur
+      // lui-même. Même sensibilité que reset_password (change l'identifiant
+      // de connexion) -- réservé SUPER_ADMIN.
+      if (!canDestruct(actor.role)) return json(403, { error: "role_forbidden" });
+      const email = String(body?.email ?? "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith("@keep.local")) {
+        return json(400, { error: "invalid_email" });
+      }
+      const { data: existing, error: existingError } = await admin.auth.admin.getUserById(profileId);
+      if (existingError || !existing.user) return json(404, { error: "profile_not_found" });
+      const { error } = await admin.auth.admin.updateUserById(profileId, { email, email_confirm: true });
+      if (error) {
+        const message = String((error as any)?.message ?? "").toLowerCase();
+        if (message.includes("already") || message.includes("registered") || message.includes("duplicate") || message.includes("exists")) {
+          return json(409, { error: "email_taken" });
+        }
+        throw error;
+      }
+      await audit(actor.id, "user.email.set", profileId, { email });
+      return json(200, { ok: true, email, data: await getUserSnapshot(profileId) });
+    }
+
     if (action === "delete") {
       if (!canDestruct(actor.role)) return json(403, { error: "role_forbidden" });
       if (profileId === actor.id) return json(409, { error: "cannot_delete_self" });
