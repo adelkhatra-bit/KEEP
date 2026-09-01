@@ -274,7 +274,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>E-mails Loki</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          Les comptes utilisateurs Loki utilisent maintenant <strong>identifiant Loki + mot de passe</strong> : aucun e-mail n’est obligatoire pour créer ou utiliser un compte. Les e-mails restent optionnels pour les invitations, messages système et récupération future. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki.
+          Les comptes utilisateurs Loki utilisent <strong>identifiant Loki + mot de passe + e-mail vérifié</strong> (obligatoire depuis le 01/09/2026, pour que « mot de passe oublié » fonctionne toujours). Les comptes créés avant cette date restent utilisables sans e-mail. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"

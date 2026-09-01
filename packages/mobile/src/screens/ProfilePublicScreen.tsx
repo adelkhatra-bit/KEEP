@@ -476,7 +476,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
         </View>
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki et ton mot de passe. Aucun e-mail n’est obligatoire.</Text></TouchableOpacity> : null}
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <ProfileCounterRow kind="connections" items={[
           { value: profileFollowerCount, label: 'Abonnés' },
