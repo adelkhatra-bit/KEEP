@@ -15,7 +15,11 @@ describe('Loki Battle challenge UX', () => {
 
   it('keeps the incoming challenge inside the Battle card between artwork and question', () => {
     const visual = battle.indexOf('<View style={s.visual}>');
-    const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
+    // Adel (02/09/2026) : la bannière d'invitation existe aussi sur l'écran
+    // "PARTIE TERMINÉE" (avant s.visual dans le fichier) depuis le fix
+    // "à l'étape huit pourquoi tu mets pas cette invitation" -- on cherche
+    // ici précisément l'occurrence de l'écran de manche active.
+    const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', visual);
     const question = battle.indexOf("<Text style={s.question}>Qui chante ?</Text>");
     const answers = battle.indexOf('<View style={s.answers}>');
     expect(visual).toBeGreaterThan(-1);

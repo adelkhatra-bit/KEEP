@@ -367,6 +367,24 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
   const activeIncomingId = incoming[0]?.id || '';
 
+  // BUG RÉEL (Adel, 02/09/2026 : "invitation expirée, il bloque, il faut
+  // jamais que ça bloque comme ça, un utilisateur ne doit jamais rester
+  // bloqué sur un popup") : le nettoyage d'une invitation expirée dépend du
+  // prochain sondage serveur (toutes les 650ms) -- normalement rapide, mais
+  // une seule requête réseau ratée/en retard suffit à laisser la bannière
+  // "PAUSE" affichée avec un compte à rebours à 0s indéfiniment, la partie
+  // solo restant figée tant que ce sondage n'a pas confirmé la disparition.
+  // Filet de sécurité 100% local : dès que l'horloge locale (`now`, déjà
+  // mise à jour toutes les 100ms) dépasse `expiresAt`, l'invitation est
+  // retirée immédiatement sans attendre le serveur -- la partie ne peut
+  // plus jamais rester en pause à cause d'une invitation qui a expiré.
+  React.useEffect(() => {
+    const item = incoming[0];
+    if (!item) return;
+    if (new Date(item.expiresAt).getTime() > now) return;
+    setIncoming((rows) => rows.filter((x) => x.id !== item.id));
+  }, [incoming, now]);
+
   React.useEffect(() => {
     if (!solo) return;
     if (activeIncomingId && pausedSoloRemaining === null && !soloAnswer) {
@@ -727,6 +745,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const perfect = soloScore === solo.rounds.length;
       return <View style={s.root}>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>8/8</Text></View>
+        {/* Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
+            invitation ... la partie est terminée" -- vrai trou : incoming[0]
+            continue d'être sondé même sur cet écran de fin de partie
+            (aucune garde `soloFinished` dans la boucle de sondage), mais
+            cet écran ne rendait jamais la bannière -- une invitation reçue
+            pile à la fin de la partie 8/8 restait invisible. Même bloc que
+            l'écran de jeu actif (et l'écran "Joueurs disponibles" un peu
+            plus bas), pas de nouvelle logique. */}
+        {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>@{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {challengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         {/* Adel (01/09/2026) : "les boutons sont trop serrés en bas ... remonte
             les boutons correctement qu'on puisse tout voir" -- avec 3-4 boutons
             de fin de partie, la hauteur totale dépassait l'écran sur certains

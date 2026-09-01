@@ -13,7 +13,12 @@ describe('Loki Battle mobile style selector', () => {
 
   it('renders one inline Battle invite between artwork and Qui chante', () => {
     const visual = source.indexOf('<View style={s.visual}>');
-    const invite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
+    // Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
+    // invitation" -- la bannière d'invitation existe maintenant aussi sur
+    // l'écran "PARTIE TERMINÉE" (avant s.visual dans le fichier, cet écran
+    // n'a pas de jaquette). On cherche donc l'occurrence dans l'écran de
+    // manche active spécifiquement, celle qui suit s.visual.
+    const invite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', visual);
     const question = source.indexOf('<Text style={s.question}>Qui chante ?</Text>');
     const answers = source.indexOf('<View style={s.answers}>');
     expect(visual).toBeGreaterThanOrEqual(0);
@@ -24,6 +29,15 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).not.toContain("Alert.alert('Défi envoyé'");
     expect(source).toContain('REFUSER');
     expect(source).toContain('ACCEPTER');
+  });
+
+  it('also shows the incoming Battle invite on the finished-game screen (Adel, 02/09/2026: "à l\'étape huit pourquoi tu mets pas cette invitation")', () => {
+    const finishedHeader = source.indexOf('PARTIE TERMINÉE');
+    const finishedInvite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', finishedHeader);
+    const finishedHero = source.indexOf('s.finishHero', finishedHeader);
+    expect(finishedHeader).toBeGreaterThanOrEqual(0);
+    expect(finishedInvite).toBeGreaterThan(finishedHeader);
+    expect(finishedInvite).toBeLessThan(finishedHero);
   });
 
   it('uses phone-sized Battle decision controls and immediate accept feedback', () => {
