@@ -71,6 +71,27 @@ export async function loadKeepBattleArenaRules(): Promise<KeepBattleArenaRules> 
   }
 }
 
+// Adel (01/09/2026, capture d'écran à l'appui) : certains morceaux (BO de
+// film, musique orchestrale) ont un champ "artist" rempli avec la liste
+// complète des crédits ("Lisa Gerrard, Gavin Greenaway, The Lyndhurst
+// Orchestra, ... & Hans Zimmer") au lieu du seul nom d'artiste -- illisible
+// comme réponse de quiz et casse l'alignement des boutons ("les boutons
+// doivent faire la même taille"). Un vrai duo/feat légitime ("Anuel AA &
+// KAROL G") n'a jamais de virgule et reste inchangé ; une liste à rallonge
+// (3+ noms séparés par des virgules) est réduite au premier nom, plus un
+// éventuel "& Dernier Nom" final s'il ressemble à un second artiste crédité.
+function simplifyArtistCredit(raw: string): string {
+  const trimmed = raw.trim();
+  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+  let simplified = trimmed;
+  if (parts.length > 2) {
+    const last = parts[parts.length - 1];
+    const ampersandMatch = last.match(/&\s*(.+)$/);
+    simplified = ampersandMatch ? `${parts[0]} & ${ampersandMatch[1].trim()}` : parts[0];
+  }
+  return simplified.length > 42 ? `${simplified.slice(0, 39).trimEnd()}…` : simplified;
+}
+
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleSoloPack> {
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
     p_theme_code: themeCode.toUpperCase(),
@@ -78,16 +99,23 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8):
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;
-  const rounds = Array.isArray(raw.rounds) ? raw.rounds.map((round: any) => ({
-    position: Number(round.position || 0),
-    trackId: String(round.trackId || ''),
-    title: String(round.title || ''),
-    artist: String(round.artist || ''),
-    artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
-    previewUrl: String(round.previewUrl || ''),
-    choices: Array.isArray(round.choices) ? round.choices.map(String) : [],
-    correctAnswer: String(round.correctAnswer || round.artist || ''),
-  })).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
+  const rounds = Array.isArray(raw.rounds) ? raw.rounds.map((round: any) => {
+    const rawChoices: string[] = Array.isArray(round.choices) ? round.choices.map(String) : [];
+    const cleanedChoices = rawChoices.map(simplifyArtistCredit);
+    const rawCorrect = String(round.correctAnswer || round.artist || '');
+    const correctIndex = rawChoices.indexOf(rawCorrect);
+    const correctAnswer = correctIndex >= 0 ? cleanedChoices[correctIndex] : simplifyArtistCredit(rawCorrect);
+    return {
+      position: Number(round.position || 0),
+      trackId: String(round.trackId || ''),
+      title: String(round.title || ''),
+      artist: simplifyArtistCredit(String(round.artist || '')) || correctAnswer,
+      artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
+      previewUrl: String(round.previewUrl || ''),
+      choices: cleanedChoices,
+      correctAnswer,
+    };
+  }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
   return {
     mode: 'SOLO_TRAINING',

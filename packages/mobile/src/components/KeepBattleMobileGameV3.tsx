@@ -150,6 +150,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
+  // Adel (01/09/2026) : "je veux pas que ça se fasse par défaut ... je veux
+  // un bouton, souhaitez-vous ... avant qu'un Battle commence" -- le transfert
+  // vers Mes Sessions n'est plus automatique, il dépend du choix Oui/Non
+  // demandé au lancement de CHAQUE partie solo.
+  const [saveSessionEnabled, setSaveSessionEnabled] = React.useState(false);
   // BUG RÉEL (Adel, 01/09/2026 : "si tu appuies et tu tombes sur la bonne
   // réponse à la dernière seconde, ça saute une étape, 8/8 est quasi
   // impossible") : le compte à rebours affiché (`now`) n'avance que toutes
@@ -365,9 +370,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!solo || !soloAnswer) return undefined;
     if (soloIndex >= solo.rounds.length - 1) {
       const id = setTimeout(() => {
-        const session = buildBattleSession(solo, solo.rounds);
-        useSessionHistoryStore.getState().addSession(session);
-        setBattleSessionId(session.id);
+        if (saveSessionEnabled) {
+          const session = buildBattleSession(solo, solo.rounds);
+          useSessionHistoryStore.getState().addSession(session);
+          setBattleSessionId(session.id);
+        }
         setSoloFinished(true); celebrate();
       }, 520);
       return () => clearTimeout(id);
@@ -379,7 +386,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // temps de lecture du résultat.
     const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 1800);
     return () => clearTimeout(id);
-  }, [solo, soloAnswer, soloIndex, celebrate]);
+  }, [solo, soloAnswer, soloIndex, celebrate, saveSessionEnabled]);
 
   const refreshArena = React.useCallback(async () => {
     if (!arena?.id) return;
@@ -430,15 +437,31 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     return () => clearTimeout(id);
   }, [arena?.id, arena?.status, arena?.isHost, arena?.matchNo, arena?.seats.length, animateVersus]);
 
-  const startSolo = async () => {
+  const runStartSolo = async (saveSession: boolean) => {
     if (busy) return;
     setBusy(true);
     try {
       const pack = await loadKeepBattleSoloPack(themeCode, 8);
       answeredRoundRef.current = -1;
+      setSaveSessionEnabled(saveSession);
       setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); setHandledOutgoingId(''); setBattleSessionId(null);
     } catch (e: any) { Alert.alert('Loki Battle', String(e?.message || 'Impossible de démarrer.')); }
     finally { setBusy(false); }
+  };
+
+  // Adel (01/09/2026) : "souhaitez-vous ... enregistrer dans la session le
+  // Battle musical, oui ou non" demandé avant CHAQUE partie -- plus de
+  // sauvegarde automatique par défaut.
+  const startSolo = () => {
+    if (busy) return;
+    Alert.alert(
+      'Sauvegarder ce Battle ?',
+      'Veux-tu retrouver les morceaux de cette partie dans Mes Sessions à la fin (les garder, les réécouter ou les effacer) ?',
+      [
+        { text: 'Non merci', style: 'cancel', onPress: () => { void runStartSolo(false); } },
+        { text: 'Oui, enregistrer', onPress: () => { void runStartSolo(true); } },
+      ],
+    );
   };
 
   const openOnline = async () => {
