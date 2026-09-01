@@ -1,0 +1,11 @@
+-- Adel (02/09/2026) : suite au correctif précédent (20260902020000) -- le
+-- linter de sécurité Supabase a signalé que
+-- keep_profile_has_paid_battle_access(uuid) était appelable directement par
+-- le rôle anon (non connecté) via l'API REST, ce qui permettrait à
+-- n'importe qui d'interroger le statut d'abonnement de n'importe quel
+-- profil par son id. Cette fonction n'est destinée qu'à un usage interne
+-- (appelée par les fonctions Battle SECURITY DEFINER, qui s'exécutent avec
+-- les privilèges du propriétaire `postgres`, pas de l'appelant original --
+-- donc cette révocation ne casse pas l'appel interne) -- jamais directement
+-- par le client mobile.
+revoke all on function public.keep_profile_has_paid_battle_access(uuid) from public, anon, authenticated;
