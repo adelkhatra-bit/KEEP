@@ -6,6 +6,8 @@ import { buildKeepBattleArenaInviteLink, KeepBattleArenaState, KeepBattleArenaWi
 import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadOutgoingBattleChallenges, respondBattleChallenge, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { useUserStore } from '../store/useUserStore';
+import { shareProfile } from '../services/sharingService';
 import { KeepSession, SessionTrackEntry } from '../types';
 
 const ROUND_MS = 10000;
@@ -98,6 +100,11 @@ type Props = {
   // une écoute classique). Optionnel : sans navigation fournie, le bouton
   // reste caché plutôt que de planter.
   onOpenSession?: (sessionId: string) => void;
+  // Adel (02/09/2026) : "il faudrait ... dire que qui devrait partager son
+  // profil pour recruter des Free ... ou sinon prendre un abonnement à
+  // 2,99€" -- le message "pas assez de Free" doit proposer les deux vraies
+  // solutions plutôt que juste constater le blocage.
+  onOpenPremium?: () => void;
 };
 
 function buildBattleSession(pack: KeepBattleSoloPack, rounds: KeepBattleSoloRound[]): KeepSession {
@@ -158,7 +165,7 @@ function buildArenaSession(tracksPlayed: ArenaPlayedTrack[]): KeepSession {
   };
 }
 
-export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession }: Props) {
+export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenPremium }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   const [solo, setSolo] = React.useState<KeepBattleSoloPack | null>(null);
@@ -511,13 +518,25 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     finally { setBusy(false); }
   };
 
+  const notEnoughFreeAlert = (title: string) => {
+    Alert.alert(
+      title,
+      'Deux façons de récupérer des Free : partage ton profil à tes amis pour en gagner en les recrutant, ou passe Premium à 2,99 € pour jouer sans limite.',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Partager mon profil', onPress: () => { const username = useUserStore.getState().user?.username; if (username) void shareProfile(username); } },
+        { text: 'Voir Premium 2,99 €', onPress: () => onOpenPremium?.() },
+      ],
+    );
+  };
+
   const challenge = async (player: KeepBattleLivePlayer) => {
     try {
       await sendBattleChallenge(player.profileId, themeCode);
       setHandledOutgoingId('');
     } catch (e: any) {
       const message = String(e?.message || e || '');
-      if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) Alert.alert('Battle', 'Il te faut au moins 3 Free pour lancer un Battle.');
+      if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
       else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `@${player.username} n’a pas assez de Free pour jouer maintenant.`);
       else Alert.alert('Battle', `@${player.username} n’est plus disponible.`);
       void refreshSocial();
@@ -558,7 +577,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       await refreshSocial();
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) Alert.alert('Battle', `@${item.username} n’a plus les 3 Free nécessaires. Le Battle ne peut pas démarrer.`);
-      else if (message.includes('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED')) Alert.alert('Battle', 'Il te faut au moins 3 Free pour accepter ce Battle.');
+      else if (message.includes('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert('Il te faut au moins 3 Free pour accepter ce Battle');
       else Alert.alert('Battle', 'Impossible de traiter cette invitation. Réessaie immédiatement.');
     } finally {
       setRespondingChallengeId(null);

@@ -169,6 +169,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
           onExit={() => setBattleOpen(false)}
           onOpenSession={(sessionId) => { setBattleOpen(false); navigation.navigate('SessionRecap', { sessionId }); }}
+          onOpenPremium={() => { setBattleOpen(false); navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'BATTLE_CREDITS' }); }}
         />
       </View>
     </SafeAreaView>;
