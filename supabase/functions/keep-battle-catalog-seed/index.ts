@@ -13,23 +13,40 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const CONFIG: Record<string, { term: string; country: string }> = {
-  FUNK: { term: "funk", country: "US" },
-  DISCO: { term: "disco", country: "US" },
-  AFRO: { term: "afrobeats", country: "GB" },
-  RAP_FR: { term: "rap français", country: "FR" },
-  RAP_US: { term: "hip hop rap", country: "US" },
-  ELECTRO: { term: "electronic dance", country: "US" },
-  POP: { term: "pop", country: "US" },
-  RNB: { term: "r&b soul", country: "US" },
-  ROCK: { term: "rock", country: "US" },
-  LATINO: { term: "latin reggaeton", country: "US" },
-  RAI: { term: "rai algerien", country: "FR" },
-  SOUL: { term: "soul", country: "US" },
-  REGGAE: { term: "reggae", country: "US" },
-  JAZZ: { term: "jazz", country: "US" },
-  CLASSIQUE: { term: "classical", country: "FR" },
-  CHANSON_FR: { term: "chanson française", country: "FR" },
+// Adel (02/09/2026) : "plus d'artistes ... des vieux titres et recents ...
+// aller chercher plus profond" -- chaque theme n'interrogeait iTunes qu'avec
+// UN SEUL terme de recherche (limit 40, 24 gardes) : catalogue plat et peu
+// varie. Chaque theme utilise maintenant PLUSIEURS requetes (styles/decennies/
+// artistes differents) fusionnees et dedupliquees, avec une limite iTunes plus
+// haute par requete. Ajout aussi de RUSSE/TURC/KPOP/ARABE/BRESIL/INDE
+// ("tous les pays qui pourraient etre interessants ... large culture
+// musicale") et des deux themes ANNEES_80/ANNEES_90 qui existaient deja dans
+// la table keep_battle_themes mais n'avaient jamais eu de config de seed.
+const CONFIG: Record<string, Array<{ term: string; country: string }>> = {
+  FUNK: [{ term: "funk", country: "US" }, { term: "funk classics", country: "US" }],
+  DISCO: [{ term: "disco", country: "US" }, { term: "disco classics 70s", country: "US" }],
+  AFRO: [{ term: "afrobeats", country: "GB" }, { term: "afropop", country: "GB" }, { term: "afrobeat classics", country: "US" }],
+  RAP_FR: [{ term: "rap français", country: "FR" }, { term: "rap français old school", country: "FR" }, { term: "rap français 2024", country: "FR" }],
+  RAP_US: [{ term: "hip hop rap", country: "US" }, { term: "old school hip hop", country: "US" }, { term: "rap 2024", country: "US" }],
+  ELECTRO: [{ term: "electronic dance", country: "US" }, { term: "house music", country: "US" }, { term: "techno", country: "DE" }],
+  POP: [{ term: "pop", country: "US" }, { term: "pop hits 2024", country: "US" }, { term: "pop classics", country: "US" }],
+  RNB: [{ term: "r&b soul", country: "US" }, { term: "r&b 2024", country: "US" }],
+  ROCK: [{ term: "rock", country: "US" }, { term: "rock classics", country: "US" }, { term: "rock 2024", country: "US" }],
+  LATINO: [{ term: "latin reggaeton", country: "US" }, { term: "musica latina", country: "MX" }],
+  RAI: [{ term: "rai algerien", country: "FR" }, { term: "rai marocain", country: "FR" }],
+  SOUL: [{ term: "soul", country: "US" }, { term: "motown soul classics", country: "US" }],
+  REGGAE: [{ term: "reggae", country: "US" }, { term: "reggae roots", country: "US" }],
+  JAZZ: [{ term: "jazz", country: "US" }, { term: "jazz vocal classics", country: "US" }],
+  CLASSIQUE: [{ term: "classical", country: "FR" }, { term: "classical piano", country: "FR" }],
+  CHANSON_FR: [{ term: "chanson française", country: "FR" }, { term: "variété française", country: "FR" }],
+  ANNEES_80: [{ term: "80s hits", country: "US" }, { term: "pop 1985", country: "FR" }],
+  ANNEES_90: [{ term: "90s hits", country: "US" }, { term: "pop 1995", country: "FR" }],
+  RUSSE: [{ term: "russian pop", country: "RU" }, { term: "russian rap", country: "RU" }],
+  TURC: [{ term: "turkish pop", country: "TR" }, { term: "turkish arabesk", country: "TR" }],
+  KPOP: [{ term: "k-pop", country: "KR" }, { term: "korean pop", country: "KR" }],
+  ARABE: [{ term: "arabic pop", country: "SA" }, { term: "khaleeji", country: "AE" }],
+  BRESIL: [{ term: "musica brasileira", country: "BR" }, { term: "sertanejo", country: "BR" }],
+  INDE: [{ term: "bollywood", country: "IN" }, { term: "hindi pop", country: "IN" }],
 };
 
 function out(status: number, payload: unknown) {
@@ -48,23 +65,33 @@ function year(date: unknown) {
   return match ? Number(match[0]) : null;
 }
 
-async function seed(theme: string) {
-  const config = CONFIG[theme];
-  if (!config) throw new Error("THEME_NOT_SEEDABLE");
-
-  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(config.term)}&entity=song&limit=40&country=${config.country}`;
+async function fetchQuery(query: { term: string; country: string }) {
+  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query.term)}&entity=song&limit=100&country=${query.country}`;
   const response = await fetch(searchUrl, { headers: { "user-agent": "KEEP/1.0 Battle Seed" } });
-  if (!response.ok) throw new Error(`ITUNES_${response.status}`);
-  const body = await response.json();
-  const rows = (Array.isArray(body?.results) ? body.results : []).filter((item: any) =>
-    String(item?.previewUrl ?? "").startsWith("https://")
-  );
+  if (!response.ok) return [];
+  const body = await response.json().catch(() => null);
+  return Array.isArray(body?.results) ? body.results : [];
+}
+
+async function seed(theme: string) {
+  const queries = CONFIG[theme];
+  if (!queries) throw new Error("THEME_NOT_SEEDABLE");
+
+  const byAppleId = new Map<string, any>();
+  for (const query of queries) {
+    const results = await fetchQuery(query);
+    for (const item of results) {
+      const appleId = String(item?.trackId ?? "");
+      if (!appleId || !String(item?.previewUrl ?? "").startsWith("https://")) continue;
+      if (!byAppleId.has(appleId)) byAppleId.set(appleId, item);
+    }
+  }
 
   let linked = 0;
   let inserted = 0;
   let updated = 0;
 
-  for (const item of rows.slice(0, 24)) {
+  for (const item of Array.from(byAppleId.values()).slice(0, 80)) {
     const appleId = String(item.trackId ?? "");
     const title = String(item.trackName ?? "").trim();
     const artist = String(item.artistName ?? "").trim();
@@ -84,7 +111,7 @@ async function seed(theme: string) {
       duration_sec: item.trackTimeMillis ? Math.round(Number(item.trackTimeMillis) / 1000) : null,
       artwork_url: item.artworkUrl100 ? artwork(String(item.artworkUrl100)) : null,
       genres: item.primaryGenreName ? [String(item.primaryGenreName)] : [],
-      provider_ids: { appleMusic: appleId, appleStorefront: config.country },
+      provider_ids: { appleMusic: appleId, appleStorefront: queries[0].country },
       source: "itunes_public_battle",
       source_url: String(item.trackViewUrl ?? "") || null,
       preview_url: String(item.previewUrl),
@@ -124,7 +151,7 @@ async function seed(theme: string) {
     if (!linkError) linked += 1;
   }
 
-  return { theme, inserted, updated, linked };
+  return { theme, found: byAppleId.size, inserted, updated, linked };
 }
 
 Deno.serve(async (req) => {

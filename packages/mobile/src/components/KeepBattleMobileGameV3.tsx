@@ -13,11 +13,19 @@ const KEEP_BATTLE_SHARE = 'https://adelkhatra-bit.github.io/KEEP/share-profile/'
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const initial = (name: string) => (name || 'K').replace(/^@/, '').slice(0, 1).toUpperCase();
 
+// Adel (02/09/2026) : "elargir un tres large culture musical" -- repli client
+// aligné sur la table live keep_battle_themes (utilisée en priorité ; ce
+// repli ne sert que si la requête réseau échoue au tout premier chargement).
 const FALLBACK_THEMES: KeepBattleTheme[] = [
   { code: 'MIX', label: 'Mix' }, { code: 'RAP_FR', label: 'Rap FR' }, { code: 'RAP_US', label: 'Rap US' },
-  { code: 'FUNK', label: 'Funk' }, { code: 'DISCO', label: 'Disco' }, { code: 'AFRO', label: 'Afro' },
+  { code: 'FUNK', label: 'Funk' }, { code: 'JAZZ', label: 'Jazz' }, { code: 'DISCO', label: 'Disco' },
+  { code: 'AFRO', label: 'Afro' }, { code: 'CHANSON_FR', label: 'Chanson FR' }, { code: 'SOUL', label: 'Soul' },
+  { code: 'REGGAE', label: 'Reggae' }, { code: 'ANNEES_80', label: 'Années 80' }, { code: 'ANNEES_90', label: 'Années 90' },
   { code: 'ELECTRO', label: 'Electro' }, { code: 'POP', label: 'Pop' }, { code: 'RNB', label: 'R&B' },
   { code: 'ROCK', label: 'Rock' }, { code: 'LATINO', label: 'Latino' }, { code: 'RAI', label: 'Raï' },
+  { code: 'CLASSIQUE', label: 'Classique' }, { code: 'RUSSE', label: 'Russe' }, { code: 'TURC', label: 'Turc' },
+  { code: 'KPOP', label: 'K-Pop' }, { code: 'ARABE', label: 'Arabe' }, { code: 'BRESIL', label: 'Brésil' },
+  { code: 'INDE', label: 'Bollywood' },
 ];
 
 // Adel (01/09/2026) : "un truc plus propre" à la place de la note ♫ fixe
