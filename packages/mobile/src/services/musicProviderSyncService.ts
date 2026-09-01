@@ -121,6 +121,32 @@ export async function importProviderFavorites(provider: ImportProvider): Promise
   return readJson(response);
 }
 
+export type PendingFavoriteImport = {
+  id: string;
+  provider: ImportProvider;
+  track_id: string | null;
+  isrc: string | null;
+  title: string;
+  artist: string;
+  album?: string | null;
+  artwork_url?: string | null;
+  imported_at: string;
+};
+
+/**
+ * Adel (02/09/2026) : "je like sur Spotify ... elle va dans les sessions
+ * extrait ... il decide s'il la partage ou pas." Nouveaux favoris repérés
+ * par la synchro automatique (pg_cron toutes les 30 min) côté serveur --
+ * jamais publiés tout seuls, à matérialiser en session GARDER/PASSER.
+ */
+export async function loadPendingFavoriteImports(): Promise<PendingFavoriteImport[]> {
+  const response = await fetch(`${baseUrl()}/api/music/library/pending-session-imports`, {
+    headers: await headers(false),
+  });
+  const payload = await readJson(response);
+  return Array.isArray(payload?.data) ? payload.data : [];
+}
+
 export async function loadImportedMusic(limit = 2000): Promise<ImportedMusicItem[]> {
   const response = await fetch(`${baseUrl()}/api/music/library/imported?limit=${Math.max(1, Math.min(limit, 5000))}`, {
     headers: await headers(false),

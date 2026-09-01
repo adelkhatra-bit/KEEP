@@ -24,7 +24,7 @@ import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import SourceProfileQuickView from '../components/SourceProfileQuickView';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
-import CommunityConnectionsPanel from '../components/CommunityConnectionsPanel';
+import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 
@@ -50,6 +50,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
+  const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
+  const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -162,11 +164,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   useEffect(() => {
     if (accountRequired) return undefined;
-    const refreshKeeps = () => { void syncUnsyncedKeeps().catch(() => {}); };
+    const refreshKeeps = () => {
+      void syncUnsyncedKeeps().catch(() => {});
+      void syncPendingFavoriteImports().catch(() => {});
+    };
     refreshKeeps();
     const unsubscribe = navigation?.addListener?.('focus', refreshKeeps);
     return () => unsubscribe?.();
-  }, [accountRequired, navigation, syncUnsyncedKeeps, user?.id]);
+  }, [accountRequired, navigation, syncUnsyncedKeeps, syncPendingFavoriteImports, user?.id]);
 
   useEffect(() => {
     let live = true;
@@ -397,7 +402,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact />
         </View>
         {originKind ? <View style={s.discoveryOriginRow}>
-          <Text style={s.originLabel}>Découvert avec Écouter par</Text>
+          <Text style={s.originLabel}>Découvert par</Text>
           {originKind === 'SELF' ? <View style={s.originUserLink}><Text style={s.originUserText}>@{user.username}</Text></View> : sourceUsername ? (
             <TouchableOpacity style={s.originUserLink} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil du découvreur ${sourceUsername}`}>
               <Text style={s.originUserText}>@{sourceUsername}</Text>
@@ -494,10 +499,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
         {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <ProfileCounterRow kind="connections" items={[
-          { value: profileFollowerCount, label: 'Abonnés' },
-          { value: profileFollowingCount, label: 'Abonnements' },
+          { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
+          { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
         ]} />
-        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} /> : null}
+        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
       </View>
 
       <View style={s.socialHub}>

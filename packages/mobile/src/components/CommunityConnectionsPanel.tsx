@@ -5,13 +5,17 @@ import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
 type CommunityProfile = { id: string; username: string; avatarUrl?: string; kind: string };
-type Mode = 'following' | 'followers' | null;
+export type CommunityMode = 'following' | 'followers' | null;
 
-export default function CommunityConnectionsPanel({ userId, navigation }: { userId: string; navigation: any }) {
+// Adel (02/09/2026) : "on créerait pas un bouton directement sur Abonnés/
+// Abonnements ... ça nous enlèverait le petit contour du dessous, ça nous
+// ferait gagner de la place." Ce panneau ne pilote plus son propre mode --
+// les chiffres du profil (ProfileCounterRow) le pilotent désormais, ce
+// composant ne garde que la liste + le suivre en retour.
+export default function CommunityConnectionsPanel({ userId, navigation, mode }: { userId: string; navigation: any; mode: CommunityMode }) {
   const [followers, setFollowers] = useState<CommunityProfile[]>([]);
   const [following, setFollowing] = useState<CommunityProfile[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<Mode>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -82,23 +86,11 @@ export default function CommunityConnectionsPanel({ userId, navigation }: { user
     }
   };
 
+  if (!mode) return null;
+
   return <View style={s.shell}>
-    <View style={s.header}>
-      <View>
-        <Text style={s.title}>Ma communauté</Text>
-        <Text style={s.hint}>Retrouve tes abonnements et les personnes qui te suivent.</Text>
-      </View>
-      {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
-    </View>
-    <View style={s.tabs}>
-      <TouchableOpacity style={[s.tab, s.tabPurple, mode === 'following' && s.tabOn]} onPress={() => setMode((value) => value === 'following' ? null : 'following')}>
-        <Text style={[s.tabText, mode === 'following' && s.tabTextOn]}>Abonnements · {following.length}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[s.tab, s.tabGreen, mode === 'followers' && s.tabOn]} onPress={() => setMode((value) => value === 'followers' ? null : 'followers')}>
-        <Text style={[s.tabText, mode === 'followers' && s.tabTextOn]}>Abonnés · {followers.length}</Text>
-      </TouchableOpacity>
-    </View>
-    {mode ? <View style={s.list}>{rows.length ? rows.map((profile) => {
+    {loading ? <View style={s.loadingRow}><ActivityIndicator color={colors.primaryLight}/></View> : null}
+    <View style={s.list}>{rows.length ? rows.map((profile) => {
       const alreadyFollowing = followingIds.has(profile.id);
       return <View key={profile.id} style={s.row}>
         <TouchableOpacity style={s.identity} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}>
@@ -113,23 +105,14 @@ export default function CommunityConnectionsPanel({ userId, navigation }: { user
           <TouchableOpacity style={s.view} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}><Text style={s.viewText}>VOIR</Text></TouchableOpacity>
         )}
       </View>;
-    }) : <Text style={s.empty}>{mode === 'followers' ? 'Personne ne te suit encore.' : 'Tu ne suis encore aucun profil.'}</Text>}</View> : null}
+    }) : <Text style={s.empty}>{mode === 'followers' ? 'Personne ne te suit encore.' : 'Tu ne suis encore aucun profil.'}</Text>}</View>
   </View>;
 }
 
 const s = StyleSheet.create({
   shell:{marginTop:10,padding:10,borderRadius:16,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},
-  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
-  title:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},
-  hint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2},
-  tabs:{flexDirection:'row',gap:7,marginTop:8},
-  tab:{flex:1,minHeight:34,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},
-  tabPurple:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},
-  tabGreen:{backgroundColor:'#123D2C',borderColor:'#38D990'},
-  tabOn:{borderWidth:2},
-  tabText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},
-  tabTextOn:{color:'#FFFFFF'},
-  list:{marginTop:8,borderTopWidth:1,borderTopColor:'#2C203A'},
+  loadingRow:{alignItems:'center',paddingVertical:6},
+  list:{borderTopWidth:1,borderTopColor:'#2C203A'},
   row:{minHeight:56,flexDirection:'row',alignItems:'center',gap:8,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#30263B'},
   identity:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingVertical:8},
   avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#241936'},

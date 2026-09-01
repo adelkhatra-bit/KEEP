@@ -515,7 +515,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact />
                   </View>
                   <View style={styles.discoveryOriginRow}>
-                    <Text style={styles.discoveryOriginLabel}>Découvert avec Écouter par</Text>
+                    <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
                     {discoveryUsername ? discoveryUsername === profile.username ? <Text style={styles.discoveryOriginUser}>@{discoveryUsername}</Text> : (
                       <TouchableOpacity onPress={() => navigation.navigate('PublicUserProfile', { username: discoveryUsername })} accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}`}>
                         <Text style={styles.discoveryOriginUser}>@{discoveryUsername}</Text>

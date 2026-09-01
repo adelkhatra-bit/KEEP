@@ -11,8 +11,15 @@ import {
   recordKeepDecision,
   updateKeepDecisionVisibility,
 } from '../services/keepMusicCoreRecognition';
+import { loadPendingFavoriteImports } from '../services/musicProviderSyncService';
 
 export const CLOUD_PROFILE_RECOVERY_SESSION_ID = '__keep-cloud-profile-recovery__';
+// Adel (02/09/2026) : "je like sur Spotify ... elle va dans les sessions
+// extrait ... il decide s'il la partage ou pas" -- une seule session dédiée
+// reçoit les nouveaux favoris détectés par la synchro auto Spotify/Deezer
+// (jamais publiés tout seuls), pour qu'ils passent par le même geste
+// GARDER/PASSER que le reste de Mes Sessions au lieu d'un écran séparé.
+export const FAVORITES_IMPORT_SESSION_ID = '__keep-favorites-import__';
 
 export function isCloudProfileRecoverySession(session: KeepSession): boolean {
   return session.id === CLOUD_PROFILE_RECOVERY_SESSION_ID;
@@ -32,6 +39,7 @@ interface SessionHistoryStore {
   setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
   keepAllPendingInSession: (sessionId: string, visibility?: KeepVisibility) => Promise<void>;
   syncUnsyncedKeeps: () => Promise<void>;
+  syncPendingFavoriteImports: () => Promise<void>;
   refreshCreditLocks: () => Promise<void>;
   getSession: (sessionId: string) => KeepSession | undefined;
 }
@@ -369,6 +377,54 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
         }
+      },
+
+      syncPendingFavoriteImports: async () => {
+        let pending: Awaited<ReturnType<typeof loadPendingFavoriteImports>>;
+        try {
+          pending = await loadPendingFavoriteImports();
+        } catch {
+          return; // Hors ligne / non connecté : rien à ajouter cette fois-ci.
+        }
+        if (!pending.length) return;
+
+        set((state) => {
+          const existing = state.sessions.find((s) => s.id === FAVORITES_IMPORT_SESSION_ID);
+          const knownProviderIds = new Set((existing?.tracks ?? []).map((t) => t.id));
+          const now = new Date().toISOString();
+          const additions: SessionTrackEntry[] = pending
+            .filter((item) => !knownProviderIds.has(`favimport-${item.id}`))
+            .map((item) => ({
+              id: `favimport-${item.id}`,
+              track: {
+                id: item.track_id || item.id,
+                isrc: item.isrc || undefined,
+                title: item.title,
+                artist: item.artist,
+                album: item.album || undefined,
+                artworkUrl: item.artwork_url || undefined,
+                providerIds: {},
+              },
+              recommendations: [],
+              status: 'pending' as SessionTrackStatus,
+              detectedAt: item.imported_at || now,
+            }));
+          if (!additions.length) return state;
+
+          const session: KeepSession = existing
+            ? { ...existing, tracks: [...additions, ...existing.tracks] }
+            : {
+                id: FAVORITES_IMPORT_SESSION_ID,
+                startedAt: now,
+                endedAt: null,
+                title: 'Favoris importés (Spotify/Deezer)',
+                tracks: additions,
+              };
+          const sessions = existing
+            ? state.sessions.map((s) => s.id === FAVORITES_IMPORT_SESSION_ID ? session : s)
+            : [session, ...state.sessions];
+          return { sessions };
+        });
       },
 
       refreshCreditLocks: async () => {
