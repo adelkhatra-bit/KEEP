@@ -250,8 +250,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const decisions: DnaSourceDecision[] = publicKeptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
     return computeMusicDNA(decisions);
   }, [publicKeptTracks]);
-  const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))), [publicKeptTracks]);
-  const albums = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])), [publicKeptTracks]);
+  // Adel (01/09/2026) : les onglets Artistes/Albums listaient dans l'ordre
+  // d'ajout des morceaux gardés (arbitraire côté utilisateur) -- tri
+  // alphabétique pour que ce soit vraiment rangé, sans toucher au design.
+  const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))).sort((a, b) => a.localeCompare(b)), [publicKeptTracks]);
+  const albums = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
     if (providerPlaylists.length) result.push(...providerPlaylists);
@@ -444,8 +447,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (!items.length) return <Empty text={activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
     return <View style={s.list}>{items.map((item) => {
       const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item : track.album === item);
+      // Adel (01/09/2026) : Vibes affiche déjà la vraie pochette quand elle
+      // existe (voir plus haut) -- Artistes/Albums n'affichaient jamais que
+      // la note générique, incohérent avec le reste de l'écran.
+      const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
       return <TouchableOpacity key={item} style={s.listRow} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}>
-        <View style={s.note}><Text style={s.noteText}>♪</Text></View>
+        {artworkUrl ? <Image source={{ uri: artworkUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
         <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'} · ▶ SWIPE</Text></View>
         <Text style={s.chevron}>›</Text>
       </TouchableOpacity>;
