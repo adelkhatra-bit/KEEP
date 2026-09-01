@@ -100,6 +100,13 @@ export async function getSmartSortAccess(consume = false): Promise<QuotaAccess> 
   return quota(Array.isArray(data) ? data[0] : data);
 }
 
+export async function getCompareAccess(consume = false): Promise<QuotaAccess> {
+  if (!supabase) return { planCode: 'FREE', allowed: true, used: 0, limit: 3, remaining: 3, unlimited: false };
+  const { data, error } = await supabase.rpc('keep_compare_access', { p_consume: consume });
+  if (error) throw error;
+  return quota(Array.isArray(data) ? data[0] : data);
+}
+
 export async function getEventCreationAccess(): Promise<QuotaAccess> {
   if (!supabase) return { planCode: 'FREE', allowed: false, used: 0, limit: 0, remaining: 0, unlimited: false };
   const { data, error } = await supabase.rpc('keep_event_creation_status');

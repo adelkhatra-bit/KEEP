@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
-import { getDiscoveryAccess, DiscoveryAccess } from '../services/growthAccessService';
+import { getDiscoveryAccess, getCompareAccess, DiscoveryAccess, QuotaAccess } from '../services/growthAccessService';
 import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
@@ -262,6 +262,25 @@ export default function DiscoverScreen({ navigation }: any) {
 
   useEffect(() => { setAvatarFailedFor(null); }, [currentProfile?.id, currentProfile?.avatarUrl]);
 
+  // Adel : compares_per_month était configurable dans Super Admin mais
+  // jamais compté nulle part -- même trou que follows_max/local_discovery.
+  const [compareAccess, setCompareAccess] = useState<QuotaAccess | null>(null);
+  useEffect(() => {
+    let live = true;
+    const check = async () => {
+      if (!currentProfile || !compareFeatureEnabled) { if (live) setCompareAccess(null); return; }
+      if (!user || isLocalGuest || isDemoMode) { if (live) setCompareAccess({ planCode: 'FREE', allowed: true, used: 0, limit: null, remaining: null, unlimited: true }); return; }
+      try {
+        const access = await getCompareAccess(true);
+        if (live) setCompareAccess(access);
+      } catch {
+        if (live) setCompareAccess({ planCode, allowed: true, used: 0, limit: null, remaining: null, unlimited: true });
+      }
+    };
+    void check();
+    return () => { live = false; };
+  }, [currentProfile?.id, compareFeatureEnabled, user?.id, isLocalGuest, isDemoMode]);
+
   useEffect(() => {
     let live = true;
     setCurrentProfileSnapshot(null);
@@ -360,7 +379,15 @@ export default function DiscoverScreen({ navigation }: any) {
       setFollowingIds((prev) => new Set(prev).add(currentProfile.id));
       setFollowNotice(`Tu suis maintenant @${currentProfile.username}.`);
       nextProfile();
-    } catch {
+    } catch (e: any) {
+      if (String(e?.message || '').includes('FOLLOWS_MAX_REACHED')) {
+        setFollowNotice('Limite d’abonnements Free atteinte.');
+        Alert.alert('Limite atteinte', 'Ton compte Free a atteint sa limite d’abonnements. Passe Premium pour suivre sans limite.', [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Voir Premium', onPress: openPremium },
+        ]);
+        return;
+      }
       setFollowNotice('Le suivi n’a pas abouti. Réessaie dans un instant.');
       Alert.alert('Suivre', 'Impossible de suivre ce profil pour le moment.');
     } finally { setFollowBusy(false); }
@@ -426,7 +453,11 @@ export default function DiscoverScreen({ navigation }: any) {
               <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>@{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki'}</Text></View>
             </TouchableOpacity>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
-            <View style={styles.matchRow}>{compareFeatureEnabled ? <View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View> : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
+            <View style={styles.matchRow}>{compareFeatureEnabled ? (
+              compareAccess?.allowed === false
+                ? <TouchableOpacity style={styles.matchBlock} onPress={openPremium}><Text style={styles.matchValue}>🔒</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></TouchableOpacity>
+                : <View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View>
+            ) : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
             <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity><TouchableOpacity style={[styles.followButton, alreadyFollowingCurrent && styles.followButtonOn]} onPress={() => void followCurrent()} disabled={followBusy || alreadyFollowingCurrent}><Text style={styles.followText}>{followBusy ? '…' : alreadyFollowingCurrent ? '✓ ABONNÉ(E)' : '+ SUIVRE'}</Text></TouchableOpacity></View>
             {followNotice ? <Text style={styles.followNotice}>{followNotice}</Text> : null}
           </View>
