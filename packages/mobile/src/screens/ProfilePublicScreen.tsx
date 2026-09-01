@@ -71,6 +71,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [pendingFollowUsername, setPendingFollowUsername] = useState('');
   const [sourceQuickUsername, setSourceQuickUsername] = useState('');
   const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
+  const [expandedGroupItem, setExpandedGroupItem] = useState<string | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<Record<string, CanonicalTrack[]>>({});
   const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(null);
   const [playlistPreferences, setPlaylistPreferences] = useState<Record<string, KeepPlaylistPreference>>({});
@@ -445,17 +446,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     const items = activeTab === 'ARTISTS' ? artists : albums;
     if (!items.length) return <Empty text={activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
+    // Adel (01/09/2026) : "range les albums comme sur playlist" -- même bloc
+    // encadré, même bouton ▶ SWIPE dédié et même dépli inline des morceaux
+    // que l'onglet Vibes, plutôt qu'une simple ligne avec une note générique.
     return <View style={s.list}>{items.map((item) => {
       const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item : track.album === item);
-      // Adel (01/09/2026) : Vibes affiche déjà la vraie pochette quand elle
-      // existe (voir plus haut) -- Artistes/Albums n'affichaient jamais que
-      // la note générique, incohérent avec le reste de l'écran.
       const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
-      return <TouchableOpacity key={item} style={s.listRow} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}>
-        {artworkUrl ? <Image source={{ uri: artworkUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
-        <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'} · ▶ SWIPE</Text></View>
-        <Text style={s.chevron}>›</Text>
-      </TouchableOpacity>;
+      const expanded = expandedGroupItem === item;
+      return <View key={item} style={s.playlistBlock}>
+        <TouchableOpacity style={s.listRow} onPress={() => setExpandedGroupItem(expanded ? null : item)} accessibilityLabel={`Ouvrir ${item}`}>
+          {artworkUrl ? <Image source={{ uri: artworkUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
+          <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'}</Text></View>
+          <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
+        </TouchableOpacity>
+        <View style={s.playlistButtons}>
+          <TouchableOpacity style={s.playlistShareButton} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
+        </View>
+        {expanded ? <View style={s.playlistTracks}>{selected.map((track) => renderCompactTrack(track, `${item}-${track.id}`))}</View> : null}
+      </View>;
     })}</View>;
   };
 
