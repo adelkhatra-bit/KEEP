@@ -107,38 +107,41 @@ Deno.serve(async (req) => {
       if (eventError) throw eventError;
       if (!event) return json({ ok: false, error: "event_not_found" }, 404);
 
+      // Adel (01/09/2026) : audience élargie et obligatoire pour les
+      // événements. "on ne leur laisse pas le choix... vu que notre
+      // plateforme ne diffuse pas de pub" -- confirmé : le réglage
+      // "DJ & soirées" (dj_enabled) coupait bien ces notifications avant.
+      // Il ne s'applique plus ici. L'audience n'est plus seulement les
+      // abonnés directs : toute personne ayant déjà gardé un morceau
+      // provenant du profil du créateur (source_user_id) reçoit aussi
+      // l'invitation, même sans le suivre.
       const { data: followers, error: followersError } = await admin
         .from("follows")
         .select("follower_id")
         .eq("followee_id", user.id);
       if (followersError) throw followersError;
-      const followerIds = (followers ?? []).map((row: any) => String(row.follower_id));
-      if (!followerIds.length) return json({ ok: true, sent: 0, event_id: eventId });
 
-      // Respecte réellement le réglage « DJ & soirées ». Une préférence absente
-      // vaut true, mais un utilisateur qui la coupe ne reçoit ni notification
-      // in-app ni push pour les invitations d'événements.
-      const { data: preferences, error: preferencesError } = await admin
-        .from("notification_preferences")
-        .select("profile_id,dj_enabled")
-        .in("profile_id", followerIds);
-      if (preferencesError) throw preferencesError;
-      const djDisabled = new Set(
-        (preferences ?? [])
-          .filter((row: any) => row.dj_enabled === false)
-          .map((row: any) => String(row.profile_id)),
-      );
-      const eligibleFollowerIds = followerIds.filter((id) => !djDisabled.has(id));
-      if (!eligibleFollowerIds.length) return json({ ok: true, sent: 0, notifications_disabled: true, event_id: eventId });
+      const { data: takers, error: takersError } = await admin
+        .from("keep_decisions")
+        .select("profile_id")
+        .eq("source_user_id", user.id)
+        .eq("decision", "KEPT");
+      if (takersError) throw takersError;
+
+      const audienceIds = Array.from(new Set([
+        ...(followers ?? []).map((row: any) => String(row.follower_id)),
+        ...(takers ?? []).map((row: any) => String(row.profile_id)),
+      ])).filter((id) => id !== user.id);
+      if (!audienceIds.length) return json({ ok: true, sent: 0, event_id: eventId });
 
       const { data: alreadySent, error: sentError } = await admin
         .from("event_recommendation_sends")
         .select("profile_id")
         .eq("event_id", eventId)
-        .in("profile_id", eligibleFollowerIds);
+        .in("profile_id", audienceIds);
       if (sentError) throw sentError;
       const seen = new Set((alreadySent ?? []).map((row: any) => String(row.profile_id)));
-      const targets = eligibleFollowerIds.filter((id) => !seen.has(id));
+      const targets = audienceIds.filter((id) => !seen.has(id));
       if (!targets.length) return json({ ok: true, sent: 0, already_sent: true, event_id: eventId });
 
       const startsLabel = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(event.starts_at));

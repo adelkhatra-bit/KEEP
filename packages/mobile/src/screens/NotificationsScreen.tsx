@@ -285,8 +285,10 @@ export default function NotificationsScreen({ navigation }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Réglages des notifications</Text>
           <Text style={styles.preferenceHint}>Active ou désactive ce que Loki peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
+          {/* Adel (01/09/2026) : "DJ & soirées" contrôlait les invitations
+              d'événements -- retiré volontairement, ce n'est plus un choix
+              laissé à l'utilisateur (pas de publicité sur Loki à équilibrer). */}
           <Preference label="Système" value={prefs.systemEnabled} onValueChange={(v) => updatePrefs({ systemEnabled: v })} />
-          <Preference label="DJ & soirées" value={prefs.djEnabled} onValueChange={(v) => updatePrefs({ djEnabled: v })} />
           <Preference label="Social" value={prefs.socialEnabled} onValueChange={(v) => updatePrefs({ socialEnabled: v })} />
           <Preference label="Marketing" value={prefs.marketingEnabled} onValueChange={(v) => updatePrefs({ marketingEnabled: v })} />
         </View>

@@ -97,6 +97,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   if (planCode === 'VENUE_PRO') return [
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
+    'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki, personne ne peut désactiver la notification.',
     'QR, communauté et analytics avancés.',
     `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
   ];
