@@ -1,5 +1,4 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { AdminRole, AdminRoleChecker } from './adminAuth';
 
 /**
  * Client Supabase avec la clé service_role -- contourne RLS DÉLIBÉRÉMENT.
@@ -27,14 +26,4 @@ export function getSupabaseAdminClient(): SupabaseClient | null {
 /** Réservé aux scripts de vérification -- force une réévaluation de la config. */
 export function resetSupabaseAdminClientCacheForTests() {
   cached = undefined;
-}
-
-export function createSupabaseAdminRoleChecker(client: SupabaseClient): AdminRoleChecker {
-  return {
-    async checkAdminRole(userId) {
-      const { data, error } = await client.from('admin_users').select('role,is_active').eq('id', userId).maybeSingle();
-      if (error || !data || !data.is_active) return null;
-      return data.role as AdminRole;
-    },
-  };
 }
