@@ -3,8 +3,10 @@ import { ActivityIndicator, Animated, Image, ScrollView, Share, StyleSheet, Text
 import { Alert } from '../utils/keepAlert';
 import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
 import { buildKeepBattleArenaInviteLink, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleTheme, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleThemes, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
-import { KeepBattleSoloPack, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
+import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadOutgoingBattleChallenges, respondBattleChallenge, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { KeepSession, SessionTrackEntry } from '../types';
 
 const ROUND_MS = 10000;
 const KEEP_BATTLE_SHARE = 'https://adelkhatra-bit.github.io/KEEP/share-profile/';
@@ -56,15 +58,88 @@ const eqStyles = StyleSheet.create({
   bar: { width: 8, borderRadius: 4 },
 });
 
+// Adel (01/09/2026) : "quand on tombe sur le 8, je veux une animation de fou,
+// une explosion pour un champion" -- explosion de confettis en pur Animated
+// (aucune dépendance externe) déclenchée uniquement sur un 8/8 parfait.
+const CONFETTI_COLORS = ['#E5F266', '#8B5CF6', '#69E5A4', '#FF6C8C', '#5CA8FC', '#FFD166', '#FF8FE0'];
+const CONFETTI_COUNT = 22;
+function ConfettiBurst({ active }: { active: boolean }) {
+  const particles = React.useRef(Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+    anim: new Animated.Value(0),
+    angle: (i / CONFETTI_COUNT) * Math.PI * 2 + (i % 2 ? 0.22 : -0.14),
+    distance: 95 + (i % 5) * 24,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    size: 7 + (i % 4) * 3,
+    spin: (i % 2 ? 1 : -1) * (260 + i * 14),
+  }))).current;
+
+  React.useEffect(() => {
+    if (!active) return;
+    particles.forEach((p) => p.anim.setValue(0));
+    Animated.stagger(12, particles.map((p) => Animated.timing(p.anim, { toValue: 1, duration: 1150 + (p.distance % 5) * 45, useNativeDriver: true }))).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  if (!active) return null;
+  return (
+    <View pointerEvents="none" style={confettiStyles.layer}>
+      {particles.map((p, i) => {
+        const translateX = p.anim.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(p.angle) * p.distance] });
+        const translateY = p.anim.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(p.angle) * p.distance - 40] });
+        const rotate = p.anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${p.spin}deg`] });
+        const scale = p.anim.interpolate({ inputRange: [0, .15, 1], outputRange: [0, 1, .8] });
+        const opacity = p.anim.interpolate({ inputRange: [0, .7, 1], outputRange: [1, 1, 0] });
+        return <Animated.View key={i} style={[confettiStyles.particle, { backgroundColor: p.color, width: p.size, height: p.size, opacity, transform: [{ translateX }, { translateY }, { rotate }, { scale }] }]} />;
+      })}
+    </View>
+  );
+}
+const confettiStyles = StyleSheet.create({
+  layer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 5 },
+  particle: { position: 'absolute', borderRadius: 3 },
+});
+
 type Props = {
   enabled: boolean;
   onOpenProfile: (username: string) => void;
   onRequireAccount?: () => void;
   onExit?: () => void;
   initialArenaId?: string | null;
+  // Adel (01/09/2026) : "transférer en session un dossier complet ... tu mets
+  // que c'est les coups du Battle, comme ça il pourra les effacer ou les
+  // conserver" -- à la fin d'une partie solo, les 8 morceaux joués sont
+  // transférés dans Mes Sessions (même écran GARDER/PASSER/SWIPER que pour
+  // une écoute classique). Optionnel : sans navigation fournie, le bouton
+  // reste caché plutôt que de planter.
+  onOpenSession?: (sessionId: string) => void;
 };
 
-export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId }: Props) {
+function buildBattleSession(pack: KeepBattleSoloPack, rounds: KeepBattleSoloRound[]): KeepSession {
+  const now = new Date();
+  const tracks: SessionTrackEntry[] = rounds.map((round, index) => ({
+    id: `battle-${pack.themeCode}-${now.getTime()}-${index}`,
+    track: {
+      id: round.trackId,
+      title: round.title || round.correctAnswer,
+      artist: round.artist,
+      artworkUrl: round.artworkUrl || undefined,
+      previewUrl: round.previewUrl,
+      providerIds: {},
+    },
+    recommendations: [],
+    status: 'pending',
+    detectedAt: now.toISOString(),
+  }));
+  return {
+    id: `battle-${pack.themeCode}-${now.getTime()}`,
+    startedAt: now.toISOString(),
+    endedAt: now.toISOString(),
+    title: `Coups du Battle · ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
+    tracks,
+  };
+}
+
+export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   const [solo, setSolo] = React.useState<KeepBattleSoloPack | null>(null);
@@ -74,6 +149,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloFinished, setSoloFinished] = React.useState(false);
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
+  const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
+  // BUG RÉEL (Adel, 01/09/2026 : "si tu appuies et tu tombes sur la bonne
+  // réponse à la dernière seconde, ça saute une étape, 8/8 est quasi
+  // impossible") : le compte à rebours affiché (`now`) n'avance que toutes
+  // les 100ms, donc un appui juste avant l'échéance pouvait courir en
+  // parallèle de l'effet d'auto-timeout sans qu'aucun des deux ne "voie"
+  // l'autre avant de committer son propre setSoloAnswer -- risque de
+  // verdict incohérent tout près du buzzer. Un verrou synchrone (ref, pas un
+  // state) par round élimine la question d'ordre : le premier code qui
+  // s'exécute gagne, l'autre est un no-op garanti.
+  const answeredRoundRef = React.useRef(-1);
   const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);
   const [livePlayers, setLivePlayers] = React.useState<KeepBattleLivePlayer[]>([]);
   const [incoming, setIncoming] = React.useState<KeepBattleIncomingChallenge[]>([]);
@@ -216,6 +302,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const round = solo?.rounds[soloIndex];
     if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined;
     let alive = true;
+    answeredRoundRef.current = -1;
     setSoloStartedAt(0); setAudioReady(false);
     const start = async () => {
       while (alive) {
@@ -270,12 +357,19 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => {
     if (!solo || activeIncomingId || !audioReady || soloAnswer || displayedSoloRemaining > 0) return;
+    if (answeredRoundRef.current === soloIndex) return; // un appui a déjà tranché ce round
+    answeredRoundRef.current = soloIndex;
     setSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
-  }, [solo, activeIncomingId, audioReady, soloAnswer, displayedSoloRemaining, animateResult]);
+  }, [solo, activeIncomingId, audioReady, soloAnswer, displayedSoloRemaining, soloIndex, animateResult]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     if (soloIndex >= solo.rounds.length - 1) {
-      const id = setTimeout(() => { setSoloFinished(true); celebrate(); }, 520);
+      const id = setTimeout(() => {
+        const session = buildBattleSession(solo, solo.rounds);
+        useSessionHistoryStore.getState().addSession(session);
+        setBattleSessionId(session.id);
+        setSoloFinished(true); celebrate();
+      }, 520);
       return () => clearTimeout(id);
     }
     // Adel (01/09/2026) : "on a même pas eu le temps de voir la jaquette" --
@@ -341,7 +435,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setBusy(true);
     try {
       const pack = await loadKeepBattleSoloPack(themeCode, 8);
-      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); setHandledOutgoingId('');
+      answeredRoundRef.current = -1;
+      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); setHandledOutgoingId(''); setBattleSessionId(null);
     } catch (e: any) { Alert.alert('Loki Battle', String(e?.message || 'Impossible de démarrer.')); }
     finally { setBusy(false); }
   };
@@ -447,7 +542,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const answerSolo = (choice: string) => {
     const round = solo?.rounds[soloIndex];
-    if (!round || !audioReady || !soloStartedAt || soloAnswer || soloRemaining <= 0) return;
+    if (!round || !audioReady || !soloStartedAt || soloAnswer) return;
+    // Temps réel exact au moment de l'appui, pas le `now` d'état qui ne se
+    // rafraîchit que toutes les 100ms -- une réponse tapée en vrai avant
+    // l'échéance ne doit jamais être refusée à cause de ce retard d'affichage.
+    if (Date.now() - soloStartedAt >= ROUND_MS) return;
+    if (answeredRoundRef.current === soloIndex) return; // déjà tranché par le timeout
+    answeredRoundRef.current = soloIndex;
     void stopTrackPreview(); setSoloAnswer(choice);
     if (choice === round.correctAnswer) setSoloScore((v) => v + 1);
     animateResult();
@@ -492,8 +593,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       return <View style={s.root}>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>8/8</Text></View>
         <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
+          <ConfettiBurst active={perfect} />
           <Text style={s.finishSpark}>✦ ⚡ ✦</Text>
-          <Text style={s.finishTrophy}>{perfect ? '👑' : soloScore >= 6 ? '🏆' : '⚡'}</Text>
+          <Text style={[s.finishTrophy, perfect && s.finishTrophyBig]}>{perfect ? '👑' : soloScore >= 6 ? '🏆' : '⚡'}</Text>
           <Text style={s.finishTitle}>{perfect ? 'PARFAIT · 8/8' : `${soloScore}/8`}</Text>
           <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
           <View style={s.finishScore}><Text style={s.finishScoreBig}>{soloScore}</Text><Text style={s.finishScoreSlash}> / 8</Text></View>
@@ -501,7 +603,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
         <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
         {enabled ? <TouchableOpacity style={s.finishSecondary} onPress={() => { setSoloFinished(false); void openOnline(); }}><Text style={s.finishSecondaryText}>DÉFIER UN JOUEUR</Text></TouchableOpacity> : null}
+        {battleSessionId && onOpenSession ? (
+          <TouchableOpacity style={s.finishSecondary} onPress={() => onOpenSession(battleSessionId)}>
+            <Text style={s.finishSecondaryText}>🎧 RÉÉCOUTER CES 8 MORCEAUX</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity style={s.finishSecondary} onPress={() => { void shareInvite(); }}><Text style={s.finishSecondaryText}>INVITER UN AMI</Text></TouchableOpacity>
+        {battleSessionId ? <Text style={s.finishSessionHint}>Les morceaux de cette partie t’attendent dans Mes Sessions -- garde-les ou efface-les, comme tu veux.</Text> : null}
       </View>;
     }
     return <View style={s.root}>
@@ -582,5 +690,5 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 }
 
 const s = StyleSheet.create({
-  root: { width: '100%', flex: 1, paddingBottom: 4, position: 'relative' }, arenaInvitePanel: { maxHeight: 290, marginBottom: 8, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#4A3C55', backgroundColor: '#120E17' }, arenaInviteTitle: { color: '#E5F266', fontSize: 12, fontWeight: '900', marginBottom: 8 }, arenaInviteScroll: { maxHeight: 190 }, arenaInviteList: { gap: 7 }, arenaInviteRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7, borderRadius: 15, backgroundColor: '#1B1422' }, arenaInviteName: { color: '#FFF', fontSize: 14, fontWeight: '900' }, arenaInviteMeta: { color: '#75E6AA', fontSize: 10, fontWeight: '800', marginTop: 2 }, arenaInviteButton: { minWidth: 94, minHeight: 52, paddingHorizontal: 13, borderRadius: 26, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, arenaInviteButtonText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, arenaInviteEmpty: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 14 }, arenaShareButton: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#4A3C55', alignItems: 'center', justifyContent: 'center', marginTop: 8 }, arenaShareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, closeBattle: { position: 'absolute', top: 0, right: 0, zIndex: 60, width: 48, height: 48, borderRadius: 24, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#51445E', alignItems: 'center', justifyContent: 'center' }, closeBattleText: { color: '#FFF', fontSize: 30, lineHeight: 32, fontWeight: '700', marginTop: -2 }, finishHero: { minHeight: 300, marginTop: 14, borderRadius: 28, borderWidth: 1, borderColor: '#5A476B', backgroundColor: '#17101F', alignItems: 'center', justifyContent: 'center', padding: 20, overflow: 'hidden' }, finishSpark: { color: '#E5F266', fontSize: 22, fontWeight: '900', letterSpacing: 5 }, finishTrophy: { fontSize: 72, marginTop: 8 }, finishTitle: { color: '#FFF', fontSize: 30, fontWeight: '900', textAlign: 'center', marginTop: 8 }, finishSub: { color: '#FFF', fontSize: 12, lineHeight: 17, fontWeight: '800', textAlign: 'center', marginTop: 7, maxWidth: 280 }, finishScore: { flexDirection: 'row', alignItems: 'baseline', marginTop: 13 }, finishScoreBig: { color: '#E5F266', fontSize: 54, lineHeight: 58, fontWeight: '900' }, finishScoreSlash: { color: '#FFF', fontSize: 18, fontWeight: '900' }, finishWon: { color: '#7FF2B7', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishLost: { color: '#FFB3C3', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishQuestion: { color: '#FFF', textAlign: 'center', fontSize: 12, fontWeight: '900', marginVertical: 12 }, palmares: { marginTop: 10, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#120E17' }, palmaresTitle: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', letterSpacing: .7, marginBottom: 7 }, palmaresRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9 }, palmaresRank: { width: 24, color: '#E5F266', fontSize: 18, fontWeight: '900' }, palmaresName: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '900' }, palmaresWins: { color: '#FFF', fontSize: 11, fontWeight: '800' }, finishPrimary: { minHeight: 50, borderRadius: 25, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }, finishPrimaryText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, finishSecondary: { minHeight: 46, borderRadius: 23, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#18121F', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }, finishSecondaryText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, home: { alignItems: 'center', paddingVertical: 10, position: 'relative' }, homeBack: { position: 'absolute', left: 0, top: 5, width: 30, height: 30, borderRadius: 15, backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }, homeBackText: { color: '#FFF', fontSize: 23, lineHeight: 25 }, homeIcon: { fontSize: 28 }, homeTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' }, homeSub: { color: '#FFF', fontSize: 10, fontWeight: '700', marginTop: 2 }, section: { color: '#E5F266', fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 5 }, themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }, themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }, theme: { height: 32, minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }, themeOn: { backgroundColor: '#FFF', borderColor: '#FFF' }, themeText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, themeTextOn: { color: '#120E16' }, mainButton: { minHeight: 54, borderRadius: 25, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 14 }, mainButtonText: { color: '#17130B', fontSize: 14, fontWeight: '900' }, mainButtonSub: { color: '#494D22', fontSize: 9, fontWeight: '800', marginTop: 2 }, onlineButton: { minHeight: 58, borderRadius: 20, backgroundColor: '#18121F', borderWidth: 1, borderColor: '#31263B', alignItems: 'center', justifyContent: 'center', marginTop: 9 }, onlineTitle: { color: '#FFF', fontSize: 13, fontWeight: '900' }, onlineSub: { color: '#FFF', fontSize: 10, fontWeight: '700', marginTop: 2 }, header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 }, back: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }, backText: { color: '#FFF', fontSize: 24, lineHeight: 26 }, headerMid: { flex: 1, alignItems: 'center' }, kicker: { color: '#E5F266', fontSize: 8, fontWeight: '900', letterSpacing: 1 }, title: { color: '#FFF', fontSize: 15, fontWeight: '900' }, round: { width: 36, textAlign: 'right', color: '#FFF', fontSize: 11, fontWeight: '900' }, clockRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 }, clock: { color: '#FFF', fontSize: 25, fontWeight: '900' }, clockHot: { color: '#FF6687' }, clockHint: { color: '#FFF', fontSize: 8, fontWeight: '900', letterSpacing: .8 }, timeTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#211A29', marginVertical: 5 }, timeFill: { height: '100%', backgroundColor: '#E5F266' }, card: { borderRadius: 22, padding: 7, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A' }, visual: { height: 205, borderRadius: 17, overflow: 'hidden', backgroundColor: '#21192A', alignItems: 'center', justifyContent: 'center', position: 'relative' }, cover: { width: '100%', height: '100%' }, music: { color: '#FFF', fontSize: 68, fontWeight: '900' }, result: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,10,.72)', alignItems: 'center', justifyContent: 'center', padding: 14 }, good: { color: '#7FF2B7', fontSize: 26, fontWeight: '900' }, bad: { color: '#FF6C8C', fontSize: 23, fontWeight: '900' }, artist: { color: '#FFF', fontSize: 17, fontWeight: '900', textAlign: 'center', marginTop: 5 }, roundWinner: { color: '#FFE193', fontSize: 10, fontWeight: '900', textAlign: 'center', marginTop: 9 }, question: { color: '#FFF', fontSize: 14, fontWeight: '900', textAlign: 'center', marginTop: 7 }, answers: { gap: 6, marginTop: 6 }, answer: { minHeight: 52, borderRadius: 14, backgroundColor: '#1D1625', borderWidth: 1, borderColor: '#342A40', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 }, answerSelected: { borderColor: '#E5F266', backgroundColor: '#30351B' }, answerCorrect: { borderColor: '#69E5A4' }, answerWrong: { borderColor: '#FF6C8C', backgroundColor: '#3A1B22' }, answerNo: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#2B2235', color: '#FFF', textAlign: 'center', lineHeight: 26, fontSize: 12, fontWeight: '900' }, answerText: { flex: 1, color: '#FFF', fontSize: 16, fontWeight: '900' }, scoreLine: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 3 }, score: { color: '#FFF', fontSize: 10, fontWeight: '800' }, live: { marginTop: 7, padding: 7, borderRadius: 16, backgroundColor: '#100D14' }, liveHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 }, dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#6EE8A7' }, liveTitle: { color: '#FFF', fontSize: 10, fontWeight: '900' }, liveRow: { gap: 10, paddingTop: 7 }, livePlayer: { width: 70, alignItems: 'center' }, avatarFallback: { backgroundColor: '#2B2235', alignItems: 'center', justifyContent: 'center' }, avatarLetter: { color: '#FFF', fontSize: 16, fontWeight: '900' }, username: { color: '#FFF', fontSize: 9, fontWeight: '800', marginTop: 3, maxWidth: 70 }, battleButton: { minHeight: 26, paddingHorizontal: 7, borderRadius: 13, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center', marginTop: 4 }, battleButtonText: { color: '#FFF', fontSize: 8, fontWeight: '900' }, invite: { marginTop: 10, minHeight: 142, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 24, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' }, inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }, inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }, inviteLabel: { color: '#E5F266', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 4 }, inviteName: { color: '#FFF', fontSize: 17, lineHeight: 22, fontWeight: '900' }, inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22, fontWeight: '800' }, inviteConnecting: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', textAlign: 'center', marginBottom: 8, letterSpacing: .5 }, no: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 16, fontWeight: '900' }, yes: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 16, fontWeight: '900' }, actionDisabled: { opacity: .62 }, versus: { position: 'absolute', zIndex: 20, left: 16, right: 16, top: 120, padding: 18, borderRadius: 24, backgroundColor: '#22152D', borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center' }, versusText: { color: '#E5F266', fontSize: 25, fontWeight: '900' }, versusNames: { color: '#FFF', fontSize: 12, fontWeight: '900', marginTop: 5 }, duel: { marginBottom: 6 }, duelNames: { flexDirection: 'row', alignItems: 'center' }, duelName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, duelScore: { color: '#E5F266', fontSize: 15, fontWeight: '900' }, duelCenter: { minWidth: 46, alignItems: 'center', justifyContent: 'center' }, duelTimer: { color: '#FFF', fontSize: 11, fontWeight: '900', marginTop: 2 }, duelPoints: { color: '#FFF', fontSize: 13, fontWeight: '900', marginTop: 3 }, teamMembers: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 }, teamChip: { paddingHorizontal: 6, minHeight: 22, borderRadius: 11, backgroundColor: '#1D1625', alignItems: 'center', justifyContent: 'center' }, teamChipText: { color: '#FFF', fontSize: 8, fontWeight: '800' }, power: { height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: '#2A2032', flexDirection: 'row', position: 'relative', marginTop: 7 }, powerLeft: { height: '100%', backgroundColor: '#8B5CF6' }, powerRight: { flex: 1, height: '100%', backgroundColor: '#E14E78' }, powerMiddle: { position: 'absolute', zIndex: 3, left: '50%', width: 2, height: '100%', backgroundColor: '#FFF' }, waiting: { padding: 14, borderRadius: 21, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A', alignItems: 'center' }, trophy: { fontSize: 34 }, winner: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 3 }, waitText: { color: '#FFF', fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 6 }, browseText: { color: '#FFF', fontSize: 11, lineHeight: 16, marginBottom: 10 }, browseList: { gap: 7 }, browsePlayer: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 17, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#151020', padding: 9 }, browseName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, browseMeta: { color: '#6EE8A7', fontSize: 9, fontWeight: '800', marginTop: 2 }, browseBattle: { minHeight: 34, borderRadius: 17, backgroundColor: '#8B5CF6', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }, browseBattleText: { color: '#FFF', fontSize: 9, fontWeight: '900' }, shareButton: { minHeight: 40, borderRadius: 20, backgroundColor: '#8B5CF6', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10 }, shareButtonText: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  root: { width: '100%', flex: 1, paddingBottom: 4, position: 'relative' }, arenaInvitePanel: { maxHeight: 290, marginBottom: 8, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#4A3C55', backgroundColor: '#120E17' }, arenaInviteTitle: { color: '#E5F266', fontSize: 12, fontWeight: '900', marginBottom: 8 }, arenaInviteScroll: { maxHeight: 190 }, arenaInviteList: { gap: 7 }, arenaInviteRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7, borderRadius: 15, backgroundColor: '#1B1422' }, arenaInviteName: { color: '#FFF', fontSize: 14, fontWeight: '900' }, arenaInviteMeta: { color: '#75E6AA', fontSize: 10, fontWeight: '800', marginTop: 2 }, arenaInviteButton: { minWidth: 94, minHeight: 52, paddingHorizontal: 13, borderRadius: 26, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, arenaInviteButtonText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, arenaInviteEmpty: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 14 }, arenaShareButton: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#4A3C55', alignItems: 'center', justifyContent: 'center', marginTop: 8 }, arenaShareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, closeBattle: { position: 'absolute', top: 0, right: 0, zIndex: 60, width: 48, height: 48, borderRadius: 24, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#51445E', alignItems: 'center', justifyContent: 'center' }, closeBattleText: { color: '#FFF', fontSize: 30, lineHeight: 32, fontWeight: '700', marginTop: -2 }, finishHero: { minHeight: 300, marginTop: 14, borderRadius: 28, borderWidth: 1, borderColor: '#5A476B', backgroundColor: '#17101F', alignItems: 'center', justifyContent: 'center', padding: 20, overflow: 'hidden' }, finishSpark: { color: '#E5F266', fontSize: 22, fontWeight: '900', letterSpacing: 5 }, finishTrophy: { fontSize: 72, marginTop: 8 }, finishTrophyBig: { fontSize: 84 }, finishSessionHint: { color: '#B79CFF', fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 2, marginBottom: 6 }, finishTitle: { color: '#FFF', fontSize: 30, fontWeight: '900', textAlign: 'center', marginTop: 8 }, finishSub: { color: '#FFF', fontSize: 12, lineHeight: 17, fontWeight: '800', textAlign: 'center', marginTop: 7, maxWidth: 280 }, finishScore: { flexDirection: 'row', alignItems: 'baseline', marginTop: 13 }, finishScoreBig: { color: '#E5F266', fontSize: 54, lineHeight: 58, fontWeight: '900' }, finishScoreSlash: { color: '#FFF', fontSize: 18, fontWeight: '900' }, finishWon: { color: '#7FF2B7', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishLost: { color: '#FFB3C3', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishQuestion: { color: '#FFF', textAlign: 'center', fontSize: 12, fontWeight: '900', marginVertical: 12 }, palmares: { marginTop: 10, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#120E17' }, palmaresTitle: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', letterSpacing: .7, marginBottom: 7 }, palmaresRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9 }, palmaresRank: { width: 24, color: '#E5F266', fontSize: 18, fontWeight: '900' }, palmaresName: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '900' }, palmaresWins: { color: '#FFF', fontSize: 11, fontWeight: '800' }, finishPrimary: { minHeight: 50, borderRadius: 25, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }, finishPrimaryText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, finishSecondary: { minHeight: 46, borderRadius: 23, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#18121F', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }, finishSecondaryText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, home: { alignItems: 'center', paddingVertical: 10, position: 'relative' }, homeBack: { position: 'absolute', left: 0, top: 5, width: 30, height: 30, borderRadius: 15, backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }, homeBackText: { color: '#FFF', fontSize: 23, lineHeight: 25 }, homeIcon: { fontSize: 28 }, homeTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' }, homeSub: { color: '#FFF', fontSize: 10, fontWeight: '700', marginTop: 2 }, section: { color: '#E5F266', fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 5 }, themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }, themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }, theme: { height: 32, minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }, themeOn: { backgroundColor: '#FFF', borderColor: '#FFF' }, themeText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, themeTextOn: { color: '#120E16' }, mainButton: { minHeight: 54, borderRadius: 25, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 14 }, mainButtonText: { color: '#17130B', fontSize: 14, fontWeight: '900' }, mainButtonSub: { color: '#494D22', fontSize: 9, fontWeight: '800', marginTop: 2 }, onlineButton: { minHeight: 58, borderRadius: 20, backgroundColor: '#18121F', borderWidth: 1, borderColor: '#31263B', alignItems: 'center', justifyContent: 'center', marginTop: 9 }, onlineTitle: { color: '#FFF', fontSize: 13, fontWeight: '900' }, onlineSub: { color: '#FFF', fontSize: 10, fontWeight: '700', marginTop: 2 }, header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 }, back: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }, backText: { color: '#FFF', fontSize: 24, lineHeight: 26 }, headerMid: { flex: 1, alignItems: 'center' }, kicker: { color: '#E5F266', fontSize: 8, fontWeight: '900', letterSpacing: 1 }, title: { color: '#FFF', fontSize: 15, fontWeight: '900' }, round: { width: 36, textAlign: 'right', color: '#FFF', fontSize: 11, fontWeight: '900' }, clockRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 }, clock: { color: '#FFF', fontSize: 25, fontWeight: '900' }, clockHot: { color: '#FF6687' }, clockHint: { color: '#FFF', fontSize: 8, fontWeight: '900', letterSpacing: .8 }, timeTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#211A29', marginVertical: 5 }, timeFill: { height: '100%', backgroundColor: '#E5F266' }, card: { borderRadius: 22, padding: 7, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A' }, visual: { height: 205, borderRadius: 17, overflow: 'hidden', backgroundColor: '#21192A', alignItems: 'center', justifyContent: 'center', position: 'relative' }, cover: { width: '100%', height: '100%' }, music: { color: '#FFF', fontSize: 68, fontWeight: '900' }, result: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,10,.72)', alignItems: 'center', justifyContent: 'center', padding: 14 }, good: { color: '#7FF2B7', fontSize: 26, fontWeight: '900' }, bad: { color: '#FF6C8C', fontSize: 23, fontWeight: '900' }, artist: { color: '#FFF', fontSize: 17, fontWeight: '900', textAlign: 'center', marginTop: 5 }, roundWinner: { color: '#FFE193', fontSize: 10, fontWeight: '900', textAlign: 'center', marginTop: 9 }, question: { color: '#FFF', fontSize: 14, fontWeight: '900', textAlign: 'center', marginTop: 7 }, answers: { gap: 6, marginTop: 6 }, answer: { minHeight: 52, borderRadius: 14, backgroundColor: '#1D1625', borderWidth: 1, borderColor: '#342A40', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 }, answerSelected: { borderColor: '#E5F266', backgroundColor: '#30351B' }, answerCorrect: { borderColor: '#69E5A4' }, answerWrong: { borderColor: '#FF6C8C', backgroundColor: '#3A1B22' }, answerNo: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#2B2235', color: '#FFF', textAlign: 'center', lineHeight: 26, fontSize: 12, fontWeight: '900' }, answerText: { flex: 1, color: '#FFF', fontSize: 16, fontWeight: '900' }, scoreLine: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 3 }, score: { color: '#FFF', fontSize: 10, fontWeight: '800' }, live: { marginTop: 'auto', padding: 7, borderRadius: 16, backgroundColor: '#100D14' }, liveHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 }, dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#6EE8A7' }, liveTitle: { color: '#FFF', fontSize: 10, fontWeight: '900' }, liveRow: { gap: 10, paddingTop: 7 }, livePlayer: { width: 70, alignItems: 'center' }, avatarFallback: { backgroundColor: '#2B2235', alignItems: 'center', justifyContent: 'center' }, avatarLetter: { color: '#FFF', fontSize: 16, fontWeight: '900' }, username: { color: '#FFF', fontSize: 9, fontWeight: '800', marginTop: 3, maxWidth: 70 }, battleButton: { minHeight: 26, paddingHorizontal: 7, borderRadius: 13, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center', marginTop: 4 }, battleButtonText: { color: '#FFF', fontSize: 8, fontWeight: '900' }, invite: { marginTop: 10, minHeight: 142, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 24, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' }, inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }, inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }, inviteLabel: { color: '#E5F266', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 4 }, inviteName: { color: '#FFF', fontSize: 17, lineHeight: 22, fontWeight: '900' }, inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22, fontWeight: '800' }, inviteConnecting: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', textAlign: 'center', marginBottom: 8, letterSpacing: .5 }, no: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 16, fontWeight: '900' }, yes: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 16, fontWeight: '900' }, actionDisabled: { opacity: .62 }, versus: { position: 'absolute', zIndex: 20, left: 16, right: 16, top: 120, padding: 18, borderRadius: 24, backgroundColor: '#22152D', borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center' }, versusText: { color: '#E5F266', fontSize: 25, fontWeight: '900' }, versusNames: { color: '#FFF', fontSize: 12, fontWeight: '900', marginTop: 5 }, duel: { marginBottom: 6 }, duelNames: { flexDirection: 'row', alignItems: 'center' }, duelName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, duelScore: { color: '#E5F266', fontSize: 15, fontWeight: '900' }, duelCenter: { minWidth: 46, alignItems: 'center', justifyContent: 'center' }, duelTimer: { color: '#FFF', fontSize: 11, fontWeight: '900', marginTop: 2 }, duelPoints: { color: '#FFF', fontSize: 13, fontWeight: '900', marginTop: 3 }, teamMembers: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 }, teamChip: { paddingHorizontal: 6, minHeight: 22, borderRadius: 11, backgroundColor: '#1D1625', alignItems: 'center', justifyContent: 'center' }, teamChipText: { color: '#FFF', fontSize: 8, fontWeight: '800' }, power: { height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: '#2A2032', flexDirection: 'row', position: 'relative', marginTop: 7 }, powerLeft: { height: '100%', backgroundColor: '#8B5CF6' }, powerRight: { flex: 1, height: '100%', backgroundColor: '#E14E78' }, powerMiddle: { position: 'absolute', zIndex: 3, left: '50%', width: 2, height: '100%', backgroundColor: '#FFF' }, waiting: { padding: 14, borderRadius: 21, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A', alignItems: 'center' }, trophy: { fontSize: 34 }, winner: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 3 }, waitText: { color: '#FFF', fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 6 }, browseText: { color: '#FFF', fontSize: 11, lineHeight: 16, marginBottom: 10 }, browseList: { gap: 7 }, browsePlayer: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 17, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#151020', padding: 9 }, browseName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, browseMeta: { color: '#6EE8A7', fontSize: 9, fontWeight: '800', marginTop: 2 }, browseBattle: { minHeight: 34, borderRadius: 17, backgroundColor: '#8B5CF6', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }, browseBattleText: { color: '#FFF', fontSize: 9, fontWeight: '900' }, shareButton: { minHeight: 40, borderRadius: 20, backgroundColor: '#8B5CF6', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10 }, shareButtonText: { color: '#FFF', fontSize: 10, fontWeight: '900' },
 });
