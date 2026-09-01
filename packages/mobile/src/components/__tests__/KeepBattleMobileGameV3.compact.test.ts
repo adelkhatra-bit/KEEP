@@ -157,6 +157,29 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 1800)');
     expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
   });
+
+  // Adel (02/09/2026) : "je vois plus la mauvaise réponse en rouge ... y a
+  // plus le bouton pour ajouter à la playlist ... t'as remis l'éclair, y a
+  // plus l'animation ... trouve une solution mais dans le code à chaque
+  // fois de faire un audit pour ne pas enlever des fonctions." Ces trois
+  // signalements se sont avérés être un bundle web caché par le navigateur,
+  // pas une vraie régression (vérifié en lisant directement le bundle
+  // déployé) -- mais l'audit qu'il demande mérite un vrai filet, pas
+  // seulement ma vérification manuelle ponctuelle. Ce test verrouille les
+  // trois comportements pour qu'une régression future casse la suite au
+  // lieu de dépendre d'un signalement en prod.
+  it('keeps the red wrong-answer highlight, the animated result icon (no static lightning), and the session-save buttons', () => {
+    expect(source).toContain("answerWrong: { borderColor: '#FF6C8C'");
+    expect(source).toContain("s.answerWrong]}");
+    expect(source).toContain('function ResultIcon(');
+    expect(source).toContain('<ResultIcon icon={perfect ?');
+    // Le rond de fin de partie ne doit plus utiliser l'éclair fixe -- seul un
+    // usage legitime et distinct (bannière "gagne la manche" en arène) garde
+    // le symbole ⚡ ailleurs dans ce fichier.
+    expect(source).not.toContain("perfect ? '👑' : soloScore >= 6 ? '🏆' : '⚡'");
+    expect(source).toContain('ENREGISTRER CE BATTLE DANS MA SESSION');
+    expect(source).toContain('VOIR CES MORCEAUX DANS MA SESSION');
+  });
 });
 
 describe('Loki Battle accept reliability', () => {
