@@ -61,6 +61,15 @@ export default function MusicSwipeDeckModal({
   const [alreadyKeptState, setAlreadyKeptState] = useState<AlreadyKeptState>('checking');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
+  // BUG RÉEL (Adel, 01/09/2026 : "je les swipe pour les écouter, les
+  // musiques ne partent pas") : la lecture automatique part d'un effet
+  // asynchrone (résolution d'URL puis .play()), donc sur web elle perd le
+  // geste utilisateur d'origine et le navigateur peut bloquer .play() --
+  // l'ancien code traitait ce rejet exactement comme "aucun extrait trouvé"
+  // et affichait "indisponible" sur un morceau pourtant lisible. On distingue
+  // maintenant "pas d'extrait" de "extrait trouvé mais lecture auto bloquée",
+  // avec un vrai bouton pour relancer via un tap direct (jamais bloqué).
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const actionInFlight = useRef(false);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
@@ -161,6 +170,7 @@ export default function MusicSwipeDeckModal({
     let alive = true;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
+    setAutoplayBlocked(false);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
     if (!visible || !current) {
@@ -177,18 +187,25 @@ export default function MusicSwipeDeckModal({
         setResolvedPreviewUrl(previewUrl);
         await stopTrackPreview();
         if (!alive || !previewUrl) return;
-        await toggleTrackPreview(
-          `swipe-${current.id}-${index}`,
-          previewUrl,
-          () => {},
-          () => {
-            if (!alive || actionInFlight.current) return;
-            // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
-            // une décision. Le morceau reste affiché jusqu'à PASSER ou GARDER.
-            if (!loop) return;
-            advanceIndex();
-          },
-        );
+        try {
+          await toggleTrackPreview(
+            `swipe-${current.id}-${index}`,
+            previewUrl,
+            () => {},
+            () => {
+              if (!alive || actionInFlight.current) return;
+              // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
+              // une décision. Le morceau reste affiché jusqu'à PASSER ou GARDER.
+              if (!loop) return;
+              advanceIndex();
+            },
+          );
+        } catch {
+          // .play() rejeté par le navigateur (pas de geste utilisateur direct
+          // dans cette chaîne async) : l'extrait EXISTE, seule la lecture
+          // automatique a échoué -- ne pas le confondre avec "indisponible".
+          if (alive) setAutoplayBlocked(true);
+        }
       })
       .catch(() => {
         if (!alive) return;
@@ -201,6 +218,22 @@ export default function MusicSwipeDeckModal({
       void stopTrackPreview(`swipe-${current.id}-${index}`);
     };
   }, [visible, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
+
+  const manualPlay = async () => {
+    if (!current || !resolvedPreviewUrl) return;
+    try {
+      await toggleTrackPreview(
+        `swipe-${current.id}-${index}`,
+        resolvedPreviewUrl,
+        () => {},
+        () => { if (!actionInFlight.current && loop) advanceIndex(); },
+      );
+      setAutoplayBlocked(false);
+    } catch {
+      // Un vrai tap qui échoue encore indique un souci réseau/format, pas une
+      // histoire de geste utilisateur -- on laisse le bandeau "bloqué" affiché.
+    }
+  };
 
   const advance = async () => {
     await stopTrackPreview();
@@ -322,9 +355,11 @@ export default function MusicSwipeDeckModal({
 
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
-    : resolvedPreviewUrl
-      ? 'Lecture automatique'
-      : 'Extrait indisponible';
+    : !resolvedPreviewUrl
+      ? 'Extrait indisponible'
+      : autoplayBlocked
+        ? 'Appuie ci-dessous pour écouter'
+        : 'Lecture automatique';
 
   const swipeHint = previewOnly
     ? 'Aperçu exact de ce que verront tes abonnés · glisse ← pour passer · → pour garder'
@@ -367,6 +402,11 @@ export default function MusicSwipeDeckModal({
                 {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
+                  {autoplayBlocked && resolvedPreviewUrl ? (
+                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { void manualPlay(); }} accessibilityLabel="Lancer l’extrait">
+                      <Text style={s.manualPlayText}>▶ ÉCOUTER L’EXTRAIT</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   <Text style={s.trackTitle} numberOfLines={2}>{current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{current.artist}</Text>
                   {current.album ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
@@ -467,7 +507,7 @@ const s = StyleSheet.create({
   body:{flex:1,paddingHorizontal:18},deckArea:{flex:1,justifyContent:'center',paddingBottom:10},
   card:{height:500,maxHeight:'70%',borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
-  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
+  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},manualPlayButton:{alignSelf:'flex-start',minHeight:34,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
   decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:8,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:9,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#FFFFFF',fontSize:7.5},
   empty:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},preparingHint:{color:'#FFFFFF',fontSize:10,lineHeight:15,textAlign:'center',marginTop:7,maxWidth:300},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:11},
   keepOverlay:{flex:1,backgroundColor:'rgba(4,3,8,.82)',alignItems:'center',justifyContent:'center',paddingHorizontal:22},

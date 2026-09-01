@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -152,10 +152,6 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
 
   const confirmSignOut = () => {
     const message = 'Ton profil Loki reste enregistré. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Se déconnecter ?\n\n${message}`)) void signOutNow();
-      return;
-    }
     Alert.alert('Se déconnecter ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
@@ -182,10 +178,6 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
       return;
     }
     const message = 'Cette action supprime définitivement ton compte Loki, ton profil, tes musiques gardées, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée. Si tu as plus tard un abonnement App Store actif, il faudra aussi le résilier dans les abonnements Apple.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Supprimer définitivement mon compte ?\n\n${message}`)) void deleteAccountNow();
-      return;
-    }
     Alert.alert('Supprimer définitivement mon compte ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'SUPPRIMER MON COMPTE', style: 'destructive', onPress: () => { void deleteAccountNow(); } },

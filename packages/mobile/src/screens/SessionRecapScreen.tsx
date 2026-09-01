@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import { useTranslation } from 'react-i18next';
@@ -143,10 +143,10 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       if (navigation.canGoBack()) navigation.goBack();
       else navigation.navigate('Main');
     };
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(message)) run();
-      return;
-    }
+    // BUG RÉEL (Adel, 01/09/2026, capture à l'appui) : ce `window.confirm`
+    // web contournait le système de popup brandé (AlertHost) construit plus
+    // tôt cette session -- résultat, une boîte de dialogue navigateur toute
+    // blanche, hors charte, alors que `Alert.alert` fonctionne déjà sur web.
     Alert.alert('Supprimer cette session ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: run },

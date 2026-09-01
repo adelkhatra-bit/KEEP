@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
 import MusicServiceActivationModal from '../components/MusicServiceActivationModal';
@@ -59,8 +59,7 @@ function nextPlanLabel(plan: MusicServiceSelectionState['plan']) {
 }
 
 function showMessage(title: string, message: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(`${title}\n\n${message}`);
-  else Alert.alert(title, message);
+  Alert.alert(title, message);
 }
 
 export default function MusicConnectionsScreen({ navigation }: any) {
@@ -165,16 +164,11 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const showUpgrade = () => {
     if (selection.plan === 'VENUE_PRO') {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert('Tous tes services sont déjà disponibles avec Venue Pro.');
-      else Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par Loki.');
+      Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par Loki.');
       return;
     }
 
     const message = `${musicServicePlanLabel(selection.plan)} permet ${selection.limit} service${selection.limit > 1 ? 's' : ''}.\n\n${nextPlanLabel(selection.plan)}.`;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`${message}\n\nVoir la formule ?`)) openOffers();
-      return;
-    }
     Alert.alert('Tous tes emplacements sont utilisés', message, [
       { text: 'Plus tard', style: 'cancel' },
       { text: 'Voir la formule', onPress: openOffers },
@@ -220,8 +214,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
         ? 'Connecte ton compte Loki pour choisir tes services musicaux.'
         : 'Impossible d’activer ce service pour le moment.';
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(text);
-      else Alert.alert('Loki', text);
+      Alert.alert('Loki', text);
       return false;
     } finally {
       setActivatingService(null);
@@ -233,14 +226,10 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     if (alreadyClaimed) {
       if (!activeServices.has(service)) {
         const message = `${name} reste associé à ton compte, mais ta formule actuelle ne permet d’utiliser que ${selection.limit} service${selection.limit > 1 ? 's' : ''}.`;
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          if (window.confirm(`${message}\n\nVoir les offres ?`)) openOffers();
-        } else {
-          Alert.alert('Service réservé', message, [
-            { text: 'Fermer', style: 'cancel' },
-            { text: 'Voir les offres', onPress: openOffers },
-          ]);
-        }
+        Alert.alert('Service réservé', message, [
+          { text: 'Fermer', style: 'cancel' },
+          { text: 'Voir les offres', onPress: openOffers },
+        ]);
         return;
       }
 

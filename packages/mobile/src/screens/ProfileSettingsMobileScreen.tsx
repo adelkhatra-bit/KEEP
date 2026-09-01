@@ -88,12 +88,6 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const handleSessionAction = () => {
     if (!hasRealAccount) return requireAccount();
     const message = 'Tes données enregistrées dans Loki restent sur ton compte. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Se déconnecter de Loki ?\
-\
-${message}`)) void signOutNow();
-      return;
-    }
     Alert.alert('Se déconnecter de Loki ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },

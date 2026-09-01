@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -202,10 +202,6 @@ export default function NotificationsScreen({ navigation }: any) {
   const confirmClearAll = () => {
     if (!items.length || deleting) return;
     const message = 'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte ni tes préférences.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(message)) void clearAll();
-      return;
-    }
     Alert.alert(
       'Supprimer les notifications',
       message,
@@ -217,10 +213,10 @@ export default function NotificationsScreen({ navigation }: any) {
   };
 
   const openActions = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Marquer toutes les notifications comme lues ?')) void readAll();
-      return;
-    }
+    // BUG RÉEL (audit 01/09/2026) : le repli web via window.confirm ne
+    // proposait QUE "marquer comme lu" -- l'option "Tout supprimer" était
+    // silencieusement absente sur web. Alert.alert (brandé, fonctionnel sur
+    // web depuis le fix du 31/08) restaure les 3 choix partout.
     Alert.alert('Notifications', undefined, [
       { text: 'Tout marquer comme lu', onPress: () => void readAll() },
       { text: 'Tout supprimer', style: 'destructive', onPress: confirmClearAll },

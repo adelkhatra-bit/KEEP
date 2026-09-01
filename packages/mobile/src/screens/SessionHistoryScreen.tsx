@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -86,7 +86,6 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const requestDelete = (session: KeepSession) => {
     const title = autoTitle(session);
     const message = `Supprimer « ${title} » de Mes Sessions ? Les morceaux déjà ajoutés à une playlist musicale ne seront pas supprimés de Spotify ou Apple Music.`;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') { if (window.confirm(message)) deleteSession(session.id); return; }
     Alert.alert('Supprimer cette session ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: () => deleteSession(session.id) },
@@ -178,7 +177,11 @@ const styles = StyleSheet.create({
   cardFooter: { minHeight: 42, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
   sortButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRightWidth: 1, borderRightColor: colors.border },
   sortText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
-  deleteButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center' },
+  // BUG RÉEL (Adel, 01/09/2026, capture à l'appui) : ce bouton n'avait ni
+  // fond ni contour -- juste du texte rouge posé dans le pied de carte, donc
+  // rien n'indiquait visuellement qu'on pouvait appuyer dessus à côté du
+  // bouton SWIPER, lui bien rempli en violet juste à côté.
+  deleteButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,107,134,.08)' },
   deleteButtonFull: { flex: 1 },
   deleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
 });
