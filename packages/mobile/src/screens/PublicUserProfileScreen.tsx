@@ -89,6 +89,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   useEffect(() => {
     let cancelled = false;
+    // BUG RÉEL trouvé le 01/09/2026 (Adel, capture à l'appui : deux
+    // notifications "Visite de ton profil" avec la même seconde exacte) :
+    // le `void load()` du montage ET le premier événement `focus` de
+    // Navigation se déclenchent tous les deux dès la toute première
+    // ouverture de cet écran -- `load()` tournait donc deux fois en
+    // parallèle, doublant chaque requête (dont notify_profile_view). Le
+    // tout premier `focus` est ignoré ici puisque le `void load()` juste en
+    // dessous le couvre déjà ; les focus suivants (retour sur cet écran)
+    // continuent de recharger normalement.
+    let skipNextFocus = true;
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -195,7 +205,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       }
     };
     void load();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void load(); });
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (skipNextFocus) { skipNextFocus = false; return; }
+      void load();
+    });
     return () => { cancelled = true; unsubscribe?.(); };
   }, [username, viewer?.id, isLocalGuest, isDemoMode, navigation]);
 
