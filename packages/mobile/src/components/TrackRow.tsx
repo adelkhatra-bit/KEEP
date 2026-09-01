@@ -7,6 +7,15 @@ import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import TrackListenControls from './TrackListenControls';
 
+const IMPORT_SOURCE_LABEL: Record<string, string> = {
+  spotify: 'Depuis Spotify',
+  deezer: 'Depuis Deezer',
+  apple_music: 'Depuis Apple Music',
+  youtube_music: 'Depuis YouTube Music',
+  soundcloud: 'Depuis SoundCloud',
+  tidal: 'Depuis TIDAL',
+};
+
 interface Props {
   entry: SessionTrackEntry;
   onKeep?: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => void;
@@ -54,6 +63,11 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
   };
 
   const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
+  // Adel (02/09/2026) : "il faut bien donner la provenance ... si ça vient de
+  // Spotify bien dire que c'est Spotify, si ça vient de Deezer bien dire que
+  // ça vient de Deezer" -- affiché uniquement pour un morceau importé par la
+  // synchro automatique des favoris, jamais pour une détection micro classique.
+  const importedFromLabel = entry.importedFrom ? IMPORT_SOURCE_LABEL[entry.importedFrom] ?? entry.importedFrom : null;
 
   return (
     <>
@@ -63,6 +77,7 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
           <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
           <Text style={styles.artist} numberOfLines={1}>{track.artist}</Text>
           {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
+          {importedFromLabel ? <View style={styles.importedPill}><Text style={styles.importedPillText}>{importedFromLabel}</Text></View> : null}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
           <TrackListenControls track={track} previewKey={`session:${entry.id}`} />
           {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
@@ -134,6 +149,8 @@ const styles = StyleSheet.create({
   artist: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   album: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontStyle: 'italic' },
   platforms: { fontSize: 10, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
+  importedPill: { alignSelf: 'flex-start', minHeight: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: 'rgba(139,92,246,.14)', borderWidth: 1, borderColor: colors.primaryLight, marginTop: 3, justifyContent: 'center' },
+  importedPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
   passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },

@@ -408,6 +408,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
               recommendations: [],
               status: 'pending' as SessionTrackStatus,
               detectedAt: item.imported_at || now,
+              importedFrom: item.provider,
             }));
           if (!additions.length) return state;
 
