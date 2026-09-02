@@ -508,17 +508,36 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const previewUrl = round.previewUrl;
     let alive = true;
     setAudioReady(false);
+    let confirmed = false;
     const run = async () => {
       const startsAt = round.startedAt ? new Date(round.startedAt).getTime() : Date.now();
       const closesAt = round.closesAt ? new Date(round.closesAt).getTime() : startsAt + ROUND_MS;
       const duration = Math.max(1600, closesAt - startsAt + 500);
       try {
         await scheduleTrackPreviewSegment(`arena:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, 0, duration, startsAt, (playing) => {
-          if (alive && playing) setAudioReady(true);
+          if (alive && playing) { confirmed = true; setAudioReady(true); }
         });
       } catch {
         if (!alive) return;
         const ok = await playVerified(`arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, Math.max(1600, closesAt - Date.now() + 500));
+        if (alive && ok) { confirmed = true; setAudioReady(true); }
+      }
+      // Adel (02/09/2026) : "il y a du son uniquement sur la première dans
+      // les Battle [à plusieurs]" -- scheduleTrackPreviewSegment programme sa
+      // lecture réelle via un setTimeout interne séparé et résout sa propre
+      // promesse dès l'enregistrement, avant même d'avoir tenté de jouer :
+      // si ce setTimeout ne se déclenche jamais proprement (dérive d'horloge,
+      // manche déjà changée, latence de sondage), rien ne le signale --
+      // aucune exception, juste un silence permanent pour cette manche.
+      // Filet de sécurité robuste : si la confirmation de lecture n'est
+      // jamais arrivée un peu après l'instant de départ prévu, on force un
+      // vrai essai vérifié (le même mécanisme fiable que le mode solo)
+      // plutôt que de laisser la manche bloquée sur "SON EN CHARGEMENT".
+      if (!confirmed && alive) {
+        const safetyDelay = Math.max(0, startsAt - Date.now()) + 1200;
+        await wait(safetyDelay);
+        if (!alive || confirmed) return;
+        const ok = await playVerified(`arena-safety:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, Math.max(1600, closesAt - Date.now() + 500));
         if (alive && ok) setAudioReady(true);
       }
     };
