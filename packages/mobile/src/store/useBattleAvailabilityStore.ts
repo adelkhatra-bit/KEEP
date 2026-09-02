@@ -23,10 +23,19 @@ type BattleAvailabilityState = {
   // déjà activé manuellement avant, auquel cas ça reste activé.
   activatedManually: boolean;
   busy: boolean;
+  // Adel (02/09/2026) : "ici aussi tu peux mettre l'invite" -- le bandeau
+  // d'invitation global (GlobalNotificationBanner) se cachait dès qu'on
+  // était sur la route 'Parties', même sur la carte "Salon musical" AVANT
+  // d'ouvrir le Battle -- où aucun bandeau interne n'existe pour prendre le
+  // relais. Ce flag reflète si l'écran Battle est RÉELLEMENT monté (pas
+  // juste "on est sur l'onglet Soirées"), pour ne masquer le bandeau global
+  // que quand un bandeau interne existe déjà pour la même invitation.
+  battleScreenOpen: boolean;
   setAvailable: (value: boolean) => Promise<void>;
   autoEnable: () => Promise<void>;
   autoDisable: () => Promise<void>;
   syncFromServer: () => Promise<void>;
+  setBattleScreenOpen: (value: boolean) => void;
   reset: () => void;
 };
 
@@ -50,6 +59,8 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
   available: false,
   activatedManually: false,
   busy: false,
+  battleScreenOpen: false,
+  setBattleScreenOpen: (value) => set({ battleScreenOpen: value }),
   setAvailable: async (value) => {
     if (get().busy) return;
     if (get().available === value) {

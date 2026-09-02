@@ -283,6 +283,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => { void loadKeepBattleThemes().then((rows) => rows.length && setThemes(rows)).catch(() => {}); }, []);
   React.useEffect(() => { const id = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(id); }, []);
+  // Adel (02/09/2026) : "ici aussi tu peux mettre l'invite" -- signale à
+  // GlobalNotificationBanner que l'écran Battle est réellement à l'écran
+  // (pas juste "on est sur l'onglet Soirées"), pour qu'il ne masque son
+  // bandeau que quand celui-ci prend vraiment le relais.
+  React.useEffect(() => {
+    useBattleAvailabilityStore.getState().setBattleScreenOpen(true);
+    return () => useBattleAvailabilityStore.getState().setBattleScreenOpen(false);
+  }, []);
   React.useEffect(() => () => { void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }, []);
 
   const themeLabel = (code: string) => themes.find((t) => t.code === code)?.label || code;

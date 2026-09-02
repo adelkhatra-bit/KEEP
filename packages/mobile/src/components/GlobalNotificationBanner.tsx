@@ -4,7 +4,7 @@ import { KeepNotification, loadNotificationPreferences, markNotificationRead, su
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { respondBattleChallenge } from '../services/keepBattleLiveService';
-import { navigateToBattleArena, navigationRef } from '../navigation/navigationRef';
+import { navigateToBattleArena } from '../navigation/navigationRef';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
@@ -85,7 +85,12 @@ export default function GlobalNotificationBanner() {
         // sur la page [Battle], j'ai déjà l'invite devant moi" -- l'écran
         // Battle affiche déjà son propre bandeau inline pour cette même
         // invitation ; ne pas le dupliquer avec celui-ci quand on y est déjà.
-        if (navigationRef.getCurrentRoute?.()?.name === 'Parties') return;
+        // Bug trouvé le 02/09 ("ici aussi tu peux mettre l'invite") : ce test
+        // se basait sur la ROUTE ('Parties'), qui reste vraie même sur la
+        // carte "Salon musical" avant d'ouvrir Battle -- où aucun bandeau
+        // interne n'existe. On vérifie maintenant que l'écran Battle est
+        // RÉELLEMENT monté, pas juste que l'onglet Soirées est actif.
+        if (useBattleAvailabilityStore.getState().battleScreenOpen) return;
       }
 
       // Realtime reconnects must never replay the same visual notification.
