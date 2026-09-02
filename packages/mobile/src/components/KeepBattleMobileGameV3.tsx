@@ -446,9 +446,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // l'utilisateur puisse voir s'il a eu la bonne réponse ou pas" -- 1800ms
     // ne laissait pas assez de temps de lecture du résultat + bonne réponse
     // avant d'enchaîner sur la manche suivante.
-    const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 2800);
+    // Adel (02/09/2026) : "il faut qu'un utilisateur ... puisse écouter la
+    // musique jusqu'à la fin même s'il a été très rapide pour répondre" --
+    // démarrer la manche suivante coupe forcément l'extrait en cours (un
+    // seul lecteur audio partagé). Sans ce correctif, répondre à 1s dans une
+    // manche de 10s ne laissait entendre que ~3.8s de musique au lieu des
+    // ~10.8s prévues. On attend maintenant le plus long entre la pause de
+    // lecture du résultat (2800ms) et le temps réel restant avant la fin
+    // naturelle de l'extrait.
+    const naturalRemaining = soloStartedAt ? (soloStartedAt + ROUND_MS + 800) - Date.now() : 0;
+    const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, Math.max(2800, naturalRemaining));
     return () => clearTimeout(id);
-  }, [solo, soloAnswer, soloIndex, celebrate, saveSessionEnabled]);
+  }, [solo, soloAnswer, soloIndex, celebrate, saveSessionEnabled, soloStartedAt]);
 
   const refreshArena = React.useCallback(async () => {
     if (!arena?.id) return;

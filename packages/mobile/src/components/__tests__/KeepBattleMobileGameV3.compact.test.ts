@@ -167,10 +167,12 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('Il te faut au moins 3 Free');
   });
 
-  it('leaves enough time to see the cover art and the red/green result before advancing (Adel, 01/09/2026: "on a même pas eu le temps de voir la jaquette"; 02/09/2026: "ralentir la cadence pour voir la bonne réponse")', () => {
-    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 2800)');
+  it('leaves enough time to see the cover art, the red/green result, AND lets the track play to its natural end even on a fast answer (Adel, 01/09/2026: "on a même pas eu le temps de voir la jaquette"; 02/09/2026: "ralentir la cadence" + "écouter la musique jusqu\'à la fin même s\'il a été très rapide")', () => {
+    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, Math.max(2800, naturalRemaining))');
+    expect(source).toContain('const naturalRemaining = soloStartedAt ? (soloStartedAt + ROUND_MS + 800) - Date.now() : 0;');
     expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
     expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 1800)');
+    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 2800)');
   });
 
   // Adel (02/09/2026) : "je vois plus la mauvaise réponse en rouge ... y a
