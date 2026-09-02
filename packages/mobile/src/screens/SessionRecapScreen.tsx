@@ -45,10 +45,16 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     return session.tracks.filter((entry) => entry.status === 'pending').map((entry) => entry.track);
   }, [session]);
 
+  // Adel (02/09/2026) : "dans la session, quand j'efface des choses, pourquoi
+  // ça revient, nettoie la cage" -- PASSER ne faisait que renvoyer le
+  // morceau en bas de la liste (triée par statut), il restait visible pour
+  // toujours au lieu de disparaître. Un morceau passé quitte maintenant la
+  // liste affichée -- son statut reste bien enregistré dans session.tracks
+  // (compteurs, historique), seul l'affichage l'exclut.
   const sortedTracks = useMemo(() => {
     if (!session) return [];
-    const rank = (status: string) => status === 'pending' ? 0 : status === 'kept' ? 1 : 2;
-    return session.tracks.slice().sort((a, b) => {
+    const rank = (status: string) => status === 'pending' ? 0 : 1;
+    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => {
       const statusDiff = rank(a.status) - rank(b.status);
       if (statusDiff) return statusDiff;
       return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
