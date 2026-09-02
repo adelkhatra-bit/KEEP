@@ -56,7 +56,31 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
     expect(source).toContain("[solo?.themeCode, soloIndex, playVerified, incoming[0]?.id, pausedSoloRemaining]");
     expect(source).toContain('setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS)');
-    expect(source).toContain('setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining))');
+    expect(source).toContain('soloStartedAtRef.current = Date.now() - (ROUND_MS - savedRemaining); setSoloStartedAt(soloStartedAtRef.current)');
+  });
+
+  it('never lets the round-2+ timeout-detection effect fire on the previous round\'s stale audioReady/soloStartedAt (Adel, 02/09/2026: "la première musique ça fonctionne, la deuxième ça bloque, pas de son, et ça répond automatiquement tout seul")', () => {
+    // BUG RÉEL confirmé en direct (instrumentation HTMLMediaElement.pause/play
+    // sur le site déployé) : quand soloIndex avance, deux effets qui en
+    // dépendent tous les deux s'exécutent dans le MÊME commit React. Celui de
+    // démarrage de manche remet audioReady/soloStartedAt à zéro via setState,
+    // mais celui de détection de timeout -- déjà planifié pour ce même commit
+    // -- lisait encore la fermeture de l'ANCIEN rendu (audioReady=true,
+    // soloStartedAt = l'horodatage de la manche précédente), calculait un
+    // temps restant à 0 par erreur, et déclenchait un faux "trop tard" qui
+    // coupait le son de la manche qui venait de démarrer. Un ref toujours à
+    // jour (soloStartedAtRef) doit être utilisé à la place de la fermeture
+    // d'état dans ce calcul précis.
+    expect(source).toContain('const soloStartedAtRef = React.useRef(0);');
+    const timeoutEffect = source.indexOf("if (!solo || activeIncomingId || !audioReady || soloAnswer) return;");
+    expect(timeoutEffect).toBeGreaterThan(-1);
+    const nextLines = source.slice(timeoutEffect, timeoutEffect + 1200);
+    expect(nextLines).toContain('const startedAt = soloStartedAtRef.current;');
+    expect(nextLines).toContain('const remaining = pausedSoloRemaining ?? (startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS);');
+    expect(nextLines).toContain('if (remaining > 0) return;');
+    // displayedSoloRemaining (dérivé de l'état soloStartedAt, sujet à la
+    // fermeture obsolète) ne doit plus jamais servir de garde à cet effet.
+    expect(nextLines).not.toContain('displayedSoloRemaining > 0');
   });
 
   it('keeps solo on refusal and switches to the returned shared arena on acceptance', () => {

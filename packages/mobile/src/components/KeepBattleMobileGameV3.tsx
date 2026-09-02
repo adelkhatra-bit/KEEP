@@ -185,6 +185,22 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloScore, setSoloScore] = React.useState(0);
   const [soloFinished, setSoloFinished] = React.useState(false);
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
+  // Adel (02/09/2026) : "la première musique ça fonctionne, la deuxième ça
+  // bloque, pas de son, et ça répond automatiquement tout seul" -- BUG RÉEL
+  // confirmé en direct (instrumentation HTMLMediaElement.pause/play) : à
+  // chaque avance de manche, DEUX effets React qui dépendent tous les deux de
+  // soloIndex s'exécutent dans le même cycle de rendu. Le premier (démarrage
+  // de la manche) remet audioReady/soloStartedAt à zéro via setState -- mais
+  // le second (détection de timeout), déjà en file pour ce même cycle, a
+  // capturé la valeur DE L'ANCIEN rendu (audioReady=true, soloStartedAt =
+  // l'horodatage de la manche précédente, vieux de 10+ secondes). Son calcul
+  // de temps restant tombe alors à 0 par erreur et déclenche un faux timeout
+  // instantané -- qui coupe le son de la manche qui vient tout juste de
+  // démarrer et répond "trop tard" à la place de l'utilisateur. Un ref
+  // (toujours à jour de façon synchrone, contrairement à un state) permet à
+  // l'effet de timeout de lire la VRAIE valeur courante au lieu de sa propre
+  // fermeture obsolète.
+  const soloStartedAtRef = React.useRef(0);
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
   // Adel (01/09/2026) : "je veux pas que ça se fasse par défaut ... je veux
@@ -354,14 +370,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined;
     let alive = true;
     answeredRoundRef.current = -1;
-    setSoloStartedAt(0); setAudioReady(false);
+    soloStartedAtRef.current = 0; setSoloStartedAt(0); setAudioReady(false);
     const start = async () => {
       while (alive) {
         const ok = await playVerified(`solo:${round.trackId}:${soloIndex}`, round.previewUrl, ROUND_MS + 800);
         if (!alive) return;
         if (ok) {
           setAudioReady(true);
-          setSoloStartedAt(Date.now());
+          soloStartedAtRef.current = Date.now(); setSoloStartedAt(soloStartedAtRef.current);
           return;
         }
         await wait(650);
@@ -405,7 +421,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const round = solo.rounds[soloIndex];
       const savedRemaining = pausedSoloRemaining;
       setPausedSoloRemaining(null);
-      setSoloStartedAt(0);
+      soloStartedAtRef.current = 0; setSoloStartedAt(0);
       setAudioReady(false);
       let alive = true;
       void (async () => {
@@ -414,7 +430,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           if (!alive) return;
           if (ok) {
             setAudioReady(true);
-            setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining));
+            soloStartedAtRef.current = Date.now() - (ROUND_MS - savedRemaining); setSoloStartedAt(soloStartedAtRef.current);
             return;
           }
           await wait(500);
@@ -425,11 +441,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo, soloIndex, soloAnswer, activeIncomingId, pausedSoloRemaining, audioReady, soloStartedAt, playVerified]);
 
   React.useEffect(() => {
-    if (!solo || activeIncomingId || !audioReady || soloAnswer || displayedSoloRemaining > 0) return;
+    if (!solo || activeIncomingId || !audioReady || soloAnswer) return;
+    // Adel (02/09/2026) : lit soloStartedAtRef (toujours à jour de façon
+    // synchrone) plutôt que displayedSoloRemaining -- ce dernier peut encore
+    // porter la valeur figée du rendu PRÉCÉDENT au moment précis où la manche
+    // vient de changer (voir le commentaire sur soloStartedAtRef), ce qui
+    // déclenchait un faux timeout instantané sur la manche qui vient de
+    // démarrer. `now` reste en dépendance pour continuer à revérifier toutes
+    // les ~100ms tant que la manche est réellement en cours.
+    const startedAt = soloStartedAtRef.current;
+    const remaining = pausedSoloRemaining ?? (startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS);
+    if (remaining > 0) return;
     if (answeredRoundRef.current === soloIndex) return; // un appui a déjà tranché ce round
     answeredRoundRef.current = soloIndex;
     setSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
-  }, [solo, activeIncomingId, audioReady, soloAnswer, displayedSoloRemaining, soloIndex, animateResult]);
+  }, [solo, activeIncomingId, audioReady, soloAnswer, soloIndex, animateResult, now, pausedSoloRemaining]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     if (soloIndex >= solo.rounds.length - 1) {
@@ -549,6 +575,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const pack = await loadKeepBattleSoloPack(themeCode, 8);
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
+      soloStartedAtRef.current = 0;
       setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); handledOutgoingIdsRef.current.clear(); setBattleSessionId(null);
       // Adel (02/09/2026) : "lorsque j'appuie sur Battle seul ou Battle à
       // plusieurs, automatiquement ça m'active mon profil" -- entrer en
