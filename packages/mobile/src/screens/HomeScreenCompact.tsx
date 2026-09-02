@@ -67,6 +67,27 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [keepBusy, setKeepBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  // Adel (02/09/2026) : "neutralise le problème sans impacter le reste du
+  // code" -- ne change rien à la demande de micro elle-même (déjà correcte,
+  // synchrone dans le geste de clic, vérifié). Ajoute seulement une
+  // vérification passive de l'état AVANT que l'utilisateur appuie sur
+  // ÉCOUTER, pour afficher tout de suite le guide de réactivation au lieu
+  // d'attendre un premier échec. `navigator.permissions` n'est pas supporté
+  // partout (notamment anciennes versions de Safari) : silencieux si absent,
+  // aucun changement de comportement dans ce cas.
+  const [micPreflightDenied, setMicPreflightDenied] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+    let live = true;
+    navigator.permissions.query({ name: 'microphone' as PermissionName })
+      .then((status) => {
+        if (!live) return;
+        setMicPreflightDenied(status.state === 'denied');
+        status.onchange = () => { if (live) setMicPreflightDenied(status.state === 'denied'); };
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
@@ -253,6 +274,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
           {error ? <Text style={s.error}>{error}</Text> : null}
           {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
+          {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
           <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>♪  ÉCOUTER</Text></TouchableOpacity>
           {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
