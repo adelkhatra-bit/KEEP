@@ -218,7 +218,25 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // state) par round élimine la question d'ordre : le premier code qui
   // s'exécute gagne, l'autre est un no-op garanti.
   const answeredRoundRef = React.useRef(-1);
-  const [arena, setArena] = React.useState<KeepBattleArenaState | null>(null);
+  // Adel (02/09/2026) : "chaque fois que je veux fermer ça revient toujours
+  // là" -- l'écran de fin de match se rouvrait tout seul après un clic sur
+  // × ou ‹. Cause : le sondage `refreshArena` toutes les 300ms peut avoir un
+  // appel réseau déjà en vol au moment du clic ; sa résolution arrivait
+  // APRÈS `setArena(null)` et réécrasait le null avec l'ancienne arène
+  // terminée. Cette ref est la source de vérité "id d'arène actuellement
+  // affiché" mise à jour de façon SYNCHRONE (pas via un effet, trop lent
+  // face à un `.then()` déjà en attente) à chaque fermeture explicite ;
+  // `refreshArena` compare sa réponse à cette ref avant de l'appliquer et
+  // jette le résultat si l'utilisateur est déjà sorti entre-temps.
+  const arenaIdLiveRef = React.useRef<string | null>(null);
+  const [arena, setArenaState] = React.useState<KeepBattleArenaState | null>(null);
+  const setArena = React.useCallback((next: KeepBattleArenaState | null | ((prev: KeepBattleArenaState | null) => KeepBattleArenaState | null)) => {
+    setArenaState((prev) => {
+      const value = typeof next === 'function' ? (next as (p: KeepBattleArenaState | null) => KeepBattleArenaState | null)(prev) : next;
+      arenaIdLiveRef.current = value?.id ?? null;
+      return value;
+    });
+  }, []);
   const [livePlayers, setLivePlayers] = React.useState<KeepBattleLivePlayer[]>([]);
   const [incoming, setIncoming] = React.useState<KeepBattleIncomingChallenge[]>([]);
   const [browseOnline, setBrowseOnline] = React.useState(false);
@@ -497,8 +515,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo, soloAnswer, soloIndex, celebrate, saveSessionEnabled, soloStartedAt]);
 
   const refreshArena = React.useCallback(async () => {
-    if (!arena?.id) return;
-    try { setArena(await loadKeepBattleArena(arena.id)); } catch {}
+    const requestedId = arena?.id;
+    if (!requestedId) return;
+    try {
+      const result = await loadKeepBattleArena(requestedId);
+      // L'utilisateur a peut-être fermé/quitté pendant l'appel réseau : ne
+      // jamais réafficher une arène que l'écran actuel ne montre plus.
+      if (arenaIdLiveRef.current !== requestedId) return;
+      setArena(result);
+    } catch {}
   }, [arena?.id]);
   React.useEffect(() => {
     if (!arena?.id) return undefined;
