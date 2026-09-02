@@ -209,7 +209,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [pending, setPending] = React.useState<string | null>(null);
   const [now, setNow] = React.useState(Date.now());
   const [audioReady, setAudioReady] = React.useState(false);
-  const [handledOutgoingId, setHandledOutgoingId] = React.useState('');
+  const handledOutgoingIdsRef = React.useRef<Set<string>>(new Set());
   const [respondingChallengeId, setRespondingChallengeId] = React.useState<string | null>(null);
   const [arenaInviteOpen, setArenaInviteOpen] = React.useState(false);
   const [arenaInviteBusyId, setArenaInviteBusyId] = React.useState<string | null>(null);
@@ -314,9 +314,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         animateVersus();
         return;
       }
-      const feedback = outbox.find((x) => (x.status === 'DECLINED' || x.status === 'EXPIRED') && x.id !== handledOutgoingId);
-      if (feedback) {
-        setHandledOutgoingId(feedback.id);
+      const freshFeedback = outbox.filter((x) => (x.status === 'DECLINED' || x.status === 'EXPIRED') && !handledOutgoingIdsRef.current.has(x.id));
+      for (const feedback of freshFeedback) {
+        handledOutgoingIdsRef.current.add(feedback.id);
         Alert.alert(
           feedback.status === 'DECLINED' ? 'Battle refusé' : 'Invitation expirée',
           feedback.status === 'DECLINED'
@@ -326,7 +326,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         );
       }
     } catch {}
-  }, [enabled, solo, browseOnline, handledOutgoingId, animateVersus, shareInvite]);
+  }, [enabled, solo, browseOnline, animateVersus, shareInvite]);
 
   React.useEffect(() => {
     if (!enabled || arena) return undefined;
@@ -516,7 +516,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const pack = await loadKeepBattleSoloPack(themeCode, 8);
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
-      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); setHandledOutgoingId(''); setBattleSessionId(null);
+      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); handledOutgoingIdsRef.current.clear(); setBattleSessionId(null);
     } catch (e: any) { Alert.alert('Loki Battle', String(e?.message || 'Impossible de démarrer.')); }
     finally { setBusy(false); }
   };
@@ -540,7 +540,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!enabled) { onRequireAccount?.(); return; }
     setBusy(true);
     try {
-      setBrowseOnline(true); setSolo(null); setArena(null); setHandledOutgoingId('');
+      setBrowseOnline(true); setSolo(null); setArena(null); handledOutgoingIdsRef.current.clear();
       setLivePlayers(await loadLiveSoloPlayers(20));
     } catch { setLivePlayers([]); }
     finally { setBusy(false); }
@@ -567,7 +567,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const challenge = async (player: KeepBattleLivePlayer) => {
     try {
       await sendBattleChallenge(player.profileId, themeCode);
-      setHandledOutgoingId('');
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
