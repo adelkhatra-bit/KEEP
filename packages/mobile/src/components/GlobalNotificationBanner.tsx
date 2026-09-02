@@ -4,7 +4,7 @@ import { KeepNotification, loadNotificationPreferences, markNotificationRead, su
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { respondBattleChallenge } from '../services/keepBattleLiveService';
-import { navigateToBattleArena } from '../navigation/navigationRef';
+import { navigateToBattleArena, navigationRef } from '../navigation/navigationRef';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
@@ -79,7 +79,14 @@ export default function GlobalNotificationBanner() {
       // bandeau actionnable pour un Battle ; sinon l'invitation reste gérée
       // uniquement à l'intérieur de l'écran Battle lui-même (déjà en place),
       // pour ne jamais couper une session d'écoute en cours sans consentement.
-      if (battleChallenge && !useBattleAvailabilityStore.getState().available) return;
+      if (battleChallenge) {
+        if (!useBattleAvailabilityStore.getState().available) return;
+        // Adel (02/09/2026) : "ça sert à rien d'en avoir deux ... si je suis
+        // sur la page [Battle], j'ai déjà l'invite devant moi" -- l'écran
+        // Battle affiche déjà son propre bandeau inline pour cette même
+        // invitation ; ne pas le dupliquer avec celui-ci quand on y est déjà.
+        if (navigationRef.getCurrentRoute?.()?.name === 'Parties') return;
+      }
 
       // Realtime reconnects must never replay the same visual notification.
       if (seenNotificationIds.current.has(notification.id)) return;
