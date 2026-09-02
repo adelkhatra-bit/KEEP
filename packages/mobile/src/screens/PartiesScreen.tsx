@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { broadcastEventToFollowers, createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
@@ -15,6 +15,32 @@ import { loadKeepBattleGlobalLeaderboard, loadKeepBattleThemes, KeepBattleGlobal
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
 };
+
+// Adel (02/09/2026) : "je clique sur Battle et ça me bloque, je peux pas
+// avoir jouer solo" -- vrai bug trouvé : `navigation.setParams({openBattle:
+// undefined, arenaId: undefined})` met bien à jour l'état interne de React
+// Navigation, mais sur le build web ça ne réécrit pas forcément l'URL du
+// navigateur elle-même. La barre d'adresse pouvait donc garder
+// `?openBattle=...&arenaId=<vieille arène terminée>`, et n'importe quel
+// remontage de cet écran (changer d'onglet et revenir) relisait cette URL
+// périmée, rouvrant la même arène terminée pour toujours au lieu de l'écran
+// d'accueil Battle. Cette fonction force en plus l'URL elle-même à
+// disparaître de ces paramètres, sans dépendre de la synchronisation de
+// React Navigation.
+function stripBattleUrlParams() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('openBattle') && !url.searchParams.has('arenaId') && !url.searchParams.has('source')) return;
+    url.searchParams.delete('openBattle');
+    url.searchParams.delete('arenaId');
+    url.searchParams.delete('source');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  } catch {
+    // Le navigateur peut refuser certains réglages (mode privé, etc.) :
+    // l'écran reste utilisable, seul ce filet de sécurité est perdu.
+  }
+}
 
 export default function PartiesScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
@@ -114,6 +140,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     setPendingArenaId(route?.params?.arenaId);
     setBattleOpen(true);
     navigation.setParams?.({ openBattle: undefined, source: undefined, arenaId: undefined });
+    stripBattleUrlParams();
   }, [navigation, route?.params?.openBattle]);
   const currentEvent = events.length ? events[eventIndex % events.length] : null;
   const audienceReady = followers >= minEventFollowers;
@@ -206,8 +233,8 @@ export default function PartiesScreen({ navigation, route }: any) {
           initialArenaId={pendingArenaId}
           onOpenProfile={(username) => navigation.navigate('PublicUserProfile', { username })}
           onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
-          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); }}
-          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); navigation.navigate('SessionRecap', { sessionId }); }}
+          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
+          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>
     </SafeAreaView>;
@@ -254,7 +281,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               classement global, jouer en jaune au lieu de violet, le contour
               du bouton battle en jaune" -- le lanceur passe avant le
               classement, couleurs alignées sur le jaune de marque Battle. */}
-          <TouchableOpacity style={styles.battleLauncher} onPress={() => setBattleOpen(true)} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Battle">
+          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Battle">
             <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
             <View style={styles.battleLauncherCopy}>
               <Text style={styles.battleLauncherKicker}>Loki BATTLE</Text>

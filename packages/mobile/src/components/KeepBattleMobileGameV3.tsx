@@ -312,6 +312,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   React.useEffect(() => () => { void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }, []);
 
   const themeLabel = (code: string) => themes.find((t) => t.code === code)?.label || code;
+  // Adel : "les boutons, il faut uniquement le nom de l'artiste" -- certains
+  // morceaux (bandes originales, compilations) ont un crédit complet avec
+  // une dizaine de featurings ("Lisa Gerrard, Gavin Greenaway, The Lyndhurst
+  // Orchestra, ... & Hans Zimmer"), illisible sur un bouton de réponse.
+  // Affichage uniquement : on coupe au premier séparateur de featuring, la
+  // VALEUR envoyée à answerSolo/answerArena (donc la correction) reste le
+  // texte complet, intact.
+  const primaryArtistLabel = (full: string) => full.split(/\s*(?:,|&|\bfeat\.?\b|\bft\.?\b|\bx\b|\bet\b|\band\b)\s*/i)[0]?.trim() || full;
   // Adel (02/09/2026) : "avoir vraiment une catégorie de joueurs" -- petit
   // repère visuel du palier (voir keep_battle_skill_tier côté serveur),
   // affiché là où on choisit un adversaire.
@@ -1010,7 +1018,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <View style={s.visual}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
         {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>@{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {challengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         <Text style={s.question}>Qui chante ?</Text>
-        <View style={s.answers}>{round.choices.slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0]) || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect, answered && choice === soloAnswer && choice !== round.correctAnswer && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text style={s.answerText}>{choice}</Text></TouchableOpacity>)}</View>
+        <View style={s.answers}>{round.choices.slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0]) || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect, answered && choice === soloAnswer && choice !== round.correctAnswer && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={2} style={s.answerText}>{primaryArtistLabel(choice)}</Text></TouchableOpacity>)}</View>
       </Animated.View>
       <View style={s.scoreLine}><Text style={s.score}>✓ {soloScore} · ✕ {errors}</Text><Text style={s.score}>{remaining} à jouer</Text></View>
       {/* Adel (02/09/2026) : "trouve une solution où il y a l'abonné
@@ -1139,7 +1147,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 </View>
               </View>
               <View style={s.inviteActions}>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.noText}>NON</Text></TouchableOpacity>
+                {/* Adel (02/09/2026) : "si je refuse, ça me remet en solo ou faire un
+                  Battle" -- appuyer sur NON ne faisait que rafraîchir les
+                  données de cette même arène (déjà déclinée serveur), sans
+                  jamais quitter l'écran -- aucun bouton ne redirigeait nulle
+                  part après un refus, seul un × ou ‹ séparé s'en sortait. Un
+                  refus est déjà une sortie explicite : on quitte directement
+                  vers l'accueil Battle, pas besoin d'un second geste. */}
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false).then(() => { void stopTrackPreview(); setArena(null); }).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.noText}>NON</Text></TouchableOpacity>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={rematchResponding} style={[s.yes, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, true).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.yesText}>OUI</Text></TouchableOpacity>
               </View>
             </Animated.View>
@@ -1193,7 +1208,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           Même principe visuel dans les deux modes désormais : les boutons
           restent affichés, désactivés, avec le vert sur la bonne réponse et
           le rouge sur mon mauvais choix. */}
-      <View style={s.answers}>{(round.choices || []).slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.revealed && s.answerSelected, round.revealed && choice === round.artist && s.answerCorrect, round.revealed && choice === round.myAnswer?.selectedAnswer && choice !== round.artist && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text style={s.answerText}>{choice}</Text>{round.revealed && choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>)}</View></Animated.View></> : null}
+      <View style={s.answers}>{(round.choices || []).slice(0, 3).map((choice, i) => <TouchableOpacity key={choice} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.revealed && s.answerSelected, round.revealed && choice === round.artist && s.answerCorrect, round.revealed && choice === round.myAnswer?.selectedAnswer && choice !== round.artist && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={2} style={s.answerText}>{primaryArtistLabel(choice)}</Text>{round.revealed && choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>)}</View></Animated.View></> : null}
     </View>;
   }
 
