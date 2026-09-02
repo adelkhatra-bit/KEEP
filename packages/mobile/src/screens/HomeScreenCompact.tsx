@@ -31,7 +31,7 @@ function micPermissionFixHint(): string | null {
   if (Platform.OS !== 'web' || typeof navigator === 'undefined') return null;
   const ua = navigator.userAgent || '';
   if (/iPhone|iPad|iPod/i.test(ua)) {
-    return 'Réglages iPhone → Safari → Microphone → autorise ce site, puis recharge la page.';
+    return 'Dans Safari, appuie sur « aA » tout à gauche de la barre d’adresse → Réglages du site web → Microphone → Autoriser, puis recharge la page. (Si ce site n’apparaît pas dans Réglages → Safari → Microphone, c’est normal -- passe par « aA ».)';
   }
   if (/Android/i.test(ua)) {
     return 'Appuie sur le 🔒 ou ⓘ à côté de l’adresse du site → Autorisations → Microphone → Autoriser, puis recharge la page.';
