@@ -20,6 +20,25 @@ const C = {
   green: '#68F2B1', yellow: '#E5F266', pink: '#FF5F83', muted: '#8F879D', text: '#F8F6FC',
 };
 
+// Adel (02/09/2026) : "pourquoi il me pose pas la question pour l'activer"
+// -- comportement navigateur normal, pas un bug : une fois le micro refusé
+// pour ce site, aucun site ne peut jamais rouvrir la popup système, sur
+// aucun navigateur (Safari, Chrome, Samsung Internet...) -- seul l'utilisateur
+// peut la réinitialiser dans les réglages. Le message d'erreur seul ne le
+// disait pas ; ce guide s'affiche uniquement pour CETTE erreur précise et
+// s'adapte à l'appareil détecté.
+function micPermissionFixHint(): string | null {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return null;
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return 'Réglages iPhone → Safari → Microphone → autorise ce site, puis recharge la page.';
+  }
+  if (/Android/i.test(ua)) {
+    return 'Appuie sur le 🔒 ou ⓘ à côté de l’adresse du site → Autorisations → Microphone → Autoriser, puis recharge la page.';
+  }
+  return 'Autorise le microphone pour ce site dans les réglages de ton navigateur, puis recharge la page.';
+}
+
 function formatElapsed(startedAt: string | null) {
   if (!startedAt) return '00:00';
   const total = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
@@ -233,6 +252,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
           <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
           {error ? <Text style={s.error}>{error}</Text> : null}
+          {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
           <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>♪  ÉCOUTER</Text></TouchableOpacity>
           {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
@@ -280,7 +300,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           </Animated.View>
         </ListenEnergyAura>
 
-        {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text></View> : null}
+        {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{/microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
         <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
@@ -474,8 +494,10 @@ const s = StyleSheet.create({
   miniStat: { flex: 1, height: 48, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(49,35,72,0.78)', backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   miniValue: { color: C.text, fontSize: 14, fontWeight: '800' },
   miniLabel: { color: C.muted, fontSize: 9, marginTop: 1 },
-  errorBanner: { marginTop: 7, minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: C.pink, justifyContent: 'center', paddingHorizontal: 10 },
+  errorBanner: { marginTop: 7, minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: C.pink, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 6 },
   errorBannerText: { color: C.pink, fontSize: 11, textAlign: 'center' },
+  micFixHintInBanner: { color: C.muted, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 4 },
+  micFixHint: { color: C.muted, fontSize: 11, lineHeight: 15, textAlign: 'center', maxWidth: 300, marginTop: 6, marginBottom: 4 },
   sectionTitle: { color: C.text, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 9, marginBottom: 6 },
   queueNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7, gap: 8 },
   queueNavBtn: { minHeight: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
