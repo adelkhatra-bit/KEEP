@@ -268,6 +268,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const loaded = await loadKeepBattleArena(initialArenaId);
         if (!active) return;
         setSolo(null); setBrowseOnline(false); setAudioReady(false); setArena(loaded);
+        void useBattleAvailabilityStore.getState().autoEnable().catch(() => {});
         animateVersus();
       } catch {
         if (active) Alert.alert('Battle', 'Impossible d’ouvrir ce salon. L’invitation a peut-être expiré.');
@@ -544,6 +545,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); handledOutgoingIdsRef.current.clear(); setBattleSessionId(null);
+      // Adel (02/09/2026) : "lorsque j'appuie sur Battle seul ou Battle à
+      // plusieurs, automatiquement ça m'active mon profil" -- entrer en
+      // Battle (solo ou en ligne) montre déjà l'intention de jouer.
+      void useBattleAvailabilityStore.getState().autoEnable().catch(() => {});
     } catch (e: any) { Alert.alert('Loki Battle', String(e?.message || 'Impossible de démarrer.')); }
     finally { setBusy(false); }
   };
@@ -568,6 +573,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setBusy(true);
     try {
       setBrowseOnline(true); setSolo(null); setArena(null); handledOutgoingIdsRef.current.clear();
+      void useBattleAvailabilityStore.getState().autoEnable().catch(() => {});
       setLivePlayers(await loadLiveSoloPlayers(20));
     } catch { setLivePlayers([]); }
     finally { setBusy(false); }
@@ -594,11 +600,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const challenge = async (player: KeepBattleLivePlayer) => {
     try {
       await sendBattleChallenge(player.profileId, themeCode);
-      // Adel (02/09/2026) : "je fais une invite à un Battle, le système doit
-      // aller activer directement automatiquement le profil" -- envoyer un
-      // défi montre déjà l'intention de jouer, autant se rendre disponible
-      // du même geste plutôt que d'exiger un aller-retour sur le profil.
-      if (!useBattleAvailabilityStore.getState().available) void useBattleAvailabilityStore.getState().setAvailable(true).catch(() => {});
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
@@ -687,7 +688,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       await sendBattleArenaChallenge(arena.id, player.profileId);
       setArenaInvitedIds((rows) => rows.includes(player.profileId) ? rows : [...rows, player.profileId]);
-      if (!useBattleAvailabilityStore.getState().available) void useBattleAvailabilityStore.getState().setAvailable(true).catch(() => {});
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Le groupe est déjà complet : 10 joueurs.');
@@ -752,15 +752,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // active, sinon simple sortie du groupe) sinon le siège reste ACTIVE
     // pour toujours côté serveur.
     if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
-    // Adel (02/09/2026) : "si tu veux, leur qui quitte le Battle, tu veux
-    // automatiquement le déconnecter ... ensuite c'est à lui s'il voudra
-    // l'activer manuellement ou désactiver" -- quitter complètement Battle
-    // (× ou QUITTER LE BATTLE, pas juste finir un match) est un signal
-    // explicite "j'ai fini pour l'instant" -- contrairement à accepter/
-    // quitter UN match (qui ne doit jamais toucher la bascule, voir le fix
-    // "ça m'avait désactivé"), l'utilisateur garde la main pour la
-    // réactiver n'importe quand depuis son profil.
-    if (useBattleAvailabilityStore.getState().available) void useBattleAvailabilityStore.getState().setAvailable(false).catch(() => {});
+    // Adel (02/09/2026) : "il ne faut pas le désactiver automatique" quand
+    // c'est une activation MANUELLE -- quitter complètement Battle éteint
+    // la disponibilité seulement si elle a été activée automatiquement en
+    // entrant (autoEnable) ; une activation manuelle depuis le Profil reste
+    // active jusqu'à ce que l'utilisateur la désactive lui-même.
+    void useBattleAvailabilityStore.getState().autoDisable().catch(() => {});
     setAudioReady(false);
     setPending(null);
     setArena(null);
