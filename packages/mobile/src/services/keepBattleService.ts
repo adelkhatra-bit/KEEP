@@ -124,13 +124,14 @@ export type KeepBattleArenaState = {
   currentRound: number;
   roundDurationMs: number;
   isHost: boolean;
-  me?: { profileId: string; status: 'ACTIVE' | 'QUEUED' | 'ELIMINATED' | 'LEFT'; score: number; placement?: number | null } | null;
+  me?: { profileId: string; status: 'ACTIVE' | 'QUEUED' | 'ELIMINATED' | 'LEFT'; score: number; placement?: number | null; rematchReady?: boolean | null } | null;
   seats: KeepBattleArenaSeat[];
   leaderboard: Array<{ profileId: string; username: string; score: number; placement?: number | null; responseMs: number }>;
   round?: KeepBattleArenaRound | null;
   roundWinner?: { profileId: string; username: string; avatarUrl?: string | null; responseMs: number } | null;
   lastResult?: { matchNo: number; placement: number; score: number; correct: number; responseMs: number; creditDelta: number; won: boolean } | null;
   lastWinner?: { profileId: string; username: string; avatarUrl?: string | null; score: number; responseMs: number } | null;
+  rematchDeadline?: string | null;
 };
 
 export type KeepBattleArenaWinner = {
@@ -318,6 +319,16 @@ export async function startKeepBattleArena(arenaId: string): Promise<KeepBattleA
 
 export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedAnswer: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_submit_quiz', { p_arena_id: arenaId, p_selected_answer: selectedAnswer.trim() });
+  return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function proposeKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_propose_rematch', { p_arena_id: arenaId });
+  return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function respondKeepBattleArenaRematch(arenaId: string, ready: boolean): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_rematch_respond', { p_arena_id: arenaId, p_ready: ready });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 

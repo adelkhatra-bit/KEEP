@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Animated, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
-import { buildKeepBattleArenaInviteLink, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleThemes, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
+import { buildKeepBattleArenaInviteLink, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleThemes, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
 import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadOutgoingBattleChallenges, respondBattleChallenge, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -217,6 +217,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [winnerHistory, setWinnerHistory] = React.useState<KeepBattleArenaWinner[]>([]);
   const arenaPlayedTracksRef = React.useRef<Map<string, ArenaPlayedTrack>>(new Map());
   const [arenaSessionId, setArenaSessionId] = React.useState<string | null>(null);
+  const [rematchResponding, setRematchResponding] = React.useState(false);
   const pulse = React.useRef(new Animated.Value(1)).current;
   const versusOpacity = React.useRef(new Animated.Value(0)).current;
   const versusScale = React.useRef(new Animated.Value(.72)).current;
@@ -841,6 +842,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (arena.status === 'WAITING' && arena.lastResult) {
       const winner = arena.lastWinner;
       const arenaTrackCount = arenaPlayedTracksRef.current.size;
+      const rematchDeadline = arena.rematchDeadline;
+      const rematchRemaining = rematchDeadline ? Math.max(0, Math.ceil((new Date(rematchDeadline).getTime() - now) / 1000)) : 0;
+      const arenaMeRematchReady = arena.me?.rematchReady;
       // Adel (01/09/2026) : "à chaque fin de Battle ... le bouton en dessous
       // tout à la fin, souhaitez-vous enregistrer votre Battle" -- même esprit
       // Oui/Non que le solo, déclenché ici par le bouton plutôt qu'avant le
@@ -876,7 +880,27 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           </Animated.View>
           {palmares.length ? <View style={s.palmares}><Text style={s.palmaresTitle}>PALMARÈS · TOP 3</Text>{palmares.map((entry, index) => <TouchableOpacity key={entry.profileId} accessibilityRole="button" onPress={() => onOpenProfile(entry.username)} style={s.palmaresRow}><Text style={s.palmaresRank}>{index + 1}</Text><Avatar name={entry.username} url={entry.avatarUrl} size={38} /><Text numberOfLines={1} style={s.palmaresName}>@{entry.username}</Text><Text style={s.palmaresWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text></TouchableOpacity>)}</View> : null}
           <Text style={s.finishQuestion}>Le groupe reste ensemble. Et maintenant ?</Text>
-          <TouchableOpacity disabled={busy} style={s.finishPrimary} onPress={() => { setBusy(true); void startKeepBattleArena(arena.id).then((next) => { setArena(next); animateVersus(); }).catch((e: any) => Alert.alert('Battle', String(e?.message || 'Impossible de relancer.'))).finally(() => setBusy(false)); }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : 'REVANCHE'}</Text></TouchableOpacity>
+          {/* Adel (02/09/2026) : "il faut que ça envoie un popup à tout le
+              monde ... souhaitez-vous oui ou non, celui qui veut rentrer il
+              rentre, celui qui veut arrêter il arrête" -- REVANCHE ne relance
+              plus le match instantanément pour tout le groupe : ça propose,
+              chacun répond, et seuls ceux qui ont dit oui rejouent. */}
+          {rematchDeadline && arenaMeRematchReady !== true ? (
+            <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}>
+              <View style={s.inviteHead}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inviteQuestion}>Prêt pour la revanche ?</Text>
+                  <Text style={s.inviteLabel}>⚡ {rematchRemaining}s pour répondre</Text>
+                </View>
+              </View>
+              <View style={s.inviteActions}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.noText}>NON</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={rematchResponding} style={[s.yes, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, true).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.yesText}>OUI</Text></TouchableOpacity>
+              </View>
+            </Animated.View>
+          ) : (
+            <TouchableOpacity disabled={busy || Boolean(rematchDeadline)} style={s.finishPrimary} onPress={() => { setBusy(true); void proposeKeepBattleArenaRematch(arena.id).then(setArena).catch((e: any) => Alert.alert('Battle', String(e?.message || 'Impossible de proposer une revanche.'))).finally(() => setBusy(false)); }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : rematchDeadline ? `EN ATTENTE DES AUTRES · ${rematchRemaining}s` : 'REVANCHE'}</Text></TouchableOpacity>
+          )}
           {arenaTrackCount > 0 ? (
             arenaSessionId ? (
               <TouchableOpacity style={s.finishSecondary} onPress={() => onOpenSession?.(arenaSessionId)}>

@@ -188,7 +188,13 @@ async function playWebSegment(
     try { element.load(); } catch {}
   }
   if (webAudioKey !== key) return;
-  if (sourceChanged) await waitForPlayable(element);
+  // Adel (02/09/2026) : vérifie toujours readyState, pas seulement quand la
+  // source vient de changer -- un préchargement lancé en avance (voir
+  // scheduleTrackPreviewSegment) peut ne pas encore être terminé au moment où
+  // .play() doit réellement démarrer sur un réseau mobile lent ; waitForPlayable
+  // se termine immédiatement si le flux est déjà prêt, donc ce garde-fou ne
+  // coûte rien dans le cas normal.
+  await waitForPlayable(element);
   if (webAudioKey !== key) return;
 
   const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
@@ -335,6 +341,27 @@ export async function scheduleTrackPreviewSegment(
   return serialize(async () => {
     if (canUseWebAudio()) {
       clearActiveTimer();
+      // Adel (02/09/2026) : "la musique démarre en retard, c'est déloyal" --
+      // avant, le fichier ne commençait à charger qu'à l'instant de départ
+      // synchronisé lui-même (dans le setTimeout ci-dessous). Sur un réseau
+      // mobile plus lent que celui de l'autre joueur, le premier appel réseau
+      // du morceau démarrait pile à ce moment-là, avec jusqu'à 4s de retard
+      // réel avant que l'audio ne soit audible -- alors que le chrono visuel
+      // tourne pour tout le monde depuis le même instant serveur. On précharge
+      // maintenant le fichier dès que la manche est connue (le serveur laisse
+      // ~3s avant `startAtEpochMs`, voir keep_battle_arena_start), pour que
+      // .play() n'ait plus qu'à démarrer un flux déjà bufferisé.
+      const element = getWebAudio();
+      if (element) {
+        webAudioKey = key;
+        const sourceChanged = element.src !== previewUrl;
+        if (sourceChanged) {
+          try { element.pause(); } catch {}
+          element.src = previewUrl;
+          try { element.load(); } catch {}
+        }
+        void waitForPlayable(element).catch(() => {});
+      }
       const delay = Math.max(0, Math.round(startAtEpochMs - Date.now()));
       activeStartTimer = setTimeout(() => {
         activeStartTimer = null;
