@@ -14,6 +14,7 @@ import { createAuthService } from '../services/authService';
 import { deleteOwnKeepAccount } from '../services/accountDeletionService';
 import { supabase } from '../services/supabaseClient';
 import { BlockedUserSummary, listBlockedUsers, unblockUser } from '../services/moderationService';
+import { loadCurrentPlanCode } from '../services/planService';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' },
@@ -45,6 +46,22 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const [blockedUsers, setBlockedUsers] = React.useState<BlockedUserSummary[]>([]);
   const [blockedLoading, setBlockedLoading] = React.useState(false);
   const [unblockingId, setUnblockingId] = React.useState<string | null>(null);
+  // Adel (02/09/2026) : "il faudra prendre l'offre à 29,99 et pareil pour les
+  // profils, je pense qu'il faudrait qu'au moins ils payent 9,99" -- bouton
+  // site web réservé à CREATOR_PRO/VENUE_PRO ; réseaux sociaux existants
+  // restent gratuits pour tous, inchangés.
+  const [planCode, setPlanCode] = React.useState('FREE');
+  const [websiteSaving, setWebsiteSaving] = React.useState(false);
+  React.useEffect(() => {
+    if (!user?.id || isLocalGuest || isDemoMode) return;
+    let live = true;
+    loadCurrentPlanCode(user.id).then((code) => { if (live) setPlanCode(code); }).catch(() => {});
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
+  const websiteAccess = planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO';
+  const websiteLink = user?.socialLinks.find((l) => l.platform === 'website');
+  const websiteLabelDraft = drafts.website_label ?? websiteLink?.label ?? '';
+  const websiteUrlDraft = drafts.website_url ?? websiteLink?.url ?? '';
 
   const openBlockedList = async () => {
     setBlockedListOpen(true);
@@ -134,6 +151,37 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     const links = user.socialLinks.filter((link) => link.platform !== platform);
     await persistSocialLinks(links, platform, 'Le réseau a été retiré de ton profil.');
     setDrafts((prev) => ({ ...prev, [platform]: '' }));
+  };
+
+  // Adel (02/09/2026) : "on me montrera pas le lien du site, on mettra un
+  // bouton, je clique par exemple tu prendras le nom du bouton" -- deux
+  // champs distincts (nom affiché + lien réel), jamais l'URL affichée
+  // directement sur le profil public.
+  const saveWebsite = async () => {
+    if (!websiteAccess) return void Alert.alert('Formule requise', 'Le bouton site web est réservé à Creator Pro et Venue Pro.', [
+      { text: 'Plus tard', style: 'cancel' }, { text: 'Voir les offres', onPress: () => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'WEBSITE_BUTTON' }) },
+    ]);
+    const url = websiteUrlDraft.trim();
+    const label = websiteLabelDraft.trim();
+    if (!url) return void Alert.alert('Lien manquant', 'Ajoute le lien de ton site.');
+    if (!label) return void Alert.alert('Nom manquant', 'Donne un nom à ton bouton (ex : Mon site, Réserver, Boutique).');
+    setWebsiteSaving(true);
+    try {
+      const links = [
+        ...user.socialLinks.filter((l) => l.platform !== 'website'),
+        { platform: 'website', url, label, visibility: websiteLink?.visibility ?? 'PUBLIC' } as SocialLink,
+      ];
+      await persistSocialLinks(links, 'website', 'Ton bouton site web est actif sur ton profil.');
+      setDrafts((prev) => ({ ...prev, website_label: label, website_url: url }));
+    } finally {
+      setWebsiteSaving(false);
+    }
+  };
+
+  const removeWebsite = async () => {
+    const links = user.socialLinks.filter((link) => link.platform !== 'website');
+    await persistSocialLinks(links, 'website', 'Le bouton site web a été retiré de ton profil.');
+    setDrafts((prev) => ({ ...prev, website_label: '', website_url: '' }));
   };
 
   const signOutNow = async () => {
@@ -250,6 +298,25 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
               </View>
             );
           })}
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Site web {websiteAccess ? '' : '🔒'}</Text>
+          <Text style={s.help}>{websiteAccess
+            ? 'Un bouton avec le nom de ton choix s’affiche sur ton profil public -- le lien réel n’est jamais montré directement.'
+            : 'Réservé aux formules Creator Pro (9,99 €) et Venue Pro (29,99 €) : plus de visibilité personnelle pour ton profil.'}</Text>
+          {websiteAccess ? (
+            <View style={s.networkBlock}>
+              <TextInput style={s.input} value={websiteLabelDraft} onChangeText={(text) => setDrafts((prev) => ({ ...prev, website_label: text }))} placeholder="Nom du bouton (ex : Mon site, Boutique, Réserver)" placeholderTextColor={colors.textMuted} maxLength={24} />
+              <TextInput style={s.input} value={websiteUrlDraft} onChangeText={(text) => setDrafts((prev) => ({ ...prev, website_url: text }))} placeholder="Lien du site (https://...)" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} />
+              <View style={s.row}>
+                <TouchableOpacity style={s.primaryButton} onPress={() => void saveWebsite()} disabled={websiteSaving} accessibilityLabel="Enregistrer le site web"><Text style={s.primaryText}>{websiteSaving ? 'Enregistrement…' : 'Enregistrer'}</Text></TouchableOpacity>
+                {websiteLink ? <TouchableOpacity style={s.secondaryButton} onPress={() => void removeWebsite()} disabled={websiteSaving} accessibilityLabel="Supprimer le site web"><Text style={s.dangerText}>Supprimer</Text></TouchableOpacity> : null}
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={s.primaryButton} onPress={() => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'WEBSITE_BUTTON' })}><Text style={s.primaryText}>Voir Creator Pro</Text></TouchableOpacity>
+          )}
         </View>
 
         <SupportCenterPanel profileId={user.id} username={user.username} enabled={!isLocalGuest && !isDemoMode} />

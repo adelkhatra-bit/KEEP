@@ -14,6 +14,10 @@ export interface SocialLink {
   platform: 'instagram' | 'tiktok' | 'facebook' | 'snapchat' | 'youtube' | 'x' | 'website' | 'other';
   url: string;
   visibility: LinkVisibility;
+  // Adel (02/09/2026) : "on me montrera pas le lien du site, on mettra un
+  // bouton ... tu prendras le nom du bouton" -- uniquement utilisé pour
+  // platform==='website' : texte du bouton public, jamais l'URL brute.
+  label?: string;
 }
 
 export interface ProfilePrivateInfo {
