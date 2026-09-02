@@ -101,6 +101,43 @@ export default function HomeScreenCompact({ navigation }: any) {
       .catch(() => {});
     return () => { live = false; };
   }, []);
+
+  // Adel (03/09/2026) : "mon téléphone se met en veille, je dois appuyer à
+  // chaque fois ... le système coupe le son automatiquement" -- vrai bug :
+  // l'écran qui s'éteint pendant une session d'écoute coupe la capture
+  // micro (le navigateur suspend le micro en arrière-plan écran verrouillé),
+  // pas juste l'affichage. La Screen Wake Lock API empêche l'écran de
+  // s'éteindre tant qu'une session est active ; un verrou est automatiquement
+  // relâché par le navigateur si l'onglet redevient caché pour une autre
+  // raison (changement d'appli), donc on le redemande sur `visibilitychange`
+  // tant que la session tourne encore. Non supportée par tous les
+  // navigateurs (ex. anciens Safari) : silencieux si absente, aucune
+  // régression, juste pas de protection sur ces navigateurs-là.
+  const wakeLockRef = useRef<any>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    let cancelled = false;
+    const release = () => {
+      wakeLockRef.current?.release?.().catch(() => {});
+      wakeLockRef.current = null;
+    };
+    if (!isActive) { release(); return; }
+    const acquire = async () => {
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen');
+        if (cancelled) { lock.release().catch(() => {}); return; }
+        wakeLockRef.current = lock;
+      } catch { /* ex. permission refusée par le navigateur -- rien à faire de plus */ }
+    };
+    void acquire();
+    const onVisibility = () => { if (document.visibilityState === 'visible' && !wakeLockRef.current) void acquire(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      release();
+    };
+  }, [isActive]);
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);

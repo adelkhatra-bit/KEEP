@@ -11,10 +11,18 @@ import SwipeDeck from '../components/SwipeDeck';
 import KeepBattleArenaPanel from '../components/KeepBattleArenaPanel';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, KeepBattleGlobalLeaderboardEntry, KeepBattlePlayerStats } from '../services/keepBattleService';
+import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomingChallenge } from '../services/keepBattleLiveService';
+import { supabase } from '../services/supabaseClient';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
 };
+
+// Adel (03/09/2026) : "joue en solo mix confirmé ... rajoute ce système-là
+// dans le classement global" -- même libellé de niveau que sur l'écran
+// "Joueurs disponibles" (KeepBattleMobileGameV3.tsx), dupliqué ici à
+// l'identique (fonction pure d'une ligne, pas de module partagé pour ça).
+const tierLabel = (tier?: string | null) => tier === 'EXPERT' ? '👑 Expert' : tier === 'CONFIRME' ? '⭐ Confirmé' : '🌱 Débutant';
 
 // Adel (02/09/2026) : "je clique sur Battle et ça me bloque, je peux pas
 // avoir jouer solo" -- vrai bug trouvé : `navigation.setParams({openBattle:
@@ -86,6 +94,30 @@ export default function PartiesScreen({ navigation, route }: any) {
   // ('RAP_FR'...), le libellé français vient du même catalogue de thèmes
   // déjà utilisé par l'écran Battle lui-même, chargé une fois ici aussi.
   const [themeLabels, setThemeLabels] = useState<Record<string, string>>({});
+  // Adel (03/09/2026) : "sur classement solo aussi il faut mettre la
+  // notification ou carrément intégrer l'invitation" -- jusqu'ici seul le
+  // bandeau global (toast, GlobalNotificationBanner) couvrait cet écran ;
+  // rien d'intégré directement dans la page elle-même. Sondage propre à cet
+  // écran (actif seulement quand Battle est affiché ET pas encore ouvert en
+  // plein écran, pour ne jamais dupliquer le bandeau interne de
+  // KeepBattleMobileGameV3 une fois qu'on y est).
+  const [incomingBattle, setIncomingBattle] = useState<KeepBattleIncomingChallenge[]>([]);
+  const [incomingResponding, setIncomingResponding] = useState<string | null>(null);
+  useEffect(() => {
+    if (partiesTab !== 'BATTLE' || !battleFeatureEnabled || battleOpen || !user || isLocalGuest || isDemoMode) { setIncomingBattle([]); return; }
+    let live = true;
+    const poll = () => { loadIncomingBattleChallenges().then((rows) => { if (live) setIncomingBattle(rows); }).catch(() => {}); };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => { live = false; clearInterval(id); };
+  }, [partiesTab, battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
+  const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+    setIncomingResponding(challenge.id);
+    respondBattleChallenge(challenge.id, accept).then((result) => {
+      setIncomingBattle((rows) => rows.filter((r) => r.id !== challenge.id));
+      if (accept && result.arenaId) { setPendingArenaId(result.arenaId); setBattleOpen(true); }
+    }).catch(() => {}).finally(() => setIncomingResponding(null));
+  };
   // Adel (02/09/2026) : "un pop-up qui me permette de voir son style musical
   // ... toutes les statistiques ... inspire-toi de TikTok" -- fiche joueur en
   // pop-up depuis le classement, chargée à la demande (pas au chargement du
@@ -93,11 +125,34 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [statsEntry, setStatsEntry] = useState<KeepBattleGlobalLeaderboardEntry | null>(null);
   const [statsData, setStatsData] = useState<KeepBattlePlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsFollowing, setStatsFollowing] = useState(false);
+  const [statsFollowBusy, setStatsFollowBusy] = useState(false);
   const openPlayerStats = (entry: KeepBattleGlobalLeaderboardEntry) => {
     setStatsEntry(entry);
     setStatsData(null);
+    setStatsFollowing(false);
     setStatsLoading(true);
     loadKeepBattlePlayerStats(entry.profileId).then(setStatsData).catch(() => setStatsData(null)).finally(() => setStatsLoading(false));
+    if (supabase && user && !isLocalGuest && !isDemoMode && user.id !== entry.profileId) {
+      supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('followee_id', entry.profileId).maybeSingle()
+        .then(({ data }) => setStatsFollowing(!!data), () => {});
+    }
+  };
+  // Adel (03/09/2026) : "tu peux mettre ... ajouter ou abonner/s'abonner
+  // ça dépend si je suis déjà abonné" -- même table/logique que le vrai
+  // bouton Suivre du profil (PublicUserProfileScreen), dupliquée ici en
+  // minimal plutôt qu'une extraction de service risquée à ce stade.
+  const toggleStatsFollow = async () => {
+    if (!supabase || !user || isLocalGuest || isDemoMode || !statsEntry || statsFollowBusy) return;
+    setStatsFollowBusy(true);
+    if (statsFollowing) {
+      const { error } = await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', statsEntry.profileId);
+      if (!error) setStatsFollowing(false);
+    } else {
+      const { error } = await supabase.from('follows').insert({ follower_id: user.id, followee_id: statsEntry.profileId });
+      if (!error) setStatsFollowing(true);
+    }
+    setStatsFollowBusy(false);
   };
   useEffect(() => {
     if (partiesTab !== 'BATTLE' || !battleFeatureEnabled) return;
@@ -290,6 +345,15 @@ export default function PartiesScreen({ navigation, route }: any) {
         </> : null}
       </> : (
         <>
+          {incomingBattle.map((challenge) => (
+            <View key={challenge.id} style={styles.incomingBanner}>
+              <Text style={styles.incomingText}><Text style={styles.incomingName}>@{challenge.username}</Text> souhaite faire un Battle avec toi. Acceptes-tu ?</Text>
+              <View style={styles.incomingActions}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
+              </View>
+            </View>
+          ))}
           {/* Adel (02/09/2026) : "le bouton salon musical au-dessus du
               classement global, jouer en jaune au lieu de violet, le contour
               du bouton battle en jaune" -- le lanceur passe avant le
@@ -308,6 +372,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           {!leaderboardLoading && leaderboard.length ? (
             <View style={styles.leaderboardPanel}>
               <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
+              <Text style={styles.leaderboardHint}>👆 Touche un joueur pour voir ses stats</Text>
               {leaderboard.map((entry, index) => (
                 <TouchableOpacity
                   key={entry.profileId}
@@ -317,12 +382,16 @@ export default function PartiesScreen({ navigation, route }: any) {
                   <Text style={styles.leaderboardTrophy}>{index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</Text>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text numberOfLines={1} style={styles.leaderboardName}>@{entry.username}</Text>
+                    {entry.isOnline ? (
+                      <Text numberOfLines={1} style={styles.leaderboardPresence}>● joue en solo{entry.presenceThemeCode && themeLabels[entry.presenceThemeCode] ? ` · ${themeLabels[entry.presenceThemeCode]}` : ''} · {tierLabel(entry.skillTier)}</Text>
+                    ) : null}
                     {entry.topThemeCode && themeLabels[entry.topThemeCode] ? (
                       <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
                     ) : null}
                   </View>
                   <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
                   <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}</Text>
+                  <Text style={styles.leaderboardChevron}>›</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -355,9 +424,14 @@ export default function PartiesScreen({ navigation, route }: any) {
                       <Text style={styles.statsThemeValue}>{t.wins} victoire{t.wins > 1 ? 's' : ''} · {t.matches} match{t.matches > 1 ? 's' : ''}</Text>
                     </View>
                   )) : <Text style={styles.statsThemeEmpty}>Pas encore assez de matchs pour dégager un style dominant.</Text>}
-                  <TouchableOpacity style={styles.statsProfileButton} onPress={() => { const username = statsEntry.username; setStatsEntry(null); navigation.navigate('PublicUserProfile', { username }); }}>
-                    <Text style={styles.statsProfileButtonText}>VOIR LE PROFIL COMPLET</Text>
-                  </TouchableOpacity>
+                  <View style={styles.statsActionsRow}>
+                    <TouchableOpacity style={[styles.statsFollowButton, statsFollowing && styles.statsFollowButtonActive]} disabled={statsFollowBusy} onPress={toggleStatsFollow}>
+                      <Text style={[styles.statsFollowButtonText, statsFollowing && styles.statsFollowButtonTextActive]}>{statsFollowing ? 'ABONNÉ(E)' : '+ SUIVRE'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.statsProfileButtonSmall} onPress={() => { navigation.navigate('PublicUserProfile', { username: statsEntry.username }); setStatsEntry(null); }}>
+                      <Text style={styles.statsProfileButtonText}>PROFIL COMPLET</Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               )}
             </>
@@ -374,6 +448,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
-container:{flex:1,backgroundColor:'#090610'},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},partiesTabBtnOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},partiesTabText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:'#FFF'},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:'#40334B',backgroundColor:'#151020',gap:6},leaderboardTitle:{color:'#E5F266',fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:'#1B1422'},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:'#FFF',fontWeight:'900'},leaderboardName:{flex:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderboardWins:{color:'#E5F266',fontSize:11,fontWeight:'900'},leaderboardStats:{color:'#B79CFF',fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:'#E5F266',fontSize:10,fontWeight:'800',marginTop:1},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:'#151020',borderWidth:1,borderColor:'#E5F266',flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:'#2A1A14',borderWidth:1,borderColor:'#D6AA36',alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:'#D6AA36',fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:'#E5F266',fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{height:420,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end',overflow:'hidden'},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)',marginBottom:10},badgeText:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#FFFFFF',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:12,fontWeight:'900'},rsvpRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:18,marginTop:16},roundAction:{width:58,height:58,borderRadius:29,alignItems:'center',justifyContent:'center',borderWidth:2},noAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},yesAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},noText:{color:'#FF5F83',fontSize:26,fontWeight:'800'},yesText:{color:'#17130B',fontSize:25,fontWeight:'900'},maybeAction:{minHeight:44,paddingHorizontal:15,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},
-statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},statsClose:{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:17,backgroundColor:'#1F1830',alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:'#FFF',fontSize:20,lineHeight:22,fontWeight:'700'},statsUsername:{color:'#FFF',fontSize:20,fontWeight:'900',marginBottom:14,paddingRight:40},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:'#1B1422'},statsBigValue:{color:'#E5F266',fontSize:22,fontWeight:'900'},statsBigLabel:{color:'#B79CFF',fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsAvg:{color:'#FFF',fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:'#E5F266',fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#1B1422',marginBottom:6},statsThemeLabel:{color:'#FFF',fontSize:12,fontWeight:'900'},statsThemeValue:{color:'#B79CFF',fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:'#B79CFF',fontSize:12,lineHeight:16,fontWeight:'700'},statsProfileButton:{minHeight:48,borderRadius:24,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:18},statsProfileButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'}
+container:{flex:1,backgroundColor:'#090610'},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},partiesTabBtnOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},partiesTabText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:'#FFF'},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:'#40334B',backgroundColor:'#151020',gap:6},leaderboardTitle:{color:'#E5F266',fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:'#1B1422'},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:'#FFF',fontWeight:'900'},leaderboardName:{flex:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderboardWins:{color:'#E5F266',fontSize:11,fontWeight:'900'},leaderboardStats:{color:'#B79CFF',fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:'#E5F266',fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:'#6EE8A7',fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:'#8F879D',fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:'#151020',borderWidth:1,borderColor:'#E5F266',flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:'#2A1A14',borderWidth:1,borderColor:'#D6AA36',alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:'#D6AA36',fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:'#E5F266',fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{height:420,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end',overflow:'hidden'},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)',marginBottom:10},badgeText:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#FFFFFF',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:12,fontWeight:'900'},rsvpRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:18,marginTop:16},roundAction:{width:58,height:58,borderRadius:29,alignItems:'center',justifyContent:'center',borderWidth:2},noAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},yesAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},noText:{color:'#FF5F83',fontSize:26,fontWeight:'800'},yesText:{color:'#17130B',fontSize:25,fontWeight:'900'},maybeAction:{minHeight:44,paddingHorizontal:15,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},
+statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},statsClose:{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:17,backgroundColor:'#1F1830',alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:'#FFF',fontSize:20,lineHeight:22,fontWeight:'700'},statsUsername:{color:'#FFF',fontSize:20,fontWeight:'900',marginBottom:14,paddingRight:40},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:'#1B1422'},statsBigValue:{color:'#E5F266',fontSize:22,fontWeight:'900'},statsBigLabel:{color:'#B79CFF',fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsAvg:{color:'#FFF',fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:'#E5F266',fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#1B1422',marginBottom:6},statsThemeLabel:{color:'#FFF',fontSize:12,fontWeight:'900'},statsThemeValue:{color:'#B79CFF',fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:'#B79CFF',fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsFollowButton:{flex:1,minHeight:48,borderRadius:24,borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},statsFollowButtonActive:{backgroundColor:'#21182F',borderColor:'#493369'},statsFollowButtonText:{color:'#8B5CF6',fontSize:11,fontWeight:'900'},statsFollowButtonTextActive:{color:'#B79CFF'},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900'},
+incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:'#E5F266',backgroundColor:'#1B1222'},incomingText:{color:'#F3EDF7',fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:'#FFF',fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:'#8A7795',backgroundColor:'#211829',alignItems:'center',justifyContent:'center'},incomingNoText:{color:'#FFF',fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},incomingYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6}
 });

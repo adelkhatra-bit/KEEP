@@ -158,6 +158,13 @@ export type KeepBattleGlobalLeaderboardEntry = {
   // catégorie il est très fort" -- thème (genre) où ce joueur a le plus de
   // victoires d'arène, calculé côté serveur (keep_battle_global_leaderboard).
   topThemeCode: string | null;
+  // Adel (03/09/2026) : "joue en solo mix confirmé ... il faut rajouter ce
+  // système-là dans le classement global" -- même présence en direct et
+  // même niveau que sur l'écran "Joueurs disponibles", ajoutés ici en plus
+  // (aucun champ existant retiré).
+  skillTier: string | null;
+  isOnline: boolean;
+  presenceThemeCode: string | null;
 };
 
 export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
@@ -172,6 +179,9 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
     totalCorrect: Number(row.total_correct ?? row.totalCorrect ?? 0),
     avgResponseMs: row.avg_response_ms ?? row.avgResponseMs ?? null,
     topThemeCode: row.top_theme_code ?? row.topThemeCode ?? null,
+    skillTier: row.skill_tier ?? row.skillTier ?? null,
+    isOnline: Boolean(row.is_online ?? row.isOnline ?? false),
+    presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
   })).filter((row) => row.profileId);
 }
 
