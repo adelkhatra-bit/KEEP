@@ -154,6 +154,10 @@ export type KeepBattleGlobalLeaderboardEntry = {
   totalScore: number;
   totalCorrect: number;
   avgResponseMs: number | null;
+  // Adel (02/09/2026) : "mettre aussi le style qu'il écoute ... dans quelle
+  // catégorie il est très fort" -- thème (genre) où ce joueur a le plus de
+  // victoires d'arène, calculé côté serveur (keep_battle_global_leaderboard).
+  topThemeCode: string | null;
 };
 
 export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
@@ -167,6 +171,7 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
     totalScore: Number(row.total_score ?? row.totalScore ?? 0),
     totalCorrect: Number(row.total_correct ?? row.totalCorrect ?? 0),
     avgResponseMs: row.avg_response_ms ?? row.avgResponseMs ?? null,
+    topThemeCode: row.top_theme_code ?? row.topThemeCode ?? null,
   })).filter((row) => row.profileId);
 }
 
