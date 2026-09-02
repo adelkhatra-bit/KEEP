@@ -651,17 +651,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     return () => clearTimeout(id);
   }, [arena?.id, arena?.status, arena?.isHost, arena?.matchNo, arena?.seats.length, animateVersus]);
 
-  // Adel (02/09/2026) : "si l'utilisateur il a plus personne avec lui, ça le
-  // sort automatiquement du Battle et le remet sur le départ, il peut
-  // rejouer tout seul ou pas" -- sur l'écran de fin de match, si tout le
-  // monde a refusé/quitté la revanche et qu'il ne reste plus que moi, rester
-  // bloqué sur cet écran ("AJOUTER UN JOUEUR"/REVANCHE) n'a plus de sens.
-  // Retour à l'accueil Battle (pas Soirées) : JOUER SOLO reste possible.
-  React.useEffect(() => {
-    if (!arena || arena.status !== 'WAITING' || !arena.lastResult || arena.rematchDeadline || arena.seats.length >= 2) return undefined;
-    const id = setTimeout(() => { void leaveKeepBattleArena(arena.id).catch(() => {}); setArena(null); }, 1600);
-    return () => clearTimeout(id);
-  }, [arena?.id, arena?.status, arena?.lastResult?.matchNo, arena?.rematchDeadline, arena?.seats.length]);
+  // Adel (02/09/2026) : "le bug revient lorsque l'utilisateur ... est absent
+  // ... il faut que ça revienne comme avant" -- ce minuteur automatique
+  // (ajouté pour "si tout le monde a refusé la revanche, ne pas rester
+  // coincé") utilisait exactement la même condition (lastResult présent +
+  // moins de 2 joueurs actifs + pas de revanche en cours) qu'un GAGNANT PAR
+  // FORFAIT AFK : dès qu'un adversaire absent se faisait éliminer, le
+  // vainqueur se retrouvait seul avec un lastResult -- et se faisait éjecter
+  // de son propre écran de victoire 1,6s plus tard, avant même de pouvoir
+  // lire le score ou appuyer sur REVANCHE. Impossible de distinguer les deux
+  // cas depuis le client. Retiré : ×, ‹ et REVANCHE sont déjà les bons
+  // contrôles manuels ("je suis disponible, j'appuie et ça repart").
 
   const runStartSolo = async (saveSession: boolean) => {
     if (busy) return;
