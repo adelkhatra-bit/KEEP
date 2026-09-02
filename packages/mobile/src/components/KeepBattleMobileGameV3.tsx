@@ -210,6 +210,14 @@ function buildArenaSession(tracksPlayed: ArenaPlayedTrack[]): KeepSession {
 // sur un vrai rechargement de page, réglant le problème une fois pour toutes
 // sans changer la logique existante (.add/.has/.clear() identiques).
 const handledOutgoingIds = new Set<string>();
+// Adel (03/09/2026) : "quand j'appuie sur la croix, ça revient
+// automatiquement ici" -- garde SÉPARÉE de `handledOutgoingIds` ci-dessus et
+// jamais vidée par `runStartSolo`/`openOnline` (qui vident bien
+// `handledOutgoingIds` pour rejouer les alertes refus/expiration d'une
+// nouvelle session -- ce vidage effacerait aussi la protection anti-
+// réouverture si elle partageait le même Set, réexposant le bug dès qu'on
+// relance "Jouer solo" ou "Battle en ligne" après avoir fermé une arène).
+const autoJoinedChallengeIds = new Set<string>();
 
 export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
@@ -429,8 +437,19 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setIncoming(inbox);
       setPendingRematch(pendingRematches);
       setOutgoingPendingTargetIds(new Set(outbox.filter((x) => x.status === 'PENDING').map((x) => x.targetId)));
-      const accepted = outbox.find((x) => x.status === 'ACCEPTED' && x.arenaId);
+      // Adel (03/09/2026) : "quand j'appuie sur la croix, ça revient
+      // automatiquement ici" -- vrai bug trouvé : keep_battle_challenge_outgoing
+      // renvoie l'historique des 10 dernières minutes, donc le DÉFI ACCEPTÉ qui a
+      // lancé CE match reste visible ici bien après la fin du match. Avant, ce
+      // même défi accepté redéclenchait l'entrée dans l'arène à CHAQUE sondage
+      // (toutes les 650ms) tant qu'il restait dans cette fenêtre de 10 minutes --
+      // fermer l'arène remettait `arena` à null, le sondage suivant retrouvait
+      // ce même défi toujours "ACCEPTED" et rouvrait la même arène aussitôt,
+      // rendant × et QUITTER inopérants en pratique. Un défi accepté ne doit
+      // faire entrer dans l'arène qu'UNE seule fois.
+      const accepted = outbox.find((x) => x.status === 'ACCEPTED' && x.arenaId && !autoJoinedChallengeIds.has(x.id));
       if (accepted?.arenaId) {
+        autoJoinedChallengeIds.add(accepted.id);
         await stopTrackPreview();
         await leaveSoloBattle().catch(() => {});
         setSolo(null); setBrowseOnline(false); setAudioReady(false);
