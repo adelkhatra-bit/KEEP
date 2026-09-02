@@ -30,6 +30,19 @@ const C = {
 function micPermissionFixHint(): string | null {
   if (Platform.OS !== 'web' || typeof navigator === 'undefined') return null;
   const ua = navigator.userAgent || '';
+  // Adel (02/09/2026) : "j'ai fait le test sur un nouveau compte, le problème
+  // est lié à l'utilisateur" -- vraie cause trouvée : le raccourci "Loki" sur
+  // l'écran d'accueil iPhone tourne en mode autonome (standalone), une
+  // coquille SANS barre d'adresse Safari -- le bouton « aA » demandé plus
+  // haut n'existe littéralement pas là-dedans, et ce mode a son propre
+  // stockage d'autorisation microphone, séparé de celui d'un onglet Safari
+  // normal pour la même adresse. `navigator.standalone` (iOS uniquement)
+  // permet de le détecter et de donner la bonne procédure au lieu d'une
+  // qui ne peut pas s'appliquer dans ce contexte.
+  const isIosStandalone = /iPhone|iPad|iPod/i.test(ua) && (navigator as any).standalone === true;
+  if (isIosStandalone) {
+    return 'Ce raccourci ajouté à l’écran d’accueil n’a pas de barre d’adresse -- son autorisation micro est séparée de Safari. Supprime ce raccourci, ouvre ce lien directement dans Safari, autorise le micro quand ça le demande, puis réinstalle le raccourci (partager → Sur l’écran d’accueil).';
+  }
   if (/iPhone|iPad|iPod/i.test(ua)) {
     return 'Dans Safari, appuie sur « aA » tout à gauche de la barre d’adresse → Réglages du site web → Microphone → Autoriser, puis recharge la page. (Si ce site n’apparaît pas dans Réglages → Safari → Microphone, c’est normal -- passe par « aA ».)';
   }
