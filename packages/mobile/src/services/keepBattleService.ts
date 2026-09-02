@@ -145,6 +145,31 @@ export type KeepBattleArenaWinner = {
   createdAt?: string | null;
 };
 
+export type KeepBattleGlobalLeaderboardEntry = {
+  profileId: string;
+  username: string;
+  avatarUrl?: string | null;
+  wins: number;
+  matchesPlayed: number;
+  totalScore: number;
+  totalCorrect: number;
+  avgResponseMs: number | null;
+};
+
+export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
+  const { data, error } = await client().rpc('keep_battle_global_leaderboard', { p_limit: Math.max(1, Math.min(Math.round(limit), 50)) });
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    profileId: String(row.profile_id ?? row.profileId ?? ''),
+    username: String(row.username ?? 'KEEP'),
+    avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
+    wins: Number(row.wins ?? 0),
+    matchesPlayed: Number(row.matches_played ?? row.matchesPlayed ?? 0),
+    totalScore: Number(row.total_score ?? row.totalScore ?? 0),
+    totalCorrect: Number(row.total_correct ?? row.totalCorrect ?? 0),
+    avgResponseMs: row.avg_response_ms ?? row.avgResponseMs ?? null,
+  })).filter((row) => row.profileId);
+}
+
 export type KeepBattleArenaCreated = {
   id: string;
   arenaCode: string;
