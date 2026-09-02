@@ -131,6 +131,7 @@ export type KeepBattleArenaState = {
   roundWinner?: { profileId: string; username: string; avatarUrl?: string | null; responseMs: number } | null;
   lastResult?: { matchNo: number; placement: number; score: number; correct: number; responseMs: number; creditDelta: number; won: boolean } | null;
   lastWinner?: { profileId: string; username: string; avatarUrl?: string | null; score: number; responseMs: number } | null;
+  lastMatchResults?: Array<{ profileId: string; username: string; placement: number; score: number; correct: number; responseMs: number; won: boolean }>;
   rematchDeadline?: string | null;
 };
 

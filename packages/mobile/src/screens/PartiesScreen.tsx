@@ -30,6 +30,16 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [minEventFollowers, setMinEventFollowers] = useState(500);
   const [createOpen, setCreateOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
+  // Adel (02/09/2026) : "chaque fois que je reviens en arrière, ça revient
+  // sur cette page" -- le bouton RETOUR du navigateur restaure une ENTRÉE
+  // D'HISTORIQUE ancienne qui porte encore ?arenaId=... dans son URL (chaque
+  // navigation vers une notification Battle en a poussé une nouvelle).
+  // Nettoyer arenaId au moment de QUITTER (onExit) ne peut rien changer à des
+  // entrées déjà écrites AVANT ce nettoyage. La vraie protection : ne jamais
+  // laisser arenaId vivre dans l'URL au-delà de l'instant où il est consommé
+  // -- on le recopie dans un state local dès qu'on l'utilise, puis on l'efface
+  // immédiatement de l'URL (pas seulement à la fermeture).
+  const [pendingArenaId, setPendingArenaId] = useState<string | undefined>(undefined);
   // BUG RÉEL trouvé le 30/08/2026 (audit Soirées en direct) : le lanceur
   // Loki BATTLE s'affichait pour 100% des utilisateurs réels alors qu'Adel
   // a explicitement choisi de garder keep_battle désactivé (rollout_percent
@@ -73,8 +83,9 @@ export default function PartiesScreen({ navigation, route }: any) {
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
   useEffect(() => {
     if (!route?.params?.openBattle) return;
+    setPendingArenaId(route?.params?.arenaId);
     setBattleOpen(true);
-    navigation.setParams?.({ openBattle: undefined, source: undefined });
+    navigation.setParams?.({ openBattle: undefined, source: undefined, arenaId: undefined });
   }, [navigation, route?.params?.openBattle]);
   const currentEvent = events.length ? events[eventIndex % events.length] : null;
   const audienceReady = followers >= minEventFollowers;
@@ -164,11 +175,11 @@ export default function PartiesScreen({ navigation, route }: any) {
       <View style={styles.battleFullscreen}>
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
-          initialArenaId={route?.params?.arenaId}
+          initialArenaId={pendingArenaId}
           onOpenProfile={(username) => navigation.navigate('PublicUserProfile', { username })}
           onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
-          onExit={() => { setBattleOpen(false); navigation.setParams({ arenaId: undefined }); }}
-          onOpenSession={(sessionId) => { setBattleOpen(false); navigation.setParams({ arenaId: undefined }); navigation.navigate('SessionRecap', { sessionId }); }}
+          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); }}
+          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>
     </SafeAreaView>;
