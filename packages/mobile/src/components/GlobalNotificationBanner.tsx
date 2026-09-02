@@ -4,6 +4,7 @@ import { KeepNotification, loadNotificationPreferences, markNotificationRead, su
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { respondBattleChallenge } from '../services/keepBattleLiveService';
+import { respondKeepBattleArenaRematch } from '../services/keepBattleService';
 import { navigateToBattleArena } from '../navigation/navigationRef';
 
 const VISIBLE_MS = 4600;
@@ -25,6 +26,15 @@ function isBattleChallenge(notification: KeepNotification): boolean {
   if (BATTLE_INLINE_TYPES.has(type)) return true;
   const title = String(notification.title || '').toUpperCase();
   return title.includes('BATTLE Loki') || title.includes('BATTLE ?');
+}
+
+// Adel (03/09/2026) : "quand j'appuie sur revanche ... si je suis sur
+// Profil/Playlists/Découvertes/Écoute c'est une notif" -- même distinction
+// que pour un défi frais, mais pour une revanche d'arène (type
+// BATTLE_ARENA_REMATCH côté serveur) -- répond via l'arène, pas via
+// keep_battle_challenges.
+function isBattleRematch(notification: KeepNotification): boolean {
+  return String(notification.type || '').toUpperCase() === 'BATTLE_ARENA_REMATCH';
 }
 
 export default function GlobalNotificationBanner() {
@@ -73,24 +83,24 @@ export default function GlobalNotificationBanner() {
       if (!active || !notificationsEnabled.current) return;
 
       const battleChallenge = isBattleChallenge(notification);
+      const battleRematch = isBattleRematch(notification);
       // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe
       // quelle page" -- seul un utilisateur explicitement rendu disponible
       // (bascule sur le Profil, voir useBattleAvailabilityStore) reçoit ce
       // bandeau actionnable pour un Battle ; sinon l'invitation reste gérée
       // uniquement à l'intérieur de l'écran Battle lui-même (déjà en place),
       // pour ne jamais couper une session d'écoute en cours sans consentement.
-      if (battleChallenge) {
+      if (battleChallenge || battleRematch) {
         if (!useBattleAvailabilityStore.getState().available) return;
-        // Adel (02/09/2026) : "ça sert à rien d'en avoir deux ... si je suis
-        // sur la page [Battle], j'ai déjà l'invite devant moi" -- l'écran
-        // Battle affiche déjà son propre bandeau inline pour cette même
-        // invitation ; ne pas le dupliquer avec celui-ci quand on y est déjà.
-        // Bug trouvé le 02/09 ("ici aussi tu peux mettre l'invite") : ce test
-        // se basait sur la ROUTE ('Parties'), qui reste vraie même sur la
-        // carte "Salon musical" avant d'ouvrir Battle -- où aucun bandeau
-        // interne n'existe. On vérifie maintenant que l'écran Battle est
-        // RÉELLEMENT monté, pas juste que l'onglet Soirées est actif.
-        if (useBattleAvailabilityStore.getState().battleScreenOpen) return;
+        // Adel (03/09/2026) : "dans Soirées tu mets que du fixe, la
+        // notification tu l'intègres uniquement dans
+        // Profil/Playlists/Découvertes/Écoute" -- `partiesTabOpen` reste vrai
+        // tant que l'écran Parties est monté, QUEL QUE SOIT son sous-onglet
+        // (classement compris) -- ce bandeau flottant ne doit jamais s'y
+        // afficher, un bandeau fixe interne prend déjà le relais partout là-
+        // bas. Remplace l'ancien test `battleScreenOpen` (trop étroit : ne
+        // couvrait que l'arène grande ouverte, pas tout l'onglet Soirées).
+        if (useBattleAvailabilityStore.getState().partiesTabOpen) return;
       }
 
       // Realtime reconnects must never replay the same visual notification.
@@ -115,7 +125,7 @@ export default function GlobalNotificationBanner() {
         ]).start();
       });
 
-      hideTimer.current = setTimeout(() => animateOut(), battleChallenge ? BATTLE_VISIBLE_MS : VISIBLE_MS);
+      hideTimer.current = setTimeout(() => animateOut(), (battleChallenge || battleRematch) ? BATTLE_VISIBLE_MS : VISIBLE_MS);
     });
 
     return () => {
@@ -145,7 +155,9 @@ export default function GlobalNotificationBanner() {
   };
 
   const battleChallenge = isBattleChallenge(current);
+  const battleRematch = isBattleRematch(current);
   const challengeId = dataText(current, 'challengeId');
+  const rematchArenaId = dataText(current, 'arenaId');
 
   // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe quelle
   // page ... êtes-vous prêt oui ou non" -- une fois "disponible" activé, le
@@ -166,6 +178,50 @@ export default function GlobalNotificationBanner() {
       setRespondBusy(false);
     }
   };
+
+  // Adel (03/09/2026) : "quand j'appuie sur revanche, pareil ça me met une
+  // invite fixe ... si je suis sur Profil/Playlists/Découvertes/Écoute c'est
+  // une notif" -- même geste que `respondFromBanner`, mais via l'arène (pas
+  // via keep_battle_challenges) : accepter charge et ouvre directement
+  // l'arène.
+  const respondRematchFromBanner = async (accept: boolean) => {
+    if (!rematchArenaId || respondBusy) return;
+    setRespondBusy(true);
+    try {
+      await respondKeepBattleArenaRematch(rematchArenaId, accept);
+      void markNotificationRead(user.id, current!.id).catch(() => {});
+      animateOut(() => {
+        if (accept) navigateToBattleArena(rematchArenaId);
+      });
+    } catch {
+      animateOut();
+    } finally {
+      setRespondBusy(false);
+    }
+  };
+
+  if (battleRematch && rematchArenaId) {
+    return (
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]}>
+        <View style={styles.banner}>
+          <View style={styles.artworkFallback}><Text style={styles.note}>🔁</Text></View>
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki BATTLE</Text></View>
+            <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
+            <Text style={styles.body} numberOfLines={2}>{current.body}</Text>
+            <View style={styles.battleActions}>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleNo, respondBusy && styles.battleDisabled]} onPress={() => { void respondRematchFromBanner(false); }} accessibilityRole="button" accessibilityLabel="Refuser la revanche">
+                <Text style={styles.battleNoText}>REFUSER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleYes, respondBusy && styles.battleDisabled]} onPress={() => { void respondRematchFromBanner(true); }} accessibilityRole="button" accessibilityLabel="Accepter la revanche">
+                <Text style={styles.battleYesText}>{respondBusy ? '...' : 'ACCEPTER'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
 
   if (battleChallenge && challengeId) {
     return (

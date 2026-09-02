@@ -417,3 +417,34 @@ export async function stopTrackPreview(key?: string): Promise<void> {
 export function isTrackPreviewActive(key: string): boolean {
   return (activeKey === key && activeSound !== null) || webAudioKey === key;
 }
+
+// Adel (03/09/2026) : "j'ai pris un Battle, sur mon mobile j'entends pas le
+// son" -- vraie cause trouvée en lisant le code : une manche d'arène démarre
+// TOUJOURS via scheduleTrackPreviewSegment déclenché par un setTimeout
+// synchronisé serveur (aucun tap direct à cet instant), jamais depuis un
+// vrai geste utilisateur. Safari iOS bloque silencieusement .play() sur un
+// <audio> qui n'a encore jamais été débloqué par un appel .play() survenu
+// PENDANT un vrai geste (tap) -- une fois débloqué, le même élément reste
+// utilisable ensuite pour des .play() programmatiques (minuteur, callback
+// réseau), ce que ce fichier exploite déjà en réutilisant un seul
+// <audio> partagé. Si l'utilisateur n'a jamais, plus tôt dans la page,
+// tapé un bouton d'aperçu ailleurs dans l'app (Découvertes, Playlists...),
+// ce même élément n'a jamais été débloqué -- silence total dès la première
+// manche de Battle, sans exception ni log, donc invisible à la simple
+// lecture des retries déjà en place. Doit être appelée de façon SYNCHRONE
+// (avant tout `await`) depuis le gestionnaire onPress qui mène à un Battle
+// (jouer solo, rejoindre en ligne, accepter un défi/une revanche) --
+// jouer puis mettre en pause immédiatement sur le MÊME élément partagé
+// suffit à obtenir ce déblocage pour le reste de la session.
+export function unlockWebAudioForGesture(): void {
+  const element = getWebAudio();
+  if (!element) return;
+  try {
+    const playPromise = element.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise.then(() => { try { element.pause(); } catch {} }).catch(() => {});
+    } else {
+      try { element.pause(); } catch {}
+    }
+  } catch {}
+}

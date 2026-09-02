@@ -31,11 +31,20 @@ type BattleAvailabilityState = {
   // juste "on est sur l'onglet Soirées"), pour ne masquer le bandeau global
   // que quand un bandeau interne existe déjà pour la même invitation.
   battleScreenOpen: boolean;
+  // Adel (03/09/2026) : "dans Soirées tu mets que du fixe, la notification tu
+  // l'intègres uniquement dans Profil/Playlists/Découvertes/Écoute" -- le
+  // classement (onglet Soirées, Battle fermé) affiche déjà son propre
+  // bandeau fixe pour la même invitation/revanche (voir PartiesScreen) ;
+  // `battleScreenOpen` ne couvrait que l'arène elle-même grande ouverte, pas
+  // tout l'onglet Soirées. Ce flag reflète "l'écran Parties est monté",
+  // quel que soit son sous-onglet -- superset de `battleScreenOpen`.
+  partiesTabOpen: boolean;
   setAvailable: (value: boolean) => Promise<void>;
   autoEnable: () => Promise<void>;
   autoDisable: () => Promise<void>;
   syncFromServer: () => Promise<void>;
   setBattleScreenOpen: (value: boolean) => void;
+  setPartiesTabOpen: (value: boolean) => void;
   reset: () => void;
 };
 
@@ -60,7 +69,9 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
   activatedManually: false,
   busy: false,
   battleScreenOpen: false,
+  partiesTabOpen: false,
   setBattleScreenOpen: (value) => set({ battleScreenOpen: value }),
+  setPartiesTabOpen: (value) => set({ partiesTabOpen: value }),
   setAvailable: async (value) => {
     if (get().busy) return;
     if (get().available === value) {

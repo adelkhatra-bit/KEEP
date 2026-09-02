@@ -185,6 +185,29 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
   })).filter((row) => row.profileId);
 }
 
+// Adel (03/09/2026) : "quand j'appuie sur revanche, pareil, ça me met une
+// invite fixe" -- pour un membre qui n'a pas l'arène ouverte (accueil
+// Battle, classement...), seul moyen de savoir "ai-je une revanche en
+// attente de ma réponse" où que je sois dans l'app.
+export type KeepBattlePendingRematch = {
+  arenaId: string;
+  arenaCode: string;
+  themeCode: string;
+  rematchDeadline: string;
+  participantUsernames: string[];
+};
+
+export async function loadPendingArenaRematches(): Promise<KeepBattlePendingRematch[]> {
+  const { data, error } = await client().rpc('keep_battle_arena_pending_rematch_for_me');
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    arenaId: String(row.arena_id ?? row.arenaId ?? ''),
+    arenaCode: String(row.arena_code ?? row.arenaCode ?? ''),
+    themeCode: String(row.theme_code ?? row.themeCode ?? 'MIX'),
+    rematchDeadline: String(row.rematch_deadline ?? row.rematchDeadline ?? ''),
+    participantUsernames: Array.isArray(row.participant_usernames ?? row.participantUsernames) ? (row.participant_usernames ?? row.participantUsernames) : [],
+  })).filter((row) => row.arenaId);
+}
+
 // Adel (02/09/2026) : "un pop-up qui me permette de voir son style musical,
 // quel style il est vraiment imbattable, toutes les statistiques" -- appelé
 // à l'ouverture du pop-up d'un joueur (pas au chargement du classement
