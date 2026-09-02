@@ -175,6 +175,38 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
   })).filter((row) => row.profileId);
 }
 
+// Adel (02/09/2026) : "un pop-up qui me permette de voir son style musical,
+// quel style il est vraiment imbattable, toutes les statistiques" -- appelé
+// à l'ouverture du pop-up d'un joueur (pas au chargement du classement
+// entier) : un seul aller-retour indexé par profil, jamais N appels pour N
+// lignes du classement.
+export type KeepBattlePlayerThemeStat = { themeCode: string; wins: number; matches: number };
+export type KeepBattlePlayerStats = {
+  wins: number;
+  matchesPlayed: number;
+  totalScore: number;
+  totalCorrect: number;
+  avgResponseMs: number | null;
+  topThemes: KeepBattlePlayerThemeStat[];
+};
+
+export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
+  const { data, error } = await client().rpc('keep_battle_profile_battle_stats', { p_profile_id: profileId, p_theme_limit: 3 });
+  const row = unwrap(data as any, error);
+  return {
+    wins: Number(row.wins ?? 0),
+    matchesPlayed: Number(row.matchesPlayed ?? 0),
+    totalScore: Number(row.totalScore ?? 0),
+    totalCorrect: Number(row.totalCorrect ?? 0),
+    avgResponseMs: row.avgResponseMs ?? null,
+    topThemes: Array.isArray(row.topThemes) ? row.topThemes.map((t: any) => ({
+      themeCode: String(t.themeCode ?? ''),
+      wins: Number(t.wins ?? 0),
+      matches: Number(t.matches ?? 0),
+    })).filter((t: KeepBattlePlayerThemeStat) => t.themeCode) : [],
+  };
+}
+
 export type KeepBattleArenaCreated = {
   id: string;
   arenaCode: string;
