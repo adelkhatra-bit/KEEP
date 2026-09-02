@@ -142,6 +142,7 @@ export default function App() {
 
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
+        void useBattleAvailabilityStore.getState().syncFromServer();
         if (!session.isAnonymous) {
           registerForPushNotifications().catch(() => {});
         }

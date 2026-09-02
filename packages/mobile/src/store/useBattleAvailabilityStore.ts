@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { setManualBattleAvailability, pingManualBattleAvailability } from '../services/keepBattleLiveService';
+import { setManualBattleAvailability, pingManualBattleAvailability, getManualBattleAvailability } from '../services/keepBattleLiveService';
 
 // Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
 // rendre disponible même s'il est pas en train de faire des Battle ...
@@ -26,6 +26,7 @@ type BattleAvailabilityState = {
   setAvailable: (value: boolean) => Promise<void>;
   autoEnable: () => Promise<void>;
   autoDisable: () => Promise<void>;
+  syncFromServer: () => Promise<void>;
   reset: () => void;
 };
 
@@ -87,6 +88,23 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
       stopPing();
     } finally {
       set({ busy: false });
+    }
+  },
+  syncFromServer: async () => {
+    // Adel (02/09/2026) : "on va les laisser connecté par défaut ... lors de
+    // la première inscription" -- le nouveau profil part "disponible" côté
+    // serveur (voir le trigger de signup), mais le store côté client
+    // démarrait toujours à false. Appelé une fois au chargement de l'app :
+    // si le serveur dit "disponible", on le traite comme une activation
+    // MANUELLE (jamais coupée automatiquement en quittant Battle), exactement
+    // comme si l'utilisateur venait de l'activer lui-même depuis son profil.
+    if (get().busy) return;
+    try {
+      const value = await getManualBattleAvailability();
+      set({ available: value, activatedManually: value });
+      if (value) startPing(); else stopPing();
+    } catch {
+      // Silencieux : reste sur l'état local par défaut si la lecture échoue.
     }
   },
   reset: () => {

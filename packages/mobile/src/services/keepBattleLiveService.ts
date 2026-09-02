@@ -62,6 +62,12 @@ export async function pingManualBattleAvailability(): Promise<void> {
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
 }
 
+export async function getManualBattleAvailability(): Promise<boolean> {
+  const { data, error } = await client().rpc('keep_battle_get_manual_availability');
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_READ_FAILED'));
+  return Boolean(data);
+}
+
 export async function leaveSoloBattle(): Promise<void> {
   const { error } = await client().rpc('keep_battle_solo_leave');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));
