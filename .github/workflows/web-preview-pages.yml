@@ -36,6 +36,7 @@ jobs:
       EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
       EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
       EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+      EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
       NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
@@ -172,6 +173,7 @@ jobs:
           HTML
 
           touch _site/.nojekyll
+          printf '{"sha":"%s","builtAt":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
 
       - name: Verify generated route shells
         shell: bash
@@ -191,6 +193,8 @@ jobs:
           test -f _site/support/index.html
           test -f _site/mentions-legales/index.html
           test -f _site/keep-share.png
+          test -f _site/version.json
+          grep -q "$GITHUB_SHA" _site/version.json
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
           grep -q 'history.pushState=function' _site/index.html
@@ -238,6 +242,7 @@ jobs:
             "$base/support/"
             "$base/mentions-legales/"
             "$base/keep-share.png"
+            "$base/version.json"
           )
           for url in "${urls[@]}"; do
             code="$(curl -L --retry 5 --retry-delay 2 --connect-timeout 10 --max-time 30 -sS -o /tmp/keep-live.html -w '%{http_code}' "$url")"

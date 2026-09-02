@@ -6,8 +6,10 @@ import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
+import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import { useUserStore } from './src/store/useUserStore';
+import { useAppUpdateStore } from './src/store/useAppUpdateStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { useBattleAvailabilityStore } from './src/store/useBattleAvailabilityStore';
@@ -71,6 +73,28 @@ export default function App() {
       // Le navigateur peut refuser certains réglages (mode privé, etc.) :
       // l'app reste utilisable, seul ce filet de sécurité est perdu.
     }
+  }, []);
+
+  // Adel (02/09/2026) : "comme une application normale ... popup pour qu'il
+  // puisse faire sa mise à jour, toujours avoir la possibilité de dire je la
+  // ferai plus tard" -- vérifie périodiquement si le bundle déployé est plus
+  // récent que celui chargé (voir useAppUpdateStore), et revérifie chaque
+  // fois que l'onglet redevient visible (retour d'un switch d'app), pas
+  // seulement sur une minuterie fixe.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    void useAppUpdateStore.getState().checkNow();
+    const interval = setInterval(() => { void useAppUpdateStore.getState().checkNow(); }, 15 * 60 * 1000);
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void useAppUpdateStore.getState().checkNow();
+      }
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -206,6 +230,7 @@ export default function App() {
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
       {user ? <GlobalNotificationBanner /> : null}
+      <AppUpdateBanner />
       <AlertHost />
       <StatusBar style="light" backgroundColor={colors.background} />
     </>
