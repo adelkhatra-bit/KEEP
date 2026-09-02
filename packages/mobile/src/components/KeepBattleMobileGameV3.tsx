@@ -441,7 +441,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // (GAGNÉ/PERDU) qui s'affichent au moment même de la réponse. 1800ms
     // reprend la même pause déjà utilisée ailleurs dans ce fichier pour un
     // temps de lecture du résultat.
-    const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 1800);
+    // Adel (02/09/2026) : "essaye de ralentir la cadence pour que
+    // l'utilisateur puisse voir s'il a eu la bonne réponse ou pas" -- 1800ms
+    // ne laissait pas assez de temps de lecture du résultat + bonne réponse
+    // avant d'enchaîner sur la manche suivante.
+    const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 2800);
     return () => clearTimeout(id);
   }, [solo, soloAnswer, soloIndex, celebrate, saveSessionEnabled]);
 
@@ -509,6 +513,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const id = setTimeout(() => { void startKeepBattleArena(arena.id).then((a) => { setArena(a); animateVersus(); }).catch(() => {}); }, 1800);
     return () => clearTimeout(id);
   }, [arena?.id, arena?.status, arena?.isHost, arena?.matchNo, arena?.seats.length, animateVersus]);
+
+  // Adel (02/09/2026) : "si l'utilisateur il a plus personne avec lui, ça le
+  // sort automatiquement du Battle et le remet sur le départ, il peut
+  // rejouer tout seul ou pas" -- sur l'écran de fin de match, si tout le
+  // monde a refusé/quitté la revanche et qu'il ne reste plus que moi, rester
+  // bloqué sur cet écran ("AJOUTER UN JOUEUR"/REVANCHE) n'a plus de sens.
+  // Retour à l'accueil Battle (pas Soirées) : JOUER SOLO reste possible.
+  React.useEffect(() => {
+    if (!arena || arena.status !== 'WAITING' || !arena.lastResult || arena.rematchDeadline || arena.seats.length >= 2) return undefined;
+    const id = setTimeout(() => { void leaveKeepBattleArena(arena.id).catch(() => {}); setArena(null); }, 1600);
+    return () => clearTimeout(id);
+  }, [arena?.id, arena?.status, arena?.lastResult?.matchNo, arena?.rematchDeadline, arena?.seats.length]);
 
   const runStartSolo = async (saveSession: boolean) => {
     if (busy) return;
@@ -932,7 +948,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               </View>
             </Animated.View>
           ) : (
-            <TouchableOpacity disabled={busy || Boolean(rematchDeadline)} style={s.finishPrimary} onPress={() => { setBusy(true); void proposeKeepBattleArenaRematch(arena.id).then(setArena).catch((e: any) => Alert.alert('Battle', String(e?.message || 'Impossible de proposer une revanche.'))).finally(() => setBusy(false)); }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : rematchDeadline ? `EN ATTENTE DES AUTRES · ${rematchRemaining}s` : 'REVANCHE'}</Text></TouchableOpacity>
+            <TouchableOpacity disabled={busy || Boolean(rematchDeadline)} style={s.finishPrimary} onPress={() => {
+              setBusy(true);
+              void proposeKeepBattleArenaRematch(arena.id).then(setArena).catch((e: any) => {
+                // Adel (02/09/2026) : "Battle / BATTLE_ARENA_FORBIDDEN" -- un
+                // code d'erreur brut s'affichait tel quel au lieu d'un
+                // message compréhensible.
+                const message = String(e?.message || e || '');
+                if (message.includes('BATTLE_ARENA_FORBIDDEN')) Alert.alert('Battle', 'Tu ne fais plus partie de ce groupe. Rejoins un nouveau Battle.');
+                else if (message.includes('MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert('Il te faut au moins 3 Free pour relancer un Battle');
+                else Alert.alert('Battle', 'Impossible de proposer une revanche pour le moment.');
+              }).finally(() => setBusy(false));
+            }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : rematchDeadline ? `EN ATTENTE DES AUTRES · ${rematchRemaining}s` : 'REVANCHE'}</Text></TouchableOpacity>
           )}
           {arenaTrackCount > 0 ? (
             arenaSessionId ? (
@@ -947,7 +974,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           ) : null}
           {arena.openSeats > 0 ? <TouchableOpacity style={s.finishSecondary} onPress={() => { if (arenaInviteOpen) setArenaInviteOpen(false); else void openArenaInviteList(); }}><Text style={s.finishSecondaryText}>{arenaInviteOpen ? 'FERMER LES INVITATIONS' : `AJOUTER UN JOUEUR · ${arena.openSeats} PLACE${arena.openSeats > 1 ? 'S' : ''}`}</Text></TouchableOpacity> : null}
           {arenaInviteOpen ? <View style={s.arenaInvitePanel}><Text style={s.arenaInviteTitle}>JOUEURS DISPONIBLES · GROUPE {arena.seats.length}/10</Text>{busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <ScrollView style={s.arenaInviteScroll} contentContainerStyle={s.arenaInviteList}>{livePlayers.map((player) => { const invited = arenaInvitedIds.includes(player.profileId); return <View key={player.profileId} style={s.arenaInviteRow}><TouchableOpacity onPress={() => onOpenProfile(player.username)}><Avatar name={player.username} url={player.avatarUrl} size={46} /></TouchableOpacity><View style={{ flex: 1 }}><Text style={s.arenaInviteName}>@{player.username}</Text><Text style={s.arenaInviteMeta}>● disponible · {themeLabel(player.themeCode)}</Text></View><TouchableOpacity accessibilityRole="button" hitSlop={10} disabled={invited || Boolean(arenaInviteBusyId)} style={[s.arenaInviteButton, invited && s.actionDisabled]} onPress={() => { void invitePlayerToArena(player); }}><Text style={s.arenaInviteButtonText}>{arenaInviteBusyId === player.profileId ? 'ENVOI…' : invited ? 'INVITÉ' : 'INVITER'}</Text></TouchableOpacity></View>; })}</ScrollView> : <Text style={s.arenaInviteEmpty}>Aucun autre joueur disponible pour le moment.</Text>}<TouchableOpacity style={s.arenaShareButton} onPress={() => { void shareArenaInvite(arena); }}><Text style={s.arenaShareButtonText}>INVITER UN AMI PAR LIEN</Text></TouchableOpacity></View> : null}
-          <TouchableOpacity style={s.finishSecondary} onPress={() => { setArenaInviteOpen(false); void leaveKeepBattleArena(arena.id).catch(() => {}); setArena(null); void stopTrackPreview(); }}><Text style={s.finishSecondaryText}>QUITTER LE BATTLE</Text></TouchableOpacity>
+          {/* Adel (02/09/2026) : "quand j'appuie sur quitter, il faut que je
+              quitte automatiquement et ça me remette sur soirée" -- QUITTER
+              LE BATTLE ne devait ramener qu'à l'accueil Battle interne
+              (JOUER SOLO / BATTLE EN LIGNE), pas sortir complètement comme le
+              ×. Même comportement que closeBattleArena désormais. */}
+          <TouchableOpacity style={s.finishSecondary} onPress={() => { setArenaInviteOpen(false); closeBattleArena(); }}><Text style={s.finishSecondaryText}>QUITTER LE BATTLE</Text></TouchableOpacity>
         </ScrollView>
       </View>;
     }
