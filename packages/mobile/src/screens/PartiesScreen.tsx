@@ -105,13 +105,17 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [incomingBattle, setIncomingBattle] = useState<KeepBattleIncomingChallenge[]>([]);
   const [incomingResponding, setIncomingResponding] = useState<string | null>(null);
   useEffect(() => {
-    if (partiesTab !== 'BATTLE' || !battleFeatureEnabled || battleOpen || !user || isLocalGuest || isDemoMode) { setIncomingBattle([]); return; }
+    // Adel (03/09/2026) : "il doit être en soirée, il doit être dans Battle,
+    // il est de partout pour pas le louper" -- ce bandeau doit vivre sur
+    // TOUT l'écran Soirées, y compris le sous-onglet SOIRÉES (événements),
+    // pas seulement le sous-onglet BATTLE.
+    if (!battleFeatureEnabled || battleOpen || !user || isLocalGuest || isDemoMode) { setIncomingBattle([]); return; }
     let live = true;
     const poll = () => { loadIncomingBattleChallenges().then((rows) => { if (live) setIncomingBattle(rows); }).catch(() => {}); };
     poll();
     const id = setInterval(poll, 2000);
     return () => { live = false; clearInterval(id); };
-  }, [partiesTab, battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
+  }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
   const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
     setIncomingResponding(challenge.id);
     respondBattleChallenge(challenge.id, accept).then((result) => {
@@ -135,13 +139,13 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [pendingRematchLB, setPendingRematchLB] = useState<KeepBattlePendingRematch[]>([]);
   const [rematchResponding, setRematchResponding] = useState<string | null>(null);
   useEffect(() => {
-    if (partiesTab !== 'BATTLE' || !battleFeatureEnabled || battleOpen || !user || isLocalGuest || isDemoMode) { setPendingRematchLB([]); return; }
+    if (!battleFeatureEnabled || battleOpen || !user || isLocalGuest || isDemoMode) { setPendingRematchLB([]); return; }
     let live = true;
     const poll = () => { loadPendingArenaRematches().then((rows) => { if (live) setPendingRematchLB(rows); }).catch(() => {}); };
     poll();
     const id = setInterval(poll, 2000);
     return () => { live = false; clearInterval(id); };
-  }, [partiesTab, battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
+  }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
   const respondPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
     setRematchResponding(item.arenaId);
     respondKeepBattleArenaRematch(item.arenaId, accept).then(() => {
@@ -332,7 +336,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
           initialArenaId={pendingArenaId}
-          onOpenProfile={(username) => navigation.navigate('PublicUserProfile', { username })}
+          onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
           onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
           onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
@@ -359,6 +363,31 @@ export default function PartiesScreen({ navigation, route }: any) {
         </View>
       ) : null}
 
+      {/* Adel (03/09/2026) : "il doit être en soirée, il doit être dans
+          Battle, il est de partout pour pas le louper" -- bandeaux fixes
+          d'invite/revanche rendus ICI, avant le choix du sous-onglet, pour
+          rester visibles que l'utilisateur soit sur SOIRÉES (événements) ou
+          BATTLE (classement) -- ils vivaient uniquement dans la branche
+          BATTLE avant, invisibles sur le sous-onglet SOIRÉES. */}
+      {incomingBattle.map((challenge) => (
+        <View key={challenge.id} style={styles.incomingBanner}>
+          <Text style={styles.incomingText}><Text style={styles.incomingName}>@{challenge.username}</Text> souhaite faire un Battle avec toi. Acceptes-tu ?</Text>
+          <View style={styles.incomingActions}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
+          </View>
+        </View>
+      ))}
+      {!incomingBattle.length ? pendingRematchLB.map((item) => (
+        <View key={item.arenaId} style={styles.incomingBanner}>
+          <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `@${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
+          <View style={styles.incomingActions}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingNo, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingYes, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, true)}><Text style={styles.incomingYesText}>{rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
+          </View>
+        </View>
+      )) : null}
+
       {partiesTab === 'SOIREES' ? <>
         {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro 9,99 € · 1 soirée/mois. Venue Pro 29,99 € · soirées illimitées.</Text></TouchableOpacity>
           : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
@@ -378,24 +407,6 @@ export default function PartiesScreen({ navigation, route }: any) {
         </> : null}
       </> : (
         <>
-          {incomingBattle.map((challenge) => (
-            <View key={challenge.id} style={styles.incomingBanner}>
-              <Text style={styles.incomingText}><Text style={styles.incomingName}>@{challenge.username}</Text> souhaite faire un Battle avec toi. Acceptes-tu ?</Text>
-              <View style={styles.incomingActions}>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          {!incomingBattle.length ? pendingRematchLB.map((item) => (
-            <View key={item.arenaId} style={styles.incomingBanner}>
-              <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `@${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
-              <View style={styles.incomingActions}>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingNo, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingYes, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, true)}><Text style={styles.incomingYesText}>{rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
-              </View>
-            </View>
-          )) : null}
           {/* Adel (02/09/2026) : "le bouton salon musical au-dessus du
               classement global, jouer en jaune au lieu de violet, le contour
               du bouton battle en jaune" -- le lanceur passe avant le
@@ -470,8 +481,8 @@ export default function PartiesScreen({ navigation, route }: any) {
                     <TouchableOpacity style={[styles.statsFollowButton, statsFollowing && styles.statsFollowButtonActive]} disabled={statsFollowBusy} onPress={toggleStatsFollow}>
                       <Text style={[styles.statsFollowButtonText, statsFollowing && styles.statsFollowButtonTextActive]}>{statsFollowing ? '✓ ABONNÉ(E)' : '+ SUIVRE'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.statsProfileButtonSmall} onPress={() => { navigation.navigate('PublicUserProfile', { username: statsEntry.username }); setStatsEntry(null); }}>
-                      <Text style={styles.statsProfileButtonText}>PROFIL COMPLET</Text>
+                    <TouchableOpacity style={styles.statsProfileButtonSmall} onPress={() => { navigation.navigate('PublicProfile', { username: statsEntry.username }); setStatsEntry(null); }}>
+                      <Text style={styles.statsProfileButtonText}>VOIR PROFIL</Text>
                     </TouchableOpacity>
                   </View>
                 </>

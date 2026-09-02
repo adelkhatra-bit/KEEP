@@ -1224,32 +1224,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 juste sous le nom du gagnant lit comme une contradiction. */}
             <Text style={arena.lastResult.won ? s.finishWon : s.finishLost}>{arena.lastResult.won ? `TOI : +${arena.lastResult.creditDelta} FREE · GAGNÉ` : `TOI : ${arena.lastResult.creditDelta} FREE · MATCH TERMINÉ`}</Text>
           </Animated.View>
-          {/* Adel (02/09/2026) : "d'un côté les gagnants d'un côté les
-              perdants, le nombre de secondes en tout petit ... pas besoin de
-              mettre des photos, juste les trophées ... ça va inspirer TikTok
-              pour les matchs" -- classement complet de CE match (pas le
-              cumul multi-matchs de PALMARÈS ci-dessous), compact, sans avatar. */}
-          {arena.lastMatchResults && arena.lastMatchResults.length > 0 ? (
-            <View style={s.matchRanking}>
-              <Text style={s.matchRankingTitle}>CE MATCH</Text>
-              {arena.lastMatchResults.map((entry) => (
-                <TouchableOpacity key={entry.profileId} accessibilityRole="button" onPress={() => onOpenProfile(entry.username)} style={[s.matchRankRow, entry.won ? s.matchRankRowWon : s.matchRankRowLost]}>
-                  <Text style={s.matchRankTrophy}>{entry.placement === 1 ? '🏆' : entry.placement === 2 ? '🥈' : entry.placement === 3 ? '🥉' : entry.placement}</Text>
-                  <Text numberOfLines={1} style={s.matchRankName}>@{entry.username}</Text>
-                  <Text style={s.matchRankScore}>{entry.score} pts</Text>
-                  <Text style={s.matchRankCorrect}>✓{entry.correct}·✕{Math.max(0, arena.roundCount - entry.correct)}</Text>
-                  <Text style={s.matchRankTime}>{(entry.responseMs / 1000).toFixed(1)}s</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
-          {palmares.length ? <View style={s.palmares}><Text style={s.palmaresTitle}>PALMARÈS · TOP 3</Text>{palmares.map((entry, index) => <TouchableOpacity key={entry.profileId} accessibilityRole="button" onPress={() => onOpenProfile(entry.username)} style={s.palmaresRow}><Text style={s.palmaresRank}>{index + 1}</Text><Avatar name={entry.username} url={entry.avatarUrl} size={38} /><Text numberOfLines={1} style={s.palmaresName}>@{entry.username}</Text><Text style={s.palmaresWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text></TouchableOpacity>)}</View> : null}
-          <Text style={s.finishQuestion}>Le groupe reste ensemble. Et maintenant ?</Text>
-          {/* Adel (02/09/2026) : "il faut que ça envoie un popup à tout le
-              monde ... souhaitez-vous oui ou non, celui qui veut rentrer il
-              rentre, celui qui veut arrêter il arrête" -- REVANCHE ne relance
-              plus le match instantanément pour tout le groupe : ça propose,
-              chacun répond, et seuls ceux qui ont dit oui rejouent. */}
+          {/* Adel (03/09/2026) : "c'est à cet endroit-là qu'il faut rajouter
+              un bouton accepte ou refuse pour la revanche" -- déplacé juste
+              sous le score, premier élément visible sans défiler, au lieu
+              d'être plus bas après CE MATCH/PALMARÈS où il pouvait passer
+              inaperçu. Adel (02/09/2026) : "il faut que ça envoie un popup à
+              tout le monde ... souhaitez-vous oui ou non, celui qui veut
+              rentrer il rentre, celui qui veut arrêter il arrête" -- REVANCHE
+              ne relance plus le match instantanément pour tout le groupe : ça
+              propose, chacun répond, et seuls ceux qui ont dit oui rejouent. */}
           {rematchDeadline && arenaMeRematchReady !== true ? (
             <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}>
               <View style={s.inviteHead}>
@@ -1278,7 +1261,34 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={rematchResponding} style={[s.yes, rematchResponding && s.actionDisabled]} onPress={() => { unlockWebAudioForGesture(); setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, true).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.yesText}>{rematchResponding ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
               </View>
             </Animated.View>
-          ) : (
+          ) : null}
+          {/* Adel (02/09/2026) : "d'un côté les gagnants d'un côté les
+              perdants, le nombre de secondes en tout petit ... pas besoin de
+              mettre des photos, juste les trophées ... ça va inspirer TikTok
+              pour les matchs" -- classement complet de CE match (pas le
+              cumul multi-matchs de PALMARÈS ci-dessous), compact, sans avatar. */}
+          {arena.lastMatchResults && arena.lastMatchResults.length > 0 ? (
+            <View style={s.matchRanking}>
+              <Text style={s.matchRankingTitle}>CE MATCH</Text>
+              {arena.lastMatchResults.map((entry) => (
+                <TouchableOpacity key={entry.profileId} accessibilityRole="button" onPress={() => onOpenProfile(entry.username)} style={[s.matchRankRow, entry.won ? s.matchRankRowWon : s.matchRankRowLost]}>
+                  <Text style={s.matchRankTrophy}>{entry.placement === 1 ? '🏆' : entry.placement === 2 ? '🥈' : entry.placement === 3 ? '🥉' : entry.placement}</Text>
+                  <Text numberOfLines={1} style={s.matchRankName}>@{entry.username}</Text>
+                  <Text style={s.matchRankScore}>{entry.score} pts</Text>
+                  <Text style={s.matchRankCorrect}>✓{entry.correct}·✕{Math.max(0, arena.roundCount - entry.correct)}</Text>
+                  <Text style={s.matchRankTime}>{(entry.responseMs / 1000).toFixed(1)}s</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+          {palmares.length ? <View style={s.palmares}><Text style={s.palmaresTitle}>PALMARÈS · TOP 3</Text>{palmares.map((entry, index) => <TouchableOpacity key={entry.profileId} accessibilityRole="button" onPress={() => onOpenProfile(entry.username)} style={s.palmaresRow}><Text style={s.palmaresRank}>{index + 1}</Text><Avatar name={entry.username} url={entry.avatarUrl} size={38} /><Text numberOfLines={1} style={s.palmaresName}>@{entry.username}</Text><Text style={s.palmaresWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text></TouchableOpacity>)}</View> : null}
+          <Text style={s.finishQuestion}>Le groupe reste ensemble. Et maintenant ?</Text>
+          {/* Adel (02/09/2026) : "il faut que ça envoie un popup à tout le
+              monde ... souhaitez-vous oui ou non, celui qui veut rentrer il
+              rentre, celui qui veut arrêter il arrête" -- REVANCHE ne relance
+              plus le match instantanément pour tout le groupe : ça propose,
+              chacun répond, et seuls ceux qui ont dit oui rejouent. */}
+          {rematchDeadline && arenaMeRematchReady !== true ? null : (
             <TouchableOpacity disabled={busy || Boolean(rematchDeadline)} style={s.finishPrimary} onPress={() => {
               unlockWebAudioForGesture();
               setBusy(true);
