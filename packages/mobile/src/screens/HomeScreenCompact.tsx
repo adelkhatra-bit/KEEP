@@ -257,7 +257,13 @@ export default function HomeScreenCompact({ navigation }: any) {
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
       <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
-        <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveText}>{recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
+        {/* Adel (02/09/2026) : "tu as désactivé le micro sur l'iPhone" --
+            trouvé en audit : cette pastille ne reflétait jamais le vrai état
+            du micro, juste "une session tourne" (recognizing/pas). Le
+            navigateur pouvait refuser la permission (bannière rouge juste en
+            dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
+            deux signaux contradictoires à l'écran en même temps. */}
+        <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{error ? 'MICRO · BLOQUÉ' : recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
 
         <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
           <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
@@ -455,7 +461,9 @@ const s = StyleSheet.create({
   mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
   liveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green, marginRight: 6 },
+  liveDotError: { backgroundColor: C.pink },
   liveText: { color: C.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  liveTextError: { color: C.pink },
   signalFrame: { position: 'relative', borderRadius: 13, padding: 3, backgroundColor: 'rgba(21,16,32,0.75)', overflow: 'hidden' },
   signalGlow: { ...StyleSheet.absoluteFillObject, borderRadius: 13, borderWidth: 1.5, borderColor: C.green },
   signalTop: { position: 'absolute', left: 16, right: 16, top: 0, height: 2, borderRadius: 2, backgroundColor: C.purpleLight },
