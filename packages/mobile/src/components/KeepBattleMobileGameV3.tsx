@@ -881,8 +881,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const teamB = players.filter((_, index) => index % 2 === 1);
     const teamAScore = teamA.reduce((sum, player) => sum + Number(player?.score || 0), 0);
     const teamBScore = teamB.reduce((sum, player) => sum + Number(player?.score || 0), 0);
-    const teamTotal = Math.max(1, teamAScore + teamBScore);
-    const leftShare = Math.max(12, Math.min(88, (teamAScore / teamTotal) * 100));
+    // Adel (02/09/2026) : "la jauge du VS ... ça part du milieu, c'est 0-0"
+    // -- avec 0-0, teamAScore/Math.max(1,0) valait 0/1=0%, plafonné au
+    // minimum de 12% au lieu du centre (50%). La jauge démarrait donc
+    // toujours décalée vers l'équipe B avant la première bonne réponse.
+    const teamPointsSum = teamAScore + teamBScore;
+    const leftShare = teamPointsSum === 0 ? 50 : Math.max(12, Math.min(88, (teamAScore / teamPointsSum) * 100));
     const versusLabel = players.length > 2 ? `ÉQUIPE A (${teamA.length}) VS ÉQUIPE B (${teamB.length})` : `${first ? `@${first.username}` : 'Loki'} VS ${second ? `@${second.username}` : 'Loki'}`;
     const palmares = Array.from(winnerHistory.reduce((map, row) => {
       const current = map.get(row.profileId) || { ...row, wins: 0 };
