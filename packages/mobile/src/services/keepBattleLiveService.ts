@@ -98,8 +98,8 @@ export async function reportSoloBattleResult(correct: number, total: number): Pr
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_SOLO_REPORT_FAILED'));
 }
 
-export async function sendBattleChallenge(targetId: string, themeCode: string): Promise<{ id: string; status: string; expiresAt?: string }> {
-  const { data, error } = await client().rpc('keep_battle_challenge_send', { p_target_id: targetId, p_theme_code: themeCode || 'MIX' });
+export async function sendBattleChallenge(targetId: string, themeCode: string, roundCount = 8): Promise<{ id: string; status: string; expiresAt?: string }> {
+  const { data, error } = await client().rpc('keep_battle_challenge_send', { p_target_id: targetId, p_theme_code: themeCode || 'MIX', p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_FAILED'));
   return {
     id: String((data as any)?.id || ''),

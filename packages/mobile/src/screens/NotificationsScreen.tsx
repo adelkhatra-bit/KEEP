@@ -15,6 +15,7 @@ import {
   subscribeToNotifications,
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
+import { loadCurrentPlanCode } from '../services/planService';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -45,12 +46,31 @@ function notificationTypeLabel(type: string) {
 export default function NotificationsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const [items, setItems] = useState<KeepNotification[]>([]);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: false });
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Adel (03/09/2026) : "le Marketing devrait toujours rester activé, sauf
+  // pour ceux qui payent au moins 9,99€ (Creator Pro) ou 29,99€ (Venue
+  // Pro) -- eux n'ont pas d'obligation" -- gratuit : notifications
+  // Marketing obligatoires (interrupteur verrouillé sur activé). Payant :
+  // libre de les désactiver.
+  const [planCode, setPlanCode] = useState('FREE');
+  const marketingLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  useEffect(() => {
+    if (!user) return;
+    let live = true;
+    loadCurrentPlanCode(user.id).then((code) => { if (live) setPlanCode(code || 'FREE'); }).catch(() => {});
+    return () => { live = false; };
+  }, [user?.id]);
+  useEffect(() => {
+    if (marketingLocked && prefs.marketingEnabled === false && user) {
+      void updatePrefs({ marketingEnabled: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketingLocked, prefs.marketingEnabled, user?.id]);
 
   const refresh = async () => {
     if (!user) return;
@@ -284,17 +304,41 @@ export default function NotificationsScreen({ navigation }: any) {
           {/* Adel (01/09/2026) : "DJ & soirées" contrôlait les invitations
               d'événements -- retiré volontairement, ce n'est plus un choix
               laissé à l'utilisateur (pas de publicité sur Loki à équilibrer). */}
-          <Preference label="Système" value={prefs.systemEnabled} onValueChange={(v) => updatePrefs({ systemEnabled: v })} />
-          <Preference label="Social" value={prefs.socialEnabled} onValueChange={(v) => updatePrefs({ socialEnabled: v })} />
-          <Preference label="Marketing" value={prefs.marketingEnabled} onValueChange={(v) => updatePrefs({ marketingEnabled: v })} />
+          <Preference
+            label="Système"
+            hint="Alertes essentielles de ton compte : sécurité, connexion, activité importante."
+            value={prefs.systemEnabled}
+            onValueChange={(v) => updatePrefs({ systemEnabled: v })}
+          />
+          <Preference
+            label="Social"
+            hint="Nouveaux abonnés, visites de ton profil, partages musicaux entre utilisateurs."
+            value={prefs.socialEnabled}
+            onValueChange={(v) => updatePrefs({ socialEnabled: v })}
+          />
+          <Preference
+            label="Marketing"
+            hint={marketingLocked
+              ? "Offres et actualités Loki. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
+              : 'Offres et actualités Loki. Tu peux le désactiver, ta formule te le permet.'}
+            value={marketingLocked ? true : prefs.marketingEnabled}
+            onValueChange={(v) => { if (!marketingLocked) updatePrefs({ marketingEnabled: v }); }}
+            locked={marketingLocked}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Preference({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (value: boolean) => void }) {
-  return <View style={styles.preference}><Text style={styles.preferenceLabel}>{label}</Text><Switch value={value} onValueChange={onValueChange} trackColor={{ false: '#2A2035', true: '#6D35CF' }} thumbColor={value ? '#C3ADFF' : '#8F879D'} /></View>;
+function Preference({ label, hint, value, onValueChange, locked }: { label: string; hint?: string; value: boolean; onValueChange: (value: boolean) => void; locked?: boolean }) {
+  return <View style={styles.preference}>
+    <View style={styles.preferenceCopy}>
+      <Text style={styles.preferenceLabel}>{label}{locked ? ' · 🔒' : ''}</Text>
+      {hint ? <Text style={styles.preferenceItemHint}>{hint}</Text> : null}
+    </View>
+    <Switch value={value} onValueChange={onValueChange} disabled={locked} trackColor={{ false: '#2A2035', true: '#6D35CF' }} thumbColor={value ? '#C3ADFF' : '#8F879D'} />
+  </View>;
 }
 
 const styles = StyleSheet.create({
@@ -314,8 +358,10 @@ const styles = StyleSheet.create({
   sectionTitleNoMargin: { color: '#F8F6FC', fontSize: 16, fontWeight: '900' },
   clearText: { color: '#FF7D92', fontSize: 10, fontWeight: '900' },
   preferenceHint: { color:'#FFFFFF', fontSize: 10, lineHeight: 15, marginBottom: spacing.md },
-  preference: { minHeight: 56, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: radius.md, marginBottom: spacing.sm },
+  preference: { minHeight: 56, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: radius.md, marginBottom: spacing.sm },
+  preferenceCopy: { flex: 1, minWidth: 0 },
   preferenceLabel: { color: '#F8F6FC', fontSize: 13, fontWeight: '700' },
+  preferenceItemHint: { color: '#FFFFFF', fontSize: 11, lineHeight: 15, marginTop: 3 },
   card: { backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: 16, marginBottom: spacing.sm, overflow: 'hidden' },
   cardUnread: { borderColor: '#8B5CF6', backgroundColor: '#1B1329' },
   cardMain: { padding: spacing.md, paddingBottom: spacing.sm },

@@ -95,7 +95,7 @@ function simplifyArtistCredit(raw: string): string {
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleSoloPack> {
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
     p_theme_code: themeCode.toUpperCase(),
-    p_round_count: Math.max(5, Math.min(roundCount, 12)),
+    p_round_count: Math.max(5, Math.min(roundCount, 30)),
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;

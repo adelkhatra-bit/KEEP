@@ -101,7 +101,7 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('STYLE DU MATCH');
     expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
     expect(source).toContain('`BATTLE · ${themeLabel(themeCode)}`');
-    expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode)');
+    expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode, roundCount)');
   });
 
   it('polls incoming challenges throughout Battle before an arena starts', () => {
@@ -139,8 +139,8 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
   });
 
-  it('shows a complete 8-round endgame with replay and challenge choices', () => {
-    expect(source).toContain('PARFAIT · 8/8');
+  it('shows a complete endgame (round count now selectable, 8/15/20/30) with replay and challenge choices', () => {
+    expect(source).toContain('PARFAIT · ${solo.rounds.length}/${solo.rounds.length}');
     expect(source).toContain('REFAIRE UNE PARTIE');
     expect(source).toContain('DÉFIER UN JOUEUR');
     expect(source).toContain('INVITER UN AMI');

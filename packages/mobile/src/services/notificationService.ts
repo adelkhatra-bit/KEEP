@@ -18,11 +18,15 @@ export type NotificationPreferences = {
   marketingEnabled: boolean;
 };
 
+// Adel (03/09/2026) : "le Marketing devrait tout le temps rester activé,
+// hormis pour ceux qui payent au moins 9,99€" -- obligatoire par défaut pour
+// un nouveau profil (formule gratuite) ; NotificationsScreen le déverrouille
+// et laisse le choix uniquement à partir de Creator Pro/Venue Pro.
 const DEFAULT_PREFS: NotificationPreferences = {
   systemEnabled: true,
   djEnabled: true,
   socialEnabled: true,
-  marketingEnabled: false,
+  marketingEnabled: true,
 };
 
 function mapNotificationRow(row: any): KeepNotification {

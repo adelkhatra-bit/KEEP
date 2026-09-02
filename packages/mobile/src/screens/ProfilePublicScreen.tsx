@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
 import { CanonicalTrack, computeMusicDNA, DnaSourceDecision, ProviderPlaylist } from '@keep/music';
@@ -29,6 +29,28 @@ import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
+
+// Adel (03/09/2026) : "un voyant ou quelque chose qui clignote pour dire
+// qu'il est connecté, et quand il est déconnecté un truc rouge" -- l'ancien
+// indicateur (🟢/⚪, texte fixe) ne clignotait pas et le "hors ligne" (blanc)
+// ne se lisait pas clairement comme une alerte. Vert clignotant en ligne,
+// rouge fixe hors ligne, comme les grandes apps de messagerie.
+function PresenceDot({ online }: { online: boolean }) {
+  const opacity = React.useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!online) { opacity.setValue(1); return undefined; }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [online, opacity]);
+  return <Animated.View style={[ppPresenceStyles.dot, { backgroundColor: online ? '#38D990' : '#FF5F6D', opacity }]} />;
+}
+const ppPresenceStyles = StyleSheet.create({ dot: { width: 10, height: 10, borderRadius: 5 } });
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
@@ -526,7 +548,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               accessibilityState={{ checked: battleAvailable }}
               accessibilityLabel="Disponible pour un Battle"
             >
-              <Text style={s.battleAvailabilityDot}>{battleAvailable ? '🟢' : '⚪'}</Text>
+              <PresenceDot online={battleAvailable} />
               <Text style={s.battleAvailabilityTitle}>{battleAvailable ? 'Disponible' : 'Indisponible'}</Text>
             </TouchableOpacity>
             <TouchableOpacity hitSlop={8} onPress={() => setBattleAvailabilityInfoOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="Comment marche la disponibilité Battle">
