@@ -361,19 +361,30 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         animateVersus();
         return;
       }
+      // Adel (02/09/2026) : "sa aussi pas logique" -- un popup "invitation
+      // expirée/refusée" surgissait EN PLEIN MILIEU d'une manche solo en
+      // cours (question affichée, chrono qui tourne), puisque ce tick
+      // tourne toutes les 650ms sans se soucier de ce que l'utilisateur est
+      // en train de faire. On retarde l'alerte tant qu'une manche solo est
+      // activement en attente de réponse ; elle s'affichera dès que la
+      // manche est répondue/révélée (prochain tick, id pas encore marqué
+      // "handled" donc toujours dans la liste).
       const freshFeedback = outbox.filter((x) => (x.status === 'DECLINED' || x.status === 'EXPIRED') && !handledOutgoingIdsRef.current.has(x.id));
-      for (const feedback of freshFeedback) {
-        handledOutgoingIdsRef.current.add(feedback.id);
-        Alert.alert(
-          feedback.status === 'DECLINED' ? 'Battle refusé' : 'Invitation expirée',
-          feedback.status === 'DECLINED'
-            ? `@${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki à un ami.`
-            : `@${feedback.username} n’a pas répondu à temps. Invite un autre joueur ou partage Loki à un ami.`,
-          [{ text: 'Continuer', style: 'cancel' }, { text: 'Inviter un ami', onPress: () => { void shareInvite(); } }],
-        );
+      const soloRoundInProgress = Boolean(solo) && !soloAnswer;
+      if (!soloRoundInProgress) {
+        for (const feedback of freshFeedback) {
+          handledOutgoingIdsRef.current.add(feedback.id);
+          Alert.alert(
+            feedback.status === 'DECLINED' ? 'Battle refusé' : 'Invitation expirée',
+            feedback.status === 'DECLINED'
+              ? `@${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki à un ami.`
+              : `@${feedback.username} n’a pas répondu à temps. Invite un autre joueur ou partage Loki à un ami.`,
+            [{ text: 'Continuer', style: 'cancel' }, { text: 'Inviter un ami', onPress: () => { void shareInvite(); } }],
+          );
+        }
       }
     } catch {}
-  }, [enabled, solo, browseOnline, animateVersus, shareInvite]);
+  }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite]);
 
   React.useEffect(() => {
     if (!enabled || arena) return undefined;
