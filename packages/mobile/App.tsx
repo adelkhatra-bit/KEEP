@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import './src/i18n';
@@ -46,6 +47,30 @@ export default function App() {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
     const state = useUserStore.getState();
     if (!state.user) state.enterDemoMode();
+  }, []);
+
+  // Adel (02/09/2026) : "quand je réfraîchis ... faut que je le remette avec
+  // mes doigts" -- sur iPhone Safari uniquement (jamais reproduit sur
+  // Chromium desktop/mobile, testé en direct), un rafraîchissement pouvait
+  // laisser la page avec un décalage de défilement horizontal résiduel
+  // (l'historique du navigateur tente de restaurer une position de scroll
+  // après reload ; iOS Safari peut aussi garder un léger rebond horizontal
+  // d'un précédent overscroll). Le texte semblait alors "coupé" à droite
+  // jusqu'à ce qu'un geste tactile force Safari à recalculer -- exactement
+  // ce que l'utilisateur décrit. Ce correctif désactive la restauration
+  // automatique de scroll du navigateur et force explicitement la page à
+  // x=0 dès le montage, sans toucher au Design d'aucun écran.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {
+      if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+      window.scrollTo(0, window.scrollY);
+      document.documentElement.style.overflowX = 'hidden';
+      document.body.style.overflowX = 'hidden';
+    } catch {
+      // Le navigateur peut refuser certains réglages (mode privé, etc.) :
+      // l'app reste utilisable, seul ce filet de sécurité est perdu.
+    }
   }, []);
 
   useEffect(() => {
