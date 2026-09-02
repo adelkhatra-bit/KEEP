@@ -7,6 +7,7 @@ import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from 
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadOutgoingBattleChallenges, respondBattleChallenge, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
+import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { shareProfile } from '../services/sharingService';
 import { KeepSession, SessionTrackEntry } from '../types';
 
@@ -584,6 +585,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const challenge = async (player: KeepBattleLivePlayer) => {
     try {
       await sendBattleChallenge(player.profileId, themeCode);
+      // Adel (02/09/2026) : "je fais une invite à un Battle, le système doit
+      // aller activer directement automatiquement le profil" -- envoyer un
+      // défi montre déjà l'intention de jouer, autant se rendre disponible
+      // du même geste plutôt que d'exiger un aller-retour sur le profil.
+      if (!useBattleAvailabilityStore.getState().available) void useBattleAvailabilityStore.getState().setAvailable(true).catch(() => {});
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
@@ -671,6 +677,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       await sendBattleArenaChallenge(arena.id, player.profileId);
       setArenaInvitedIds((rows) => rows.includes(player.profileId) ? rows : [...rows, player.profileId]);
+      if (!useBattleAvailabilityStore.getState().available) void useBattleAvailabilityStore.getState().setAvailable(true).catch(() => {});
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Le groupe est déjà complet : 10 joueurs.');
@@ -734,6 +741,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // active, sinon simple sortie du groupe) sinon le siège reste ACTIVE
     // pour toujours côté serveur.
     if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
+    // Adel (02/09/2026) : "si tu veux, leur qui quitte le Battle, tu veux
+    // automatiquement le déconnecter ... ensuite c'est à lui s'il voudra
+    // l'activer manuellement ou désactiver" -- quitter complètement Battle
+    // (× ou QUITTER LE BATTLE, pas juste finir un match) est un signal
+    // explicite "j'ai fini pour l'instant" -- contrairement à accepter/
+    // quitter UN match (qui ne doit jamais toucher la bascule, voir le fix
+    // "ça m'avait désactivé"), l'utilisateur garde la main pour la
+    // réactiver n'importe quand depuis son profil.
+    if (useBattleAvailabilityStore.getState().available) void useBattleAvailabilityStore.getState().setAvailable(false).catch(() => {});
     setAudioReady(false);
     setPending(null);
     setArena(null);
