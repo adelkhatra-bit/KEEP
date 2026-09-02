@@ -167,8 +167,8 @@ export default function PartiesScreen({ navigation, route }: any) {
           initialArenaId={route?.params?.arenaId}
           onOpenProfile={(username) => navigation.navigate('PublicUserProfile', { username })}
           onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
-          onExit={() => setBattleOpen(false)}
-          onOpenSession={(sessionId) => { setBattleOpen(false); navigation.navigate('SessionRecap', { sessionId }); }}
+          onExit={() => { setBattleOpen(false); navigation.setParams({ arenaId: undefined }); }}
+          onOpenSession={(sessionId) => { setBattleOpen(false); navigation.setParams({ arenaId: undefined }); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>
     </SafeAreaView>;

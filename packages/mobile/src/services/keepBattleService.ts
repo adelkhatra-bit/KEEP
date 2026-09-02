@@ -321,6 +321,11 @@ export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedA
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
+export async function leaveKeepBattleArena(arenaId: string): Promise<void> {
+  const { error } = await client().rpc('keep_battle_arena_leave', { p_arena_id: arenaId });
+  if (error) throw error;
+}
+
 export async function loadKeepBattleArenaLobby(): Promise<KeepBattleArenaLobby> {
   const { data, error } = await client().rpc('keep_battle_arena_lobby');
   return unwrap(data as KeepBattleArenaLobby | null, error);
