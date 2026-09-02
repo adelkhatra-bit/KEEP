@@ -1254,7 +1254,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}>
               <View style={s.inviteHead}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.inviteQuestion}>Prêt pour la revanche ?</Text>
+                  {/* Adel (03/09/2026) : "l'utilisateur, le pseudo, souhaite
+                      prendre sa revanche. Acceptez-vous ?" -- même formulation
+                      que partout ailleurs dans l'app pour une revanche (accueil
+                      Battle, classement), au lieu d'un "Prêt pour la revanche ?"
+                      générique sans nom. Le serveur n'expose pas qui a
+                      spécifiquement proposé (rematchReady n'existe que sur
+                      `me`) -- on nomme donc tous les autres membres du groupe,
+                      identique au pop-up de stats et au bandeau du classement. */}
+                  <Text style={s.inviteQuestion}>🔁 {arena.seats.filter((seat) => seat.profileId !== arena.me?.profileId).map((seat) => `@${seat.username}`).join(', ') || 'Le groupe'} souhaite prendre sa revanche. Acceptez-vous ?</Text>
                   <Text style={s.inviteLabel}>⚡ {rematchRemaining}s pour répondre</Text>
                 </View>
               </View>
@@ -1266,8 +1274,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                   part après un refus, seul un × ou ‹ séparé s'en sortait. Un
                   refus est déjà une sortie explicite : on quitte directement
                   vers l'accueil Battle, pas besoin d'un second geste. */}
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false).then(() => { void stopTrackPreview(); setArena(null); }).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.noText}>NON</Text></TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={rematchResponding} style={[s.yes, rematchResponding && s.actionDisabled]} onPress={() => { unlockWebAudioForGesture(); setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, true).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.yesText}>OUI</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false).then(() => { void stopTrackPreview(); setArena(null); }).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={rematchResponding} style={[s.yes, rematchResponding && s.actionDisabled]} onPress={() => { unlockWebAudioForGesture(); setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, true).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.yesText}>{rematchResponding ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
               </View>
             </Animated.View>
           ) : (
