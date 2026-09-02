@@ -2,8 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { KeepNotification, loadNotificationPreferences, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
 import { useUserStore } from '../store/useUserStore';
+import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
+import { respondBattleChallenge } from '../services/keepBattleLiveService';
+import { navigateToBattleArena } from '../navigation/navigationRef';
 
 const VISIBLE_MS = 4600;
+const BATTLE_VISIBLE_MS = 20000;
 const BATTLE_INLINE_TYPES = new Set([
   'BATTLE_CHALLENGE',
   'KEEP_BATTLE_CHALLENGE',
@@ -28,6 +32,7 @@ export default function GlobalNotificationBanner() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
+  const [respondBusy, setRespondBusy] = useState(false);
   const translateX = useRef(new Animated.Value(430)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,9 +72,14 @@ export default function GlobalNotificationBanner() {
     const unsubscribe = subscribeToNotifications(user.id, (notification) => {
       if (!active || !notificationsEnabled.current) return;
 
-      // Loki Battle invitations are actionable inside the music card itself.
-      // Never stack the global banner over REFUSER / ACCEPTER.
-      if (isBattleChallenge(notification)) return;
+      const battleChallenge = isBattleChallenge(notification);
+      // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe
+      // quelle page" -- seul un utilisateur explicitement rendu disponible
+      // (bascule sur le Profil, voir useBattleAvailabilityStore) reçoit ce
+      // bandeau actionnable pour un Battle ; sinon l'invitation reste gérée
+      // uniquement à l'intérieur de l'écran Battle lui-même (déjà en place),
+      // pour ne jamais couper une session d'écoute en cours sans consentement.
+      if (battleChallenge && !useBattleAvailabilityStore.getState().available) return;
 
       // Realtime reconnects must never replay the same visual notification.
       if (seenNotificationIds.current.has(notification.id)) return;
@@ -93,7 +103,7 @@ export default function GlobalNotificationBanner() {
         ]).start();
       });
 
-      hideTimer.current = setTimeout(() => animateOut(), VISIBLE_MS);
+      hideTimer.current = setTimeout(() => animateOut(), battleChallenge ? BATTLE_VISIBLE_MS : VISIBLE_MS);
     });
 
     return () => {
@@ -121,6 +131,56 @@ export default function GlobalNotificationBanner() {
     void markNotificationRead(user.id, id).catch(() => {});
     animateOut();
   };
+
+  const battleChallenge = isBattleChallenge(current);
+  const challengeId = dataText(current, 'challengeId');
+
+  // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe quelle
+  // page ... êtes-vous prêt oui ou non" -- une fois "disponible" activé, le
+  // bandeau global doit permettre de répondre directement, pas seulement
+  // avertir puis renvoyer vers l'écran Battle.
+  const respondFromBanner = async (accept: boolean) => {
+    if (!challengeId || respondBusy) return;
+    setRespondBusy(true);
+    try {
+      const result = await respondBattleChallenge(challengeId, accept);
+      void markNotificationRead(user.id, current!.id).catch(() => {});
+      animateOut(() => {
+        if (accept && result.arenaId) navigateToBattleArena(result.arenaId);
+      });
+    } catch {
+      animateOut();
+    } finally {
+      setRespondBusy(false);
+    }
+  };
+
+  if (battleChallenge && challengeId) {
+    return (
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]}>
+        <View style={styles.banner}>
+          {artworkUrl ? (
+            <Image source={{ uri: artworkUrl }} style={styles.artwork} />
+          ) : (
+            <View style={styles.artworkFallback}><Text style={styles.note}>⚡</Text></View>
+          )}
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki BATTLE</Text></View>
+            <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
+            <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
+            <View style={styles.battleActions}>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleNo, respondBusy && styles.battleDisabled]} onPress={() => { void respondFromBanner(false); }} accessibilityRole="button" accessibilityLabel="Refuser le Battle">
+                <Text style={styles.battleNoText}>REFUSER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleYes, respondBusy && styles.battleDisabled]} onPress={() => { void respondFromBanner(true); }} accessibilityRole="button" accessibilityLabel="Accepter le Battle">
+                <Text style={styles.battleYesText}>{respondBusy ? '...' : 'ACCEPTER'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View
@@ -186,6 +246,12 @@ const styles = StyleSheet.create({
   artworkFallback: { width: 52, height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26183A', borderWidth: 1, borderColor: '#513474' },
   note: { color: '#B79CFF', fontSize: 23, fontWeight: '900' },
   copy: { flex: 1, minWidth: 0 },
+  battleActions: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  battleNo: { flex: 1, minHeight: 32, borderRadius: 16, borderWidth: 1, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },
+  battleNoText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
+  battleYes: { flex: 1, minHeight: 32, borderRadius: 16, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' },
+  battleYesText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
+  battleDisabled: { opacity: 0.62 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   eyebrow: { color: '#68F2B1', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   closeHint: { color:'#FFFFFF', fontSize: 8, fontWeight: '700' },

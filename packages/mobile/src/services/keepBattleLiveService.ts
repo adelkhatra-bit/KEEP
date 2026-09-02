@@ -47,6 +47,21 @@ export async function heartbeatSoloBattle(themeCode: string): Promise<void> {
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_HEARTBEAT_FAILED'));
 }
 
+// Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
+// rendre disponible même s'il est pas en train de faire des Battle" -- bascule
+// manuelle indépendante du heartbeat de partie solo (voir
+// keep_battle_set_manual_available). Utilisée globalement, pas seulement
+// depuis l'écran Battle.
+export async function setManualBattleAvailability(available: boolean, themeCode = 'MIX'): Promise<void> {
+  const { error } = await client().rpc('keep_battle_set_manual_available', { p_available: available, p_theme_code: themeCode || 'MIX' });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_FAILED'));
+}
+
+export async function pingManualBattleAvailability(): Promise<void> {
+  const { error } = await client().rpc('keep_battle_manual_availability_ping');
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
+}
+
 export async function leaveSoloBattle(): Promise<void> {
   const { error } = await client().rpc('keep_battle_solo_leave');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));

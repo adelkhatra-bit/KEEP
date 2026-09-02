@@ -27,6 +27,8 @@ import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
+import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
+import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
 type SocialPlatform = SocialLink['platform'];
@@ -52,6 +54,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
+  const battleAvailable = useBattleAvailabilityStore((s) => s.available);
+  const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
+  const setBattleAvailable = useBattleAvailabilityStore((s) => s.setAvailable);
+  const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
+  useEffect(() => { let live = true; isKeepBattleEnabled().then((v) => live && setBattleFeatureEnabled(v)); return () => { live = false; }; }, []);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -497,6 +504,26 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </View>
         </View>
         {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
+        {/* Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme
+            peut se rendre disponible même s'il est pas en train de faire des
+            Battle ... recevra des notifications pour des Battle" -- bascule
+            globale, visible sur le profil, indépendante de l'écran Battle. */}
+        {battleFeatureEnabled && !accountRequired ? (
+          <TouchableOpacity
+            style={[s.battleAvailabilityRow, battleAvailable && s.battleAvailabilityRowOn]}
+            disabled={battleAvailabilityBusy}
+            onPress={() => { void setBattleAvailable(!battleAvailable); }}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: battleAvailable }}
+            accessibilityLabel="Disponible pour un Battle"
+          >
+            <Text style={s.battleAvailabilityDot}>{battleAvailable ? '🟢' : '⚪'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.battleAvailabilityTitle}>{battleAvailable ? 'Disponible pour un Battle' : 'Indisponible pour un Battle'}</Text>
+              <Text style={s.battleAvailabilityHint}>{battleAvailable ? 'Tu peux recevoir des invitations Battle, même ailleurs dans Loki.' : 'Active pour recevoir des invitations Battle sans jouer en solo.'}</Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         <ProfileCounterRow kind="connections" items={[
           { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
@@ -627,6 +654,7 @@ const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:21,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#6E4BA5',position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:62,height:62,borderRadius:31,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#21182F',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},ownerShareButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},ownerSwipeButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},ownerActionText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:'#FFFFFF',fontSize:13,lineHeight:18,marginTop:3},
+  battleAvailabilityRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12,padding:11,borderRadius:14,backgroundColor:'#18121F',borderWidth:1,borderColor:'#31263B'},battleAvailabilityRowOn:{backgroundColor:'#12271C',borderColor:'#38D990'},battleAvailabilityDot:{fontSize:16},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},muted:{color:'#FFFFFF',fontSize:13,lineHeight:18},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#24163A',borderWidth:1,borderColor:'#8B5CF6'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#C5ACFF'},
   keepCounters:{marginHorizontal:18},

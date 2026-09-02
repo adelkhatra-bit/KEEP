@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, Text } from 'react-native';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
@@ -131,7 +132,7 @@ function MainTabs() {
 
 export default function Navigation() {
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />

@@ -9,6 +9,7 @@ import AlertHost from './src/components/AlertHost';
 import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
+import { useBattleAvailabilityStore } from './src/store/useBattleAvailabilityStore';
 import { colors } from './src/theme/colors';
 import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
@@ -93,6 +94,7 @@ export default function App() {
     const handleSession = async (session: KeepAuthSession | null) => {
       if (!session) {
         profileLoadedFor = null;
+        useBattleAvailabilityStore.getState().reset();
         if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1') {
           const state = useUserStore.getState();
           if (!state.user) state.enterDemoMode();
