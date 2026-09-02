@@ -594,6 +594,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
       else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `@${player.username} n’a pas assez de Free pour jouer maintenant.`);
+      else if (message.includes('BATTLE_TARGET_BLOCKED_TOO_MANY_DECLINES')) Alert.alert('Battle', `@${player.username} a refusé plusieurs fois. Tu ne peux plus l’inviter.`);
       else Alert.alert('Battle', `@${player.username} n’est plus disponible.`);
       void refreshSocial();
     }
@@ -683,6 +684,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Le groupe est déjà complet : 10 joueurs.');
       else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `@${player.username} n’a pas les 3 Free nécessaires.`);
       else if (message.includes('BATTLE_ARENA_NOT_OPEN_FOR_INVITES')) Alert.alert('Battle', 'La prochaine partie a déjà démarré.');
+      else if (message.includes('BATTLE_TARGET_BLOCKED_TOO_MANY_DECLINES')) Alert.alert('Battle', `@${player.username} a refusé plusieurs fois. Tu ne peux plus l’inviter.`);
       else Alert.alert('Battle', `@${player.username} n’est plus disponible.`);
       const rows = await loadLiveSoloPlayers(30).catch(() => []);
       const memberIds = new Set(arena.seats.map((seat) => seat.profileId));
