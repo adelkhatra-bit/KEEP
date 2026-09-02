@@ -6,6 +6,7 @@ export type KeepBattleLivePlayer = {
   avatarUrl?: string | null;
   themeCode: string;
   lastSeenAt: string;
+  skillTier: 'DEBUTANT' | 'CONFIRME' | 'EXPERT';
 };
 
 export type KeepBattleIncomingChallenge = {
@@ -82,7 +83,19 @@ export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePla
     avatarUrl: row?.avatarUrl ?? row?.avatar_url ?? null,
     themeCode: str(row, 'themeCode', 'theme_code', 'MIX'),
     lastSeenAt: str(row, 'lastSeenAt', 'last_seen_at'),
+    skillTier: str(row, 'skillTier', 'skill_tier', 'DEBUTANT') as KeepBattleLivePlayer['skillTier'],
   })).filter((row) => row.profileId) : [];
+}
+
+// Adel (02/09/2026) : "un petit joueur devra monter sa note en solo pour
+// pouvoir participer" -- seul signal de niveau qui existe aujourd'hui (le
+// solo est 100% local sinon) : appelé à la fin de chaque partie solo pour
+// alimenter le palier serveur (keep_battle_skill_tier) utilisé pour bloquer
+// un défi entre deux joueurs trop éloignés en niveau.
+export async function reportSoloBattleResult(correct: number, total: number): Promise<void> {
+  if (!(total > 0)) return;
+  const { error } = await client().rpc('keep_battle_solo_report_result', { p_correct: correct, p_total: total });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_SOLO_REPORT_FAILED'));
 }
 
 export async function sendBattleChallenge(targetId: string, themeCode: string): Promise<{ id: string; status: string; expiresAt?: string }> {
