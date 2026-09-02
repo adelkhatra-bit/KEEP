@@ -678,7 +678,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (Date.now() - soloStartedAt >= ROUND_MS) return;
     if (answeredRoundRef.current === soloIndex) return; // déjà tranché par le timeout
     answeredRoundRef.current = soloIndex;
-    void stopTrackPreview(); setSoloAnswer(choice);
+    // Adel (02/09/2026) : "en attendant la réponse, tu laisses la musique" --
+    // répondre ne doit pas couper l'extrait avant l'heure : le morceau
+    // s'arrête déjà tout seul à la fin naturelle de la manche (timeout ou
+    // reveal, voir plus bas).
+    setSoloAnswer(choice);
     if (choice === round.correctAnswer) setSoloScore((v) => v + 1);
     animateResult();
   };
@@ -727,7 +731,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const startsAt = arena.round?.startedAt ? new Date(arena.round.startedAt).getTime() : 0;
     const closesAt = arena.round?.closesAt ? new Date(arena.round.closesAt).getTime() : 0;
     if ((startsAt && Date.now() < startsAt) || (closesAt && Date.now() >= closesAt)) return;
-    void stopTrackPreview(); setPending(choice);
+    // Adel (02/09/2026) : "en attendant la réponse, tu laisses la musique" --
+    // en arène, d'autres joueurs répondent peut-être encore : couper le son
+    // dès QUE J'appuie serait déloyal pour eux. Le morceau s'arrête déjà tout
+    // seul quand la manche est révélée pour tout le monde (voir l'effet sur
+    // arena.round.revealed).
+    setPending(choice);
     try { setArena(await submitKeepBattleArenaQuizAnswer(arena.id, choice)); } catch {}
     finally { setPending(null); }
   };
@@ -876,7 +885,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.finishTitle}>{winner ? `@${winner.username}` : 'BATTLE TERMINÉ'}</Text>
             <Text style={s.finishSub}>{winner ? 'remporte ce Battle' : 'Résultat enregistré'}</Text>
             <View style={s.finishScore}><Text style={s.finishScoreBig}>{winner?.score ?? arena.lastResult.score}</Text><Text style={s.finishScoreSlash}> pts</Text></View>
-            <Text style={arena.lastResult.won ? s.finishWon : s.finishLost}>{arena.lastResult.won ? `+${arena.lastResult.creditDelta} FREE · GAGNÉ` : `${arena.lastResult.creditDelta} FREE · MATCH TERMINÉ`}</Text>
+            {/* Adel (02/09/2026) : "@adel4A remporte ce Battle / -3 FREE"
+                (rapporté comme un bug) -- le nom/score du haut sont ceux du
+                VAINQUEUR, cette ligne est TOUJOURS le résultat du joueur qui
+                regarde l'écran (arena.lastResult). Sans préfixe, "-3 FREE"
+                juste sous le nom du gagnant lit comme une contradiction. */}
+            <Text style={arena.lastResult.won ? s.finishWon : s.finishLost}>{arena.lastResult.won ? `TOI : +${arena.lastResult.creditDelta} FREE · GAGNÉ` : `TOI : ${arena.lastResult.creditDelta} FREE · MATCH TERMINÉ`}</Text>
           </Animated.View>
           {palmares.length ? <View style={s.palmares}><Text style={s.palmaresTitle}>PALMARÈS · TOP 3</Text>{palmares.map((entry, index) => <TouchableOpacity key={entry.profileId} accessibilityRole="button" onPress={() => onOpenProfile(entry.username)} style={s.palmaresRow}><Text style={s.palmaresRank}>{index + 1}</Text><Avatar name={entry.username} url={entry.avatarUrl} size={38} /><Text numberOfLines={1} style={s.palmaresName}>@{entry.username}</Text><Text style={s.palmaresWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text></TouchableOpacity>)}</View> : null}
           <Text style={s.finishQuestion}>Le groupe reste ensemble. Et maintenant ?</Text>
