@@ -400,6 +400,39 @@ export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleAr
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
+// Adel (03/09/2026) : "un utilisateur pourra regarder le match en cours ...
+// et pouvoir dire je veux participer sans envoyer d'invite, quand le match
+// est terminé ça fera rentrer l'utilisateur" -- mode spectateur : un tiers
+// (pas membre de l'arène) peut suivre un match EN COURS en lecture seule
+// (scores, manche, révélation), sans jamais voir l'état de réponse propre à
+// un joueur (myAnswer n'existe pas ici, contrairement a KeepBattleArenaState).
+// joinKeepBattleArena (deja existante) fait le "+" : elle met en file
+// d'attente (QUEUED) si un match tourne déjà, et fait automatiquement entrer
+// au match suivant -- exactement le mécanisme déjà cablé côté serveur.
+export type KeepBattleArenaSpectateSeat = { profileId: string; username: string; avatarUrl?: string | null; score: number; placement?: number | null };
+export type KeepBattleArenaSpectate = {
+  id: string;
+  arenaCode: string;
+  themeCode: string;
+  status: 'WAITING' | 'ACTIVE' | 'CLOSED' | 'EXPIRED';
+  maxPlayers: number;
+  openSeats: number;
+  queue: number;
+  roundCount: number;
+  matchNo: number;
+  currentRound: number;
+  roundDurationMs: number;
+  seats: KeepBattleArenaSpectateSeat[];
+  round?: { position: number; artist?: string | null; artworkUrl?: string | null; startedAt?: string | null; closesAt?: string | null; revealUntil?: string | null; revealed?: boolean } | null;
+};
+
+export async function spectateKeepBattleArena(arenaCode: string): Promise<KeepBattleArenaSpectate> {
+  const code = arenaCode.trim().toUpperCase();
+  if (!code) throw new Error('BATTLE_ARENA_CODE_REQUIRED');
+  const { data, error } = await client().rpc('keep_battle_arena_spectate', { p_arena_code: code });
+  return unwrap(data as KeepBattleArenaSpectate | null, error);
+}
+
 export async function loadKeepBattleArenaWinnerHistory(arenaId: string, limit = 10): Promise<KeepBattleArenaWinner[]> {
   const { data, error } = await client().rpc('keep_battle_arena_winner_history', {
     p_arena_id: arenaId,
