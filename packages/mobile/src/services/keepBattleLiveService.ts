@@ -7,6 +7,13 @@ export type KeepBattleLivePlayer = {
   themeCode: string;
   lastSeenAt: string;
   skillTier: 'DEBUTANT' | 'CONFIRME' | 'EXPERT';
+  // Adel (03/09/2026) : "le style de match qu'il attend, le nombre de
+  // morceaux ... ça reste enregistré, visible par les autres" -- préférence
+  // durable (plusieurs styles possibles), séparée du thème de présence
+  // ci-dessus (themeCode) qui ne reflète que l'écran où il se trouve là,
+  // maintenant.
+  preferredThemeCodes: string[];
+  preferredRoundCount: number;
 };
 
 export type KeepBattleIncomingChallenge = {
@@ -87,7 +94,31 @@ export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePla
     themeCode: str(row, 'themeCode', 'theme_code', 'MIX'),
     lastSeenAt: str(row, 'lastSeenAt', 'last_seen_at'),
     skillTier: str(row, 'skillTier', 'skill_tier', 'DEBUTANT') as KeepBattleLivePlayer['skillTier'],
+    preferredThemeCodes: Array.isArray(row?.preferredThemeCodes ?? row?.preferred_theme_codes) ? (row.preferredThemeCodes ?? row.preferred_theme_codes) : ['MIX'],
+    preferredRoundCount: Number(row?.preferredRoundCount ?? row?.preferred_round_count ?? 8) || 8,
   })).filter((row) => row.profileId) : [];
+}
+
+// Adel (03/09/2026) : "je puisse sélectionner plusieurs styles ... et que ça
+// reste enregistré" -- préférence durable de match, séparée du thème choisi
+// pour UN envoi d'invite précis (qui reste toujours un seul thème -- une
+// arène n'a qu'une colonne theme_code).
+export type KeepBattleMatchPreferences = { themeCodes: string[]; roundCount: number };
+
+export async function loadMyMatchPreferences(): Promise<KeepBattleMatchPreferences> {
+  const { data, error } = await client().rpc('keep_battle_load_match_preferences');
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_LOAD_FAILED'));
+  const raw = data as any;
+  const themeCodes = Array.isArray(raw?.themeCodes) ? raw.themeCodes : ['MIX'];
+  return { themeCodes: themeCodes.length ? themeCodes : ['MIX'], roundCount: Number(raw?.roundCount ?? 8) || 8 };
+}
+
+export async function saveMyMatchPreferences(themeCodes: string[], roundCount: number): Promise<KeepBattleMatchPreferences> {
+  const { data, error } = await client().rpc('keep_battle_save_match_preferences', { p_theme_codes: themeCodes.length ? themeCodes : ['MIX'], p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_SAVE_FAILED'));
+  const raw = data as any;
+  const codes = Array.isArray(raw?.themeCodes) ? raw.themeCodes : ['MIX'];
+  return { themeCodes: codes.length ? codes : ['MIX'], roundCount: Number(raw?.roundCount ?? 8) || 8 };
 }
 
 // Adel (02/09/2026) : "un petit joueur devra monter sa note en solo pour
