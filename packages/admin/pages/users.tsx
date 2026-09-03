@@ -208,6 +208,13 @@ export default function Users() {
   const grantCredits = async (amountValue: number) => {
     if (!selected) return;
     if (!Number.isFinite(amountValue) || amountValue === 0) return setError('Indique un nombre de Free différent de 0.');
+    // Adel (04/09/2026) : "je veux pouvoir valider, je veux pas que quand
+    // j'appuie sur un bouton ça part direct ... j'ai même pas pu mettre la
+    // raison" -- une vraie confirmation avant l'envoi réel (même geste que
+    // la réinitialisation de mot de passe plus bas), qui rappelle le montant
+    // ET la raison telle qu'elle sera vue par l'utilisateur.
+    const reasonPreview = creditReason.trim() || '(aucune raison précisée)';
+    if (typeof window !== 'undefined' && !window.confirm(`Confirmer ${amountValue > 0 ? '+' : ''}${amountValue} Free pour @${selected.username} ?\n\nRaison affichée à l'utilisateur : ${reasonPreview}\n\nUne notification part immédiatement après validation.`)) return;
     setBusy('credits'); setError(null);
     try {
       const result = await invokeUserControl({ action: 'grant_credits', profileId: selected.id, amount: amountValue, reason: creditReason.trim() });
@@ -385,18 +392,21 @@ export default function Users() {
               jamais un UPDATE muet d'un compteur. */}
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
             <h3 style={{margin:'0 0 6px'}}>Créditer / débiter des Free</h3>
-            <div style={{color:'var(--text-muted)',fontSize:12}}>Un nombre positif ajoute des Free (ex : bonus surprise, geste commercial suite à un bug). Un nombre négatif corrige le solde à la baisse. L’utilisateur reçoit une notification immédiatement.</div>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Un nombre positif ajoute des Free (ex : bonus surprise, geste commercial suite à un bug). Un nombre négatif corrige le solde à la baisse. Rien ne part avant que tu valides sur la fenêtre de confirmation.</div>
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
               <input type="number" value={creditAmount} onChange={(e)=>setCreditAmount(e.target.value)} placeholder="Ex : 10 ou -5" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
               <input value={creditReason} onChange={(e)=>setCreditReason(e.target.value)} placeholder="Raison affichée à l’utilisateur (facultatif)" style={{flex:'1 1 260px',background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
-              <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null||!creditAmount.trim()?0.6:1}}>{busy==='credits'?'Envoi…':'Appliquer'}</button>
+              <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null||!creditAmount.trim()?0.6:1}}>{busy==='credits'?'Envoi…':'Valider'}</button>
             </div>
-            <div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>
-              {/* Adel (04/09/2026) : "on voit rien, du foncé sur du foncé ...
-                  mets les boutons violet, arrête de changer les couleurs" --
-                  même violet --primary que tous les autres boutons d'action
-                  de Super Admin (Enregistrer, etc.), plus de couleur à part. */}
-              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>void grantCredits(preset)} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 14px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>+{preset} Free</button>)}
+            {/* Adel (04/09/2026) : "je mets 5 Free et ça part automatiquement
+                ... j'ai même pas pu mettre la raison, c'est pas logique" --
+                un raccourci ne doit plus jamais envoyer directement : il se
+                contente maintenant de remplir le montant, pour laisser le
+                temps d'écrire la raison puis de valider via le seul bouton
+                qui envoie réellement (avec confirmation en plus). */}
+            <div style={{color:'var(--text-muted)',fontSize:11,marginTop:10}}>Raccourcis (remplissent juste le montant, n’envoient rien) :</div>
+            <div style={{display:'flex',gap:8,marginTop:6,flexWrap:'wrap'}}>
+              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>setCreditAmount(String(preset))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 14px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>+{preset} Free</button>)}
             </div>
           </div>
 
