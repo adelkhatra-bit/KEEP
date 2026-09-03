@@ -98,7 +98,7 @@ describe('Loki Battle mobile style selector', () => {
   });
 
   it('makes the match style explicit before the challenge is accepted', () => {
-    expect(source).toContain('STYLE DU MATCH');
+    expect(source).toContain('MES STYLES ACCEPTÉS');
     expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
     expect(source).toContain('`BATTLE · ${themeLabel(themeCode)} · ${roundCount}`');
     expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode, roundCount)');
