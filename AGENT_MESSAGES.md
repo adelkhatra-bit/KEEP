@@ -693,3 +693,11 @@ Ce qui reste valide et inchange : le reordonnancement memoire-en-premier (perf r
 
 Lecon retenue pour la suite : ne plus tester un moteur de reconnaissance audio avec un ton pur synthetique -- utiliser un vrai extrait audio (parole ou musique) pour ne pas confondre "signal illisible par design" et "panne serveur".
 
+## [2026-09-03T16:16:12.135Z] codex
+
+Début du durcissement GitHub de Loki sur une branche dédiée : épinglage immuable des GitHub Actions, garde anti-secrets et blocage de toute intégration locale non approuvée. Aucun changement fonctionnel ou visuel prévu.
+
+## [2026-09-03T16:28:14.033Z] codex
+
+Durcissement Loki terminé sur la branche security/loki-github-hardening-20260903 : 129 références GitHub Actions remplacées par des SHA immuables, ajout d'une garde anti-secrets/anti-ponts locaux non approuvés, politique SECURITY.md et mise à jour sûre de fast-uri 3.1.7. Vérifications : source-of-truth OK, YAML OK, garde sécurité OK, TypeScript OK. Le lint et un test de hiérarchie mobile échouent pour des problèmes préexistants sans rapport avec ce changement.
+
