@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
-import { CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
@@ -78,23 +78,30 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
 
 function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
   const eventFollowers = rules.followerTiers[3] || 500;
+  // Adel (04/09/2026) : "il faut vraiment qu'ils sachent combien de Free il
+  // a par mois ... sans compter avec les matchs" -- un chiffre fixe par
+  // formule, séparé de ce que le Battle fait gagner/perdre en plus.
   if (planCode === 'FREE') return [
+    `+${funnel.monthlyBonusFree} Free offerts chaque mois (hors Battle).`,
     `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : 1 Free.`,
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
     `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
+    `+${funnel.monthlyBonusPremium} Free offerts chaque mois (hors Battle).`,
     `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Vibes.`,
   ];
   if (planCode === 'CREATOR_PRO') return [
+    `+${funnel.monthlyBonusCreatorPro} Free offerts chaque mois (hors Battle).`,
     'Téléchargements et Loki Vibes illimités.',
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
   ];
   if (planCode === 'VENUE_PRO') return [
+    `+${funnel.monthlyBonusVenuePro} Free offerts chaque mois (hors Battle).`,
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
     'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki, personne ne peut désactiver la notification.',
@@ -121,7 +128,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const isEventChoice = sourceFeature === 'CREATE_EVENT';
   const isUpgradeChoice = Boolean(focusPlan && compatibleCodes.length > 1);
   const [plans, setPlans] = useState<KeepPlan[]>([]);
-  const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
+  const [funnel, setFunnel] = useState<CreditFunnel>(CREDIT_FUNNEL_DEFAULTS);
   const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
   const [battleRules, setBattleRules] = useState<KeepBattleArenaRules>(DEFAULT_KEEP_BATTLE_RULES);
   const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
@@ -331,6 +338,17 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : le vainqueur gagne {battleRules.stakeFree} Free par adversaire battu.</Text>
               <Text style={s.battleDetailHint}>Il faut au moins {battleRules.minimumFreeRequired} Free pour entrer. À {battleRules.maxPlayers} joueurs, le gain peut atteindre +{battleRules.fullArenaNetPrize} Free. Si tu perds, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
+          </View>
+          {/* Adel (04/09/2026) : "il faut qu'il comprenne comment il peut
+              recharger" -- les 4 façons d'obtenir plus de Free, réunies au
+              même endroit une seule fois, plutôt que dispersées plan par
+              plan. */}
+          <View style={s.battleDetails}>
+            <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
+            <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d’abonnés, plus Loki t’offre de Free.</Text>
+            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne contre d’autres joueurs.</Text>
+            <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
+            <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
           </View>
         </>}
 

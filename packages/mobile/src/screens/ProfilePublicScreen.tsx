@@ -660,10 +660,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
           <Text style={s.shareTitle}>Ton solde Free</Text>
-          <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'} Gardé sur un morceau = -1 Free. Battle gagné/perdu = Free en plus ou en moins.</Text>
+          <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'}</Text>
           <View style={s.linkPreview}>
-            <Text style={s.linkPreviewText}>🏆 Gagné au Battle : +{freeWon} Free</Text>
-            <Text style={s.linkPreviewText}>💔 Perdu au Battle : -{freeLost} Free</Text>
+            <Text style={s.linkPreviewText}>🎧 Écouter et reconnaître : toujours gratuit</Text>
+            <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -1 Free</Text>
+            <Text style={s.linkPreviewText}>🎮 Battle solo (entraînement) : gratuit</Text>
+            <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
+            <Text style={s.linkPreviewText}>🏆 Gagné au Battle au total : +{freeWon} Free</Text>
+            <Text style={s.linkPreviewText}>💔 Perdu au Battle au total : -{freeLost} Free</Text>
+            <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule</Text>
           </View>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setFreeHistoryOpen(false); navigation.navigate('Offers'); }}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setFreeHistoryOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>

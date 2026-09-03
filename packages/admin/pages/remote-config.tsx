@@ -36,6 +36,10 @@ const FRIENDLY_LABELS: Record<string, string> = {
   music_services_limit_premium: 'Services musicaux · Premium 2,99 €',
   music_services_limit_creator: 'Services musicaux · Creator Pro 9,99 €',
   music_services_limit_venue: 'Services musicaux · Venue Pro 29,99 €',
+  free_monthly_bonus_free: 'Free offerts / mois · formule Free',
+  free_monthly_bonus_premium: 'Free offerts / mois · Premium 2,99 €',
+  free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro 9,99 €',
+  free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
@@ -52,7 +56,7 @@ function groupFor(key: string): GroupKey {
   if (key.startsWith('legal_')) return 'LEGAL';
   if (key.startsWith('growth_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
-  if (key.startsWith('guest_') || key.startsWith('signup_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
+  if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
   if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
