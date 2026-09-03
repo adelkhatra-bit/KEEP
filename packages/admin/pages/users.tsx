@@ -389,17 +389,21 @@ export default function Users() {
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
               <input type="number" value={creditAmount} onChange={(e)=>setCreditAmount(e.target.value)} placeholder="Ex : 10 ou -5" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
               <input value={creditReason} onChange={(e)=>setCreditReason(e.target.value)} placeholder="Raison affichée à l’utilisateur (facultatif)" style={{flex:'1 1 260px',background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
-              <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()}>{busy==='credits'?'Envoi…':'Appliquer'}</button>
+              <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null||!creditAmount.trim()?0.6:1}}>{busy==='credits'?'Envoi…':'Appliquer'}</button>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>
-              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>void grantCredits(preset)} disabled={busy!==null} style={{background:'#1c1630'}}>+{preset} Free</button>)}
+              {/* Adel (04/09/2026) : "on voit rien, du foncé sur du foncé ...
+                  mets les boutons violet, arrête de changer les couleurs" --
+                  même violet --primary que tous les autres boutons d'action
+                  de Super Admin (Enregistrer, etc.), plus de couleur à part. */}
+              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>void grantCredits(preset)} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 14px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>+{preset} Free</button>)}
             </div>
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
             <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
-            <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
+            <button style={{marginTop:10,background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
             {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}>
               <div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
