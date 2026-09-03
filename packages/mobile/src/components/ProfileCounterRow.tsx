@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
+import { formatCompactNumber } from '../utils/formatCompactNumber';
 
 // Source de vérité visuelle commune aux compteurs de profil propriétaire, visité et partagé.
 export type ProfileCounterItem = {
@@ -27,7 +28,7 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
       {items.map((item) => {
         const content = (
           <>
-            <Text style={styles.value}>{item.value}</Text>
+            <Text style={styles.value}>{formatCompactNumber(item.value)}</Text>
             <Text style={styles.label}>{item.label}</Text>
           </>
         );

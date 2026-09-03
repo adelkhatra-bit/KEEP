@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, PanResponder, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { KeepNotification, loadNotificationPreferences, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
@@ -48,6 +48,31 @@ export default function GlobalNotificationBanner() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationsEnabled = useRef(true);
   const seenNotificationIds = useRef(new Set<string>());
+  // Adel (03/09/2026) : "que je puisse le pousser avec le doigt sur le côté
+  // ou la fermer" -- ni le bandeau flottant informationnel, ni les variantes
+  // Battle (défi/revanche) n'avaient de moyen de fermeture explicite avant la
+  // disparition automatique (4.6s / 20s). Glisser latéralement au-delà d'un
+  // seuil ferme immédiatement, comme un relâchement en dessous le ramène à
+  // sa place -- PanResponder natif, aucune dépendance supplémentaire.
+  const dragX = useRef(0);
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_evt, gesture) => Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onPanResponderMove: (_evt, gesture) => {
+      dragX.current = gesture.dx;
+      translateX.setValue(gesture.dx);
+    },
+    onPanResponderRelease: (_evt, gesture) => {
+      if (Math.abs(gesture.dx) > 90) {
+        Animated.parallel([
+          Animated.timing(translateX, { toValue: gesture.dx > 0 ? 430 : -430, duration: 200, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        ]).start(() => setCurrent(null));
+        if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+      } else {
+        Animated.spring(translateX, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }).start();
+      }
+    },
+  }), [opacity, translateX]);
 
   const animateOut = (after?: () => void) => {
     if (hideTimer.current) {
@@ -202,8 +227,9 @@ export default function GlobalNotificationBanner() {
 
   if (battleRematch && rematchArenaId) {
     return (
-      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]} {...panResponder.panHandlers}>
         <View style={styles.banner}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           <View style={styles.artworkFallback}><Text style={styles.note}>🔁</Text></View>
           <View style={styles.copy}>
             <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki BATTLE</Text></View>
@@ -225,8 +251,9 @@ export default function GlobalNotificationBanner() {
 
   if (battleChallenge && challengeId) {
     return (
-      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]} {...panResponder.panHandlers}>
         <View style={styles.banner}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           {artworkUrl ? (
             <Image source={{ uri: artworkUrl }} style={styles.artwork} />
           ) : (
@@ -257,6 +284,7 @@ export default function GlobalNotificationBanner() {
         styles.wrap,
         { opacity, transform: [{ translateX }] },
       ]}
+      {...panResponder.panHandlers}
     >
       <TouchableOpacity
         activeOpacity={0.94}
@@ -265,6 +293,7 @@ export default function GlobalNotificationBanner() {
         accessibilityRole="button"
         accessibilityLabel={`${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
       >
+        <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
         {artworkUrl ? (
           <Image source={{ uri: artworkUrl }} style={styles.artwork} />
         ) : (
@@ -310,6 +339,8 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
   },
+  closeButton: { position: 'absolute', top: 6, right: 6, zIndex: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  closeButtonText: { color: '#FFF', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   artwork: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#21162E' },
   artworkFallback: { width: 52, height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26183A', borderWidth: 1, borderColor: '#513474' },
   note: { color: '#B79CFF', fontSize: 23, fontWeight: '900' },
