@@ -38,6 +38,7 @@ function errorText(code: string) {
   if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki.';
   if (code === 'invalid_credentials') return 'Identifiant Loki, e-mail ou mot de passe incorrect.';
   if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki indisponible pour le moment. Réessaie plus tard.';
+  if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
   return 'Connexion Loki indisponible pour le moment. Réessaie dans un instant.';
 }
 

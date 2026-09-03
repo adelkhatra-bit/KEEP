@@ -67,7 +67,20 @@ function mapSignupError(message: string): string {
   if (value.includes('expired') || value.includes('otp')) return 'email_link_invalid';
   if (value.includes('already') || value.includes('registered') || value.includes('exists')) return 'email_taken';
   if (value.includes('email not confirmed') || value.includes('not confirmed')) return 'email_not_confirmed';
-  if (value.includes('email')) return 'invalid_email';
+  // Adel (03/09/2026) : une adresse e-mail PARFAITEMENT valide
+  // ("teyous007@hotmail.com") a été refusée "invalide" alors que la vraie
+  // cause était une panne d'envoi SMTP côté Supabase Auth (Brevo -- "535
+  // 5.7.8 Authentication failed", confirmé dans auth_logs). GoTrue renvoie
+  // alors un message qui contient juste le mot "email" ("Error sending
+  // confirmation email"), ce que l'ancien mapping accusait à tort comme un
+  // format d'adresse invalide. On ne doit JAMAIS accuser l'adresse saisie
+  // par l'utilisateur pour une panne de livraison : seul un message qui
+  // parle explicitement du format ("invalid"/"unable to validate") est une
+  // vraie adresse invalide ; tout le reste qui touche à "email" est une
+  // panne de service (SMTP, quota, etc.), à afficher comme telle.
+  if (value.includes('invalid') && value.includes('email')) return 'invalid_email';
+  if (value.includes('unable to validate') && value.includes('email')) return 'invalid_email';
+  if (value.includes('email')) return 'email_delivery_unavailable';
   if (value.includes('password')) return 'invalid_password';
   if (value.includes('profile') || value.includes('username') || value.includes('duplicate') || value.includes('unique')) return 'username_taken';
   return message || 'server_error';
