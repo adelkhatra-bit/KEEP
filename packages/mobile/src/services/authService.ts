@@ -166,6 +166,29 @@ export function createAuthService(client: SupabaseClient): AuthService {
       if (error) return { error: 'server_error' };
       if (!data?.ok) return { error: String(data?.error || 'server_error') };
 
+      // Adel (03/09/2026) : "il ne faut pas bloquer les utilisateurs" quand
+      // l'envoi d'e-mail est en panne -- si keep-auth-email a du activer le
+      // compte lui-meme faute de pouvoir livrer l'e-mail, il renvoie une
+      // session prete a l'emploi (access_token/refresh_token) : on l'installe
+      // directement, l'inscription se termine normalement au lieu de bloquer
+      // l'utilisateur sur un ecran "verifie ta boite mail" pour un lien qui ne
+      // partira jamais. La verification reelle de l'e-mail reste a finaliser
+      // plus tard (Super Admin), separement, sans jamais retarder l'utilisateur.
+      if (data.access_token && data.refresh_token) {
+        const { error: sessionError } = await client.auth.setSession({
+          access_token: String(data.access_token),
+          refresh_token: String(data.refresh_token),
+        });
+        if (!sessionError) {
+          return {
+            error: null,
+            username: cleanUsername,
+            userId: data.userId ? String(data.userId) : undefined,
+            requiresEmailConfirmation: false,
+          };
+        }
+      }
+
       return {
         error: null,
         username: cleanUsername,

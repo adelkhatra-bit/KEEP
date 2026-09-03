@@ -152,12 +152,43 @@ async function handleSignup(body: any) {
     `@${username}, confirme ton compte Loki en ouvrant ce lien : ${data.properties.action_link}`,
     "signup-confirmation",
   );
-  if (!sent.ok) {
+  if (sent.ok) return json({ ok: true, userId: data.user?.id, requiresEmailConfirmation: true });
+
+  // Adel (03/09/2026) : "il ne faut pas bloquer les utilisateurs" quand un
+  // systeme externe (ici Brevo) n'est pas disponible -- l'inscription doit se
+  // terminer quand meme, l'utilisateur doit pouvoir entrer dans l'app tout de
+  // suite. On confirme le compte nous-memes (on sait que l'e-mail est valide,
+  // seul l'ENVOI a echoue) et on ouvre une vraie session immediatement, au
+  // lieu de laisser l'utilisateur bloque sur "verifie ta boite mail" pour un
+  // lien qui ne partira jamais. On marque juste `keep_email_verification_pending`
+  // pour pouvoir relancer proprement l'envoi plus tard (cote Super Admin) une
+  // fois Brevo reconfigure -- corriger le systeme est un chantier separe, qui
+  // ne doit jamais retarder l'utilisateur.
+  const { error: confirmError } = await admin.auth.admin.updateUserById(data.user!.id, {
+    email_confirm: true,
+    user_metadata: { keep_username: username, keep_username_only: false, pending_follow_username: pendingFollow, keep_email_verification_pending: true },
+  });
+  if (confirmError) {
     await admin.auth.admin.deleteUser(data.user!.id).catch(() => {});
-    return json({ ok: false, error: sent.error }, 503);
+    console.error("[keep-auth-email] fallback auto-confirm failed", confirmError);
+    return json({ ok: false, error: "server_error" }, 500);
   }
 
-  return json({ ok: true, userId: data.user?.id, requiresEmailConfirmation: true });
+  const anon = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: signedIn, error: signInError } = await anon.auth.signInWithPassword({ email, password });
+  if (signInError || !signedIn.session) {
+    console.error("[keep-auth-email] fallback session mint failed", signInError);
+    return json({ ok: true, userId: data.user?.id, requiresEmailConfirmation: true, emailVerificationPending: true });
+  }
+
+  return json({
+    ok: true,
+    userId: data.user?.id,
+    requiresEmailConfirmation: false,
+    emailVerificationPending: true,
+    access_token: signedIn.session.access_token,
+    refresh_token: signedIn.session.refresh_token,
+  });
 }
 
 async function handleRecovery(body: any) {
