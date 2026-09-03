@@ -12,6 +12,7 @@ import { ProfileKind, SocialLink } from '../types';
 import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
+import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
@@ -71,6 +72,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [discoveryImpacts, setDiscoveryImpacts] = useState<Record<string, DiscoveryImpact>>({});
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
+  // Adel (04/09/2026) : "enlève le nom commercial et mets le nombre de Free
+  // disponibles ... pour tout le monde sur le profil" -- l'ancien badge
+  // masquait le compteur dès qu'un plan payant était actif (Creator
+  // Pro/Venue Pro = "illimité" côté crédits de téléchargement uniquement).
+  // keep_battle_credit_status calcule le VRAI solde Free unifié (Keep +
+  // Battle) pour n'importe quel plan -- c'est la même fonction que l'écran
+  // Offres utilise déjà pour un compte connecté, donc les deux endroits
+  // affichent enfin le même chiffre.
+  const [freeBalance, setFreeBalance] = useState<number | null>(null);
+  const [freeWon, setFreeWon] = useState(0);
+  const [freeLost, setFreeLost] = useState(0);
+  const [freeHistoryOpen, setFreeHistoryOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -157,6 +170,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
         if (!live) return;
         setCreditRemaining(null);
         setCreditUnlimited(false);
+      }
+      try {
+        const battleStatus = await loadMyKeepBattleCreditStatus();
+        if (!live) return;
+        setFreeBalance(battleStatus.remainingFree);
+        setFreeWon(battleStatus.won);
+        setFreeLost(battleStatus.lost);
+      } catch {
+        if (!live) return;
+        setFreeBalance(null);
       }
     };
     void refreshCredits();
@@ -293,8 +316,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const publicProfileLink = buildPublicProfileLink(user.username);
   const identityGenres = user.favoriteGenres.length ? user.favoriteGenres.slice(0, 4) : dna.topGenres.slice(0, 4).map((g) => g.genre);
   const creditsExhausted = !creditUnlimited && creditRemaining === 0;
-  const planLabel = planCode === 'FREE' && creditRemaining != null ? `FREE · ${creditRemaining}` : planCode;
-  const planStyle = planCode === 'FREE' ? (creditsExhausted ? s.planExhausted : s.planFree) : s.planPaid;
+  // Adel (04/09/2026) : "le nombre de Free disponibles pour tout le monde
+  // sur le profil" -- affiché quel que soit le plan désormais (avant : les
+  // plans payants masquaient le compteur derrière leur nom commercial,
+  // laissé "illimité" côté crédits de téléchargement uniquement).
+  const planLabel = freeBalance != null ? `${freeBalance} FREE` : planCode;
+  const planStyle = freeBalance === 0 ? s.planExhausted : s.planFree;
   const profileOwnKeepCount = ownSnapshot?.directKeeps ?? localPublicOwnKeepCount;
   const profileUserKeepCount = ownSnapshot?.socialKeeps ?? localDiscoveryImpactCount;
   const profileTotalKeepCount = ownSnapshot?.totalKeeps ?? profileKeptTracks.length;
@@ -491,7 +518,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   return <SafeAreaView style={s.container}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar}>
-        <TouchableOpacity style={[s.plan, planStyle]} onPress={() => navigation.navigate('Offers')} accessibilityLabel="Offre et crédits"><Text style={s.planText}>{planLabel}</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.plan, planStyle]} onPress={() => setFreeHistoryOpen(true)} accessibilityLabel="Solde Free et historique"><Text style={s.planText}>{planLabel}</Text></TouchableOpacity>
         <View style={s.actions}>
           <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
             <Text style={s.bell}>🔔</Text>
@@ -624,6 +651,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.sheetHandle} />
           <UsernameAccountForm initialMode={accountMode} followUsername={pendingFollowUsername} onSuccess={() => { setAccountOpen(false); setPendingFollowUsername(''); }} />
           <TouchableOpacity style={s.cancelShare} onPress={() => { setAccountOpen(false); setPendingFollowUsername(''); }}><Text style={s.cancelShareText}>CONTINUER EN MODE DÉMO</Text></TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
+    <Modal visible={freeHistoryOpen} transparent animationType="fade" onRequestClose={() => setFreeHistoryOpen(false)}>
+      <View style={s.modalBackdrop}>
+        <View style={s.shareSheet}>
+          <View style={s.sheetHandle} />
+          <Text style={s.shareTitle}>Ton solde Free</Text>
+          <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'} Gardé sur un morceau = -1 Free. Battle gagné/perdu = Free en plus ou en moins.</Text>
+          <View style={s.linkPreview}>
+            <Text style={s.linkPreviewText}>🏆 Gagné au Battle : +{freeWon} Free</Text>
+            <Text style={s.linkPreviewText}>💔 Perdu au Battle : -{freeLost} Free</Text>
+          </View>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setFreeHistoryOpen(false); navigation.navigate('Offers'); }}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
+          <TouchableOpacity style={s.cancelShare} onPress={() => setFreeHistoryOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
