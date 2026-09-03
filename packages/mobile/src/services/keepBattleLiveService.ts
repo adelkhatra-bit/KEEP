@@ -15,6 +15,9 @@ export type KeepBattleIncomingChallenge = {
   username: string;
   avatarUrl?: string | null;
   themeCode: string;
+  // Adel (03/09/2026) : "arrange-toi que les autres utilisateurs le voient"
+  // -- nombre de morceaux choisi par celui qui défie, visible avant d'accepter.
+  roundCount: number;
   createdAt: string;
   expiresAt: string;
 };
@@ -129,6 +132,7 @@ export async function loadIncomingBattleChallenges(): Promise<KeepBattleIncoming
     username: str(row, 'username', 'username', 'keep'),
     avatarUrl: row?.avatarUrl ?? row?.avatar_url ?? null,
     themeCode: str(row, 'themeCode', 'theme_code', 'MIX'),
+    roundCount: Number(row?.roundCount ?? row?.round_count ?? 8) || 8,
     createdAt: str(row, 'createdAt', 'created_at'),
     expiresAt: str(row, 'expiresAt', 'expires_at'),
   })).filter((row) => row.id) : [];

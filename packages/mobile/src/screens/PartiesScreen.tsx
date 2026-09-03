@@ -371,7 +371,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           BATTLE avant, invisibles sur le sous-onglet SOIRÉES. */}
       {incomingBattle.map((challenge) => (
         <View key={challenge.id} style={styles.incomingBanner}>
-          <Text style={styles.incomingText}><Text style={styles.incomingName}>@{challenge.username}</Text> souhaite faire un Battle avec toi. Acceptes-tu ?</Text>
+          <Text style={styles.incomingText}><Text style={styles.incomingName}>@{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
