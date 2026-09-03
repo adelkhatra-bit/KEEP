@@ -40,6 +40,8 @@ const FRIENDLY_LABELS: Record<string, string> = {
   free_monthly_bonus_premium: 'Free offerts / mois · Premium 2,99 €',
   free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro 9,99 €',
   free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
+  free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
+  battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
@@ -56,7 +58,7 @@ function groupFor(key: string): GroupKey {
   if (key.startsWith('legal_')) return 'LEGAL';
   if (key.startsWith('growth_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
-  if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
+  if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_arena_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
   if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
