@@ -92,10 +92,16 @@ function simplifyArtistCredit(raw: string): string {
   return simplified.length > 42 ? `${simplified.slice(0, 39).trimEnd()}…` : simplified;
 }
 
-export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleSoloPack> {
+// Adel (03/09/2026) : "si je coche plusieurs styles ... ca doit faire un mix
+// de TOUS les styles que j'ai selectionnes" -- themeCode reste 'MIX' comme
+// etiquette generique des qu'il y a 2+ styles coches (voir KeepBattleMobileGameV3),
+// mais themeCodes porte la selection reelle pour que le serveur restreigne le
+// tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
+export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
     p_theme_code: themeCode.toUpperCase(),
     p_round_count: Math.max(5, Math.min(roundCount, 30)),
+    p_theme_codes: themeCodes && themeCodes.length ? themeCodes.map((c) => c.toUpperCase()) : null,
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;

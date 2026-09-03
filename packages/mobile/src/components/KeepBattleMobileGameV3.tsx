@@ -792,7 +792,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     unlockWebAudioForGesture();
     setBusy(true);
     try {
-      const pack = await loadKeepBattleSoloPack(themeCode, roundCount);
+      const pack = await loadKeepBattleSoloPack(themeCode, roundCount, myPreferredThemes);
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
