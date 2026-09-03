@@ -76,32 +76,34 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
 
-function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
+function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel, monthlyFreeBonus: number): string[] {
   const eventFollowers = rules.followerTiers[3] || 500;
   // Adel (04/09/2026) : "il faut vraiment qu'ils sachent combien de Free il
-  // a par mois ... sans compter avec les matchs" -- un chiffre fixe par
-  // formule, séparé de ce que le Battle fait gagner/perdre en plus.
+  // a par mois ... sans compter avec les matchs" -- monthlyFreeBonus vient
+  // directement de plan_prices (réglé dans Abonnements, Prix & Quotas au
+  // même endroit que le prix lui-même), séparé de ce que le Battle fait
+  // gagner/perdre en plus.
   if (planCode === 'FREE') return [
-    `+${funnel.monthlyBonusFree} Free offerts chaque mois (hors Battle).`,
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : 1 Free.`,
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
     `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
-    `+${funnel.monthlyBonusPremium} Free offerts chaque mois (hors Battle).`,
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Vibes.`,
   ];
   if (planCode === 'CREATOR_PRO') return [
-    `+${funnel.monthlyBonusCreatorPro} Free offerts chaque mois (hors Battle).`,
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Téléchargements et Loki Vibes illimités.',
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
   ];
   if (planCode === 'VENUE_PRO') return [
-    `+${funnel.monthlyBonusVenuePro} Free offerts chaque mois (hors Battle).`,
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
     'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki, personne ne peut désactiver la notification.',
@@ -383,7 +385,7 @@ export default function OffersScreen({ navigation, route }: any) {
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
                 {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
-                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
+                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
                 {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               </View> : null}
               {!active && plan.code !== 'FREE' ? (

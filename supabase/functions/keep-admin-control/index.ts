@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "FINANCE"]);
       const { data, error } = await admin
         .from("plans")
-        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active)")
+        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active,free_bonus_per_month)")
         .order("code");
       if (error) throw error;
       return json(200, { data: data ?? [] });
@@ -394,18 +394,22 @@ Deno.serve(async (req) => {
       const { error: planError } = await admin.from("plans").update({ trial_days: trialDays }).eq("id", planId);
       if (planError) throw planError;
 
-      const updatedPrices: { id: string; amount: number }[] = [];
+      const updatedPrices: { id: string; amount: number; freeBonusPerMonth: number }[] = [];
       for (const price of prices) {
         const id = String(price?.id ?? "").trim();
         const amount = Number(price?.amount);
         if (!id || !Number.isFinite(amount) || amount < 0 || amount > 100000) return json(400, { error: "invalid_price" });
+        // Adel (04/09/2026) : "regarde bien où y a prix mensuel et prix
+        // annuel, le nombre de Free que je vais donner avec" -- réglable au
+        // même endroit et dans le même geste que le prix lui-même.
+        const freeBonusPerMonth = Math.max(0, Math.trunc(Number(price?.freeBonusPerMonth ?? 0)));
         const { error: priceError } = await admin
           .from("plan_prices")
-          .update({ amount })
+          .update({ amount, free_bonus_per_month: freeBonusPerMonth })
           .eq("id", id)
           .eq("plan_id", planId);
         if (priceError) throw priceError;
-        updatedPrices.push({ id, amount });
+        updatedPrices.push({ id, amount, freeBonusPerMonth });
       }
 
       await audit(actor.id, "plan.updated", "plan", planId, { trialDays, prices: updatedPrices });

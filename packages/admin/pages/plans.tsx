@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 
-interface ApiPrice { id: string; currency_code: string; period: 'MONTHLY' | 'YEARLY'; amount: number | string; is_active: boolean; }
+interface ApiPrice { id: string; currency_code: string; period: 'MONTHLY' | 'YEARLY'; amount: number | string; is_active: boolean; free_bonus_per_month?: number | string; }
 interface ApiPlan { id: string; code: string; name: string; trial_days: number; plan_prices?: ApiPrice[]; }
-interface PlanRow { id: string; code: string; monthly: number; yearly: number; trialDays: number; monthlyPriceId?: string; yearlyPriceId?: string; }
+interface PlanRow { id: string; code: string; monthly: number; yearly: number; trialDays: number; monthlyPriceId?: string; yearlyPriceId?: string; monthlyFreeBonus: number; yearlyFreeBonus: number; }
 
 type LimitKey =
   | 'keeps_per_month'
@@ -20,23 +20,33 @@ type LimitKey =
 type LimitsByPlan = Record<string, Partial<Record<LimitKey, number | null>>>;
 type QuotaResponse = { guestLimit?: number; signupBonus?: number; freeTotal?: number; usageLimits?: Array<{ planCode: string; limitKey: LimitKey; limitValue: number | null }>; };
 
+// Adel (04/09/2026) : "je pense que Découvertes c'est le jour où l'utilisateur
+// a son Premium, il a 50 Free directement ... j'ai pas compris" -- confirmé :
+// Découvertes est un total À VIE (discovery_profiles_lifetime), pas un
+// crédit qui revient chaque mois, contrairement à Soirées ou Comparaisons.
+// La périodicité était seulement dans l'infobulle (survol), facile à
+// manquer -- désormais écrite en toutes lettres dans l'intitulé de colonne.
 const LIMIT_COLUMNS: Array<{ key: LimitKey; label: string; help: string }> = [
-  { key: 'discovery_profiles_lifetime', label: 'Découvertes', help: 'Profils uniques accessibles. Vide = illimité.' },
-  { key: 'smart_sort_trials_lifetime', label: 'Essais Vibes', help: 'Essais de rangement automatique. Vide = illimité.' },
-  { key: 'downloads_per_day', label: 'Téléch. / jour', help: 'Téléchargements quotidiens. Vide = illimité.' },
-  { key: 'events_per_month', label: 'Soirées / mois', help: 'Créations de soirées mensuelles. Vide = illimité.' },
-  { key: 'providers_max', label: 'Services', help: 'Nombre de services musicaux connectés.' },
-  { key: 'follows_max', label: 'Suivis max', help: 'Nombre maximum de profils suivis.' },
-  { key: 'compares_per_month', label: 'Comparaisons', help: 'Nombre maximum de comparaisons mensuelles.' },
-  { key: 'keeps_per_month', label: 'Morceaux / mois', help: 'Ancien quota mensuel, conservé pour compatibilité.' },
-  { key: 'events_max', label: 'Événements legacy', help: 'Ancienne limite événement, conservée pour compatibilité.' },
+  { key: 'discovery_profiles_lifetime', label: 'Découvertes (à vie, une fois)', help: 'Profils uniques accessibles au total, jamais renouvelé. Vide = illimité.' },
+  { key: 'smart_sort_trials_lifetime', label: 'Essais Vibes (à vie, une fois)', help: 'Essais de rangement automatique au total, jamais renouvelé. Vide = illimité.' },
+  { key: 'downloads_per_day', label: 'Téléch. (chaque jour)', help: 'Téléchargements autorisés par jour, remis à zéro chaque jour. Vide = illimité.' },
+  { key: 'events_per_month', label: 'Soirées (chaque mois)', help: 'Créations de soirées autorisées par mois, remis à zéro chaque mois. Vide = illimité.' },
+  { key: 'providers_max', label: 'Services (maximum simultané)', help: 'Nombre de services musicaux connectés en même temps.' },
+  { key: 'follows_max', label: 'Suivis (maximum simultané)', help: 'Nombre maximum de profils suivis en même temps.' },
+  { key: 'compares_per_month', label: 'Comparaisons (chaque mois)', help: 'Nombre maximum de comparaisons par mois, remis à zéro chaque mois.' },
+  { key: 'keeps_per_month', label: 'Morceaux legacy (chaque mois)', help: 'Ancien quota mensuel, conservé pour compatibilité.' },
+  { key: 'events_max', label: 'Événements legacy (à vie)', help: 'Ancienne limite événement à vie, conservée pour compatibilité.' },
 ];
 
 function mapPlan(plan: ApiPlan): PlanRow {
   const eur = plan.plan_prices ?? [];
   const monthly = eur.find((p) => p.currency_code === 'EUR' && p.period === 'MONTHLY');
   const yearly = eur.find((p) => p.currency_code === 'EUR' && p.period === 'YEARLY');
-  return { id: plan.id, code: plan.code, monthly: Number(monthly?.amount ?? 0), yearly: Number(yearly?.amount ?? 0), trialDays: Number(plan.trial_days ?? 0), monthlyPriceId: monthly?.id, yearlyPriceId: yearly?.id };
+  return {
+    id: plan.id, code: plan.code, monthly: Number(monthly?.amount ?? 0), yearly: Number(yearly?.amount ?? 0), trialDays: Number(plan.trial_days ?? 0),
+    monthlyPriceId: monthly?.id, yearlyPriceId: yearly?.id,
+    monthlyFreeBonus: Number(monthly?.free_bonus_per_month ?? 0), yearlyFreeBonus: Number(yearly?.free_bonus_per_month ?? 0),
+  };
 }
 
 async function invokeAdmin(body: Record<string, unknown>) {
@@ -85,7 +95,7 @@ export default function Plans() {
   };
 
   useEffect(() => { void load(); }, []);
-  const updatePlan = (code: string, field: 'monthly' | 'yearly' | 'trialDays', value: number) => { setPlans((prev) => prev.map((p) => p.code === code ? { ...p, [field]: value } : p)); setSavedAt(null); };
+  const updatePlan = (code: string, field: 'monthly' | 'yearly' | 'trialDays' | 'monthlyFreeBonus' | 'yearlyFreeBonus', value: number) => { setPlans((prev) => prev.map((p) => p.code === code ? { ...p, [field]: value } : p)); setSavedAt(null); };
   const updateLimit = (planCode: string, key: LimitKey, value: number | null) => { setLimits((prev) => ({ ...prev, [planCode]: { ...(prev[planCode] ?? {}), [key]: value } })); setSavedAt(null); };
 
   const handleSave = async () => {
@@ -94,8 +104,8 @@ export default function Plans() {
     try {
       for (const plan of plans) {
         await invokeAdmin({ action: 'plans.update', planId: plan.id, trialDays: plan.trialDays, prices: [
-          ...(plan.monthlyPriceId ? [{ id: plan.monthlyPriceId, amount: plan.monthly }] : []),
-          ...(plan.yearlyPriceId ? [{ id: plan.yearlyPriceId, amount: plan.yearly }] : []),
+          ...(plan.monthlyPriceId ? [{ id: plan.monthlyPriceId, amount: plan.monthly, freeBonusPerMonth: plan.monthlyFreeBonus }] : []),
+          ...(plan.yearlyPriceId ? [{ id: plan.yearlyPriceId, amount: plan.yearly, freeBonusPerMonth: plan.yearlyFreeBonus }] : []),
         ] });
       }
       const freeSave = await supabase.rpc('admin_set_free_credit_rules', { p_guest_limit: Math.max(0, Math.floor(guestLimit)), p_signup_bonus: Math.max(0, Math.floor(signupBonus)) });
@@ -131,9 +141,21 @@ export default function Plans() {
     </section>
 
     <h2 style={{marginTop:28}}>Prix & périodes d’essai</h2>
-    <table><thead><tr><th>Plan</th><th>Prix mensuel</th><th>Prix annuel</th><th>Essai</th></tr></thead><tbody>
-      {loading&&<tr><td colSpan={4} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
-      {plans.map((p)=><tr key={p.id}><td>{p.code}</td><td><input type="number" step="0.01" value={p.monthly} onChange={(e)=>updatePlan(p.code,'monthly',Number(e.target.value)||0)}/> €</td><td><input type="number" step="0.01" value={p.yearly} onChange={(e)=>updatePlan(p.code,'yearly',Number(e.target.value)||0)}/> €</td><td><input type="number" min="0" value={p.trialDays} onChange={(e)=>updatePlan(p.code,'trialDays',parseInt(e.target.value,10)||0)}/></td></tr>)}
+    {/* Adel (04/09/2026) : "regarde bien où y a prix mensuel et prix annuel,
+        le nombre de Free que je vais donner avec, ça ira modifier
+        automatiquement dans les offres" -- une colonne Free/mois juste à
+        côté de chaque prix, au même endroit et dans le même geste. */}
+    <p style={{color:'#9f96ad',marginTop:-8}}>Free/mois : combien de Free ce prix accorde par mois écoulé depuis l’inscription (cumulatif, jamais remis à zéro). Peut différer entre mensuel et annuel pour la même formule.</p>
+    <table><thead><tr><th>Plan</th><th>Prix mensuel</th><th>Free/mois (mensuel)</th><th>Prix annuel</th><th>Free/mois (annuel)</th><th>Essai</th></tr></thead><tbody>
+      {loading&&<tr><td colSpan={6} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
+      {plans.map((p)=><tr key={p.id}>
+        <td>{p.code}</td>
+        <td><input type="number" step="0.01" value={p.monthly} onChange={(e)=>updatePlan(p.code,'monthly',Number(e.target.value)||0)}/> €</td>
+        <td><input type="number" min="0" value={p.monthlyFreeBonus} onChange={(e)=>updatePlan(p.code,'monthlyFreeBonus',Math.max(0,parseInt(e.target.value,10)||0))} style={{width:70}}/></td>
+        <td><input type="number" step="0.01" value={p.yearly} onChange={(e)=>updatePlan(p.code,'yearly',Number(e.target.value)||0)}/> €</td>
+        <td><input type="number" min="0" value={p.yearlyFreeBonus} onChange={(e)=>updatePlan(p.code,'yearlyFreeBonus',Math.max(0,parseInt(e.target.value,10)||0))} style={{width:70}}/></td>
+        <td><input type="number" min="0" value={p.trialDays} onChange={(e)=>updatePlan(p.code,'trialDays',parseInt(e.target.value,10)||0)}/></td>
+      </tr>)}
     </tbody></table>
 
     <h2 style={{marginTop:28}}>Limites par formule</h2>

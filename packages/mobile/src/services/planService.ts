@@ -7,6 +7,11 @@ export type KeepPlan = {
   trialDays: number;
   monthlyAmount: number;
   currencyCode: string;
+  // Adel (04/09/2026) : "regarde bien où y a prix mensuel et prix annuel, le
+  // nombre de Free que je vais donner avec" -- réglé au même endroit que le
+  // prix (plan_prices.free_bonus_per_month), une seule source de vérité au
+  // lieu d'une clé remote_config séparée par plan.
+  monthlyFreeBonus: number;
 };
 
 export type CreditFunnel = {
@@ -25,7 +30,7 @@ export async function loadPlans(): Promise<KeepPlan[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('plans')
-    .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from)')
+    .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
     .eq('is_active', true)
     .eq('plan_prices.is_active', true)
     .eq('plan_prices.period', 'MONTHLY');
@@ -41,6 +46,7 @@ export async function loadPlans(): Promise<KeepPlan[]> {
       trialDays: Number(row.trial_days || 0),
       monthlyAmount: Number(price?.amount || 0),
       currencyCode: price?.currency_code || 'EUR',
+      monthlyFreeBonus: Number(price?.free_bonus_per_month || 0),
     };
   }).sort((a: KeepPlan, b: KeepPlan) => ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(a.code) - ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(b.code));
 }
