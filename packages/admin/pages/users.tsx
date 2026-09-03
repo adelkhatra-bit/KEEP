@@ -102,6 +102,8 @@ export default function Users() {
   const [requirements, setRequirements] = useState<string[]>([]);
   const [plan, setPlan] = useState<PaidPlan>('PREMIUM');
   const [months, setMonths] = useState(12);
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditReason, setCreditReason] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
@@ -200,6 +202,21 @@ export default function Users() {
       setMessage(`Avantage offert retiré pour @${selected.username}. Le compte et les données restent intacts.`);
       await load(); await refreshSelected();
     } catch (e: any) { setError(e?.message ?? 'Révocation impossible.'); }
+    finally { setBusy(null); }
+  };
+
+  const grantCredits = async (amountValue: number) => {
+    if (!selected) return;
+    if (!Number.isFinite(amountValue) || amountValue === 0) return setError('Indique un nombre de Free différent de 0.');
+    setBusy('credits'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'grant_credits', profileId: selected.id, amount: amountValue, reason: creditReason.trim() });
+      setSelected((prev) => prev ? { ...prev, credit_remaining: Number(result.creditRemaining ?? prev.credit_remaining) } : prev);
+      setSnapshot(result.data as UserSnapshot);
+      setMessage(`${amountValue > 0 ? '+' : ''}${amountValue} Free pour @${selected.username} -- notification envoyée. Nouveau solde : ${result.creditRemaining}.`);
+      setCreditAmount(''); setCreditReason('');
+      await load();
+    } catch (e: any) { setError(e?.message ?? 'Impossible de créditer ce compte.'); }
     finally { setBusy(null); }
   };
 
@@ -346,10 +363,11 @@ export default function Users() {
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:8,marginTop:16}}>
             {[
               ['Certification', selected.account_verified ? certificationLabel(selected) : 'Compte non validé'],
+              ['FREE restant', selected.credit_remaining == null ? '∞ (illimité)' : String(selected.credit_remaining)],
               ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
               ['Reconnaissances', String(snapshot.usage.recognizedCount)],
               ['Morceaux débités', String(snapshot.usage.ownKeeps)],
-              ['Reprises', String(snapshot.usage.socialKeeps)],
+              ['Reprises par d’autres (impact)', String(snapshot.usage.socialKeeps)],
               ['Morceaux total', String(snapshot.usage.kept)],
               ['Publics', String(snapshot.usage.publicKeeps)],
               ['Playlists', String(snapshot.usage.playlists)],
@@ -358,6 +376,24 @@ export default function Users() {
               ['Ville / pays', [snapshot.profile.city,snapshot.profile.country_code].filter(Boolean).join(' · ') || 'Manquant'],
               ['Découvertes', snapshot.profile.discovery_hidden ? 'Masqué' : 'Visible'],
             ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10,minWidth:0}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong style={{overflowWrap:'anywhere'}}>{value}</strong></div>)}
+          </div>
+
+          {/* Adel (04/09/2026) : "je puisse cliquer dessus et rajouter du
+              Free pour recréditer ... ça enverra une notification à
+              l'utilisateur, par exemple offrir un bonus pour le dérangement."
+              Ledger audité (admin_credit_grants) + notification automatique,
+              jamais un UPDATE muet d'un compteur. */}
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
+            <h3 style={{margin:'0 0 6px'}}>Créditer / débiter des Free</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Un nombre positif ajoute des Free (ex : bonus surprise, geste commercial suite à un bug). Un nombre négatif corrige le solde à la baisse. L’utilisateur reçoit une notification immédiatement.</div>
+            <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+              <input type="number" value={creditAmount} onChange={(e)=>setCreditAmount(e.target.value)} placeholder="Ex : 10 ou -5" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <input value={creditReason} onChange={(e)=>setCreditReason(e.target.value)} placeholder="Raison affichée à l’utilisateur (facultatif)" style={{flex:'1 1 260px',background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()}>{busy==='credits'?'Envoi…':'Appliquer'}</button>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>
+              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>void grantCredits(preset)} disabled={busy!==null} style={{background:'#1c1630'}}>+{preset} Free</button>)}
+            </div>
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>

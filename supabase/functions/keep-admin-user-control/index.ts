@@ -48,6 +48,9 @@ function canModerateDiscovery(role: string) {
 function canDestruct(role: string) {
   return role === "SUPER_ADMIN";
 }
+function canGrantCredits(role: string) {
+  return role === "SUPER_ADMIN" || role === "ADMIN";
+}
 
 function generateTemporaryPassword() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -209,6 +212,29 @@ Deno.serve(async (req) => {
       }
       await audit(actor.id, "user.email.set", profileId, { email });
       return json(200, { ok: true, email, data: await getUserSnapshot(profileId) });
+    }
+
+    if (action === "grant_credits") {
+      // Adel (04/09/2026) : "je puisse rajouter du Free pour recréditer et ça
+      // enverra une notification ... par exemple offrir un bonus pour un bug."
+      // Ledger dédié (admin_credit_grants), jamais un UPDATE direct d'un
+      // compteur -- garde un historique audité de chaque geste manuel, et
+      // s'additionne proprement à la formule Free déjà unifiée partout
+      // ailleurs (keep_theoretical_free_credit_remaining_for_profile).
+      if (!canGrantCredits(actor.role)) return json(403, { error: "role_forbidden" });
+      const amount = Math.trunc(Number(body?.amount));
+      if (!Number.isFinite(amount) || amount === 0) return json(400, { error: "invalid_amount" });
+      const reason = String(body?.reason ?? "").trim().slice(0, 300);
+      const { data: profile, error: profileError } = await admin.from("profiles").select("id,username").eq("id", profileId).maybeSingle();
+      if (profileError || !profile) return json(404, { error: "profile_not_found" });
+      const { error: grantError } = await admin.from("admin_credit_grants").insert({ profile_id: profileId, amount, reason, granted_by: actor.id });
+      if (grantError) throw grantError;
+      const title = amount > 0 ? `🎁 Loki t'offre ${amount} Free` : `Ajustement de ton solde Free`;
+      const notifBody = reason || (amount > 0 ? "Un petit geste de l'équipe Loki -- profites-en !" : "Ton solde Free a été ajusté par l'équipe Loki.");
+      await admin.from("notifications").insert({ profile_id: profileId, type: "ADMIN_CREDIT_GRANT", title, body: notifBody, data: { amount, reason } });
+      await audit(actor.id, "user.credits.granted", profileId, { amount, reason });
+      const { data: creditRemaining } = await admin.rpc("keep_theoretical_free_credit_remaining_for_profile", { p_uid: profileId });
+      return json(200, { ok: true, creditRemaining: Number(creditRemaining ?? 0), data: await getUserSnapshot(profileId) });
     }
 
     if (action === "delete") {
