@@ -136,7 +136,7 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('`ÉQUIPE B · ${teamB.length}`');
     expect(source).toContain('{teamAScore} pts');
     expect(source).toContain('{teamBScore} pts');
-    expect(source).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
+    expect(source).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
   });
 
   it('shows a complete endgame (round count now selectable, 8/15/20/30) with replay and challenge choices', () => {

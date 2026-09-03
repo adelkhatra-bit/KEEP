@@ -393,6 +393,24 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const versusScale = React.useRef(new Animated.Value(.72)).current;
   const celebrationOpacity = React.useRef(new Animated.Value(0)).current;
   const celebrationScale = React.useRef(new Animated.Value(.72)).current;
+  // Adel (03/09/2026) : "la jauge animée qui épouse du côté du gagnant" --
+  // la barre VS sautait instantanément à sa nouvelle largeur à chaque bonne
+  // réponse au lieu de glisser vers le côté qui prend l'avantage, comme les
+  // jauges de PK en direct (TikTok). Une seule valeur animée, réutilisée
+  // pour l'arène en direct ET le mode spectateur.
+  const powerShareAnim = React.useRef(new Animated.Value(50)).current;
+  const arenaLeaderboardKey = arena ? (arena.leaderboard || []).map((l) => `${l.profileId}:${l.score}`).join(',') : '';
+  React.useEffect(() => {
+    if (!arena) return;
+    const players = (arena.leaderboard?.length ? arena.leaderboard : arena.seats) || [];
+    const teamA = players.filter((_, index) => index % 2 === 0);
+    const teamB = players.filter((_, index) => index % 2 === 1);
+    const scoreA = teamA.reduce((sum, player) => sum + Number((player as any)?.score || 0), 0);
+    const scoreB = teamB.reduce((sum, player) => sum + Number((player as any)?.score || 0), 0);
+    const sum = scoreA + scoreB;
+    const share = sum === 0 ? 50 : Math.max(12, Math.min(88, (scoreA / sum) * 100));
+    Animated.timing(powerShareAnim, { toValue: share, duration: 480, useNativeDriver: false }).start();
+  }, [arenaLeaderboardKey, arena, powerShareAnim]);
 
   const celebrate = React.useCallback(() => {
     celebrationOpacity.setValue(0);
@@ -1438,12 +1456,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const teamB = players.filter((_, index) => index % 2 === 1);
     const teamAScore = teamA.reduce((sum, player) => sum + Number(player?.score || 0), 0);
     const teamBScore = teamB.reduce((sum, player) => sum + Number(player?.score || 0), 0);
-    // Adel (02/09/2026) : "la jauge du VS ... ça part du milieu, c'est 0-0"
-    // -- avec 0-0, teamAScore/Math.max(1,0) valait 0/1=0%, plafonné au
-    // minimum de 12% au lieu du centre (50%). La jauge démarrait donc
-    // toujours décalée vers l'équipe B avant la première bonne réponse.
-    const teamPointsSum = teamAScore + teamBScore;
-    const leftShare = teamPointsSum === 0 ? 50 : Math.max(12, Math.min(88, (teamAScore / teamPointsSum) * 100));
     const versusLabel = players.length > 2 ? `ÉQUIPE A (${teamA.length}) VS ÉQUIPE B (${teamB.length})` : `${first ? `@${first.username}` : 'Loki'} VS ${second ? `@${second.username}` : 'Loki'}`;
     const palmares = Array.from(winnerHistory.reduce((map, row) => {
       const current = map.get(row.profileId) || { ...row, wins: 0 };
@@ -1612,7 +1624,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           (pas à la place) du carré compact -- jamais plus de contenu
           totalement inatteignable pendant un chrono de quelques secondes. */}
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
-      {first && second ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => players.length === 2 && onOpenProfile(first.username)}><Text style={s.duelName}>{players.length === 2 ? `@${first.username}` : `ÉQUIPE A · ${teamA.length}`}</Text><Text style={s.duelPoints}>{teamAScore} pts</Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => players.length === 2 && onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>{players.length === 2 ? `@${second.username}` : `ÉQUIPE B · ${teamB.length}`}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}>{teamBScore} pts</Text></TouchableOpacity></View><View style={s.power}><View style={[s.powerLeft, { width: `${leftShare}%` }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View>{renderTeamSquares(teamA, teamB)}</View> : null}
+      {first && second ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => players.length === 2 && onOpenProfile(first.username)}><Text style={s.duelName}>{players.length === 2 ? `@${first.username}` : `ÉQUIPE A · ${teamA.length}`}</Text><Text style={s.duelPoints}>{teamAScore} pts</Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => players.length === 2 && onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>{players.length === 2 ? `@${second.username}` : `ÉQUIPE B · ${teamB.length}`}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}>{teamBScore} pts</Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
       {arena.status === 'WAITING' ? <View style={s.waiting}><Text style={s.trophy}>⚡</Text><Text style={s.winner}>{arena.seats.length < 2 ? 'EN ATTENTE' : 'JOUEURS EN SYNCHRONISATION'}</Text><Text style={s.waitText}>{arena.seats.length >= 2 ? 'Tous les joueurs entrent dans la même partie. Le morceau démarre sur le même chrono.' : 'En attente d’un adversaire.'}</Text></View> : null}
       {arena.status === 'ACTIVE' && round ? <><View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{round.answered ? 'RÉPONSE ENREGISTRÉE' : ready ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View><Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}><View style={s.visual}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : null}</View> : null}</View><Text style={s.question}>Qui chante ?</Text>
       {/* Adel (02/09/2026) : "on a pas le même principe pour la mauvaise

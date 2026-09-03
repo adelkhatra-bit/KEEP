@@ -66,7 +66,7 @@ describe('Loki Battle challenge UX', () => {
     expect(battle).toContain('players.length === 2 ? `@${second.username}`');
     expect(battle).toContain('{teamAScore} pts');
     expect(battle).toContain('{teamBScore} pts');
-    expect(battle).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
+    expect(battle).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
   });
 
   it('keeps Battle decision out of Notifications and native push actions', () => {
