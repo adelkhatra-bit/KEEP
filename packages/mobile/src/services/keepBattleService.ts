@@ -221,6 +221,12 @@ export type KeepBattlePlayerStats = {
   totalCorrect: number;
   avgResponseMs: number | null;
   topThemes: KeepBattlePlayerThemeStat[];
+  // Adel (04/09/2026) : "il faut mettre le nombre d'utilisateur [abonnés], le
+  // nombre de Free qu'il a et le nombre de Free qu'il a gagné" -- sur la
+  // fiche stats d'un joueur, déjà publique côté Battle (victoires, matchs).
+  followers: number;
+  freeBalance: number;
+  freeWon: number;
 };
 
 export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
@@ -237,6 +243,9 @@ export async function loadKeepBattlePlayerStats(profileId: string): Promise<Keep
       wins: Number(t.wins ?? 0),
       matches: Number(t.matches ?? 0),
     })).filter((t: KeepBattlePlayerThemeStat) => t.themeCode) : [],
+    followers: Number(row.followers ?? 0),
+    freeBalance: Number(row.freeBalance ?? 0),
+    freeWon: Number(row.freeWon ?? 0),
   };
 }
 

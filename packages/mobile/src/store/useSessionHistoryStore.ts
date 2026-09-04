@@ -27,6 +27,18 @@ export function isCloudProfileRecoverySession(session: KeepSession): boolean {
 
 interface SessionHistoryStore {
   sessions: KeepSession[];
+  // Adel (04/09/2026) : "ces trois sessions, à chaque fois que je les
+  // efface, elles reviennent" -- BUG RÉEL confirmé : `deleteSession`
+  // n'effaçait la session QUE côté local, mais `syncUnsyncedKeeps` (appelé
+  // à chaque focus de l'écran) recharge les Keep confirmés côté serveur
+  // (`loadOwnPersistedKeeps`) et `mergePersistedKeeps` reconstruit
+  // fidèlement toute session dont un morceau gardé server-side n'a plus
+  // d'entrée locale -- exactement ce qu'une suppression locale vient de
+  // produire. Cette liste retient les `keepDecisionId` explicitement
+  // effacés par l'utilisateur pour ne plus jamais les faire réapparaître
+  // dans une session reconstruite, SANS toucher au Keep lui-même (toujours
+  // intact côté serveur, toujours visible sur le profil/Mes Morceaux).
+  dismissedKeepDecisionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
   deleteSession: (sessionId: string) => void;
@@ -167,7 +179,8 @@ function buildRecoveredSession(sessionId: string, keeps: PersistedKeepDecision[]
  * une session entière. Les changements de vrai compte sont traités séparément
  * dans useUserStore, au moment où l'identité est réellement connue.
  */
-export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
+export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[], dismissedDecisionIds: string[] = []): KeepSession[] {
+  const dismissed = new Set(dismissedDecisionIds);
   const remoteByDecision = new Map(remoteKeeps.map((item) => [item.decisionId, item]));
 
   let next = sessions.map((session) => ({
@@ -204,7 +217,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
   for (const session of next) {
     for (const entry of session.tracks) if (entry.keepDecisionId) represented.add(entry.keepDecisionId);
   }
-  const missing = remoteKeeps.filter((item) => !represented.has(item.decisionId));
+  const missing = remoteKeeps.filter((item) => !represented.has(item.decisionId) && !dismissed.has(item.decisionId));
 
   // Les décisions récentes transportent le vrai sessionId dans leur contexte.
   // On reconstruit donc LA session correspondante au lieu de jeter tous les
@@ -281,13 +294,21 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
   persist(
     (set, get) => ({
       sessions: [],
+      dismissedKeepDecisionIds: [],
 
       addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
       upsertSession: (session) => set((s) => {
         const exists = s.sessions.some((item) => item.id === session.id);
         return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
       }),
-      deleteSession: (sessionId) => set((s) => ({ sessions: s.sessions.filter((session) => session.id !== sessionId) })),
+      deleteSession: (sessionId) => set((s) => {
+        const target = s.sessions.find((session) => session.id === sessionId);
+        const decisionIds = (target?.tracks ?? []).map((t) => t.keepDecisionId).filter((id): id is string => Boolean(id));
+        return {
+          sessions: s.sessions.filter((session) => session.id !== sessionId),
+          dismissedKeepDecisionIds: decisionIds.length ? Array.from(new Set([...s.dismissedKeepDecisionIds, ...decisionIds])) : s.dismissedKeepDecisionIds,
+        };
+      }),
       clearSessions: () => set({ sessions: [] }),
       renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
 
@@ -373,7 +394,10 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           const remoteKeeps = await loadOwnPersistedKeeps();
           // Le serveur enrichit et restaure. Il ne supprime jamais une session
           // locale sur la seule base d'une absence dans cette lecture distante.
-          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
+          // `dismissedKeepDecisionIds` empêche uniquement la RECONSTRUCTION
+          // d'une session que l'utilisateur a explicitement effacée -- les
+          // Keep eux-mêmes restent inchangés côté serveur.
+          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps, state.dismissedKeepDecisionIds) }));
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
         }

@@ -72,6 +72,11 @@ export default function Plans() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Adel (04/09/2026) : "mets-moi des ? je clique dessus, je sais à quoi ça
+  // sert ... faut que je sache exactement si je veux paramétrer" -- le
+  // `title` (infobulle au survol) était invisible/peu fiable sur tactile.
+  // Un vrai bouton "?" cliquable affiche l'explication en clair.
+  const [openHelpKey, setOpenHelpKey] = useState<LimitKey | null>(null);
 
   const freeTotal = useMemo(() => Math.max(0, guestLimit) + Math.max(0, signupBonus), [guestLimit, signupBonus]);
 
@@ -159,8 +164,12 @@ export default function Plans() {
     </tbody></table>
 
     <h2 style={{marginTop:28}}>Limites par formule</h2>
-    <p style={{color:'#9f96ad'}}>Vide = illimité quand la fonction est incluse. Les cadenas de l’application utilisent ces mêmes règles serveur.</p>
-    <div style={{overflowX:'auto'}}><table><thead><tr><th>Plan</th>{LIMIT_COLUMNS.map((c)=><th key={c.key} title={c.help}>{c.label}</th>)}</tr></thead><tbody>
+    <p style={{color:'#9f96ad'}}>Vide = illimité quand la fonction est incluse. Les cadenas de l’application utilisent ces mêmes règles serveur. Cliquez sur un « ? » pour savoir exactement à quoi sert une colonne avant de la paramétrer.</p>
+    {openHelpKey && <div style={{background:'#1B1422',border:'1px solid #493369',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:10}}>
+      <div style={{flex:1}}><strong>{LIMIT_COLUMNS.find((c)=>c.key===openHelpKey)?.label}</strong><div style={{color:'#b79cff',fontSize:12,marginTop:3,lineHeight:1.4}}>{LIMIT_COLUMNS.find((c)=>c.key===openHelpKey)?.help}</div></div>
+      <button type="button" onClick={()=>setOpenHelpKey(null)} style={{background:'transparent',border:'none',color:'#9f96ad',cursor:'pointer',fontSize:16,lineHeight:1}}>×</button>
+    </div>}
+    <div style={{overflowX:'auto'}}><table><thead><tr><th>Plan</th>{LIMIT_COLUMNS.map((c)=><th key={c.key}>{c.label} <button type="button" onClick={()=>setOpenHelpKey(openHelpKey===c.key?null:c.key)} title={c.help} style={{width:18,height:18,borderRadius:9,border:'1px solid var(--primary)',background:openHelpKey===c.key?'var(--primary)':'transparent',color:openHelpKey===c.key?'#fff':'var(--primary)',fontSize:11,fontWeight:900,cursor:'pointer',lineHeight:1,padding:0}}>?</button></th>)}</tr></thead><tbody>
       {plans.map((plan)=><tr key={`limits-${plan.code}`}><td>{plan.code}</td>{LIMIT_COLUMNS.map((column)=>{const hasValue=column.key in (limits[plan.code]??{});const value=limits[plan.code]?.[column.key];return <td key={`${plan.code}-${column.key}`}>{hasValue?<input type="number" min="0" placeholder="∞" value={value==null?'':value} onChange={(e)=>updateLimit(plan.code,column.key,parseNullableNumber(e.target.value))} title={column.help} style={{width:86}}/>:<span style={{color:'#665f70'}}>—</span>}</td>;})}</tr>)}
     </tbody></table></div>
 

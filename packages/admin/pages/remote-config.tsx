@@ -32,6 +32,17 @@ const FRIENDLY_LABELS: Record<string, string> = {
   growth_followers_reward_500_discovery: 'Bonus Découvertes · abonnés palier 4',
   growth_followers_reward_500_sort: 'Essais Vibes · abonnés palier 4',
   growth_followers_reward_1000_credits: 'Bonus crédits · Audience Pro',
+  // Adel (04/09/2026) : "je sais pas comment t'as calculé ton coût pour le
+  // lien d'affiliation ... il faut que je puisse l'avoir dans les
+  // paramètres" -- ces 5 clés existaient déjà côté serveur
+  // (keep_referral_rules, utilisées par l'écran Inviter un ami / QR code
+  // de parrainage) mais n'avaient ni libellé ni groupe ici : elles
+  // tombaient dans "Configuration avancée" sans explication.
+  referral_free_per_signup: 'Free gagnés par filleul inscrit via mon lien',
+  referral_bonus_3: 'Bonus Free au 3ᵉ filleul inscrit ce mois',
+  referral_bonus_5: 'Bonus Free au 5ᵉ filleul inscrit ce mois',
+  referral_bonus_10: 'Bonus Free au 10ᵉ filleul inscrit ce mois',
+  referral_monthly_free_cap: 'Plafond de Free gagnés par parrainage / mois',
   music_services_limit_free: 'Services musicaux · FREE',
   music_services_limit_premium: 'Services musicaux · Premium 2,99 €',
   music_services_limit_creator: 'Services musicaux · Creator Pro 9,99 €',
@@ -56,7 +67,7 @@ function editableValue(row: RemoteConfigRow) {
 
 function groupFor(key: string): GroupKey {
   if (key.startsWith('legal_')) return 'LEGAL';
-  if (key.startsWith('growth_')) return 'GROWTH';
+  if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
   if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_arena_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
   if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
@@ -66,7 +77,7 @@ function groupFor(key: string): GroupKey {
 
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
   { key: 'LEGAL', title: 'Informations légales', subtitle: 'Nom et contact affichés dans les mentions légales, CGU et politique de confidentialité publiques -- un seul changement ici met à jour toutes les pages automatiquement, sans republier l’app.' },
-  { key: 'GROWTH', title: 'Croissance Free · paliers & cadeaux', subtitle: 'Transforme partages et abonnés en bonus sans modifier l’application. Les règles serveur utilisent ces valeurs.' },
+  { key: 'GROWTH', title: 'Croissance Free · paliers & cadeaux', subtitle: 'Transforme partages, abonnés ET parrainage (lien d’affiliation / QR code, "Inviter un ami") en bonus Free, sans modifier l’application. Les règles serveur (keep_referral_rules) utilisent ces mêmes valeurs.' },
   { key: 'PLANS', title: 'Essai, crédits & limites', subtitle: 'Réglages transversaux. Les limites propres à chaque formule se gèrent aussi dans Abonnements, Prix & Quotas.' },
   { key: 'SERVICES', title: 'Services musicaux · emplacements par formule', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },
   { key: 'LISTEN', title: 'Écouter & compte', subtitle: 'Textes et comportement à distance de l’écran Écouter.' },
