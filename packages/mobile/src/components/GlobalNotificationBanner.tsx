@@ -43,36 +43,37 @@ export default function GlobalNotificationBanner() {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
-  const translateX = useRef(new Animated.Value(430)).current;
+  const OFFSCREEN_TOP = -260;
+  const translateY = useRef(new Animated.Value(OFFSCREEN_TOP)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationsEnabled = useRef(true);
   const seenNotificationIds = useRef(new Set<string>());
-  // Adel (03/09/2026) : "que je puisse le pousser avec le doigt sur le côté
-  // ou la fermer" -- ni le bandeau flottant informationnel, ni les variantes
-  // Battle (défi/revanche) n'avaient de moyen de fermeture explicite avant la
-  // disparition automatique (4.6s / 20s). Glisser latéralement au-delà d'un
-  // seuil ferme immédiatement, comme un relâchement en dessous le ramène à
-  // sa place -- PanResponder natif, aucune dépendance supplémentaire.
-  const dragX = useRef(0);
+  // Adel (04/09/2026) : "les notifications viennent du côté, je veux que tu
+  // les fasses venir du haut vers le bas comme ça je peux les Swiper pour les
+  // remonter vers le haut" -- remplace l'entrée/sortie latérale (translateX)
+  // par une entrée/sortie verticale depuis le haut de l'écran, et le swipe de
+  // fermeture latéral par un swipe vers le HAUT uniquement (le doigt ne peut
+  // pas tirer le bandeau vers le bas au-delà de sa position posée).
+  const dragY = useRef(0);
   const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_evt, gesture) => Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onMoveShouldSetPanResponder: (_evt, gesture) => Math.abs(gesture.dy) > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderMove: (_evt, gesture) => {
-      dragX.current = gesture.dx;
-      translateX.setValue(gesture.dx);
+      dragY.current = gesture.dy;
+      translateY.setValue(Math.min(0, gesture.dy));
     },
     onPanResponderRelease: (_evt, gesture) => {
-      if (Math.abs(gesture.dx) > 90) {
+      if (gesture.dy < -70) {
         Animated.parallel([
-          Animated.timing(translateX, { toValue: gesture.dx > 0 ? 430 : -430, duration: 200, useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: OFFSCREEN_TOP, duration: 200, useNativeDriver: true }),
           Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
         ]).start(() => setCurrent(null));
         if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
       } else {
-        Animated.spring(translateX, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }).start();
+        Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }).start();
       }
     },
-  }), [opacity, translateX]);
+  }), [opacity, translateY]);
 
   const animateOut = (after?: () => void) => {
     if (hideTimer.current) {
@@ -80,7 +81,7 @@ export default function GlobalNotificationBanner() {
       hideTimer.current = null;
     }
     Animated.parallel([
-      Animated.timing(translateX, { toValue: 430, duration: 260, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: OFFSCREEN_TOP, duration: 260, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
     ]).start(() => {
       setCurrent(null);
@@ -137,15 +138,15 @@ export default function GlobalNotificationBanner() {
       }
 
       if (hideTimer.current) clearTimeout(hideTimer.current);
-      translateX.stopAnimation();
+      translateY.stopAnimation();
       opacity.stopAnimation();
-      translateX.setValue(430);
+      translateY.setValue(OFFSCREEN_TOP);
       opacity.setValue(0);
       setCurrent(notification);
 
       requestAnimationFrame(() => {
         Animated.parallel([
-          Animated.spring(translateX, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }),
           Animated.timing(opacity, { toValue: 1, duration: 170, useNativeDriver: true }),
         ]).start();
       });
@@ -159,7 +160,7 @@ export default function GlobalNotificationBanner() {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       hideTimer.current = null;
     };
-  }, [isDemoMode, isLocalGuest, opacity, translateX, user?.id]);
+  }, [isDemoMode, isLocalGuest, opacity, translateY, user?.id]);
 
   if (!current || !user || isDemoMode || isLocalGuest) return null;
 
@@ -227,7 +228,7 @@ export default function GlobalNotificationBanner() {
 
   if (battleRematch && rematchArenaId) {
     return (
-      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]} {...panResponder.panHandlers}>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
         <View style={styles.banner}>
           <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           <View style={styles.artworkFallback}><Text style={styles.note}>🔁</Text></View>
@@ -251,7 +252,7 @@ export default function GlobalNotificationBanner() {
 
   if (battleChallenge && challengeId) {
     return (
-      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateX }] }]} {...panResponder.panHandlers}>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
         <View style={styles.banner}>
           <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           {artworkUrl ? (
@@ -282,7 +283,7 @@ export default function GlobalNotificationBanner() {
       pointerEvents="box-none"
       style={[
         styles.wrap,
-        { opacity, transform: [{ translateX }] },
+        { opacity, transform: [{ translateY }] },
       ]}
       {...panResponder.panHandlers}
     >
