@@ -15,7 +15,8 @@ type LimitKey =
   | 'discovery_profiles_lifetime'
   | 'smart_sort_trials_lifetime'
   | 'events_per_month'
-  | 'downloads_per_day';
+  | 'downloads_per_day'
+  | 'battle_matches_per_month';
 
 type LimitsByPlan = Record<string, Partial<Record<LimitKey, number | null>>>;
 type QuotaResponse = { guestLimit?: number; signupBonus?: number; freeTotal?: number; usageLimits?: Array<{ planCode: string; limitKey: LimitKey; limitValue: number | null }>; };
@@ -31,6 +32,12 @@ const LIMIT_COLUMNS: Array<{ key: LimitKey; label: string; help: string }> = [
   { key: 'smart_sort_trials_lifetime', label: 'Essais Vibes (à vie, une fois)', help: 'Essais de rangement automatique au total, jamais renouvelé. Vide = illimité.' },
   { key: 'downloads_per_day', label: 'Téléch. (chaque jour)', help: 'Téléchargements autorisés par jour, remis à zéro chaque jour. Vide = illimité.' },
   { key: 'events_per_month', label: 'Soirées (chaque mois)', help: 'Créations de soirées autorisées par mois, remis à zéro chaque mois. Vide = illimité.' },
+  // Adel (04/09/2026) : "pour les inscriptions sur le Battle, que je puisse
+  // limiter les Battle par utilisateurs, par formule, par mois" -- aucune
+  // limite n'existait sur le nombre de Battle EN LIGNE joués par mois
+  // (seule la mise en Free par match existait). Le Battle solo reste
+  // gratuit et illimité, non concerné par cette colonne.
+  { key: 'battle_matches_per_month', label: 'Battle en ligne (chaque mois)', help: 'Nombre de Battle EN LIGNE (avec un autre joueur) autorisés par mois et par utilisateur, remis à zéro chaque mois. Le Battle solo (entraînement) n’est jamais limité par ce réglage. Vide = illimité.' },
   { key: 'providers_max', label: 'Services (maximum simultané)', help: 'Nombre de services musicaux connectés en même temps.' },
   { key: 'follows_max', label: 'Suivis (maximum simultané)', help: 'Nombre maximum de profils suivis en même temps.' },
   { key: 'compares_per_month', label: 'Comparaisons (chaque mois)', help: 'Nombre maximum de comparaisons par mois, remis à zéro chaque mois.' },

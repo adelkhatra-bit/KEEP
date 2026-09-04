@@ -46,7 +46,7 @@ function notificationTypeLabel(type: string) {
 export default function NotificationsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const [items, setItems] = useState<KeepNotification[]>([]);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true });
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true, eventsEnabled: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -59,6 +59,11 @@ export default function NotificationsScreen({ navigation }: any) {
   // libre de les désactiver.
   const [planCode, setPlanCode] = useState('FREE');
   const marketingLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  // Adel (04/09/2026) : "la seule chose qui ne pourra pas désactiver, c'est
+  // les événements ... ça lui demandera de passer en Pro pour avoir la
+  // possibilité de désactiver cette notification" -- même verrou que
+  // Marketing, catégorie séparée.
+  const eventsLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
   useEffect(() => {
     if (!user) return;
     let live = true;
@@ -69,8 +74,11 @@ export default function NotificationsScreen({ navigation }: any) {
     if (marketingLocked && prefs.marketingEnabled === false && user) {
       void updatePrefs({ marketingEnabled: true });
     }
+    if (eventsLocked && prefs.eventsEnabled === false && user) {
+      void updatePrefs({ eventsEnabled: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketingLocked, prefs.marketingEnabled, user?.id]);
+  }, [marketingLocked, prefs.marketingEnabled, eventsLocked, prefs.eventsEnabled, user?.id]);
 
   const refresh = async () => {
     if (!user) return;
@@ -324,6 +332,15 @@ export default function NotificationsScreen({ navigation }: any) {
             value={marketingLocked ? true : prefs.marketingEnabled}
             onValueChange={(v) => { if (!marketingLocked) updatePrefs({ marketingEnabled: v }); }}
             locked={marketingLocked}
+          />
+          <Preference
+            label="Événements"
+            hint={eventsLocked
+              ? "Invitations aux soirées et événements des profils que tu suis ou dont tu as gardé un morceau. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
+              : 'Invitations aux soirées et événements. Tu peux le désactiver, ta formule te le permet.'}
+            value={eventsLocked ? true : prefs.eventsEnabled}
+            onValueChange={(v) => { if (!eventsLocked) updatePrefs({ eventsEnabled: v }); }}
+            locked={eventsLocked}
           />
         </View>
       </ScrollView>

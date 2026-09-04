@@ -16,17 +16,22 @@ export type NotificationPreferences = {
   djEnabled: boolean;
   socialEnabled: boolean;
   marketingEnabled: boolean;
+  eventsEnabled: boolean;
 };
 
 // Adel (03/09/2026) : "le Marketing devrait tout le temps rester activé,
 // hormis pour ceux qui payent au moins 9,99€" -- obligatoire par défaut pour
 // un nouveau profil (formule gratuite) ; NotificationsScreen le déverrouille
 // et laisse le choix uniquement à partir de Creator Pro/Venue Pro.
+// Adel (04/09/2026) : même mécanique pour "Événements" -- toujours activé et
+// verrouillé en formule gratuite, seule une formule payante (Creator Pro /
+// Venue Pro) peut réellement le désactiver.
 const DEFAULT_PREFS: NotificationPreferences = {
   systemEnabled: true,
   djEnabled: true,
   socialEnabled: true,
   marketingEnabled: true,
+  eventsEnabled: true,
 };
 
 function mapNotificationRow(row: any): KeepNotification {
@@ -178,7 +183,7 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
   if (!supabase) return DEFAULT_PREFS;
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('system_enabled,dj_enabled,social_enabled,marketing_enabled')
+    .select('system_enabled,dj_enabled,social_enabled,marketing_enabled,events_enabled')
     .eq('profile_id', profileId)
     .maybeSingle();
   if (error) throw error;
@@ -189,6 +194,7 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
       dj_enabled: DEFAULT_PREFS.djEnabled,
       social_enabled: DEFAULT_PREFS.socialEnabled,
       marketing_enabled: DEFAULT_PREFS.marketingEnabled,
+      events_enabled: DEFAULT_PREFS.eventsEnabled,
     });
     if (insertError) throw insertError;
     return DEFAULT_PREFS;
@@ -198,6 +204,7 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
     djEnabled: data.dj_enabled,
     socialEnabled: data.social_enabled,
     marketingEnabled: data.marketing_enabled,
+    eventsEnabled: data.events_enabled ?? true,
   };
 }
 
@@ -209,6 +216,7 @@ export async function saveNotificationPreferences(profileId: string, prefs: Noti
     dj_enabled: prefs.djEnabled,
     social_enabled: prefs.socialEnabled,
     marketing_enabled: prefs.marketingEnabled,
+    events_enabled: prefs.eventsEnabled,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'profile_id' });
   if (error) throw error;
