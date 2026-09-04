@@ -2,6 +2,10 @@
 
 Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne crée **aucune deuxième version** du projet.
 
+## Langue
+
+Adel est francophone. Toute réponse, tout message, toute mise à jour à destination d'Adel doit être écrite **en français**, sans exception, y compris les messages courts, les confirmations et les résumés de fin de tâche. Ne jamais basculer en anglais au milieu d'une conversation.
+
 ## Projet officiel
 
 - Repository unique : `adelkhatra-bit/KEEP`
