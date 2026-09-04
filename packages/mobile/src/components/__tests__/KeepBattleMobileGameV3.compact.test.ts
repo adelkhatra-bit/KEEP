@@ -200,6 +200,14 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
   });
 
+  it('renders four equal answer choices in solo and online Battle', () => {
+    expect(source).toContain('round.choices.slice(0, 4)');
+    expect(source).toContain('(round.choices || []).slice(0, 4)');
+    expect(source).toContain('10 secondes réelles d’écoute · 4 choix · aucun swipe');
+    expect(source).not.toContain('i === 2 && s.answerFull');
+    expect(source).toContain("borderColor: '#4E8DFF'");
+  });
+
   it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
     expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
     expect(source).toContain('BATTLE_TARGET_NO_CREDIT');

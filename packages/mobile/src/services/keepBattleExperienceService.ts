@@ -123,6 +123,18 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     };
   }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
+  // Le serveur historique renvoie trois choix. Pour conserver la même source
+  // musicale et garantir quatre réponses sans inventer d'artiste, on complète
+  // chaque manche avec un artiste d'une autre manche du pack, déjà validé par
+  // le catalogue et distinct des choix présents.
+  rounds.forEach((round: KeepBattleSoloRound) => {
+    const unique = Array.from(new Set(round.choices.filter(Boolean)));
+    for (const candidate of rounds.map((item: KeepBattleSoloRound) => item.artist)) {
+      if (unique.length >= 4) break;
+      if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
+    }
+    round.choices = unique.slice(0, 4);
+  });
   return {
     mode: 'SOLO_TRAINING',
     themeCode: String(raw.themeCode || themeCode).toUpperCase(),

@@ -752,3 +752,10 @@ IAP ACHAT / RESTAURATION :
 BLOCAGE MANUEL EXACT :
 ERREURS RESTANTES :
 Souhaites-tu que je continue ?
+## [2026-09-04T23:16:22.876Z] codex
+
+Audit complet demandé par Adel au HEAD 47469c9. Je vérifie CI, utilisateur, Super Admin, reconnaissance, IAP/App Store et sécurité, puis je corrige uniquement les blocages prouvés sans supprimer de fonction ni modifier le design. SmartKie/Smartkies restent strictement hors périmètre.
+
+## [2026-09-04T23:27:41.342Z] codex
+
+Audit Battle/Super Admin terminé localement : ajout ciblé MON CLASSEMENT + détail Free depuis keep_free_credit_breakdown (source serveur unique), 4 choix égaux solo + arène, contour bleu discret, migration trigger serveur ajoutant un 4e artiste réel. TypeScript OK, 30 tests Battle/parrainage OK. Admin déjà branché sur téléchargements/jour, Battle/mois, Free mensuels, mises et parrainage. Ne modifie pas ces fichiers jusqu'au push.
