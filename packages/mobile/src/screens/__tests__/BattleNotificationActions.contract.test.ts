@@ -62,8 +62,9 @@ describe('Loki Battle challenge UX', () => {
   });
 
   it('renders the 1v1 gauge with real player names, points and one central bar', () => {
-    expect(battle).toContain('players.length === 2 ? `@${first.username}`');
-    expect(battle).toContain('players.length === 2 ? `@${second.username}`');
+    expect(battle).toContain('players.length === 2 ?');
+    expect(battle).toContain('<Text style={s.duelName}>@{first.username}</Text>');
+    expect(battle).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>@{second.username}</Text>');
     expect(battle).toContain('{teamAScore} pts');
     expect(battle).toContain('{teamBScore} pts');
     expect(battle).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");

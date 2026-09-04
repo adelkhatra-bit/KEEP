@@ -395,9 +395,18 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.disclosureText}>{battleExpanded ? 'Réduire' : 'En savoir plus'}</Text>
               <Text style={s.disclosureChevron}>{battleExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
+            {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
+                offres de bien expliquer les règles pour les Battle" -- le
+                texte disait encore "le vainqueur gagne X Free par
+                adversaire battu" (gagnant unique), faux depuis que le
+                podium à 2 places existe pour les Battle à 3 joueurs et
+                plus. Affiche maintenant la phrase que le serveur construit
+                lui-même à partir des vrais réglages -- une seule source de
+                vérité, plus jamais un texte à mettre à jour à la main
+                quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : le vainqueur gagne {battleRules.stakeFree} Free par adversaire battu.</Text>
-              <Text style={s.battleDetailHint}>Il faut au moins {battleRules.minimumFreeRequired} Free pour entrer. À {battleRules.maxPlayers} joueurs, le gain peut atteindre +{battleRules.fullArenaNetPrize} Free. Si tu perds, -{battleRules.stakeFree} Free.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l’adversaire. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
+              <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu’à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
           </View>
           {/* Adel (04/09/2026) : "il faut qu'il comprenne comment il peut

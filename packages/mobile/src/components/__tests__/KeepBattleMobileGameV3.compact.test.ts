@@ -133,16 +133,21 @@ describe('Loki Battle mobile style selector', () => {
     expect(audioSource).toContain('if (activeStartTimer)');
   });
 
-  it('uses one TikTok-style pressure gauge with real names for 1v1 and teams for groups', () => {
+  it('uses a TikTok-style pressure gauge for 1v1 and a real-name standings list for groups', () => {
+    // Adel (04/09/2026) : "on a fait équipe A équipe B mais on sait pas qui
+    // est qui" -- BUG DE DESIGN confirmé : au-delà de 2 joueurs, séparer en
+    // deux équipes par simple alternance d'index ne correspond à rien dans
+    // un match individuel. Remplacé par un classement avec les vrais noms,
+    // jauge à 2 côtés conservée uniquement pour un vrai face-à-face à 2.
     expect(source).toContain('const teamA = players.filter');
     expect(source).toContain('const teamB = players.filter');
-    expect(source).toContain('players.length === 2 ? `@${first.username}`');
-    expect(source).toContain('players.length === 2 ? `@${second.username}`');
-    expect(source).toContain('`ÉQUIPE A · ${teamA.length}`');
-    expect(source).toContain('`ÉQUIPE B · ${teamB.length}`');
-    expect(source).toContain('{teamAScore} pts');
-    expect(source).toContain('{teamBScore} pts');
+    expect(source).toContain('players.length === 2 ?');
+    expect(source).toContain('<Text style={s.duelName}>@{first.username}</Text>');
+    expect(source).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>@{second.username}</Text>');
     expect(source).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
+    expect(source).toContain('players.length > 2 ? <View style={s.groupStandings}>');
+    expect(source).toContain('index === 0 ? \'👑\' : `#${index + 1}`');
+    expect(source).toContain('<Text style={s.groupStandingName} numberOfLines={1}>@{player.username}</Text>');
   });
 
   it('shows a complete endgame (round count now selectable, 8/15/20/30) with replay and challenge choices', () => {
