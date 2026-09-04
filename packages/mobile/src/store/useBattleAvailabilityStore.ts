@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AppState, Platform } from 'react-native';
 import { setManualBattleAvailability, pingManualBattleAvailability, getManualBattleAvailability } from '../services/keepBattleLiveService';
 
 // Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
@@ -59,6 +60,12 @@ function stopPing() {
 
 function startPing() {
   stopPing();
+  // Adel (05/09/2026) : setInterval seul ne déclenche rien avant la première
+  // échéance (4 minutes) -- si last_seen_at était déjà périmé au moment où
+  // startPing() démarre (ex. syncFromServer() au chargement de l'app après
+  // une longue absence), la présence restait invisible jusqu'à 4 minutes de
+  // plus après le retour. Un premier ping immédiat comble ce trou.
+  void pingManualBattleAvailability().catch(() => {});
   pingTimer = setInterval(() => {
     void pingManualBattleAvailability().catch(() => {});
   }, PING_INTERVAL_MS);
@@ -134,3 +141,31 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     set({ available: false, activatedManually: false, busy: false });
   },
 }));
+
+// Adel (05/09/2026) : "l'utilisateur Flo souvent on la trouve pas comme si
+// elle était pas connectée et pourtant elle est bien connectée, il faut
+// qu'elle aille se connecter et se déconnecter pour que je puisse la voir"
+// -- BUG RÉEL : le setInterval de 4 minutes qui maintient last_seen_at à
+// jour (bien en dessous du TTL serveur de 30 minutes) peut être
+// throttled/suspendu par le navigateur ou l'OS dès que l'onglet/l'appli
+// passe en arrière-plan (écran verrouillé, autre appli au premier plan,
+// onglet non actif...) -- aucune désactivation explicite de sa part, juste
+// un ping qui ne part plus jusqu'à dépasser le TTL. Se déconnecter/se
+// reconnecter forçait un syncFromServer() qui rafraîchit last_seen_at une
+// fois -- mais rien ne le refaisait automatiquement au retour au premier
+// plan. Un ping immédiat dès que l'onglet/l'appli redevient visible
+// rattrape ça pour TOUS les utilisateurs disponibles, pas seulement Flo.
+function pingIfAvailable() {
+  if (useBattleAvailabilityStore.getState().available) {
+    void pingManualBattleAvailability().catch(() => {});
+  }
+}
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') pingIfAvailable();
+  });
+} else {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') pingIfAvailable();
+  });
+}
