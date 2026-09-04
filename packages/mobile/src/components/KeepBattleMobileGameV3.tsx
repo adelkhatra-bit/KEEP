@@ -1034,6 +1034,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         }
       }
       else if (message.includes('BATTLE_SKILL_GAP_TOO_LARGE')) Alert.alert('Battle', `L’écart de niveau avec @${player.username} est trop grand. Enchaîne des parties solo pour monter de catégorie.`);
+      else if (message.includes('BATTLE_DAILY_INVITE_LIMIT_REACHED')) Alert.alert('Battle', 'Tu as atteint le nombre d’invitations Battle autorisées aujourd’hui. Réessaie demain.');
       else Alert.alert('Battle', `@${player.username} n’est plus disponible.`);
       void refreshSocial();
     } finally {
@@ -1300,6 +1301,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         }
       }
       else if (message.includes('BATTLE_SKILL_GAP_TOO_LARGE')) Alert.alert('Battle', `L’écart de niveau avec @${player.username} est trop grand. Enchaîne des parties solo pour monter de catégorie.`);
+      else if (message.includes('BATTLE_DAILY_INVITE_LIMIT_REACHED')) Alert.alert('Battle', 'Tu as atteint le nombre d’invitations Battle autorisées aujourd’hui. Réessaie demain.');
       else Alert.alert('Battle', `@${player.username} n’est plus disponible.`);
       const rows = await loadLiveSoloPlayers(30).catch(() => []);
       const memberIds = new Set(arena.seats.map((seat) => seat.profileId));

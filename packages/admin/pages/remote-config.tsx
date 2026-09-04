@@ -58,6 +58,10 @@ const FRIENDLY_LABELS: Record<string, string> = {
   // joueurs dans un Battle collectif, le pot des perdants (3e place et
   // au-dela) est desormais partage entre le 1er et le 2e selon ce %.
   battle_arena_payout_share_rank1: 'Part du gagnant sur le podium (Battle à 3 joueurs et +, % — le reste va au 2e)',
+  // Adel (04/09/2026) : suite de "rien n'empêche d'envoyer des invites en
+  // boucle" -- plafond anti-spam global (tous destinataires confondus),
+  // distinct du plafond par formule/par mois de matchs joués.
+  battle_invites_per_day: 'Invitations Battle envoyées maximum / jour (anti-spam)',
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
@@ -74,7 +78,7 @@ function groupFor(key: string): GroupKey {
   if (key.startsWith('legal_')) return 'LEGAL';
   if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
-  if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_arena_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
+  if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
   if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
