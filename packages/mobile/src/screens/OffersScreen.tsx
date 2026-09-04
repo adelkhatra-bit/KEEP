@@ -7,7 +7,7 @@ import { iapAvailable, IAP_PRODUCT_IDS, purchasePlan, restorePurchases } from '.
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
-import { getDownloadCreditStatus } from '../services/creditService';
+import { FreeCreditBreakdown, getDownloadCreditStatus, loadFreeCreditBreakdown } from '../services/creditService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
@@ -153,6 +153,11 @@ export default function OffersScreen({ navigation, route }: any) {
   const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
   const [battleRules, setBattleRules] = useState<KeepBattleArenaRules>(DEFAULT_KEEP_BATTLE_RULES);
   const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
+  // Adel (04/09/2026) : "l'utilisateur il a besoin de savoir comment elle a
+  // gagné des Free ... il faut qu'il comprenne exactement comment ils ont
+  // gagné" -- détail réel du solde (composantes nommées + derniers Battle),
+  // pas seulement le texte de règles générique déjà affiché plus haut.
+  const [breakdown, setBreakdown] = useState<FreeCreditBreakdown | null>(null);
   const [currentPlan, setCurrentPlan] = useState('FREE');
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
   const [freeUnlimited, setFreeUnlimited] = useState(false);
@@ -209,7 +214,7 @@ export default function OffersScreen({ navigation, route }: any) {
     (async () => {
       try {
         const canLoadGrowth = Boolean(user && !isLocalGuest && !isDemoMode);
-        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth, liveFreeStatus] = await Promise.all([
+        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth, liveFreeStatus, liveBreakdown] = await Promise.all([
           loadPlans(),
           loadCreditFunnel(),
           user ? loadCurrentPlanCode(user.id) : Promise.resolve('FREE'),
@@ -219,6 +224,7 @@ export default function OffersScreen({ navigation, route }: any) {
           canLoadGrowth
             ? loadMyKeepBattleCreditStatus().catch(() => null)
             : getDownloadCreditStatus().catch(() => null),
+          canLoadGrowth ? loadFreeCreditBreakdown().catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setPlans(livePlans);
@@ -227,6 +233,7 @@ export default function OffersScreen({ navigation, route }: any) {
         setRules(liveRules);
         setBattleRules(liveBattleRules);
         setGrowth(liveGrowth);
+        setBreakdown(liveBreakdown);
         if (liveFreeStatus && 'remainingFree' in liveFreeStatus) {
           setFreeBalance(Number(liveFreeStatus.remainingFree ?? 0));
           setFreeUnlimited(false);
@@ -334,6 +341,28 @@ export default function OffersScreen({ navigation, route }: any) {
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
                 <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>Free gagnés</Text></View>
+              </View> : null}
+
+              {breakdown ? <View style={s.breakdownBox}>
+                <Text style={s.breakdownTitle}>D’OÙ VIENT TON SOLDE ({breakdown.remaining} Free)</Text>
+                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Invité (avant inscription)</Text><Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text></View>
+                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus d’inscription</Text><Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text></View>
+                {breakdown.followerBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.followerCount} abonnés (palier {breakdown.followerCount >= breakdown.followerTier5 ? breakdown.followerTier5 : breakdown.followerTier3})</Text><Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text></View> : null}
+                {breakdown.referralBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.referralCount} filleul(s) parrainé(s)</Text><Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text></View> : null}
+                {breakdown.monthlyBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus mensuel</Text><Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text></View> : null}
+                {breakdown.adminGrant !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Crédit accordé par l’équipe</Text><Text style={s.breakdownValue}>{breakdown.adminGrant > 0 ? '+' : ''}{breakdown.adminGrant}</Text></View> : null}
+                {breakdown.battleAdjustment !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Résultat net des Battle</Text><Text style={s.breakdownValue}>{breakdown.battleAdjustment > 0 ? '+' : ''}{breakdown.battleAdjustment}</Text></View> : null}
+                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Free déjà utilisés (GARDER)</Text><Text style={s.breakdownValue}>−{breakdown.used}</Text></View>
+                {breakdown.lockedArena > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Mise verrouillée (Battle en cours)</Text><Text style={s.breakdownValue}>−{breakdown.lockedArena}</Text></View> : null}
+                {breakdown.recentBattles.length ? <>
+                  <Text style={s.breakdownSubtitle}>DERNIERS BATTLE</Text>
+                  {breakdown.recentBattles.slice(0, 6).map((event, i) => (
+                    <View key={i} style={s.breakdownRow}>
+                      <Text style={s.breakdownLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'}{event.themeCode ? ` · ${event.themeCode}` : ''} · {new Date(event.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</Text>
+                      <Text style={[s.breakdownValue, event.amount < 0 && s.breakdownValueNegative]}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
+                    </View>
+                  ))}
+                </> : null}
               </View> : null}
 
               <View style={s.rechargeBox}>
@@ -556,6 +585,13 @@ const s = StyleSheet.create({
   growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   growthValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   growthLabel: { color: '#E9E3F0', fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2, fontWeight: '700' },
+  breakdownBox: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
+  breakdownTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .6, marginBottom: 6 },
+  breakdownSubtitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .6, marginTop: 8, marginBottom: 4 },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 26, gap: 8 },
+  breakdownLabel: { flex: 1, color: '#E9E3F0', fontSize: 11, fontWeight: '700' },
+  breakdownValue: { color: '#7FF2B7', fontSize: 12, fontWeight: '900' },
+  breakdownValueNegative: { color: '#FFB3C3' },
   rechargeBox: { marginTop: 13, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
   rechargeEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   rechargeTitle: { color: '#FFFFFF', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 3 },

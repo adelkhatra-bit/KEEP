@@ -102,6 +102,63 @@ export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
   return normalize(row);
 }
 
+export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null };
+
+export type FreeCreditBreakdown = {
+  remaining: number;
+  guestLimit: number;
+  signupBonus: number;
+  followerCount: number;
+  followerBonus: number;
+  followerTier3: number;
+  followerTier5: number;
+  referralBonus: number;
+  referralCount: number;
+  monthlyBonus: number;
+  adminGrant: number;
+  battleAdjustment: number;
+  used: number;
+  lockedArena: number;
+  recentBattles: FreeCreditBattleEvent[];
+};
+
+/**
+ * Adel (04/09/2026) : "l'utilisateur il a besoin de savoir comment elle a
+ * gagné des Free ... il faut qu'il comprenne exactement comment ils ont
+ * gagné" -- le solde Free n'est pas un grand livre mais une formule
+ * calculée en direct (keep_theoretical_free_credit_remaining_for_profile) ;
+ * cette fonction expose les mêmes composantes, nommées, pour qu'un solde
+ * comme "36" devienne vérifiable au lieu d'une boîte noire.
+ */
+export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('keep_free_credit_breakdown');
+  if (error || !data) return null;
+  const row = data as any;
+  return {
+    remaining: Number(row.remaining || 0),
+    guestLimit: Number(row.guestLimit || 0),
+    signupBonus: Number(row.signupBonus || 0),
+    followerCount: Number(row.followerCount || 0),
+    followerBonus: Number(row.followerBonus || 0),
+    followerTier3: Number(row.followerTier3 || 0),
+    followerTier5: Number(row.followerTier5 || 0),
+    referralBonus: Number(row.referralBonus || 0),
+    referralCount: Number(row.referralCount || 0),
+    monthlyBonus: Number(row.monthlyBonus || 0),
+    adminGrant: Number(row.adminGrant || 0),
+    battleAdjustment: Number(row.battleAdjustment || 0),
+    used: Number(row.used || 0),
+    lockedArena: Number(row.lockedArena || 0),
+    recentBattles: Array.isArray(row.recentBattles) ? row.recentBattles.map((x: any) => ({
+      result: String(x.result || ''),
+      amount: Number(x.amount || 0),
+      createdAt: String(x.createdAt || ''),
+      themeCode: x.themeCode ? String(x.themeCode) : null,
+    })) : [],
+  };
+}
+
 export async function ensureDownloadCreditAvailable(): Promise<DownloadCreditStatus> {
   const status = await getDownloadCreditStatus();
   if (!status.unlimited && (status.remaining ?? 0) <= 0) {
