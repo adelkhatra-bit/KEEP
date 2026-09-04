@@ -153,6 +153,16 @@ interface SessionStore {
   locationLabel?: string;
   lat?: number;
   lng?: number;
+  // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+  // quand la musique est terminée l'écoute repart" -- jusqu'ici, lire un
+  // extrait pendant une session active exigeait de tout arrêter
+  // (requestEndSession, qui efface aussi les morceaux déjà détectés) avant
+  // de pouvoir écouter. micPaused ne fait que suspendre la capture micro
+  // (elle reprend automatiquement à la fin de l'extrait) sans jamais
+  // toucher à sessionId/tracks/startedAt.
+  micPaused: boolean;
+  pauseListening: () => void;
+  resumeListening: () => void;
   startSession: () => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
@@ -311,6 +321,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   locationLabel: undefined,
   lat: undefined,
   lng: undefined,
+  micPaused: false,
+
+  pauseListening: () => {
+    if (!get().isActive || get().micPaused) return;
+    void cancelAudioCapture();
+    set({ micPaused: true, recognizing: false, micLevel: 0 });
+  },
+
+  resumeListening: () => {
+    if (!get().isActive || !get().micPaused) return;
+    // Le temps passé en pause ne doit jamais compter comme du silence côté
+    // détection ("session terminée faute de morceau").
+    lastDetectionAt = Date.now();
+    set({ micPaused: false });
+  },
 
   startSession: () => {
     // Doit être appelé dans le geste tactile d'origine pour Samsung Internet /
@@ -336,6 +361,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       showEndPrompt: false,
       recognizing: false,
       micLevel: 0,
+      micPaused: false,
       error: null,
       signalHint: null,
       locationLabel: resumable?.locationLabel,
@@ -344,7 +370,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
 
     const tick = async () => {
-      if (!get().isActive || get().recognizing) return;
+      if (!get().isActive || get().recognizing || get().micPaused) return;
       const now = Date.now();
       if (now < nextRecognitionAllowedAt) return;
       nextRecognitionAllowedAt = now + MIN_RECOGNITION_ATTEMPT_GAP_MS;
@@ -383,8 +409,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void tick();
     tickHandle = setInterval(() => { void tick(); }, RECOGNITION_TICK_MS);
     silenceCheckHandle = setInterval(() => {
-      const { isActive, silenceTimeoutMin, showEndPrompt } = get();
-      if (!isActive || showEndPrompt) return;
+      const { isActive, silenceTimeoutMin, showEndPrompt, micPaused } = get();
+      if (!isActive || showEndPrompt || micPaused) return;
       if (Date.now() - lastDetectionAt >= silenceTimeoutMin * 60 * 1000) {
         set({ showEndPrompt: true });
         if (silencePromptGraceHandle) clearTimeout(silencePromptGraceHandle);
@@ -411,7 +437,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!s.sessionId || !s.startedAt) return null;
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
-    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
 

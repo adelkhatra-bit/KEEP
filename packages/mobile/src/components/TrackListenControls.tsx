@@ -80,11 +80,25 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     await cancelAudioCapture().catch(() => {});
   };
 
+  // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+  // quand la musique est terminée l'écoute repart" -- lire un extrait
+  // exigeait AVANT tout d'arrêter complètement la session (requestEndSession,
+  // qui efface aussi les morceaux déjà détectés) via une confirmation
+  // bloquante. Remplacé par une simple pause (micro coupé) le temps de
+  // l'extrait, reprise automatique dès que le lecteur s'arrête -- fin
+  // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
+  // les deux cas.
+  const resumeListeningOnStop = (isPlaying: boolean) => {
+    if (isPlaying) return;
+    const session = useSessionStore.getState();
+    if (session.micPaused) session.resumeListening();
+  };
+
   const playSnippetNow = async (positionMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, undefined, onPreviewFinished);
+      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
     } catch {
       Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
     } finally {
@@ -94,17 +108,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   const playSnippet = (positionMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
-    if (useSessionStore.getState().isActive) {
-      Alert.alert(
-        'Écoute Loki en cours',
-        'Le micro Loki est encore actif. Arrête la session avant de lire un extrait afin que Loki n’identifie pas le son de ton propre téléphone.',
-        [
-          { text: 'Continuer l’écoute', style: 'cancel' },
-          { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await playSnippetNow(positionMillis); })() },
-        ],
-      );
-      return;
-    }
+    const session = useSessionStore.getState();
+    if (session.isActive) session.pauseListening();
     void playSnippetNow(positionMillis);
   };
 

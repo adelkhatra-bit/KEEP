@@ -106,10 +106,25 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     if (!fresh || fresh === failedUrl) return false;
     setResolvedPreviewUrl(fresh);
     try {
-      await toggleTrackPreview(trackKey, fresh, setPlaying);
+      await toggleTrackPreview(trackKey, fresh, setPlayingAndResume);
       return true;
     } catch {
       return false;
+    }
+  };
+
+  // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+  // quand la musique est terminée l'écoute repart" -- lire un extrait
+  // reprenait AVANT tout la session entière (requestEndSession, qui efface
+  // aussi les morceaux déjà détectés) plutôt que de la mettre simplement en
+  // pause le temps de l'extrait. setPlayingAndResume relance
+  // resumeListening() dès que le lecteur revient à l'arrêt (fin naturelle
+  // OU stop manuel), qu'elle qu'en soit la cause.
+  const setPlayingAndResume = (value: boolean) => {
+    setPlaying(value);
+    if (!value) {
+      const session = useSessionStore.getState();
+      if (session.micPaused) session.resumeListening();
     }
   };
 
@@ -118,9 +133,9 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     setBusy(true);
     const attemptedUrl = resolvedPreviewUrl;
     try {
-      await toggleTrackPreview(trackKey, attemptedUrl, setPlaying);
+      await toggleTrackPreview(trackKey, attemptedUrl, setPlayingAndResume);
     } catch {
-      setPlaying(false);
+      setPlayingAndResume(false);
       const recovered = await retryWithFreshPreview(attemptedUrl).catch(() => false);
       if (!recovered) {
         setResolvedPreviewUrl('');
@@ -140,11 +155,6 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     const session = useSessionStore.getState();
     if (session.isActive) session.requestEndSession();
     await cancelAudioCapture().catch(() => {});
-  };
-
-  const stopListeningThenPreview = async () => {
-    await stopKeepListening();
-    await playOrStopPreview();
   };
 
   const openFallback = async () => {
@@ -174,24 +184,33 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       return;
     }
 
+    // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+    // quand la musique est terminée l'écoute repart" -- un extrait se
+    // pré-écoute désormais directement, sans confirmation bloquante : la
+    // session se met juste en pause (micro coupé) le temps de l'extrait,
+    // puis reprend toute seule (setPlayingAndResume). Ouvrir le morceau sur
+    // une plateforme externe reste différent : impossible de savoir quand
+    // l'utilisateur revient dans l'app, donc ce chemin continue d'exiger
+    // une confirmation et arrête vraiment la session.
+    if (resolvedPreviewUrl) {
+      const session = useSessionStore.getState();
+      if (session.isActive) session.pauseListening();
+      void playOrStopPreview();
+      return;
+    }
+
     if (useSessionStore.getState().isActive) {
       Alert.alert(
         'Écoute Loki en cours',
-        'Le micro Loki est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant de lancer un extrait ou d’ouvrir le morceau sur une plateforme.',
+        'Le micro Loki est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant d’ouvrir le morceau sur une plateforme.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
-          resolvedPreviewUrl
-            ? { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void stopListeningThenPreview() }
-            : { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
+          { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
         ],
       );
       return;
     }
 
-    if (resolvedPreviewUrl) {
-      void playOrStopPreview();
-      return;
-    }
     if (resolvedFallbackUrl) void openFallback();
   };
 
