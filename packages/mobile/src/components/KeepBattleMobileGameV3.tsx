@@ -954,6 +954,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     return () => clearTimeout(id);
   }, [arena?.id, arena?.status, arena?.isHost, arena?.matchNo, arena?.seats.length, arena?.pendingInviteCount, animateVersus]);
 
+  // Adel (04/09/2026) : l'overlay "⚡ BATTLE ⚡" (animateVersus) dépend d'un
+  // minuteur JS (Animated.delay) qui peut se figer si l'onglet/l'écran passe
+  // en arrière-plan (web mobile) pendant son affichage -- il restait alors
+  // visible indéfiniment par-dessus l'écran suivant. On le remet à zéro à
+  // chaque changement d'arène, avant tout nouvel appel éventuel à
+  // animateVersus() pour cette arène.
+  React.useEffect(() => {
+    versusOpacity.setValue(0);
+    versusScale.setValue(.72);
+  }, [arena?.id, versusOpacity, versusScale]);
+
   // Adel (02/09/2026) : "le bug revient lorsque l'utilisateur ... est absent
   // ... il faut que ça revienne comme avant" -- ce minuteur automatique
   // (ajouté pour "si tout le monde a refusé la revanche, ne pas rester
@@ -1401,6 +1412,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setArena(null);
     setBuildingArenaId(null);
   }, [arena?.id]);
+
+  // Adel (04/09/2026) : "je sais pas pourquoi le Battle ça me revient à chaque
+  // fois ... 0 JOUEURS / Loki VS Loki" -- BUG RÉEL confirmé en base : une
+  // fois un match terminé sans revanche, TOUS les sièges (hôte compris)
+  // passent à ELIMINATED et l'arène reste WAITING pour toujours, orpheline.
+  // Si le client reste pointé dessus (revanche refusée, navigation stagnante),
+  // `seats` (filtré ACTIVE côté serveur) tombe à 0 et affiche ce salon fantôme
+  // sans aucun joueur. Différent du bug AFK déjà retiré plus bas (qui éjectait
+  // un VAINQUEUR SEUL, donc seats.length===1) : ici c'est bien 0/0, personne,
+  // pas même l'hôte -- jamais vrai pour un salon fraîchement créé (l'hôte y
+  // est toujours ACTIVE dès la création).
+  React.useEffect(() => {
+    if (!arena || arena.status !== 'WAITING' || arena.seats.length > 0) return;
+    backToArenaHome();
+  }, [arena, backToArenaHome]);
 
   const closeBattleArena = React.useCallback(() => {
     void stopTrackPreview();
