@@ -53,6 +53,11 @@ const FRIENDLY_LABELS: Record<string, string> = {
   free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
   free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
   battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
+  // Adel (04/09/2026) : "c'est deloyal qui perdent tous ... le premier
+  // gagne un truc, le deuxieme peut gagner un truc aussi" -- a partir de 3
+  // joueurs dans un Battle collectif, le pot des perdants (3e place et
+  // au-dela) est desormais partage entre le 1er et le 2e selon ce %.
+  battle_arena_payout_share_rank1: 'Part du gagnant sur le podium (Battle à 3 joueurs et +, % — le reste va au 2e)',
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',

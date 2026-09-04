@@ -469,6 +469,24 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     ]).start();
   }, [celebrationOpacity, celebrationScale]);
 
+  // Adel (04/09/2026) : "il faudra vraiment marquer en gros les points
+  // gagnés, un truc qui clignote comme une sorte de jackpot à la fin du
+  // match" -- pulsation continue (couleur + léger zoom) tant que l'écran de
+  // fin est affiché, en boucle, arrêtée proprement au démontage.
+  const jackpotBlink = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(jackpotBlink, { toValue: 1, duration: 420, useNativeDriver: false }),
+      Animated.timing(jackpotBlink, { toValue: 0, duration: 420, useNativeDriver: false }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [jackpotBlink]);
+  const jackpotScoreStyle = {
+    color: jackpotBlink.interpolate({ inputRange: [0, 1], outputRange: ['#E5F266', '#FFD84D'] }),
+    transform: [{ scale: jackpotBlink.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }],
+  };
+
   React.useEffect(() => { void loadKeepBattleThemes().then((rows) => rows.length && setThemes(rows)).catch(() => {}); }, []);
   React.useEffect(() => { const id = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(id); }, []);
   // Adel (02/09/2026) : "ici aussi tu peux mettre l'invite" -- signale à
@@ -1420,7 +1438,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <ResultIcon icon={perfect ? '👑' : soloScore >= 6 ? '🏆' : soloScore >= 4 ? '🎯' : '💪'} big={perfect} />
             <Text style={s.finishTitle}>{perfect ? `PARFAIT · ${solo.rounds.length}/${solo.rounds.length}` : `${soloScore}/${solo.rounds.length}`}</Text>
             <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
-            <View style={s.finishScore}><Text style={s.finishScoreBig}>{soloScore}</Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
+            <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
           <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
@@ -1561,7 +1579,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             {winner ? <Avatar name={winner.username} url={winner.avatarUrl} size={72} /> : <ResultIcon icon="🏆" />}
             <Text style={s.finishTitle}>{winner ? `@${winner.username}` : 'BATTLE TERMINÉ'}</Text>
             <Text style={s.finishSub}>{winner ? 'remporte ce Battle' : 'Résultat enregistré'}</Text>
-            <View style={s.finishScore}><Text style={s.finishScoreBig}>{winner?.score ?? arena.lastResult.score}</Text><Text style={s.finishScoreSlash}> pts</Text></View>
+            <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{winner?.score ?? arena.lastResult.score}</Animated.Text><Text style={s.finishScoreSlash}> pts</Text></View>
             {/* Adel (02/09/2026) : "@adel4A remporte ce Battle / -3 FREE"
                 (rapporté comme un bug) -- le nom/score du haut sont ceux du
                 VAINQUEUR, cette ligne est TOUJOURS le résultat du joueur qui
