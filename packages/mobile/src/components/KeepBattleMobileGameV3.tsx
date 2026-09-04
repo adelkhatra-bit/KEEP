@@ -528,7 +528,19 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Affichage uniquement : on coupe au premier séparateur de featuring, la
   // VALEUR envoyée à answerSolo/answerArena (donc la correction) reste le
   // texte complet, intact.
-  const primaryArtistLabel = (full: string) => full.split(/\s*(?:,|&|\bfeat\.?\b|\bft\.?\b|\bx\b|\bet\b|\band\b)\s*/i)[0]?.trim() || full;
+  // Adel (05/09/2026) : "c'est pas un nom ça, c'est pas possible que le nom
+  // soit aussi long ... ça casse le Design ... robuste pour que plus ça ne
+  // revienne" -- BUG RÉEL confirmé sur capture : "Darell/Nicky Jam/Ozuna/Nio
+  // Garcia/Casper Mágico" (crédit posse-cut réel) traversait intact car "/"
+  // n'était pas dans la liste de séparateurs. Ajout de "/", "+" et "vs" en
+  // plus des séparateurs déjà gérés, PLUS un plafond de secours en
+  // caractères : même un futur format de séparateur jamais vu ne pourra
+  // plus jamais casser un bouton. Ne touche jamais à `choice`/`round.artist`
+  // (la vraie valeur comparée pour la correction) -- uniquement l'affichage.
+  const primaryArtistLabel = (full: string) => {
+    const first = full.split(/\s*(?:,|&|\/|\+|\bfeat\.?\b|\bft\.?\b|\bx\b|\bet\b|\band\b|\bvs\.?\b)\s*/i)[0]?.trim() || full;
+    return first.length > 28 ? `${first.slice(0, 26).trim()}…` : first;
+  };
   // Adel (02/09/2026) : "avoir vraiment une catégorie de joueurs" -- petit
   // repère visuel du palier (voir keep_battle_skill_tier côté serveur),
   // affiché là où on choisit un adversaire.
@@ -1019,7 +1031,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     unlockWebAudioForGesture();
     setBusy(true);
     try {
-      const pack = await loadKeepBattleSoloPack(themeCode, roundCount, myPreferredThemes);
+      // Adel (05/09/2026) : "comment ça se fait que sur toutes les manches il
+      // m'a proposé un seul style musical en sachant que j'en ai coché
+      // plusieurs" -- même bug que côté arène (challenge()) : myPreferredThemes
+      // ne se rechargeait qu'une fois au montage de l'écran, jamais réactualisé
+      // si les préférences avaient changé entretemps. On relit la valeur
+      // fraîche côté serveur juste avant de démarrer le pack solo.
+      const freshPrefs = await loadMyMatchPreferences().catch(() => null);
+      const pack = await loadKeepBattleSoloPack(themeCode, roundCount, freshPrefs?.themeCodes || myPreferredThemes);
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
