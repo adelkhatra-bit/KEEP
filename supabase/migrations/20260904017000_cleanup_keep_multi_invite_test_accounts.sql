@@ -1,0 +1,13 @@
+-- Adel (04/09/2026) : "pourquoi y a autant de salon ouvert" -- BUG D'OPÉRATION
+-- confirmé en direct (capture d'écran) : 4 comptes de test créés pour
+-- vérifier l'envoi de plusieurs invites Battle sont apparus dans la vraie
+-- liste "Joueurs disponibles" en production, mélangés aux vrais
+-- utilisateurs -- un compte est marqué disponible automatiquement dès sa
+-- création (keep_battle_default_available_on_signup), donc tout compte de
+-- test créé via l'API apparaît immédiatement en direct, faute
+-- d'environnement séparé. Nettoyage complet et immédiat.
+-- Adel : premier essai en sensible à la casse manqué B/C/D (Supabase stocke
+-- les e-mails en minuscules) -- ce sont ces comptes qui restaient visibles
+-- dans "Joueurs disponibles" au moment de la capture d'écran. Repris ici en
+-- ilike pour que le fichier reflète ce qui a réellement nettoyé la base.
+delete from auth.users where email ilike 'claude-multi-invite-%-1788552925@mailinator.com';
