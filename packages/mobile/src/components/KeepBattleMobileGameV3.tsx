@@ -538,8 +538,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     ]).start();
   }, [versusOpacity, versusScale]);
 
+  // Adel (04/09/2026) : "il faut que je revienne au moins quatre fois pour
+  // qu'il arrête de me retourner dessus" -- BUG RÉEL confirmé en lisant le
+  // code : `initialArenaId` vient du parent (PartiesScreen.pendingArenaId)
+  // et n'est remis à zéro que par le bouton "Ouvrir le Salon" ou par
+  // `onExit`/`onOpenSession` -- mais quitter UN salon depuis l'intérieur
+  // (‹, QUITTER LE BATTLE) ne notifiait jamais le parent. Résultat : la
+  // même valeur restait active et relançait ce même salon à chaque fois
+  // que `enabled` redevenait vrai (retour sur l'onglet Soirées), quel que
+  // soit le nombre de fois où l'utilisateur quittait. Un id déjà consommé
+  // une fois ne relance plus jamais tout seul.
+  const consumedInitialArenaIdRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!enabled || !initialArenaId) return;
+    if (!enabled || !initialArenaId || consumedInitialArenaIdRef.current === initialArenaId) return;
+    consumedInitialArenaIdRef.current = initialArenaId;
     let active = true;
     void (async () => {
       try {
