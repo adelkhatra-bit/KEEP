@@ -130,7 +130,7 @@ const s = StyleSheet.create({
   primary: { minHeight: 42, marginTop: 9, borderRadius: 21, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   primaryText: { color: colors.white, fontSize: 11, fontWeight: '900' },
   codeArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
-  pending: { color: colors.primaryLight, fontSize: 10, fontWeight: '800', marginBottom: 7 },
+  pending: { color: colors.primaryLight, fontSize: 11, fontWeight: '800', marginBottom: 7 },
   codeInput: { textAlign: 'center', fontSize: 20, fontWeight: '900', letterSpacing: 6 },
   secondary: { minHeight: 40, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },

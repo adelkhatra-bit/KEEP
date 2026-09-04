@@ -191,5 +191,5 @@ const styles = StyleSheet.create({
   embedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 },
   embedTitle: { color: '#F8F6FC', fontSize: 13, fontWeight: '800', flex: 1 },
   embedClose: { color: '#8F879D', fontSize: 16, fontWeight: '900', paddingHorizontal: 4 },
-  embedHint: { color: '#8F879D', fontSize: 10, textAlign: 'center', marginTop: 9 },
+  embedHint: { color: '#8F879D', fontSize: 11, textAlign: 'center', marginTop: 9 },
 });
