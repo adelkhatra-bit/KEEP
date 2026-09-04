@@ -397,8 +397,17 @@ export function subscribeKeepBattle(battleId: string, onChange: () => void) {
   return () => { void c.removeChannel(channel); };
 }
 
-export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleArenaCreated> {
-  const { data, error } = await client().rpc('keep_battle_arena_create', { p_theme_code: themeCode.toUpperCase(), p_round_count: Math.max(5, Math.min(roundCount, 12)) });
+// Adel (04/09/2026) : "si j'ai sélectionné cinq [styles] ... il faut qu'il
+// me mette un peu de tout, un mix de tout" -- themeCode reste l'étiquette
+// d'affichage (premier style réel), mais themeCodes porte la sélection
+// réelle pour que le serveur mixe l'UNION exacte de ces styles au lieu de
+// n'utiliser que le premier, exactement comme loadKeepBattleSoloPack.
+export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleArenaCreated> {
+  const { data, error } = await client().rpc('keep_battle_arena_create', {
+    p_theme_code: themeCode.toUpperCase(),
+    p_round_count: Math.max(5, Math.min(roundCount, 12)),
+    p_theme_codes: themeCodes && themeCodes.length ? themeCodes.map((c) => c.toUpperCase()) : null,
+  });
   return unwrap(data as KeepBattleArenaCreated | null, error);
 }
 
@@ -412,6 +421,18 @@ export async function joinKeepBattleArena(arenaCode: string): Promise<KeepBattle
 export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_state', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+// Adel (04/09/2026) : "lorsqu'un utilisateur sans faire exprès passe sur une
+// autre page, il faut que lorsqu'il revienne automatiquement ... il revienne
+// même s'il a loupé un ou deux morceaux" -- BUG RÉEL : quitter l'écran
+// Battle (changement d'onglet) démonte KeepBattleArenaPanel et perd l'état
+// local `arena`, sans aucun moyen de retrouver son siège actif au retour.
+// Retourne l'état de l'arène où le joueur a encore un siège ACTIVE, ou null.
+export async function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {
+  const { data, error } = await client().rpc('keep_battle_arena_my_active');
+  if (error) return null;
+  return (data as KeepBattleArenaState | null) ?? null;
 }
 
 // Adel (03/09/2026) : "un utilisateur pourra regarder le match en cours ...

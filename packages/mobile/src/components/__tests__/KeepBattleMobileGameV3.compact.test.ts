@@ -106,7 +106,7 @@ describe('Loki Battle mobile style selector', () => {
     // crée/rejoint désormais un salon de groupe (arène) au lieu d'un défi
     // 1 contre 1 isolé, pour que plusieurs invites tombent dans le même
     // match au lieu d'en recréer un nouveau à chaque fois.
-    expect(source).toContain('const created = await createKeepBattleArena(themeCode, roundCount)');
+    expect(source).toContain('const created = await createKeepBattleArena(themeCode, roundCount, realThemes.length > 1 ? realThemes : undefined)');
     expect(source).toContain('await sendBattleArenaChallenge(arenaId, player.profileId)');
   });
 

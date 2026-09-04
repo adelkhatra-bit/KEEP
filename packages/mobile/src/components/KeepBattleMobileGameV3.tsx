@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView,
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
+import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
@@ -580,6 +580,26 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     return () => { active = false; };
   }, [enabled, initialArenaId]);
 
+  // Adel (04/09/2026) : "lorsqu'un utilisateur sans faire exprès passe sur
+  // une autre page, il faut que lorsqu'il revienne automatiquement si il
+  // est dans le match, il revienne même s'il a loupé un ou deux morceaux"
+  // -- BUG RÉEL : changer d'onglet démonte tout ce panneau (voir
+  // PartiesScreen `battleOpen`), perdant l'état local `arena`. Au premier
+  // rendu utile (pas de initialArenaId précis, pas déjà en arène), on
+  // vérifie une seule fois côté serveur si un siège ACTIVE existe encore
+  // dans une arène WAITING/ACTIVE -- si oui on reprend directement dedans.
+  // Si l'utilisateur a quitté proprement (‹ / QUITTER LE BATTLE), son siège
+  // n'est plus ACTIVE et rien ne se relance tout seul.
+  const checkedActiveArenaRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!enabled || initialArenaId || arena || checkedActiveArenaRef.current) return;
+    checkedActiveArenaRef.current = true;
+    void loadMyActiveKeepBattleArena().then((active) => {
+      if (!active) return;
+      setSolo(null); setBrowseOnline(false); setAudioReady(false); setArena(active);
+    }).catch(() => {});
+  }, [enabled, initialArenaId, arena]);
+
   const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
     if (!url) return false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -1072,7 +1092,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       let arenaId = buildingArenaId;
       if (!arenaId) {
-        const created = await createKeepBattleArena(themeCode, roundCount);
+        // Adel (04/09/2026) : "si j'ai sélectionné cinq [styles] ... il faut
+        // qu'il me mette un peu de tout, un mix de tout" -- même mécanisme
+        // que loadKeepBattleSoloPack : themeCode reste l'étiquette
+        // d'affichage, mais l'UNION réelle des styles acceptés part en
+        // themeCodes pour que le serveur mixe vraiment tout, pas juste le
+        // premier style.
+        const realThemes = myPreferredThemes.filter((c) => c !== 'MIX');
+        const created = await createKeepBattleArena(themeCode, roundCount, realThemes.length > 1 ? realThemes : undefined);
         arenaId = created.id;
         setBuildingArenaId(arenaId);
       }

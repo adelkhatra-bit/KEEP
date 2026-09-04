@@ -49,6 +49,19 @@ const CONFIG: Record<string, Array<{ term: string; country: string }>> = {
   INDE: [{ term: "bollywood", country: "IN" }, { term: "hindi pop", country: "IN" }],
 };
 
+// Adel (04/09/2026) : "je suis pas sûre que ce soit de la funk, je sais pas
+// il les trouve où" -- BUG RÉEL confirmé : chaque résultat iTunes pour
+// term="funk" était tagué theme_code=FUNK à 96% de confiance SANS jamais
+// vérifier item.primaryGenreName. Le mot "funk" apparaît dans plein de
+// titres qui n'ont rien à voir (funk brésilien, EDM, hip-hop, rock,
+// musique pour enfants...). Apple Music n'a pas de genre "Funk" dédié : le
+// vrai funk y est classé "R&B/Soul". Seul FUNK a un filtre pour l'instant
+// (seul thème signalé) -- les autres thèmes gardent leur comportement
+// existant tant qu'ils n'ont pas été audités un par un.
+const GENRE_ALLOW: Record<string, RegExp> = {
+  FUNK: /funk|r&b|soul/i,
+};
+
 function out(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -141,6 +154,10 @@ async function seed(theme: string) {
         inserted += 1;
       }
     }
+
+    const genreAllow = GENRE_ALLOW[theme];
+    const genreOk = !genreAllow || genreAllow.test(String(item.primaryGenreName ?? ""));
+    if (!genreOk) continue;
 
     const { error: linkError } = await admin
       .from("keep_battle_track_themes")
