@@ -35,6 +35,7 @@ type UserSnapshot = {
     id: string; username: string; display_name: string | null; bio: string | null; avatar_url: string | null;
     city: string | null; country_code: string | null; kind: string | null; website: string | null; is_public: boolean;
     discovery_hidden: boolean;
+    follower_count_override: number | null;
   };
   privateInfo: { birth_date?: string | null; gender?: string | null } | null;
   socialLinks: Array<{ platform: string; url: string; visibility: string }>;
@@ -104,6 +105,13 @@ export default function Users() {
   const [months, setMonths] = useState(12);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
+  // Adel (04/09/2026) : "je veux pouvoir le débloquer à un utilisateur ...
+  // pareil pour soirée limitée pour la formule Pro ... mettre un minimum
+  // d'abonnés comme ça je pourrais faire des tests" -- keep_event_creation_
+  // status ET keep_growth_reward_status lisent tous les deux le nombre RÉEL
+  // d'abonnés (follows) ; ce champ force une valeur de test pour CE compte
+  // uniquement, sans toucher aux vrais abonnés ni aux réglages globaux.
+  const [followerOverride, setFollowerOverride] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
@@ -155,11 +163,13 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load');
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load'); setFollowerOverride('');
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
       setRequirements(Array.isArray(result.data?.requirements) ? result.data.requirements : []);
+      const override = (result.data as UserSnapshot)?.profile?.follower_count_override;
+      setFollowerOverride(override == null ? '' : String(override));
     } catch (e: any) { setError(e?.message ?? 'Impossible de charger ce profil.'); }
     finally { setBusy(null); }
   };
@@ -224,6 +234,19 @@ export default function Users() {
       setCreditAmount(''); setCreditReason('');
       await load();
     } catch (e: any) { setError(e?.message ?? 'Impossible de créditer ce compte.'); }
+    finally { setBusy(null); }
+  };
+
+  const saveFollowerOverride = async (value: number | null) => {
+    if (!selected || !supabase) return;
+    setBusy('followerOverride'); setError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_set_follower_count_override', { p_profile_id: selected.id, p_override: value });
+      if (rpcError) throw rpcError;
+      setFollowerOverride(value == null ? '' : String(value));
+      setSnapshot((prev) => prev ? { ...prev, profile: { ...prev.profile, follower_count_override: value } } : prev);
+      setMessage(value == null ? `Nombre d'abonnés réel restauré pour @${selected.username}.` : `Nombre d'abonnés forcé à ${value} pour @${selected.username} (test uniquement, n'affecte pas les vrais abonnés).`);
+    } catch (e: any) { setError(e?.message ?? 'Impossible de modifier ce réglage de test.'); }
     finally { setBusy(null); }
   };
 
@@ -408,6 +431,25 @@ export default function Users() {
             <div style={{display:'flex',gap:8,marginTop:6,flexWrap:'wrap'}}>
               {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>setCreditAmount(String(preset))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 14px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>+{preset} Free</button>)}
             </div>
+          </div>
+
+          {/* Adel (04/09/2026) : "je veux pouvoir le débloquer à un
+              utilisateur ... pareil pour soirée limitée pour la formule Pro
+              ... mettre un minimum d'abonnés comme ça je pourrais faire des
+              tests" -- Soirées (VENUE_PRO comme les autres) et les paliers de
+              croissance sont bloqués tant que le compte n'a pas 500 abonnés
+              RÉELS. Ce champ force un nombre d'abonnés de test pour CE
+              compte uniquement (n'écrit jamais dans `follows`, ne touche à
+              aucun autre utilisateur) ; vide = comportement réel normal. */}
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
+            <h3 style={{margin:'0 0 6px'}}>Test : forcer le nombre d’abonnés</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Débloque « Créer un événement » et les paliers de croissance (Découvertes, Essais Vibes, Audience Pro) sans attendre de vrais abonnés. N’affecte que ce compte, jamais ses vrais abonnés ni les autres utilisateurs. Laisse vide pour revenir au nombre réel.</div>
+            <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
+              <input type="number" min="0" value={followerOverride} onChange={(e)=>setFollowerOverride(e.target.value)} placeholder="Ex : 500" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <button onClick={()=>void saveFollowerOverride(followerOverride.trim()==='' ? null : Math.max(0,Math.trunc(Number(followerOverride))))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>{busy==='followerOverride'?'Enregistrement…':'Appliquer'}</button>
+              {snapshot.profile.follower_count_override != null && <button onClick={()=>void saveFollowerOverride(null)} disabled={busy!==null} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 16px',fontWeight:700,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>Revenir au réel</button>}
+            </div>
+            {snapshot.profile.follower_count_override != null && <div style={{color:'#ffb454',fontSize:11,marginTop:8,fontWeight:700}}>⚠ Actif : ce compte est actuellement vu avec {snapshot.profile.follower_count_override} abonnés (valeur de test).</div>}
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>

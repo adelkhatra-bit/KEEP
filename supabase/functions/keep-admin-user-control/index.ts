@@ -80,7 +80,7 @@ async function cleanupAvatarFolder(profileId: string) {
 
 async function getUserSnapshot(profileId: string) {
   const [{ data: profile, error: profileError }, { data: privateInfo }, { data: socials }, { data: requirements }, authResult, keepResult, playlistResult, downloadResult, musicUsageResult] = await Promise.all([
-    admin.from("profiles").select("id,username,display_name,bio,avatar_url,city,country_code,kind,website,is_public,discovery_hidden,created_at,updated_at").eq("id", profileId).maybeSingle(),
+    admin.from("profiles").select("id,username,display_name,bio,avatar_url,city,country_code,kind,website,is_public,discovery_hidden,created_at,updated_at,follower_count_override").eq("id", profileId).maybeSingle(),
     admin.from("profile_private_info").select("birth_date,gender").eq("profile_id", profileId).maybeSingle(),
     admin.from("social_links").select("platform,url,visibility").eq("profile_id", profileId),
     admin.from("user_profile_requirements").select("requirements,updated_at").eq("profile_id", profileId).maybeSingle(),
