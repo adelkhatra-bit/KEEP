@@ -1609,7 +1609,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const teamB = players.filter((_, index) => index % 2 === 1);
     const teamAScore = teamA.reduce((sum, player) => sum + Number(player?.score || 0), 0);
     const teamBScore = teamB.reduce((sum, player) => sum + Number(player?.score || 0), 0);
-    const versusLabel = players.length > 2 ? `${players.length} JOUEURS` : `${first ? `@${first.username}` : 'Loki'} VS ${second ? `@${second.username}` : 'Loki'}`;
+    // Adel (04/09/2026) : "il faut trouver une solution pour qu'on puisse voir
+    // les noms pour qu'on sache qui est qui dans le Battle" -- l'overlay
+    // "⚡ BATTLE ⚡" à 3 joueurs et plus n'affichait qu'un compte ("3 JOUEURS"),
+    // jamais qui participait réellement. Liste maintenant les vrais pseudos.
+    const versusLabel = players.length > 2 ? players.map((p: any) => `@${p.username}`).join(' · ') : `${first ? `@${first.username}` : 'Loki'} VS ${second ? `@${second.username}` : 'Loki'}`;
     const palmares = Array.from(winnerHistory.reduce((map, row) => {
       const current = map.get(row.profileId) || { ...row, wins: 0 };
       current.wins += 1;
