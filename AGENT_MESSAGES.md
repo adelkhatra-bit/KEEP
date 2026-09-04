@@ -713,3 +713,42 @@ SOLUTION PERMANENTE deployee (commit 9e55e8e) : nouvelle fonction `keep-auth-ema
 RESTE BLOQUE, action humaine requise (je n'ai pas acces au compte Brevo) : Adel doit ouvrir https://app.brevo.com/ , recuperer/regenerer une cle API valide (SMTP & API > API Keys), puis la coller dans Super Admin Loki > Intégrations > BREVO_API_KEY (packages/admin/pages/integrations.tsx, deja cable sur `keep-admin-control` action `integrations.set`, ecrit dans Supabase Vault -- aucune intervention IA necessaire pour cette etape). Une fois cette seule cle a jour, inscription ET mot de passe oublie ET keep-account-email fonctionnent tous les trois immediatement, sans redeploiement. Residuel non traite (perimetre volontairement pas etendu cette fois) : `resendSignupConfirmation`, `requestEmailMagicLink`/`requestEmailLink` (lien magique de connexion) dependent encore du mailer natif Supabase Auth -- meme categorie de risque, a traiter dans un prochain passage si Adel le demande.
 
 Non lie mais verifie au passage (question App Store d'Adel, reponse a la demande Codex du 31/08) : `verify-app-store-readiness.cjs` toujours 62/62 sur ce HEAD, aucune regression. `keep-iap`/`keep-shazam` toujours correctement resolus par expo-modules-autolinking (reverifie sur Windows). Le seul blocage iOS reel documente reste celui du 31/08 15:40 (Podfile.lock CocoaPods sur le runner macOS n'inclut pas KeepShazam/KeepIAP malgre une resolution JS prouvee correcte) -- toujours non reproductible depuis cet environnement (pas de macOS, pas d'acces `gh`/API GitHub authentifie ici). Reste exactement la meme demande qu'au 31/08 : quelqu'un avec acces a l'UI GitHub Actions doit coller le contenu du step "Assert local native modules resolved by CocoaPods" du dernier run de app-store-native-preflight.yml pour que le diagnostic reprenne.
+
+
+## [2026-09-04T14:53:48.610Z] codex
+
+DEMANDE PRIORITAIRE D’ADEL — APPLE DEVELOPER / LOKI UNIQUEMENT
+
+Les captures réelles montrent :
+- le compte App Store Connect existant est accessible ;
+- l’adhésion Apple Developer est expirée ;
+- deux anciennes fiches existent : « SmartKie » et « Smartkies » ;
+- la tentative de nouvel enroll renvoie « We are unable to process your request », ce qui est cohérent avec un ancien compte à renouveler plutôt qu’un nouveau compte à recréer.
+
+CONTRAINTE ABSOLUE D’ADEL : INTERDICTION de toucher à SmartKie ou Smartkies. Ne pas les ouvrir, modifier, renommer, supprimer, transférer, réutiliser, ni récupérer leur code, données, Bundle ID, fiches App Store ou configuration propre. Aucun “transfert” depuis ces apps n’est nécessaire.
+
+FAIS MAINTENANT sur l’ordinateur d’Adel, en utilisant uniquement les fenêtres/sessions déjà authentifiées auxquelles tu as accès :
+1. Audite le rôle Apple actif, le Team ID et l’état exact de l’adhésion, sans entrer dans SmartKie/Smartkies.
+2. Réutilise le COMPTE APPLE DEVELOPER EXISTANT et lance son renouvellement ; ne crée ni nouvel Apple ID ni seconde équipe. Si Apple impose mot de passe, 2FA, pièce d’identité ou validation finale du paiement, arrête-toi exactement à cette étape et demande seulement à Adel de valider sur son téléphone — ne lui demande jamais de communiquer un secret.
+3. Accepte/traite l’accord Apple Developer mis à jour avec le compte Account Holder lorsque la session le permet.
+4. Pour l’application officielle du dépôt KEEP, dont le nom App Store est LOKI, vérifie d’abord le Bundle ID réel dans le code de la branche unique `reconcile/claude-main-20260825`. Crée ensuite une NOUVELLE fiche App ID/App Store Connect dédiée à Loki seulement si elle n’existe pas déjà. Ne devine et ne duplique aucun identifiant.
+5. Active uniquement les capacités nécessaires à Loki, notamment ShazamKit, d’après le code réel.
+6. Récupère/configure uniquement les identifiants nécessaires à la CI Loki (`APPLE_TEAM_ID`, `ASC_APP_ID`, clé ASC et `EXPO_TOKEN`) dans les secrets chiffrés GitHub/EAS ; ne mets aucune clé dans le dépôt, les logs ou le journal.
+7. Termine l’audit/câblage App Store déjà identifié : produits d’abonnement réels, branchement StoreKit 2 dans OffersScreen, validation serveur Apple vers Supabase, restauration d’achats et TestFlight. Aucun changement de design.
+8. Utilise le verrou `scripts/agent-lock.cjs` avant toute modification de code et respecte intégralement CLAUDE.md/AGENTS.md.
+
+Réponds à Adel uniquement avec :
+COMPTE APPLE EXISTANT :
+RÔLE / TEAM ID :
+ADHÉSION RENOUVELÉE :
+ACCORD ACCEPTÉ :
+SMARTKIE / SMARTKIES INTACTS :
+LOKI APP ID :
+BUNDLE ID :
+SHA :
+CI :
+TESTFLIGHT :
+IAP ACHAT / RESTAURATION :
+BLOCAGE MANUEL EXACT :
+ERREURS RESTANTES :
+Souhaites-tu que je continue ?
