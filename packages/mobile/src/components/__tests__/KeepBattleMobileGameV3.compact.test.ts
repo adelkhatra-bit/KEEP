@@ -101,7 +101,13 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('MES STYLES ACCEPTÉS');
     expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
     expect(source).toContain('`BATTLE · ${themeLabel(themeCode)} · ${roundCount}`');
-    expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode, roundCount)');
+    // Adel (04/09/2026) : "j'ai juste à envoyer une invite comme ça je
+    // puisse en envoyer plusieurs" -- BATTLE depuis "Joueurs disponibles"
+    // crée/rejoint désormais un salon de groupe (arène) au lieu d'un défi
+    // 1 contre 1 isolé, pour que plusieurs invites tombent dans le même
+    // match au lieu d'en recréer un nouveau à chaque fois.
+    expect(source).toContain('const created = await createKeepBattleArena(themeCode, roundCount)');
+    expect(source).toContain('await sendBattleArenaChallenge(arenaId, player.profileId)');
   });
 
   it('polls incoming challenges throughout Battle before an arena starts', () => {

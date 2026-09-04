@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView,
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { buildKeepBattleArenaInviteLink, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
+import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
@@ -410,6 +410,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // qu'il n'a pas la réponse" -- évite les doubles envois pendant l'aller-
   // retour réseau.
   const [challengeBusyId, setChallengeBusyId] = React.useState<string | null>(null);
+  // Adel (04/09/2026) : "j'ai envoyé des invites, on voit pas le troisième
+  // joueur ... j'ai juste à envoyer une invite comme ça je puisse en
+  // envoyer plusieurs [dans le même match]" -- BUG RÉEL confirmé en base :
+  // taper BATTLE sur 2 personnes différentes créait 2 matchs 1 contre 1
+  // séparés, jamais un seul match à plusieurs -- "Joueurs disponibles"
+  // n'a jamais regroupé plusieurs invites dans la même arène. Le premier
+  // appui crée maintenant une arène de groupe ; tant qu'elle reste ouverte
+  // (WAITING, pas encore pleine), les appuis suivants ajoutent la personne
+  // dans CETTE MÊME arène au lieu d'en recréer une nouvelle.
+  const [buildingArenaId, setBuildingArenaId] = React.useState<string | null>(null);
   // Adel (02/09/2026) : "que l'utilisateur sache qu'il y a une invite qui
   // est partie" -- le bouton BATTLE ne montrait "ENVOI…" que pendant la
   // requête elle-même (quelques centaines de ms), puis redevenait un simple
@@ -920,10 +930,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [arena?.id, arena?.lastResult?.matchNo]);
 
   React.useEffect(() => {
-    if (!arena || arena.status !== 'WAITING' || !arena.isHost || arena.lastResult || arena.seats.length < 2) return undefined;
+    // Adel (04/09/2026) : "on voit pas le troisieme joueur sur la jauge" --
+    // BUG RÉEL confirmé en base : le match démarrait déjà 1,8s après le 2e
+    // joueur, même avec une 3e invitation encore en attente de réponse --
+    // cette personne n'avait alors plus aucune chance de rejoindre. Le
+    // démarrage automatique attend maintenant que toutes les invitations en
+    // cours pour cette arène soient résolues (acceptées, refusées ou
+    // expirées), pas seulement qu'il y ait 2 joueurs.
+    if (!arena || arena.status !== 'WAITING' || !arena.isHost || arena.lastResult || arena.seats.length < 2 || arena.pendingInviteCount > 0) return undefined;
     const id = setTimeout(() => { void startKeepBattleArena(arena.id).then((a) => { setArena(a); animateVersus(); }).catch(() => {}); }, 1800);
     return () => clearTimeout(id);
-  }, [arena?.id, arena?.status, arena?.isHost, arena?.matchNo, arena?.seats.length, animateVersus]);
+  }, [arena?.id, arena?.status, arena?.isHost, arena?.matchNo, arena?.seats.length, arena?.pendingInviteCount, animateVersus]);
 
   // Adel (02/09/2026) : "le bug revient lorsque l'utilisateur ... est absent
   // ... il faut que ça revienne comme avant" -- ce minuteur automatique
@@ -1019,11 +1036,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     unlockWebAudioForGesture();
     setChallengeBusyId(player.profileId);
     try {
-      await sendBattleChallenge(player.profileId, themeCode, roundCount);
+      let arenaId = buildingArenaId;
+      if (!arenaId) {
+        const created = await createKeepBattleArena(themeCode, roundCount);
+        arenaId = created.id;
+        setBuildingArenaId(arenaId);
+      }
+      await sendBattleArenaChallenge(arenaId, player.profileId);
     } catch (e: any) {
       const message = String(e?.message || e || '');
-      if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
+      if (message.includes('BATTLE_CHALLENGER_NO_CREDIT') || message.includes('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert('Il te faut au moins 3 Free pour lancer un Battle');
       else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `@${player.username} n’a pas assez de Free pour jouer maintenant.`);
+      else if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Ton groupe est déjà complet : 10 joueurs.');
       else if (message.includes('BATTLE_TARGET_BLOCKED_TOO_MANY_DECLINES')) {
         const until = parseInviteBlockedUntilMs(message);
         if (until) {
@@ -1363,6 +1387,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     void stopTrackPreview();
     if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
     setArena(null);
+    setBuildingArenaId(null);
   }, [arena?.id]);
 
   const closeBattleArena = React.useCallback(() => {
@@ -1383,6 +1408,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setArena(null);
     setBrowseOnline(false);
     setSolo(null);
+    setBuildingArenaId(null);
   }, [arena?.id]);
 
   const answerArena = async (choice: string) => {
@@ -1735,7 +1761,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const browseChallengeRemaining = incoming[0] ? Math.max(0, Math.ceil((new Date(incoming[0].expiresAt).getTime() - now) / 1000)) : 0;
     return <View style={s.root}>
       {renderPlayerStatsModal()}
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>{!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche proposée avec {pendingRematch[0].participantUsernames.map((u) => `@${u}`).join(', ') || 'le groupe'}. Tu peux te rattraper ! Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}{incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>@{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {browseChallengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}<Text style={s.section}>NOMBRE DE MORCEAUX</Text><ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>{ROUND_COUNT_OPTIONS.map((n) => <TouchableOpacity key={n} onPress={() => setRoundCount(n)} style={[s.theme, n === roundCount && s.themeOn]}><Text style={[s.themeText, n === roundCount && s.themeTextOn]}>{n}</Text></TouchableOpacity>)}</ScrollView>{renderMyPreferencesPicker()}
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
+      {/* Adel (04/09/2026) : "j'ai juste à envoyer une invite comme ça je
+          puisse en envoyer plusieurs" -- BUG RÉEL : chaque appui sur BATTLE
+          créait son propre match 1 contre 1 séparé, jamais un seul match à
+          plusieurs. Le premier appui crée maintenant un salon de groupe ;
+          ce bandeau reste affiché pour continuer à inviter d'autres joueurs
+          de cette même liste avant de rejoindre le salon. */}
+      {buildingArenaId ? <TouchableOpacity style={s.buildingArenaBanner} onPress={() => { void loadKeepBattleArena(buildingArenaId).then(setArena).catch(() => {}); }} accessibilityRole="button"><Text style={s.buildingArenaBannerText}>⚡ Salon en préparation · continue d’inviter ci-dessous, puis appuie ici pour le rejoindre</Text></TouchableOpacity> : null}
+      {!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche proposée avec {pendingRematch[0].participantUsernames.map((u) => `@${u}`).join(', ') || 'le groupe'}. Tu peux te rattraper ! Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}{incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>@{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {browseChallengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}<Text style={s.section}>NOMBRE DE MORCEAUX</Text><ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>{ROUND_COUNT_OPTIONS.map((n) => <TouchableOpacity key={n} onPress={() => setRoundCount(n)} style={[s.theme, n === roundCount && s.themeOn]}><Text style={[s.themeText, n === roundCount && s.themeTextOn]}>{n}</Text></TouchableOpacity>)}</ScrollView>{renderMyPreferencesPicker()}
       {/* Adel (03/09/2026) : "un utilisateur pourra regarder le match en
           cours en tant que visiteur" -- keep_battle_open_salons existait déjà
           côté serveur (jamais branché à aucun écran) : liste les matchs
@@ -1775,5 +1809,6 @@ const s = StyleSheet.create({
   squareCaption: { paddingHorizontal: 4, paddingVertical: 2, backgroundColor: 'rgba(0,0,0,.6)' }, squareCaptionText: { color: '#FFF', fontSize: 11, fontWeight: '800' },
   squarePlus: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#8B5CF6', backgroundColor: '#1B1422' }, squarePlusIcon: { color: '#8B5CF6', fontSize: 20, fontWeight: '900', lineHeight: 22 },
   creditBadgeRow: { alignItems: 'center', marginBottom: 6 }, creditBadgeText: { color: '#E5F266', fontSize: 11, fontWeight: '900', backgroundColor: '#1B1422', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden' },
+  buildingArenaBanner: { minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: '#E5F266', backgroundColor: '#22201A', paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, alignItems: 'center', justifyContent: 'center' }, buildingArenaBannerText: { color: '#E5F266', fontSize: 11, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
   liveMatches: { marginBottom: 12, gap: 6 }, liveMatchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 16, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#151020', paddingHorizontal: 12 }, liveMatchTheme: { color: '#FFF', fontSize: 12, fontWeight: '900' }, liveMatchHost: { color: '#B79CFF', fontSize: 11, fontWeight: '700', marginTop: 2 }, liveMatchWatch: { color: '#E5F266', fontSize: 11, fontWeight: '900' },
 });

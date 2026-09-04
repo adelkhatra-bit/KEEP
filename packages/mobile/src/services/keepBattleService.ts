@@ -119,6 +119,11 @@ export type KeepBattleArenaState = {
   maxPlayers: number;
   openSeats: number;
   queue: number;
+  // Adel (04/09/2026) : "on voit pas le troisieme joueur sur la jauge" --
+  // BUG RÉEL : le match démarrait tout seul dès 2 joueurs présents, même
+  // avec une 3e invite encore PENDING. Le serveur n'autorise plus le
+  // démarrage tant que ce compte n'est pas à zéro.
+  pendingInviteCount: number;
   roundCount: number;
   matchNo: number;
   currentRound: number;
