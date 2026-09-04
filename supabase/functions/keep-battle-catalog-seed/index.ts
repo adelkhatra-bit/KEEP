@@ -49,17 +49,23 @@ const CONFIG: Record<string, Array<{ term: string; country: string }>> = {
   INDE: [{ term: "bollywood", country: "IN" }, { term: "hindi pop", country: "IN" }],
 };
 
-// Adel (04/09/2026) : "je suis pas sûre que ce soit de la funk, je sais pas
-// il les trouve où" -- BUG RÉEL confirmé : chaque résultat iTunes pour
-// term="funk" était tagué theme_code=FUNK à 96% de confiance SANS jamais
-// vérifier item.primaryGenreName. Le mot "funk" apparaît dans plein de
-// titres qui n'ont rien à voir (funk brésilien, EDM, hip-hop, rock,
-// musique pour enfants...). Apple Music n'a pas de genre "Funk" dédié : le
-// vrai funk y est classé "R&B/Soul". Seul FUNK a un filtre pour l'instant
-// (seul thème signalé) -- les autres thèmes gardent leur comportement
-// existant tant qu'ils n'ont pas été audités un par un.
+// Adel (04/09/2026) : "je suis pas sûre que ce soit de la funk" puis "il met
+// du reggae, il mélange tout" -- BUG RÉEL confirmé sur les DEUX thèmes :
+// chaque résultat iTunes pour un terme simple ("funk", "reggae") était tagué
+// à 96% de confiance SANS jamais vérifier item.primaryGenreName -- le mot
+// apparaît dans plein de titres qui n'ont rien à voir (funk brésilien, EDM,
+// hip-hop, rock, musique pour enfants... pour FUNK ; genres totalement
+// étrangers pour REGGAE). Seuls ces deux thèmes ont un filtre pour
+// l'instant (les deux seuls signalés, chacun confirmé à ~37-39% de
+// contamination) -- un audit large sur les 22 autres thèmes a montré des
+// répartitions bien plus ambiguës (ex. DISCO/ROCK perdraient injustement
+// leurs plus gros lots "Alternative"/"Pop" sans preuve réelle de mauvais
+// classement) : mieux vaut ne rien y toucher tant qu'un problème concret
+// n'y est pas signalé, que risquer de vider un catalogue sain sur une
+// simple supposition.
 const GENRE_ALLOW: Record<string, RegExp> = {
   FUNK: /funk|r&b|soul/i,
+  REGGAE: /reggae|dancehall|ska|dub/i,
 };
 
 function out(status: number, payload: unknown) {
@@ -104,7 +110,12 @@ async function seed(theme: string) {
   let inserted = 0;
   let updated = 0;
 
-  for (const item of Array.from(byAppleId.values()).slice(0, 80)) {
+  // Adel (04/09/2026) : "il faut aller chercher du son au maximum" -- chaque
+  // thème dédupliquait déjà plusieurs requêtes iTunes (jusqu'à limit=100
+  // chacune) mais ne gardait que les 80 premiers résultats fusionnés,
+  // laissant une bonne partie du volume réellement récupéré de côté.
+  // Garde maintenant jusqu'à 200 pistes par ré-alimentation.
+  for (const item of Array.from(byAppleId.values()).slice(0, 200)) {
     const appleId = String(item.trackId ?? "");
     const title = String(item.trackName ?? "").trim();
     const artist = String(item.artistName ?? "").trim();
