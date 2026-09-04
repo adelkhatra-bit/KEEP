@@ -19,6 +19,7 @@ const DEFAULT_RULES: CommercialRules = {
   venueDailyDownloads: null,
   creatorEventsPerMonth: 1,
   venueEventsPerMonth: null,
+  freeCostPerKeep: 3,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -101,7 +102,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   // gagner/perdre en plus.
   if (planCode === 'FREE') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : 1 Free.`,
+    `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : ${rules.freeCostPerKeep} Free.`,
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
     `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
   ];

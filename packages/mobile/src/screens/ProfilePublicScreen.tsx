@@ -13,6 +13,7 @@ import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmai
 import { loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
+import { getCommercialRules } from '../services/growthAccessService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
@@ -83,6 +84,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
   const [freeWon, setFreeWon] = useState(0);
   const [freeLost, setFreeLost] = useState(0);
+  // Adel (04/09/2026) : le coût réel d'un Garder (free_cost_per_keep, Super
+  // Admin > Remote Config) était encore écrit en dur ("-1 Free") dans cette
+  // même fenêtre -- devenu faux dès que l'admin change la valeur. Chargé
+  // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
+  const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
   const [freeHistoryOpen, setFreeHistoryOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
@@ -180,6 +186,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       } catch {
         if (!live) return;
         setFreeBalance(null);
+      }
+      try {
+        const rules = await getCommercialRules();
+        if (!live) return;
+        setFreeCostPerKeep(rules.freeCostPerKeep);
+      } catch {
+        // Le libellé retombe sur la valeur par défaut ; jamais bloquant.
       }
     };
     void refreshCredits();
@@ -663,7 +676,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'}</Text>
           <View style={s.linkPreview}>
             <Text style={s.linkPreviewText}>🎧 Écouter et reconnaître : toujours gratuit</Text>
-            <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -1 Free</Text>
+            <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -{freeCostPerKeep} Free</Text>
             <Text style={s.linkPreviewText}>🎮 Battle solo (entraînement) : gratuit</Text>
             <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
             <Text style={s.linkPreviewText}>🏆 Gagné au Battle au total : +{freeWon} Free</Text>

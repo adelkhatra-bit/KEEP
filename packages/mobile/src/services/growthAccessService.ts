@@ -53,6 +53,13 @@ export type CommercialRules = {
   venueDailyDownloads: number | null;
   creatorEventsPerMonth: number | null;
   venueEventsPerMonth: number | null;
+  // Adel (04/09/2026) : "quand un utilisateur bascule une musique sur son
+  // profil, il faut lui enlever des Free ... tout ça dans les paramètres du
+  // super admin" -- déjà 100% piloté par remote_config (free_cost_per_keep,
+  // Super Admin > Remote Config > Croissance). Exposé ici pour que le texte
+  // affiché à l'utilisateur (Offres, solde Free du profil) suive TOUJOURS le
+  // vrai coût configuré au lieu d'un "1 Free" écrit en dur.
+  freeCostPerKeep: number;
   shareDailyCap: number;
   audienceProThreshold: number;
   shareTiers: [number, number, number];
@@ -69,6 +76,7 @@ const FALLBACK_RULES: CommercialRules = {
   venueDailyDownloads: null,
   creatorEventsPerMonth: 1,
   venueEventsPerMonth: null,
+  freeCostPerKeep: 3,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -165,6 +173,7 @@ export async function getCommercialRules(): Promise<CommercialRules> {
     venueDailyDownloads: row.venue_daily_downloads == null ? null : Number(row.venue_daily_downloads),
     creatorEventsPerMonth: row.creator_events_per_month == null ? null : Number(row.creator_events_per_month),
     venueEventsPerMonth: row.venue_events_per_month == null ? null : Number(row.venue_events_per_month),
+    freeCostPerKeep: Number(row.free_cost_per_keep ?? FALLBACK_RULES.freeCostPerKeep),
     shareDailyCap: Number(row.share_daily_cap ?? FALLBACK_RULES.shareDailyCap),
     audienceProThreshold: followerTiers[4],
     shareTiers,
