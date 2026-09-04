@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { iapAvailable, IAP_PRODUCT_IDS, purchasePlan, restorePurchases } from '../services/iapService';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
@@ -161,6 +163,46 @@ export default function OffersScreen({ navigation, route }: any) {
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
+  // Adel (04/09/2026) : "il faut qu'on branche le paiement" -- premier vrai
+  // achat StoreKit de bout en bout (KeepIAP -> keep-iap-verify -> activation
+  // réelle du plan), plus jamais un CTA qui ne fait que naviguer.
+  const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  const handleRestore = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    try {
+      const { restored } = await restorePurchases();
+      if (restored > 0 && user) {
+        const planCode = await loadCurrentPlanCode(user.id).catch(() => null);
+        if (planCode) setCurrentPlan(planCode);
+        Alert.alert('Achats restaurés', `${restored} abonnement${restored > 1 ? 's' : ''} retrouvé${restored > 1 ? 's' : ''} et réactivé${restored > 1 ? 's' : ''}.`);
+      } else {
+        Alert.alert('Restauration', 'Aucun achat à restaurer sur ce compte Apple.');
+      }
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const handlePurchase = async (planCode: string) => {
+    if (purchasingPlan) return;
+    setPurchasingPlan(planCode);
+    try {
+      const result = await purchasePlan(planCode);
+      if (!result.ok) {
+        if (result.reason !== 'CANCELLED') {
+          Alert.alert('Achat', 'Impossible de finaliser cet achat pour le moment. Réessaie dans un instant.');
+        }
+        return;
+      }
+      setCurrentPlan(result.planCode);
+      Alert.alert('Merci !', `Ton abonnement ${planLabel(result.planCode)} est actif.`);
+    } finally {
+      setPurchasingPlan(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -410,9 +452,26 @@ export default function OffersScreen({ navigation, route }: any) {
                   <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
                 </TouchableOpacity>
               ) : null}
+              {!active && plan.code !== 'FREE' && iapAvailable() && IAP_PRODUCT_IDS[plan.code] ? (
+                <TouchableOpacity
+                  style={s.purchaseCta}
+                  disabled={purchasingPlan !== null}
+                  onPress={() => void handlePurchase(plan.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
+                >
+                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>}
+                </TouchableOpacity>
+              ) : null}
             </View>
           );
         })}
+
+        {iapAvailable() ? (
+          <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
+            <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Règles simples</Text>
@@ -428,7 +487,7 @@ export default function OffersScreen({ navigation, route }: any) {
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
             <Text style={s.subscriptionText}>• Écouter, reconnaître et PASSER ne consomment aucun Free.</Text>
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise 1 Free. Le récupérer depuis le profil d’un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d’un autre membre utilise 0 Free.</Text>
             <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s’ajoutent à ta formule.</Text>
             <Text style={s.subscriptionText}>• La provenance d’une découverte reste rattachée au membre qui l’a reconnue avec Écouter.</Text>
           </View> : null}
@@ -543,6 +602,10 @@ const s = StyleSheet.create({
   cta: { minHeight: 42, borderRadius: 21, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   ctaUnlimited: { backgroundColor: '#8A6A12' },
   ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
+  purchaseCta: { minHeight: 46, borderRadius: 23, marginTop: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success, opacity: 1 },
+  purchaseCtaText: { color: '#0A140F', fontSize: 13, fontWeight: '900' },
+  restoreButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 4 },
+  restoreButtonText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   rulesDetails: { marginTop: 3, gap: 3 },
