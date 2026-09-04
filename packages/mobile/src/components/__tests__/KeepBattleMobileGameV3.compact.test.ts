@@ -225,7 +225,7 @@ describe('Loki Battle mobile style selector', () => {
   // trois comportements pour qu'une régression future casse la suite au
   // lieu de dépendre d'un signalement en prod.
   it('keeps the red wrong-answer highlight, the animated result icon (no static lightning), and the session-save buttons', () => {
-    expect(source).toContain("answerWrong: { borderColor: '#FF6C8C'");
+    expect(source).toContain("answerWrong: { borderWidth: 2, borderColor: '#FF6C8C'");
     expect(source).toContain("s.answerWrong]}");
     expect(source).toContain('function ResultIcon(');
     expect(source).toContain('<ResultIcon icon={perfect ?');
