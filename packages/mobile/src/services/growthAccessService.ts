@@ -42,6 +42,17 @@ export type CommercialRules = {
   freeDiscoveryProfiles: number;
   premiumSmartSortTrials: number;
   premiumDailyDownloads: number;
+  // Adel (04/09/2026) : "où y a marqué illimité, je puisse le modifier
+  // illimité ou limité" -- ces 4 champs viennent de la MEME grille "Limites
+  // par formule" (downloads_per_day / events_per_month) que celle qui gère
+  // déjà Premium ci-dessus. null = illimité (réglage actuel par défaut,
+  // rien ne change tant qu'un admin ne tape pas un chiffre) ; un chiffre =
+  // vrai plafond. Plus jamais un "illimité" écrit en dur dans le texte des
+  // offres, indépendamment de ce que Super Admin configure réellement.
+  creatorDailyDownloads: number | null;
+  venueDailyDownloads: number | null;
+  creatorEventsPerMonth: number | null;
+  venueEventsPerMonth: number | null;
   shareDailyCap: number;
   audienceProThreshold: number;
   shareTiers: [number, number, number];
@@ -54,6 +65,10 @@ const FALLBACK_RULES: CommercialRules = {
   freeDiscoveryProfiles: 3,
   premiumSmartSortTrials: 3,
   premiumDailyDownloads: 40,
+  creatorDailyDownloads: null,
+  venueDailyDownloads: null,
+  creatorEventsPerMonth: 1,
+  venueEventsPerMonth: null,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -146,6 +161,10 @@ export async function getCommercialRules(): Promise<CommercialRules> {
     freeDiscoveryProfiles: Number(row.free_discovery_profiles ?? FALLBACK_RULES.freeDiscoveryProfiles),
     premiumSmartSortTrials: Number(row.premium_smart_sort_trials ?? FALLBACK_RULES.premiumSmartSortTrials),
     premiumDailyDownloads: Number(row.premium_daily_downloads ?? FALLBACK_RULES.premiumDailyDownloads),
+    creatorDailyDownloads: row.creator_daily_downloads == null ? null : Number(row.creator_daily_downloads),
+    venueDailyDownloads: row.venue_daily_downloads == null ? null : Number(row.venue_daily_downloads),
+    creatorEventsPerMonth: row.creator_events_per_month == null ? null : Number(row.creator_events_per_month),
+    venueEventsPerMonth: row.venue_events_per_month == null ? null : Number(row.venue_events_per_month),
     shareDailyCap: Number(row.share_daily_cap ?? FALLBACK_RULES.shareDailyCap),
     audienceProThreshold: followerTiers[4],
     shareTiers,

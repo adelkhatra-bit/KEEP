@@ -178,24 +178,40 @@ export default function Dashboard() {
 
       {data && (
         <>
+          {/* Adel (04/09/2026) : "pourquoi tu les ranges pas comme t'as fait
+              dans les abonnements payants actifs ... fais la même chose pour
+              le reste comme ça ça sera bien aligné" -- une seule carte
+              empilée (payants actifs / morceaux gardés) au milieu de 6
+              cartes à une seule ligne cassait l'alignement de la grille
+              (hauteurs différentes -> lignes qui ne tombent pas pareil selon
+              la largeur d'écran). Même empilement appliqué partout : 4
+              cartes à 2 chiffres au lieu de 1 carte double + 6 cartes
+              simples, toutes de la même hauteur. */}
           <div className="kpi-grid">
-            <div className="kpi-card"><div className="kpi-value">{data.usersTotal}</div><div className="kpi-label">Utilisateurs totaux</div></div>
-            <div className="kpi-card"><div className="kpi-value">{data.newUsers}</div><div className="kpi-label">Nouveaux sur la période</div></div>
-            <div className="kpi-card"><div className="kpi-value">{data.verifiedEmails}</div><div className="kpi-label">E-mails vérifiés</div></div>
-            {/* Adel (04/09/2026) : "mets-la en dessous ... la ligne là en
-                dessous de abonnement payant actif" -- ces deux chiffres
-                atterrissaient côte à côte dans la grille auto-fit selon la
-                largeur d'écran. Une seule carte, empilée verticalement,
-                garantit "en dessous" quelle que soit la largeur. */}
+            <div className="kpi-card">
+              <div className="kpi-value">{data.usersTotal}</div><div className="kpi-label">Utilisateurs totaux</div>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div className="kpi-value">{data.newUsers}</div><div className="kpi-label">Nouveaux sur la période</div>
+              </div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-value">{data.verifiedEmails}</div><div className="kpi-label">E-mails vérifiés</div>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div className="kpi-value">{data.follows}</div><div className="kpi-label">Nouveaux abonnements / suivis</div>
+              </div>
+            </div>
             <div className="kpi-card">
               <div className="kpi-value">{data.activePaid}</div><div className="kpi-label">Abonnements payants actifs</div>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 <div className="kpi-value">{data.keeps}</div><div className="kpi-label">Morceaux gardés sur la période</div>
               </div>
             </div>
-            <div className="kpi-card"><div className="kpi-value">{data.follows}</div><div className="kpi-label">Nouveaux abonnements / suivis</div></div>
-            <div className="kpi-card"><div className="kpi-value">{data.shares}</div><div className="kpi-label">Partages</div></div>
-            <div className="kpi-card"><div className="kpi-value">{data.eventsCreated}</div><div className="kpi-label">Événements créés</div></div>
+            <div className="kpi-card">
+              <div className="kpi-value">{data.shares}</div><div className="kpi-label">Partages</div>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div className="kpi-value">{data.eventsCreated}</div><div className="kpi-label">Événements créés</div>
+              </div>
+            </div>
           </div>
 
           <div className="card" style={{ marginTop: 22 }}>

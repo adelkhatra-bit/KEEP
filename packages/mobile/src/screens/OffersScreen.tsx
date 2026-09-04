@@ -15,6 +15,10 @@ const DEFAULT_RULES: CommercialRules = {
   freeDiscoveryProfiles: 3,
   premiumSmartSortTrials: 3,
   premiumDailyDownloads: 40,
+  creatorDailyDownloads: null,
+  venueDailyDownloads: null,
+  creatorEventsPerMonth: 1,
+  venueEventsPerMonth: null,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -64,6 +68,18 @@ function compatiblePlanCodes(feature: string, focusPlan: string): string[] {
   return start >= 0 ? PAID_PLAN_ORDER.slice(start) : focusPlan ? [focusPlan] : [];
 }
 
+// Adel (04/09/2026) : "où y a marqué illimité, je puisse le modifier
+// illimité ou limité ... si tu l'as mis dans le dur ça va être compliqué"
+// -- ces phrases écrivaient "illimité" en dur pour Creator Pro / Venue Pro,
+// indépendamment de ce que Super Admin > Limites par formule configure
+// réellement (downloads_per_day / events_per_month, déjà éditables pour
+// TOUTES les formules). null = toujours illimité aujourd'hui (comportement
+// inchangé par défaut) ; dès qu'un admin tape un chiffre, le texte des
+// offres l'affiche automatiquement au lieu de continuer à mentir.
+function eventsPerMonthClause(limit: number | null): string {
+  return limit == null ? 'en illimité' : `${limit} par mois`;
+}
+
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
@@ -71,7 +87,7 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte Loki pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro permet ensuite 1 soirée par mois ; Venue Pro passe les soirées en illimité.`;
+  if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} ; Venue Pro : soirées ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`;
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
@@ -97,15 +113,15 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   ];
   if (planCode === 'CREATOR_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    'Téléchargements et Loki Vibes illimités.',
+    rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Vibes illimités.' : `Jusqu’à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Vibes illimité.`,
     'Profils DJ, Artiste, Créateur ou Producteur.',
-    `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois et notifications aux abonnés.`,
+    `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
   ];
   if (planCode === 'VENUE_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Profil Lieu / établissement et outils professionnels.',
-    `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
+    `À partir de ${eventFollowers} abonnés : soirées et événements ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`,
     'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki, personne ne peut désactiver la notification.',
     'QR, communauté et analytics avancés.',
     `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
@@ -220,7 +236,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} />
           </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
-          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : 1 soirée / mois · 29,99 € : soirées illimitées</Text></View> : null}
+          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
@@ -359,7 +375,7 @@ export default function OffersScreen({ navigation, route }: any) {
         {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
           const active = plan.code === currentPlan;
           const focused = !!focusPlan && plan.code === focusPlan;
-          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO';
+          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO' && rules.venueEventsPerMonth == null;
           return (
             <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused, venueUnlimited && s.planCardUnlimited]}>
               <View style={s.planTop}>
