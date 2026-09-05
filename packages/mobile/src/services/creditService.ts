@@ -117,6 +117,10 @@ export type FreeCreditBreakdown = {
   monthlyBonus: number;
   adminGrant: number;
   battleAdjustment: number;
+  battleWon: number;
+  battleLost: number;
+  totalEarned: number;
+  totalSpent: number;
   used: number;
   lockedArena: number;
   recentBattles: FreeCreditBattleEvent[];
@@ -148,6 +152,10 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
     monthlyBonus: Number(row.monthlyBonus || 0),
     adminGrant: Number(row.adminGrant || 0),
     battleAdjustment: Number(row.battleAdjustment || 0),
+    battleWon: Number(row.battleWon || 0),
+    battleLost: Number(row.battleLost || 0),
+    totalEarned: Number(row.totalEarned || 0),
+    totalSpent: Number(row.totalSpent || 0),
     used: Number(row.used || 0),
     lockedArena: Number(row.lockedArena || 0),
     recentBattles: Array.isArray(row.recentBattles) ? row.recentBattles.map((x: any) => ({

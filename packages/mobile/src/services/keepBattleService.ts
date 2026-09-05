@@ -232,6 +232,8 @@ export type KeepBattlePlayerStats = {
   followers: number;
   freeBalance: number;
   freeWon: number;
+  freeLost: number;
+  freeNet: number;
 };
 
 export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
@@ -251,6 +253,8 @@ export async function loadKeepBattlePlayerStats(profileId: string): Promise<Keep
     followers: Number(row.followers ?? 0),
     freeBalance: Number(row.freeBalance ?? 0),
     freeWon: Number(row.freeWon ?? 0),
+    freeLost: Number(row.freeLost ?? 0),
+    freeNet: Number(row.freeNet ?? 0),
   };
 }
 
@@ -403,10 +407,13 @@ export function subscribeKeepBattle(battleId: string, onChange: () => void) {
 // réelle pour que le serveur mixe l'UNION exacte de ces styles au lieu de
 // n'utiliser que le premier, exactement comme loadKeepBattleSoloPack.
 export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleArenaCreated> {
+  const selectedThemes = Array.from(new Set((themeCodes || [])
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
   const { data, error } = await client().rpc('keep_battle_arena_create', {
-    p_theme_code: themeCode.toUpperCase(),
+    p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
     p_round_count: Math.max(5, Math.min(roundCount, 12)),
-    p_theme_codes: themeCodes && themeCodes.length ? themeCodes.map((c) => c.toUpperCase()) : null,
+    p_theme_codes: selectedThemes.length ? selectedThemes : null,
   });
   return unwrap(data as KeepBattleArenaCreated | null, error);
 }

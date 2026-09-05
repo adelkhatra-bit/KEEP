@@ -105,20 +105,29 @@ export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePla
 // arène n'a qu'une colonne theme_code).
 export type KeepBattleMatchPreferences = { themeCodes: string[]; roundCount: number };
 
+function normalizePreferredThemeCodes(themeCodes: unknown): string[] {
+  if (!Array.isArray(themeCodes)) return ['MIX'];
+  const real = Array.from(new Set(themeCodes
+    .map((code) => String(code || '').trim().toUpperCase())
+    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+  return real.length ? real : ['MIX'];
+}
+
 export async function loadMyMatchPreferences(): Promise<KeepBattleMatchPreferences> {
   const { data, error } = await client().rpc('keep_battle_load_match_preferences');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_LOAD_FAILED'));
   const raw = data as any;
-  const themeCodes = Array.isArray(raw?.themeCodes) ? raw.themeCodes : ['MIX'];
-  return { themeCodes: themeCodes.length ? themeCodes : ['MIX'], roundCount: Number(raw?.roundCount ?? 8) || 8 };
+  const themeCodes = normalizePreferredThemeCodes(raw?.themeCodes);
+  return { themeCodes, roundCount: Number(raw?.roundCount ?? 8) || 8 };
 }
 
 export async function saveMyMatchPreferences(themeCodes: string[], roundCount: number): Promise<KeepBattleMatchPreferences> {
-  const { data, error } = await client().rpc('keep_battle_save_match_preferences', { p_theme_codes: themeCodes.length ? themeCodes : ['MIX'], p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
+  const normalizedThemes = normalizePreferredThemeCodes(themeCodes);
+  const { data, error } = await client().rpc('keep_battle_save_match_preferences', { p_theme_codes: normalizedThemes, p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_SAVE_FAILED'));
   const raw = data as any;
-  const codes = Array.isArray(raw?.themeCodes) ? raw.themeCodes : ['MIX'];
-  return { themeCodes: codes.length ? codes : ['MIX'], roundCount: Number(raw?.roundCount ?? 8) || 8 };
+  const codes = normalizePreferredThemeCodes(raw?.themeCodes);
+  return { themeCodes: codes, roundCount: Number(raw?.roundCount ?? 8) || 8 };
 }
 
 // Adel (02/09/2026) : "un petit joueur devra monter sa note en solo pour

@@ -208,6 +208,26 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain("borderColor: '#4E8DFF'");
   });
 
+  it('keeps the timer and multiplayer score gauge below the artwork and before Qui chante', () => {
+    const soloStart = source.indexOf('<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>');
+    const soloVisual = source.indexOf('<View style={s.visual}>', soloStart);
+    const soloClock = source.indexOf('<View style={s.clockRow}>', soloVisual);
+    const soloQuestion = source.indexOf('<Text style={s.question}>Qui chante ?</Text>', soloClock);
+    expect(soloVisual).toBeLessThan(soloClock);
+    expect(soloClock).toBeLessThan(soloQuestion);
+
+    const arenaStart = source.indexOf("if (arena) {");
+    const arenaVisual = source.indexOf('<View style={s.visual}>', arenaStart);
+    const arenaClock = source.indexOf('<View style={s.clockRow}>', arenaVisual);
+    const duelGauge = source.indexOf('players.length === 2 ? <View style={s.duel}>', arenaClock);
+    const groupGauge = source.indexOf('players.length > 2 ? <View style={s.groupStandings}>', arenaClock);
+    const arenaQuestion = source.indexOf('<Text style={s.question}>Qui chante ?</Text>', arenaClock);
+    expect(arenaVisual).toBeLessThan(arenaClock);
+    expect(arenaClock).toBeLessThan(duelGauge);
+    expect(duelGauge).toBeLessThan(arenaQuestion);
+    expect(groupGauge).toBeLessThan(arenaQuestion);
+  });
+
   it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
     expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
     expect(source).toContain('BATTLE_TARGET_NO_CREDIT');

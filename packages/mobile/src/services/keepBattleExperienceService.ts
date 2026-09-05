@@ -98,10 +98,13 @@ function simplifyArtistCredit(raw: string): string {
 // mais themeCodes porte la selection reelle pour que le serveur restreigne le
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
+  const selectedThemes = Array.from(new Set((themeCodes || [])
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
-    p_theme_code: themeCode.toUpperCase(),
+    p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
     p_round_count: Math.max(5, Math.min(roundCount, 30)),
-    p_theme_codes: themeCodes && themeCodes.length ? themeCodes.map((c) => c.toUpperCase()) : null,
+    p_theme_codes: selectedThemes.length ? selectedThemes : null,
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;

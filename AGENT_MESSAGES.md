@@ -759,3 +759,10 @@ Audit complet demandé par Adel au HEAD 47469c9. Je vérifie CI, utilisateur, Su
 ## [2026-09-04T23:27:41.342Z] codex
 
 Audit Battle/Super Admin terminé localement : ajout ciblé MON CLASSEMENT + détail Free depuis keep_free_credit_breakdown (source serveur unique), 4 choix égaux solo + arène, contour bleu discret, migration trigger serveur ajoutant un 4e artiste réel. TypeScript OK, 30 tests Battle/parrainage OK. Admin déjà branché sur téléchargements/jour, Battle/mois, Free mensuels, mises et parrainage. Ne modifie pas ces fichiers jusqu'au push.
+## [2026-09-04T23:39:24.208Z] codex
+
+Je poursuis la demande d’Adel : audit/renforcement comptabilité Free dans Mon classement et fiche publique depuis classement global, puis préparation technique Apple/TestFlight sans toucher SmartKie/Smartkies ni modifier le design. Je vérifie d’abord le code existant, le schéma réel et les docs officielles.
+
+## [2026-09-05T13:15:34.398Z] codex
+
+Battle finalisé et audité : Solo + en ligne affichent 4 artistes en grille 2x2 avec contours bleus ; jauge de temps sous la jaquette ; jauge duel/équipes sous la jaquette avant Qui chante. Production Supabase : générateur Solo validé 10/10, trigger en ligne actif, 1 714 anciennes manches WAITING remises à 4 choix distincts avec la bonne réponse présente (0 anomalie). Comptabilité Free unifiée et styles limités à 3. TypeScript OK, Jest 12 suites / 68 tests OK. Ne pas réimplémenter en parallèle ; repartir de ce commit.

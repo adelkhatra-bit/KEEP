@@ -314,8 +314,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [myPreferredThemes]);
   const toggleMyPreferredTheme = (code: string) => {
     setMyPreferredThemes((rows) => {
+      if (code === 'MIX') return ['MIX'];
+      const real = rows.filter((item) => item !== 'MIX');
+      if (!real.includes(code) && real.length >= 3) {
+        Alert.alert('3 styles maximum', 'Retire un style avant d’en sélectionner un autre.');
+        return rows;
+      }
       const has = rows.includes(code);
-      const next = has ? rows.filter((c) => c !== code) : [...rows, code];
+      const next = has ? real.filter((c) => c !== code) : [...real, code];
       return next.length ? next : ['MIX'];
     });
   };
@@ -1192,7 +1198,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <Text style={s.prefsSummaryLabel}>MES STYLES ACCEPTÉS</Text>
           <Text numberOfLines={1} style={s.prefsSummaryValue}>{prefsSaving ? 'Enregistrement…' : myPreferredThemesLabel()}</Text>
           {myPreferredThemes.filter((c) => c !== 'MIX').length > 1 ? (
-            <Text numberOfLines={1} style={s.prefsSummaryHint}>Tes invites utilisent : {themeLabel(themeCode)}</Text>
+            <Text numberOfLines={1} style={s.prefsSummaryHint}>Mix aléatoire de tes styles sélectionnés</Text>
           ) : null}
         </View>
         <Text style={s.prefsSummaryChevron}>›</Text>
@@ -1202,7 +1208,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={s.statsCard}>
             <TouchableOpacity style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Styles acceptés</Text>
-            <Text style={s.prefsPickerHint}>Coche un ou plusieurs styles. Les autres joueurs les verront quand tu es disponible.</Text>
+            <Text style={s.prefsPickerHint}>Choisis jusqu’à 3 styles. Mix remplace les styles précis. Les autres joueurs les verront quand tu es disponible.</Text>
             <ScrollView style={s.prefsPickerScroll}>
               {themes.map((t) => {
                 const checked = myPreferredThemes.includes(t.code);
@@ -1289,6 +1295,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                   <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>👥 {formatCompactNumber(statsData.followers)}</Text><Text style={s.statsSmallLabel}>Abonnés</Text></View>
                   <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>🎁 {formatCompactNumber(statsData.freeBalance)}</Text><Text style={s.statsSmallLabel}>Free restant</Text></View>
                   <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>🏆 {formatCompactNumber(statsData.freeWon)}</Text><Text style={s.statsSmallLabel}>Free gagné</Text></View>
+                  <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>↘ {formatCompactNumber(statsData.freeLost)}</Text><Text style={s.statsSmallLabel}>Free perdu</Text></View>
                 </View>
                 {statsData.avgResponseMs != null ? <Text style={s.statsAvg}>⚡ {(statsData.avgResponseMs / 1000).toFixed(1)}s de temps de réponse moyen</Text> : null}
                 {statsData.topThemes.length ? (
@@ -1607,10 +1614,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           de dépendre d'une marge fixe qui ne marche que sur certains
           appareils. */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
-      <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{incoming[0] ? 'PAUSE' : audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{incoming[0] ? 'INVITATION BATTLE' : audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
-      <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
       <Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}>
         <View style={s.visual}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
+        <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{incoming[0] ? 'PAUSE' : audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{incoming[0] ? 'INVITATION BATTLE' : audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
+        <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
         {!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche proposée avec {pendingRematch[0].participantUsernames.map((u) => `@${u}`).join(', ') || 'le groupe'}. Tu peux te rattraper ! Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>@{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {challengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         <Text style={s.question}>Qui chante ?</Text>
@@ -1854,9 +1861,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           (pas à la place) du carré compact -- jamais plus de contenu
           totalement inatteignable pendant un chrono de quelques secondes. */}
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
-      {first && second && players.length === 2 ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(first.username)}><Text style={s.duelName}>@{first.username}</Text><Text style={s.duelPoints}>{teamAScore} pts</Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>@{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}>{teamBScore} pts</Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
       {arena.status === 'WAITING' ? <View style={s.waiting}><Text style={s.trophy}>⚡</Text><Text style={s.winner}>{arena.seats.length < 2 ? 'EN ATTENTE' : 'JOUEURS EN SYNCHRONISATION'}</Text><Text style={s.waitText}>{arena.seats.length >= 2 ? 'Tous les joueurs entrent dans la même partie. Le morceau démarre sur le même chrono.' : 'En attente d’un adversaire.'}</Text></View> : null}
-      {arena.status === 'ACTIVE' && round ? <><View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{round.answered ? 'RÉPONSE ENREGISTRÉE' : ready ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View><Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}><View style={s.visual}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : null}</View> : null}</View>
+      {arena.status === 'ACTIVE' && round ? <><Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}><View style={s.visual}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : null}</View> : null}</View>
+      <View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{round.answered ? 'RÉPONSE ENREGISTRÉE' : ready ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View>
+      {first && second && players.length === 2 ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(first.username)}><Text style={s.duelName}>@{first.username}</Text><Text style={s.duelPoints}>{teamAScore} pts</Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>@{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}>{teamBScore} pts</Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
       {/* Adel (04/09/2026) : "tu les mets juste en dessous entre qui chante
           et la jaquette" -- au-delà de 2 joueurs, le mini-classement se
           place maintenant entre la jaquette/l'égaliseur et la question,
