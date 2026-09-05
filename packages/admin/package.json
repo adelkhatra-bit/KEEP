@@ -9,15 +9,15 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^16.0.0",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "@supabase/supabase-js": "^2.38.5"
+    "@supabase/supabase-js": "^2.112.4",
+    "next": "^16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "@types/react": "~19.1.10",
-    "@types/node": "^20.10.0"
+    "@types/node": "^20.10.0",
+    "@types/react": "~19.2.18",
+    "typescript": "^5.3.3"
   },
   "private": true
 }
