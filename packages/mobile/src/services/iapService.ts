@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import KeepIAP from 'keep-iap';
+import type { KeepIAPProduct } from 'keep-iap';
 import { supabase } from './supabaseClient';
 import { useUserStore } from '../store/useUserStore';
 
@@ -30,6 +31,12 @@ export function iapAvailable(): boolean {
   return Platform.OS === 'ios' && Boolean(KeepIAP?.isAvailable?.());
 }
 
+export async function loadIapProducts(): Promise<Record<string, KeepIAPProduct>> {
+  if (!iapAvailable() || !KeepIAP) return {};
+  const products = await KeepIAP.getProducts(Object.values(IAP_PRODUCT_IDS));
+  return Object.fromEntries(products.map((product) => [product.id, product]));
+}
+
 export type PurchasePlanResult = { ok: true; planCode: string } | { ok: false; reason: string };
 
 /**
@@ -51,6 +58,8 @@ export async function purchasePlan(planCode: string): Promise<PurchasePlanResult
     return { ok: false, reason: String(e?.message || e || 'PURCHASE_FAILED') };
   }
   if (transaction.status === 'CANCELLED') return { ok: false, reason: 'CANCELLED' };
+  if (transaction.status === 'PENDING') return { ok: false, reason: 'PENDING' };
+  if (transaction.status === 'UNVERIFIED') return { ok: false, reason: 'UNVERIFIED' };
   if (!transaction.jwsRepresentation) return { ok: false, reason: 'NO_TRANSACTION_SIGNATURE' };
 
   const verified = await verifyAndActivate(transaction.jwsRepresentation);
@@ -85,4 +94,22 @@ export async function restorePurchases(): Promise<{ restored: number }> {
     if (result.ok) restored += 1;
   }
   return { restored };
+}
+
+/**
+ * Resynchronise silencieusement les droits actifs au démarrage. Contrairement
+ * au bouton « Restaurer », cette opération ne déclenche pas AppStore.sync() et
+ * n'affiche donc aucun dialogue Apple : elle propage simplement un renouvellement
+ * déjà connu de StoreKit vers la source de vérité Supabase.
+ */
+export async function syncCurrentEntitlements(): Promise<{ synced: number }> {
+  if (!iapAvailable() || !KeepIAP) return { synced: 0 };
+  let synced = 0;
+  const transactions = await KeepIAP.currentEntitlements().catch(() => []);
+  for (const transaction of transactions) {
+    if (transaction.status === 'UNVERIFIED' || !transaction.jwsRepresentation) continue;
+    const result = await verifyAndActivate(transaction.jwsRepresentation);
+    if (result.ok) synced += 1;
+  }
+  return { synced };
 }

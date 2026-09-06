@@ -113,6 +113,18 @@ check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto
 check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
 check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
 
+const iapService = 'packages/mobile/src/services/iapService.ts';
+const offers = 'packages/mobile/src/screens/OffersScreen.tsx';
+const iapVerifier = 'supabase/functions/keep-iap-verify/index.ts';
+check('StoreKit charge les produits Apple réels', contains(iapService, 'KeepIAP.getProducts') && contains(offers, 'loadIapProducts'));
+check('Prix d’abonnement fourni par Apple', contains(offers, '.displayPrice') && !contains(offers, '<Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>'));
+check('Achat StoreKit distingue attente et transaction non vérifiée', contains(iapService, "transaction.status === 'PENDING'") && contains(iapService, "transaction.status === 'UNVERIFIED'"));
+check('Restauration des achats StoreKit disponible', contains(iapService, 'KeepIAP.restorePurchases') && contains(offers, 'Restaurer mes achats'));
+check('Renouvellements StoreKit resynchronisés au démarrage', contains(iapService, 'KeepIAP.currentEntitlements') && contains('packages/mobile/App.tsx', 'syncCurrentEntitlements'));
+check('Abonnement affiche renouvellement et liens légaux', contains(offers, 'renouvelé automatiquement') && contains(offers, '/KEEP/terms/') && contains(offers, '/KEEP/privacy/'));
+check('Vérification serveur exige le compte Loki lié', contains(iapVerifier, '!payload.appAccountToken') && contains(iapVerifier, 'account_mismatch'));
+check('Vérification serveur refuse abonnement expiré ou révoqué', contains(iapVerifier, 'expiresAtMs <= Date.now()') && contains(iapVerifier, 'subscription_expired') && contains(iapVerifier, 'subscription_revoked'));
+
 check('Dossier de soumission App Store préparé', exists('docs/APP_STORE_SUBMISSION_READY.md'));
 check('Préflight iOS natif sans credential présent', exists('.github/workflows/app-store-native-preflight.yml'));
 

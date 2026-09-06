@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
-import { iapAvailable, IAP_PRODUCT_IDS, purchasePlan, restorePurchases } from '../services/iapService';
+import { iapAvailable, IAP_PRODUCT_IDS, loadIapProducts, purchasePlan, restorePurchases } from '../services/iapService';
+import type { KeepIAPProduct } from 'keep-iap';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
@@ -173,6 +174,7 @@ export default function OffersScreen({ navigation, route }: any) {
   // réelle du plan), plus jamais un CTA qui ne fait que naviguer.
   const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [iapProducts, setIapProducts] = useState<Record<string, KeepIAPProduct>>({});
 
   const handleRestore = async () => {
     if (restoring) return;
@@ -252,6 +254,15 @@ export default function OffersScreen({ navigation, route }: any) {
     })();
     return () => { cancelled = true; };
   }, [user?.id, isLocalGuest, isDemoMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!iapAvailable()) return () => { cancelled = true; };
+    void loadIapProducts()
+      .then((products) => { if (!cancelled) setIapProducts(products); })
+      .catch(() => { if (!cancelled) setIapProducts({}); });
+    return () => { cancelled = true; };
+  }, []);
 
   const freeBalanceLabel = freeUnlimited ? '∞' : freeBalance == null ? '—' : String(Math.max(0, freeBalance));
   const visiblePlans = useMemo(() => {
@@ -336,7 +347,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
             {freeExpanded ? <>
               <Text style={s.creditText}>Ce nombre est ton solde réellement disponible. Au démarrage : {funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. Les Free utilisés sont déduits ; les récompenses communauté et Battle s’ajoutent automatiquement.</Text>
-              <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = 1 Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
+              <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = {rules.freeCostPerKeep} Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
               {growth ? <View style={s.growthGrid}>
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
@@ -483,14 +494,14 @@ export default function OffersScreen({ navigation, route }: any) {
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
                 {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
                 <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
-                {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
+                {!iapAvailable() && plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               </View> : null}
               {!active && plan.code !== 'FREE' ? (
                 <TouchableOpacity style={[s.cta, venueUnlimited && s.ctaUnlimited]} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
                   <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
                 </TouchableOpacity>
               ) : null}
-              {!active && plan.code !== 'FREE' && iapAvailable() && IAP_PRODUCT_IDS[plan.code] ? (
+              {!active && plan.code !== 'FREE' && iapAvailable() && iapProducts[IAP_PRODUCT_IDS[plan.code]] ? (
                 <TouchableOpacity
                   style={s.purchaseCta}
                   disabled={purchasingPlan !== null}
@@ -498,7 +509,7 @@ export default function OffersScreen({ navigation, route }: any) {
                   accessibilityRole="button"
                   accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
                 >
-                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>}
+                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -506,9 +517,17 @@ export default function OffersScreen({ navigation, route }: any) {
         })}
 
         {iapAvailable() ? (
-          <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
-            <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
-          </TouchableOpacity>
+          <View>
+            <Text style={s.renewalText}>Abonnement mensuel renouvelé automatiquement jusqu’à résiliation. Le paiement est débité sur ton compte Apple. Tu peux gérer ou résilier l’abonnement dans les réglages Apple.</Text>
+            <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
+              <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
+            </TouchableOpacity>
+            <View style={s.legalRow}>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/')} accessibilityRole="link"><Text style={s.legalText}>Conditions</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/privacy/')} accessibilityRole="link"><Text style={s.legalText}>Confidentialité</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://apps.apple.com/account/subscriptions')} accessibilityRole="link"><Text style={s.legalText}>Gérer</Text></TouchableOpacity>
+            </View>
+          </View>
         ) : null}
 
         <View style={s.subscriptionCard}>
@@ -651,6 +670,9 @@ const s = StyleSheet.create({
   purchaseCtaText: { color: '#0A140F', fontSize: 13, fontWeight: '900' },
   restoreButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 4 },
   restoreButtonText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' },
+  renewalText: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4, paddingHorizontal: 8 },
+  legalRow: { flexDirection: 'row', justifyContent: 'center', gap: 18, marginBottom: 8 },
+  legalText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   rulesDetails: { marginTop: 3, gap: 3 },

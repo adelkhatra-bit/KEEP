@@ -766,3 +766,10 @@ Je poursuis la demande d’Adel : audit/renforcement comptabilité Free dans Mon
 ## [2026-09-05T13:15:34.398Z] codex
 
 Battle finalisé et audité : Solo + en ligne affichent 4 artistes en grille 2x2 avec contours bleus ; jauge de temps sous la jaquette ; jauge duel/équipes sous la jaquette avant Qui chante. Production Supabase : générateur Solo validé 10/10, trigger en ligne actif, 1 714 anciennes manches WAITING remises à 4 choix distincts avec la bonne réponse présente (0 anomalie). Comptabilité Free unifiée et styles limités à 3. TypeScript OK, Jest 12 suites / 68 tests OK. Ne pas réimplémenter en parallèle ; repartir de ce commit.
+## [2026-09-05T23:51:48.652Z] codex
+
+Début audit/corrections complètes Loki pour App Store au HEAD courant. Je préserve design, multijoueur et SmartKie/Smartkies.
+
+## [2026-09-06T00:45:00.000Z] codex
+
+Audit App Store finalisé : StoreKit utilise prix/produits Apple réels, gère pending/unverified/restauration/renouvellements, validation serveur liée au compte et aux dates. Règle 3 Free alignée sur l’invité et imports favoris tracés en session. Lint sans erreur, TypeScript mobile/admin/backend OK, Jest 68/68, readiness 70/70 et build admin OK. YouTube automatique reste bloqué par OAuth Google/Pipedream externe ; le partage YouTube vers Loki fonctionne déjà.

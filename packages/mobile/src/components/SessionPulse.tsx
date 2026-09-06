@@ -17,8 +17,6 @@ import { colors } from '../theme/colors';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const SIZE = 176;
 const CENTER = SIZE / 2;
-const BAR_COUNT = 5;
-
 /**
  * Animation centrale de "session en cours" — remplace l'ancienne grosse
  * pochette statique. Ondes concentriques + petit spectre au centre,
@@ -29,7 +27,14 @@ export default function SessionPulse({ active = true }: { active?: boolean }) {
   const ring1 = useSharedValue(0);
   const ring2 = useSharedValue(0);
   const ring3 = useSharedValue(0);
-  const bars = Array.from({ length: BAR_COUNT }, () => useSharedValue(0.3));
+  // Le nombre de barres est fixe : chaque hook reste appelé explicitement et
+  // dans le même ordre à chaque rendu, comme l'exigent les règles React.
+  const bar1 = useSharedValue(0.3);
+  const bar2 = useSharedValue(0.3);
+  const bar3 = useSharedValue(0.3);
+  const bar4 = useSharedValue(0.3);
+  const bar5 = useSharedValue(0.3);
+  const bars = [bar1, bar2, bar3, bar4, bar5];
 
   useEffect(() => {
     if (!active) return;

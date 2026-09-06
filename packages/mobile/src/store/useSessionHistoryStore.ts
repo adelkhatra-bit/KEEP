@@ -327,7 +327,12 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         try {
           const { targetPlaylistId, keepDecisionId } = await commitKeep(entry.track, entry.recommendations, playlistId, {
             visibility,
-            context: { sessionId, detectedAt: entry.detectedAt, source: 'session_history' },
+            context: {
+              sessionId,
+              detectedAt: entry.detectedAt,
+              source: entry.importedFrom ? 'provider_favorite_import' : 'session_history',
+              importedFrom: entry.importedFrom,
+            },
           });
           set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, visibility, keepDecisionId, false) }));
         } catch (error) {
@@ -442,7 +447,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
                 id: FAVORITES_IMPORT_SESSION_ID,
                 startedAt: now,
                 endedAt: null,
-                title: 'Favoris importés (Spotify/Deezer)',
+                title: 'Favoris importés',
                 tracks: additions,
               };
           const sessions = existing

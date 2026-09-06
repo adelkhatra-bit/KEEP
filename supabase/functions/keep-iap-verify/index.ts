@@ -81,8 +81,10 @@ Deno.serve(async (req) => {
     // garde-fou empêche aussi qu'une transaction d'un AUTRE bundle Apple
     // (une future app séparée sur le même compte, par exemple) active un
     // abonnement KEEP par erreur.
-    if (payload.bundleId && payload.bundleId !== BUNDLE_ID) return json(403, { error: "bundle_mismatch" });
-    if (payload.appAccountToken && payload.appAccountToken !== uid) return json(403, { error: "account_mismatch" });
+    if (payload.bundleId !== BUNDLE_ID) return json(403, { error: "bundle_mismatch" });
+    if (!payload.appAccountToken || String(payload.appAccountToken).toLowerCase() !== uid.toLowerCase()) {
+      return json(403, { error: "account_mismatch" });
+    }
 
     const planCode = PRODUCT_PLAN_MAP[String(payload.productId ?? "")];
     if (!planCode) return json(400, { error: "unknown_product" });
@@ -102,7 +104,10 @@ Deno.serve(async (req) => {
     const originalTransactionId = String(payload.originalTransactionId ?? payload.transactionId ?? "");
     const transactionId = String(payload.transactionId ?? "");
     const revoked = Boolean(payload.revocationDate);
-    const currentPeriodEnd = payload.expiresDate ? new Date(Number(payload.expiresDate)).toISOString() : null;
+    const expiresAtMs = Number(payload.expiresDate ?? 0);
+    const expired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+    const active = !revoked && !expired;
+    const currentPeriodEnd = Number.isFinite(expiresAtMs) && expiresAtMs > 0 ? new Date(expiresAtMs).toISOString() : null;
     const currentPeriodStart = payload.purchaseDate ? new Date(Number(payload.purchaseDate)).toISOString() : new Date().toISOString();
 
     const { data: existingSub } = await admin
@@ -117,7 +122,7 @@ Deno.serve(async (req) => {
       plan_id: plan.id,
       plan_price_id: price.id,
       channel: "APPLE_IAP",
-      status: revoked ? "CANCELLED" : "ACTIVE",
+      status: revoked ? "CANCELLED" : expired ? "EXPIRED" : "ACTIVE",
       store_original_transaction_id: originalTransactionId,
       current_period_start: currentPeriodStart,
       current_period_end: currentPeriodEnd,
@@ -152,6 +157,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (!active) return json(409, { ok: false, error: revoked ? "subscription_revoked" : "subscription_expired" });
     return json(200, { ok: true, planCode, currentPeriodEnd });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

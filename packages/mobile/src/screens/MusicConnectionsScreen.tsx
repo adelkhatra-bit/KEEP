@@ -119,7 +119,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     }
   };
 
-  const useConnectedService = (service: MusicServiceKey) => {
+  const openConnectedService = (service: MusicServiceKey) => {
     if (queue?.tracks.length) {
       setSelectedService(service);
       setTrackIndex(0);
@@ -208,7 +208,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         return true;
       }
 
-      useConnectedService(service);
+      openConnectedService(service);
       return true;
     } catch (e: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
@@ -245,7 +245,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         }
       }
 
-      useConnectedService(service);
+      openConnectedService(service);
       return;
     }
 

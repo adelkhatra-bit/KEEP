@@ -19,6 +19,7 @@ import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
 import { importStagedGuestCreditsForAuthenticatedAccount } from './src/services/creditService';
 import { registerForPushNotifications } from './src/services/pushNotificationService';
+import { syncCurrentEntitlements } from './src/services/iapService';
 import {
   clearLocalGuestMarker,
   clearStagedGuestProfile,
@@ -191,6 +192,11 @@ export default function App() {
 
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
+        if (!session.isAnonymous) {
+          void syncCurrentEntitlements().catch((error) => {
+            if (__DEV__) console.warn('[KEEP] StoreKit entitlement sync unavailable', error);
+          });
+        }
         void useBattleAvailabilityStore.getState().syncFromServer();
         if (!session.isAnonymous) {
           registerForPushNotifications().catch(() => {});

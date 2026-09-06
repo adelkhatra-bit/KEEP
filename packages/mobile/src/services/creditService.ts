@@ -15,6 +15,9 @@ export type DownloadCreditStatus = {
 const LOCAL_GUEST_CREDIT_KEY = '@keep/local-guest-download-consumed-v1';
 const PENDING_GUEST_CREDIT_UPGRADE_KEY = '@keep/pending-guest-credit-upgrade-v1';
 const LOCAL_GUEST_LIMIT = 3;
+// Le compte invité ne peut pas charger Remote Config avant authentification.
+// Il applique donc la même valeur de secours que la règle commerciale Loki.
+const LOCAL_GUEST_COST_PER_KEEP = 3;
 
 function normalize(row: any): DownloadCreditStatus {
   return {
@@ -169,7 +172,8 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
 
 export async function ensureDownloadCreditAvailable(): Promise<DownloadCreditStatus> {
   const status = await getDownloadCreditStatus();
-  if (!status.unlimited && (status.remaining ?? 0) <= 0) {
+  const required = status.isAnonymous ? LOCAL_GUEST_COST_PER_KEEP : 1;
+  if (!status.unlimited && (status.remaining ?? 0) < required) {
     throw new Error('CREDITS_EXHAUSTED');
   }
   return status;
@@ -181,8 +185,8 @@ export async function consumeDownloadCredit(): Promise<DownloadCreditStatus> {
   if (state.isDemoMode) return getDownloadCreditStatus();
   if (state.isLocalGuest) {
     const current = await getLocalGuestCreditStatus();
-    if ((current.remaining ?? 0) <= 0) throw new Error('CREDITS_EXHAUSTED');
-    const consumed = current.consumed + 1;
+    if ((current.remaining ?? 0) < LOCAL_GUEST_COST_PER_KEEP) throw new Error('CREDITS_EXHAUSTED');
+    const consumed = Math.min(current.consumed + LOCAL_GUEST_COST_PER_KEEP, LOCAL_GUEST_LIMIT);
     try {
       await AsyncStorage.setItem(LOCAL_GUEST_CREDIT_KEY, String(consumed));
     } catch {
