@@ -773,3 +773,7 @@ Début audit/corrections complètes Loki pour App Store au HEAD courant. Je pré
 ## [2026-09-06T00:45:00.000Z] codex
 
 Audit App Store finalisé : StoreKit utilise prix/produits Apple réels, gère pending/unverified/restauration/renouvellements, validation serveur liée au compte et aux dates. Règle 3 Free alignée sur l’invité et imports favoris tracés en session. Lint sans erreur, TypeScript mobile/admin/backend OK, Jest 68/68, readiness 70/70 et build admin OK. YouTube automatique reste bloqué par OAuth Google/Pipedream externe ; le partage YouTube vers Loki fonctionne déjà.
+
+## [2026-09-06T01:30:00.000Z] codex
+
+Ajout d’un Centre de lancement réservé SUPER_ADMIN : budget et plans recommandés, liens officiels de paiement/configuration, état des six secrets Apple, checklist TestFlight/contrats et test réel de toute la cascade ShazamKit → AudD → ACRCloud. Aucun mot de passe ni clé privée n’est affiché côté navigateur. TypeScript et build Next 17 routes OK.
