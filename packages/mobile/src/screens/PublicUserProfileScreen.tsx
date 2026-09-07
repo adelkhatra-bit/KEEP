@@ -13,7 +13,7 @@ import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
-import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
+import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { commitKeep } from '../services/keepTrackAction';
@@ -429,6 +429,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const certificationTier: ProfileCertificationTier = publicSnapshot?.certificationTier ?? 'UNVERIFIED';
   const followingCount = publicSnapshot?.following ?? profile.followingCount;
   const kindLabel = PROFILE_KIND_LABELS[profile.kind] ?? 'Utilisateur';
+  // Règle (07/09/2026, Adel) : un badge Free ou de type de profil reprend
+  // toujours la couleur de la certification correspondante.
+  const certificationColors = CERTIFICATION_META[certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -449,7 +452,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               <View style={styles.usernameLine}><Text style={styles.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
               <View style={styles.profileMetaRow}>
                 <View style={styles.profileMetaLeft}>
-                  <View style={styles.kindBadge}><Text style={styles.kindBadgeText}>{kindLabel}</Text></View>
+                  <View style={[styles.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.kindBadgeText, { color: certificationColors.ring }]}>{kindLabel}</Text></View>
                   {(profile.city || profile.countryCode) && <Text style={styles.location}>{[profile.city, profile.countryCode].filter(Boolean).join(' · ')}</Text>}
                 </View>
                 <View style={styles.identityMeta}>
@@ -530,7 +533,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   </View>
                   <View style={styles.discoveryOriginRow}>
                     <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                    {discoveryUsername ? discoveryUsername === profile.username ? <Text style={styles.discoveryOriginUser}>{discoveryUsername}</Text> : (
+                    {discoveryUsername ? discoveryUsername === profile.username ? <Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text> : (
                       <TouchableOpacity onPress={() => navigation.navigate('PublicUserProfile', { username: discoveryUsername })} accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}`}>
                         <Text style={styles.discoveryOriginUser}>{discoveryUsername}</Text>
                       </TouchableOpacity>
