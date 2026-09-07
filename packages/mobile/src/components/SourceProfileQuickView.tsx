@@ -143,7 +143,7 @@ export default function SourceProfileQuickView({
             {profile.avatar_url
               ? <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
               : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0, 1).toUpperCase()}</Text></View>}
-            <View style={s.usernameRow}><Text style={s.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+            <View style={s.usernameRow}><Text style={s.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact showLabel /></View>
             <Text style={s.meta}>{[profile.display_name, profile.kind ? (KIND_LABELS[profile.kind] ?? profile.kind) : null, profile.city, profile.country_code].filter(Boolean).join(' · ')}</Text>
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
             {message ? <Text style={s.message}>{message}</Text> : null}

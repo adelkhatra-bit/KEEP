@@ -195,8 +195,11 @@ describe('Loki Battle mobile style selector', () => {
 
   it('keeps the horizontal music-style selector compact on 390x844', () => {
     expect(source).toContain('style={s.themeScroll}');
-    expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }");
-    expect(source).toContain("theme: { height: 32, minHeight: 32");
+    // Adel (07/09/2026) : la pastille affiche désormais aussi la mise Free du
+    // nombre de manches ("🎁N") sur une seconde ligne -- légèrement plus
+    // haute qu'avant, mais toujours une simple rangée horizontale compacte.
+    expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 }");
+    expect(source).toContain("theme: { height: 46, minHeight: 46");
     expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
   });
 
@@ -231,7 +234,13 @@ describe('Loki Battle mobile style selector', () => {
   it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
     expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
     expect(source).toContain('BATTLE_TARGET_NO_CREDIT');
-    expect(source).toContain('Il te faut au moins 3 Free');
+    // Adel (07/09/2026) : "pour huit musiques il perd trois Free, pour 15
+    // musiques ... plus la mise est grosse" -- la mise n'est plus fixe à 3,
+    // le message doit annoncer le montant REEL requis pour le nombre de
+    // manches concerné (embarqué par le serveur dans "...REQUIRED:<n>").
+    expect(source).toContain('Il te faut au moins ${');
+    expect(source).toContain('parseRequiredFree');
+    expect(source).toContain('stakeForRounds');
   });
 
   it('leaves enough time to see the cover art, the red/green result, AND lets the track play to its natural end even on a fast answer (Adel, 01/09/2026: "on a même pas eu le temps de voir la jaquette"; 02/09/2026: "ralentir la cadence" + "écouter la musique jusqu\'à la fin même s\'il a été très rapide")', () => {

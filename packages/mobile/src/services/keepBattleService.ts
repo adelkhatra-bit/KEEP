@@ -74,6 +74,10 @@ export type KeepBattleCreditStatus = {
   lost: number;
   net: number;
   remainingFree: number;
+  // Adel (07/09/2026) : les CREATOR_PRO/VENUE_PRO/PREMIUM jouent sans jamais
+  // débiter de Free -- le client doit le savoir pour ne jamais leur afficher
+  // un faux avertissement "crédit insuffisant" basé sur remainingFree.
+  hasPaidBattleAccess?: boolean;
 };
 
 export type KeepBattleTheme = { code: string; label: string; sortOrder?: number };

@@ -639,7 +639,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   <Text style={[s.kindBadgeEdit, { color: certificationColors.ring }]}>✎</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text></View>
+                // Adel (07/09/2026) : "quand un utilisateur va cliquer dessus
+                // pour qu'il puisse savoir ... qu'il faut qu'il change son
+                // forfait pour comprendre comment débloquer ses fonctions" --
+                // même en FREE/PREMIUM, la pastille doit expliquer comment
+                // devenir DJ/Artiste/Créateur/Producteur/Établissement, pas
+                // rester une simple étiquette muette.
+                <TouchableOpacity
+                  style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}
+                  onPress={() => Alert.alert(
+                    'Débloque DJ, Artiste, Créateur, Producteur…',
+                    'Passe à Creator Pro pour changer ton profil en DJ, Artiste, Créateur ou Producteur. Passe à Venue Pro si tu es un lieu ou un établissement.',
+                    [
+                      { text: 'Plus tard', style: 'cancel' },
+                      { text: 'Établissement · Venue Pro', onPress: () => navigation.navigate('Offers', { focusPlan: 'VENUE_PRO' }) },
+                      { text: 'DJ / Artiste · Creator Pro', onPress: () => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO' }) },
+                    ],
+                  )}
+                  accessibilityRole="button"
+                  accessibilityLabel="Voir comment débloquer DJ, Artiste, Créateur ou Producteur"
+                >
+                  <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
+                </TouchableOpacity>
               )}
               {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
             </View>
