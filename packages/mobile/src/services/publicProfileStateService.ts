@@ -209,6 +209,40 @@ export async function loadPublicProfileKeeps(profileId: string): Promise<PublicP
   return loadPagedKeeps('keep_public_profile_tracks', { p_profile_id: profileId });
 }
 
+export type ProfileRepriser = {
+  profileId: string;
+  username: string;
+  avatarUrl: string | null;
+  kind: string;
+  certificationTier: ProfileCertificationTier;
+  favoriteGenres: string[];
+  repriseCount: number;
+  isFollowing: boolean;
+};
+
+/**
+ * Adel (07/09/2026) : "il faut trouver une solution pour voir directement la
+ * musique qu'a pris un autre utilisateur ... pour inciter les gens à
+ * s'abonner entre eux" -- qui a repris les morceaux de ce profil, avec leur
+ * style musical et s'ils sont déjà suivis, pour proposer de s'abonner en un
+ * geste.
+ */
+export async function loadProfileReprisers(profileId: string): Promise<ProfileRepriser[]> {
+  if (!supabase || !profileId) return [];
+  const { data, error } = await supabase.rpc('keep_profile_reprisers', { p_profile_id: profileId });
+  if (error || !Array.isArray(data)) return [];
+  return data.map((row: any) => ({
+    profileId: String(row.profile_id),
+    username: String(row.username || 'keep-user'),
+    avatarUrl: row.avatar_url || null,
+    kind: String(row.kind || 'USER'),
+    certificationTier: certificationTier(row.certification_tier),
+    favoriteGenres: Array.isArray(row.favorite_genres) ? row.favorite_genres.map(String) : [],
+    repriseCount: Number(row.reprise_count || 0),
+    isFollowing: Boolean(row.is_following),
+  }));
+}
+
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {
   // Le RPC propriétaire conserve PUBLIC + PRIVATE pour l'identité canonique et
   // l'anti-doublon. Cette couche est exclusivement destinée à l'écran Profil :

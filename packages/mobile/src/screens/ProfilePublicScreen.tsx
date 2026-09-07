@@ -21,7 +21,7 @@ import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
-import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -100,6 +100,35 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // CreatorToolsPanel (changeKind).
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const [kindChangeBusy, setKindChangeBusy] = useState(false);
+  // Adel (07/09/2026) : liste de qui a repris les morceaux de ce profil,
+  // avec style musical et abonnement direct.
+  const [repriseListOpen, setRepriseListOpen] = useState(false);
+  const [repriseLoading, setRepriseLoading] = useState(false);
+  const [reprisers, setReprisers] = useState<ProfileRepriser[]>([]);
+  const [repriseFollowBusyId, setRepriseFollowBusyId] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (!repriseListOpen || !user) return undefined;
+    setRepriseLoading(true);
+    loadProfileReprisers(user.id).then((rows) => { if (live) setReprisers(rows); }).catch(() => { if (live) setReprisers([]); }).finally(() => { if (live) setRepriseLoading(false); });
+    return () => { live = false; };
+  }, [repriseListOpen, user?.id]);
+  const toggleRepriserFollow = async (repriser: ProfileRepriser) => {
+    if (!supabase || !user || repriseFollowBusyId) return;
+    setRepriseFollowBusyId(repriser.profileId);
+    try {
+      if (repriser.isFollowing) {
+        await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', repriser.profileId);
+      } else {
+        await supabase.rpc('keep_follow_profile', { p_followee_id: repriser.profileId });
+      }
+      setReprisers((rows) => rows.map((r) => r.profileId === repriser.profileId ? { ...r, isFollowing: !r.isFollowing } : r));
+    } catch {
+      Alert.alert('Abonnement', 'Impossible de mettre à jour l’abonnement pour le moment.');
+    } finally {
+      setRepriseFollowBusyId(null);
+    }
+  };
   const [unreadCount, setUnreadCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -681,8 +710,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       <View style={s.keepCounters}>
         <ProfileCounterRow kind="keeps" items={[
-          { value: profileTotalKeepCount, label: 'Morceaux' },
-          { value: profileUserKeepCount, label: 'Reprises' },
+          { value: profileTotalKeepCount, label: 'Morceaux', onPress: () => switchProfileTab('TRACKS') },
+          { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
         ]} />
       </View>
 
@@ -771,6 +800,34 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
     </Modal>
 
+    <Modal visible={repriseListOpen} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
+      <View style={s.modalBackdrop}>
+        <View style={[s.shareSheet, s.repriseSheet]}>
+          <View style={s.sheetHandle} />
+          <Text style={s.shareTitle}>Qui a repris tes morceaux</Text>
+          <Text style={s.shareSubtitle}>{reprisers.length} utilisateur{reprisers.length > 1 ? 's ont' : ' a'} gardé un morceau que tu as découvert en premier.</Text>
+          <ScrollView style={s.repriseScroll}>
+            {repriseLoading ? <Text style={s.muted}>Chargement…</Text> : reprisers.length ? reprisers.map((r) => {
+              const tierColors = CERTIFICATION_META[r.certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
+              return (
+                <View key={r.profileId} style={s.repriseRow}>
+                  {r.avatarUrl ? <Image source={{ uri: r.avatarUrl }} style={s.repriseAvatar} /> : <View style={[s.repriseAvatar, s.avatarFallback]}><Text style={s.avatarText}>{r.username.slice(0,1).toUpperCase()}</Text></View>}
+                  <View style={s.repriseInfo}>
+                    <View style={s.repriseNameRow}><Text style={s.repriseUsername} numberOfLines={1}>{r.username}</Text><ProfileCertificationBadge tier={r.certificationTier} compact /></View>
+                    {r.favoriteGenres.length ? <View style={s.repriseGenres}>{r.favoriteGenres.slice(0,3).map((g) => <View key={g} style={[s.repriseGenreChip, { borderColor: tierColors.ring }]}><Text style={[s.repriseGenreText, { color: tierColors.ring }]}>{g}</Text></View>)}</View> : null}
+                  </View>
+                  <TouchableOpacity disabled={repriseFollowBusyId === r.profileId} style={[s.repriseFollowButton, r.isFollowing && s.repriseFollowButtonOn]} onPress={() => void toggleRepriserFollow(r)}>
+                    <Text style={[s.repriseFollowButtonText, r.isFollowing && s.repriseFollowButtonTextOn]}>{repriseFollowBusyId === r.profileId ? '…' : r.isFollowing ? 'ABONNÉ' : 'SUIVRE'}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }) : <Text style={s.muted}>Personne n’a encore repris tes morceaux.</Text>}
+          </ScrollView>
+          <TouchableOpacity style={s.cancelShare} onPress={() => setRepriseListOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
     <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
@@ -828,6 +885,6 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,marginTop:5,flexWrap:'wrap'},originLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},originUserText:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},originProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},kindChoiceText:{color:'#F8F6FC',fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},kindChoiceText:{color:'#F8F6FC',fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},repriseSheet:{maxHeight:'82%'},repriseScroll:{width:'100%',marginTop:12,maxHeight:420},repriseRow:{flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9,borderBottomWidth:1,borderBottomColor:'#2B2238'},repriseAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard},repriseInfo:{flex:1,minWidth:0},repriseNameRow:{flexDirection:'row',alignItems:'center',gap:6},repriseUsername:{color:'#FFF',fontSize:14,fontWeight:'900',flexShrink:1},repriseGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:4},repriseGenreChip:{paddingHorizontal:7,paddingVertical:2,borderRadius:9,borderWidth:1},repriseGenreText:{fontSize:9,fontWeight:'800'},repriseFollowButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},repriseFollowButtonOn:{backgroundColor:'#1C3028',borderWidth:1,borderColor:'#3B8061'},repriseFollowButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},repriseFollowButtonTextOn:{color:'#76E3AE'},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
   qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:34,height:34,borderRadius:17,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:12,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:12,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:13,lineHeight:18,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:11,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:13,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},
 });

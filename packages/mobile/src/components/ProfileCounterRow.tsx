@@ -35,7 +35,7 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
         return item.onPress ? (
           <TouchableOpacity
             key={item.label}
-            style={[styles.item, item.active && styles.itemActive]}
+            style={[styles.item, styles.itemClickable, item.active && styles.itemActive]}
             onPress={item.onPress}
             accessibilityRole="button"
             accessibilityLabel={`${item.value} ${item.label}`}
@@ -64,6 +64,10 @@ const styles = StyleSheet.create({
   connections: { marginTop: 8 },
   keeps: { marginTop: 10 },
   item: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6 },
+  // Adel (07/09/2026) : "fais un contour ... pour qu'on comprenne que c'est
+  // cliquable" -- un chiffre cliquable (Morceaux, Reprises, Abonnés...) doit
+  // se voir avant même d'être touché, pas seulement au survol/à l'appui.
+  itemClickable: { margin: 3, borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(139,92,246,.45)' },
   itemActive: { backgroundColor: 'rgba(139,92,246,.16)' },
   value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   label: { color: '#FFFFFF', fontSize: 11, width: '100%', lineHeight: 14, marginTop: 3, textAlign: 'center', fontWeight: '700' },
