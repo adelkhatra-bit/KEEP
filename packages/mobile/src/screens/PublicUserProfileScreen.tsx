@@ -254,21 +254,30 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const toggleFollow = async () => {
+    // Adel (08/09/2026, audit partage) : "il faut que le système détecte
+    // automatiquement ... l'ajoute automatiquement dans ses abonnés" -- cette
+    // pastille redirigeait un invité vers l'onglet Profil SANS jamais dire
+    // qui il voulait suivre, perdant l'intention en route (contrairement à
+    // SourceProfileQuickView, qui la transmet déjà correctement).
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour suivre ce profil.', [
+      Alert.alert('Compte Loki requis', `Crée ou connecte ton compte Loki : tu suivras ${profile?.username || 'ce profil'} automatiquement dès que ton compte sera prêt.`, [
         { text: 'Plus tard', style: 'cancel' },
-        { text: 'Créer / se connecter', onPress: goToOwnProfile },
+        { text: 'Créer / se connecter', onPress: () => navigation.navigate('Main', { screen: 'Profile', params: { followUsername: profile?.username } }) },
       ]);
       return;
     }
     if (!profile || viewer.id === profile.id || followBusy) return;
     setFollowBusy(true);
+    // Adel (audit partage) : le suivi doit passer par les RPC sécurisées
+    // (comme partout ailleurs dans l'appli), pas par une écriture directe sur
+    // `follows` qui contourne le plafond d'abonnements du plan.
     if (isFollowing) {
-      const { error: deleteError } = await supabase.from('follows').delete().eq('follower_id', viewer.id).eq('followee_id', profile.id);
-      if (!deleteError) { setIsFollowing(false); setFollowerCount((c) => Math.max(0, c - 1)); }
+      const { error } = await supabase.rpc('keep_unfollow_profile', { p_followee_id: profile.id });
+      if (!error) { setIsFollowing(false); setFollowerCount((c) => Math.max(0, c - 1)); }
     } else {
-      const { error: insertError } = await supabase.from('follows').insert({ follower_id: viewer.id, followee_id: profile.id });
-      if (!insertError) { setIsFollowing(true); setFollowerCount((c) => c + 1); }
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: profile.id });
+      if (!error) { setIsFollowing(true); setFollowerCount((c) => c + 1); }
+      else if (String(error.message || '').includes('FOLLOW_LIMIT')) Alert.alert('Limite atteinte', 'Ton plan actuel limite le nombre de profils que tu peux suivre.');
     }
     setFollowBusy(false);
   };
