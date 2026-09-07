@@ -3,6 +3,7 @@ import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, 
 import { Alert } from '../utils/keepAlert';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
 import MusicServiceActivationModal from '../components/MusicServiceActivationModal';
+import { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import {
   clearKeylessMusicExport,
   KEYLESS_MUSIC_SERVICES,
@@ -295,7 +296,9 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         <View style={styles.keylessCard}>
           <View style={styles.keylessTop}>
-            <View style={styles.keylessBadge}><Text style={styles.keylessBadgeText}>{musicServicePlanLabel(selection.plan).toUpperCase()}</Text></View>
+            {(() => { const tierColors = CERTIFICATION_META[selection.plan]; return (
+              <View style={[styles.keylessBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}><Text style={[styles.keylessBadgeText, { color: tierColors.ring }]}>{musicServicePlanLabel(selection.plan).toUpperCase()}</Text></View>
+            ); })()}
             <Text style={styles.keylessTitle}>{selectionLoading ? 'Chargement…' : `${selection.used} / ${selection.limit} service${selection.limit > 1 ? 's' : ''} choisi${selection.used > 1 ? 's' : ''}`}</Text>
           </View>
           <Text style={styles.keylessText}>Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki te laisse utiliser de services en parallèle.</Text>

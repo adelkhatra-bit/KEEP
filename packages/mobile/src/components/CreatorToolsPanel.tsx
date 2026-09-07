@@ -12,6 +12,7 @@ import { useUserStore } from '../store/useUserStore';
 import { ProfileKind } from '../types';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
+import { CERTIFICATION_META } from './ProfileCertificationBadge';
 
 const CREATOR_KINDS: { key: ProfileKind; label: string }[] = [
   { key: 'CREATOR', label: 'Créateur' },
@@ -26,11 +27,17 @@ const KIND_LABELS: Record<ProfileKind, string> = {
 
 type TierBadgeProps = { tier: 'PREMIUM' | 'CREATOR' | 'VENUE'; active?: boolean };
 
+// Règle (07/09/2026, Adel) : un badge de formule reprend toujours la couleur
+// de la certification correspondante -- ces trois pastilles utilisaient des
+// couleurs inventées à part (et mélangées entre elles), au lieu de reprendre
+// bleu/violet/or comme partout ailleurs dans l'app.
 function TierBadge({ tier, active = false }: TierBadgeProps) {
   const label = tier === 'PREMIUM' ? 'Loki PREMIUM' : tier === 'CREATOR' ? 'Loki CREATOR PRO' : 'Loki VENUE PRO';
-  return <View style={[s.tierBadge, tier === 'PREMIUM' ? s.tierPremium : tier === 'CREATOR' ? s.tierCreator : s.tierVenue]}>
-    <View style={[s.tierDot, active && s.tierDotActive]} />
-    <Text style={s.tierBadgeText}>{label}</Text>
+  const certTier = tier === 'PREMIUM' ? 'PREMIUM' : tier === 'CREATOR' ? 'CREATOR_PRO' : 'VENUE_PRO';
+  const tierColors = CERTIFICATION_META[certTier];
+  return <View style={[s.tierBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}>
+    <View style={[s.tierDot, { backgroundColor: tierColors.ring, opacity: active ? 1 : 0.4 }]} />
+    <Text style={[s.tierBadgeText, { color: tierColors.ring }]}>{label}</Text>
   </View>;
 }
 
