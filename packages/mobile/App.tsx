@@ -8,6 +8,7 @@ import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
+import AccountGateModal from './src/components/AccountGateModal';
 import { useUserStore } from './src/store/useUserStore';
 import { useAppUpdateStore } from './src/store/useAppUpdateStore';
 import { useSessionStore } from './src/store/useSessionStore';
@@ -238,6 +239,7 @@ export default function App() {
       {user ? <GlobalNotificationBanner /> : null}
       <AppUpdateBanner />
       <AlertHost />
+      <AccountGateModal />
       <StatusBar style="light" backgroundColor={colors.background} />
     </>
   );

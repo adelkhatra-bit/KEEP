@@ -5,6 +5,7 @@ import { broadcastEventToFollowers, createCreatorEvent, loadMyRsvps, loadUpcomin
 import { shareEvent } from '../services/sharingService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import SwipeDeck from '../components/SwipeDeck';
@@ -392,7 +393,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             'Le mode invité permet d’écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
             [
               { text: 'Plus tard', style: 'cancel' },
-              { text: 'Créer mon compte', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) },
+              { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
             ],
           )}
           onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}

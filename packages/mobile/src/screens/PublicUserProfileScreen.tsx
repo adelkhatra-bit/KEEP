@@ -7,6 +7,7 @@ import { createProfileService } from '../services/profileService';
 import { requestSocialLink } from '../services/notificationService';
 import { DiscoveryImpact, loadProfileDiscoveryImpacts, loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { ProfileKind, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
@@ -230,7 +231,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     providerIds: track.providerIds || {},
   })), [tracks]);
 
-  const goToOwnProfile = () => navigation.navigate('Main', { screen: 'Profile' });
+  const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
   const shareThisProfile = async () => {
     if (!profile) return;
     try { await shareProfile(profile.username); }
@@ -254,15 +255,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const toggleFollow = async () => {
-    // Adel (08/09/2026, audit partage) : "il faut que le système détecte
-    // automatiquement ... l'ajoute automatiquement dans ses abonnés" -- cette
-    // pastille redirigeait un invité vers l'onglet Profil SANS jamais dire
-    // qui il voulait suivre, perdant l'intention en route (contrairement à
-    // SourceProfileQuickView, qui la transmet déjà correctement).
+    // Adel (08/09/2026, audit partage puis "ne pas bouger d'endroit") : cette
+    // pastille redirigeait un invité vers l'onglet Profil, perdant à la fois
+    // l'intention de suivi ET l'endroit où il se trouvait. Le popup de
+    // création de compte s'ouvre maintenant ICI, par-dessus cet écran, avec
+    // le profil visé déjà transmis (SourceProfileQuickView faisait déjà ça
+    // pour l'intention, il manquait juste le "rester sur place").
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
       Alert.alert('Compte Loki requis', `Crée ou connecte ton compte Loki : tu suivras ${profile?.username || 'ce profil'} automatiquement dès que ton compte sera prêt.`, [
         { text: 'Plus tard', style: 'cancel' },
-        { text: 'Créer / se connecter', onPress: () => navigation.navigate('Main', { screen: 'Profile', params: { followUsername: profile?.username } }) },
+        { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create', profile?.username) },
       ]);
       return;
     }

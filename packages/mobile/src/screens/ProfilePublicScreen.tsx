@@ -50,7 +50,7 @@ const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
   USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
 };
 
-export default function ProfilePublicScreen({ navigation, route }: any) {
+export default function ProfilePublicScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
@@ -427,20 +427,6 @@ export default function ProfilePublicScreen({ navigation, route }: any) {
     setAccountMode(mode);
     setAccountOpen(true);
   };
-
-  // Adel (08/09/2026, audit partage) : PublicUserProfileScreen redirige un
-  // invité qui tape "+ Suivre" vers l'onglet Profil sans jamais transmettre
-  // QUI il voulait suivre -- l'intention se perdait en route. Elle arrive
-  // maintenant en paramètre de route ; on la consomme une seule fois pour
-  // ouvrir directement le popup de création de compte pré-rempli sur ce
-  // profil, puis on nettoie le paramètre pour ne pas rouvrir en boucle.
-  useEffect(() => {
-    const wanted = String(route?.params?.followUsername || '').replace(/^@+/, '');
-    if (!wanted) return;
-    openAccount('create', wanted);
-    navigation.setParams?.({ followUsername: undefined });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route?.params?.followUsername]);
 
   const openShare = () => {
     if (accountRequired) return openAccount('create');

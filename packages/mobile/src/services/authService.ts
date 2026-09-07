@@ -36,6 +36,29 @@ export interface AuthService {
 
 const KEEP_PUBLIC_URL = 'https://adelkhatra-bit.github.io/KEEP/';
 
+// Audit 08/09/2026 (Adel a reçu "Connexion Loki indisponible pour le
+// moment" sur un simple "mot de passe oublié" -- la vraie cause était une
+// clé Brevo invalide côté serveur, mais ce message générique masquait tout)
+// : `supabase-js` transforme toute réponse non-2xx de `functions.invoke()`
+// en `FunctionsHttpError`, avec `data:null` -- le corps JSON précis que
+// `keep-auth-email` renvoie déjà (invalid_email, username_taken,
+// email_delivery_unavailable, etc.) n'était donc JAMAIS lu dès que l'edge
+// function répondait autre chose que 200, et retombait systématiquement sur
+// le générique 'server_error'. On relit le corps de la réponse HTTP réelle
+// (`error.context`) avant d'abandonner.
+async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
+  const { data, error } = await client.functions.invoke('keep-auth-email', { body });
+  if (!error) return (data as any) ?? { ok: false, error: 'server_error' };
+  const context = (error as any)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const parsed = await context.json();
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch { /* corps non-JSON ou déjà consommé : repli sur server_error ci-dessous */ }
+  }
+  return { ok: false, error: 'server_error' };
+}
+
 function normalizeUsername(username: string) {
   return username.trim().replace(/^@+/, '').normalize('NFKC');
 }
@@ -154,16 +177,13 @@ export function createAuthService(client: SupabaseClient): AuthService {
       // keep-auth-email genere le lien cote serveur (n'envoie rien lui-meme)
       // et l'envoie via l'API HTTP Brevo deja utilisee et prouvee fiable par
       // keep-account-email -- un seul endroit ou la cle Brevo vit desormais.
-      const { data, error } = await client.functions.invoke('keep-auth-email', {
-        body: {
-          action: 'signup',
-          email: cleanEmail,
-          password,
-          username: cleanUsername,
-          pendingFollowUsername: cleanFollow || null,
-        },
+      const data = await invokeAuthEmail(client, {
+        action: 'signup',
+        email: cleanEmail,
+        password,
+        username: cleanUsername,
+        pendingFollowUsername: cleanFollow || null,
       });
-      if (error) return { error: 'server_error' };
       if (!data?.ok) return { error: String(data?.error || 'server_error') };
 
       // Adel (03/09/2026) : "il ne faut pas bloquer les utilisateurs" quand
@@ -239,10 +259,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
       // keep-auth-email genere le lien et l'envoie via l'API HTTP Brevo.
       const cleanEmail = normalizeEmail(email);
       if (!validRecoveryEmail(cleanEmail)) return { error: 'invalid_email' };
-      const { data, error } = await client.functions.invoke('keep-auth-email', {
-        body: { action: 'recovery', email: cleanEmail },
-      });
-      if (error) return { error: 'server_error' };
+      const data = await invokeAuthEmail(client, { action: 'recovery', email: cleanEmail });
       if (!data?.ok) return { error: String(data?.error || 'server_error') };
       return { error: null };
     },
