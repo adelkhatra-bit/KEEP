@@ -4,6 +4,8 @@ import { Alert } from '../utils/keepAlert';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
 import MusicServiceActivationModal from '../components/MusicServiceActivationModal';
 import { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import {
   clearKeylessMusicExport,
   KEYLESS_MUSIC_SERVICES,
@@ -64,6 +66,22 @@ function showMessage(title: string, message: string) {
 }
 
 export default function MusicConnectionsScreen({ navigation }: any) {
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
+  // Adel (08/09/2026) : "il n'est pas normal qu'on puisse connecter quoi que
+  // ce soit ... il faut eviter tous les faux profils" -- brancher un vrai
+  // compte musical (Spotify/Deezer/etc.) exige un compte Loki reel : on ne
+  // laisse plus jamais l'appel partir pour un invite/demo, popup direct.
+  const requireRealAccount = () => {
+    Alert.alert(
+      'Compte Loki requis',
+      'Crée ton compte Loki pour connecter un service musical à ton profil.',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+      ],
+    );
+  };
   const [queue, setQueue] = useState<KeylessExportQueue | null>(null);
   const [selection, setSelection] = useState<MusicServiceSelectionState>(EMPTY_SELECTION);
   const [providerConnections, setProviderConnections] = useState<ProviderConnectionMap>(EMPTY_PROVIDER_CONNECTIONS);
@@ -131,6 +149,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const connectProvider = async (provider: SyncProvider, name: string) => {
     if (providerBusy || busy) return;
+    if (isLocalGuest || isDemoMode) return requireRealAccount();
     setProviderBusy(provider);
     try {
       const state = providerConnections[provider];
@@ -149,6 +168,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const importFavorites = async (provider: ImportProvider, name: string) => {
     if (providerBusy || busy) return;
+    if (isLocalGuest || isDemoMode) return requireRealAccount();
     setProviderBusy(provider);
     try {
       const result = await importProviderFavorites(provider);

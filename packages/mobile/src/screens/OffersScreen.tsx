@@ -4,6 +4,7 @@ import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
 import { iapAvailable, IAP_PRODUCT_IDS, loadIapProducts, purchasePlan, restorePurchases } from '../services/iapService';
+import { loadPaddleCatalog, openPaddleCheckout, paddleCheckoutAvailable, PaddleCatalogEntry } from '../services/paddleService';
 import type { KeepIAPProduct } from 'keep-iap';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
@@ -174,6 +175,34 @@ export default function OffersScreen({ navigation, route }: any) {
   const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [iapProducts, setIapProducts] = useState<Record<string, KeepIAPProduct>>({});
+  // Adel (08/09/2026) : "j'ai juste a mettre connecter ensuite ca me dirige
+  // direct sur le mode de paiement" -- Paddle (merchant of record, pas de
+  // societe requise) prend le relais sur web, la ou iapAvailable() est
+  // toujours false. Reste invisible tant que PADDLE_SELLER_ID/CLIENT_TOKEN
+  // ne sont pas renseignes dans Super Admin > Integrations.
+  const [paddleReady, setPaddleReady] = useState(false);
+  const [paddleCatalog, setPaddleCatalog] = useState<PaddleCatalogEntry[]>([]);
+  const [paddleBusyPlan, setPaddleBusyPlan] = useState<string | null>(null);
+
+  const handlePaddleCheckout = async (planCode: string) => {
+    if (paddleBusyPlan) return;
+    setPaddleBusyPlan(planCode);
+    try {
+      const entry = paddleCatalog.find((row) => row.planCode === planCode && row.period === 'MONTHLY');
+      if (!entry) { Alert.alert('Abonnement', 'Cette formule n’est pas encore disponible au paiement.'); return; }
+      const result = await openPaddleCheckout(entry.paddlePriceId);
+      if (!result.ok && result.reason !== 'CHECKOUT_FAILED') {
+        Alert.alert('Abonnement', 'Impossible d’ouvrir le paiement pour le moment. Réessaie dans un instant.');
+      }
+      // Adel (07/09/2026, meme regle que partout ailleurs) : l'activation
+      // reelle vient du webhook Paddle cote serveur (keep-paddle-webhook),
+      // jamais d'une confiance aveugle dans ce que le client pretend avoir
+      // paye -- currentPlan se remettra a jour au prochain chargement normal
+      // de cet ecran une fois l'abonnement realise.
+    } finally {
+      setPaddleBusyPlan(null);
+    }
+  };
 
   const handleRestore = async () => {
     if (restoring) return;
@@ -260,6 +289,15 @@ export default function OffersScreen({ navigation, route }: any) {
     void loadIapProducts()
       .then((products) => { if (!cancelled) setIapProducts(products); })
       .catch(() => { if (!cancelled) setIapProducts({}); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (iapAvailable()) return () => { cancelled = true; };
+    void Promise.all([paddleCheckoutAvailable(), loadPaddleCatalog()])
+      .then(([ready, catalog]) => { if (!cancelled) { setPaddleReady(ready); setPaddleCatalog(catalog); } })
+      .catch(() => { if (!cancelled) { setPaddleReady(false); setPaddleCatalog([]); } });
     return () => { cancelled = true; };
   }, []);
 
@@ -518,6 +556,17 @@ export default function OffersScreen({ navigation, route }: any) {
                   accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
                 >
                   {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
+                </TouchableOpacity>
+              ) : null}
+              {!active && plan.code !== 'FREE' && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === 'MONTHLY') ? (
+                <TouchableOpacity
+                  style={s.purchaseCta}
+                  disabled={paddleBusyPlan !== null}
+                  onPress={() => void handlePaddleCheckout(plan.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
+                >
+                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>}
                 </TouchableOpacity>
               ) : null}
             </View>

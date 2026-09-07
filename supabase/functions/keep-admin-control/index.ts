@@ -45,6 +45,14 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { category: "payments", label: "Google Play Service Account JSON", secret: true },
   STRIPE_SECRET_KEY: { category: "payments", label: "Stripe Secret Key", secret: true },
   STRIPE_WEBHOOK_SECRET: { category: "payments", label: "Stripe Webhook Secret", secret: true },
+  // Adel (08/09/2026) : "je vis a Dubai, j'ai pas de societe" -- Paddle
+  // choisi comme merchant of record (voir supabase/functions/keep-paddle-webhook).
+  // Seller ID + Client Token servent au Paddle.js cote client (checkout web,
+  // non secrets) ; API Key + Webhook Secret restent server-only.
+  PADDLE_SELLER_ID: { category: "payments", label: "Paddle Seller ID (Paddle.Initialize côté client)" },
+  PADDLE_CLIENT_TOKEN: { category: "payments", label: "Paddle Client-side Token (checkout web)" },
+  PADDLE_API_KEY: { category: "payments", label: "Paddle API Key (serveur)", secret: true },
+  PADDLE_WEBHOOK_SECRET: { category: "payments", label: "Paddle Webhook Secret", secret: true },
 };
 
 const ADMIN_TEAM_ROLES = ["ADMIN", "SUPPORT", "FINANCE", "MARKETING", "MODERATOR", "TECH"] as const;
