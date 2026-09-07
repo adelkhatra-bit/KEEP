@@ -25,7 +25,7 @@ import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPla
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import SourceProfileQuickView from '../components/SourceProfileQuickView';
-import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
+import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
@@ -334,7 +334,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // plans payants masquaient le compteur derrière leur nom commercial,
   // laissé "illimité" côté crédits de téléchargement uniquement).
   const planLabel = freeBalance != null ? `${freeBalance} FREE` : planCode;
-  const planStyle = freeBalance === 0 ? s.planExhausted : s.planFree;
   const profileOwnKeepCount = ownSnapshot?.directKeeps ?? localPublicOwnKeepCount;
   const profileUserKeepCount = ownSnapshot?.socialKeeps ?? localDiscoveryImpactCount;
   const profileTotalKeepCount = ownSnapshot?.totalKeeps ?? profileKeptTracks.length;
@@ -344,6 +343,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
     ? 'UNVERIFIED'
     : planCode === 'PREMIUM' || planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO' ? planCode : 'FREE';
   const certificationTier = publicSnapshot?.certificationTier ?? fallbackCertification;
+  // Adel (07/09/2026) : "pourquoi les Free sont pas de la même couleur que la
+  // certif" -- le badge de solde Free était toujours vert/rouge, alors que le
+  // badge de certification a une couleur par formule (bleu Premium, violet
+  // Créateur Pro, or Lieu Pro). Le badge Free reprend maintenant la couleur
+  // de la certification ; seul le solde à 0 garde le rouge d'alerte, quelle
+  // que soit la formule.
+  const certificationColors = CERTIFICATION_META[certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
+  const planStyle = freeBalance === 0
+    ? s.planExhausted
+    : { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring };
 
   const openAccount = (mode: AccountMode = 'create', followUsername = '') => {
     setShareOpen(false);

@@ -265,6 +265,11 @@ export default function OffersScreen({ navigation, route }: any) {
   }, []);
 
   const freeBalanceLabel = freeUnlimited ? '∞' : freeBalance == null ? '—' : String(Math.max(0, freeBalance));
+  // Adel (07/09/2026) : "il faut mettre le nombre de Free qui sera crédité
+  // chaque mois avec chaque certif" -- à côté du badge de certification sur
+  // l'écran "fonction verrouillée", afficher tout de suite le Free/mois de
+  // la formule requise, pas seulement dans le détail de la carte plus bas.
+  const focusPlanFreeBonus = plans.find((plan) => plan.code === focusPlan)?.monthlyFreeBonus;
   const visiblePlans = useMemo(() => {
     // La formule Free possède son propre bloc compact au-dessus. Les cartes
     // ci-dessous restent donc réservées aux offres Premium / Pro.
@@ -295,6 +300,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.requiredPlanRow}>
             <Text style={s.requiredIntroTitle}>{isEventChoice ? 'Creator Pro ou Venue Pro' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : planLabel(focusPlan)}</Text>
             <ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} />
+            {!isEventChoice && focusPlanFreeBonus ? <View style={s.requiredPlanFreeBadge}><Text style={s.requiredPlanFreeBadgeText}>+{focusPlanFreeBonus} Free/mois</Text></View> : null}
           </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
           {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
@@ -569,8 +575,10 @@ const s = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
   requiredIntro: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
+  requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5, flexWrap: 'wrap' },
   requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', flexShrink: 1 },
+  requiredPlanFreeBadge: { minHeight: 22, paddingHorizontal: 9, borderRadius: 11, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#31C981', alignItems: 'center', justifyContent: 'center' },
+  requiredPlanFreeBadgeText: { color: '#7CF2B9', fontSize: 11, fontWeight: '900' },
   requiredIntroText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 7, fontWeight: '700' },
   eventChoiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36', paddingHorizontal: 10, paddingVertical: 8 },
   eventChoiceHintText: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
