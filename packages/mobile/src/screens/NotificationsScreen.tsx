@@ -16,6 +16,7 @@ import {
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
 import { loadCurrentPlanCode } from '../services/planService';
+import { EventRsvpStatus, loadMyRsvps, setEventRsvp } from '../services/creatorEventService';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -39,6 +40,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
+  if (key === 'EVENT_INVITE') return 'INVITATION SOIRÉE';
   if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki';
   return key.replace(/_/g, ' ');
 }
@@ -52,6 +54,13 @@ export default function NotificationsScreen({ navigation }: any) {
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Adel (08/09/2026) : "comme tu as fait pour les matchs ... trois petits
+  // boutons en dessous bien aligné, je ne participe pas, je répondrai plus
+  // tard ou je participe" -- l'infrastructure RSVP (event_rsvps,
+  // GOING/MAYBE/NOT_GOING) existe déjà côté serveur depuis event.broadcast,
+  // il ne restait que l'affichage/l'action ici.
+  const [eventRsvps, setEventRsvps] = useState<Record<string, EventRsvpStatus>>({});
+  const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
   // Adel (03/09/2026) : "le Marketing devrait toujours rester activé, sauf
   // pour ceux qui payent au moins 9,99€ (Creator Pro) ou 29,99€ (Venue
   // Pro) -- eux n'ont pas d'obligation" -- gratuit : notifications
@@ -83,12 +92,14 @@ export default function NotificationsScreen({ navigation }: any) {
   const refresh = async () => {
     if (!user) return;
     try {
-      const [notifications, preferences] = await Promise.all([
+      const [notifications, preferences, rsvps] = await Promise.all([
         loadNotifications(user.id),
         loadNotificationPreferences(user.id),
+        loadMyRsvps(user.id).catch(() => ({})),
       ]);
       setItems(notifications);
       setPrefs(preferences);
+      setEventRsvps(rsvps);
       setError(null);
     } catch {
       setError('Impossible de charger les notifications.');
@@ -103,13 +114,15 @@ export default function NotificationsScreen({ navigation }: any) {
 
     const run = async () => {
       try {
-        const [notifications, preferences] = await Promise.all([
+        const [notifications, preferences, rsvps] = await Promise.all([
           loadNotifications(user.id),
           loadNotificationPreferences(user.id),
+          loadMyRsvps(user.id).catch(() => ({})),
         ]);
         if (!cancelled) {
           setItems(notifications);
           setPrefs(preferences);
+          setEventRsvps(rsvps);
           setError(null);
         }
       } catch {
@@ -176,6 +189,33 @@ export default function NotificationsScreen({ navigation }: any) {
   };
 
   const battleTheme = (item: KeepNotification) => String(item.data?.themeCode || 'MIX').replace(/_/g, ' ');
+
+  const isEventInvite = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'EVENT_INVITE';
+  const eventIdOf = (item: KeepNotification) => {
+    const raw = item.data?.event_id ?? item.data?.eventId;
+    return typeof raw === 'string' && raw ? raw : null;
+  };
+
+  const chooseEventRsvp = async (item: KeepNotification, status: EventRsvpStatus) => {
+    const eventId = eventIdOf(item);
+    if (!user || !eventId || rsvpBusyId) return;
+    setRsvpBusyId(item.id);
+    const previous = eventRsvps[eventId];
+    setEventRsvps((current) => ({ ...current, [eventId]: status }));
+    void readOne(item);
+    try {
+      await setEventRsvp(user.id, eventId, status);
+    } catch {
+      setEventRsvps((current) => {
+        const next = { ...current };
+        if (previous) next[eventId] = previous; else delete next[eventId];
+        return next;
+      });
+      setError('Impossible d’enregistrer ta réponse pour le moment.');
+    } finally {
+      setRsvpBusyId(null);
+    }
+  };
 
 
   const readAll = async () => {
@@ -294,6 +334,39 @@ export default function NotificationsScreen({ navigation }: any) {
                   {profileUsername ? <Text style={styles.cardProfileLink}>Voir @{profileUsername} ›</Text> : null}
                 </View>
               </TouchableOpacity>
+              {isEventInvite(item) && eventIdOf(item) ? (() => {
+                const eventId = eventIdOf(item) as string;
+                const current = eventRsvps[eventId];
+                const busy = rsvpBusyId === item.id;
+                return (
+                  <View style={styles.rsvpRow}>
+                    <TouchableOpacity
+                      style={[styles.rsvpButton, styles.rsvpGoing, current === 'GOING' && styles.rsvpGoingActive]}
+                      disabled={busy}
+                      onPress={() => void chooseEventRsvp(item, 'GOING')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.rsvpButtonText, styles.rsvpGoingText]}>{current === 'GOING' ? '✓ JE PARTICIPE' : 'JE PARTICIPE'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rsvpButton, styles.rsvpMaybe, current === 'MAYBE' && styles.rsvpMaybeActive]}
+                      disabled={busy}
+                      onPress={() => void chooseEventRsvp(item, 'MAYBE')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.rsvpButtonText, styles.rsvpMaybeText]}>{current === 'MAYBE' ? '✓ PLUS TARD' : 'PLUS TARD'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rsvpButton, styles.rsvpNotGoing, current === 'NOT_GOING' && styles.rsvpNotGoingActive]}
+                      disabled={busy}
+                      onPress={() => void chooseEventRsvp(item, 'NOT_GOING')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.rsvpButtonText, styles.rsvpNotGoingText]}>{current === 'NOT_GOING' ? '✓ JE NE VIENS PAS' : 'JE NE VIENS PAS'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })() : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
                 <TouchableOpacity onPress={() => { void removeOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
@@ -396,6 +469,20 @@ const styles = StyleSheet.create({
   battleThemeLabel: { color: '#D8C7FF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   battleThemeValue: { color: '#E5F266', fontSize: 12, fontWeight: '900' },
   battleActions: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  // Adel (08/09/2026) : "trois petits boutons en dessous bien aligné" --
+  // même rangée, même hauteur, un seul en surbrillance (celui déjà choisi).
+  rsvpRow: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: 2 },
+  rsvpButton: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, backgroundColor: 'transparent' },
+  rsvpButtonText: { fontSize: 9, fontWeight: '900', textAlign: 'center' },
+  rsvpGoing: { borderColor: '#38D990' },
+  rsvpGoingActive: { backgroundColor: 'rgba(56,217,144,.16)' },
+  rsvpGoingText: { color: '#38D990' },
+  rsvpMaybe: { borderColor: '#F0B429' },
+  rsvpMaybeActive: { backgroundColor: 'rgba(240,180,41,.16)' },
+  rsvpMaybeText: { color: '#F0B429' },
+  rsvpNotGoing: { borderColor: '#FF6C8C' },
+  rsvpNotGoingActive: { backgroundColor: 'rgba(255,108,140,.16)' },
+  rsvpNotGoingText: { color: '#FF6C8C' },
   battleAction: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   battleRefuse: { backgroundColor: '#1B121F', borderColor: '#78435A' },
   battleAccept: { backgroundColor: '#E5F266', borderColor: '#E5F266' },
