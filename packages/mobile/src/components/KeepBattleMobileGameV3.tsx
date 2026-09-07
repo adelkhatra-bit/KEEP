@@ -380,6 +380,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // `refreshArena` compare sa réponse à cette ref avant de l'appliquer et
   // jette le résultat si l'utilisateur est déjà sorti entre-temps.
   const arenaIdLiveRef = React.useRef<string | null>(null);
+  // Audit multi-agent 07/09/2026 : plusieurs handlers déclenchés par un tap
+  // (openOnline, openPlayerStats...) appliquaient un setState après un await
+  // sans vérifier que le composant est toujours monté (ex: l'utilisateur a
+  // quitté l'onglet Soirées pendant l'appel réseau).
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => () => { mountedRef.current = false; }, []);
   const [arena, setArenaState] = React.useState<KeepBattleArenaState | null>(null);
   const setArena = React.useCallback((next: KeepBattleArenaState | null | ((prev: KeepBattleArenaState | null) => KeepBattleArenaState | null)) => {
     setArenaState((prev) => {
@@ -1083,9 +1089,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         rows.forEach((row, index) => { map[row.profileId] = index + 1; });
         setLeaderboardRank(map);
       }).catch(() => {});
-      setLivePlayers(await loadLiveSoloPlayers(20));
-    } catch { setLivePlayers([]); }
-    finally { setBusy(false); }
+      const players = await loadLiveSoloPlayers(20);
+      if (mountedRef.current) setLivePlayers(players);
+    } catch { if (mountedRef.current) setLivePlayers([]); }
+    finally { if (mountedRef.current) setBusy(false); }
   };
 
   // Adel (02/09/2026) : "c'est pas que je prenne des abonnements, c'est
@@ -1179,7 +1186,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setStatsPlayer(player);
     setStatsData(null);
     setStatsLoading(true);
-    loadKeepBattlePlayerStats(player.profileId).then(setStatsData).catch(() => setStatsData(null)).finally(() => setStatsLoading(false));
+    loadKeepBattlePlayerStats(player.profileId)
+      .then((data) => { if (mountedRef.current) setStatsData(data); })
+      .catch(() => { if (mountedRef.current) setStatsData(null); })
+      .finally(() => { if (mountedRef.current) setStatsLoading(false); });
   };
 
   // Adel (03/09/2026) : "trouve une solution déroulante pour le style du
@@ -1333,10 +1343,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const respond = async (item: KeepBattleIncomingChallenge, accept: boolean) => {
     if (respondingChallengeId) return;
     setRespondingChallengeId(item.id);
+    // Audit multi-agent 07/09/2026 : même garde que answerArena/refreshArena --
+    // un jeton distinct posé avant le premier await ; n'importe quel setArena
+    // entre-temps (fermeture, autre défi accepté) l'écrase et fait avorter
+    // proprement l'application du résultat réseau tardif.
+    const pendingToken = `PENDING_CHALLENGE:${item.id}`;
     if (accept) {
       unlockWebAudioForGesture();
       setAudioReady(false);
       void stopTrackPreview();
+      arenaIdLiveRef.current = pendingToken;
     } else {
       setIncoming((rows) => rows.filter((x) => x.id !== item.id));
     }
@@ -1349,6 +1365,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         setSolo(null); setBrowseOnline(false); setAudioReady(false);
         const loadedArena = response.arenaState || await loadArenaAfterAccept(response.arenaId);
         setIncoming((rows) => rows.filter((x) => x.id !== item.id));
+        if (arenaIdLiveRef.current !== pendingToken) return;
         setArena(loadedArena);
         animateVersus();
       }
@@ -1372,7 +1389,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const respondPendingRematch = async (item: KeepBattlePendingRematch, accept: boolean) => {
     if (rematchBannerBusyId) return;
     setRematchBannerBusyId(item.arenaId);
-    if (accept) unlockWebAudioForGesture();
+    // Audit multi-agent 07/09/2026 : même garde que respond().
+    const pendingToken = `PENDING_REMATCH:${item.arenaId}`;
+    if (accept) { unlockWebAudioForGesture(); arenaIdLiveRef.current = pendingToken; }
     try {
       const result = await respondKeepBattleArenaRematch(item.arenaId, accept);
       setPendingRematch((rows) => rows.filter((x) => x.arenaId !== item.arenaId));
@@ -1380,6 +1399,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         await stopTrackPreview();
         await leaveSoloBattle().catch(() => {});
         setSolo(null); setBrowseOnline(false); setAudioReady(false);
+        if (arenaIdLiveRef.current !== pendingToken) return;
         setArena(result);
         animateVersus();
       }
@@ -1397,11 +1417,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       const rows = await loadLiveSoloPlayers(30);
       const memberIds = new Set(arena.seats.map((seat) => seat.profileId));
-      setLivePlayers(rows.filter((player) => !memberIds.has(player.profileId)));
+      if (mountedRef.current) setLivePlayers(rows.filter((player) => !memberIds.has(player.profileId)));
     } catch {
-      setLivePlayers([]);
+      if (mountedRef.current) setLivePlayers([]);
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   };
 
@@ -1537,8 +1557,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // dès QUE J'appuie serait déloyal pour eux. Le morceau s'arrête déjà tout
     // seul quand la manche est révélée pour tout le monde (voir l'effet sur
     // arena.round.revealed).
+    // Audit multi-agent 07/09/2026 : régression du bug "ça revient toujours
+    // là" (déjà corrigé sur refreshArena) par ce chemin-ci -- répondre puis
+    // fermer avant la réponse réseau rouvrait l'arène quittée. Même garde.
+    const requestedId = arena.id;
     setPending(choice);
-    try { setArena(await submitKeepBattleArenaQuizAnswer(arena.id, choice)); } catch {}
+    try {
+      const result = await submitKeepBattleArenaQuizAnswer(requestedId, choice);
+      if (arenaIdLiveRef.current !== requestedId) return;
+      setArena(result);
+    } catch {}
     finally { setPending(null); }
   };
 
@@ -1765,7 +1793,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                       spécifiquement proposé (rematchReady n'existe que sur
                       `me`) -- on nomme donc tous les autres membres du groupe,
                       identique au pop-up de stats et au bandeau du classement. */}
-                  <Text style={s.inviteQuestion}>🔁 {arena.seats.filter((seat) => seat.profileId !== arena.me?.profileId).map((seat) => `@${seat.username}`).join(', ') || 'Le groupe'} souhaite prendre sa revanche. Acceptez-vous ?</Text>
+                  <Text style={s.inviteQuestion} numberOfLines={3}>🔁 {arena.seats.filter((seat) => seat.profileId !== arena.me?.profileId).map((seat) => `@${seat.username}`).join(', ') || 'Le groupe'} souhaite prendre sa revanche. Acceptez-vous ?</Text>
                   <Text style={s.inviteLabel}>⚡ {rematchRemaining}s pour répondre</Text>
                 </View>
               </View>
@@ -1850,7 +1878,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           la croix de fermeture n'a plus lieu d'être une fois la manche
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
           ou "QUITTER LE BATTLE" sur l'écran de fin. Conservée uniquement là. */}
-      <Animated.View pointerEvents="none" style={[s.versus, { opacity: versusOpacity, transform: [{ scale: versusScale }] }]}><Text style={s.versusText}>⚡ BATTLE ⚡</Text><Text style={s.versusNames}>{versusLabel}</Text></Animated.View>
+      <Animated.View pointerEvents="none" style={[s.versus, { opacity: versusOpacity, transform: [{ scale: versusScale }] }]}><Text style={s.versusText}>⚡ BATTLE ⚡</Text><Text style={s.versusNames} numberOfLines={2}>{versusLabel}</Text></Animated.View>
       <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
       {myCreditStatus ? <View style={s.creditBadgeRow}><Text style={s.creditBadgeText}>🎁 {formatCompactNumber(myCreditStatus.remainingFree)} Free restant</Text></View> : null}
       {/* Adel (03/09/2026) : "on voit pas les titres en dessous, on voit pas

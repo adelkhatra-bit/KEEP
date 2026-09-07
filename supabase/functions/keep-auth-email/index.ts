@@ -87,28 +87,52 @@ function shellHtml(title: string, heading: string, intro: string, buttonLabel: s
 </html>`;
 }
 
+function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+// Audit multi-agent 07/09/2026 : un seul essai, aucun retry -- un pic de
+// demandes ou un 429 Brevo momentane faisait echouer "mot de passe oublie"
+// (503 dur, aucun filet contrairement a l'inscription) alors qu'un deuxieme
+// essai quelques centaines de ms plus tard aurait souvent suffi. On ne
+// retente que sur une panne reseau/serveur transitoire (429/5xx) -- jamais
+// sur un rejet definitif de Brevo (ex: adresse invalide, cle rejetee).
 async function sendBrevo(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
   if (!apiKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
 
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
-    body: JSON.stringify({
-      sender: { email: senderEmail, name: senderName },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-      textContent: text,
-      tags: ["keep", "auth", tag],
-    }),
+  const payloadBody = JSON.stringify({
+    sender: { email: senderEmail, name: senderName },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+    textContent: text,
+    tags: ["keep", "auth", tag],
   });
-  if (response.ok) return { ok: true };
-  const payload = await response.json().catch(() => null);
-  console.error("[keep-auth-email] Brevo send failed", response.status, payload);
-  return { ok: false, error: "email_delivery_unavailable", detail: String(payload?.message || response.status) };
+
+  let lastStatus = 0;
+  let lastPayload: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await wait(300 * attempt);
+    let response: Response;
+    try {
+      response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
+        body: payloadBody,
+      });
+    } catch (networkError) {
+      lastStatus = 0;
+      lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
+      continue;
+    }
+    if (response.ok) return { ok: true };
+    lastStatus = response.status;
+    lastPayload = await response.json().catch(() => null);
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  console.error("[keep-auth-email] Brevo send failed", lastStatus, lastPayload);
+  return { ok: false, error: "email_delivery_unavailable", detail: String(lastPayload?.message || lastStatus) };
 }
 
 async function handleSignup(body: any) {

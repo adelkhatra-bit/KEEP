@@ -14,10 +14,34 @@ export type DownloadCreditStatus = {
 
 const LOCAL_GUEST_CREDIT_KEY = '@keep/local-guest-download-consumed-v1';
 const PENDING_GUEST_CREDIT_UPGRADE_KEY = '@keep/pending-guest-credit-upgrade-v1';
+const LOCAL_GUEST_DEVICE_ID_KEY = '@keep/local-guest-device-id-v1';
 const LOCAL_GUEST_LIMIT = 3;
 // Le compte invité ne peut pas charger Remote Config avant authentification.
 // Il applique donc la même valeur de secours que la règle commerciale Loki.
 const LOCAL_GUEST_COST_PER_KEEP = 3;
+
+/**
+ * Audit multi-agent 07/09/2026 : le compteur d'essai invité était UNIQUEMENT
+ * local (AsyncStorage) -- effacer les données de l'app le remettait à zéro à
+ * l'infini, sans aucun garde-fou serveur. `keep_guest_device_credit_*` (RPC,
+ * accessible en `anon`) rend ce compteur autoritaire côté serveur, identifié
+ * par un UUID d'appareil généré une seule fois -- même mécanisme déjà utilisé
+ * ailleurs dans Loki (keepMusicCoreRecognition.ts) pour le rate-limit de
+ * reconnaissance. Le local reste un cache d'affichage optimiste ; en cas de
+ * panne réseau, on ne bloque jamais l'essai (dégradation vers le local seul).
+ */
+async function getLocalGuestDeviceId(): Promise<string> {
+  try {
+    const existing = await AsyncStorage.getItem(LOCAL_GUEST_DEVICE_ID_KEY);
+    if (existing) return existing;
+    const cryptoApi = (globalThis as any)?.crypto;
+    const created: string = cryptoApi?.randomUUID ? cryptoApi.randomUUID() : `keep-guest-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    await AsyncStorage.setItem(LOCAL_GUEST_DEVICE_ID_KEY, created);
+    return created;
+  } catch {
+    return `keep-guest-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  }
+}
 
 function normalize(row: any): DownloadCreditStatus {
   return {
@@ -37,6 +61,26 @@ async function readLocalGuestConsumed(): Promise<number> {
     if (Number.isFinite(stored) && stored > 0) consumed = Math.floor(stored);
   } catch {
     // Le stockage local ne doit jamais empêcher l'essai de s'ouvrir.
+  }
+  // Se réconcilie avec le compteur serveur (autoritaire, par appareil) : un
+  // local remis à zéro (données de l'app effacées) ne doit jamais repasser
+  // sous ce que le serveur sait déjà avoir été consommé sur cet appareil.
+  // Aucun blocage si hors-ligne : on retombe simplement sur le local.
+  try {
+    if (supabase) {
+      const deviceId = await getLocalGuestDeviceId();
+      const { data, error } = await supabase.rpc('keep_guest_device_credit_status', { p_device_id: deviceId });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!error && row) {
+        const serverConsumed = Number(row.consumed || 0);
+        if (serverConsumed > consumed) {
+          consumed = serverConsumed;
+          await AsyncStorage.setItem(LOCAL_GUEST_CREDIT_KEY, String(consumed)).catch(() => {});
+        }
+      }
+    }
+  } catch {
+    // Panne réseau : l'essai invité reste utilisable en dégradé local seul.
   }
   return Math.min(Math.max(consumed, 0), LOCAL_GUEST_LIMIT);
 }
@@ -186,7 +230,26 @@ export async function consumeDownloadCredit(): Promise<DownloadCreditStatus> {
   if (state.isLocalGuest) {
     const current = await getLocalGuestCreditStatus();
     if ((current.remaining ?? 0) < LOCAL_GUEST_COST_PER_KEEP) throw new Error('CREDITS_EXHAUSTED');
-    const consumed = Math.min(current.consumed + LOCAL_GUEST_COST_PER_KEEP, LOCAL_GUEST_LIMIT);
+    let consumed = Math.min(current.consumed + LOCAL_GUEST_COST_PER_KEEP, LOCAL_GUEST_LIMIT);
+    // Le serveur (par appareil) est la source de vérité : on lui rapporte la
+    // consommation en premier -- s'il refuse (quota déjà atteint côté serveur
+    // même si le local semblait encore disponible), l'essai s'arrête là,
+    // au lieu de laisser un local remis à zéro en donner de nouveau.
+    try {
+      if (supabase) {
+        const deviceId = await getLocalGuestDeviceId();
+        const { data, error } = await supabase.rpc('keep_guest_device_credit_consume', { p_device_id: deviceId, p_amount: LOCAL_GUEST_COST_PER_KEEP });
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!error && row) {
+          if (!row.allowed) throw new Error('CREDITS_EXHAUSTED');
+          consumed = Math.min(Number(row.consumed || consumed), LOCAL_GUEST_LIMIT);
+        }
+      }
+    } catch (e: any) {
+      if (String(e?.message) === 'CREDITS_EXHAUSTED') throw e;
+      // Panne réseau sur l'appel serveur : ne jamais transformer ça en faux
+      // échec d'un ajout musical déjà réussi -- on dégrade vers le local.
+    }
     try {
       await AsyncStorage.setItem(LOCAL_GUEST_CREDIT_KEY, String(consumed));
     } catch {

@@ -113,6 +113,49 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => clearTimeout(timer);
   }, [profileQuery]);
 
+  // Audit multi-agent 07/09/2026 : la recherche ne filtrait que le lot de
+  // profils déjà chargé (plafonné) -- chercher un pseudo qui existe mais qui
+  // n'était pas dans ce lot ne retournait jamais rien, silencieusement.
+  // Recherche directe côté serveur dès qu'une requête est en cours, en
+  // complément du filtrage local instantané (qui reste affiché pendant
+  // l'aller-retour réseau pour ne rien casser du confort existant).
+  const [searchedProfiles, setSearchedProfiles] = useState<ProfileCard[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    const needle = committedQuery.trim().replace(/^@/, '');
+    if (!needle || isDemoMode || !supabase) { setSearchedProfiles(null); return () => { live = false; }; }
+    const client = supabase;
+    const run = async () => {
+      try {
+        let query = client
+          .from('profiles')
+          .select('id,username,avatar_url,bio,city,country_code,approx_lat,approx_lng,favorite_genres,favorite_artists,certification_tier')
+          .eq('is_public', true)
+          .eq('discovery_hidden', false)
+          .ilike('username', `%${needle}%`)
+          .limit(50);
+        if (user?.id) query = query.neq('id', user.id);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (live) setSearchedProfiles((data ?? []).map((row: any) => ({
+          id: row.id,
+          username: row.username || 'keep-user',
+          avatarUrl: row.avatar_url || undefined,
+          bio: row.bio || undefined,
+          city: row.city || undefined,
+          countryCode: row.country_code || undefined,
+          approxLat: normalizeOptionalCoordinate(row.approx_lat),
+          approxLng: normalizeOptionalCoordinate(row.approx_lng),
+          favoriteGenres: normalizeList(row.favorite_genres),
+          favoriteArtists: normalizeList(row.favorite_artists),
+          certificationTier: row.certification_tier || undefined,
+        })));
+      } catch { if (live) setSearchedProfiles(null); }
+    };
+    void run();
+    return () => { live = false; };
+  }, [committedQuery, user?.id, isDemoMode]);
+
   useEffect(() => {
     let live = true;
     const load = async () => {
@@ -132,7 +175,7 @@ export default function DiscoverScreen({ navigation }: any) {
           .eq('is_public', true)
           .eq('discovery_hidden', false)
           .order('updated_at', { ascending: false })
-          .limit(100);
+          .limit(1000);
         if (user?.id) query = query.neq('id', user.id);
         const { data, error } = await query;
         if (error) throw error;
@@ -201,7 +244,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const filteredProfiles = useMemo(() => {
     const needle = committedQuery.trim().replace(/^@/, '').toLowerCase();
     const candidates = needle
-      ? profiles.filter((profile) => profile.username.toLowerCase().includes(needle))
+      ? (searchedProfiles ?? profiles.filter((profile) => profile.username.toLowerCase().includes(needle)))
       : profiles;
 
     // Découvertes doit être utile dès l'ouverture : le GPS affine le classement,
@@ -222,7 +265,7 @@ export default function DiscoverScreen({ navigation }: any) {
       return a.distance - b.distance;
     });
     return ranked.map((item) => item.profile);
-  }, [profiles, committedQuery, radiusKm, searchPosition, hasSearched]);
+  }, [profiles, searchedProfiles, committedQuery, radiusKm, searchPosition, hasSearched]);
 
   const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
