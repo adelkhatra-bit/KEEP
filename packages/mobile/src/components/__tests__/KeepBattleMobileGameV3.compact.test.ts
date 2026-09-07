@@ -142,12 +142,12 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('const teamA = players.filter');
     expect(source).toContain('const teamB = players.filter');
     expect(source).toContain('players.length === 2 ?');
-    expect(source).toContain('<Text style={s.duelName}>@{first.username}</Text>');
-    expect(source).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>@{second.username}</Text>');
+    expect(source).toContain('<Text style={s.duelName}>{first.username}</Text>');
+    expect(source).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>{second.username}</Text>');
     expect(source).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
     expect(source).toContain('players.length > 2 ? <View style={s.groupStandings}>');
     expect(source).toContain('rank === 0 ? \'👑\' : `#${rank + 1}`');
-    expect(source).toContain('<Text style={s.groupStandingName} numberOfLines={1}>@{player.username}</Text>');
+    expect(source).toContain('<Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text>');
     // Adel (05/09/2026) : "si demain on est 10, est-ce qu'on va être obligé
     // de Swiper" -- le direct plafonne à 5 joueurs + ma propre ligne pour
     // ne jamais forcer de scroll pendant une manche chronométrée.

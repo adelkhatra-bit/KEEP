@@ -307,12 +307,12 @@ function buildProfileCopy(username: string): ShareCopy {
   const own = Boolean(current?.username && cleanUsername(current.username).toLowerCase() === clean.toLowerCase());
   const link = buildPublicProfileLink(clean);
   const identity = own ? [current?.city, current?.countryCode].filter(Boolean).join(' · ') : '';
-  const profileLine = own ? `Découvre mon profil ${APP_NAME} @${clean}` : `Découvre le profil ${APP_NAME} @${clean}`;
+  const profileLine = own ? `Découvre mon profil ${APP_NAME} ${clean}` : `Découvre le profil ${APP_NAME} ${clean}`;
   const message = `${profileLine} 🎧\n${APP_NAME} DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'profile',
-    heading: own ? `Partager mon profil ${APP_NAME}` : `Partager la collection de @${clean}`,
-    subject: own ? `Mon profil ${APP_NAME} — @${clean}` : `Le profil ${APP_NAME} de @${clean}`,
+    heading: own ? `Partager mon profil ${APP_NAME}` : `Partager la collection de ${clean}`,
+    subject: own ? `Mon profil ${APP_NAME} — ${clean}` : `Le profil ${APP_NAME} de ${clean}`,
     message,
     emailBody: `${message}\n\nUn scan, un clic, et tu entres dans cet univers musical.`,
     link,
@@ -326,7 +326,7 @@ function buildTrackCopy(username: string, title: string, artist: string): ShareC
   const clean = cleanUsername(username);
   const link = buildPublicTrackLink(clean, title, artist);
   const own = cleanUsername(useUserStore.getState().user?.username).toLowerCase() === clean.toLowerCase();
-  const origin = own ? `mon profil @${clean}` : `le profil @${clean}`;
+  const origin = own ? `mon profil ${clean}` : `le profil ${clean}`;
   const message = `🎵 ${title.trim()} — ${artist.trim()}\nRetrouve ce morceau sur ${origin} dans ${APP_NAME}.\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'track',
@@ -360,9 +360,9 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
       eventName: 'profile_share',
     },
     compare: {
-      heading: `Comparer avec @${label}`,
-      subject: `Compare ton ${APP_NAME} DNA avec @${label}`,
-      intro: `🧬 On écoute vraiment la même chose ? Compare ton ${APP_NAME} DNA avec celui de @${label}.`,
+      heading: `Comparer avec ${label}`,
+      subject: `Compare ton ${APP_NAME} DNA avec ${label}`,
+      intro: `🧬 On écoute vraiment la même chose ? Compare ton ${APP_NAME} DNA avec celui de ${label}.`,
       eventName: 'compare_share',
     },
     event: {

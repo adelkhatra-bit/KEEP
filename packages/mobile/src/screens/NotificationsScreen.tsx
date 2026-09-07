@@ -280,7 +280,7 @@ export default function NotificationsScreen({ navigation }: any) {
                   if (profileUsername) navigation.navigate('PublicProfile', { username: profileUsername });
                 }}
                 activeOpacity={0.84}
-                accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}${profileUsername ? `. Voir le profil de @${profileUsername}` : ''}`}
+                accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}${profileUsername ? `. Voir le profil de ${profileUsername}` : ''}`}
               >
                 <View style={styles.cardTop}>
                   <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>

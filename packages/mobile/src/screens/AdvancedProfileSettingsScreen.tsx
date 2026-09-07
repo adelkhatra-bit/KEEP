@@ -365,7 +365,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
                 {blockedUsers.map((u) => (
                   <View key={u.id} style={s.blockedRow}>
                     {u.avatarUrl ? <Image source={{ uri: u.avatarUrl }} style={s.blockedAvatar} /> : <View style={[s.blockedAvatar, s.blockedAvatarFallback]}><Text style={s.blockedAvatarText}>K</Text></View>}
-                    <Text style={s.blockedUsername} numberOfLines={1}>@{u.username}</Text>
+                    <Text style={s.blockedUsername} numberOfLines={1}>{u.username}</Text>
                     <TouchableOpacity style={s.blockedUnblockButton} disabled={unblockingId === u.id} onPress={() => void handleUnblock(u.id)}>
                       <Text style={s.blockedUnblockText}>{unblockingId === u.id ? '…' : 'Débloquer'}</Text>
                     </TouchableOpacity>

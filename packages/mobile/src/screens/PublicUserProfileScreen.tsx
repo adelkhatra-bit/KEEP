@@ -290,12 +290,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       if (isBlocked) {
         await unblockUser(profile.id);
         setIsBlocked(false);
-        Alert.alert('Débloqué', `@${profile.username} peut à nouveau apparaître pour toi.`);
+        Alert.alert('Débloqué', `${profile.username} peut à nouveau apparaître pour toi.`);
       } else {
         await blockUser(profile.id);
         setIsBlocked(true);
         setIsFollowing(false);
-        Alert.alert('Bloqué', `@${profile.username} ne pourra plus interagir avec ton profil, et son contenu ne s’affichera plus pour toi.`);
+        Alert.alert('Bloqué', `${profile.username} ne pourra plus interagir avec ton profil, et son contenu ne s’affichera plus pour toi.`);
       }
     } catch {
       Alert.alert('Action impossible', 'Réessaie dans un instant.');
@@ -446,7 +446,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <View style={styles.identity}>
             {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>K</Text></View>}
             <View style={styles.identityText}>
-              <View style={styles.usernameLine}><Text style={styles.username}>@{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+              <View style={styles.usernameLine}><Text style={styles.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
               <View style={styles.profileMetaRow}>
                 <View style={styles.profileMetaLeft}>
                   <View style={styles.kindBadge}><Text style={styles.kindBadgeText}>{kindLabel}</Text></View>
@@ -530,9 +530,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   </View>
                   <View style={styles.discoveryOriginRow}>
                     <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                    {discoveryUsername ? discoveryUsername === profile.username ? <Text style={styles.discoveryOriginUser}>@{discoveryUsername}</Text> : (
+                    {discoveryUsername ? discoveryUsername === profile.username ? <Text style={styles.discoveryOriginUser}>{discoveryUsername}</Text> : (
                       <TouchableOpacity onPress={() => navigation.navigate('PublicUserProfile', { username: discoveryUsername })} accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}`}>
-                        <Text style={styles.discoveryOriginUser}>@{discoveryUsername}</Text>
+                        <Text style={styles.discoveryOriginUser}>{discoveryUsername}</Text>
                       </TouchableOpacity>
                     ) : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                   </View>
@@ -552,7 +552,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       <MusicSwipeDeckModal
         visible={swipeOpen}
         tracks={swipeTracks}
-        title={`La collection de @${profile.username}`}
+        title={`La collection de ${profile.username}`}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         onClose={() => setSwipeOpen(false)}

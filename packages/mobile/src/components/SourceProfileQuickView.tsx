@@ -103,12 +103,12 @@ export default function SourceProfileQuickView({
           .eq('followee_id', profile.id);
         if (error) throw error;
         setIsFollowing(false);
-        setMessage(`Tu ne suis plus @${profile.username}.`);
+        setMessage(`Tu ne suis plus ${profile.username}.`);
       } else {
         const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: profile.id });
         if (error) throw error;
         setIsFollowing(true);
-        setMessage(`Tu suis maintenant @${profile.username}.`);
+        setMessage(`Tu suis maintenant ${profile.username}.`);
       }
     } catch {
       setMessage(isFollowing ? 'Impossible de se désabonner pour le moment.' : 'Impossible de suivre ce profil pour le moment.');
@@ -126,7 +126,7 @@ export default function SourceProfileQuickView({
             {profile.avatar_url
               ? <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
               : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0, 1).toUpperCase()}</Text></View>}
-            <Text style={s.username}>@{profile.username}</Text>
+            <Text style={s.username}>{profile.username}</Text>
             <Text style={s.meta}>{[profile.display_name, profile.kind, profile.city, profile.country_code].filter(Boolean).join(' · ')}</Text>
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
             {message ? <Text style={s.message}>{message}</Text> : null}

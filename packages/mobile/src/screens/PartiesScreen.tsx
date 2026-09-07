@@ -387,7 +387,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           BATTLE avant, invisibles sur le sous-onglet SOIRÉES. */}
       {incomingBattle.map((challenge) => (
         <View key={challenge.id} style={styles.incomingBanner}>
-          <Text style={styles.incomingText}><Text style={styles.incomingName}>@{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
+          <Text style={styles.incomingText}><Text style={styles.incomingName}>{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
@@ -396,7 +396,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       ))}
       {!incomingBattle.length ? pendingRematchLB.map((item) => (
         <View key={item.arenaId} style={styles.incomingBanner}>
-          <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `@${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
+          <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingNo, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingYes, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, true)}><Text style={styles.incomingYesText}>{rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
@@ -416,7 +416,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 
         {currentEvent ? <>
           <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J’Y VAIS" hint="Glisse si tu veux · les boutons fonctionnent aussi sans swipe">
-            <View style={styles.card}><View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View><Text style={styles.eventName}>{currentEvent.name}</Text><Text style={styles.date}>{dateText}</Text><Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text>{currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`@${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}{currentEvent.description?<Text style={styles.description}>{currentEvent.description}</Text>:null}<View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View></View>
+            <View style={styles.card}><View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View><Text style={styles.eventName}>{currentEvent.name}</Text><Text style={styles.date}>{dateText}</Text><Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text>{currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}{currentEvent.description?<Text style={styles.description}>{currentEvent.description}</Text>:null}<View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View></View>
           </SwipeDeck>
           <View style={styles.rsvpRow}><TouchableOpacity style={[styles.roundAction,styles.noAction]} onPress={()=>void chooseRsvp(currentEvent.id,'NOT_GOING',true)}><Text style={styles.noText}>✕</Text></TouchableOpacity><TouchableOpacity style={[styles.maybeAction,currentRsvp==='MAYBE'&&styles.maybeActionOn]} onPress={()=>void chooseRsvp(currentEvent.id,'MAYBE')}><Text style={styles.maybeText}>PEUT-ÊTRE</Text></TouchableOpacity><TouchableOpacity style={[styles.roundAction,styles.yesAction]} onPress={()=>void chooseRsvp(currentEvent.id,'GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color="#111"/>:<Text style={styles.yesText}>✓</Text>}</TouchableOpacity></View>
           <View style={styles.secondaryRow}><TouchableOpacity style={styles.secondary} onPress={nextEvent}><Text style={styles.secondaryText}>Suivant</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={()=>shareEvent(currentEvent.id,currentEvent.name).catch(()=>{})}><Text style={styles.secondaryText}>↗ Partager</Text></TouchableOpacity></View>
@@ -455,7 +455,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                 >
                   <Text style={styles.leaderboardTrophy}>{index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</Text>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={styles.leaderboardName}>@{entry.username}</Text>
+                    <Text numberOfLines={1} style={styles.leaderboardName}>{entry.username}</Text>
                     {entry.isOnline ? (
                       <Text numberOfLines={1} style={styles.leaderboardPresence}>● joue en solo{entry.presenceThemeCode && themeLabels[entry.presenceThemeCode] ? ` · ${themeLabels[entry.presenceThemeCode]}` : ''} · {tierLabel(entry.skillTier)}</Text>
                     ) : null}
@@ -480,7 +480,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setStatsEntry(null)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
           {statsEntry ? (
             <>
-              <Text style={styles.statsUsername}>@{statsEntry.username}</Text>
+              <Text style={styles.statsUsername}>{statsEntry.username}</Text>
               {statsLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 20 }} /> : (
                 <>
                   <View style={styles.statsBigRow}>

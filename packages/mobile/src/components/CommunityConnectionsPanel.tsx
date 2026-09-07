@@ -95,7 +95,7 @@ export default function CommunityConnectionsPanel({ userId, navigation, mode }: 
       return <View key={profile.id} style={s.row}>
         <TouchableOpacity style={s.identity} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}>
           {profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0,1).toUpperCase()}</Text></View>}
-          <View style={s.copy}><Text style={s.username}>@{profile.username}</Text><Text style={s.kind}>{profile.kind}</Text></View>
+          <View style={s.copy}><Text style={s.username}>{profile.username}</Text><Text style={s.kind}>{profile.kind}</Text></View>
         </TouchableOpacity>
         {mode === 'followers' ? (
           <TouchableOpacity style={[s.follow, alreadyFollowing && s.followOn]} onPress={() => void followBack(profile)} disabled={alreadyFollowing || busyId === profile.id}>

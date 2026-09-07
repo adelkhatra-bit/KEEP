@@ -135,8 +135,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       Alert.alert(
         'Compte Loki prêt',
         followed
-          ? `Tu es maintenant abonné(e) à @${cleanUsername(followUsername)}.`
-          : `Ton compte est connecté. Ouvre @${cleanUsername(followUsername)} pour terminer le suivi.`,
+          ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
+          : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
       );
     }
     onSuccess?.();

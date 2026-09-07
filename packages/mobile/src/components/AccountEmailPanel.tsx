@@ -54,7 +54,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
       setStatus(next);
       setCodeSent(false);
       setCode('');
-      Alert.alert('Adresse validée', `Tu peux maintenant te connecter à Loki avec @${username} ou ${next.email}.`);
+      Alert.alert('Adresse validée', `Tu peux maintenant te connecter à Loki avec ${username} ou ${next.email}.`);
     } catch (e: any) {
       Alert.alert('Validation e-mail', e?.message || 'Impossible de valider ce code.');
     } finally { setBusy(false); }
@@ -80,7 +80,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
     {verified ? <View style={s.verifiedBox}>
       <Text style={s.verifiedTitle}>✓ Adresse e-mail validée</Text>
       <Text style={s.verifiedEmail}>{status?.email}</Text>
-      <Text style={s.help}>Connexion possible avec @${username} ou cette adresse e-mail, avec le même mot de passe.</Text>
+      <Text style={s.help}>Connexion possible avec ${username} ou cette adresse e-mail, avec le même mot de passe.</Text>
     </View> : null}
 
     <Text style={s.label}>{verified ? 'Changer l’adresse e-mail' : 'Adresse e-mail de récupération'}</Text>

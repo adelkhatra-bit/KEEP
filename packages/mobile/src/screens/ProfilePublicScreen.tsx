@@ -459,9 +459,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
         {originKind ? <View style={s.discoveryOriginRow}>
           <Text style={s.originLabel}>Découvert par</Text>
-          {originKind === 'SELF' ? <View style={s.originUserLink}><Text style={s.originUserText}>@{user.username}</Text></View> : sourceUsername ? (
+          {originKind === 'SELF' ? <View style={s.originUserLink}><Text style={s.originUserText}>{user.username}</Text></View> : sourceUsername ? (
             <TouchableOpacity style={s.originUserLink} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil du découvreur ${sourceUsername}`}>
-              <Text style={s.originUserText}>@{sourceUsername}</Text>
+              <Text style={s.originUserText}>{sourceUsername}</Text>
             </TouchableOpacity>
           ) : <Text style={s.originProtected}>découvreur d’origine protégé</Text>}
         </View> : null}
@@ -545,7 +545,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.identity}>
           {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
           <View style={s.identityText}>
-            <View style={s.usernameLine}><Text style={s.username}>@{user.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+            <View style={s.usernameLine}><Text style={s.username}>{user.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
             <View style={s.profileMetaLeft}>
               <View style={s.kindBadge}><Text style={s.kindBadgeText}>{PROFILE_KIND_LABELS[user.kind]}</Text></View>
               {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
@@ -713,7 +713,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
             <View style={s.qrIdentityRow}>
               {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>K</Text></View>}
-              <View style={s.qrIdentityText}><Text style={s.qrUsername}>@{user.username}</Text><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
+              <View style={s.qrIdentityText}><Text style={s.qrUsername}>{user.username}</Text><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
             </View>
             {user.bio ? <Text style={s.qrBio} numberOfLines={3}>{user.bio}</Text> : <Text style={s.qrBio}>Mon univers musical, en un scan.</Text>}
             {identityGenres.length ? <View style={s.qrGenres}>{identityGenres.map((genre) => <View key={genre} style={s.qrGenre}><Text style={s.qrGenreText}>{genre}</Text></View>)}</View> : null}

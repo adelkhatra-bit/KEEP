@@ -436,7 +436,7 @@ export default function MyMusicScreen({ navigation }: any) {
     const clean = sourceUsername?.trim().replace(/^@+/, '');
     if (!sourceProfileId || !clean) return openSourceProfile(sourceUsername);
     if (!user || isLocalGuest || isDemoMode || !supabase) {
-      Alert.alert('Compte Loki requis', `Crée ton compte Loki pour suivre @${clean}.`, [
+      Alert.alert('Compte Loki requis', `Crée ton compte Loki pour suivre ${clean}.`, [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Voir son profil', onPress: () => openSourceProfile(clean) },
       ]);
@@ -448,7 +448,7 @@ export default function MyMusicScreen({ navigation }: any) {
       { onConflict: 'follower_id,followee_id', ignoreDuplicates: true },
     );
     if (error) Alert.alert('Suivre', 'Impossible de suivre ce profil pour le moment.');
-    else Alert.alert('Suivre', `Tu suis maintenant @${clean}.`);
+    else Alert.alert('Suivre', `Tu suis maintenant ${clean}.`);
   };
 
   const renderTrack = (track: CanonicalTrack) => {
@@ -466,10 +466,10 @@ export default function MyMusicScreen({ navigation }: any) {
           <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text>
           {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
             <Text style={styles.trackSourceLabel}>Donné par</Text>
-            <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de @${localEntry.sourceUsername}`}>
-              <Text style={styles.trackSourceLink}>@{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
+            <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de ${localEntry.sourceUsername}`}>
+              <Text style={styles.trackSourceLink}>{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
             </TouchableOpacity>
-            {localEntry.sourceProfileId && localEntry.sourceProfileId !== user?.id ? <TouchableOpacity style={styles.trackSourceFollow} onPress={() => void followSource(localEntry.sourceProfileId, localEntry.sourceUsername)} accessibilityRole="button" accessibilityLabel={`Suivre @${localEntry.sourceUsername}`}>
+            {localEntry.sourceProfileId && localEntry.sourceProfileId !== user?.id ? <TouchableOpacity style={styles.trackSourceFollow} onPress={() => void followSource(localEntry.sourceProfileId, localEntry.sourceUsername)} accessibilityRole="button" accessibilityLabel={`Suivre ${localEntry.sourceUsername}`}>
               <Text style={styles.trackSourceFollowText}>+ Suivre</Text>
             </TouchableOpacity> : null}
           </View> : null}
