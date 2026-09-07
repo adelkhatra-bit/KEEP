@@ -36,6 +36,7 @@ export type PublicProfileKeep = {
   sourceUserId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceCertificationTier?: ProfileCertificationTier;
   sourceType?: string;
   creditSource: 'LISTEN' | 'SOCIAL';
 };
@@ -101,19 +102,30 @@ function normalizeKeepRow(row: any, fallbackVisibility: 'PUBLIC' | 'PRIVATE' = '
   };
 }
 
+// Adel (07/09/2026) : "quand un utilisateur repartage la musique, elle est
+// toujours tamponnée avec le code couleur de la certification ... hormis si
+// demain il arrête son abonnement, le système le détecte et remet en vert" --
+// la couleur d'attribution doit toujours venir d'un calcul EN DIRECT de la
+// formule actuelle du découvreur, jamais d'une valeur figée au moment du
+// partage. keep_public_certification_tiers recalcule à chaque chargement.
 async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
   if (!supabase || !rows.length) return rows;
-  const ids = Array.from(new Set(rows
+  const client = supabase;
+  const allSourceIds = Array.from(new Set(rows
+    .map((row) => row.sourceProfileId || row.sourceUserId)
+    .filter(Boolean) as string[]));
+  const needsUsername = Array.from(new Set(rows
     .filter((row) => !row.sourceUsername)
     .map((row) => row.sourceProfileId || row.sourceUserId)
     .filter(Boolean) as string[]));
-  if (!ids.length) return rows;
+  if (!allSourceIds.length) return rows;
 
   const usernames = new Map<string, string>();
+  const tiers = new Map<string, ProfileCertificationTier>();
   const chunkSize = 100;
-  for (let start = 0; start < ids.length; start += chunkSize) {
-    const chunk = ids.slice(start, start + chunkSize);
-    const { data, error } = await supabase
+  for (let start = 0; start < needsUsername.length; start += chunkSize) {
+    const chunk = needsUsername.slice(start, start + chunkSize);
+    const { data, error } = await client
       .from('profiles')
       .select('id,username')
       .in('id', chunk)
@@ -123,13 +135,22 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
       if (profile?.id && profile?.username) usernames.set(String(profile.id), String(profile.username));
     }
   }
+  for (let start = 0; start < allSourceIds.length; start += chunkSize) {
+    const chunk = allSourceIds.slice(start, start + chunkSize);
+    const { data, error } = await client.rpc('keep_public_certification_tiers', { p_profile_ids: chunk });
+    if (error) continue;
+    for (const row of (data ?? []) as Array<{ profile_id: string; certification_tier: string }>) {
+      if (row?.profile_id) tiers.set(String(row.profile_id), certificationTier(row.certification_tier));
+    }
+  }
 
-  if (!usernames.size) return rows;
+  if (!usernames.size && !tiers.size) return rows;
   return rows.map((row) => {
-    if (row.sourceUsername) return row;
     const sourceId = row.sourceProfileId || row.sourceUserId;
-    const sourceUsername = sourceId ? usernames.get(sourceId) : undefined;
-    return sourceUsername ? { ...row, sourceUsername } : row;
+    const sourceUsername = row.sourceUsername || (sourceId ? usernames.get(sourceId) : undefined);
+    const sourceCertificationTier = sourceId ? tiers.get(sourceId) : undefined;
+    if (sourceUsername === row.sourceUsername && sourceCertificationTier === undefined) return row;
+    return { ...row, ...(sourceUsername ? { sourceUsername } : {}), ...(sourceCertificationTier ? { sourceCertificationTier } : {}) };
   });
 }
 

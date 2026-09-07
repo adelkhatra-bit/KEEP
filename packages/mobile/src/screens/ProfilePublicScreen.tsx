@@ -287,6 +287,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     creditSource: entry.creditSource,
     sourceProfileId: entry.sourceProfileId,
     sourceUsername: entry.sourceUsername,
+    sourceCertificationTier: entry.sourceCertificationTier,
   })), [serverOwnKeeps]);
   const profileKeptTracks = accountRequired ? keptTracks : canonicalOwnKeeps;
   const publicKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [profileKeptTracks]);
@@ -468,7 +469,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
     setSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
   };
 
-  const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null, originKind?: 'SELF' | 'SOCIAL' | null) => (
+  const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null, originKind?: 'SELF' | 'SOCIAL' | null, sourceTier?: ProfileCertificationTier) => {
+    const sourceColors = sourceTier ? (CERTIFICATION_META[sourceTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
+    return (
     <View key={key} style={s.keepRow}>
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.keepCover} /> : <View style={[s.keepCover, s.coverFallback]}><Text style={s.keepCoverK}>K</Text></View>}
       <View style={s.keepInfo}>
@@ -479,8 +482,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         {originKind ? <View style={s.discoveryOriginRow}>
           <Text style={s.originLabel}>Découvert par</Text>
           {originKind === 'SELF' ? <View style={[s.originUserLink, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[s.originUserText, { color: certificationColors.ring }]}>{user.username}</Text></View> : sourceUsername ? (
-            <TouchableOpacity style={s.originUserLink} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil du découvreur ${sourceUsername}`}>
-              <Text style={s.originUserText}>{sourceUsername}</Text>
+            <TouchableOpacity style={[s.originUserLink, sourceColors ? { backgroundColor: `${sourceColors.colors[sourceColors.colors.length - 1]}33`, borderColor: sourceColors.ring } : null]} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil du découvreur ${sourceUsername}`}>
+              <Text style={[s.originUserText, sourceColors ? { color: sourceColors.ring } : null]}>{sourceUsername}</Text>
             </TouchableOpacity>
           ) : <Text style={s.originProtected}>découvreur d’origine protégé</Text>}
         </View> : null}
@@ -490,14 +493,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
     </View>
-  );
+    );
+  };
 
   const tabContent = () => {
     if (activeTab === 'TRACKS') {
       if (!publicKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
         <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes, artistes et albums. Tu gardes le contrôle du Public/Privé et des noms.</Text>
-        {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF'))}
+        {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined))}
       </View>;
     }
 

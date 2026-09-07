@@ -37,6 +37,7 @@ type PublicKeepTrack = {
   sourceUserId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceCertificationTier?: ProfileCertificationTier;
 };
 type SocialPlatform = SocialLink['platform'];
 
@@ -150,6 +151,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           sourceUserId: entry.sourceUserId,
           sourceProfileId: entry.sourceProfileId,
           sourceUsername: entry.sourceUsername,
+          sourceCertificationTier: entry.sourceCertificationTier,
         } as PublicKeepTrack));
 
         if (cancelled) return;
@@ -535,7 +537,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
                     {discoveryUsername ? discoveryUsername === profile.username ? <Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text> : (
                       <TouchableOpacity onPress={() => navigation.navigate('PublicUserProfile', { username: discoveryUsername })} accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}`}>
-                        <Text style={styles.discoveryOriginUser}>{discoveryUsername}</Text>
+                        <Text style={[styles.discoveryOriginUser, track.sourceCertificationTier ? { color: (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED).ring } : null]}>{discoveryUsername}</Text>
                       </TouchableOpacity>
                     ) : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                   </View>
