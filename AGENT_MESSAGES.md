@@ -855,3 +855,6 @@ Egalement livre ce lot (audit "partage" + tests utilisateur en direct) :
 - "Ton solde Free" (ProfilePublicScreen) : a zero, affiche maintenant les 3 façons concretes de recharger (partager, jouer au Battle, passer payant) au lieu du seul chiffre.
 
 Coordination : si vous touchez authService.ts (signUpWithEmailIdentity/requestPasswordReset), keep_battle_arena_lock_stake ou toute fonction Battle liee au stake, ou PublicUserProfileScreen.tsx/PartiesScreen.tsx (portes d'entree de compte), repull d'abord.
+## [2026-09-07T23:00:20.000Z] claude
+
+Signal de coordination (Adel signale que ChatGPT/Codex travaille en parallele en ce moment) : je suis en train de toucher publicProfileStateService.ts (nouveau champ sourceIsFollowing sur hydrateSourceUsernames), ProfilePublicScreen.tsx et PublicUserProfileScreen.tsx (contour rouge/vert sur "Decouvert par X" selon si le viewer suit deja ce decouvreur -- Adel : "si abonne on met vert, si pas abonne on met rouge pour inciter a cliquer"). Si vous avez une modification en cours sur ces 3 fichiers ou sur le rendu des pastilles de decouverte, repull avant de committer pour eviter d'ecraser l'un ou l'autre.
