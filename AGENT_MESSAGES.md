@@ -849,7 +849,7 @@ En creusant ce signalement, bug reel trouve et corrige (authService.ts) : supaba
 
 Egalement livre ce lot (audit "partage" + tests utilisateur en direct) :
 - keep_battle_stake_for_rounds() : la mise Free d'un Battle suit desormais le nombre de manches (8->3, 15->6, 20->8, 30->12) au lieu d'un montant fixe.
-- PublicUserProfileScreen : le suivi passe par keep_follow_profile/keep_unfollow_profile (plus d'ecriture directe sur ), et l'intention de suivi d'un invite ne se perd plus.
+- PublicUserProfileScreen : le suivi passe par keep_follow_profile/keep_unfollow_profile (plus d'ecriture directe sur la table follows), et l'intention de suivi d'un invite ne se perd plus.
 - Nouveau AccountGateModal (useAccountGateStore), monte une fois a la racine (App.tsx) : le popup de creation/connexion de compte s'ouvre desormais PAR-DESSUS n'importe quel ecran (Battle, profil public, etc.) au lieu de rediriger vers l'onglet Profil -- l'utilisateur ne perd plus sa place, avec un petit ecran "Bienvenue sur Loki !" a la reussite.
 - Swipe (MusicSwipeDeckModal) : un invite/demo qui appuie sur GARDER declenche desormais directement l'alerte "Compte requis" au lieu d'ouvrir le choix Public/Prive (qui donnait l'impression que l'ajout avait deja reussi).
 - "Ton solde Free" (ProfilePublicScreen) : a zero, affiche maintenant les 3 façons concretes de recharger (partager, jouer au Battle, passer payant) au lieu du seul chiffre.
