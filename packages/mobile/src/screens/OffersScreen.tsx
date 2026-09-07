@@ -104,14 +104,13 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   // même endroit que le prix lui-même), séparé de ce que le Battle fait
   // gagner/perdre en plus.
   if (planCode === 'FREE') return [
-    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
+    monthlyFreeBonus > 0 ? `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).` : 'Gagne du Free en partageant ton profil et en développant ta communauté.',
     `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : ${rules.freeCostPerKeep} Free.`,
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
     `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Vibes.`,
   ];
