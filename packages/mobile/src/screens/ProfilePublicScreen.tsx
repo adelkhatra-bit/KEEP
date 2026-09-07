@@ -11,6 +11,8 @@ import { radius, spacing, typography } from '../theme/spacing';
 import { ProfileKind, SocialLink } from '../types';
 import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
+import { createProfileService } from '../services/profileService';
+import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
 import { getCommercialRules } from '../services/growthAccessService';
@@ -50,6 +52,7 @@ const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
 
 export default function ProfilePublicScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -90,6 +93,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
   const [freeHistoryOpen, setFreeHistoryOpen] = useState(false);
+  // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
+  // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
+  // paramètres" -- la pastille ouvrait les Réglages avancés au lieu d'un
+  // choix direct sur place. Popup immédiat, même logique que
+  // CreatorToolsPanel (changeKind).
+  const [kindPickerOpen, setKindPickerOpen] = useState(false);
+  const [kindChangeBusy, setKindChangeBusy] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -361,6 +371,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // que soit la formule.
   const certificationColors = CERTIFICATION_META[certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
   const canChangeProfileKind = planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO';
+  const kindChoices: { key: ProfileKind; label: string }[] = planCode === 'VENUE_PRO'
+    ? [{ key: 'USER', label: 'Utilisateur' }, { key: 'VENUE', label: 'Établissement' }]
+    : [{ key: 'USER', label: 'Utilisateur' }, { key: 'CREATOR', label: 'Créateur' }, { key: 'DJ', label: 'DJ' }, { key: 'ARTIST', label: 'Artiste' }, { key: 'PRODUCER', label: 'Producteur' }];
+  const changeKind = async (kind: ProfileKind) => {
+    if (!supabase || !user || kind === user.kind || kindChangeBusy) return;
+    setKindChangeBusy(true);
+    try {
+      const next = { ...user, kind };
+      await createProfileService(supabase).saveOwnProfile(next);
+      setUser(next);
+      setKindPickerOpen(false);
+    } catch (e: any) {
+      Alert.alert('Type de profil', e?.message || 'Impossible de modifier le type de profil pour le moment.');
+    } finally {
+      setKindChangeBusy(false);
+    }
+  };
   const planStyle = freeBalance === 0
     ? s.planExhausted
     : { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring };
@@ -578,7 +605,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   lieu d'obliger à chercher dans les réglages. Même couleur
                   que la certification, comme pour le badge Free. */}
               {canChangeProfileKind ? (
-                <TouchableOpacity style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]} onPress={() => navigation.navigate('AdvancedProfileSettings')} accessibilityRole="button" accessibilityLabel="Changer le type de profil">
+                <TouchableOpacity style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]} onPress={() => setKindPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Changer le type de profil">
                   <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
                   <Text style={[s.kindBadgeEdit, { color: certificationColors.ring }]}>✎</Text>
                 </TouchableOpacity>
@@ -726,6 +753,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
     </Modal>
 
+    <Modal visible={kindPickerOpen} transparent animationType="fade" onRequestClose={() => setKindPickerOpen(false)}>
+      <View style={s.modalBackdrop}>
+        <View style={s.shareSheet}>
+          <View style={s.sheetHandle} />
+          <Text style={s.shareTitle}>Type de profil</Text>
+          <Text style={s.shareSubtitle}>Ta formule {planCode === 'VENUE_PRO' ? 'Lieu Pro' : 'Créateur Pro'} te permet de changer de type à tout moment.</Text>
+          <View style={s.kindPickerGrid}>
+            {kindChoices.map((choice) => (
+              <TouchableOpacity key={choice.key} disabled={kindChangeBusy} style={[s.kindChoice, user.kind === choice.key && s.kindChoiceOn]} onPress={() => void changeKind(choice.key)}>
+                <Text style={[s.kindChoiceText, user.kind === choice.key && s.kindChoiceTextOn]}>{choice.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={s.cancelShare} onPress={() => setKindPickerOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
     <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
@@ -783,6 +828,6 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,marginTop:5,flexWrap:'wrap'},originLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},originUserText:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},originProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},kindChoiceText:{color:'#F8F6FC',fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
   qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:34,height:34,borderRadius:17,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:12,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:12,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:13,lineHeight:18,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:11,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:13,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},
 });

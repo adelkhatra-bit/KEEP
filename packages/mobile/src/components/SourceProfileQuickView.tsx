@@ -3,6 +3,12 @@ import { ActivityIndicator, Image, Modal, StyleSheet, Text, TouchableOpacity, Vi
 import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
+import ProfileCertificationBadge from './ProfileCertificationBadge';
+import type { ProfileCertificationTier } from '../services/publicProfileStateService';
+
+const KIND_LABELS: Record<string, string> = {
+  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu / établissement',
+};
 
 type QuickProfile = {
   id: string;
@@ -39,6 +45,10 @@ export default function SourceProfileQuickView({
   const [followBusy, setFollowBusy] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [message, setMessage] = useState('');
+  // Adel (07/09/2026) : "la certif doit être présentée partout" -- cette
+  // fenêtre rapide n'affichait jamais le badge de certification. Calculée en
+  // direct (jamais figée) via la même RPC que le reste de l'app.
+  const [certificationTier, setCertificationTier] = useState<ProfileCertificationTier>('UNVERIFIED');
 
   useEffect(() => {
     const client = supabase;
@@ -48,6 +58,7 @@ export default function SourceProfileQuickView({
     setMessage('');
     setProfile(null);
     setIsFollowing(false);
+    setCertificationTier('UNVERIFIED');
 
     const loadProfile = async () => {
       try {
@@ -61,6 +72,12 @@ export default function SourceProfileQuickView({
         if (!error && data?.[0]) {
           const nextProfile = data[0] as QuickProfile;
           setProfile(nextProfile);
+          Promise.resolve(client.rpc('keep_public_certification_tiers', { p_profile_ids: [nextProfile.id] }))
+            .then(({ data: tierRows }) => {
+              const row = Array.isArray(tierRows) ? tierRows[0] : null;
+              if (live && row?.certification_tier) setCertificationTier(row.certification_tier as ProfileCertificationTier);
+            })
+            .catch(() => {});
           if (currentUserId && currentUserId !== nextProfile.id && !accountRequired) {
             const { data: relation, error: relationError } = await client
               .from('follows')
@@ -126,8 +143,8 @@ export default function SourceProfileQuickView({
             {profile.avatar_url
               ? <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
               : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0, 1).toUpperCase()}</Text></View>}
-            <Text style={s.username}>{profile.username}</Text>
-            <Text style={s.meta}>{[profile.display_name, profile.kind, profile.city, profile.country_code].filter(Boolean).join(' · ')}</Text>
+            <View style={s.usernameRow}><Text style={s.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+            <Text style={s.meta}>{[profile.display_name, profile.kind ? (KIND_LABELS[profile.kind] ?? profile.kind) : null, profile.city, profile.country_code].filter(Boolean).join(' · ')}</Text>
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
             {message ? <Text style={s.message}>{message}</Text> : null}
 
@@ -151,7 +168,8 @@ const s = StyleSheet.create({
   handle:{width:42,height:4,borderRadius:2,backgroundColor:'#51445F',marginBottom:16},
   avatar:{width:70,height:70,borderRadius:35,backgroundColor:colors.backgroundCard},
   avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:27,fontWeight:'900'},
-  username:{color:colors.textPrimary,fontSize:21,fontWeight:'900',marginTop:10},
+  usernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},
+  username:{color:colors.textPrimary,fontSize:21,fontWeight:'900'},
   meta:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:4,textAlign:'center'},
   bio:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
   message:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginVertical:8},
