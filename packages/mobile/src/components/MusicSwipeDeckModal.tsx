@@ -29,6 +29,12 @@ type Props = {
   loop?: boolean;
   askVisibilityOnKeep?: boolean;
   previewOnly?: boolean;
+  // Adel (08/09/2026) : "on ne peut pas garder de musique tant que le compte
+  // n'est pas reconnu ... sinon on va se retrouver avec des faux comptes" --
+  // un invité/démo ne doit jamais voir le choix Public/Privé (ça donne
+  // l'impression que l'ajout a déjà réussi) : GARDER doit immédiatement
+  // déclencher l'alerte "Compte Loki requis" existante d'onKeep.
+  requiresAccount?: boolean;
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
   onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
@@ -44,6 +50,7 @@ export default function MusicSwipeDeckModal({
   loop = true,
   askVisibilityOnKeep = false,
   previewOnly = false,
+  requiresAccount = false,
   onClose,
   onKeep,
   onPass,
@@ -262,6 +269,13 @@ export default function MusicSwipeDeckModal({
 
   const requestKeep = async () => {
     if (!current || processing) return;
+    if (requiresAccount) {
+      actionInFlight.current = true;
+      setProcessing(true);
+      try { await onKeep?.(current, 'PUBLIC'); }
+      finally { actionInFlight.current = false; setProcessing(false); }
+      return;
+    }
     if (previewOnly) {
       actionInFlight.current = true;
       setPreviewInfoOpen(true);

@@ -569,6 +569,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         title={`La collection de ${profile.username}`}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
+        requiresAccount={!viewer || isLocalGuest || isDemoMode}
         onClose={() => setSwipeOpen(false)}
         onKeep={addCanonicalToMyKeep}
       />
