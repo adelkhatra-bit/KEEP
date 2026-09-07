@@ -777,3 +777,16 @@ Audit App Store finalisé : StoreKit utilise prix/produits Apple réels, gère p
 ## [2026-09-06T01:30:00.000Z] codex
 
 Ajout d’un Centre de lancement réservé SUPER_ADMIN : budget et plans recommandés, liens officiels de paiement/configuration, état des six secrets Apple, checklist TestFlight/contrats et test réel de toute la cascade ShazamKit → AudD → ACRCloud. Aucun mot de passe ni clé privée n’est affiché côté navigateur. TypeScript et build Next 17 routes OK.
+## [2026-09-06T14:34:22.677Z] claude
+
+Vu en tirant les derniers commits (de1cd5a) que codex a livré en parallèle sur les memes ecrans Battle pendant que je travaillais dessus depuis mon dernier push connu (47469c9) : grille 4 choix (au lieu de 3), contours bleus, plafond 3 styles cote toggleMyPreferredTheme, comptabilite Free unifiee. J'ai stashe puis abandonne mes propres changements redondants (mon cap a 3 styles, ma logique '3e bouton pleine largeur' devenue obsolete avec la grille a 4) et garde seulement 2 ajouts independants non conflictuels (badge numero centre, bouton retour avec bordure visible). Repartir de 4f94786. Je vais eviter de retoucher les memes zones sans repull d'abord.
+
+## [2026-09-07T10:45:00.000Z] claude
+
+Audit multi-agent (4 juges en parallele : DB/concurrence, mobile, securite, charge) sur l'ensemble de KEEP a la demande d'Adel. 5 correctifs DB/edge deja appliques en direct sur rrhqsqzcplvmwxizqnla + pousses sur cette branche :
+- keep_battle_arena_lock_stake : verrou advisory par profil (corrige un vrai double-credit cross-arenes).
+- Revoke EXECUTE anon/authenticated sur keep_theoretical_free_credit_remaining_for_profile + 3 fonctions liees (fuite de solde credit d'autrui, IDOR).
+- Re-durcissement service_lookup_fingerprint_hashes + service_record_recognition_success (regrant global anterieur les avait rendues anon-callable malgre un REVOKE ALL FROM PUBLIC deja present a la creation).
+- Drop de l'ancienne surcharge 2-arg de keep_battle_challenge_send (contournait le plafond quotidien de defis, meme piege CREATE OR REPLACE que keep_battle_arena_create deja documente ici).
+- keep-battle-catalog-seed (cle worker hachee, meme pattern que keep-push-worker) + keep-battle-catalog-refresh (exige un JWT utilisateur valide) : les deux etaient appelables anonymement sans aucune verification.
+Rapports complets des 4 juges dans le scratchpad de session (non commits, ephemere). Reste a faire, pas encore touche : plafond Discover 100 profils sans pagination, 503 dur sans retry sur reset mot de passe si Brevo echoue, RLS auth.uid() non wrappe sur 39 tables, FK Battle sans index, essai invite sans plafond serveur (needs device fingerprint infra). Coordination : si vous touchez keep_battle_arena_lock_stake, keep_theoretical_free_credit_remaining_for_profile, keep-battle-catalog-seed/refresh ou keep_battle_challenge_send, repull d'abord.

@@ -9,9 +9,30 @@ const admin = createClient(
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-worker-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
+
+// Audit multi-agent 07/09/2026 (juge securite) : cette fonction ecrit massivement
+// en base (service_role, bypass RLS) et interroge iTunes en boucle, sans jamais
+// verifier qui appelle -- appelable anonymement par n'importe qui. Meme garde que
+// keep-push-worker : cle partagee hachee, comparee en base.
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function authorized(req: Request) {
+  const supplied = req.headers.get("x-keep-worker-key") || "";
+  if (!supplied) return false;
+  const { data, error } = await admin
+    .from("keep_internal_worker_secrets")
+    .select("secret_hash")
+    .eq("name", "battle-catalog-seed")
+    .maybeSingle();
+  if (error || !data?.secret_hash) return false;
+  return (await sha256(supplied)) === String(data.secret_hash);
+}
 
 // Adel (02/09/2026) : "plus d'artistes ... des vieux titres et recents ...
 // aller chercher plus profond" -- chaque theme n'interrogeait iTunes qu'avec
@@ -184,6 +205,7 @@ async function seed(theme: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (!(await authorized(req))) return out(401, { ok: false, error: "unauthorized" });
   try {
     let theme = "";
     if (req.method === "GET") theme = new URL(req.url).searchParams.get("theme")?.toUpperCase() ?? "";
