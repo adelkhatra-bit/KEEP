@@ -334,6 +334,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // plans payants masquaient le compteur derrière leur nom commercial,
   // laissé "illimité" côté crédits de téléchargement uniquement).
   const planLabel = freeBalance != null ? `${freeBalance} FREE` : planCode;
+  // Adel (07/09/2026) : "mettre le nombre de jours restants pour savoir dans
+  // combien de jours il sera recrédité" -- le Free du mois est versé le 1er
+  // de chaque mois pour le mois qui vient de se terminer (jamais en cours de
+  // mois), donc toujours au moins un jour d'attente le 1er lui-même.
+  const daysUntilNextFreeCredit = (() => {
+    const now = new Date();
+    const nextFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return Math.max(1, Math.ceil((nextFirst.getTime() - now.getTime()) / 86400000));
+  })();
   const profileOwnKeepCount = ownSnapshot?.directKeeps ?? localPublicOwnKeepCount;
   const profileUserKeepCount = ownSnapshot?.socialKeeps ?? localDiscoveryImpactCount;
   const profileTotalKeepCount = ownSnapshot?.totalKeeps ?? profileKeptTracks.length;
@@ -690,7 +699,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
             <Text style={s.linkPreviewText}>🏆 Gagné au Battle au total : +{freeWon} Free</Text>
             <Text style={s.linkPreviewText}>💔 Perdu au Battle au total : -{freeLost} Free</Text>
-            <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule</Text>
+            <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule — prochain versement dans {daysUntilNextFreeCredit} jour{daysUntilNextFreeCredit > 1 ? 's' : ''} (le 1er du mois)</Text>
           </View>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setFreeHistoryOpen(false); navigation.navigate('Offers'); }}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setFreeHistoryOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
