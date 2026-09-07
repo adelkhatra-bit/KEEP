@@ -387,7 +387,14 @@ export default function PartiesScreen({ navigation, route }: any) {
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
           initialArenaId={pendingArenaId}
           onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
-          onRequireAccount={() => navigation.navigate('Main', { screen: 'Profile' })}
+          onRequireAccount={() => Alert.alert(
+            'Compte Loki requis',
+            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            [
+              { text: 'Plus tard', style: 'cancel' },
+              { text: 'Créer mon compte', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) },
+            ],
+          )}
           onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
