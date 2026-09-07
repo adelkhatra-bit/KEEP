@@ -37,6 +37,11 @@ export type PublicProfileKeep = {
   sourceProfileId?: string;
   sourceUsername?: string;
   sourceCertificationTier?: ProfileCertificationTier;
+  // Adel (08/09/2026) : "si l'utilisateur est abonné à celui qui a
+  // découvert la musique, on met vert, si il est pas abonné, tu le mets
+  // rouge ... incité à cliquer dessus" -- calculé pour le VIEWER courant
+  // (auth.uid()), jamais pour le propriétaire du profil visité.
+  sourceIsFollowing?: boolean;
   sourceType?: string;
   creditSource: 'LISTEN' | 'SOCIAL';
 };
@@ -122,7 +127,18 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
 
   const usernames = new Map<string, string>();
   const tiers = new Map<string, ProfileCertificationTier>();
+  const following = new Set<string>();
   const chunkSize = 100;
+  const { data: viewerData } = await client.auth.getUser().catch(() => ({ data: { user: null } }));
+  const viewerId = viewerData?.user?.id;
+  if (viewerId) {
+    for (let start = 0; start < allSourceIds.length; start += chunkSize) {
+      const chunk = allSourceIds.slice(start, start + chunkSize);
+      const { data, error } = await client.from('follows').select('followee_id').eq('follower_id', viewerId).in('followee_id', chunk);
+      if (error) continue;
+      for (const row of data ?? []) if (row?.followee_id) following.add(String(row.followee_id));
+    }
+  }
   for (let start = 0; start < needsUsername.length; start += chunkSize) {
     const chunk = needsUsername.slice(start, start + chunkSize);
     const { data, error } = await client
@@ -144,13 +160,19 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
     }
   }
 
-  if (!usernames.size && !tiers.size) return rows;
+  if (!usernames.size && !tiers.size && !viewerId) return rows;
   return rows.map((row) => {
     const sourceId = row.sourceProfileId || row.sourceUserId;
     const sourceUsername = row.sourceUsername || (sourceId ? usernames.get(sourceId) : undefined);
     const sourceCertificationTier = sourceId ? tiers.get(sourceId) : undefined;
-    if (sourceUsername === row.sourceUsername && sourceCertificationTier === undefined) return row;
-    return { ...row, ...(sourceUsername ? { sourceUsername } : {}), ...(sourceCertificationTier ? { sourceCertificationTier } : {}) };
+    const sourceIsFollowing = viewerId && sourceId ? following.has(sourceId) : undefined;
+    if (sourceUsername === row.sourceUsername && sourceCertificationTier === undefined && sourceIsFollowing === undefined) return row;
+    return {
+      ...row,
+      ...(sourceUsername ? { sourceUsername } : {}),
+      ...(sourceCertificationTier ? { sourceCertificationTier } : {}),
+      ...(sourceIsFollowing !== undefined ? { sourceIsFollowing } : {}),
+    };
   });
 }
 
