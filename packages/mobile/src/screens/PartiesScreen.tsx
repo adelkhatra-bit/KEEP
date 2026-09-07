@@ -15,6 +15,9 @@ import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomin
 import { supabase } from '../services/supabaseClient';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { FreeCreditBreakdown, loadFreeCreditBreakdown } from '../services/creditService';
+import { loadCurrentPlanCode } from '../services/planService';
+import { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
+import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -93,6 +96,16 @@ export default function PartiesScreen({ navigation, route }: any) {
     loadMyKeepBattleCreditStatus().then((status) => { if (live) setBattleFreeBalance(status.remainingFree); }).catch(() => { if (live) setBattleFreeBalance(null); });
     return () => { live = false; };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
+  // Règle (07/09/2026, Adel) : un badge Free reprend toujours la couleur de la
+  // certification correspondante, jamais une couleur fixe.
+  const [myPlanCode, setMyPlanCode] = useState<ProfileCertificationTier>('FREE');
+  useEffect(() => {
+    let live = true;
+    if (!user || isLocalGuest || isDemoMode) { setMyPlanCode('FREE'); return undefined; }
+    loadCurrentPlanCode(user.id).then((code) => { if (live) setMyPlanCode((code as ProfileCertificationTier) || 'FREE'); }).catch(() => { if (live) setMyPlanCode('FREE'); });
+    return () => { live = false; };
+  }, [user, isLocalGuest, isDemoMode]);
+  const myTierColors = CERTIFICATION_META[myPlanCode] ?? CERTIFICATION_META.FREE;
   // Adel (02/09/2026) : "on devrait faire deux petits boutons, un côté
   // Battle et un côté les soirées ... je trouve qu'on mélange un peu les
   // deux ... par défaut ça revient toujours à soirée" -- Soirées et Battle
@@ -442,7 +455,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             <View style={styles.battleLauncherCopy}>
               <View style={styles.battleLauncherKickerRow}>
                 <Text style={styles.battleLauncherKicker}>Loki BATTLE</Text>
-                {battleFreeBalance != null ? <View style={styles.battleLauncherFreeBadge}><Text style={styles.battleLauncherFreeBadgeText}>{battleFreeBalance} Free</Text></View> : null}
+                {battleFreeBalance != null ? <View style={[styles.battleLauncherFreeBadge, { backgroundColor: `${myTierColors.colors[myTierColors.colors.length - 1]}33`, borderColor: myTierColors.ring }]}><Text style={[styles.battleLauncherFreeBadgeText, { color: myTierColors.ring }]}>{battleFreeBalance} Free</Text></View> : null}
               </View>
               <Text style={styles.battleLauncherTitle}>Salon musical</Text>
               <Text style={styles.battleLauncherMeta}>Solo ou multijoueur · mode plein écran · aucun code à écrire</Text>

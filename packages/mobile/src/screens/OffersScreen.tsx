@@ -10,7 +10,7 @@ import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRul
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
 import { FreeCreditBreakdown, getDownloadCreditStatus, loadFreeCreditBreakdown } from '../services/creditService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
-import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
+import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -299,7 +299,10 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.requiredPlanRow}>
             <Text style={s.requiredIntroTitle}>{isEventChoice ? 'Creator Pro ou Venue Pro' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : planLabel(focusPlan)}</Text>
             <ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} />
-            {!isEventChoice && focusPlanFreeBonus ? <View style={s.requiredPlanFreeBadge}><Text style={s.requiredPlanFreeBadgeText}>+{focusPlanFreeBonus} Free/mois</Text></View> : null}
+            {!isEventChoice && focusPlanFreeBonus ? (() => {
+              const tierColors = CERTIFICATION_META[certificationTierForPlan(focusPlan)];
+              return <View style={[s.requiredPlanFreeBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}><Text style={[s.requiredPlanFreeBadgeText, { color: tierColors.ring }]}>+{focusPlanFreeBonus} Free/mois</Text></View>;
+            })() : null}
           </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
           {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
