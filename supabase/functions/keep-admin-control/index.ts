@@ -20,6 +20,13 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
   BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki" },
   BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki" },
+  // Adel (08/09/2026) : "trouve une autre solution ... une autre plate-forme
+  // d'e-mail ... gratuite ... 6000 e-mails gratuit" -- Mailjet (200/jour =
+  // 6000/mois, sans carte bancaire), en repli/alternative a Brevo. Meme
+  // identite expediteur (BREVO_SENDER_EMAIL/NAME reutilises) : keep-auth-email
+  // bascule automatiquement sur Mailjet des que ces deux cles sont renseignees.
+  MAILJET_API_KEY: { category: "email", label: "Mailjet API Key" },
+  MAILJET_SECRET_KEY: { category: "email", label: "Mailjet Secret Key", secret: true },
   SPOTIFY_CLIENT_ID: { category: "music", label: "Spotify Client ID" },
   SPOTIFY_CLIENT_SECRET: { category: "music", label: "Spotify Client Secret", secret: true },
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
@@ -552,20 +559,42 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
-      const apiKey = await getSecret("BREVO_API_KEY");
       const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
       const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
-      if (!apiKey || !senderEmail) return json(409, { error: "brevo_not_configured", message: "Renseigne BREVO_API_KEY et BREVO_SENDER_EMAIL." });
+      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki, partagée par tous les fournisseurs)." });
 
+      const subject = "Loki — test e-mail réussi";
+      const html = `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">Loki</div><h2 style="margin-top:28px">Ton e-mail Loki est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p></div></div>`;
+      const text = "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.";
+
+      // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... 6000 e-mails
+      // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
+      // que keep-auth-email : Mailjet en priorite s'il est configure).
+      const mjKey = await getSecret("MAILJET_API_KEY");
+      const mjSecret = await getSecret("MAILJET_SECRET_KEY");
+      if (mjKey && mjSecret) {
+        const response = await fetch("https://api.mailjet.com/v3.1/send", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Basic ${btoa(`${mjKey}:${mjSecret}`)}` },
+          body: JSON.stringify({ Messages: [{ From: { Email: senderEmail, Name: senderName }, To: [{ Email: email }], Subject: subject, HTMLPart: html, TextPart: text }] }),
+        });
+        const details = await response.text();
+        if (!response.ok) return json(response.status, { error: "mailjet_send_failed", details: details.slice(0, 500) });
+        await audit(actor.id, "integration_email.tested", "mailjet", email, { ok: true });
+        return json(200, { ok: true, provider: "mailjet" });
+      }
+
+      const apiKey = await getSecret("BREVO_API_KEY");
+      if (!apiKey) return json(409, { error: "email_provider_not_configured", message: "Renseigne MAILJET_API_KEY+MAILJET_SECRET_KEY, ou BREVO_API_KEY." });
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
         body: JSON.stringify({
           sender: { email: senderEmail, name: senderName },
           to: [{ email }],
-          subject: "Loki — test e-mail réussi",
-          htmlContent: `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">Loki</div><h2 style="margin-top:28px">Ton e-mail Loki est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p></div></div>`,
-          textContent: "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.",
+          subject,
+          htmlContent: html,
+          textContent: text,
         }),
       });
       const details = await response.text();

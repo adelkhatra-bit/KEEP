@@ -525,6 +525,15 @@ export default function PartiesScreen({ navigation, route }: any) {
     // reste modifiable en faisant defiler.
     const now = new Date();
     setDateIdx(0); setHourIdx(now.getHours()); setMinuteIdx(now.getMinutes());
+    // BUG REEL trouve en direct (Adel, capture d'ecran "Indique la date au
+    // format...") : quand les trois index de la roulette tombent tous DEJA
+    // sur leur valeur courante (ex. ouvrir Creer juste apres le montage de
+    // l'ecran, avant que l'heure/minute n'ait bouge), React ignore ces
+    // set*(meme valeur) -- l'effet qui calcule startsAt a partir des index
+    // ne se redeclenche alors JAMAIS, et startsAt reste a sa valeur initiale
+    // vide. On pose donc startsAt directement ici, sans dependre de cet
+    // effet pour la toute premiere valeur.
+    setStartsAt(toLocalInputValue(now));
     setCreateOpen(true);
   };
 
@@ -551,6 +560,10 @@ export default function PartiesScreen({ navigation, route }: any) {
     setDateIdx(Math.max(0, Math.min(dateWheelItems.length - 1, dayDiff)));
     setHourIdx(eventDate.getHours());
     setMinuteIdx(eventDate.getMinutes());
+    // BUG REEL (meme cause qu'openCreate ci-dessus) : poser startsAt
+    // directement depuis la vraie date de l'evenement, sans dependre de
+    // l'effet de la roulette pour la valeur initiale.
+    setStartsAt(toLocalInputValue(eventDate));
     setVenueName(event.venueName || '');
     setVenueCoords(null);
     setCountryCode(event.countryCode || 'FR');

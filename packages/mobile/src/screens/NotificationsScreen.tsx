@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -16,7 +16,7 @@ import {
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
 import { loadCurrentPlanCode } from '../services/planService';
-import { EventRsvpStatus, loadMyRsvps, setEventRsvp } from '../services/creatorEventService';
+import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent } from '../services/creatorEventService';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -40,8 +40,12 @@ function notificationTypeLabel(type: string) {
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
-  if (key === 'EVENT_INVITE') return 'INVITATION SOIRÉE';
-  if (key === 'EVENT_REMINDER') return 'RAPPEL SOIRÉE';
+  // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
+  // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
+  // une porte ouverte, ca peut etre 1000 choses en meme temps" -- libelle
+  // generique, jamais fige sur "soiree".
+  if (key === 'EVENT_INVITE') return 'INVITATION';
+  if (key === 'EVENT_REMINDER') return 'RAPPEL';
   if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki';
   return key.replace(/_/g, ' ');
 }
@@ -62,6 +66,13 @@ export default function NotificationsScreen({ navigation }: any) {
   // il ne restait que l'affichage/l'action ici.
   const [eventRsvps, setEventRsvps] = useState<Record<string, EventRsvpStatus>>({});
   const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
+  // Adel (08/09/2026) : "un bouton en savoir plus ... avoir quelques images
+  // de l'evenement ... un popup" -- detail complet et A JOUR (jamais le
+  // texte fige de la notification) charge a la demande, avec les memes
+  // boutons de reponse repris a l'identique dans le popup.
+  const [detailItem, setDetailItem] = useState<KeepNotification | null>(null);
+  const [detailEvent, setDetailEvent] = useState<CreatorEvent | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   // Adel (03/09/2026) : "le Marketing devrait toujours rester activé, sauf
   // pour ceux qui payent au moins 9,99€ (Creator Pro) ou 29,99€ (Venue
   // Pro) -- eux n'ont pas d'obligation" -- gratuit : notifications
@@ -223,6 +234,21 @@ export default function NotificationsScreen({ navigation }: any) {
     }
   };
 
+  const openEventDetail = async (item: KeepNotification) => {
+    const eventId = eventIdOf(item);
+    if (!eventId) return;
+    void readOne(item);
+    setDetailItem(item);
+    setDetailEvent(null);
+    setDetailLoading(true);
+    try {
+      setDetailEvent(await loadEventById(eventId));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeEventDetail = () => { setDetailItem(null); setDetailEvent(null); };
 
   const readAll = async () => {
     if (!user) return;
@@ -332,9 +358,18 @@ export default function NotificationsScreen({ navigation }: any) {
                   <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>
                   <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
                 </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardBody}>{item.body}</Text>
+                {/* Adel (08/09/2026) : "comment ca se fait que tu n'as pas
+                    mis le logo de la photo" -- vignette de l'evenement quand
+                    l'organisateur en a ajoute une. */}
+                <View style={styles.cardBodyRow}>
+                  {item.data?.image_url ? <Image source={{ uri: String(item.data.image_url) }} style={styles.cardThumbnail} /> : null}
+                  <View style={styles.cardTextColumn}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Text style={styles.cardBody} numberOfLines={3}>{item.body}</Text>
+                  </View>
+                </View>
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
+                {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
                   {profileUsername ? <Text style={styles.cardProfileLink}>Voir @{profileUsername} ›</Text> : null}
@@ -423,6 +458,45 @@ export default function NotificationsScreen({ navigation }: any) {
           />
         </View>
       </ScrollView>
+
+      {/* Adel (08/09/2026) : "un popup ... la photo ... du texte avec des
+          explications, tenue exigee etc. ... un bouton en savoir plus ...
+          et ensuite a partir de la il a les boutons" -- detail complet,
+          jamais tronque, avec les memes boutons de reponse. */}
+      <Modal visible={Boolean(detailItem)} transparent animationType="fade" onRequestClose={closeEventDetail}>
+        <View style={styles.detailBackdrop}>
+          <View style={styles.detailSheet}>
+            <TouchableOpacity style={styles.detailClose} onPress={closeEventDetail} accessibilityLabel="Fermer"><Text style={styles.detailCloseText}>×</Text></TouchableOpacity>
+            {detailLoading ? <ActivityIndicator color="#A884FA" style={{ marginTop: 30 }} /> : detailEvent ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {detailEvent.imageUrl ? <Image source={{ uri: detailEvent.imageUrl }} style={styles.detailImage} /> : null}
+                <Text style={styles.detailTitle}>{detailEvent.name}</Text>
+                <Text style={styles.detailMeta}>{new Date(detailEvent.startsAt).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}{detailEvent.venueName ? ` · ${detailEvent.venueName}` : ''}</Text>
+                {detailEvent.description ? <Text style={styles.detailDescription}>{detailEvent.description}</Text> : null}
+                {detailEvent.youtubeUrl ? <TouchableOpacity style={styles.detailYoutube} onPress={() => { void Linking.openURL(detailEvent.youtubeUrl as string); }}><Text style={styles.detailYoutubeText}>▶ Voir sur YouTube</Text></TouchableOpacity> : null}
+                {detailItem && (detailItem.type === 'EVENT_INVITE') && Array.isArray(detailItem.data?.response_options) ? (() => {
+                  const eventId = eventIdOf(detailItem) as string;
+                  const current = eventRsvps[eventId];
+                  const busy = rsvpBusyId === detailItem.id;
+                  return (
+                    <View style={styles.rsvpRow}>
+                      <TouchableOpacity style={[styles.rsvpButton, styles.rsvpGoing, current === 'GOING' && styles.rsvpGoingActive]} disabled={busy} onPress={() => void chooseEventRsvp(detailItem, 'GOING')}>
+                        <Text style={[styles.rsvpButtonText, styles.rsvpGoingText]}>{current === 'GOING' ? '✓ JE PARTICIPE' : 'JE PARTICIPE'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.rsvpButton, styles.rsvpMaybe, current === 'MAYBE' && styles.rsvpMaybeActive]} disabled={busy} onPress={() => void chooseEventRsvp(detailItem, 'MAYBE')}>
+                        <Text style={[styles.rsvpButtonText, styles.rsvpMaybeText]}>{current === 'MAYBE' ? '✓ PLUS TARD' : 'PLUS TARD'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.rsvpButton, styles.rsvpNotGoing, current === 'NOT_GOING' && styles.rsvpNotGoingActive]} disabled={busy} onPress={() => void chooseEventRsvp(detailItem, 'NOT_GOING')}>
+                        <Text style={[styles.rsvpButtonText, styles.rsvpNotGoingText]}>{current === 'NOT_GOING' ? '✓ JE NE VIENS PAS' : 'JE NE VIENS PAS'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })() : null}
+              </ScrollView>
+            ) : <Text style={styles.muted}>Cet évènement n’est plus disponible.</Text>}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -468,6 +542,10 @@ const styles = StyleSheet.create({
   readText: { color:'#FFFFFF', fontSize: 8, fontWeight: '900', letterSpacing: .8 },
   cardTitle: { color: '#F8F6FC', fontSize: 14, fontWeight: '900', marginTop: 7 },
   cardBody: { color:'#FFFFFF', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  cardBodyRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  cardThumbnail: { width: 56, height: 56, borderRadius: 12, backgroundColor: '#241936', marginTop: 7 },
+  cardTextColumn: { flex: 1, minWidth: 0 },
+  cardMoreLink: { color: '#A884FA', fontSize: 11, fontWeight: '900', marginTop: 6 },
   cardDate: { color:'#FFFFFF', fontSize: 10 },
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   cardProfileLink: { color: '#A884FA', fontSize: 11, fontWeight: '800' },
@@ -489,6 +567,16 @@ const styles = StyleSheet.create({
   rsvpNotGoing: { borderColor: '#FF6C8C' },
   rsvpNotGoingActive: { backgroundColor: 'rgba(255,108,140,.16)' },
   rsvpNotGoingText: { color: '#FF6C8C' },
+  detailBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  detailSheet: { width: '100%', maxWidth: 440, maxHeight: '86%', borderRadius: 26, padding: 20, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
+  detailClose: { position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: '#1F1830', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  detailCloseText: { color: '#FFF', fontSize: 20, lineHeight: 22, fontWeight: '700' },
+  detailImage: { width: '100%', height: 180, borderRadius: 18, backgroundColor: '#241936' },
+  detailTitle: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 14, paddingRight: 30 },
+  detailMeta: { color: '#A884FA', fontSize: 12, fontWeight: '800', marginTop: 4 },
+  detailDescription: { color: '#F8F6FC', fontSize: 13, lineHeight: 20, marginTop: 14, fontWeight: '600' },
+  detailYoutube: { alignSelf: 'flex-start', marginTop: 14, minHeight: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: '#3A1116', borderWidth: 1, borderColor: '#FF4B4B', alignItems: 'center', justifyContent: 'center' },
+  detailYoutubeText: { color: '#FF6C6C', fontSize: 11, fontWeight: '900' },
   battleAction: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   battleRefuse: { backgroundColor: '#1B121F', borderColor: '#78435A' },
   battleAccept: { backgroundColor: '#E5F266', borderColor: '#E5F266' },

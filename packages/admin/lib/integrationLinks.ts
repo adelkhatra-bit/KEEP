@@ -16,6 +16,11 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   BREVO_SMTP_LOGIN: { label: 'Brevo — clé SMTP', url: 'https://app.brevo.com/settings/keys/smtp' },
   BREVO_SENDER_EMAIL: { label: 'Brevo — expéditeurs vérifiés', url: 'https://app.brevo.com/senders/list' },
   BREVO_SENDER_NAME: { label: 'Brevo — expéditeurs vérifiés', url: 'https://app.brevo.com/senders/list' },
+  // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... gratuite ...
+  // 6000 e-mails gratuit" -- Mailjet, alternative a Brevo (keep-auth-email
+  // bascule dessus automatiquement des que ces deux cles sont renseignees).
+  MAILJET_API_KEY: { label: 'Mailjet — clé API', url: 'https://app.mailjet.com/account/apikeys' },
+  MAILJET_SECRET_KEY: { label: 'Mailjet — clé API', url: 'https://app.mailjet.com/account/apikeys' },
   AUDD_API_KEY: { label: 'AudD — recharger / abonnement', url: 'https://dashboard.audd.io/' },
   ACRCLOUD_ACCESS_KEY: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
   ACRCLOUD_ACCESS_SECRET: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },

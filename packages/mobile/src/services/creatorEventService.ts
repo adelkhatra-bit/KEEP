@@ -26,17 +26,10 @@ export type CreatorEvent = {
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
-export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('events')
-    .select('id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code,organizer_phone_public')
-    .eq('is_disabled', false)
-    .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
-    .order('starts_at', { ascending: true })
-    .limit(100);
-  if (error) throw error;
-  return (data ?? []).map((row: any) => ({
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code,organizer_phone_public';
+
+function mapEventRow(row: any): CreatorEvent {
+  return {
     id: row.id,
     creatorId: row.creator_id,
     name: row.name,
@@ -51,7 +44,32 @@ export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
     imageUrl: row.image_url,
     requireQrCode: Boolean(row.require_qr_code),
     organizerPhone: row.organizer_phone_public,
-  }));
+  };
+}
+
+export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('events')
+    .select(EVENT_COLUMNS)
+    .eq('is_disabled', false)
+    .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
+    .order('starts_at', { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map(mapEventRow);
+}
+
+// Adel (08/09/2026) : "il faut un bouton en savoir plus ... avoir quelques
+// images de l'evenement ... un popup" -- charge le detail COMPLET et A JOUR
+// d'un evenement depuis une notification (jamais le snapshot fige envoye au
+// moment de l'invitation, au cas ou l'organisateur a modifie photo/texte
+// depuis).
+export async function loadEventById(eventId: string): Promise<CreatorEvent | null> {
+  if (!supabase || !eventId) return null;
+  const { data, error } = await supabase.from('events').select(EVENT_COLUMNS).eq('id', eventId).maybeSingle();
+  if (error || !data) return null;
+  return mapEventRow(data);
 }
 
 export async function loadMyRsvps(profileId: string): Promise<Record<string, EventRsvpStatus>> {

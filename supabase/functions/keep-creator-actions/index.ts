@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
 
       const { data: event, error: eventError } = await admin
         .from("events")
-        .select("id,name,starts_at,venue_name,creator_id")
+        .select("id,name,starts_at,venue_name,creator_id,image_url")
         .eq("id", eventId)
         .eq("creator_id", user.id)
         .maybeSingle();
@@ -253,9 +253,13 @@ Deno.serve(async (req) => {
         type: "EVENT_INVITE",
         title: `Invitation · ${event.name}`,
         body: bodyText,
+        // Adel (08/09/2026) : "comment ca se fait que tu n'as pas mis le
+        // logo de la photo" -- la vignette suit la notification pour un
+        // affichage immediat dans le centre (la carte "en savoir plus"
+        // recharge quand meme l'evenement a jour au moment du tap).
         data: includeRsvpButtons
-          ? { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"] }
-          : { event_id: eventId, creator_id: user.id },
+          ? { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"], image_url: event.image_url ?? null }
+          : { event_id: eventId, creator_id: user.id, image_url: event.image_url ?? null },
       }));
       const sends = targets.map((profileId) => ({ event_id: eventId, profile_id: profileId, sent_at: new Date().toISOString() }));
 

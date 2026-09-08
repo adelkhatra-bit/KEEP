@@ -135,6 +135,65 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
   return { ok: false, error: "email_delivery_unavailable", detail: String(lastPayload?.message || lastStatus) };
 }
 
+// Adel (08/09/2026) : "trouve une autre solution ... une autre plate-forme
+// d'e-mail ... gratuite ... 6000 e-mails gratuit" -- Mailjet (200/jour, sans
+// carte bancaire), pour ne plus dependre de Brevo pendant les tests. Meme
+// identite expediteur (BREVO_SENDER_EMAIL/NAME, reutilisee volontairement --
+// c'est "Loki", pas "Brevo" ou "Mailjet", qui doit apparaitre pour
+// l'utilisateur, quel que soit le tuyau technique derriere).
+async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+  const apiKey = await integrationSecret("MAILJET_API_KEY");
+  const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
+  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  if (!apiKey || !secretKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
+
+  const payloadBody = JSON.stringify({
+    Messages: [{
+      From: { Email: senderEmail, Name: senderName },
+      To: [{ Email: to }],
+      Subject: subject,
+      HTMLPart: html,
+      TextPart: text,
+    }],
+  });
+
+  let lastStatus = 0;
+  let lastPayload: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await wait(300 * attempt);
+    let response: Response;
+    try {
+      response = await fetch("https://api.mailjet.com/v3.1/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Basic ${btoa(`${apiKey}:${secretKey}`)}` },
+        body: payloadBody,
+      });
+    } catch (networkError) {
+      lastStatus = 0;
+      lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
+      continue;
+    }
+    if (response.ok) return { ok: true };
+    lastStatus = response.status;
+    lastPayload = await response.json().catch(() => null);
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  console.error("[keep-auth-email] Mailjet send failed", lastStatus, lastPayload);
+  return { ok: false, error: "email_delivery_unavailable", detail: String(lastPayload?.ErrorMessage || lastStatus) };
+}
+
+// Point d'entree unique : Mailjet en priorite s'il est configure (c'est ce
+// qu'Adel a demande de tester en ce moment), Brevo en repli automatique
+// sinon -- aucun code appelant n'a besoin de savoir lequel des deux est
+// actif.
+async function sendTransactionalEmail(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+  const mjKey = await integrationSecret("MAILJET_API_KEY");
+  const mjSecret = await integrationSecret("MAILJET_SECRET_KEY");
+  if (mjKey && mjSecret) return sendMailjet(to, subject, html, text);
+  return sendBrevo(to, subject, html, text, tag);
+}
+
 async function handleSignup(body: any) {
   const email = normalizeEmail(body?.email);
   const password = String(body?.password ?? "");
@@ -162,7 +221,7 @@ async function handleSignup(body: any) {
     return json({ ok: false, error: "server_error" }, 500);
   }
 
-  const sent = await sendBrevo(
+  const sent = await sendTransactionalEmail(
     email,
     "Confirme ton compte Loki",
     shellHtml(
@@ -234,7 +293,7 @@ async function handleRecovery(body: any) {
     return json({ ok: false, error: "server_error" }, 500);
   }
 
-  const sent = await sendBrevo(
+  const sent = await sendTransactionalEmail(
     email,
     "Réinitialise ton mot de passe Loki",
     shellHtml(
