@@ -858,3 +858,17 @@ Coordination : si vous touchez authService.ts (signUpWithEmailIdentity/requestPa
 ## [2026-09-07T23:00:20.000Z] claude
 
 Signal de coordination (Adel signale que ChatGPT/Codex travaille en parallele en ce moment) : je suis en train de toucher publicProfileStateService.ts (nouveau champ sourceIsFollowing sur hydrateSourceUsernames), ProfilePublicScreen.tsx et PublicUserProfileScreen.tsx (contour rouge/vert sur "Decouvert par X" selon si le viewer suit deja ce decouvreur -- Adel : "si abonne on met vert, si pas abonne on met rouge pour inciter a cliquer"). Si vous avez une modification en cours sur ces 3 fichiers ou sur le rendu des pastilles de decouverte, repull avant de committer pour eviter d'ecraser l'un ou l'autre.
+
+## [2026-09-08T00:00:00.000Z] claude
+
+Livre (Adel a demande QR ticketing + check-in + rappel jour-J + agenda + photo evenement, sur l'ecran Soirees) :
+- events.require_qr_code + event_rsvps.ticket_code/checked_in_at (trigger d'attribution) : billet individuel au pseudo, genere quand un participant repond GOING sur un evenement qui l'impose. Affiche via QR genere a la volee (api.qrserver.com, pas de nouvelle dependance native), bouton "Mon billet" visible jusqu'a 24h apres la fin de l'evenement puis masque cote client (pas de suppression de donnees, juste d'affichage -- les avis post-evenement restent possibles).
+- keep_event_checkin_by_ticket (saisie/scan du code, reserve au createur) + keep_event_toggle_checkin (tap direct sur une ligne de la liste Participants) : pointage present/absent cote organisateur. Pas de camera QR pour l'instant (aucune dependance expo-camera dans le projet) -- saisie manuelle du code en repli, fonctionnellement complet.
+- keep_event_send_day_of_reminders + cron toutes les 30 min : rappel jour-J (fenetre de 14h avant le debut) pour qui a repondu participe/plus tard, une seule fois (reminder_sent_at), via la file notifications/push existante.
+- buildGoogleCalendarUrl / buildEventIcs (creatorEventService.ts) : lien Google Agenda + export .ics (Apple Calendar/Outlook), aucune dependance OAuth.
+- events.image_url (colonne deja presente depuis 0004_events.sql mais jamais alimentee) cablee : nouveau bucket storage event-images (memes policies que avatars), upload depuis le formulaire, affichee en poster + degrade sur la carte de la soiree.
+- PartiesScreen : choix de date/heure rapides pre-calcules (ce soir/demain/samedi/dans 1 semaine) + pre-remplissage a l'ouverture, en plus du champ texte ISO existant.
+
+BUG REEL TROUVE ET CORRIGE au passage (verification du schema live avant d'ecrire la migration) : keep_event_participants (deploye plus tot dans la session, 20260908030000) referencait event_rsvps.updated_at -- colonne qui n'a jamais existe. "Voir les participants" retombait donc silencieusement sur une liste vide a chaque appel (loadEventParticipants avale l'erreur cote client). Corrige en ajoutant la colonne (avec trigger set_updated_at) plutot qu'en modifiant la fonction.
+
+Coordination : si vous touchez events/event_rsvps, keep_event_participants, ou keep-creator-actions (event.create/event.update), repull d'abord -- le schema de ces deux tables et le retour de cette fonction ont change dans ce lot (colonnes require_qr_code/image_url sur events ; updated_at/ticket_code/checked_in_at/reminder_sent_at sur event_rsvps).
