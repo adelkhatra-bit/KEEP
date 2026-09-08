@@ -84,6 +84,8 @@ export default function EmailTestPage() {
     return () => { cancelled = true; };
   }, [refreshDiagnostics]);
 
+  const [previewBusy, setPreviewBusy] = useState<'signup' | 'recovery' | null>(null);
+
   const sendTest = async () => {
     setBusy(true);
     setResult('');
@@ -95,6 +97,25 @@ export default function EmailTestPage() {
       setResult(`❌ ${error?.message || 'Échec du test Brevo.'}`);
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Adel (08/09/2026) : "fait un bouton pour tester les email verification
+  // e-mail et mots de passe oublie comme ca je voie tout le design" --
+  // envoie le VRAI gabarit (celui utilisé en production) pour voir le rendu
+  // sans passer par une vraie inscription.
+  const sendPreview = async (kind: 'signup' | 'recovery') => {
+    setPreviewBusy(kind);
+    setResult('');
+    try {
+      const payload = await invokeControl({ action: kind === 'signup' ? 'integrations.test_signup_email' : 'integrations.test_recovery_email', email });
+      const label = kind === 'signup' ? 'Confirmation d’inscription' : 'Mot de passe oublié';
+      setResult(`✅ ${label} envoyé à ${email} via ${payload?.provider}${payload?.real === false ? ' (lien d’aperçu, pas de vrai compte créé)' : payload?.real ? ' (lien réel, ce compte existe)' : ''}.`);
+      window.setTimeout(() => { void refreshDiagnostics(); }, 2500);
+    } catch (error: any) {
+      setResult(`❌ ${error?.message || 'Échec de l’envoi.'}`);
+    } finally {
+      setPreviewBusy(null);
     }
   };
 
@@ -152,6 +173,30 @@ export default function EmailTestPage() {
           >
             {webhookBusy ? 'Configuration…' : delivery.webhookTokenConfigured ? 'Vérifier / réparer le suivi Brevo' : 'Activer le suivi de délivrabilité'}
           </button>
+        </div>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 13 }}>Voir le design réel des e-mails Loki</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => void sendPreview('signup')}
+              disabled={!!previewBusy || !email.includes('@')}
+              style={{ padding: '12px 18px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontWeight: 800, cursor: previewBusy ? 'wait' : 'pointer' }}
+            >
+              {previewBusy === 'signup' ? 'Envoi…' : '✉️ Confirmation d’inscription'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void sendPreview('recovery')}
+              disabled={!!previewBusy || !email.includes('@')}
+              style={{ padding: '12px 18px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontWeight: 800, cursor: previewBusy ? 'wait' : 'pointer' }}
+            >
+              {previewBusy === 'recovery' ? 'Envoi…' : '🔑 Mot de passe oublié'}
+            </button>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
+            Envoie le vrai gabarit visuel utilisé en production. « Mot de passe oublié » utilise un lien réel si ce compte existe déjà.
+          </div>
         </div>
         {result && <div style={{ marginTop: 16, padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>{result}</div>}
         <div style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>

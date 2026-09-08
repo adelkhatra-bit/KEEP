@@ -281,6 +281,87 @@ async function setRecognitionRuntimeStatus(key: string, status: string, message:
   }, { onConflict: "key" });
 }
 
+// Adel (08/09/2026) : "fait un bouton pour tester les email verification e-mail
+// et mots de passe oublie comme ca je voie tout le design" -- EXACTEMENT le
+// meme gabarit que supabase/functions/keep-auth-email (shellHtml/escapeHtml),
+// duplique ici car chaque edge function Deno est deployee separement (pas de
+// module partage). Si l'un des deux change, reporter le changement dans
+// l'autre fichier.
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
+}
+
+function shellHtml(title: string, heading: string, intro: string, buttonLabel: string, link: string, footer: string) {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
+    <tr>
+      <td align="center" style="padding:24px 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
+          <tr>
+            <td style="padding:30px 26px 12px;text-align:center;">
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
+              <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
+              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${intro}</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:14px 24px 26px;">
+              <a href="${link}" style="display:inline-block;background:#e5f266;color:#15110b;font-weight:900;font-size:15px;text-decoration:none;border-radius:999px;padding:15px 34px;">${escapeHtml(buttonLabel)}</a>
+              <p style="margin:18px 0 0;font-size:11px;line-height:16px;color:#72697e;word-break:break-all;">${escapeHtml(link)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:6px 26px 30px;">
+              <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
+              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">${footer}</p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
+  const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
+  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
+  if (!senderEmail) return { ok: false, status: 409, error: "sender_not_configured" };
+
+  const mjKey = await getSecret("MAILJET_API_KEY");
+  const mjSecret = await getSecret("MAILJET_SECRET_KEY");
+  if (mjKey && mjSecret) {
+    const response = await fetch("https://api.mailjet.com/v3.1/send", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Basic ${btoa(`${mjKey}:${mjSecret}`)}` },
+      body: JSON.stringify({ Messages: [{ From: { Email: senderEmail, Name: senderName }, To: [{ Email: to }], Subject: subject, HTMLPart: html, TextPart: text }] }),
+    });
+    if (!response.ok) return { ok: false, status: response.status, error: "mailjet_send_failed", details: (await response.text()).slice(0, 500) };
+    return { ok: true, provider: "mailjet" };
+  }
+
+  const apiKey = await getSecret("BREVO_API_KEY");
+  if (!apiKey) return { ok: false, status: 409, error: "email_provider_not_configured" };
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
+    body: JSON.stringify({ sender: { email: senderEmail, name: senderName }, to: [{ email: to }], subject, htmlContent: html, textContent: text }),
+  });
+  if (!response.ok) return { ok: false, status: response.status, error: "brevo_send_failed", details: (await response.text()).slice(0, 500) };
+  return { ok: true, provider: "brevo" };
+}
+
 function generateTemporaryPassword() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(14));
@@ -570,37 +651,63 @@ Deno.serve(async (req) => {
       // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... 6000 e-mails
       // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
       // que keep-auth-email : Mailjet en priorite s'il est configure).
-      const mjKey = await getSecret("MAILJET_API_KEY");
-      const mjSecret = await getSecret("MAILJET_SECRET_KEY");
-      if (mjKey && mjSecret) {
-        const response = await fetch("https://api.mailjet.com/v3.1/send", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Basic ${btoa(`${mjKey}:${mjSecret}`)}` },
-          body: JSON.stringify({ Messages: [{ From: { Email: senderEmail, Name: senderName }, To: [{ Email: email }], Subject: subject, HTMLPart: html, TextPart: text }] }),
-        });
-        const details = await response.text();
-        if (!response.ok) return json(response.status, { error: "mailjet_send_failed", details: details.slice(0, 500) });
-        await audit(actor.id, "integration_email.tested", "mailjet", email, { ok: true });
-        return json(200, { ok: true, provider: "mailjet" });
-      }
+      const sent = await sendViaConfiguredProvider(email, subject, html, text);
+      if (!sent.ok) return json(sent.status, { error: sent.error, message: sent.status === 409 ? "Renseigne MAILJET_API_KEY+MAILJET_SECRET_KEY, ou BREVO_API_KEY." : undefined, details: sent.details });
+      await audit(actor.id, "integration_email.tested", sent.provider, email, { ok: true });
+      return json(200, { ok: true, provider: sent.provider });
+    }
 
-      const apiKey = await getSecret("BREVO_API_KEY");
-      if (!apiKey) return json(409, { error: "email_provider_not_configured", message: "Renseigne MAILJET_API_KEY+MAILJET_SECRET_KEY, ou BREVO_API_KEY." });
-      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
-        body: JSON.stringify({
-          sender: { email: senderEmail, name: senderName },
-          to: [{ email }],
-          subject,
-          htmlContent: html,
-          textContent: text,
-        }),
-      });
-      const details = await response.text();
-      if (!response.ok) return json(response.status, { error: "brevo_send_failed", details: details.slice(0, 500) });
-      await audit(actor.id, "integration_email.tested", "brevo", email, { ok: true });
-      return json(200, { ok: true, provider: "brevo" });
+    // Adel (08/09/2026) : "fait un bouton pour tester les email verification
+    // e-mail et mots de passe oublie comme ca je voie tout le design" --
+    // envoie le VRAI gabarit visuel (shellHtml, identique a keep-auth-email)
+    // pour verifier le rendu sans avoir a passer par une vraie inscription.
+    // Le lien de confirmation d'inscription est un apercu (pas de compte
+    // jetable cree) ; celui de mot de passe oublie est REEL si l'adresse
+    // correspond a un compte existant, sinon repli sur un lien d'apercu.
+    if (action === "integrations.test_signup_email") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
+      const email = String(body?.email ?? "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
+      const html = shellHtml(
+        "Confirme ton compte Loki",
+        "Confirme ton adresse e-mail",
+        `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki et pouvoir récupérer ton mot de passe si besoin.`,
+        "Confirmer mon compte",
+        "https://adelkhatra-bit.github.io/KEEP/#apercu-design",
+        "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
+      );
+      const sent = await sendViaConfiguredProvider(email, "Loki — Confirme ton compte (aperçu design)", html, "Aperçu design — confirmation de compte Loki.");
+      if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
+      await audit(actor.id, "integration_email.preview_signup", sent.provider, email, { ok: true });
+      return json(200, { ok: true, provider: sent.provider, real: false });
+    }
+
+    if (action === "integrations.test_recovery_email") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
+      const email = String(body?.email ?? "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
+      let link = "https://adelkhatra-bit.github.io/KEEP/#apercu-design";
+      let real = false;
+      try {
+        const { data, error } = await admin.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: { redirectTo: "https://adelkhatra-bit.github.io/KEEP/?keep_auth=recovery" },
+        });
+        if (!error && data?.properties?.action_link) { link = data.properties.action_link; real = true; }
+      } catch { /* pas de compte pour cette adresse -> lien d'apercu */ }
+      const html = shellHtml(
+        "Réinitialise ton mot de passe Loki",
+        "Réinitialise ton mot de passe",
+        "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
+        "Choisir un nouveau mot de passe",
+        link,
+        "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
+      );
+      const sent = await sendViaConfiguredProvider(email, `Loki — Réinitialise ton mot de passe${real ? "" : " (aperçu design)"}`, html, "Réinitialise ton mot de passe Loki.");
+      if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
+      await audit(actor.id, "integration_email.preview_recovery", sent.provider, email, { ok: true, real });
+      return json(200, { ok: true, provider: sent.provider, real });
     }
 
     // Adel (08/09/2026) : "il faut on approuve le super admin la photo le
