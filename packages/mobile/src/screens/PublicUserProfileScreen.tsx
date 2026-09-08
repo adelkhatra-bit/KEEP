@@ -571,7 +571,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       return (
                         <TouchableOpacity
                           style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
-                          onPress={() => navigation.navigate('PublicUserProfile', { username: discoveryUsername })}
+                          onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
                           accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
                         >
                           <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>

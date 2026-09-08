@@ -240,7 +240,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     if (!user || isLocalGuest || isDemoMode) {
       Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.', [
         { text: 'Plus tard', style: 'cancel' },
-        { text: 'Créer / se connecter', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) },
+        { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
       ]);
       return;
     }

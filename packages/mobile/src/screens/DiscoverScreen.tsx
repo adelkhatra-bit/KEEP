@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { getDiscoveryAccess, getCompareAccess, DiscoveryAccess, QuotaAccess } from '../services/growthAccessService';
 import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
@@ -400,7 +401,10 @@ export default function DiscoverScreen({ navigation }: any) {
 
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
   const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
-  const openAccount = () => navigation.navigate('Main', { screen: 'Profile' });
+  // Adel (08/09/2026) : "il faut pas qu'il soit redirigé, il faut qu'il
+  // reste au même endroit" -- même popup en place que partout ailleurs
+  // (useAccountGateStore), plus de saut vers l'onglet Profil.
+  const openAccount = () => useAccountGateStore.getState().requestAccount('create');
 
   const alreadyFollowingCurrent = Boolean(currentProfile && followingIds.has(currentProfile.id));
 
