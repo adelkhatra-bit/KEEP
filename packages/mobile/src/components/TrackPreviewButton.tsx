@@ -256,11 +256,16 @@ const styles = StyleSheet.create({
   compact: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22 },
   fullWidth: { alignSelf: 'stretch', width: '100%' },
   // Adel (08/09/2026) : memes dimensions que le chip "Partager" voisin
-  // (trackShare dans ProfilePublicScreen), pour un alignement propre.
-  small: { minHeight: 25, paddingHorizontal: 8, borderRadius: 13 },
+  // (trackShare dans ProfilePublicScreen). "Pourquoi tu l'as pas mis d'une
+  // autre couleur ... pour qu'on comprenne que ça s'appuie" -- Jouer et
+  // Partager etaient tous les deux dans la meme famille violette (juste
+  // contour vs plein), donc peu distincts une fois a la meme taille. Jouer
+  // reprend ici le jaune-citron deja utilise partout ailleurs dans l'app
+  // pour une action de lecture/positive (Battle, RSVP "j'y vais").
+  small: { minHeight: 25, paddingHorizontal: 8, borderRadius: 13, borderColor: '#E5F266' },
   text: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
   compactText: { fontSize: 12 },
-  smallText: { fontSize: 12 },
+  smallText: { fontSize: 12, color: '#E5F266' },
   unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
 });
