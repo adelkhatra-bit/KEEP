@@ -42,6 +42,13 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
   const [signingOut, setSigningOut] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  // Adel (08/09/2026) : "je trouve que c'est trop charge ... on retrouve
+  // les espace createurs, les notifications, service musical, offre pas
+  // credit ... faire des petits boutons 1234 et ca change automatiquement
+  // sur place" -- un seul long defilement de 10 sections remplace par 4
+  // petits onglets numerotes qui changent le contenu SUR PLACE (meme
+  // ecran, pas de nouvelle navigation), en regroupant ce qui se repetait.
+  const [activeTab, setActiveTab] = React.useState<1 | 2 | 3 | 4>(1);
   const [blockedListOpen, setBlockedListOpen] = React.useState(false);
   const [blockedUsers, setBlockedUsers] = React.useState<BlockedUserSummary[]>([]);
   const [blockedLoading, setBlockedLoading] = React.useState(false);
@@ -240,32 +247,31 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
         <TouchableOpacity style={s.headerButton} onPress={() => goToTab('MyMusic')} accessibilityLabel="Revenir aux Playlists"><Text style={[s.headerText, s.right]}>Playlists</Text></TouchableOpacity>
       </View>
 
+      {/* Adel (08/09/2026) : "des petits boutons 1234 et ca change
+          automatiquement de page comme ca t'as pas l'impression de
+          changer de page" -- onglets numerotes, contenu change SUR PLACE. */}
+      <View style={s.tabRow}>
+        {([
+          { id: 1, label: 'Profil' },
+          { id: 2, label: 'Créateur' },
+          { id: 3, label: 'Aide' },
+          { id: 4, label: 'Compte' },
+        ] as const).map((tab) => (
+          <TouchableOpacity key={tab.id} style={[s.tabBtn, activeTab === tab.id && s.tabBtnOn]} onPress={() => setActiveTab(tab.id)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.id }}>
+            <Text style={[s.tabBtnNum, activeTab === tab.id && s.tabBtnNumOn]}>{tab.id}</Text>
+            <Text style={[s.tabBtnLabel, activeTab === tab.id && s.tabBtnLabelOn]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Navigation</Text>
-          <Action label="← Revenir aux Playlists" onPress={() => goToTab('MyMusic')} />
-          <Action label="Retour au profil" onPress={() => goToTab('Profile')} />
-        </View>
-
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Raccourcis</Text>
-          <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
-          <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
-          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
-        </View>
-
+        {activeTab === 1 ? <>
         <View style={s.section}>
           <Text style={s.sectionTitle}>Profil public</Text>
           <View style={s.switchRow}>
             <View style={s.switchText}><Text style={s.label}>Profil visible</Text><Text style={s.help}>Permet aux autres utilisateurs de découvrir tes goûts musicaux.</Text></View>
             <Switch value={user.isPublic} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.background, true: colors.primary }} />
           </View>
-        </View>
-
-        <View style={s.creatorSection}>
-          <Text style={s.sectionTitle}>Espace créateur</Text>
-          <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>
-          <CreatorToolsPanel navigation={navigation} />
         </View>
 
         <View style={s.section}>
@@ -318,7 +324,24 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
             <TouchableOpacity style={s.primaryButton} onPress={() => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'WEBSITE_BUTTON' })}><Text style={s.primaryText}>Voir Creator Pro</Text></TouchableOpacity>
           )}
         </View>
+        </> : null}
 
+        {activeTab === 2 ? <>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Raccourcis</Text>
+          <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
+          <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
+          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
+        </View>
+
+        <View style={s.creatorSection}>
+          <Text style={s.sectionTitle}>Espace créateur</Text>
+          <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>
+          <CreatorToolsPanel navigation={navigation} />
+        </View>
+        </> : null}
+
+        {activeTab === 3 ? <>
         <SupportCenterPanel profileId={user.id} username={user.username} enabled={!isLocalGuest && !isDemoMode} />
 
         <View style={s.section}>
@@ -333,7 +356,9 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           <Text style={s.sectionTitle}>Confidentialité</Text>
           <Action label="Comptes bloqués" onPress={() => void openBlockedList()} />
         </View>
+        </> : null}
 
+        {activeTab === 4 ? <>
         <View style={s.section}>
           <Text style={s.sectionTitle}>Compte</Text>
           <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données Loki restent enregistrés.</Text>
@@ -347,6 +372,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
             <Text style={s.deleteAccountText}>{deletingAccount ? 'Suppression…' : 'Supprimer définitivement mon compte'}</Text>
           </TouchableOpacity>
         </View>
+        </> : null}
       </ScrollView>
 
       <Modal visible={blockedListOpen} transparent animationType="fade" onRequestClose={() => setBlockedListOpen(false)}>
@@ -388,6 +414,13 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, muted: { color: colors.textMuted },
   header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  tabBtn: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabBtnNum: { color: colors.primaryLight, fontSize: 13, fontWeight: '900' },
+  tabBtnNumOn: { color: '#FFFFFF' },
+  tabBtnLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 1 },
+  tabBtnLabelOn: { color: '#FFFFFF' },
   content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
   label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   blockedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 22 },
