@@ -705,11 +705,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki, sans jouer en solo. Pour lancer un défi : Soirées → Loki BATTLE.</Text>
         ) : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
+        {/* Adel (09/09/2026) : "abonnement on devrait le descendre a la
+            place du bouton reprise et reprise le remonter a la place de
+            abonnement ... des fois il peut avoir 15 reprises mais
+            uniquement trois abonnes ... c'est comme si il s'est
+            indirectement abonne" -- Reprises (portee reelle, y compris les
+            gens non abonnes qui ont quand meme garde un morceau) rejoint
+            Abonnes ; Abonnements descend a cote de Morceaux. */}
         <ProfileCounterRow kind="connections" items={[
           { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-          { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+          { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
         ]} />
-        {!accountRequired ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
+        {!accountRequired && communityMode === 'followers' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
       </View>
 
       <View style={s.socialHub}>
@@ -744,8 +751,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.keepCounters}>
         <ProfileCounterRow kind="keeps" items={[
           { value: profileTotalKeepCount, label: 'Morceaux', onPress: () => switchProfileTab('TRACKS') },
-          { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
+          { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
         ]} />
+        {!accountRequired && communityMode === 'following' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
       </View>
 
       <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
