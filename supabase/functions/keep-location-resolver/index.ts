@@ -93,7 +93,26 @@ async function handleReverse(body: any) {
 // geocoding ; son endpoint /search fait exactement l'autocomplete "a la
 // Google Maps" sans cle payante ni compte a ouvrir. Biais pays par defaut
 // FR (le cas courant), overridable si l'evenement est ailleurs.
-type Suggestion = { label: string; city?: string; countryCode?: string; lat: number; lng: number };
+type Suggestion = { label: string; primaryText: string; secondaryText: string; city?: string; countryCode?: string; lat: number; lng: number };
+
+// Adel (08/09/2026) : "va t'inspirer des grandes plateformes ... que le
+// systeme soit parfait au niveau de l'adresse" -- Nominatim renvoie un
+// display_name brut et tres verbeux ("12 Rue de Rivoli, Hotel de Ville,
+// Paris, Ile-de-France, France metropolitaine, 75004, France"). Les grandes
+// plateformes (Google Places, Eventbrite...) affichent toujours une ligne
+// principale courte (rue + numero) et une ligne secondaire (ville, pays) --
+// reconstruit ici a partir des champs structures address.* plutot que de
+// renvoyer le display_name tel quel.
+function formatAddressLines(address: any, fallback: string): { primaryText: string; secondaryText: string } {
+  const road = [address?.house_number, address?.road].filter(Boolean).join(" ");
+  const place = address?.attraction || address?.amenity || address?.building;
+  const primaryText = (road || place || fallback.split(",")[0] || fallback).toString().slice(0, 90);
+  const city = cleanCity(address?.city || address?.town || address?.village || address?.municipality);
+  const region = typeof address?.state === "string" ? address.state.trim() : undefined;
+  const country = typeof address?.country === "string" ? address.country.trim() : undefined;
+  const secondaryText = [city, city ? undefined : region, country].filter(Boolean).join(", ").slice(0, 90);
+  return { primaryText: primaryText || fallback.slice(0, 90), secondaryText };
+}
 
 async function nominatimSearch(query: string, countryCode: string): Promise<Suggestion[]> {
   const url = new URL("https://nominatim.openstreetmap.org/search");
@@ -109,13 +128,71 @@ async function nominatimSearch(query: string, countryCode: string): Promise<Sugg
   });
   if (!response.ok) throw new Error(`nominatim_search_${response.status}`);
   const data = await response.json().catch(() => []) as any[];
-  return (Array.isArray(data) ? data : []).map((row) => ({
-    label: String(row?.display_name || "").slice(0, 200),
-    city: cleanCity(row?.address?.city || row?.address?.town || row?.address?.village),
-    countryCode: cleanCountryCode(row?.address?.country_code),
-    lat: Number(row?.lat),
-    lng: Number(row?.lon),
-  })).filter((row) => row.label && Number.isFinite(row.lat) && Number.isFinite(row.lng));
+  return (Array.isArray(data) ? data : []).map((row) => {
+    const displayName = String(row?.display_name || "").slice(0, 200);
+    const { primaryText, secondaryText } = formatAddressLines(row?.address || {}, displayName);
+    return {
+      label: [primaryText, secondaryText].filter(Boolean).join(", ") || displayName,
+      primaryText,
+      secondaryText,
+      city: cleanCity(row?.address?.city || row?.address?.town || row?.address?.village),
+      countryCode: cleanCountryCode(row?.address?.country_code),
+      lat: Number(row?.lat),
+      lng: Number(row?.lon),
+    };
+  }).filter((row) => row.primaryText && Number.isFinite(row.lat) && Number.isFinite(row.lng));
+}
+
+// "Utiliser ma position actuelle" (comme Airbnb/Eventbrite quand on cree un
+// evenement depuis le lieu meme) -- reverse geocoding PRECIS (zoom eleve,
+// adresse complete), distinct de handleReverse ci-dessus qui ne renvoie que
+// ville/pays (utilise pour Decouvertes, jamais assez precis pour un lieu).
+async function nominatimReverseAddress(lat: number, lng: number): Promise<Suggestion | null> {
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lng));
+  url.searchParams.set("zoom", "18");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("accept-language", "fr");
+  const response = await fetch(url, {
+    headers: { Accept: "application/json", "User-Agent": "KEEP/1.0 (address autocomplete)" },
+    signal: AbortSignal.timeout(7000),
+  });
+  if (!response.ok) throw new Error(`nominatim_reverse_address_${response.status}`);
+  const data = await response.json().catch(() => ({})) as any;
+  const address = data?.address || {};
+  const displayName = String(data?.display_name || "").slice(0, 200);
+  const { primaryText, secondaryText } = formatAddressLines(address, displayName);
+  if (!primaryText) return null;
+  return {
+    label: [primaryText, secondaryText].filter(Boolean).join(", ") || displayName,
+    primaryText,
+    secondaryText,
+    city: cleanCity(address.city || address.town || address.village),
+    countryCode: cleanCountryCode(address.country_code),
+    lat,
+    lng,
+  };
+}
+
+async function handleReverseAddress(body: any) {
+  const lat = Number(body?.lat);
+  const lng = Number(body?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return json(400, { error: "invalid_coordinates" });
+  }
+  const cacheKey = `reverse-address:${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
+  const cached = cache.get(cacheKey) as any;
+  if (cached && cached.expiresAt > Date.now()) return json(200, { ok: true, suggestion: cached.place, cached: true });
+  try {
+    const suggestion = await nominatimReverseAddress(lat, lng);
+    if (!suggestion) return json(503, { error: "reverse_address_unavailable" });
+    cache.set(cacheKey, { expiresAt: Date.now() + 30 * 60 * 1000, place: suggestion as any });
+    return json(200, { ok: true, suggestion, cached: false });
+  } catch {
+    return json(503, { error: "reverse_address_unavailable", message: "Adresse précise momentanément indisponible." });
+  }
 }
 
 async function handleSearch(body: any) {
@@ -144,6 +221,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "reverse");
     if (action === "search") return await handleSearch(body);
+    if (action === "reverse-address") return await handleReverseAddress(body);
     return await handleReverse(body);
   } catch {
     return json(500, { error: "location_resolver_error" });

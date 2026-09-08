@@ -17,6 +17,11 @@ export type CreatorEvent = {
   youtubeUrl?: string | null;
   imageUrl?: string | null;
   requireQrCode: boolean;
+  // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
+  // numero de telephone ou pas" -- valeur publique deja masquee cote base
+  // (organizer_phone_public, colonne generee) : present ici <=> l'organisateur
+  // a choisi de l'afficher, jamais l'inverse.
+  organizerPhone?: string | null;
 };
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
@@ -25,7 +30,7 @@ export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('events')
-    .select('id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code')
+    .select('id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code,organizer_phone_public')
     .eq('is_disabled', false)
     .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
     .order('starts_at', { ascending: true })
@@ -45,6 +50,7 @@ export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
     youtubeUrl: row.youtube_url,
     imageUrl: row.image_url,
     requireQrCode: Boolean(row.require_qr_code),
+    organizerPhone: row.organizer_phone_public,
   }));
 }
 
@@ -73,6 +79,8 @@ export async function createCreatorEvent(input: {
   youtubeUrl?: string;
   imageUrl?: string;
   requireQrCode?: boolean;
+  organizerPhone?: string;
+  showOrganizerPhone?: boolean;
   lat?: number;
   lng?: number;
 }): Promise<{ id: string; name: string }> {
@@ -103,6 +111,8 @@ export async function updateCreatorEvent(eventId: string, input: {
   youtubeUrl?: string;
   imageUrl?: string;
   requireQrCode?: boolean;
+  organizerPhone?: string;
+  showOrganizerPhone?: boolean;
   lat?: number;
   lng?: number;
 }): Promise<{ id: string; name: string }> {
@@ -355,6 +365,19 @@ export async function loadEventRsvpCounts(eventId: string): Promise<EventRsvpCou
   const { data, error } = await supabase.rpc('keep_event_rsvp_counts', { p_event_id: eventId });
   if (error || !data) return { going: 0, maybe: 0, notGoing: 0 };
   return { going: Number(data.going || 0), maybe: Number(data.maybe || 0), notGoing: Number(data.notGoing || 0) };
+}
+
+// Adel (08/09/2026) : "je souhaite montrer mon numero de telephone ou pas"
+// -- la lecture publique (loadUpcomingEvents) ne renvoie le numero QUE s'il
+// est deja affiche (organizer_phone_public) ; pour pre-remplir le formulaire
+// de modification avec le VRAI numero de l'organisateur (meme masque au
+// public), on repasse par cette RPC reservee au createur.
+export async function loadMyEventOrganizerContact(eventId: string): Promise<{ organizerPhone: string; showOrganizerPhone: boolean }> {
+  if (!supabase) return { organizerPhone: '', showOrganizerPhone: false };
+  const { data, error } = await supabase.rpc('keep_event_my_organizer_contact', { p_event_id: eventId });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) return { organizerPhone: '', showOrganizerPhone: false };
+  return { organizerPhone: row.organizer_phone || '', showOrganizerPhone: Boolean(row.show_organizer_phone) };
 }
 
 export type PendingEventReview = {

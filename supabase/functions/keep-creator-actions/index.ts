@@ -62,6 +62,17 @@ function cleanYoutubeUrl(value: unknown): string | null {
   return null;
 }
 
+// Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
+// numero de telephone ou pas" -- format libre (juste affiche/compose via
+// tel:, jamais utilise pour envoyer un SMS programmatiquement), donc
+// validation permissive plutot qu'un parseur E.164 strict.
+function cleanPhone(value: unknown): string | null {
+  const raw = clean(value, 32);
+  if (!raw) return null;
+  const stripped = raw.replace(/[^\d+\-() ]/g, "").trim();
+  return stripped.length >= 6 ? stripped : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -83,6 +94,8 @@ Deno.serve(async (req) => {
       const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
       const imageUrl = clean(body?.imageUrl, 600) || null;
       const requireQrCode = body?.requireQrCode === true;
+      const organizerPhone = cleanPhone(body?.organizerPhone);
+      const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -109,6 +122,8 @@ Deno.serve(async (req) => {
         youtube_url: youtubeUrl,
         image_url: imageUrl,
         require_qr_code: requireQrCode,
+        organizer_phone: organizerPhone,
+        show_organizer_phone: showOrganizerPhone,
       }).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
       return json({ ok: true, event: data, plan });
@@ -137,6 +152,8 @@ Deno.serve(async (req) => {
       const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
       const imageUrl = clean(body?.imageUrl, 600) || null;
       const requireQrCode = body?.requireQrCode === true;
+      const organizerPhone = cleanPhone(body?.organizerPhone);
+      const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -156,6 +173,8 @@ Deno.serve(async (req) => {
         youtube_url: youtubeUrl,
         image_url: imageUrl,
         require_qr_code: requireQrCode,
+        organizer_phone: organizerPhone,
+        show_organizer_phone: showOrganizerPhone,
         updated_at: new Date().toISOString(),
       }).eq("id", eventId).eq("creator_id", user.id).select("id,name,starts_at,venue_name").single();
       if (error) throw error;

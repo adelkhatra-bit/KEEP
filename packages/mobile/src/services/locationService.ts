@@ -194,6 +194,8 @@ export async function searchKeepCity(query: string): Promise<KeepResolvedLocatio
 
 export type AddressSuggestion = {
   label: string;
+  primaryText: string;
+  secondaryText: string;
   city?: string;
   countryCode?: string;
   lat: number;
@@ -218,4 +220,18 @@ export async function searchAddress(query: string, countryCode = 'FR'): Promise<
   });
   if (error || !data?.ok) return [];
   return Array.isArray(data.suggestions) ? data.suggestions : [];
+}
+
+// Adel (08/09/2026) : "va t'inspirer des grandes plateformes" -- bouton
+// "utiliser ma position" pour le lieu d'un evenement (comme Airbnb/Eventbrite
+// quand on cree depuis le lieu meme). Reutilise getCurrentKeepLocation
+// ci-dessus pour la permission GPS, puis demande une adresse COMPLETE
+// (rue + numero, pas seulement ville/pays) au resolver.
+export async function reverseGeocodeAddress(lat: number, lng: number): Promise<AddressSuggestion | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.functions.invoke('keep-location-resolver', {
+    body: { action: 'reverse-address', lat, lng },
+  });
+  if (error || !data?.ok || !data.suggestion) return null;
+  return data.suggestion as AddressSuggestion;
 }
