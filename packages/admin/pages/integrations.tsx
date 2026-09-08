@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
@@ -325,6 +326,22 @@ export default function Integrations() {
                     ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
                     {row.lastCheckedAt ? ` · contrôle ${new Date(row.lastCheckedAt).toLocaleString('fr-FR')}` : ''}
                   </div>
+                )}
+                {/* Adel (08/09/2026) : "un bouton ... pour que j'active et
+                    ca me dirige directement" -- ouvre la bonne page du bon
+                    fournisseur juste a cote du champ ou coller la cle
+                    resultante. N'automatise pas l'inscription elle-meme
+                    (identite/paiement restent a faire par Adel sur le site
+                    du fournisseur), seulement la recherche de la page. */}
+                {INTEGRATION_PROVIDER_LINKS[row.key] && (
+                  <a
+                    href={INTEGRATION_PROVIDER_LINKS[row.key].url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
+                  >
+                    🔗 Ouvrir {INTEGRATION_PROVIDER_LINKS[row.key].label}
+                  </a>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative', flex: '1 1 360px' }}>

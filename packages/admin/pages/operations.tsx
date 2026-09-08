@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 
 type IntegrationRow = {
   key: string;
@@ -54,33 +55,7 @@ type KeylessHealth = {
   minimumConfidence?: number;
 };
 
-const BILLING_LINKS: Record<string, { label: string; url: string }> = {
-  BREVO_API_KEY: { label: 'Brevo — crédits / offre', url: 'https://app.brevo.com/' },
-  BREVO_SMTP_KEY: { label: 'Brevo — crédits / offre', url: 'https://app.brevo.com/' },
-  AUDD_API_KEY: { label: 'AudD — recharger / abonnement', url: 'https://dashboard.audd.io/' },
-  ACRCLOUD_ACCESS_KEY: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
-  ACRCLOUD_ACCESS_SECRET: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
-  SPOTIFY_CLIENT_ID: { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
-  SPOTIFY_CLIENT_SECRET: { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
-  DEEZER_APP_ID: { label: 'Deezer Developers', url: 'https://developers.deezer.com/' },
-  DEEZER_APP_SECRET: { label: 'Deezer Developers', url: 'https://developers.deezer.com/' },
-  APPLE_MUSICKIT_TEAM_ID: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
-  APPLE_MUSICKIT_KEY_ID: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
-  APPLE_MUSICKIT_PRIVATE_KEY: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
-  MUSICAPI_CLIENT_ID: { label: 'MusicAPI Dashboard', url: 'https://app.musicapi.com/' },
-  MUSICAPI_CLIENT_SECRET: { label: 'MusicAPI Dashboard', url: 'https://app.musicapi.com/' },
-  PIPEDREAM_CLIENT_ID: { label: 'Pipedream API Settings', url: 'https://pipedream.com/settings/api' },
-  PIPEDREAM_CLIENT_SECRET: { label: 'Pipedream API Settings', url: 'https://pipedream.com/settings/api' },
-  PIPEDREAM_PROJECT_ID: { label: 'Pipedream Projects', url: 'https://pipedream.com/projects' },
-  PIPEDREAM_ENVIRONMENT: { label: 'Pipedream Projects', url: 'https://pipedream.com/projects' },
-  APPLE_IAP_ISSUER_ID: { label: 'App Store Connect', url: 'https://appstoreconnect.apple.com/' },
-  APPLE_IAP_KEY_ID: { label: 'App Store Connect', url: 'https://appstoreconnect.apple.com/' },
-  APPLE_IAP_PRIVATE_KEY: { label: 'App Store Connect', url: 'https://appstoreconnect.apple.com/' },
-  GOOGLE_PLAY_PACKAGE_NAME: { label: 'Google Play Console', url: 'https://play.google.com/console/' },
-  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { label: 'Google Play Console', url: 'https://play.google.com/console/' },
-  STRIPE_SECRET_KEY: { label: 'Stripe Dashboard', url: 'https://dashboard.stripe.com/' },
-  STRIPE_WEBHOOK_SECRET: { label: 'Stripe Dashboard', url: 'https://dashboard.stripe.com/' },
-};
+const BILLING_LINKS = INTEGRATION_PROVIDER_LINKS;
 
 const PUSH_LABELS: Record<string, string> = {
   CREATED: 'Créées',
