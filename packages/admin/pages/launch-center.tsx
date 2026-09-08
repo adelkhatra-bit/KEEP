@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabaseClient';
 
 type IntegrationRow = { key: string; configured: boolean };
 type RuntimeRow = { key: string; status: string; last_checked_at: string | null; last_error: string | null };
-type RecognitionResult = { provider: string; configured: boolean; ok: boolean; detail?: string | null };
 type ManualKey = 'apple_membership' | 'shazam_service' | 'store_products' | 'store_contracts' | 'iphone_test';
 
 const MANUAL: Array<{ key: ManualKey; label: string; detail: string }> = [
@@ -72,8 +71,6 @@ export default function LaunchCenter() {
   const [manual, setManual] = useState<Record<ManualKey, boolean>>({ apple_membership: false, shazam_service: false, store_products: false, store_contracts: false, iphone_test: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [recognition, setRecognition] = useState<RecognitionResult[] | null>(null);
-  const [testingRecognition, setTestingRecognition] = useState(false);
 
   const load = async () => {
     setLoading(true); setError(null);
@@ -104,19 +101,6 @@ export default function LaunchCenter() {
       localStorage.setItem('loki-launch-manual-v1', JSON.stringify(next));
       return next;
     });
-  };
-
-  const testRecognition = async () => {
-    if (!supabase || testingRecognition) return;
-    setTestingRecognition(true); setError(null);
-    try {
-      const { data, error: functionError } = await supabase.functions.invoke('keep-recognition-admin-test', { body: { action: 'test' } });
-      if (functionError) throw functionError;
-      if (data?.error) throw new Error(data.message || data.error);
-      setRecognition(Array.isArray(data?.providers) ? data.providers as RecognitionResult[] : []);
-      await load();
-    } catch (e: any) { setError(e?.message ?? 'Test de reconnaissance impossible.'); }
-    finally { setTestingRecognition(false); }
   };
 
   const configured = useMemo(() => new Set(integrations.filter((row) => row.configured).map((row) => row.key)), [integrations]);
@@ -153,11 +137,18 @@ export default function LaunchCenter() {
       </div>
     </div>
 
+    {/* Adel (08/09/2026) : "verifie bien que dans toutes ces rubriques tu
+        n'as pas cree des doublons" -- le bouton "TESTER TOUS LES MOTEURS"
+        dupliquait exactement /integrations ("Tester tous les moteurs
+        maintenant", meme action keep-recognition-admin-test). Un seul
+        endroit pour lancer le vrai test desormais ; celui-ci reste un
+        etat lu (Cles detectees automatiquement + alerte d'erreur ci-dessous). */}
     <div className="card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginTop: 0 }}>Écoute multi-moteurs</h3>
       <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki : ShazamKit sur iPhone → AudD → ACRCloud. Pour un lien YouTube/TikTok partagé : métadonnées de la page → catalogues Apple/Deezer → empreinte audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
-      <button onClick={() => void testRecognition()} disabled={testingRecognition}>{testingRecognition ? 'TEST EN COURS…' : 'TESTER TOUS LES MOTEURS'}</button>
-      {recognition && <table style={{ marginTop: 14 }}><thead><tr><th>Moteur</th><th>Configuration</th><th>Test réel</th><th>Détail</th></tr></thead><tbody>{recognition.map((row) => <tr key={row.provider}><td><strong>{row.provider}</strong></td><td>{row.configured ? 'Configuré' : 'Sans clé'}</td><td><strong style={{ color: row.ok ? '#86efac' : '#fb7185' }}>{row.ok ? 'OK' : 'ÉCHEC'}</strong></td><td>{row.detail ?? '—'}</td></tr>)}</tbody></table>}
+      <a href="/integrations" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
+        Tester les moteurs dans « Intégrations »
+      </a>
     </div>
 
     <div className="card" style={{ marginBottom: 20 }}>

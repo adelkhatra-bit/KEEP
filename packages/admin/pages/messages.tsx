@@ -116,6 +116,8 @@ export default function Messages() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={140}
+          spellCheck
+          lang="fr"
           style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', marginBottom: 10 }}
         />
         <textarea
@@ -124,6 +126,8 @@ export default function Messages() {
           onChange={(e) => setBody(e.target.value)}
           maxLength={2000}
           rows={5}
+          spellCheck
+          lang="fr"
           style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', resize: 'vertical' }}
         />
         <button

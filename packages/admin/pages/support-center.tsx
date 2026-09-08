@@ -155,7 +155,11 @@ export default function SupportCenterAdmin() {
               <div style={{ marginTop:5, color:'#80768f', fontSize:9 }}>{new Date(message.created_at).toLocaleString('fr-FR')}</div>
             </div>)}
           </div>
-          <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={5} placeholder="Répondre à l’utilisateur…" style={{ width:'100%', marginTop:16, boxSizing:'border-box', borderRadius:12, padding:12, background:'#0d0a13', color:'#fff', border:'1px solid #3b3150' }}/>
+          {/* Adel (08/09/2026) : "trouve une solution ... qui reprend les
+              fautes d'orthographe" -- correcteur natif du navigateur, en
+              francais (souligne les fautes, propose des corrections au clic
+              droit), sans dependance ni cle API supplementaire. */}
+          <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={5} placeholder="Répondre à l’utilisateur…" spellCheck lang="fr" style={{ width:'100%', marginTop:16, boxSizing:'border-box', borderRadius:12, padding:12, background:'#0d0a13', color:'#fff', border:'1px solid #3b3150' }}/>
           <button disabled={busy || !reply.trim()} onClick={() => void sendReply()} style={{ marginTop:8 }}>{busy ? 'Envoi…' : 'Envoyer la réponse Loki'}</button>
         </>}
       </div>

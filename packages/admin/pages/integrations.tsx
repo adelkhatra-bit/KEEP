@@ -83,7 +83,6 @@ export default function Integrations() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [testEmail, setTestEmail] = useState('');
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
   const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
@@ -183,18 +182,6 @@ export default function Integrations() {
     }
   };
 
-  const sendTest = async () => {
-    setBusy('EMAIL_TEST'); setError(null); setMessage(null);
-    try {
-      await invokeAdmin({ action: 'integrations.test_email', email: testEmail.trim() });
-      setMessage(`E-mail Loki envoyé à ${testEmail.trim()} via Brevo.`);
-    } catch (e: any) {
-      setError(e?.message ?? 'Test Brevo impossible.');
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const keylessStatus = keylessRuntime?.status ?? 'UNKNOWN';
 
   return (
@@ -287,21 +274,20 @@ export default function Integrations() {
         </a>
       </div>
 
+      {/* Adel (08/09/2026) : "verifie bien que dans toutes ces rubriques
+          tu n'as pas cree des doublons" -- ce card dupliquait exactement
+          /email-test (meme action integrations.test_email). Un seul
+          endroit pour tester l'envoi desormais, avec en plus les vrais
+          gabarits signup/mot de passe oublie et le diagnostic de
+          delivrabilite. */}
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Tester l’envoi Brevo</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant de la connexion utilisateur Loki.</p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            type="email"
-            placeholder="adresse@test.fr"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-            style={{ flex: '1 1 280px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
-          />
-          <button onClick={() => void sendTest()} disabled={busy === 'EMAIL_TEST' || !testEmail.trim()}>
-            {busy === 'EMAIL_TEST' ? 'Envoi…' : 'Envoyer un test Loki'}
-          </button>
-        </div>
+        <h3 style={{ marginTop: 0 }}>Tester l’envoi e-mail</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>
+          Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL (ou MAILJET_API_KEY + MAILJET_SECRET_KEY) configurés ci-dessous.
+        </p>
+        <a href="/email-test" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
+          Ouvrir « Test e-mail »
+        </a>
       </div>
 
       {loading && <div className="card">Chargement des intégrations…</div>}
