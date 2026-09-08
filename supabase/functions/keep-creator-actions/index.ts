@@ -113,6 +113,11 @@ Deno.serve(async (req) => {
     if (action === "event.broadcast") {
       const eventId = clean(body?.eventId, 80);
       const message = clean(body?.message, 600);
+      // Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
+      // notification ou avec les boutons ... l'utilisateur puisse cocher
+      // cette fonction" -- l'organisateur choisit, mais reste true par
+      // defaut (c'est ce qui donne le compteur participe/plus tard/pas).
+      const includeRsvpButtons = body?.includeRsvpButtons !== false;
       if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
 
       const { data: event, error: eventError } = await admin
@@ -168,7 +173,9 @@ Deno.serve(async (req) => {
         type: "EVENT_INVITE",
         title: `Invitation · ${event.name}`,
         body: bodyText,
-        data: { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"] },
+        data: includeRsvpButtons
+          ? { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"] }
+          : { event_id: eventId, creator_id: user.id },
       }));
       const sends = targets.map((profileId) => ({ event_id: eventId, profile_id: profileId, sent_at: new Date().toISOString() }));
 

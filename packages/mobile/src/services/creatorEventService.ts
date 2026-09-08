@@ -81,9 +81,9 @@ export async function createCreatorEvent(input: {
   return { id: String(data.event.id), name: String(data.event.name) };
 }
 
-export async function broadcastEventToFollowers(eventId: string, message?: string): Promise<number> {
+export async function broadcastEventToFollowers(eventId: string, message?: string, includeRsvpButtons = true): Promise<number> {
   if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
-  const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.broadcast', eventId, message } });
+  const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.broadcast', eventId, message, includeRsvpButtons } });
   if (error && !data) throw error;
   if (!data?.ok) {
     if (data?.error === 'creator_plan_required') throw new Error('CREATOR_PRO_REQUIRED');
@@ -141,4 +141,36 @@ export async function loadEventReviewSummary(eventId: string): Promise<EventRevi
   const { data, error } = await supabase.rpc('keep_event_review_summary', { p_event_id: eventId });
   if (error || !data) return { averageRating: 0, reviewCount: 0 };
   return { averageRating: Number(data.averageRating || 0), reviewCount: Number(data.reviewCount || 0) };
+}
+
+export type EventRsvpCounts = { going: number; maybe: number; notGoing: number };
+
+export async function loadEventRsvpCounts(eventId: string): Promise<EventRsvpCounts> {
+  if (!supabase) return { going: 0, maybe: 0, notGoing: 0 };
+  const { data, error } = await supabase.rpc('keep_event_rsvp_counts', { p_event_id: eventId });
+  if (error || !data) return { going: 0, maybe: 0, notGoing: 0 };
+  return { going: Number(data.going || 0), maybe: Number(data.maybe || 0), notGoing: Number(data.notGoing || 0) };
+}
+
+export type PendingEventReview = {
+  eventId: string;
+  name: string;
+  venueName: string | null;
+  startsAt: string;
+  creatorId: string;
+  creatorUsername: string;
+};
+
+export async function loadMyPendingEventReviews(): Promise<PendingEventReview[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_my_pending_event_reviews');
+  if (error || !Array.isArray(data)) return [];
+  return data.map((row: any) => ({
+    eventId: String(row.event_id),
+    name: String(row.name),
+    venueName: row.venue_name ?? null,
+    startsAt: String(row.starts_at),
+    creatorId: String(row.creator_id),
+    creatorUsername: String(row.creator_username || 'keep-user'),
+  }));
 }

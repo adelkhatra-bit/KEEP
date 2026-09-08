@@ -190,7 +190,12 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const battleTheme = (item: KeepNotification) => String(item.data?.themeCode || 'MIX').replace(/_/g, ' ');
 
-  const isEventInvite = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'EVENT_INVITE';
+  // Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
+  // notification ou avec les boutons ... l'utilisateur puisse cocher" --
+  // l'organisateur choisit a l'envoi (includeRsvpButtons) ; ce champ n'est
+  // present dans data QUE si les boutons ont ete inclus, donc on se base
+  // dessus plutot que sur le seul type.
+  const isEventInvite = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'EVENT_INVITE' && Array.isArray(item.data?.response_options);
   const eventIdOf = (item: KeepNotification) => {
     const raw = item.data?.event_id ?? item.data?.eventId;
     return typeof raw === 'string' && raw ? raw : null;
