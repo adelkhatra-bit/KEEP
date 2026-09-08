@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
-import { broadcastEventToFollowers, createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant } from '../services/creatorEventService';
+import { broadcastEventToFollowers, createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
@@ -20,6 +20,7 @@ import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { searchAddress, AddressSuggestion } from '../services/locationService';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -55,6 +56,46 @@ function stripBattleUrlParams() {
     // Le navigateur peut refuser certains réglages (mode privé, etc.) :
     // l'écran reste utilisable, seul ce filet de sécurité est perdu.
   }
+}
+
+// Adel (08/09/2026) : "trouver une solution aussi pour la date et l'heure.
+// Je veux un systeme pre rempli cote utilisateur" -- pas de nouvelle
+// dependance native (l'app tourne d'abord sur le web via GitHub Pages) :
+// des choix rapides pre-calcules couvrent le cas courant, le champ texte
+// reste en repli pour une date precise.
+function pad2(n: number) { return String(n).padStart(2, '0'); }
+function toLocalInputValue(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+function nextWeekday(from: Date, weekday: number) {
+  const d = new Date(from);
+  const diff = (weekday - d.getDay() + 7) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function buildQuickDateOptions(): { label: string; value: string }[] {
+  const now = new Date();
+  const options: { label: string; value: string }[] = [];
+  const tonight = new Date(now); tonight.setHours(21, 0, 0, 0);
+  if (tonight.getTime() > now.getTime() + 30 * 60000) options.push({ label: 'Ce soir · 21h', value: toLocalInputValue(tonight) });
+  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(21, 0, 0, 0);
+  options.push({ label: 'Demain · 21h', value: toLocalInputValue(tomorrow) });
+  const saturday = nextWeekday(now, 6); saturday.setHours(22, 0, 0, 0);
+  options.push({ label: 'Samedi · 22h', value: toLocalInputValue(saturday) });
+  const nextWeek = new Date(now); nextWeek.setDate(nextWeek.getDate() + 7); nextWeek.setHours(22, 0, 0, 0);
+  options.push({ label: 'Dans 1 semaine · 22h', value: toLocalInputValue(nextWeek) });
+  return options;
+}
+function defaultStartsAt(): string {
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(21, 0, 0, 0);
+  return toLocalInputValue(tomorrow);
+}
+
+// Adel (08/09/2026) : "chacun invite ... soit individu avec le pseudo de
+// l'utilisateur que ca fasse classe" -- image QR generee a la volee, pas de
+// nouvelle dependance native (image affichee comme n'importe quelle photo).
+function qrImageUrl(payload: string): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(payload)}`;
 }
 
 export default function PartiesScreen({ navigation, route }: any) {
@@ -290,6 +331,25 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+  // Adel (08/09/2026) : "une piece jointe comme une photo de l'evenement".
+  const [eventImageUrl, setEventImageUrl] = useState('');
+  const [imageUploadBusy, setImageUploadBusy] = useState(false);
+  // Adel (08/09/2026) : "souhaitez-vous imposer le QR code de l'utilisateur
+  // ... chacun invite ... soit individu avec le pseudo ... que ca fasse
+  // classe ... l'invite disparaissent automatiquement un jour apres
+  // l'evenement".
+  const [requireQrCode, setRequireQrCode] = useState(false);
+  const [myTicket, setMyTicket] = useState<EventTicket | null>(null);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [ticketLoading, setTicketLoading] = useState(false);
+  // Adel (08/09/2026) : "l'organisateur ... pourra le scanner ... tout ceux
+  // qui ont participe et tout ceux qui ne sont pas venus" -- saisie du code
+  // (dicte ou copie depuis l'ecran du participant) en repli sans nouvelle
+  // dependance camera ; le tap-to-toggle sur chaque ligne reste disponible
+  // meme sans QR.
+  const [checkinCode, setCheckinCode] = useState('');
+  const [checkinBusy, setCheckinBusy] = useState(false);
+  const [checkinTogglingId, setCheckinTogglingId] = useState('');
 
   useEffect(() => {
     if (!createOpen || venueCoords || venueName.trim().length < 3) { setVenueSuggestions([]); return undefined; }
@@ -365,6 +425,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   useEffect(() => {
     let cancelled = false;
+    setMyTicket(null);
     if (!currentEvent) { setCurrentEventReviewSummary(null); setRsvpCounts(null); return undefined; }
     void loadEventReviewSummary(currentEvent.id).then((summary) => { if (!cancelled) setCurrentEventReviewSummary(summary); }).catch(() => {});
     void loadEventRsvpCounts(currentEvent.id).then((counts) => { if (!cancelled) setRsvpCounts(counts); }).catch(() => {});
@@ -429,6 +490,10 @@ export default function PartiesScreen({ navigation, route }: any) {
       navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
       return;
     }
+    // Adel (08/09/2026) : "un systeme pre rempli cote utilisateur" -- une
+    // date par defaut (demain 21h) plutot qu'un champ vide face a un
+    // utilisateur non technique.
+    if (!startsAt) setStartsAt(defaultStartsAt());
     setCreateOpen(true);
   };
 
@@ -442,6 +507,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     setCreateOpen(false); setEditingEventId(null);
     setName(''); setStartsAt(''); setVenueName(''); setVenueCoords(null); setVenueSuggestions([]);
     setYoutubeUrl(''); setDescription(''); setMessage(''); setIncludeRsvpButtons(true);
+    setEventImageUrl(''); setRequireQrCode(false);
   };
 
   const openEdit = (event: CreatorEvent) => {
@@ -454,7 +520,22 @@ export default function PartiesScreen({ navigation, route }: any) {
     setDescription(event.description || '');
     setYoutubeUrl(event.youtubeUrl || '');
     setMessage('');
+    setEventImageUrl(event.imageUrl || '');
+    setRequireQrCode(event.requireQrCode);
     setCreateOpen(true);
+  };
+
+  const pickEventImage = async () => {
+    if (!user || imageUploadBusy) return;
+    setImageUploadBusy(true);
+    try {
+      const url = await pickAndUploadEventImage(user.id);
+      if (url) setEventImageUrl(url);
+    } catch {
+      Alert.alert('Photo', 'Impossible d’ajouter cette photo pour le moment.');
+    } finally {
+      setImageUploadBusy(false);
+    }
   };
 
   const deleteEvent = (event: CreatorEvent) => {
@@ -483,6 +564,69 @@ export default function PartiesScreen({ navigation, route }: any) {
     finally { setParticipantsLoading(false); }
   };
 
+  const submitCheckinCode = async () => {
+    const code = checkinCode.trim();
+    if (!code || checkinBusy) return;
+    setCheckinBusy(true);
+    try {
+      const result = await checkinEventTicketByCode(code);
+      setCheckinCode('');
+      setParticipants((rows) => rows.map((p) => p.profileId === result.profileId ? { ...p, checkedInAt: p.checkedInAt || new Date().toISOString() } : p));
+      Alert.alert(result.alreadyCheckedIn ? 'Déjà enregistré' : 'Bienvenue !', `${result.username} — ${result.alreadyCheckedIn ? 'était déjà pointé(e) présent(e).' : 'pointé(e) présent(e) ✅'}`);
+    } catch (e: any) {
+      const code2 = String(e?.message || '');
+      Alert.alert('Billet', code2 === 'TICKET_NOT_FOUND' ? 'Aucun billet ne correspond à ce code.' : 'Impossible de valider ce billet pour le moment.');
+    } finally {
+      setCheckinBusy(false);
+    }
+  };
+
+  const toggleParticipantCheckin = async (participant: EventParticipant) => {
+    if (!currentEvent || checkinTogglingId) return;
+    setCheckinTogglingId(participant.profileId);
+    try {
+      const checkedIn = await toggleEventCheckin(currentEvent.id, participant.profileId);
+      setParticipants((rows) => rows.map((p) => p.profileId === participant.profileId ? { ...p, checkedInAt: checkedIn ? new Date().toISOString() : null } : p));
+    } catch {
+      Alert.alert('Participants', 'Impossible de mettre à jour le pointage pour le moment.');
+    } finally {
+      setCheckinTogglingId('');
+    }
+  };
+
+  // Adel (08/09/2026) : "il pourra dire que je telecharge mon QR code ou un
+  // bouton QR code ... l'invite disparaissent automatiquement un jour apres
+  // l'evenement" -- le billet reste charge, mais son affichage/telechargement
+  // n'est propose que dans la fenetre utile (jusqu'a 24h apres la fin).
+  const ticketStillVisible = (ticket: EventTicket | null) => {
+    if (!ticket) return false;
+    const end = new Date(ticket.endsAt || ticket.startsAt).getTime();
+    return Date.now() < end + 24 * 60 * 60 * 1000;
+  };
+
+  const openMyTicket = async () => {
+    if (!currentEvent) return;
+    setTicketModalOpen(true); setTicketLoading(true);
+    try { setMyTicket(await loadMyEventTicket(currentEvent.id)); }
+    catch { setMyTicket(null); }
+    finally { setTicketLoading(false); }
+  };
+
+  const downloadTicketIcs = () => {
+    if (!myTicket) return;
+    const ics = buildEventIcs(myTicket);
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const blob = new Blob([ics], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${myTicket.eventName.replace(/[^a-z0-9]+/gi, '-')}.ics`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      Alert.alert('Agenda', 'Utilise « Ajouter à Google Agenda » pour enregistrer cet évènement.');
+    }
+  };
+
   // Adel (08/09/2026) : "publie sans notification pour moi c'est pas
   // logique" -- un evenement cree sans jamais prevenir personne n'a pas de
   // sens ; un seul bouton, qui notifie toujours a la creation (la case a
@@ -495,7 +639,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     if (!iso) return Alert.alert('Soirée', 'Indique la date au format AAAA-MM-JJTHH:MM.');
     setCreateBusy(true);
     try {
-      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), youtubeUrl: youtubeUrl.trim() || undefined, lat: venueCoords?.lat, lng: venueCoords?.lng };
+      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), youtubeUrl: youtubeUrl.trim() || undefined, imageUrl: eventImageUrl.trim() || undefined, requireQrCode, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
         resetEventForm();
@@ -613,10 +757,23 @@ export default function PartiesScreen({ navigation, route }: any) {
 
         {currentEvent ? <>
           <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J’Y VAIS" hint="Glisse si tu veux · les boutons fonctionnent aussi sans swipe">
-            <View style={styles.card}><View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View><Text style={styles.eventName}>{currentEvent.name}</Text><Text style={styles.date}>{dateText}</Text><Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text>{currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}{user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}{currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}{currentEvent.description?<Text style={styles.description}>{currentEvent.description}</Text>:null}{currentEvent.youtubeUrl?<TouchableOpacity style={styles.youtubeLink} onPress={()=>{void Linking.openURL(currentEvent.youtubeUrl as string);}}><Text style={styles.youtubeLinkText}>▶ Voir sur YouTube</Text></TouchableOpacity>:null}<View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View></View>
+            <View style={styles.card}>
+              {/* Adel (08/09/2026) : "une piece jointe comme une photo de
+                  l'evenement ... ca va se presenter un peu comme le style
+                  musical" -- affiche en poster plein cadre avec un degrade
+                  sombre, comme une pochette, jamais un simple carre annexe. */}
+              {currentEvent.imageUrl ? <>
+                <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardCoverImage} resizeMode="cover" />
+                <LinearGradient colors={['rgba(9,6,16,0)', 'rgba(9,6,16,.55)', 'rgba(9,6,16,.96)']} style={styles.cardCoverGradient} />
+              </> : null}
+              <View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View><Text style={styles.eventName}>{currentEvent.name}</Text><Text style={styles.date}>{dateText}</Text><Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text>{currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}{user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}{currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}{currentEvent.description?<Text style={styles.description}>{currentEvent.description}</Text>:null}{currentEvent.youtubeUrl?<TouchableOpacity style={styles.youtubeLink} onPress={()=>{void Linking.openURL(currentEvent.youtubeUrl as string);}}><Text style={styles.youtubeLinkText}>▶ Voir sur YouTube</Text></TouchableOpacity>:null}<View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View></View>
           </SwipeDeck>
           <View style={styles.rsvpRow}><TouchableOpacity style={[styles.roundAction,styles.noAction]} onPress={()=>void chooseRsvp(currentEvent.id,'NOT_GOING',true)}><Text style={styles.noText}>✕</Text></TouchableOpacity><TouchableOpacity style={[styles.maybeAction,currentRsvp==='MAYBE'&&styles.maybeActionOn]} onPress={()=>void chooseRsvp(currentEvent.id,'MAYBE')}><Text style={styles.maybeText}>PEUT-ÊTRE</Text></TouchableOpacity><TouchableOpacity style={[styles.roundAction,styles.yesAction]} onPress={()=>void chooseRsvp(currentEvent.id,'GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color="#111"/>:<Text style={styles.yesText}>✓</Text>}</TouchableOpacity></View>
           <View style={styles.secondaryRow}><TouchableOpacity style={styles.secondary} onPress={nextEvent}><Text style={styles.secondaryText}>Suivant</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={()=>shareEvent(currentEvent.id,currentEvent.name).catch(()=>{})}><Text style={styles.secondaryText}>↗ Partager</Text></TouchableOpacity></View>
+          {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR
+              code ou un bouton QR code" -- reserve a qui participe a un
+              evenement qui impose le QR. */}
+          {currentEvent.requireQrCode && currentRsvp === 'GOING' ? <TouchableOpacity style={styles.ticketButton} onPress={() => void openMyTicket()}><Text style={styles.ticketButtonText}>🎟 Mon billet</Text></TouchableOpacity> : null}
           {/* Adel (08/09/2026) : "il puisse effacer les evenements qu'il a
               deja mis, tous les modifier ... voir tous les participants" --
               reserve a l'organisateur de CETTE soiree. */}
@@ -769,7 +926,29 @@ export default function PartiesScreen({ navigation, route }: any) {
     </Modal>
 
     <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier la soirée' : 'Créer une soirée'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de la soirée" placeholderTextColor={colors.textMuted}/><TextInput style={styles.input} value={startsAt} onChangeText={setStartsAt} placeholder="2026-09-12T22:00" placeholderTextColor={colors.textMuted} autoCapitalize="none"/>
+      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de la soirée" placeholderTextColor={colors.textMuted}/>
+      {/* Adel (08/09/2026) : "trouver une solution aussi pour la date et
+          l'heure. Je veux un systeme pre rempli cote utilisateur" -- choix
+          rapides pre-calcules ; le champ reste modifiable pour une date
+          precise. */}
+      <View style={styles.quickDateRow}>{buildQuickDateOptions().map((opt) => (
+        <TouchableOpacity key={opt.label} style={[styles.quickDateChip, startsAt===opt.value&&styles.quickDateChipOn]} onPress={() => setStartsAt(opt.value)}>
+          <Text style={[styles.quickDateChipText, startsAt===opt.value&&styles.quickDateChipTextOn]}>{opt.label}</Text>
+        </TouchableOpacity>
+      ))}</View>
+      <TextInput style={styles.input} value={startsAt} onChangeText={setStartsAt} placeholder="2026-09-12T22:00" placeholderTextColor={colors.textMuted} autoCapitalize="none"/>
+      {/* Adel (08/09/2026) : "une piece jointe comme une photo de
+          l'evenement" */}
+      <TouchableOpacity style={styles.imagePickerButton} onPress={() => void pickEventImage()} disabled={imageUploadBusy}>
+        {eventImageUrl ? <Image source={{ uri: eventImageUrl }} style={styles.imagePickerPreview} resizeMode="cover" /> : null}
+        <Text style={styles.imagePickerText}>{imageUploadBusy ? 'Envoi…' : eventImageUrl ? '✎ Changer la photo' : '📷 Ajouter une photo (affiche + le style musical)'}</Text>
+      </TouchableOpacity>
+      {/* Adel (08/09/2026) : "souhaitez-vous imposer le QR code de
+          l'utilisateur ... chacun invite ... que ca fasse classe" */}
+      <TouchableOpacity style={styles.rsvpToggleRow} onPress={() => setRequireQrCode((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: requireQrCode }}>
+        <View style={[styles.rsvpToggleBox, requireQrCode && styles.rsvpToggleBoxOn]}>{requireQrCode ? <Text style={styles.rsvpToggleCheck}>✓</Text> : null}</View>
+        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>Souhaitez-vous imposer le QR code personnel ?</Text><Text style={styles.rsvpToggleHint}>Chaque personne qui participe reçoit un billet individuel à son pseudo, à présenter le soir même. Tu pourras pointer les présents.</Text></View>
+      </TouchableOpacity>
       {/* Adel (08/09/2026) : "le systeme puisse proposer des adresses
           automatiquement selon le pays ... le FR doit etre automatique" --
           suggestions en direct pendant la saisie, biaisees sur countryCode
@@ -800,14 +979,51 @@ export default function PartiesScreen({ navigation, route }: any) {
     <Modal visible={participantsOpen} transparent animationType="slide" onRequestClose={() => setParticipantsOpen(false)}>
       <View style={styles.backdrop}><View style={styles.sheet}>
         <View style={styles.modalHeader}><Text style={styles.modalTitle}>Participants</Text><TouchableOpacity onPress={() => setParticipantsOpen(false)}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View>
+        {/* Adel (08/09/2026) : "il pourra le scanner" -- saisie du code du
+            billet (dicté ou lu par le participant) : pas de camera pour
+            l'instant, mais le pointage lui-même est bien reel et immediat. */}
+        <View style={styles.checkinRow}>
+          <TextInput style={[styles.input, styles.checkinInput]} value={checkinCode} onChangeText={setCheckinCode} placeholder="Code du billet" placeholderTextColor={colors.textMuted} autoCapitalize="characters"/>
+          <TouchableOpacity style={styles.checkinButton} disabled={checkinBusy || !checkinCode.trim()} onPress={() => void submitCheckinCode()}>{checkinBusy ? <ActivityIndicator color="#111"/> : <Text style={styles.checkinButtonText}>Valider</Text>}</TouchableOpacity>
+        </View>
         <ScrollView showsVerticalScrollIndicator={false}>
           {participantsLoading ? <ActivityIndicator color={colors.primaryLight}/> : participants.length ? participants.map((p) => (
             <View key={p.profileId} style={styles.participantRow}>
-              <View style={{ flex: 1, minWidth: 0 }}><View style={styles.participantNameRow}><Text style={styles.participantName} numberOfLines={1}>{p.username}</Text><ProfileCertificationBadge tier={p.certificationTier} compact/></View></View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.participantNameRow}><Text style={styles.participantName} numberOfLines={1}>{p.username}</Text><ProfileCertificationBadge tier={p.certificationTier} compact/></View>
+                {p.ticketCode ? <Text style={styles.participantTicket}>{p.checkedInAt ? '✅ Présent' : '🎟 Billet non scanné'}</Text> : null}
+              </View>
               <Text style={[styles.participantStatus, p.status==='GOING'&&styles.participantStatusGoing, p.status==='NOT_GOING'&&styles.participantStatusNotGoing]}>{RSVP_LABEL[p.status]}</Text>
+              {p.status === 'GOING' ? <TouchableOpacity style={[styles.participantCheckinBtn, p.checkedInAt && styles.participantCheckinBtnOn]} disabled={checkinTogglingId===p.profileId} onPress={() => void toggleParticipantCheckin(p)}>
+                {checkinTogglingId===p.profileId ? <ActivityIndicator color="#111"/> : <Text style={[styles.participantCheckinBtnText, p.checkedInAt && styles.participantCheckinBtnTextOn]}>{p.checkedInAt ? '✓' : 'Présent ?'}</Text>}
+              </TouchableOpacity> : null}
             </View>
           )) : <Text style={styles.meta}>Personne n’a encore répondu.</Text>}
         </ScrollView>
+      </View></View>
+    </Modal>
+
+    {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR code ...
+        l'integrer sur son agenda Google ... comme il sort de Apple" -- billet
+        personnel (pseudo + QR) + export agenda (Google + .ics pour Apple/
+        Outlook), sans nouvelle dependance native. */}
+    <Modal visible={ticketModalOpen} transparent animationType="fade" onRequestClose={() => setTicketModalOpen(false)}>
+      <View style={styles.statsBackdrop}><View style={styles.ticketCard}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setTicketModalOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
+        {ticketLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 30 }}/> : myTicket && ticketStillVisible(myTicket) ? <>
+          <Text style={styles.ticketEventName}>{myTicket.eventName}</Text>
+          <Text style={styles.ticketMeta}>{new Date(myTicket.startsAt).toLocaleString('fr-FR', { weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit' })}{myTicket.venueName ? ` · ${myTicket.venueName}` : ''}</Text>
+          {myTicket.ticketCode ? <>
+            <View style={styles.ticketQrFrame}><Image source={{ uri: qrImageUrl(`LOKI-TICKET:${myTicket.eventId}:${myTicket.ticketCode}`) }} style={styles.ticketQrImage}/></View>
+            <Text style={styles.ticketUsername}>{myTicket.username}</Text>
+            <Text style={styles.ticketCode}>{myTicket.ticketCode}</Text>
+            <Text style={styles.ticketHint}>{myTicket.checkedInAt ? '✅ Déjà scanné à l’entrée' : 'Présente ce QR code à l’entrée.'}</Text>
+          </> : <Text style={styles.ticketHint}>Ton billet arrive dans un instant.</Text>}
+          <View style={styles.ticketCalendarRow}>
+            <TouchableOpacity style={styles.ticketCalendarButton} onPress={() => { void Linking.openURL(buildGoogleCalendarUrl(myTicket)); }}><Text style={styles.ticketCalendarButtonText}>📅 Google Agenda</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.ticketCalendarButton} onPress={downloadTicketIcs}><Text style={styles.ticketCalendarButtonText}>⤓ .ics (Apple/Outlook)</Text></TouchableOpacity>
+          </View>
+        </> : <Text style={styles.meta}>Billet indisponible (l’évènement est déjà loin derrière nous).</Text>}
       </View></View>
     </Modal>
 
@@ -834,5 +1050,12 @@ export default function PartiesScreen({ navigation, route }: any) {
 const styles=StyleSheet.create({
 container:{flex:1,backgroundColor:'#090610'},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},partiesTabBtnOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},partiesTabText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:'#FFF'},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:'#40334B',backgroundColor:'#151020',gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#8B5CF6',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},leaderboardTitle:{color:'#E5F266',fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:'#1B1422'},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:'#FFF',fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderboardWins:{color:'#E5F266',fontSize:11,fontWeight:'900'},leaderboardStats:{color:'#B79CFF',fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:'#E5F266',fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:'#6EE8A7',fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:'#8F879D',fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:'#151020',borderWidth:1,borderColor:'#E5F266',flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:'#2A1A14',borderWidth:1,borderColor:'#D6AA36',alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:'#D6AA36',fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#31C981',alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:'#7CF2B9',fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:'#E5F266',fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{height:420,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end',overflow:'hidden'},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)',marginBottom:10},badgeText:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#FFFFFF',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:'#FFD166',fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:'#B79CFF',fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:'#8B5CF6'},rsvpToggleCheck:{color:'#FFF',fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:'#8F879D',fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#241D0F'},reviewPromptTitle:{color:'#FFD166',fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:'#FFD166',fontSize:34},youtubeLink:{alignSelf:'flex-start',marginTop:10,minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:'#3A1116',borderWidth:1,borderColor:'#FF4B4B',alignItems:'center',justifyContent:'center'},youtubeLinkText:{color:'#FF6C6C',fontSize:11,fontWeight:'900'},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:12,fontWeight:'900'},rsvpRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:18,marginTop:16},roundAction:{width:58,height:58,borderRadius:29,alignItems:'center',justifyContent:'center',borderWidth:2},noAction:{borderColor:'#FF5F83',backgroundColor:'#151020'},yesAction:{borderColor:'#E5F266',backgroundColor:'#E5F266'},noText:{color:'#FF5F83',fontSize:26,fontWeight:'800'},yesText:{color:'#17130B',fontSize:25,fontWeight:'900'},maybeAction:{minHeight:44,paddingHorizontal:15,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:'#FF6C8C'},secondaryDangerText:{color:'#FF6C8C'},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:'#241D30'},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:'#F8F6FC',fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:'#B79CFF',fontSize:11,fontWeight:'900'},participantStatusGoing:{color:'#38D990'},participantStatusNotGoing:{color:'#FF6C8C'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',overflow:'hidden'},venueSuggestionRow:{minHeight:40,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:'#241B30'},venueSuggestionText:{color:'#F8F6FC',fontSize:12,fontWeight:'700'},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},
 statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},myRankingCard:{width:'100%',maxWidth:400,maxHeight:'82%',borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},creditHistoryRow:{minHeight:38,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,paddingHorizontal:10,borderRadius:12,backgroundColor:'#1B1422',marginBottom:5},creditHistoryLabel:{flex:1,color:'#FFF',fontSize:11,lineHeight:15,fontWeight:'800'},creditHistoryGain:{color:'#7FF2B7',fontSize:12,fontWeight:'900'},creditHistoryLoss:{color:'#FFB3C3',fontSize:12,fontWeight:'900'},creditHistoryNextCredit:{color:'#B79CFF',fontSize:11,lineHeight:15,fontWeight:'700',marginBottom:8},statsClose:{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:17,backgroundColor:'#1F1830',alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:'#FFF',fontSize:20,lineHeight:22,fontWeight:'700'},statsUsernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:14,paddingRight:40},statsUsername:{color:'#FFF',fontSize:20,fontWeight:'900'},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:'#1B1422'},statsBigValue:{color:'#E5F266',fontSize:22,fontWeight:'900'},statsBigLabel:{color:'#B79CFF',fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsSmallRow:{flexDirection:'row',gap:5,marginTop:6},statsSmallItem:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:'#17121D'},statsSmallValue:{color:'#FFF',fontSize:11,fontWeight:'900'},statsSmallLabel:{color:'#8F879D',fontSize:9,fontWeight:'800',marginTop:1,textAlign:'center'},statsAvg:{color:'#FFF',fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:'#E5F266',fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#1B1422',marginBottom:6},statsThemeLabel:{color:'#FFF',fontSize:12,fontWeight:'900'},statsThemeValue:{color:'#B79CFF',fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:'#B79CFF',fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsFollowButton:{flex:1,minHeight:48,borderRadius:24,borderWidth:1.5,borderColor:'#FF5F83',backgroundColor:'#3A1822',alignItems:'center',justifyContent:'center'},statsFollowButtonActive:{backgroundColor:'#173529',borderColor:'#38D990'},statsFollowButtonText:{color:'#FFB3C3',fontSize:11,fontWeight:'900'},statsFollowButtonTextActive:{color:'#38D990'},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:'#8B5CF6',borderWidth:1.5,borderColor:'#4E8DFF',alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900'},
-incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:'#E5F266',backgroundColor:'#1B1222'},incomingText:{color:'#F3EDF7',fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:'#FFF',fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:'#8A7795',backgroundColor:'#211829',alignItems:'center',justifyContent:'center'},incomingNoText:{color:'#FFF',fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},incomingYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6}
+incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:'#E5F266',backgroundColor:'#1B1222'},incomingText:{color:'#F3EDF7',fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:'#FFF',fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:'#8A7795',backgroundColor:'#211829',alignItems:'center',justifyContent:'center'},incomingNoText:{color:'#FFF',fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},incomingYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
+cardCoverImage:{position:'absolute',top:0,left:0,right:0,bottom:0},cardCoverGradient:{position:'absolute',top:0,left:0,right:0,bottom:0},
+ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:'#151020',borderWidth:1.5,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},ticketButtonText:{color:'#FFD166',fontSize:13,fontWeight:'900'},
+quickDateRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginBottom:9},quickDateChip:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},quickDateChipOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},quickDateChipText:{color:'#F8F6FC',fontSize:11,fontWeight:'800'},quickDateChipTextOn:{color:'#FFF'},
+imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',marginBottom:9,alignItems:'center',justifyContent:'center',overflow:'hidden'},imagePickerPreview:{width:'100%',height:120},imagePickerText:{color:'#B79CFF',fontSize:12,fontWeight:'800',paddingVertical:12,paddingHorizontal:12,textAlign:'center'},
+checkinRow:{flexDirection:'row',gap:8,marginBottom:10},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},checkinButtonText:{color:'#17130B',fontSize:12,fontWeight:'900'},
+participantTicket:{color:'#8F879D',fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:'#38D990',borderColor:'#38D990'},participantCheckinBtnText:{color:'#F8F6FC',fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:'#0B1F16'},
+ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},ticketEventName:{color:'#FFF',fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:'#B79CFF',fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:'#FFF'},ticketQrImage:{width:200,height:200},ticketUsername:{color:'#FFD166',fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:'#8F879D',fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:42,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:'#F8F6FC',fontSize:10,fontWeight:'900',textAlign:'center'}
 });

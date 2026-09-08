@@ -41,6 +41,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   if (key === 'EVENT_INVITE') return 'INVITATION SOIRÉE';
+  if (key === 'EVENT_REMINDER') return 'RAPPEL SOIRÉE';
   if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki';
   return key.replace(/_/g, ' ');
 }

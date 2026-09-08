@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import type { ProfileCertificationTier } from './publicProfileStateService';
@@ -14,6 +15,8 @@ export type CreatorEvent = {
   djArtistNames: string[];
   externalTicketUrl?: string | null;
   youtubeUrl?: string | null;
+  imageUrl?: string | null;
+  requireQrCode: boolean;
 };
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
@@ -22,7 +25,7 @@ export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('events')
-    .select('id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url')
+    .select('id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code')
     .eq('is_disabled', false)
     .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
     .order('starts_at', { ascending: true })
@@ -40,6 +43,8 @@ export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
     djArtistNames: Array.isArray(row.dj_artist_names) ? row.dj_artist_names : [],
     externalTicketUrl: row.external_ticket_url,
     youtubeUrl: row.youtube_url,
+    imageUrl: row.image_url,
+    requireQrCode: Boolean(row.require_qr_code),
   }));
 }
 
@@ -66,6 +71,8 @@ export async function createCreatorEvent(input: {
   ticketUrl?: string;
   djArtistNames?: string[];
   youtubeUrl?: string;
+  imageUrl?: string;
+  requireQrCode?: boolean;
   lat?: number;
   lng?: number;
 }): Promise<{ id: string; name: string }> {
@@ -94,6 +101,8 @@ export async function updateCreatorEvent(eventId: string, input: {
   countryCode?: string;
   ticketUrl?: string;
   youtubeUrl?: string;
+  imageUrl?: string;
+  requireQrCode?: boolean;
   lat?: number;
   lng?: number;
 }): Promise<{ id: string; name: string }> {
@@ -117,6 +126,8 @@ export type EventParticipant = {
   certificationTier: ProfileCertificationTier;
   status: EventRsvpStatus;
   respondedAt: string;
+  ticketCode: string | null;
+  checkedInAt: string | null;
 };
 
 export async function loadEventParticipants(eventId: string): Promise<EventParticipant[]> {
@@ -129,7 +140,150 @@ export async function loadEventParticipants(eventId: string): Promise<EventParti
     certificationTier: (row.certification_tier as ProfileCertificationTier) || 'UNVERIFIED',
     status: (row.status as EventRsvpStatus) || 'MAYBE',
     respondedAt: String(row.responded_at),
+    ticketCode: row.ticket_code ?? null,
+    checkedInAt: row.checked_in_at ?? null,
   }));
+}
+
+// Adel (08/09/2026) : "il pourra le scanner ... tout ceux qui ont participe
+// et tout ceux qui ne sont pas venus" -- pointage organisateur, avec ou sans
+// QR (toggleEventCheckin sert de repli quand l'evenement n'impose pas le QR
+// ou que le scan n'est pas possible).
+export async function checkinEventTicketByCode(ticketCode: string): Promise<{ profileId: string; username: string; eventId: string; eventName: string; alreadyCheckedIn: boolean }> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { data, error } = await supabase.rpc('keep_event_checkin_by_ticket', { p_ticket_code: ticketCode });
+  if (error) {
+    const message = String(error.message || '');
+    if (message.includes('TICKET_NOT_FOUND')) throw new Error('TICKET_NOT_FOUND');
+    if (message.includes('FORBIDDEN')) throw new Error('FORBIDDEN');
+    throw new Error('CHECKIN_FAILED');
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('TICKET_NOT_FOUND');
+  return {
+    profileId: String(row.profile_id),
+    username: String(row.username || 'keep-user'),
+    eventId: String(row.event_id),
+    eventName: String(row.event_name),
+    alreadyCheckedIn: Boolean(row.already_checked_in),
+  };
+}
+
+export async function toggleEventCheckin(eventId: string, profileId: string): Promise<boolean> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { data, error } = await supabase.rpc('keep_event_toggle_checkin', { p_event_id: eventId, p_profile_id: profileId });
+  if (error) throw new Error('CHECKIN_FAILED');
+  return Boolean(data);
+}
+
+// Adel (08/09/2026) : "chacun invite ... soit individu avec le pseudo de
+// l'utilisateur que ca fasse classe ... je telecharge mon QR code" -- billet
+// personnel de l'utilisateur connecte pour un evenement ou il participe.
+export type EventTicket = {
+  eventId: string;
+  eventName: string;
+  startsAt: string;
+  endsAt: string | null;
+  venueName: string | null;
+  username: string;
+  ticketCode: string | null;
+  requireQrCode: boolean;
+  checkedInAt: string | null;
+};
+
+export async function loadMyEventTicket(eventId: string): Promise<EventTicket | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('keep_event_my_ticket', { p_event_id: eventId });
+  if (error || !Array.isArray(data) || !data.length) return null;
+  const row = data[0];
+  return {
+    eventId: String(row.event_id),
+    eventName: String(row.event_name),
+    startsAt: String(row.starts_at),
+    endsAt: row.ends_at ?? null,
+    venueName: row.venue_name ?? null,
+    username: String(row.username || 'keep-user'),
+    ticketCode: row.ticket_code ?? null,
+    requireQrCode: Boolean(row.require_qr_code),
+    checkedInAt: row.checked_in_at ?? null,
+  };
+}
+
+// "trouve une solution... l'integrer sur son agenda Google ... comme il sort
+// de Apple" -- pas besoin d'OAuth ni de nouvelle dependance : un lien Google
+// Agenda prerempli couvre Android/web, et un fichier .ics telechargeable
+// couvre Apple Calendar/Outlook/tout le reste.
+function toCalendarStamp(iso: string): string {
+  return iso.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+export function buildGoogleCalendarUrl(ticket: Pick<EventTicket, 'eventName' | 'startsAt' | 'endsAt' | 'venueName'>): string {
+  const start = toCalendarStamp(ticket.startsAt);
+  const end = toCalendarStamp(ticket.endsAt || new Date(new Date(ticket.startsAt).getTime() + 3 * 60 * 60 * 1000).toISOString());
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: ticket.eventName,
+    dates: `${start}/${end}`,
+    location: ticket.venueName || '',
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function buildEventIcs(ticket: Pick<EventTicket, 'eventId' | 'eventName' | 'startsAt' | 'endsAt' | 'venueName'>): string {
+  const start = toCalendarStamp(ticket.startsAt);
+  const end = toCalendarStamp(ticket.endsAt || new Date(new Date(ticket.startsAt).getTime() + 3 * 60 * 60 * 1000).toISOString());
+  const escape = (value: string) => value.replace(/[\n,;]/g, ' ');
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//${APP_NAME}//Event//FR`,
+    'BEGIN:VEVENT',
+    `UID:${ticket.eventId}@${APP_NAME.toLowerCase()}`,
+    `DTSTAMP:${toCalendarStamp(new Date().toISOString())}`,
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${escape(ticket.eventName)}`,
+    ticket.venueName ? `LOCATION:${escape(ticket.venueName)}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+}
+
+// "une piece jointe comme une photo de l'evenement" -- meme schema que
+// pickAndUploadAvatar (avatarService.ts), bucket 'event-images' dedie.
+async function pickEventImageAsset() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) throw new Error('Autorise l’accès aux photos pour choisir une image d’évènement.');
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [16, 9],
+    quality: 0.85,
+  });
+  if (result.canceled || !result.assets?.[0]?.uri) return null;
+  return result.assets[0];
+}
+
+export async function pickAndUploadEventImage(creatorId: string): Promise<string | null> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const asset = await pickEventImageAsset();
+  if (!asset) return null;
+
+  const response = await fetch(asset.uri);
+  const blob = await response.blob();
+  const mime = asset.mimeType || blob.type || 'image/jpeg';
+  const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+  const path = `${creatorId}/${Date.now()}.${extension}`;
+
+  const { error } = await supabase.storage.from('event-images').upload(path, blob, {
+    upsert: true,
+    contentType: mime,
+    cacheControl: '3600',
+  });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from('event-images').getPublicUrl(path);
+  return `${data.publicUrl}?v=${Date.now()}`;
 }
 
 export async function broadcastEventToFollowers(eventId: string, message?: string, includeRsvpButtons = true): Promise<number> {

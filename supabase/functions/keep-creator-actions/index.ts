@@ -81,6 +81,8 @@ Deno.serve(async (req) => {
       const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
       const ticketUrl = clean(body?.ticketUrl, 500) || null;
       const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
+      const imageUrl = clean(body?.imageUrl, 600) || null;
+      const requireQrCode = body?.requireQrCode === true;
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -105,6 +107,8 @@ Deno.serve(async (req) => {
         dj_artist_names: names,
         external_ticket_url: ticketUrl,
         youtube_url: youtubeUrl,
+        image_url: imageUrl,
+        require_qr_code: requireQrCode,
       }).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
       return json({ ok: true, event: data, plan });
@@ -131,6 +135,8 @@ Deno.serve(async (req) => {
       const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
       const ticketUrl = clean(body?.ticketUrl, 500) || null;
       const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
+      const imageUrl = clean(body?.imageUrl, 600) || null;
+      const requireQrCode = body?.requireQrCode === true;
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -148,6 +154,8 @@ Deno.serve(async (req) => {
         approx_lng: Number.isFinite(Number(body?.lng)) ? Number(body.lng) : null,
         external_ticket_url: ticketUrl,
         youtube_url: youtubeUrl,
+        image_url: imageUrl,
+        require_qr_code: requireQrCode,
         updated_at: new Date().toISOString(),
       }).eq("id", eventId).eq("creator_id", user.id).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
