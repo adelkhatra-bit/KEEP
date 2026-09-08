@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { broadcastEventToFollowers, createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs } from '../services/creatorEventService';
@@ -21,6 +21,7 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { searchAddress, AddressSuggestion } from '../services/locationService';
 import { LinearGradient } from 'expo-linear-gradient';
+import WheelPicker from '../components/WheelPicker';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -58,38 +59,28 @@ function stripBattleUrlParams() {
   }
 }
 
-// Adel (08/09/2026) : "trouver une solution aussi pour la date et l'heure.
-// Je veux un systeme pre rempli cote utilisateur" -- pas de nouvelle
-// dependance native (l'app tourne d'abord sur le web via GitHub Pages) :
-// des choix rapides pre-calcules couvrent le cas courant, le champ texte
-// reste en repli pour une date precise.
 function pad2(n: number) { return String(n).padStart(2, '0'); }
 function toLocalInputValue(date: Date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
-function nextWeekday(from: Date, weekday: number) {
-  const d = new Date(from);
-  const diff = (weekday - d.getDay() + 7) % 7 || 7;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-function buildQuickDateOptions(): { label: string; value: string }[] {
+// Adel (08/09/2026) : "arrete d'utiliser [des boutons] ... mets un systeme
+// de roulette pour la date et l'heure ... je veux pouvoir selectionner une
+// heure et 45 minutes, 2h14, etc." -- remplace les choix rapides par une
+// vraie roulette (voir WheelPicker) : aucune heure n'est imposee, seule la
+// position de defilement initiale l'est (necessaire pour tout widget
+// roulette), entierement modifiable par l'utilisateur.
+function buildDateWheelItems(days = 180): { label: string; date: Date }[] {
   const now = new Date();
-  const options: { label: string; value: string }[] = [];
-  const tonight = new Date(now); tonight.setHours(21, 0, 0, 0);
-  if (tonight.getTime() > now.getTime() + 30 * 60000) options.push({ label: 'Ce soir · 21h', value: toLocalInputValue(tonight) });
-  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(21, 0, 0, 0);
-  options.push({ label: 'Demain · 21h', value: toLocalInputValue(tomorrow) });
-  const saturday = nextWeekday(now, 6); saturday.setHours(22, 0, 0, 0);
-  options.push({ label: 'Samedi · 22h', value: toLocalInputValue(saturday) });
-  const nextWeek = new Date(now); nextWeek.setDate(nextWeek.getDate() + 7); nextWeek.setHours(22, 0, 0, 0);
-  options.push({ label: 'Dans 1 semaine · 22h', value: toLocalInputValue(nextWeek) });
-  return options;
+  const items: { label: string; date: Date }[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    const label = i === 0 ? "Aujourd'hui" : i === 1 ? 'Demain' : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    items.push({ label, date: d });
+  }
+  return items;
 }
-function defaultStartsAt(): string {
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(21, 0, 0, 0);
-  return toLocalInputValue(tomorrow);
-}
+const HOUR_WHEEL_ITEMS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTE_WHEEL_ITEMS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 // Adel (08/09/2026) : "chacun invite ... soit individu avec le pseudo de
 // l'utilisateur que ca fasse classe" -- image QR generee a la volee, pas de
@@ -301,6 +292,20 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
+  // Adel (08/09/2026) : "mets un systeme de roulette pour la date et
+  // l'heure ... je veux pouvoir selectionner une heure et 45 minutes, 2h14,
+  // etc." -- startsAt reste la source de verite envoyee au serveur, mais
+  // n'est plus tape a la main : ces trois index pilotent la roulette et se
+  // synchronisent vers startsAt via l'effet ci-dessous.
+  const dateWheelItems = useMemo(() => buildDateWheelItems(), []);
+  const [dateIdx, setDateIdx] = useState(0);
+  const [hourIdx, setHourIdx] = useState(() => new Date().getHours());
+  const [minuteIdx, setMinuteIdx] = useState(() => new Date().getMinutes());
+  useEffect(() => {
+    const day = dateWheelItems[dateIdx]?.date;
+    if (!day) return;
+    setStartsAt(toLocalInputValue(new Date(day.getFullYear(), day.getMonth(), day.getDate(), hourIdx, minuteIdx, 0, 0)));
+  }, [dateIdx, hourIdx, minuteIdx, dateWheelItems]);
   const [venueName, setVenueName] = useState('');
   const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
   // Adel (08/09/2026) : "le systeme puisse proposer des adresses
@@ -490,10 +495,12 @@ export default function PartiesScreen({ navigation, route }: any) {
       navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
       return;
     }
-    // Adel (08/09/2026) : "un systeme pre rempli cote utilisateur" -- une
-    // date par defaut (demain 21h) plutot qu'un champ vide face a un
-    // utilisateur non technique.
-    if (!startsAt) setStartsAt(defaultStartsAt());
+    // Adel (08/09/2026) : "tu mets pas des heures par defaut, je veux
+    // pouvoir selectionner" -- la roulette a besoin d'une position de
+    // depart (aujourd'hui, heure actuelle), mais rien n'est impose : tout
+    // reste modifiable en faisant defiler.
+    const now = new Date();
+    setDateIdx(0); setHourIdx(now.getHours()); setMinuteIdx(now.getMinutes());
     setCreateOpen(true);
   };
 
@@ -513,7 +520,12 @@ export default function PartiesScreen({ navigation, route }: any) {
   const openEdit = (event: CreatorEvent) => {
     setEditingEventId(event.id);
     setName(event.name);
-    setStartsAt(new Date(event.startsAt).toISOString().slice(0, 16));
+    const eventDate = new Date(event.startsAt);
+    const today = new Date();
+    const dayDiff = Math.round((new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86400000);
+    setDateIdx(Math.max(0, Math.min(dateWheelItems.length - 1, dayDiff)));
+    setHourIdx(eventDate.getHours());
+    setMinuteIdx(eventDate.getMinutes());
     setVenueName(event.venueName || '');
     setVenueCoords(null);
     setCountryCode(event.countryCode || 'FR');
@@ -927,16 +939,18 @@ export default function PartiesScreen({ navigation, route }: any) {
 
     <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier la soirée' : 'Créer une soirée'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de la soirée" placeholderTextColor={colors.textMuted}/>
-      {/* Adel (08/09/2026) : "trouver une solution aussi pour la date et
-          l'heure. Je veux un systeme pre rempli cote utilisateur" -- choix
-          rapides pre-calcules ; le champ reste modifiable pour une date
-          precise. */}
-      <View style={styles.quickDateRow}>{buildQuickDateOptions().map((opt) => (
-        <TouchableOpacity key={opt.label} style={[styles.quickDateChip, startsAt===opt.value&&styles.quickDateChipOn]} onPress={() => setStartsAt(opt.value)}>
-          <Text style={[styles.quickDateChipText, startsAt===opt.value&&styles.quickDateChipTextOn]}>{opt.label}</Text>
-        </TouchableOpacity>
-      ))}</View>
-      <TextInput style={styles.input} value={startsAt} onChangeText={setStartsAt} placeholder="2026-09-12T22:00" placeholderTextColor={colors.textMuted} autoCapitalize="none"/>
+      {/* Adel (08/09/2026) : "mets un systeme de roulette pour la date et
+          l'heure ... je veux pouvoir selectionner une heure et 45 minutes,
+          2h14, etc." -- trois roulettes (date / heure / minute), aucune
+          valeur n'est imposee au clic, tout se choisit en faisant defiler. */}
+      <Text style={styles.wheelSectionLabel}>Date et heure</Text>
+      <View style={styles.wheelRow}>
+        <WheelPicker items={dateWheelItems.map((d) => d.label)} selectedIndex={dateIdx} onChange={setDateIdx} width={158} />
+        <WheelPicker items={HOUR_WHEEL_ITEMS} selectedIndex={hourIdx} onChange={setHourIdx} width={52} />
+        <Text style={styles.wheelColon}>:</Text>
+        <WheelPicker items={MINUTE_WHEEL_ITEMS} selectedIndex={minuteIdx} onChange={setMinuteIdx} width={52} />
+      </View>
+      {startsAt ? <Text style={styles.wheelSummary}>📅 {new Date(`${startsAt}:00`).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</Text> : null}
       {/* Adel (08/09/2026) : "une piece jointe comme une photo de
           l'evenement" */}
       <TouchableOpacity style={styles.imagePickerButton} onPress={() => void pickEventImage()} disabled={imageUploadBusy}>
@@ -1053,7 +1067,7 @@ statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',just
 incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:'#E5F266',backgroundColor:'#1B1222'},incomingText:{color:'#F3EDF7',fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:'#FFF',fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:'#8A7795',backgroundColor:'#211829',alignItems:'center',justifyContent:'center'},incomingNoText:{color:'#FFF',fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},incomingYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
 cardCoverImage:{position:'absolute',top:0,left:0,right:0,bottom:0},cardCoverGradient:{position:'absolute',top:0,left:0,right:0,bottom:0},
 ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:'#151020',borderWidth:1.5,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},ticketButtonText:{color:'#FFD166',fontSize:13,fontWeight:'900'},
-quickDateRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginBottom:9},quickDateChip:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},quickDateChipOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},quickDateChipText:{color:'#F8F6FC',fontSize:11,fontWeight:'800'},quickDateChipTextOn:{color:'#FFF'},
+wheelSectionLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:.6,marginBottom:6},wheelRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,marginBottom:9,padding:8,borderRadius:16,backgroundColor:'#0F0B15',borderWidth:1,borderColor:'#3B2E4E'},wheelColon:{color:'#FFF',fontSize:18,fontWeight:'900'},wheelSummary:{color:'#E5F266',fontSize:12,fontWeight:'800',textAlign:'center',marginBottom:9,textTransform:'capitalize'},
 imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',marginBottom:9,alignItems:'center',justifyContent:'center',overflow:'hidden'},imagePickerPreview:{width:'100%',height:120},imagePickerText:{color:'#B79CFF',fontSize:12,fontWeight:'800',paddingVertical:12,paddingHorizontal:12,textAlign:'center'},
 checkinRow:{flexDirection:'row',gap:8,marginBottom:10},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},checkinButtonText:{color:'#17130B',fontSize:12,fontWeight:'900'},
 participantTicket:{color:'#8F879D',fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:'#38D990',borderColor:'#38D990'},participantCheckinBtnText:{color:'#F8F6FC',fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:'#0B1F16'},
