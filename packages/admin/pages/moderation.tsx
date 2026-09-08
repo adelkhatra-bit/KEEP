@@ -52,6 +52,12 @@ export default function Moderation() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [noteOpenKey, setNoteOpenKey] = useState<string | null>(null);
+  // Adel (08/09/2026) : "on peut approuver les deux en même temps pour
+  // éviter les doubles notifications ... une seule notification" -- deja
+  // le comportement du serveur (admin_event_approve ne notifie qu'une fois,
+  // au moment où photo ET texte basculent APPROVED) ; ce bouton n'ajoute
+  // qu'un raccourci pratique cote UI, aucune logique de notification ici.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -74,6 +80,19 @@ export default function Moderation() {
       await invokeControl({ action: 'moderation.field_decide', eventId, field, decision, note: note || undefined });
       setNoteOpenKey(null);
       setNoteDraft((d) => ({ ...d, [key]: '' }));
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? 'Action impossible pour le moment.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const approveBoth = async (eventId: string) => {
+    const key = `${eventId}:both`;
+    setBusyKey(key);
+    try {
+      await invokeControl({ action: 'moderation.events_approve', eventId });
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Action impossible pour le moment.');
@@ -110,11 +129,37 @@ export default function Moderation() {
                   <h3 style={{ margin: 0 }}>{item.name}</h3>
                   {item.require_qr_code ? <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>🎟 QR requis</span> : null}
                   {!item.include_rsvp_buttons ? <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>🔕 Notif. sans boutons</span> : null}
+                  {item.photo_status === 'APPROVED' && item.text_status === 'APPROVED' ? null : (
+                    <button
+                      disabled={busyKey === `${item.id}:both`}
+                      onClick={() => void approveBoth(item.id)}
+                      style={{ marginLeft: 'auto', background: '#38D990', color: '#0B1F16', border: 'none', padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: busyKey === `${item.id}:both` ? 'default' : 'pointer', opacity: busyKey === `${item.id}:both` ? 0.6 : 1 }}
+                    >
+                      ✓✓ Tout approuver
+                    </button>
+                  )}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
                   @{item.creator_username} · {new Date(item.starts_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}{item.venue_name ? ` · ${item.venue_name}` : ''}
                 </div>
-                {item.description ? <p style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{item.description}</p> : <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-muted)' }}>Pas de description.</p>}
+                {/* Adel (08/09/2026) : "un bouton en savoir plus pour le
+                    texte qui soit plié ... pour pas que ça encombre" quand
+                    il y a beaucoup d'évènements en attente. */}
+                {item.description ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                      {expanded[item.id] || item.description.length <= 180 ? item.description : `${item.description.slice(0, 180)}…`}
+                    </p>
+                    {item.description.length > 180 ? (
+                      <button
+                        onClick={() => setExpanded((e) => ({ ...e, [item.id]: !e[item.id] }))}
+                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                      >
+                        {expanded[item.id] ? '‹ Replier' : 'En savoir plus ›'}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-muted)' }}>Pas de description.</p>}
 
                 {(['photo', 'text'] as const).map((field) => {
                   const status = field === 'photo' ? item.photo_status : item.text_status;
