@@ -16,6 +16,9 @@ export type CreatorEvent = {
   externalTicketUrl?: string | null;
   youtubeUrl?: string | null;
   imageUrl?: string | null;
+  // Adel (08/09/2026) : "il puisse ajouter plusieurs photos ... 2 ou 3
+  // photos" -- jusqu'a 3 ; imageUrl reste la couverture (= premiere photo).
+  imageUrls: string[];
   requireQrCode: boolean;
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- valeur publique deja masquee cote base
@@ -34,7 +37,7 @@ export type CreatorEvent = {
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
-const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
   return {
@@ -50,6 +53,7 @@ function mapEventRow(row: any): CreatorEvent {
     externalTicketUrl: row.external_ticket_url,
     youtubeUrl: row.youtube_url,
     imageUrl: row.image_url,
+    imageUrls: Array.isArray(row.image_urls) && row.image_urls.length ? row.image_urls : (row.image_url ? [row.image_url] : []),
     requireQrCode: Boolean(row.require_qr_code),
     organizerPhone: row.organizer_phone_public,
     moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) || 'PENDING',
@@ -114,6 +118,7 @@ export async function createCreatorEvent(input: {
   djArtistNames?: string[];
   youtubeUrl?: string;
   imageUrl?: string;
+  imageUrls?: string[];
   requireQrCode?: boolean;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;
@@ -147,6 +152,7 @@ export async function updateCreatorEvent(eventId: string, input: {
   ticketUrl?: string;
   youtubeUrl?: string;
   imageUrl?: string;
+  imageUrls?: string[];
   requireQrCode?: boolean;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;

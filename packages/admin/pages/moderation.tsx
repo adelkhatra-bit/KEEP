@@ -9,6 +9,7 @@ type QueueItem = {
   name: string;
   description: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   starts_at: string;
   venue_name: string | null;
   creator_id: string;
@@ -119,8 +120,12 @@ export default function Moderation() {
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 16, padding: 16, flexWrap: 'wrap' }}>
-              {item.image_url ? (
-                <img src={item.image_url} alt={item.name} style={{ width: 220, maxWidth: '100%', height: 220, objectFit: 'contain', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }} />
+              {(item.image_urls && item.image_urls.length ? item.image_urls : item.image_url ? [item.image_url] : []).length ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {(item.image_urls && item.image_urls.length ? item.image_urls : [item.image_url as string]).map((url) => (
+                    <img key={url} src={url} alt={item.name} style={{ width: 220, maxWidth: '100%', height: 220, objectFit: 'contain', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }} />
+                  ))}
+                </div>
               ) : (
                 <div style={{ width: 220, height: 220, borderRadius: 12, border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 12 }}>Aucune photo</div>
               )}

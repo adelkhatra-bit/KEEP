@@ -47,6 +47,14 @@ function clean(value: unknown, max = 500) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+// Adel (08/09/2026) : "il puisse ajouter plusieurs photos ... 2 ou 3
+// photos" -- jusqu'a 3, image_url reste en synchro (= premiere photo) pour
+// ne rien casser cote lecture existante (file d'attente admin, etc.).
+function cleanImageUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v) => clean(v, 600)).filter(Boolean).slice(0, 3);
+}
+
 // Adel (08/09/2026) : "un lien YouTube pour montrer les evenements, la
 // decoration, etc." -- accepte uniquement youtube.com/youtu.be, jamais un
 // lien arbitraire (evite qu'un evenement serve a diffuser n'importe quelle
@@ -109,7 +117,8 @@ Deno.serve(async (req) => {
       const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
       const ticketUrl = clean(body?.ticketUrl, 500) || null;
       const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
-      const imageUrl = clean(body?.imageUrl, 600) || null;
+      const imageUrls = cleanImageUrls(body?.imageUrls);
+      const imageUrl = imageUrls[0] ?? (clean(body?.imageUrl, 600) || null);
       const requireQrCode = body?.requireQrCode === true;
       const organizerPhone = cleanPhone(body?.organizerPhone);
       const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
@@ -149,6 +158,7 @@ Deno.serve(async (req) => {
         external_ticket_url: ticketUrl,
         youtube_url: youtubeUrl,
         image_url: imageUrl,
+        image_urls: imageUrls,
         require_qr_code: requireQrCode,
         organizer_phone: organizerPhone,
         show_organizer_phone: showOrganizerPhone,
@@ -187,7 +197,8 @@ Deno.serve(async (req) => {
       const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
       const ticketUrl = clean(body?.ticketUrl, 500) || null;
       const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
-      const imageUrl = clean(body?.imageUrl, 600) || null;
+      const imageUrls = cleanImageUrls(body?.imageUrls);
+      const imageUrl = imageUrls[0] ?? (clean(body?.imageUrl, 600) || null);
       const requireQrCode = body?.requireQrCode === true;
       const organizerPhone = cleanPhone(body?.organizerPhone);
       const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
@@ -214,6 +225,7 @@ Deno.serve(async (req) => {
         external_ticket_url: ticketUrl,
         youtube_url: youtubeUrl,
         image_url: imageUrl,
+        image_urls: imageUrls,
         require_qr_code: requireQrCode,
         organizer_phone: organizerPhone,
         show_organizer_phone: showOrganizerPhone,
