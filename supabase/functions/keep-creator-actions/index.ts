@@ -47,6 +47,21 @@ function clean(value: unknown, max = 500) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+// Adel (08/09/2026) : "un lien YouTube pour montrer les evenements, la
+// decoration, etc." -- accepte uniquement youtube.com/youtu.be, jamais un
+// lien arbitraire (evite qu'un evenement serve a diffuser n'importe quelle
+// URL au nom de Loki).
+function cleanYoutubeUrl(value: unknown): string | null {
+  const raw = clean(value, 300);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "youtube.com" || host === "youtu.be" || host === "m.youtube.com") return url.toString();
+  } catch { /* URL invalide */ }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -65,6 +80,7 @@ Deno.serve(async (req) => {
       const venueName = clean(body?.venueName, 120);
       const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
       const ticketUrl = clean(body?.ticketUrl, 500) || null;
+      const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -88,6 +104,7 @@ Deno.serve(async (req) => {
         approx_lng: Number.isFinite(Number(body?.lng)) ? Number(body.lng) : null,
         dj_artist_names: names,
         external_ticket_url: ticketUrl,
+        youtube_url: youtubeUrl,
       }).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
       return json({ ok: true, event: data, plan });
