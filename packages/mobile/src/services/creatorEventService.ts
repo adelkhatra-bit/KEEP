@@ -22,11 +22,19 @@ export type CreatorEvent = {
   // (organizer_phone_public, colonne generee) : present ici <=> l'organisateur
   // a choisi de l'afficher, jamais l'inverse.
   organizerPhone?: string | null;
+  // Adel (08/09/2026) : "il faut pas que les utilisateurs voient quoi que ce
+  // soit tant que le super admin a pas approuve" -- statut global + detail
+  // par champ, pour afficher a l'organisateur ce qui bloque precisement.
+  moderationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  photoNote?: string | null;
+  textStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  textNote?: string | null;
 };
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
-const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code,organizer_phone_public';
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,require_qr_code,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
   return {
@@ -44,18 +52,28 @@ function mapEventRow(row: any): CreatorEvent {
     imageUrl: row.image_url,
     requireQrCode: Boolean(row.require_qr_code),
     organizerPhone: row.organizer_phone_public,
+    moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) || 'PENDING',
+    photoStatus: (row.photo_status as CreatorEvent['photoStatus']) || 'PENDING',
+    photoNote: row.photo_note ?? null,
+    textStatus: (row.text_status as CreatorEvent['textStatus']) || 'PENDING',
+    textNote: row.text_note ?? null,
   };
 }
 
-export async function loadUpcomingEvents(): Promise<CreatorEvent[]> {
+// Adel (08/09/2026) : les evenements PENDING/REJECTED restent invisibles au
+// public, mais l'organisateur doit continuer a voir SON PROPRE evenement
+// (avec son badge d'attente) tant qu'il n'a pas ete approuve.
+export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEvent[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from('events')
     .select(EVENT_COLUMNS)
     .eq('is_disabled', false)
-    .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
-    .order('starts_at', { ascending: true })
-    .limit(100);
+    .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString());
+  query = viewerId
+    ? query.or(`moderation_status.eq.APPROVED,creator_id.eq.${viewerId}`)
+    : query.eq('moderation_status', 'APPROVED');
+  const { data, error } = await query.order('starts_at', { ascending: true }).limit(100);
   if (error) throw error;
   return (data ?? []).map(mapEventRow);
 }
@@ -99,6 +117,7 @@ export async function createCreatorEvent(input: {
   requireQrCode?: boolean;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;
+  includeRsvpButtons?: boolean;
   lat?: number;
   lng?: number;
 }): Promise<{ id: string; name: string }> {

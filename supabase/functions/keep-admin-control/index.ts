@@ -603,6 +603,61 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, provider: "brevo" });
     }
 
+    // Adel (08/09/2026) : "il faut on approuve le super admin la photo le
+    // texte pour eviter les choses ilegale et il recoit une notification
+    // quand c'est approuve ... il faut pas que les utilisateurs voient quoi
+    // que ce soit tant que le super admin a pas approuve" -- file d'attente
+    // (photo + texte au complet, jamais tronques) + approuver/refuser,
+    // portees par des fonctions SQL dediees (admin_event_*) qui gerent
+    // notification + diffusion a l'audience en une seule transaction.
+    if (action === "moderation.events_pending") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const { data, error } = await admin.rpc("admin_event_moderation_queue");
+      if (error) throw error;
+      return json(200, { data: data ?? [] });
+    }
+
+    if (action === "moderation.events_approve") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const eventId = String(body?.eventId ?? "").trim();
+      if (!eventId) return json(400, { error: "event_id_required" });
+      const { data, error } = await admin.rpc("admin_event_approve", { p_event_id: eventId, p_admin_id: actor.id });
+      if (error) throw error;
+      await audit(actor.id, "event.approved", "event", eventId, { sent: data?.sent ?? 0 });
+      return json(200, { ok: true, sent: data?.sent ?? 0 });
+    }
+
+    if (action === "moderation.events_reject") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const eventId = String(body?.eventId ?? "").trim();
+      const reason = String(body?.reason ?? "").trim().slice(0, 400);
+      if (!eventId) return json(400, { error: "event_id_required" });
+      const { error } = await admin.rpc("admin_event_reject", { p_event_id: eventId, p_admin_id: actor.id, p_reason: reason || null });
+      if (error) throw error;
+      await audit(actor.id, "event.rejected", "event", eventId, { reason });
+      return json(200, { ok: true });
+    }
+
+    // Adel (08/09/2026) : "je peux approuver une photo et decliner le texte
+    // et mettre un petit message et ca enverra une notification a
+    // l'utilisateur pour savoir ce qui doit modifier" -- decision fine par
+    // champ (photo OU texte), avec une note optionnelle transmise a
+    // l'organisateur.
+    if (action === "moderation.field_decide") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const eventId = String(body?.eventId ?? "").trim();
+      const field = String(body?.field ?? "").trim();
+      const decision = String(body?.decision ?? "").trim().toUpperCase();
+      const note = String(body?.note ?? "").trim().slice(0, 400);
+      if (!eventId) return json(400, { error: "event_id_required" });
+      if (field !== "photo" && field !== "text") return json(400, { error: "invalid_field" });
+      if (decision !== "APPROVE" && decision !== "REJECT") return json(400, { error: "invalid_decision" });
+      const { data, error } = await admin.rpc("admin_event_decide_field", { p_event_id: eventId, p_admin_id: actor.id, p_field: field, p_decision: decision, p_note: note || null });
+      if (error) throw error;
+      await audit(actor.id, `event.${field}.${decision.toLowerCase()}d`, "event", eventId, { field, decision, note, sent: data?.sent ?? 0 });
+      return json(200, { ok: true, sent: data?.sent ?? 0, overall: data?.overall ?? null });
+    }
+
     if (action === "users.invite") {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
       const email = String(body?.email ?? "").trim().toLowerCase();

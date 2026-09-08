@@ -12,6 +12,7 @@ const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'M
 const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', roles: ALL_ROLES },
   { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
   { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
   { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pendingSupport, setPendingSupport] = useState(0);
   const [integrationIssues, setIntegrationIssues] = useState(0);
+  const [pendingModeration, setPendingModeration] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
 
   useEffect(() => {
@@ -56,14 +58,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!client) return undefined;
     let active = true;
     const refresh = async () => {
-      const [{ data: pending }, { data: runtime }] = await Promise.all([
+      const [{ data: pending }, { data: runtime }, { data: moderation }] = await Promise.all([
         client.rpc('admin_pending_support_count'),
         client.rpc('admin_integration_runtime_status'),
+        client.rpc('admin_event_pending_count'),
       ]);
       if (!active) return;
       setPendingSupport(Number(pending || 0));
       const issues = Array.isArray(runtime) ? runtime.filter((row: any) => row.status === 'ERROR' || row.status === 'EXHAUSTED').length : 0;
       setIntegrationIssues(issues);
+      setPendingModeration(Number(moderation || 0));
     };
     void refresh();
     const channel = client
@@ -71,12 +75,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => void refresh())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'integration_runtime_status' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => void refresh())
       .subscribe();
     const interval = setInterval(() => void refresh(), 60000);
     return () => { active = false; clearInterval(interval); void client.removeChannel(channel); };
   }, []);
 
-  const totalAlerts = pendingSupport + integrationIssues;
+  const totalAlerts = pendingSupport + integrationIssues + pendingModeration;
 
   const visibleNav = useMemo(
     () => NAV.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)),
@@ -151,6 +156,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {integrationIssues > 0 && (
                     <Link href="/integrations" onClick={() => setBellOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--text)', textDecoration: 'none' }}>
                       ⚠️ {integrationIssues} intégration{integrationIssues > 1 ? 's' : ''} en erreur ou quota épuisé
+                    </Link>
+                  )}
+                  {pendingModeration > 0 && (
+                    <Link href="/moderation" onClick={() => setBellOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--text)', textDecoration: 'none' }}>
+                      🛡️ {pendingModeration} événement{pendingModeration > 1 ? 's' : ''} en attente de validation
                     </Link>
                   )}
                 </>}

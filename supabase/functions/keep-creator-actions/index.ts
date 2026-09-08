@@ -73,6 +73,23 @@ function cleanPhone(value: unknown): string | null {
   return stripped.length >= 6 ? stripped : null;
 }
 
+// Adel (08/09/2026) : "un systeme qui peut detecter quand il y a une
+// suspicion au niveau du texte ... qui s'allume et qu'on la verifie" --
+// assistant heuristique par mots-cles (jamais bloquant : le Super Admin
+// reste seul decideur, ce n'est qu'un badge d'alerte dans sa file d'attente).
+const MODERATION_FLAG_TERMS = [
+  "porn", "porno", "xxx", "escort", "onlyfans", "strip-tease", "striptease",
+  "orgie", "gangbang", "viol ", "pedo", "pédo", "nude", "nudes", "sextape",
+  "cocaine", "cocaïne", "héroïne", "heroine", "crack", "ecstasy", "mdma",
+  "kalachnikov", "arme à feu", "armes à feu", "explosif", "terroris",
+];
+function computeModerationFlag(name: string, description: string): { flagged: boolean; reason: string | null } {
+  const haystack = `${name} ${description}`.toLowerCase();
+  const hits = MODERATION_FLAG_TERMS.filter((term) => haystack.includes(term));
+  if (!hits.length) return { flagged: false, reason: null };
+  return { flagged: true, reason: `Termes détectés (vérification humaine requise) : ${hits.join(", ")}` };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -96,6 +113,11 @@ Deno.serve(async (req) => {
       const requireQrCode = body?.requireQrCode === true;
       const organizerPhone = cleanPhone(body?.organizerPhone);
       const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
+      // Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
+      // notification ou avec les boutons" -- ce choix vit maintenant sur la
+      // ligne elle-meme (include_rsvp_buttons), car la diffusion ne part
+      // plus a la creation mais a l'approbation admin (voir plus bas).
+      const includeRsvpButtons = body?.includeRsvpButtons !== false;
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -107,6 +129,12 @@ Deno.serve(async (req) => {
         ? body.djArtistNames.map((v: unknown) => clean(v, 60)).filter(Boolean).slice(0, 12)
         : [profile?.username ? String(profile.username) : ""].filter(Boolean);
 
+      // Adel (08/09/2026) : "il faut on approuve le super admin la photo le
+      // texte pour eviter les choses ilegale ... il faut pas que les
+      // utilisateurs voient quoi que ce soit tant que le super admin a pas
+      // approuve" -- PENDING par defaut (colonne moderation_status), jamais
+      // diffuse tant qu'un admin ne l'a pas valide (admin_event_approve).
+      const flag = computeModerationFlag(name, description);
       const { data, error } = await admin.from("events").insert({
         creator_id: user.id,
         name,
@@ -124,9 +152,13 @@ Deno.serve(async (req) => {
         require_qr_code: requireQrCode,
         organizer_phone: organizerPhone,
         show_organizer_phone: showOrganizerPhone,
+        include_rsvp_buttons: includeRsvpButtons,
+        moderation_status: "PENDING",
+        moderation_flag: flag.flagged,
+        moderation_flag_reason: flag.reason,
       }).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
-      return json({ ok: true, event: data, plan });
+      return json({ ok: true, event: data, plan, moderation: "PENDING" });
     }
 
     // Adel (08/09/2026) : "il faut qu'il puisse effacer les evenements
@@ -140,9 +172,14 @@ Deno.serve(async (req) => {
     if (action === "event.update") {
       const eventId = clean(body?.eventId, 80);
       if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
-      const { data: existing, error: existingError } = await admin.from("events").select("id").eq("id", eventId).eq("creator_id", user.id).maybeSingle();
+      const { data: existing, error: existingError } = await admin.from("events").select("id,name,description,image_url,moderation_status").eq("id", eventId).eq("creator_id", user.id).maybeSingle();
       if (existingError) throw existingError;
       if (!existing) return json({ ok: false, error: "event_not_found" }, 404);
+      // Adel (08/09/2026) : "on lui laisse la possibilite de modifier tant
+      // que le super admin n'a pas encore approuve. Quand le super admin a
+      // approuve, il ne peut plus modifier quoi que ce soit" -- verrouillage
+      // total post-approbation.
+      if (existing.moderation_status === "APPROVED") return json({ ok: false, error: "event_locked_after_approval" }, 409);
 
       const name = clean(body?.name, 100);
       const description = clean(body?.description, 1200);
@@ -160,6 +197,11 @@ Deno.serve(async (req) => {
       if (Number.isNaN(startsAt.getTime())) return json({ ok: false, error: "event_date_required" }, 400);
       if (endsAtRaw && (Number.isNaN(endsAtRaw.getTime()) || endsAtRaw <= startsAt)) return json({ ok: false, error: "invalid_event_end" }, 400);
 
+      // Adel (08/09/2026) : puisque l'edition n'est plus possible une fois
+      // APPROVED (bloque plus haut), tout evenement modifiable ici est deja
+      // PENDING ou REJECTED -- toute modification relance systematiquement
+      // une revue complete (photo + texte), avec detection heuristique a jour.
+      const flag = computeModerationFlag(name, description);
       const { data, error } = await admin.from("events").update({
         name,
         description: description || null,
@@ -175,10 +217,20 @@ Deno.serve(async (req) => {
         require_qr_code: requireQrCode,
         organizer_phone: organizerPhone,
         show_organizer_phone: showOrganizerPhone,
+        moderation_status: "PENDING",
+        moderation_note: null,
+        moderated_by: null,
+        moderated_at: null,
+        photo_status: "PENDING",
+        photo_note: null,
+        text_status: "PENDING",
+        text_note: null,
+        moderation_flag: flag.flagged,
+        moderation_flag_reason: flag.reason,
         updated_at: new Date().toISOString(),
       }).eq("id", eventId).eq("creator_id", user.id).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
-      return json({ ok: true, event: data });
+      return json({ ok: true, event: data, moderation: "PENDING" });
     }
 
     if (action === "event.disable") {
@@ -190,6 +242,10 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // Adel (08/09/2026) : depuis la moderation admin, la diffusion part
+    // automatiquement a l'approbation (admin_event_approve) -- l'app ne
+    // declenche plus cette action a la creation. Reste disponible pour un
+    // renvoi manuel eventuel.
     if (action === "event.broadcast") {
       const eventId = clean(body?.eventId, 80);
       const message = clean(body?.message, 600);

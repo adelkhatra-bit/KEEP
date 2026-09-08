@@ -46,6 +46,11 @@ function notificationTypeLabel(type: string) {
   // generique, jamais fige sur "soiree".
   if (key === 'EVENT_INVITE') return 'INVITATION';
   if (key === 'EVENT_REMINDER') return 'RAPPEL';
+  // Adel (08/09/2026) : "il recoit une notification quand c'est approuve"
+  // -- statut de moderation de son propre evenement.
+  if (key === 'EVENT_APPROVED') return 'ÉVÉNEMENT APPROUVÉ';
+  if (key === 'EVENT_REJECTED') return 'ÉVÉNEMENT REFUSÉ';
+  if (key === 'EVENT_FIELD_REJECTED') return 'À CORRIGER';
   if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki';
   return key.replace(/_/g, ' ');
 }
