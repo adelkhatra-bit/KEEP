@@ -23,6 +23,7 @@ const NAV: NavItem[] = [
   { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
   { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/team', label: 'Équipe Super Admin', roles: ['SUPER_ADMIN'] },
 ];
 

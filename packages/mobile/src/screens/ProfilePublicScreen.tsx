@@ -540,7 +540,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.keepInfo}>
         <View style={s.keepTitleRow}>
           <View style={s.keepTitleBlock}><Text style={s.keepTitle} numberOfLines={1}>{track.title}</Text><Text style={s.keepArtist} numberOfLines={1}>{track.artist}</Text></View>
-          <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact />
+          <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact small />
         </View>
         {originKind ? <DiscoveryImpactLabel impact={discoveryImpacts[track.id]} /> : null}
         {/* Adel (08/09/2026) : "mets-le en dessous du bouton [Jouer] ...

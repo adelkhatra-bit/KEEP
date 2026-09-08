@@ -15,6 +15,12 @@ type Props = {
   fallbackUrl?: string;
   compact?: boolean;
   fullWidth?: boolean;
+  // Adel (08/09/2026) : "fais en sorte qu'il [Jouer] fasse la meme taille
+  // que le bouton du dessous [Partager]" -- variante encore plus compacte,
+  // reservee aux endroits ou Jouer voisine un petit chip comme Partager
+  // (jamais appliquee a `compact` seul, qui reste utilise ailleurs en plein
+  // largeur avec une cible tactile de 44).
+  small?: boolean;
 };
 
 type TrackAudioMetadata = {
@@ -55,7 +61,7 @@ async function loadTrackAudioMetadata(trackKey: string): Promise<TrackAudioMetad
   };
 }
 
-export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false }: Props) {
+export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false, small = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
@@ -224,13 +230,13 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
   return (
     <TouchableOpacity
-      style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth]}
+      style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth, small && styles.small]}
       onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
       accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
     >
-      <Text style={[styles.text, compact && styles.compactText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
+      <Text style={[styles.text, compact && styles.compactText, small && styles.smallText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
     </TouchableOpacity>
   );
 }
@@ -249,8 +255,12 @@ const styles = StyleSheet.create({
   },
   compact: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22 },
   fullWidth: { alignSelf: 'stretch', width: '100%' },
+  // Adel (08/09/2026) : memes dimensions que le chip "Partager" voisin
+  // (trackShare dans ProfilePublicScreen), pour un alignement propre.
+  small: { minHeight: 25, paddingHorizontal: 8, borderRadius: 13 },
   text: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
   compactText: { fontSize: 12 },
+  smallText: { fontSize: 12 },
   unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
 });
