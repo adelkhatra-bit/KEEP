@@ -81,6 +81,57 @@ export async function createCreatorEvent(input: {
   return { id: String(data.event.id), name: String(data.event.name) };
 }
 
+// Adel (08/09/2026) : "il faut qu'il puisse effacer les evenements ...
+// tous les modifier" -- modifier reutilise exactement les memes champs que
+// la creation ; supprimer est un SOFT delete cote serveur (continue de
+// compter dans le quota mensuel, voir keep-creator-actions).
+export async function updateCreatorEvent(eventId: string, input: {
+  name: string;
+  description?: string;
+  venueName?: string;
+  startsAt: string;
+  endsAt?: string;
+  countryCode?: string;
+  ticketUrl?: string;
+  youtubeUrl?: string;
+  lat?: number;
+  lng?: number;
+}): Promise<{ id: string; name: string }> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.update', eventId, ...input } });
+  if (error && !data) throw error;
+  if (!data?.ok) throw new Error(String(data?.error || error?.message || 'EVENT_UPDATE_FAILED'));
+  return { id: String(data.event.id), name: String(data.event.name) };
+}
+
+export async function disableCreatorEvent(eventId: string): Promise<void> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.disable', eventId } });
+  if (error && !data) throw error;
+  if (!data?.ok) throw new Error(String(data?.error || error?.message || 'EVENT_DELETE_FAILED'));
+}
+
+export type EventParticipant = {
+  profileId: string;
+  username: string;
+  certificationTier: ProfileCertificationTier;
+  status: EventRsvpStatus;
+  respondedAt: string;
+};
+
+export async function loadEventParticipants(eventId: string): Promise<EventParticipant[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_event_participants', { p_event_id: eventId });
+  if (error || !Array.isArray(data)) return [];
+  return data.map((row: any) => ({
+    profileId: String(row.profile_id),
+    username: String(row.username || 'keep-user'),
+    certificationTier: (row.certification_tier as ProfileCertificationTier) || 'UNVERIFIED',
+    status: (row.status as EventRsvpStatus) || 'MAYBE',
+    respondedAt: String(row.responded_at),
+  }));
+}
+
 export async function broadcastEventToFollowers(eventId: string, message?: string, includeRsvpButtons = true): Promise<number> {
   if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { data, error } = await supabase.functions.invoke('keep-creator-actions', { body: { action: 'event.broadcast', eventId, message, includeRsvpButtons } });

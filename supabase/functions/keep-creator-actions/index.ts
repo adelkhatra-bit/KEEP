@@ -110,6 +110,59 @@ Deno.serve(async (req) => {
       return json({ ok: true, event: data, plan });
     }
 
+    // Adel (08/09/2026) : "il faut qu'il puisse effacer les evenements
+    // qu'il a deja mis, tous les modifier ... si il les efface, il faut que
+    // dans le systeme comptabilise comme debit" -- update classique, mais
+    // "supprimer" est un SOFT delete (is_disabled=true, jamais un vrai
+    // DELETE) : keep_event_creation_status compte deja les evenements du
+    // mois par created_at sans jamais filtrer sur is_disabled, donc un
+    // evenement supprime continue de compter dans le quota mensuel comme
+    // s'il n'avait jamais ete efface -- exactement le comportement demande.
+    if (action === "event.update") {
+      const eventId = clean(body?.eventId, 80);
+      if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
+      const { data: existing, error: existingError } = await admin.from("events").select("id").eq("id", eventId).eq("creator_id", user.id).maybeSingle();
+      if (existingError) throw existingError;
+      if (!existing) return json({ ok: false, error: "event_not_found" }, 404);
+
+      const name = clean(body?.name, 100);
+      const description = clean(body?.description, 1200);
+      const venueName = clean(body?.venueName, 120);
+      const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
+      const ticketUrl = clean(body?.ticketUrl, 500) || null;
+      const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
+      const startsAt = new Date(String(body?.startsAt ?? ""));
+      const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
+      if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
+      if (Number.isNaN(startsAt.getTime())) return json({ ok: false, error: "event_date_required" }, 400);
+      if (endsAtRaw && (Number.isNaN(endsAtRaw.getTime()) || endsAtRaw <= startsAt)) return json({ ok: false, error: "invalid_event_end" }, 400);
+
+      const { data, error } = await admin.from("events").update({
+        name,
+        description: description || null,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAtRaw?.toISOString() ?? null,
+        venue_name: venueName || null,
+        country_code: countryCode,
+        approx_lat: Number.isFinite(Number(body?.lat)) ? Number(body.lat) : null,
+        approx_lng: Number.isFinite(Number(body?.lng)) ? Number(body.lng) : null,
+        external_ticket_url: ticketUrl,
+        youtube_url: youtubeUrl,
+        updated_at: new Date().toISOString(),
+      }).eq("id", eventId).eq("creator_id", user.id).select("id,name,starts_at,venue_name").single();
+      if (error) throw error;
+      return json({ ok: true, event: data });
+    }
+
+    if (action === "event.disable") {
+      const eventId = clean(body?.eventId, 80);
+      if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
+      const { data, error } = await admin.from("events").update({ is_disabled: true, updated_at: new Date().toISOString() }).eq("id", eventId).eq("creator_id", user.id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) return json({ ok: false, error: "event_not_found" }, 404);
+      return json({ ok: true });
+    }
+
     if (action === "event.broadcast") {
       const eventId = clean(body?.eventId, 80);
       const message = clean(body?.message, 600);
