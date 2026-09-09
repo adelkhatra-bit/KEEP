@@ -9,7 +9,7 @@ import { DiscoveryImpact, loadProfileDiscoveryImpacts, loadProfileReprisers, loa
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
-import { ProfileKind, SocialLink, User } from '../types';
+import { KeepVisibility, ProfileKind, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -80,6 +80,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
   const [addingTrackIds, setAddingTrackIds] = useState<Set<string>>(new Set());
+  // Adel (09/09/2026) : "j'ai appuye sur garder ... normalement il y aurait
+  // du y avoir un popup, souhaitez-vous la mettre en prive ou en public,
+  // et il m'a pas demande" -- meme choix que dans SWIPER/TrackRow, jamais
+  // saute pour ce bouton en ligne.
+  const [keepPromptTrack, setKeepPromptTrack] = useState<PublicKeepTrack | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -435,7 +440,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
   };
 
-  const addToMyKeep = async (track: PublicKeepTrack) => {
+  const openKeepPrompt = (track: PublicKeepTrack) => {
     if (!viewer || isLocalGuest || isDemoMode) {
       Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
@@ -448,6 +453,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return;
     }
     if (addingTrackIds.has(track.trackId)) return;
+    setKeepPromptTrack(track);
+  };
+
+  const addToMyKeep = async (track: PublicKeepTrack, visibility: KeepVisibility) => {
     const canonical: CanonicalTrack = {
       id: track.trackId,
       isrc: track.isrc,
@@ -464,7 +473,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     };
     setAddingTrackIds((current) => new Set(current).add(track.trackId));
     try {
-      await commitKeep(canonical, [], undefined, { visibility: 'PRIVATE', context: { source: 'public_profile', sourceProfileId: profile?.id } });
+      await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));
       Alert.alert('Ajouté à ta collection', `« ${track.title} » est maintenant dans tes musiques.`);
     } catch (e: any) {
@@ -477,6 +486,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         Alert.alert('Loki', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
       }
     } finally {
+      setKeepPromptTrack(null);
       setAddingTrackIds((current) => { const next = new Set(current); next.delete(track.trackId); return next; });
     }
   };
@@ -609,7 +619,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       <View style={styles.trackInlineActions}>
                         <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
                         {viewer?.id !== profile.id ? (
-                          <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : void addToMyKeep(track)} disabled={adding}>
+                          <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding}>
                             <Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]} numberOfLines={1}>{adding ? '…' : alreadyKept ? '✓ Gardé' : '+ Garder'}</Text>
                           </TouchableOpacity>
                         ) : null}
@@ -726,6 +736,27 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!keepPromptTrack} transparent animationType="fade" onRequestClose={() => setKeepPromptTrack(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.shareSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.shareTitle}>Garder ce morceau ?</Text>
+            {keepPromptTrack ? <Text style={styles.keepPromptTrack} numberOfLines={2}>{keepPromptTrack.title} · {keepPromptTrack.artist}</Text> : null}
+            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} disabled={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false} onPress={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PUBLIC')} accessibilityLabel="Visible sur mon profil">
+              <Text style={styles.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
+              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki.</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} disabled={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false} onPress={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PRIVATE')} accessibilityLabel="Garder en privé">
+              <Text style={styles.keepChoicePrivateTitle}>GARDER EN PRIVÉ</Text>
+              <Text style={styles.keepChoiceText}>Le morceau reste dans ta bibliothèque sans apparaître sur ton profil.</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelShare} onPress={() => setKeepPromptTrack(null)}>
+              <Text style={styles.cancelShareText}>ANNULER — NE RIEN GARDER</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -747,6 +778,13 @@ const styles = StyleSheet.create({
   shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},
   cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},
   cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
+  keepPromptTrack:{color:colors.textMuted,fontSize:13,textAlign:'center',marginTop:6},
+  keepChoice:{minHeight:70,borderRadius:17,paddingHorizontal:15,paddingVertical:12,justifyContent:'center',marginTop:12,borderWidth:1},
+  keepChoicePublic:{backgroundColor:'rgba(104,242,177,.12)',borderColor:'#68F2B1'},
+  keepChoicePrivate:{backgroundColor:'#21182F',borderColor:'#5B3F8C'},
+  keepChoicePublicTitle:{color:'#68F2B1',fontSize:11,fontWeight:'900'},
+  keepChoicePrivateTitle:{color:'#D6C2FA',fontSize:11,fontWeight:'900'},
+  keepChoiceText:{color:'#FFFFFF',fontSize:10,lineHeight:14,marginTop:3},
   repriseSheet:{maxHeight:'82%'},
   repriseScroll:{width:'100%',marginTop:12,maxHeight:420},
   repriseRow:{flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9,borderBottomWidth:1,borderBottomColor:'#2B2238'},
