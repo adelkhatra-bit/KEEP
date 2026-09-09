@@ -31,5 +31,20 @@ export async function fetchLatestBuildSha(): Promise<string | null> {
 
 export function reloadToLatest(): void {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-  window.location.reload();
+  // Adel (09/09/2026) : "je suis oblige de revenir sur mon profil pour
+  // pouvoir faire la mise a jour" -- un reload() brut sur une route
+  // dynamique (profil visite, etc.) depend du saut 404.html -> redirect ->
+  // restore de GitHub Pages (aucune reecriture serveur pour ces routes),
+  // plus fragile en conditions reelles qu'un GET direct sur un fichier qui
+  // existe vraiment. On route nous-memes vers la racine (toujours un vrai
+  // fichier) avec __keep_route, exactement le mecanisme que 404.html
+  // utilise, sans jamais dependre d'une reponse 404 du serveur.
+  const basePath = '/KEEP';
+  const { pathname, search, hash } = window.location;
+  if (pathname === basePath || pathname === `${basePath}/`) {
+    window.location.reload();
+    return;
+  }
+  const route = pathname.replace(new RegExp(`^${basePath}`), '') + search + hash;
+  window.location.replace(`${basePath}/?__keep_route=${encodeURIComponent(route)}`);
 }
