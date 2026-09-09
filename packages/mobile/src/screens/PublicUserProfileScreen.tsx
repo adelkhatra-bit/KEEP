@@ -591,19 +591,20 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               // Adel (09/09/2026) : "c'est pas du tout le meme design que
               // sur le profil, reamenage utilise le meme design sauf que tu
               // rajoutes le coeur en plus" -- meme structure compacte que le
-              // propre profil (bouton(s) en ligne a cote du titre, Partager
-              // + Decouvert par sur une seule ligne en bas), avec le coeur
-              // en plus dans cette meme ligne et un bouton Garder en ligne
-              // (au lieu de la pile Jouer/Garder pleine largeur).
+              // propre profil (bouton(s) en ligne a cote du titre), avec le
+              // coeur en plus et un bouton Garder en ligne (au lieu de la
+              // pile Jouer/Garder pleine largeur).
+              // Adel (09/09/2026, second passage) : "descends [Decouvert par]
+              // aligne a Partager et aux petits coeurs ... laisse-le du cote
+              // ou y a marque Jouer et Garder" -- Decouvert par descend dans
+              // la ligne Partager/coeur, aligne a droite (meme cote que
+              // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
+              const trackLikeCount = likeCounts[track.trackId] || 0;
               return <View key={track.id} style={styles.musicRow}>
                 {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>K</Text></View>}
                 <View style={styles.trackInfo}>
                   <View style={styles.trackTitleRow}>
                     <View style={styles.trackTitleBlock}><Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text></View>
-                    {/* Adel (09/09/2026) : "decouvert par ... aligne-le en
-                        dessous du bouton garde" -- colonne de droite : les
-                        boutons Jouer/Garder puis, juste en dessous, Decouvert
-                        par + pseudo (au lieu d'etre mele a Partager/coeur). */}
                     <View style={styles.trackRightColumn}>
                       <View style={styles.trackInlineActions}>
                         <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
@@ -613,32 +614,37 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                           </TouchableOpacity>
                         ) : null}
                       </View>
-                      <View style={styles.discoveryOriginRow}>
-                        <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                        {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
-                          const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
-                          // Adel (08/09/2026) : "si abonne on met vert, si pas
-                          // abonne on met rouge ... incite a cliquer dessus" --
-                          // le contour porte ce signal, le fond reste la couleur
-                          // de certification.
-                          const followBorder = track.sourceIsFollowing === false ? '#FF6C8C' : track.sourceIsFollowing === true ? '#38D990' : null;
-                          return (
-                            <TouchableOpacity
-                              style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
-                              onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
-                              accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
-                            >
-                              <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
-                            </TouchableOpacity>
-                          );
-                        })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
-                      </View>
                     </View>
                   </View>
                   <DiscoveryImpactLabel impact={discoveryImpact} />
                   <View style={styles.trackActions}>
-                    <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
-                    <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{likeCounts[track.trackId] || 0}</Text></TouchableOpacity>
+                    <View style={styles.trackActionsLeft}>
+                      <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
+                      {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
+                          le coeur en vert, entoure-le pour qu'on le voit bien"
+                          -- incite a etre le premier a liker. */}
+                      <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive, !liked && trackLikeCount === 0 && styles.likeButtonEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{trackLikeCount}</Text></TouchableOpacity>
+                    </View>
+                    <View style={styles.discoveryOriginRow}>
+                      <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
+                      {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
+                        const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
+                        // Adel (08/09/2026) : "si abonne on met vert, si pas
+                        // abonne on met rouge ... incite a cliquer dessus" --
+                        // le contour porte ce signal, le fond reste la couleur
+                        // de certification.
+                        const followBorder = track.sourceIsFollowing === false ? '#FF6C8C' : track.sourceIsFollowing === true ? '#38D990' : null;
+                        return (
+                          <TouchableOpacity
+                            style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
+                            onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
+                            accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
+                          >
+                            <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
+                          </TouchableOpacity>
+                        );
+                      })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
+                    </View>
                   </View>
                 </View>
               </View>;
@@ -733,7 +739,7 @@ const styles = StyleSheet.create({
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',marginTop:2},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:11,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},albumSummaryText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
-  visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:58,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:11,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:11,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:10,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:7,marginTop:7},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:58,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:11,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:9,lineHeight:13,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:11,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:10,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:9,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:9,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},
   sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},
