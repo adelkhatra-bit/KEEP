@@ -14,6 +14,12 @@ export type KeepBattleLivePlayer = {
   // maintenant.
   preferredThemeCodes: string[];
   preferredRoundCount: number;
+  // Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas
+  // assez de Free, pourquoi il est visible ?" -- expose le credit ici pour
+  // avertir AVANT de defier, au lieu de laisser le serveur rejeter une fois
+  // le salon deja cree (BATTLE_TARGET_NO_CREDIT).
+  remainingFree: number;
+  hasPaidAccess: boolean;
 };
 
 export type KeepBattleIncomingChallenge = {
@@ -96,6 +102,8 @@ export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePla
     skillTier: str(row, 'skillTier', 'skill_tier', 'DEBUTANT') as KeepBattleLivePlayer['skillTier'],
     preferredThemeCodes: Array.isArray(row?.preferredThemeCodes ?? row?.preferred_theme_codes) ? (row.preferredThemeCodes ?? row.preferred_theme_codes) : ['MIX'],
     preferredRoundCount: Number(row?.preferredRoundCount ?? row?.preferred_round_count ?? 8) || 8,
+    remainingFree: Number(row?.remainingFree ?? row?.remaining_free ?? 0) || 0,
+    hasPaidAccess: Boolean(row?.hasPaidAccess ?? row?.has_paid_access ?? false),
   })).filter((row) => row.profileId) : [];
 }
 
