@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type Country = { code: string; name: string };
 type CountRow = { plan?: string; channel?: string; country?: string; count: number };
@@ -28,13 +29,7 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-async function invokeUserControl(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-user-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeUserControl = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-user-control', body);
 
 // Adel (04/09/2026) : "Partage par type y a marqué non renseigné, va savoir
 // pourquoi il y en a quatre" -- vérifié en base (product_events.channel) :

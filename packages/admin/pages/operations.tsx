@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationRow = {
   key: string;
@@ -64,13 +65,7 @@ const PUSH_TONES: Record<string, string> = {
   ATTEMPTS_24H: '#d8b4fe',
 };
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 function statusInfo(integration: IntegrationRow, runtime?: RuntimeRow) {
   if (!integration.configured) return { text: 'NON CONFIGURÉE', tone: '#8f849f' };

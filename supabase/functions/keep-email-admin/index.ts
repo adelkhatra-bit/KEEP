@@ -112,8 +112,19 @@ async function ensureBrevoWebhook(actor: AdminActor) {
   try {
     list = await brevoRequest(apiKey, "/webhooks", { method: "GET" });
   } catch (error) {
+    // Adel (12/09/2026, audit) : Brevo refuse GET /webhooks pour cette cle
+    // ("Webhook record does not exist", teste avec et sans parametres de
+    // requete -- pas un souci de parametres) -- probable restriction de
+    // permission sur la cle API (certaines cles Brevo n'ont pas acces a la
+    // gestion des webhooks). Erreur claire et actionnable plutot qu'une 500
+    // technique : le suivi de delivrabilite reste facultatif, l'envoi reel
+    // des e-mails (teste et confirme fonctionnel) n'en depend pas.
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`STEP_LIST_NOPARAMS:${message}`);
+    return json(409, {
+      error: "brevo_webhooks_unavailable",
+      message: "Brevo refuse l'accès à la gestion des webhooks avec cette clé API (permission insuffisante sur le compte Brevo ?). L'envoi réel des e-mails n'est pas affecté -- seul le tableau de délivrabilité reste indisponible.",
+      detail: message.slice(0, 300),
+    });
   }
   const webhooks = Array.isArray(list?.webhooks) ? list.webhooks : [];
   const existing = webhooks.find((item: any) => String(item?.url || "") === url)
@@ -145,7 +156,9 @@ async function ensureBrevoWebhook(actor: AdminActor) {
       // restriction IP bloquait nos appels. On ne bloque plus "reparer" sur ce
       // cas : on repasse en creation au lieu de remonter une 500 seche.
       const message = error instanceof Error ? error.message : String(error);
-      if (!/does not exist/i.test(message)) throw new Error(`STEP_UPDATE:${message}`);
+      if (!/does not exist/i.test(message)) {
+        return json(409, { error: "brevo_webhook_update_failed", message: "Impossible de mettre à jour le webhook Brevo existant.", detail: message.slice(0, 300) });
+      }
       updateFailed = true;
     }
   }
@@ -159,7 +172,7 @@ async function ensureBrevoWebhook(actor: AdminActor) {
       mode = "created";
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`STEP_CREATE(existingId=${existing?.id ?? "none"}):${message}`);
+      return json(409, { error: "brevo_webhook_create_failed", message: "Impossible de créer le webhook Brevo.", detail: message.slice(0, 300) });
     }
   }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 const PLAN_OPTIONS = ['ALL', 'FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
 type PlanFilter = typeof PLAN_OPTIONS[number];
@@ -55,21 +56,8 @@ const REQUIREMENTS = [
   ['SOCIAL_LINK', 'Au moins un réseau'], ['WEBSITE', 'Site web'],
 ] as const;
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
-
-async function invokeUserControl(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-user-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
+const invokeUserControl = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-user-control', body);
 
 function visibleEmail(email: string | null) {
   if (!email || email.endsWith('@keep.local')) return 'Sans e-mail';

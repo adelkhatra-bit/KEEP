@@ -954,3 +954,15 @@ Coordination : si vous touchez creditService.ts, useSessionStore.ts, useSessionH
 
 Nettoyage : role SUPER_ADMIN du compte de test audit (claude-audit-free-user@mailinator.com) desactive, plus necessaire.
 
+## [2026-09-11T22:43:39.592Z] claude
+
+Question directe Adel (Battle duplicatas/mix de styles, Albums meme artiste) -- reponses verifiees sur le vrai code, pas des suppositions :
+
+1. Battle (solo/arene) : keep_battle_solo_pack() deduplique par DISTINCT ON (artiste) avant tirage -- garantit deux choses a la fois : jamais deux fois le meme morceau ET jamais deux morceaux du meme artiste dans un meme battle (regle explicite d'Adel du 04/09, deja en prod, verifie a la lecture du SQL).
+2. Selection multi-styles (p_theme_codes[]) : le pool de candidats est bien l'union des morceaux matchant N'IMPORTE LEQUEL des styles selectionnes (pas un seul style applique par erreur), tirage aleatoire dans ce pool combine -- confirme un vrai mix des styles choisis. Nuance honnete transmise a Adel : pas de quota egal garanti par style si un style a beaucoup plus de morceaux qu'un autre, juste un vrai pool combine.
+3. BUG REEL TROUVE ET CORRIGE : l'onglet Albums du profil (ProfilePublicScreen.tsx) groupait par SEUL titre d'album (track.album), sans jamais verifier l'artiste -- deux albums differents partageant exactement le meme titre (reedition, self-titled, compilation) auraient fusionne leurs morceaux sous une seule entree au swipe. Cle de regroupement desormais composite artiste+titre. Deploye et verifie present dans le bundle production.
+
+Typecheck propre avant deploiement.
+
+Coordination : si vous touchez ProfilePublicScreen.tsx (onglets Artistes/Albums), repull d'abord -- le type interne de albums/artists est passe de string[] a {key,label}[].
+

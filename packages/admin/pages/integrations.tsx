@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
@@ -60,20 +61,12 @@ const STATUS_COLORS: Record<IntegrationStatus, string> = {
   NOT_CONFIGURED: 'var(--text-muted)',
 };
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 async function invokeRecognitionTest() {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-recognition-admin-test', { body: { action: 'test' } });
-  if (error) throw error;
+  const data = await invokeAdminFunction<{ ok: boolean; testedAt: string; recognitionReady: boolean; providers: RecognitionProviderResult[]; error?: string }>('keep-recognition-admin-test', { action: 'test' });
   if (!data?.ok) throw new Error(data?.error || 'Test des moteurs impossible.');
-  return data as { ok: true; testedAt: string; recognitionReady: boolean; providers: RecognitionProviderResult[] };
+  return data;
 }
 
 export default function Integrations() {

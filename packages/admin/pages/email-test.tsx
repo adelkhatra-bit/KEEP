@@ -1,22 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { supabase } from '../lib/supabaseClient';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
-async function invokeControl(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.details || data.error);
-  return data;
-}
-
-async function invokeEmailAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-email-admin', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeControl = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
+const invokeEmailAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-email-admin', body);
 
 type DeliverySummary = { total: number; sent: number; delivered: number; failed: number; deferred: number };
 type DeliveryDiagnostics = {

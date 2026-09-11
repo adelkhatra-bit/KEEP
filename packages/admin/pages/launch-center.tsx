@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationRow = { key: string; configured: boolean };
 type RuntimeRow = { key: string; status: string; last_checked_at: string | null; last_error: string | null };
@@ -57,13 +58,7 @@ const REQUIRED_SECRETS = [
   'APPLE_MUSICKIT_TEAM_ID', 'APPLE_MUSICKIT_KEY_ID', 'APPLE_MUSICKIT_PRIVATE_KEY',
 ];
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 export default function LaunchCenter() {
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
