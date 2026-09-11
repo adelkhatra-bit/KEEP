@@ -22,5 +22,5 @@ export default function DiscoveryImpactLabel({ impact }: Props) {
 
 const styles = StyleSheet.create({
   row: { marginTop: 4, alignSelf: 'flex-start' },
-  text: { color: '#7CF2B9', fontSize: 9, lineHeight: 13, fontWeight: '900' },
+  text: { color: '#7CF2B9', fontSize: 11, lineHeight: 15, fontWeight: '900' },
 });
