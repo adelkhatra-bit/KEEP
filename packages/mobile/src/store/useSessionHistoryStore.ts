@@ -103,6 +103,22 @@ function unlockPending(sessions: KeepSession[]): KeepSession[] {
   }));
 }
 
+// Audit Adel (11/09/2026) : symetrique de unlockPending -- jusqu'ici rien ne
+// verrouillait proactivement une session DEJA persistee (ancien recap rouvert
+// avec un solde insuffisant). Le seul verrou existant etait reactif (apres un
+// GARDER rate), donc une session ouverte avec un solde <costPerKeep affichait
+// toujours GARDER actif jusqu'au premier essai.
+function lockAllPending(sessions: KeepSession[]): KeepSession[] {
+  return sessions.map((session) => ({
+    ...session,
+    tracks: session.tracks.map((track) =>
+      track.status === 'pending' && !track.creditLocked
+        ? { ...track, creditLocked: true }
+        : track,
+    ),
+  }));
+}
+
 function orphanedSessionEndAt(session: KeepSession): string {
   const startedAt = new Date(session.startedAt).getTime();
   const latestDetection = session.tracks.reduce((latest, track) => {
@@ -459,8 +475,13 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
 
       refreshCreditLocks: async () => {
         const status = await getDownloadCreditStatus();
-        const available = status.unlimited || (status.remaining ?? 0) > 0;
-        if (available) set((state) => ({ sessions: unlockPending(state.sessions) }));
+        // Audit Adel (11/09/2026) : comparait a > 0, jamais au vrai cout par
+        // GARDER (costPerKeep, 3 au 11/09/2026) -- un solde de 1 ou 2 etait
+        // donc traite comme "disponible" et deverrouillait a tort. Verrouille
+        // maintenant aussi proactivement (lockAllPending) quand insuffisant,
+        // pas seulement deverrouille quand suffisant.
+        const available = status.unlimited || (status.remaining ?? 0) >= status.costPerKeep;
+        set((state) => ({ sessions: available ? unlockPending(state.sessions) : lockAllPending(state.sessions) }));
       },
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),
