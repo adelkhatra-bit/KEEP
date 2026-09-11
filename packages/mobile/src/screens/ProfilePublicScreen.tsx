@@ -345,8 +345,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // Adel (01/09/2026) : les onglets Artistes/Albums listaient dans l'ordre
   // d'ajout des morceaux gardés (arbitraire côté utilisateur) -- tri
   // alphabétique pour que ce soit vraiment rangé, sans toucher au design.
-  const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))).sort((a, b) => a.localeCompare(b)), [publicKeptTracks]);
-  const albums = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.album).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [publicKeptTracks]);
+  const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))).sort((a, b) => a.localeCompare(b)).map((name) => ({ key: name, label: name })), [publicKeptTracks]);
+  // Adel (12/09/2026, audit) : "un album c'est toujours le meme artiste ?" --
+  // groupait avant par SEUL titre d'album (track.album), sans jamais verifier
+  // l'artiste. Deux albums differents qui partagent exactement le meme titre
+  // (reedition, compilation, album eponyme...) se retrouvaient donc melanges
+  // sous une seule entree. Cle composite artiste+album -- meme titre affiche,
+  // jamais deux artistes fusionnes dans le meme groupe.
+  const albums = useMemo(() => {
+    const seen = new Map<string, { key: string; label: string }>();
+    for (const entry of publicKeptTracks) {
+      const albumName = entry.track.album;
+      if (!albumName) continue;
+      const key = `${entry.track.artist}|||${albumName}`;
+      if (!seen.has(key)) seen.set(key, { key, label: albumName });
+    }
+    return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
     if (providerPlaylists.length) result.push(...providerPlaylists);
@@ -602,19 +617,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
     // encadré, même bouton ▶ SWIPE dédié et même dépli inline des morceaux
     // que l'onglet Vibes, plutôt qu'une simple ligne avec une note générique.
     return <View style={s.list}>{items.map((item) => {
-      const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item : track.album === item);
+      const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item.label : `${track.artist}|||${track.album ?? ''}` === item.key);
       const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
-      const expanded = expandedGroupItem === item;
-      return <View key={item} style={s.playlistBlock}>
-        <TouchableOpacity style={s.listRow} onPress={() => setExpandedGroupItem(expanded ? null : item)} accessibilityLabel={`Ouvrir ${item}`}>
+      const expanded = expandedGroupItem === item.key;
+      return <View key={item.key} style={s.playlistBlock}>
+        <TouchableOpacity style={s.listRow} onPress={() => setExpandedGroupItem(expanded ? null : item.key)} accessibilityLabel={`Ouvrir ${item.label}`}>
           {artworkUrl ? <Image source={{ uri: artworkUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
-          <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'}</Text></View>
+          <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item.label}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'}</Text></View>
           <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
         </TouchableOpacity>
         <View style={s.playlistButtons}>
-          <TouchableOpacity style={s.playlistShareButton} onPress={() => setSelectionSwipe({ title: item, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
+          <TouchableOpacity style={s.playlistShareButton} onPress={() => setSelectionSwipe({ title: item.label, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
         </View>
-        {expanded ? <View style={s.playlistTracks}>{selected.map((track) => renderCompactTrack(track, `${item}-${track.id}`))}</View> : null}
+        {expanded ? <View style={s.playlistTracks}>{selected.map((track) => renderCompactTrack(track, `${item.key}-${track.id}`))}</View> : null}
       </View>;
     })}</View>;
   };
