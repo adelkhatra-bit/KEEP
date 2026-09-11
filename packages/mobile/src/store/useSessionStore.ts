@@ -4,6 +4,7 @@ import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } fr
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
 import { markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { getDownloadCreditStatus } from '../services/creditService';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
@@ -254,6 +255,21 @@ async function applyDetectedTrack(
   nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
   set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
   persistLiveSession(get());
+
+  // Audit Adel (11/09/2026) : "il faut que le bouton Garder soit bloque,
+  // grisonne, quand il n'a plus de free" -- avant ce correctif, une carte
+  // fraichement detectee affichait toujours GARDER actif meme a solde 0,
+  // le verrou (deja code dans TrackRow) ne s'activait qu'apres un premier
+  // GARDER rate. Verifie desormais le solde reel des la detection ;
+  // best-effort (reseau/invite en echec silencieux) -- le vrai barrage
+  // reste le controle serveur de recordDecision, ceci n'est qu'un confort
+  // visuel immediat.
+  void getDownloadCreditStatus().then((status) => {
+    if (!status.unlimited && (status.remaining ?? 0) <= 0) {
+      set((s) => ({ tracks: s.tracks.map((t) => t.id === entry.id && t.status === 'pending' ? { ...t, creditLocked: true } : t) }));
+      persistLiveSession(get());
+    }
+  }).catch(() => {});
 
   void (async () => {
     try {
