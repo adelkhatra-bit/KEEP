@@ -10,7 +10,7 @@ import { musicEngine } from './musicEngine';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { withRetry } from './retry';
-import { consumeDownloadCredit, ensureDownloadCreditAvailable } from './creditService';
+import { ensureDownloadCreditAvailable } from './creditService';
 import { recordKeepDecision } from './keepMusicCoreRecognition';
 import { syncPlaylistTrack } from './keepLibraryService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
@@ -101,7 +101,12 @@ export async function commitKeep(
   if (!alreadyThere) {
     await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
     downloaded = consumesCredit;
-    if (consumesCredit) await consumeDownloadCredit();
+    // Audit Adel (11/09/2026) : le debit reel du credit se fait desormais dans
+    // recordKeepDecision -> keep-music-core (verifie ET debite cote serveur,
+    // via keep_consume_download_credit()) -- plus jamais ici cote client
+    // seul, qui etait contournable directement (voir commentaire serveur).
+    // ensureDownloadCreditAvailable() ci-dessus reste un pre-check local pour
+    // eviter un aller-retour inutile ; il n'est plus la seule barriere.
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
@@ -155,7 +160,11 @@ export async function commitKeep(
         addedVia: isSocialCopy ? 'SOCIAL' : 'KEEP',
       });
     }
-  } catch {
+  } catch (e: any) {
+    // CREDITS_EXHAUSTED vient du controle serveur (recordKeepDecision) : ce
+    // n'est pas un simple souci de synchro, GARDER doit rester bloque pour
+    // que l'appelant (useSessionStore.keepTrack) le traite comme tel.
+    if (e?.message === 'CREDITS_EXHAUSTED') throw e;
     profileSyncFailed = true;
   }
 

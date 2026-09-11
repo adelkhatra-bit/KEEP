@@ -69,6 +69,10 @@ const styles = StyleSheet.create({
   // se voir avant même d'être touché, pas seulement au survol/à l'appui.
   itemClickable: { margin: 3, borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(139,92,246,.45)' },
   itemActive: { backgroundColor: 'rgba(139,92,246,.16)' },
-  value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  label: { color: '#FFFFFF', fontSize: 11, width: '100%', lineHeight: 14, marginTop: 3, textAlign: 'center', fontWeight: '700' },
+  value: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  // Adel (11/09/2026) : retours utilisateurs "le profil c'est trop petit,
+  // on a du mal à voir" -- 11px illisible pour Abonnés/Reprises/Morceaux/
+  // Abonnements sur un vrai écran de téléphone, remonté à 13px partout où
+  // ce composant est utilisé (profil propriétaire, visité, partagé, Discover).
+  label: { color: '#FFFFFF', fontSize: 13, width: '100%', lineHeight: 16, marginTop: 3, textAlign: 'center', fontWeight: '700' },
 });

@@ -104,7 +104,12 @@ export default function App({Component,pageProps}:AppProps){
       setState('checking_role');
       const allowed=await hasActiveAdminRole();
       if(!active)return;
-      if(!allowed){await client.auth.signOut();setState('forbidden');return;}
+      // Adel (11/09/2026, audit) : signOut() global par defaut deconnectait
+      // aussi l'utilisateur de tous ses AUTRES appareils/sessions (mobile
+      // compris) des qu'un compte valide mais sans role admin actif tentait
+      // ce login -- confirme en direct (session mobile coupee pendant ce
+      // test). scope:'local' limite la deconnexion a cet onglet Super Admin.
+      if(!allowed){await client.auth.signOut({scope:'local'});setState('forbidden');return;}
       setState('allowed');
     };
     void resolve();

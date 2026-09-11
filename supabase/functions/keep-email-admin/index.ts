@@ -108,7 +108,13 @@ async function ensureBrevoWebhook(actor: AdminActor) {
 
   const webhookToken = await ensureWebhookToken(actor.id);
   const url = `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/keep-brevo-webhook`;
-  const list = await brevoRequest(apiKey, "/webhooks?type=transactional&sort=desc", { method: "GET" });
+  let list: any;
+  try {
+    list = await brevoRequest(apiKey, "/webhooks", { method: "GET" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`STEP_LIST_NOPARAMS:${message}`);
+  }
   const webhooks = Array.isArray(list?.webhooks) ? list.webhooks : [];
   const existing = webhooks.find((item: any) => String(item?.url || "") === url)
     ?? webhooks.find((item: any) => String(item?.description || "") === "KEEP transactional delivery");
@@ -123,20 +129,38 @@ async function ensureBrevoWebhook(actor: AdminActor) {
 
   let webhookId: number | null = null;
   let mode: "created" | "updated";
+  let updateFailed = false;
   if (existing?.id) {
-    await brevoRequest(apiKey, `/webhooks/${encodeURIComponent(String(existing.id))}`, {
-      method: "PUT",
-      body: JSON.stringify(definition),
-    });
-    webhookId = Number(existing.id);
-    mode = "updated";
-  } else {
-    const created = await brevoRequest(apiKey, "/webhooks", {
-      method: "POST",
-      body: JSON.stringify({ ...definition, type: "transactional" }),
-    });
-    webhookId = Number(created?.id) || null;
-    mode = "created";
+    try {
+      await brevoRequest(apiKey, `/webhooks/${encodeURIComponent(String(existing.id))}`, {
+        method: "PUT",
+        body: JSON.stringify(definition),
+      });
+      webhookId = Number(existing.id);
+      mode = "updated";
+    } catch (error) {
+      // Adel (11/09/2026, audit) : Brevo listait un webhook (meme url/description)
+      // dont l'ID ne repondait plus a PUT ("Webhook record does not exist") --
+      // reste probablement d'un webhook supprime cote Brevo pendant que la
+      // restriction IP bloquait nos appels. On ne bloque plus "reparer" sur ce
+      // cas : on repasse en creation au lieu de remonter une 500 seche.
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/does not exist/i.test(message)) throw new Error(`STEP_UPDATE:${message}`);
+      updateFailed = true;
+    }
+  }
+  if (!existing?.id || updateFailed) {
+    try {
+      const created = await brevoRequest(apiKey, "/webhooks", {
+        method: "POST",
+        body: JSON.stringify({ ...definition, type: "transactional" }),
+      });
+      webhookId = Number(created?.id) || null;
+      mode = "created";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`STEP_CREATE(existingId=${existing?.id ?? "none"}):${message}`);
+    }
   }
 
   await audit(actor.id, "brevo.webhook.ensured", { webhookId, mode, url, events: DELIVERY_EVENTS });

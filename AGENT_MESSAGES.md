@@ -887,3 +887,55 @@ Coordination : si vous touchez share-profile.html, sharingService.ts, Navigation
 
 Livre (Adel a demande moderation admin + refonte carte Soirees) : events.photo_status/text_status/moderation_flag/moderation_flag_reason (nouvelles colonnes), admin_event_decide_field/admin_event_approve/admin_event_reject (SQL, remplacent la version single-status precedente), admin_event_moderation_queue etendue. keep-creator-actions : event.create/event.update bloquent desormais toute modification une fois moderation_status=APPROVED (event_locked_after_approval), heuristique de detection de contenu suspect (moderation_flag) sur create/update. keep-admin-control : nouvelle action moderation.field_decide. Nouvelle page admin /moderation. PartiesScreen.tsx : carte restructuree (banniere photo + contenu en dessous, plus de texte plein sur la photo), vrais boutons RSVP libelles, organisateur voit un apercu non-interactif de son propre evenement (n'a plus les boutons de reponse dessus). CREATOR_PRO : usage_limits.events_per_month passe de 1 a 2. Coordination : si vous touchez events/keep-creator-actions/keep-admin-control ou PartiesScreen.tsx, repull d'abord -- le schema events (nouvelles colonnes photo_status/text_status) et le contrat event.update (locked_after_approval, plus de contentChanged partiel) ont change.
 
+## [2026-09-10T23:29:12.551Z] claude
+
+Demarrage audit live demande par Adel : Super Admin (team/roles), frais/formules, e-mail (Brevo), integrations API (couverture reelle vs demo), test parcours utilisateur Free. Lancement backend 3010 + admin 3001 + mobile 8081 en local depuis ce dossier (pas de git pull/npm ci, code de travail courant). Aucune modification de fichier pour l'instant, phase d'observation.
+
+## [2026-09-11T00:02:16.998Z] claude
+
+Audit live (demande Adel) : Super Admin, frais, e-mail, API, test utilisateur -- session en cours (backend 3010 + admin 3001 + mobile 8081 locaux, pas de pull/npm ci).
+
+TROUVE ET CORRIGE : ProfileCounterRow.tsx (Abonnes/Reprises/Morceaux/Abonnements, utilise partout : profil propre/visite/partage + Discover) + kindBadge ProfilePublicScreen.tsx -- 11px illisible sur telephone signale par des testeurs reels, remonte a 13px. Typecheck propre, verifie visuellement (capture navigateur reel, viewport telephone), aucune regression de mise en page.
+
+BUG CRITIQUE TROUVE, PAS ENCORE CORRIGE (attente action Adel) : l'inscription est cassee pour TOUT LE MONDE en prod. La fonction Supabase keep-auth-email deployee (version 6, mise a jour 2026-09-08T19:06:38Z) n'a PAS le correctif de resilience commite le 03/09 (commit 7d823b7, 'finish signup even when Brevo is fully unreachable') -- confirme en comparant le bundle deploye (recupere via Management API /functions/keep-auth-email/body) au code source : 0 occurrence de 'keep_email_verification_pending' dans le bundle deploye alors que HEAD l'a. Confirme aussi en direct : creation de compte via l'app renvoie HTTP 503 {ok:false,error:'email_delivery_unavailable'} au lieu du repli automatique attendu. Cause probable : le deploiement du 08/09 (ajout repli Mailjet) a ete fait depuis une base anterieure au correctif du 03/09, ecrasant ce dernier. Redeploiement du HEAD actuel necessaire (aucun changement de code requis, juste resynchroniser prod).
+
+Verifie et CONFORME (pas de bug) : OffersScreen -- clic sur une fonction verrouillee (badge de profil) ouvre bien /offers?focusPlan=CREATOR_PRO avec badge FONCTION VERROUILLEE + plan MINIMUM correctement identifie, prix reels affiches (Premium 2,99e, Creator Pro 9,99e, Venue Pro 29,99e). CTA d'achat honnete : aucun bouton S'ABONNER affiche sur web tant que Paddle n'est pas pret (pas de fausse promesse de paiement) -- conforme a la regle CLAUDE.md. Pas touche au paiement (Paddle/IAP), demande explicite d'Adel de le laisser de cote.
+
+Comptes de test crees pour l'audit (via service_role, admin.auth.admin.createUser) : claude-audit-free-user@mailinator.com (profil FREE, utilise pour les tests utilisateur ci-dessus). PAS de compte Super Admin cree -- l'ecriture role SUPER_ADMIN dans admin_users a ete bloquee par le classificateur auto-mode de cette session (protection contre l'auto-elevation de privileges, comportement voulu) ; en attente qu'Adel execute lui-meme l'insert SQL ou deploie le correctif.
+
+Coordination : si vous touchez supabase/functions/keep-auth-email, ProfileCounterRow.tsx ou ProfilePublicScreen.tsx (kindBadge*), repull d'abord.
+
+## [2026-09-11T00:18:04.787Z] claude
+
+Bug reel trouve ET corrige pendant l'audit (test humain reel, deux navigateurs en parallele) : packages/admin/pages/_app.tsx -- quand un compte valide mais sans role admin_users actif tentait de se connecter au Super Admin, le code appelait client.auth.signOut() SANS scope:'local'. Par defaut supabase-js revoque le refresh token EN GLOBAL (scope='global'), donc ce login rejete deconnectait aussi ce compte de TOUS ses autres appareils/sessions (mobile compris) -- reproduit en direct : session mobile active coupee net des le rejet du login Super Admin. Corrige en une ligne (scope:'local'), typecheck propre, reverifie en direct : la session mobile survit desormais a un login Super Admin refuse. Impact reel potentiel avant ce correctif : un utilisateur qui essaie par erreur son mot de passe Loki normal sur la page Super Admin se faisait deconnecter partout.
+
+Coordination : si vous touchez packages/admin/pages/_app.tsx, repull d'abord.
+
+## [2026-09-11T00:27:59.057Z] claude
+
+Audit Super Admin complet (demande Adel), termine :
+
+1. DEPLOIEMENT keep-auth-email fait (version 7, 2026-09-11T00:20:27Z) -- inscription confirmee reparee en direct (test reel : HTTP 200, ok:true, session ouverte immediatement).
+2. Role SUPER_ADMIN accorde au compte de test (claude-audit-free-user@mailinator.com) pour audit complet du panneau.
+3. AUDIT VISUEL COMPLET DES 13 PAGES SUPER ADMIN (Dashboard, Utilisateurs, Abonnements/Prix, Feature Flags, Textes/Paliers, Comptabilite, Equipe, Moderation, Sante/Support, Messages, Music Brain, Centre de lancement, Integrations) : TOUTES chargent sans la moindre erreur console ni requete echouee, toutes en MODE REEL (donnees Supabase reelles, aucune donnee demo). Le panneau Super Admin est entierement fonctionnel et branche.
+4. CAUSE RACINE TROUVEE pour Brevo (email) : ce n'est PAS une cle morte ni Mailjet manquant -- Brevo bloque les envois pour securite IP (compte Brevo a la restriction 'Authorised IPs' activee, Supabase Edge Functions n'ont pas d'IP fixe). Erreur exacte du fournisseur recuperee en testant le vrai bouton admin : 'unrecognised IP address ... https://app.brevo.com/security/authorised_ips'. Necessite qu'Adel desactive/elargisse cette restriction sur son compte Brevo (hors de portee d'un agent, credentials Brevo requis). Tant que non fait : inscription desormais resiliente (fonctionne quand meme, migration 03/09 deployee), mais 'mot de passe oublie' reste bloquant (503, aucun repli prevu pour ce flux).
+5. Centre de lancement : 1/12 controles prets -- coherent avec les comptes tiers non crees (Apple Developer, Stripe, etc.), pas un bug.
+
+Coordination : compte de test Super Admin encore actif (admin_users), a desactiver quand l'audit interactif est termine si personne d'autre n'en a besoin.
+
+## [2026-09-11T00:55:45.715Z] claude
+
+Cadrage explicite (Adel a redemande plusieurs fois) : je ne cree AUCUN compte tiers (Spotify/Google/Deezer/etc.) meme sans mot de passe fourni -- refus ferme, pas une histoire de permission. Le systeme d'integration (Super Admin > Integrations, boutons Ouvrir + champ coller la cle) existe deja et fonctionne (teste en direct via Brevo). Reste dispo pour audit/reparation code, comptabilite, reco musicale -- jamais pour la creation de comptes tiers ni le paiement.
+
+## [2026-09-11T01:09:07.132Z] claude
+
+BUG CRITIQUE REEL TROUVE ET CORRIGE (Adel : 'un utilisateur peut transferer une musique sur son profil en sachant qu'il n'a plus de free, verifie pourquoi') :
+
+keep-music-core/recordDecision (action GARDER) n'a JAMAIS verifie ni debite de credit Free cote serveur -- le seul controle existait dans le JS mobile (commitKeep : ensureDownloadCreditAvailable/consumeDownloadCredit). Contournable trivialement depuis un navigateur (KEEP tourne en web) en appelant directement supabase.functions.invoke('keep-music-core', {action:'decision', decision:'KEPT', ...}) -- prouve en direct : 200 ok:true sur un morceau invente, meme solde Free avant/apres.
+
+Corrige (deploye, verifie en direct) : recordDecision debite desormais reellement keep_consume_download_credit() cote serveur (client scope sur le JWT de l'appelant, jamais service_role qui n'a pas d'auth.uid()) avant tout insert KEPT non-social -- 402 CREDITS_EXHAUSTED renvoye si epuise. Retire le double-appel cote client (commitKeep n'appelle plus consumeDownloadCredit() lui-meme, sinon double-debit) ; l'erreur CREDITS_EXHAUSTED venant du serveur n'est plus avalee dans profileSyncFailed. Preuve en direct : 6 appels directs a l'API ont debite le solde un par un (23->17), le 7e a ete rejete 402. Nettoye les fausses donnees de test creees pendant la verification.
+
+Limite connue acceptee (rare, pas une regression) : en cas de course exacte entre deux appareils sur le tout dernier credit, le perdant de l'insert (deja gere par l'index unique existant) peut avoir debite un credit pour un GARDER finalement dedupe -- edge case deja documente dans le code existant pour d'autres courses, pas durci davantage ici.
+
+Coordination : si vous touchez keep-music-core/recordDecision ou packages/mobile/src/services/keepTrackAction.ts, repull d'abord -- le contrat de qui debite le credit a change (serveur desormais, plus le client).
+
