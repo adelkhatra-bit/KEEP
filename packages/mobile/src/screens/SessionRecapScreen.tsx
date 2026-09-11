@@ -269,8 +269,16 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.keepAllButton]} onPress={handleKeepAll} disabled={processing} accessibilityRole="button" accessibilityLabel="Garder tous les morceaux en attente">
-            <Text style={styles.keepAllButtonText}>{processing ? '…' : `♡ GARDER TOUT (${pendingCount})`}</Text>
+          <TouchableOpacity
+            style={[styles.compactAction, styles.keepAllButton, lockedCount >= pendingCount && styles.keepAllButtonLocked]}
+            onPress={lockedCount >= pendingCount ? () => { void openUnlock(); } : handleKeepAll}
+            disabled={processing}
+            accessibilityRole="button"
+            accessibilityLabel="Garder tous les morceaux en attente"
+          >
+            <Text style={[styles.keepAllButtonText, lockedCount >= pendingCount && styles.keepAllButtonTextLocked]}>
+              {processing ? '…' : lockedCount >= pendingCount ? `🔒 Free insuffisant (${pendingCount})` : `♡ GARDER TOUT (${pendingCount})`}
+            </Text>
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity style={[styles.compactAction, styles.deleteSessionButton]} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette session">
@@ -335,7 +343,9 @@ const styles = StyleSheet.create({
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
   swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
   keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  keepAllButtonLocked: { backgroundColor: '#27222E', borderColor: '#5C5468' },
   keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
+  keepAllButtonTextLocked: { color: '#FFFFFF' },
   deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
   deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
