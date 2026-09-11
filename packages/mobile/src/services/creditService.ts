@@ -10,6 +10,8 @@ export type DownloadCreditStatus = {
   limit: number | null;
   remaining: number | null;
   unlimited: boolean;
+  /** Free reellement debites par GARDER (remote_config free_cost_per_keep, 3 au 11/09/2026) -- jamais suppose a 1. */
+  costPerKeep: number;
 };
 
 const LOCAL_GUEST_CREDIT_KEY = '@keep/local-guest-download-consumed-v1';
@@ -51,6 +53,7 @@ function normalize(row: any): DownloadCreditStatus {
     limit: row?.credit_limit == null ? null : Number(row.credit_limit),
     remaining: row?.remaining == null ? null : Number(row.remaining),
     unlimited: Boolean(row?.unlimited),
+    costPerKeep: Math.max(1, Number(row?.cost_per_keep || LOCAL_GUEST_COST_PER_KEEP)),
   };
 }
 
@@ -94,6 +97,7 @@ async function getLocalGuestCreditStatus(): Promise<DownloadCreditStatus> {
     limit: LOCAL_GUEST_LIMIT,
     remaining: Math.max(LOCAL_GUEST_LIMIT - consumed, 0),
     unlimited: false,
+    costPerKeep: LOCAL_GUEST_COST_PER_KEEP,
   };
 }
 
@@ -139,7 +143,7 @@ export async function importStagedGuestCreditsForAuthenticatedAccount(): Promise
 export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
   const state = useUserStore.getState();
   if (state.isDemoMode) {
-    return { planCode: 'DEMO', isAnonymous: false, consumed: 0, limit: null, remaining: null, unlimited: true };
+    return { planCode: 'DEMO', isAnonymous: false, consumed: 0, limit: null, remaining: null, unlimited: true, costPerKeep: LOCAL_GUEST_COST_PER_KEEP };
   }
   if (state.isLocalGuest) return getLocalGuestCreditStatus();
   if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
@@ -216,8 +220,12 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
 
 export async function ensureDownloadCreditAvailable(): Promise<DownloadCreditStatus> {
   const status = await getDownloadCreditStatus();
-  const required = status.isAnonymous ? LOCAL_GUEST_COST_PER_KEEP : 1;
-  if (!status.unlimited && (status.remaining ?? 0) < required) {
+  // Audit Adel (11/09/2026) : comparait le solde a un cout suppose de 1 pour
+  // tout compte authentifie, alors que free_cost_per_keep vaut reellement 3
+  // -- a 1 ou 2 Free restants (insuffisant), ce controle laissait donc passer
+  // a tort. costPerKeep vient desormais du serveur (keep_download_credit_status),
+  // jamais suppose cote client.
+  if (!status.unlimited && (status.remaining ?? 0) < status.costPerKeep) {
     throw new Error('CREDITS_EXHAUSTED');
   }
   return status;

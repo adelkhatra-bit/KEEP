@@ -265,7 +265,10 @@ async function applyDetectedTrack(
   // reste le controle serveur de recordDecision, ceci n'est qu'un confort
   // visuel immediat.
   void getDownloadCreditStatus().then((status) => {
-    if (!status.unlimited && (status.remaining ?? 0) <= 0) {
+    // costPerKeep vient du serveur (free_cost_per_keep, 3 au 11/09/2026) --
+    // comparer a 0 laissait passer un solde de 1 ou 2 (insuffisant en
+    // pratique) comme si le bouton devait rester actif.
+    if (!status.unlimited && (status.remaining ?? 0) < status.costPerKeep) {
       set((s) => ({ tracks: s.tracks.map((t) => t.id === entry.id && t.status === 'pending' ? { ...t, creditLocked: true } : t) }));
       persistLiveSession(get());
     }
