@@ -75,6 +75,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [planCode, setPlanCode] = useState('FREE');
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
+  const [creditCostPerKeep, setCreditCostPerKeep] = useState(1);
   const [keepChoiceOpen, setKeepChoiceOpen] = useState(false);
   const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
   const [keepBusy, setKeepBusy] = useState(false);
@@ -164,6 +165,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       const status = await getDownloadCreditStatus();
       setCreditRemaining(status.remaining);
       setCreditUnlimited(status.unlimited);
+      setCreditCostPerKeep(status.costPerKeep);
       if (status.planCode && status.planCode !== 'GUEST' && status.planCode !== 'DEMO') {
         setPlanCode(status.planCode);
       }
@@ -258,6 +260,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
+  // Audit Adel (11/09/2026) : cet ecran a son propre rendu de carte (jamais
+  // TrackRow.tsx) et n'a jamais lu creditLocked -- le bouton GARDER restait
+  // actif meme a solde insuffisant pour le vrai cout (free_cost_per_keep,
+  // 3 au 11/09/2026). creditRemaining/creditUnlimited sont deja rafraichis
+  // par cet ecran (badge du haut) ; costPerKeep vient du meme appel.
+  const insufficientCredit = current?.creditLocked === true
+    || (pending && !creditUnlimited && creditRemaining != null && creditRemaining < creditCostPerKeep);
   const currentVisibility: KeepVisibility = current?.visibility ?? 'PRIVATE';
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
@@ -277,6 +286,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const openKeepChooser = () => {
     if (!current || alreadySaved || !pending || keepBusy) return;
+    if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
     setKeepPlaylistId(current.recommendations?.[0]?.playlistId || playlists[0]?.id);
     setKeepChoiceOpen(true);
   };
@@ -427,10 +437,13 @@ export default function HomeScreenCompact({ navigation }: any) {
               ) : current.status === 'passed' ? (
                 <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
               ) : (
-                <View style={s.actions}>
-                  <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                  <TouchableOpacity style={[s.action, s.keep, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepText}>{keepBusy ? '…' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
-                </View>
+                <>
+                  {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
+                  <View style={s.actions}>
+                    <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
+                    <TouchableOpacity style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                  </View>
+                </>
               )}
             </View>
           </SwipeDeck>
@@ -588,8 +601,11 @@ const s = StyleSheet.create({
   action: { flex: 1, minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pass: { borderWidth: 1, borderColor: C.pink, backgroundColor: 'rgba(255,95,131,0.08)' },
   keep: { backgroundColor: C.yellow },
+  keepLocked: { backgroundColor: '#27222E', borderWidth: 1, borderColor: '#5C5468' },
   passText: { color: C.pink, fontSize: 13, fontWeight: '900' },
   keepText: { color: '#19150A', fontSize: 13, fontWeight: '900' },
+  keepLockedText: { color: '#FFFFFF' },
+  lockedHint: { color: '#FFFFFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 7 },
   disabled: { opacity: 0.45 },
   saved: { minHeight: 42, marginTop: 9, borderRadius: 10, backgroundColor: 'rgba(104,242,177,0.10)', alignItems: 'center', justifyContent: 'center' },
   savedText: { color: C.green, fontWeight: '800', fontSize: 12 },
