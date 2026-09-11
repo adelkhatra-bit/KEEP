@@ -966,3 +966,15 @@ Typecheck propre avant deploiement.
 
 Coordination : si vous touchez ProfilePublicScreen.tsx (onglets Artistes/Albums), repull d'abord -- le type interne de albums/artists est passe de string[] a {key,label}[].
 
+## [2026-09-11T23:04:37.829Z] claude
+
+Nettoyage systemique des messages d'erreur Super Admin -- deploye et verifie :
+
+Chaque page admin avait sa propre fonction invoke*() locale avec le meme defaut deja corrige cote mobile (07/09) : supabase-js avale le corps JSON reel d'une reponse non-2xx (FunctionsHttpError, data:null), donc n'importe quelle erreur precise renvoyee par une edge function (raison exacte d'un echec Brevo, permission insuffisante, etc.) devenait un message generique 'Edge Function returned a non-2xx status code' PARTOUT dans le Super Admin (9 pages concernees : email-test, integrations, index/dashboard, launch-center, messages, moderation, operations, plans, team, users).
+
+Nouveau point d'entree unique packages/admin/lib/invokeFunction.ts (invokeAdminFunction), relit error.context avant d'abandonner -- toutes les pages migrees dessus. keep-email-admin/index.ts : messages d'erreur webhook Brevo finalises en clair (brevo_webhooks_unavailable etc., plus de prefixes STEP_* de diagnostic).
+
+Verifie en direct : le vrai message Brevo ('Brevo refuse l'acces...') remonte desormais a l'ecran au lieu du generique. Typecheck admin propre. Deploye.
+
+Coordination : si vous ajoutez un nouvel appel functions.invoke() dans une page admin, utiliser invokeAdminFunction() (packages/admin/lib/invokeFunction.ts) au lieu d'ecrire une fonction locale -- sinon le meme bug reapparait.
+
