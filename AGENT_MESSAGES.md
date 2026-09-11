@@ -939,3 +939,18 @@ Limite connue acceptee (rare, pas une regression) : en cas de course exacte entr
 
 Coordination : si vous touchez keep-music-core/recordDecision ou packages/mobile/src/services/keepTrackAction.ts, repull d'abord -- le contrat de qui debite le credit a change (serveur desormais, plus le client).
 
+## [2026-09-11T22:14:25.246Z] claude
+
+Audit 'GARDER malgre Free insuffisant' (Adel) -- BUG REEL TROUVE ET CORRIGE, en 4 couches, chacune verifiee en direct sur un compte de test controle (solde ramene precisement a 2 Free pour un cout reel de 3) :
+
+1. Migration 20260911182416 : keep_download_credit_status() n'exposait pas free_cost_per_keep (reellement 3, remote_config, pas 1 comme suppose partout cote client) -- ajoute cost_per_keep au retour, deja applique en prod.
+2. creditService.ts : DownloadCreditStatus.costPerKeep (jamais suppose a 1 cote client desormais) ; ensureDownloadCreditAvailable() compare au vrai cout.
+3. HomeScreenCompact.tsx (ecran Ecoute reel, JAMAIS TrackRow.tsx contrairement a ce que je pensais au debut) : n'avait AUCUNE lecture de creditLocked -- bouton GARDER actif quel que soit le solde. Nouveau insufficientCredit (creditRemaining/creditUnlimited/creditCostPerKeep deja rafraichis par l'ecran), grise le bouton + redirige vers Offres.
+4. useSessionHistoryStore.ts (sessions deja terminees, ecran recap) : refreshCreditLocks() ne faisait QUE deverrouiller (jamais verrouiller), et comparait a >0 au lieu du vrai cout -- nouvelle lockAllPending() symetrique de unlockPending(), comparaison correcte. SessionRecapScreen.tsx : bouton GARDER TOUT grise aussi quand tout est verrouille (meme oubli que le bouton individuel).
+
+Verifie en direct de bout en bout : creation compte neuf -> solde exact controle (2 Free, cout 3) -> Ecoute affiche '🔒 Free insuffisant pour garder ce morceau' -> session terminee -> Mes Sessions affiche '🔒 1 morceau en attente de deblocage' -> recap affiche le cadenas + GARDER TOUT verrouille. Le controle serveur (recordDecision, corrige plus tot dans cet audit) reste la vraie barriere dans tous les cas -- ceci ferme le dernier ecart visuel.
+
+Coordination : si vous touchez creditService.ts, useSessionStore.ts, useSessionHistoryStore.ts, HomeScreenCompact.tsx ou SessionRecapScreen.tsx, repull d'abord -- costPerKeep fait desormais partie du contrat DownloadCreditStatus partout.
+
+Nettoyage : role SUPER_ADMIN du compte de test audit (claude-audit-free-user@mailinator.com) desactive, plus necessaire.
+
