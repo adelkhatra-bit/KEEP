@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/launch-center', label: 'Lancer Loki', roles: ['SUPER_ADMIN'] },
   { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+  { href: '/marketplace', label: 'Vente de playlists', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
   { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },

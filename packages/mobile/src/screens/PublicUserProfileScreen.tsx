@@ -21,6 +21,7 @@ import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { commitKeep } from '../services/keepTrackAction';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
+import { loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -103,6 +104,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [repriseLoading, setRepriseLoading] = useState(false);
   const [reprisers, setReprisers] = useState<ProfileRepriser[]>([]);
   const [repriseFollowBusyId, setRepriseFollowBusyId] = useState<string | null>(null);
+  // Adel (14/09/2026) : "sur le profil utilisateur, fait pareil quand on va
+  // visiter un autre utilisateur" -- affiche les playlists que CE profil a
+  // mises en vente (nom + prix), même si l'achat réel n'est pas encore
+  // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
+  // encaisser tant que ce n'est pas vrai.
+  const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  useEffect(() => {
+    if (!profile?.id) { setSaleOffers([]); return undefined; }
+    let live = true;
+    loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
+    return () => { live = false; };
+  }, [profile?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -609,6 +622,19 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => openBrowseSwipe(null)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
 
+        {saleOffers.length > 0 ? (
+          <View style={styles.browseSection}>
+            <Text style={styles.sectionTitle}>🎧 Playlists à vendre</Text>
+            <View style={styles.browseChipsRow}>
+              {saleOffers.map((offer) => (
+                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} onPress={() => Alert.alert('Bientôt disponible', `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}\n\nL'achat direct n'est pas encore activé sur Loki.`)}>
+                  <Text style={styles.browseChipText} numberOfLines={1}>{offer.playlistName} · {(offer.priceCents / 100).toFixed(2)}{offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style,
             après par artiste ... une autre brique" -- nouveau bloc séparé de
             la liste "Morceaux publics" plus bas (qui ne change pas). Filtre
@@ -628,11 +654,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </View>
             ) : null}
             {artistGroups.length > 1 ? (
-              <View style={styles.browseArtistList}>
-                {artistGroups.slice(0, 8).map((group) => (
-                  <TouchableOpacity key={group.key} style={styles.browseArtistRow} onPress={() => openBrowseSwipe({ type: 'artist', value: group.key, label: group.name })}>
-                    <Text style={styles.browseArtistName} numberOfLines={1}>{group.name}</Text>
-                    <Text style={styles.browseArtistCount}>{group.trackCount} {group.trackCount > 1 ? 'morceaux' : 'morceau'}</Text>
+              // Adel (14/09/2026) : "toute la liste en dessous ... ça bouffe
+              // trop de place. Demain il y a un million d'artistes" -- une
+              // vraie liste verticale ne passe pas à l'échelle. Mêmes puces
+              // compactes que le style, jamais une ligne pleine largeur par
+              // artiste, plafonné aux 10 plus représentés dans la collection.
+              <View style={styles.browseChipsRow}>
+                {artistGroups.slice(0, 10).map((group) => (
+                  <TouchableOpacity key={group.key} style={styles.browseChip} onPress={() => openBrowseSwipe({ type: 'artist', value: group.key, label: group.name })}>
+                    <Text style={styles.browseChipText} numberOfLines={1}>{group.name} · {group.trackCount}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -830,7 +860,7 @@ const styles = StyleSheet.create({
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},albumSummaryText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
-  browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},browseArtistList:{marginTop:10,gap:6},browseArtistRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:38,paddingHorizontal:12,borderRadius:12,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border},browseArtistName:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:13,fontWeight:'700'},browseArtistCount:{color:colors.textMuted,fontSize:11,marginLeft:8},
+  browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:64,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:11,lineHeight:15,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},
