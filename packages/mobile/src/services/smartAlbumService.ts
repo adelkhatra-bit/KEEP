@@ -82,6 +82,18 @@ function smartExternalId(key: string) {
   return `smart:${key}`;
 }
 
+// Adel (14/09/2026, audit) : partage le résultat de l'enrichissement de
+// genre avec TOUT LE MONDE (base partagée), plus jamais recalculé/perdu à
+// chaque appel. Best-effort : une erreur ici ne doit jamais casser l'écran
+// qui a déclenché l'enrichissement (Vibes, profil, etc.).
+export async function persistEnrichedGenres(tracks: Array<{ id: string; genres: string[] }>): Promise<void> {
+  if (!supabase) return;
+  const withGenres = tracks.filter((t) => t.id && Array.isArray(t.genres) && t.genres.length > 0);
+  await Promise.all(withGenres.map(async (t) => {
+    try { await supabase!.rpc('keep_track_enrich_genres', { p_track_id: t.id, p_genres: t.genres }); } catch {}
+  }));
+}
+
 export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   if (!supabase) return [];
   const userId = await currentUserId();
@@ -195,6 +207,12 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   // lui-même, sans clé ni abonnement API, via le même catalogue public gratuit
   // déjà utilisé pour les jaquettes. Le résultat est mis en cache 30 jours.
   const enrichedTracks = await enrichMissingGenres(Array.from(unique.values()));
+  // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
+  // style musical ?" -- BUG RÉEL trouvé : ce genre résolu ne servait avant
+  // que le temps de calculer CES suggestions, jamais partagé -- perdu à
+  // chaque appel, invisible pour "Parcourir par style" et pour les autres
+  // utilisateurs. Persisté une fois pour toutes dans public.tracks.genres.
+  void persistEnrichedGenres(enrichedTracks);
   const suggestions = buildSmartAlbumSuggestions(enrichedTracks, {
     minTracks: config.minTracks,
     maxAlbums: config.maxAlbums,

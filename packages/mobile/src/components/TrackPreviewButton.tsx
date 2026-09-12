@@ -15,6 +15,12 @@ type Props = {
   fallbackUrl?: string;
   compact?: boolean;
   fullWidth?: boolean;
+  // Adel (08/09/2026) : "fais en sorte qu'il [Jouer] fasse la meme taille
+  // que le bouton du dessous [Partager]" -- variante encore plus compacte,
+  // reservee aux endroits ou Jouer voisine un petit chip comme Partager
+  // (jamais appliquee a `compact` seul, qui reste utilise ailleurs en plein
+  // largeur avec une cible tactile de 44).
+  small?: boolean;
 };
 
 type TrackAudioMetadata = {
@@ -55,7 +61,7 @@ async function loadTrackAudioMetadata(trackKey: string): Promise<TrackAudioMetad
   };
 }
 
-export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false }: Props) {
+export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false, small = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
@@ -106,10 +112,25 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     if (!fresh || fresh === failedUrl) return false;
     setResolvedPreviewUrl(fresh);
     try {
-      await toggleTrackPreview(trackKey, fresh, setPlaying);
+      await toggleTrackPreview(trackKey, fresh, setPlayingAndResume);
       return true;
     } catch {
       return false;
+    }
+  };
+
+  // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+  // quand la musique est terminée l'écoute repart" -- lire un extrait
+  // reprenait AVANT tout la session entière (requestEndSession, qui efface
+  // aussi les morceaux déjà détectés) plutôt que de la mettre simplement en
+  // pause le temps de l'extrait. setPlayingAndResume relance
+  // resumeListening() dès que le lecteur revient à l'arrêt (fin naturelle
+  // OU stop manuel), qu'elle qu'en soit la cause.
+  const setPlayingAndResume = (value: boolean) => {
+    setPlaying(value);
+    if (!value) {
+      const session = useSessionStore.getState();
+      if (session.micPaused) session.resumeListening();
     }
   };
 
@@ -118,9 +139,9 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     setBusy(true);
     const attemptedUrl = resolvedPreviewUrl;
     try {
-      await toggleTrackPreview(trackKey, attemptedUrl, setPlaying);
+      await toggleTrackPreview(trackKey, attemptedUrl, setPlayingAndResume);
     } catch {
-      setPlaying(false);
+      setPlayingAndResume(false);
       const recovered = await retryWithFreshPreview(attemptedUrl).catch(() => false);
       if (!recovered) {
         setResolvedPreviewUrl('');
@@ -140,11 +161,6 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     const session = useSessionStore.getState();
     if (session.isActive) session.requestEndSession();
     await cancelAudioCapture().catch(() => {});
-  };
-
-  const stopListeningThenPreview = async () => {
-    await stopKeepListening();
-    await playOrStopPreview();
   };
 
   const openFallback = async () => {
@@ -174,24 +190,33 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       return;
     }
 
+    // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+    // quand la musique est terminée l'écoute repart" -- un extrait se
+    // pré-écoute désormais directement, sans confirmation bloquante : la
+    // session se met juste en pause (micro coupé) le temps de l'extrait,
+    // puis reprend toute seule (setPlayingAndResume). Ouvrir le morceau sur
+    // une plateforme externe reste différent : impossible de savoir quand
+    // l'utilisateur revient dans l'app, donc ce chemin continue d'exiger
+    // une confirmation et arrête vraiment la session.
+    if (resolvedPreviewUrl) {
+      const session = useSessionStore.getState();
+      if (session.isActive) session.pauseListening();
+      void playOrStopPreview();
+      return;
+    }
+
     if (useSessionStore.getState().isActive) {
       Alert.alert(
         'Écoute Loki en cours',
-        'Le micro Loki est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant de lancer un extrait ou d’ouvrir le morceau sur une plateforme.',
+        'Le micro Loki est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant d’ouvrir le morceau sur une plateforme.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
-          resolvedPreviewUrl
-            ? { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void stopListeningThenPreview() }
-            : { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
+          { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
         ],
       );
       return;
     }
 
-    if (resolvedPreviewUrl) {
-      void playOrStopPreview();
-      return;
-    }
     if (resolvedFallbackUrl) void openFallback();
   };
 
@@ -205,13 +230,13 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
   return (
     <TouchableOpacity
-      style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth]}
+      style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth, small && styles.small]}
       onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
       accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
     >
-      <Text style={[styles.text, compact && styles.compactText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
+      <Text style={[styles.text, compact && styles.compactText, small && styles.smallText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
     </TouchableOpacity>
   );
 }
@@ -230,8 +255,17 @@ const styles = StyleSheet.create({
   },
   compact: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22 },
   fullWidth: { alignSelf: 'stretch', width: '100%' },
+  // Adel (08/09/2026) : memes dimensions que le chip "Partager" voisin
+  // (trackShare dans ProfilePublicScreen). "Pourquoi tu l'as pas mis d'une
+  // autre couleur ... pour qu'on comprenne que ça s'appuie" -- Jouer et
+  // Partager etaient tous les deux dans la meme famille violette (juste
+  // contour vs plein), donc peu distincts une fois a la meme taille. Jouer
+  // reprend ici le jaune-citron deja utilise partout ailleurs dans l'app
+  // pour une action de lecture/positive (Battle, RSVP "j'y vais").
+  small: { minHeight: 25, paddingHorizontal: 8, borderRadius: 13, borderColor: '#E5F266' },
   text: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
   compactText: { fontSize: 12 },
+  smallText: { fontSize: 12, color: '#E5F266' },
   unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
 });

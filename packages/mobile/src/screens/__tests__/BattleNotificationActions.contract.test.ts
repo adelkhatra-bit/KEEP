@@ -15,7 +15,11 @@ describe('Loki Battle challenge UX', () => {
 
   it('keeps the incoming challenge inside the Battle card between artwork and question', () => {
     const visual = battle.indexOf('<View style={s.visual}>');
-    const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
+    // Adel (02/09/2026) : la bannière d'invitation existe aussi sur l'écran
+    // "PARTIE TERMINÉE" (avant s.visual dans le fichier) depuis le fix
+    // "à l'étape huit pourquoi tu mets pas cette invitation" -- on cherche
+    // ici précisément l'occurrence de l'écran de manche active.
+    const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', visual);
     const question = battle.indexOf("<Text style={s.question}>Qui chante ?</Text>");
     const answers = battle.indexOf('<View style={s.answers}>');
     expect(visual).toBeGreaterThan(-1);
@@ -58,11 +62,12 @@ describe('Loki Battle challenge UX', () => {
   });
 
   it('renders the 1v1 gauge with real player names, points and one central bar', () => {
-    expect(battle).toContain('players.length === 2 ? `@${first.username}`');
-    expect(battle).toContain('players.length === 2 ? `@${second.username}`');
+    expect(battle).toContain('players.length === 2 ?');
+    expect(battle).toContain('<Text style={s.duelName}>{first.username}</Text>');
+    expect(battle).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>{second.username}</Text>');
     expect(battle).toContain('{teamAScore} pts');
     expect(battle).toContain('{teamBScore} pts');
-    expect(battle).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
+    expect(battle).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
   });
 
   it('keeps Battle decision out of Notifications and native push actions', () => {

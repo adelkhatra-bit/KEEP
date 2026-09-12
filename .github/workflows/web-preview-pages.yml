@@ -35,6 +35,8 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
       EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+      EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+      EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
       NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
       KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
@@ -49,13 +51,13 @@ jobs:
           echo "KEEP PROJECT LOCK OK: $GITHUB_REPOSITORY @ $GITHUB_REF_NAME"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -131,7 +133,8 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site/admin-preview _site/share-profile _site/superadmin \
-            _site/privacy _site/privacy-choices _site/terms _site/support
+            _site/privacy _site/privacy-choices _site/terms _site/support _site/mentions-legales \
+            _site/pricing _site/refund
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
@@ -140,6 +143,9 @@ jobs:
           cp packages/mobile/legal/privacy-choices.html _site/privacy-choices/index.html
           cp packages/mobile/legal/terms.html _site/terms/index.html
           cp packages/mobile/legal/support.html _site/support/index.html
+          cp packages/mobile/legal/mentions-legales.html _site/mentions-legales/index.html
+          cp packages/mobile/legal/pricing.html _site/pricing/index.html
+          cp packages/mobile/legal/refund.html _site/refund/index.html
 
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir Loki Super Admin</a>
@@ -170,6 +176,7 @@ jobs:
           HTML
 
           touch _site/.nojekyll
+          printf '{"sha":"%s","builtAt":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
 
       - name: Verify generated route shells
         shell: bash
@@ -187,7 +194,12 @@ jobs:
           test -f _site/privacy-choices/index.html
           test -f _site/terms/index.html
           test -f _site/support/index.html
+          test -f _site/mentions-legales/index.html
+          test -f _site/pricing/index.html
+          test -f _site/refund/index.html
           test -f _site/keep-share.png
+          test -f _site/version.json
+          grep -q "$GITHUB_SHA" _site/version.json
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
           grep -q 'history.pushState=function' _site/index.html
@@ -196,16 +208,19 @@ jobs:
           grep -q 'Politique de confidentialité Loki' _site/privacy/index.html
           grep -q 'Supprimer définitivement mon compte' _site/privacy/index.html
           grep -q 'Support Loki' _site/support/index.html
+          grep -q 'Mentions légales' _site/mentions-legales/index.html
+          grep -q 'Tarifs Loki' _site/pricing/index.html
+          grep -q 'Remboursement et droit de rétractation' _site/refund/index.html
           grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
       - name: Live refresh + direct-link HTTP smoke
         shell: bash
@@ -232,7 +247,11 @@ jobs:
             "$base/privacy-choices/"
             "$base/terms/"
             "$base/support/"
+            "$base/mentions-legales/"
+            "$base/pricing/"
+            "$base/refund/"
             "$base/keep-share.png"
+            "$base/version.json"
           )
           for url in "${urls[@]}"; do
             code="$(curl -L --retry 5 --retry-delay 2 --connect-timeout 10 --max-time 30 -sS -o /tmp/keep-live.html -w '%{http_code}' "$url")"
@@ -246,6 +265,10 @@ jobs:
           grep -q 'Politique de confidentialité Loki' /tmp/keep-privacy.html
           curl --retry 5 --retry-delay 2 -fsSL "$base/support/" -o /tmp/keep-support.html
           grep -q 'Support Loki' /tmp/keep-support.html
+          curl --retry 5 --retry-delay 2 -fsSL "$base/pricing/" -o /tmp/keep-pricing.html
+          grep -q 'Tarifs Loki' /tmp/keep-pricing.html
+          curl --retry 5 --retry-delay 2 -fsSL "$base/refund/" -o /tmp/keep-refund.html
+          grep -q 'Remboursement et droit de rétractation' /tmp/keep-refund.html
           curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
           grep -q 'Loki' /tmp/keep-admin.html
           dynamic_code="$(curl -sS -o /tmp/keep-dynamic.html -w '%{http_code}' "$base/profile/__keep_route_smoke__/")"
@@ -270,7 +293,7 @@ jobs:
             '/', '/Main/', '/Main/Listen/', '/Main/Discover/', '/Main/MyMusic/',
             '/Main/Parties/', '/Main/Profile/', '/profile-settings/', '/notifications/',
             '/offers/', '/share-profile/?u=__keep_public_smoke__', '/admin-preview/', '/superadmin/',
-            '/privacy/', '/privacy-choices/', '/terms/', '/support/'
+            '/privacy/', '/privacy-choices/', '/terms/', '/support/', '/mentions-legales/', '/pricing/', '/refund/'
           ];
           const scenarios = [
             { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 900 } } },
@@ -316,7 +339,7 @@ jobs:
 
       - name: Upload browser audit
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-public-browser-matrix
           path: artifacts/public-browser-matrix

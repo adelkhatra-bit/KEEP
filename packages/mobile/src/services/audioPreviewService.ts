@@ -188,7 +188,13 @@ async function playWebSegment(
     try { element.load(); } catch {}
   }
   if (webAudioKey !== key) return;
-  if (sourceChanged) await waitForPlayable(element);
+  // Adel (02/09/2026) : vérifie toujours readyState, pas seulement quand la
+  // source vient de changer -- un préchargement lancé en avance (voir
+  // scheduleTrackPreviewSegment) peut ne pas encore être terminé au moment où
+  // .play() doit réellement démarrer sur un réseau mobile lent ; waitForPlayable
+  // se termine immédiatement si le flux est déjà prêt, donc ce garde-fou ne
+  // coûte rien dans le cas normal.
+  await waitForPlayable(element);
   if (webAudioKey !== key) return;
 
   const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
@@ -227,6 +233,25 @@ export async function toggleTrackPreview(
   onEnded?: () => void,
 ): Promise<void> {
   return serialize(async () => {
+    // BUG RÉEL (Adel, 01/09/2026 : "les musiques ne partent pas" puis "j'appuie
+    // sur passer, ça bloque", dans le Swipe de Mes Sessions). Cette fonction
+    // n'avait pas le même repli web que playTrackPreviewSegment/
+    // scheduleTrackPreviewSegment plus haut dans ce fichier -- sur le web, elle
+    // tombait dans le chemin expo-av natif ci-dessous au lieu de réutiliser le
+    // <audio> HTML partagé. Résultat : pas de lecture fiable, et l'appel suivant
+    // (stopTrackPreview, appelé par PASSER) attendait dans la même file
+    // `serialize` derrière cette tentative expo-av qui ne se termine jamais
+    // proprement sur ce moteur -- d'où le blocage.
+    if (canUseWebAudio()) {
+      if (webAudioKey === key) {
+        clearActiveTimer();
+        await stopWebAudio();
+        return;
+      }
+      await playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded);
+      return;
+    }
+
     if (activeKey === key && activeSound) {
       await unloadActive();
       return;
@@ -316,6 +341,27 @@ export async function scheduleTrackPreviewSegment(
   return serialize(async () => {
     if (canUseWebAudio()) {
       clearActiveTimer();
+      // Adel (02/09/2026) : "la musique démarre en retard, c'est déloyal" --
+      // avant, le fichier ne commençait à charger qu'à l'instant de départ
+      // synchronisé lui-même (dans le setTimeout ci-dessous). Sur un réseau
+      // mobile plus lent que celui de l'autre joueur, le premier appel réseau
+      // du morceau démarrait pile à ce moment-là, avec jusqu'à 4s de retard
+      // réel avant que l'audio ne soit audible -- alors que le chrono visuel
+      // tourne pour tout le monde depuis le même instant serveur. On précharge
+      // maintenant le fichier dès que la manche est connue (le serveur laisse
+      // ~3s avant `startAtEpochMs`, voir keep_battle_arena_start), pour que
+      // .play() n'ait plus qu'à démarrer un flux déjà bufferisé.
+      const element = getWebAudio();
+      if (element) {
+        webAudioKey = key;
+        const sourceChanged = element.src !== previewUrl;
+        if (sourceChanged) {
+          try { element.pause(); } catch {}
+          element.src = previewUrl;
+          try { element.load(); } catch {}
+        }
+        void waitForPlayable(element).catch(() => {});
+      }
       const delay = Math.max(0, Math.round(startAtEpochMs - Date.now()));
       activeStartTimer = setTimeout(() => {
         activeStartTimer = null;
@@ -370,4 +416,35 @@ export async function stopTrackPreview(key?: string): Promise<void> {
 
 export function isTrackPreviewActive(key: string): boolean {
   return (activeKey === key && activeSound !== null) || webAudioKey === key;
+}
+
+// Adel (03/09/2026) : "j'ai pris un Battle, sur mon mobile j'entends pas le
+// son" -- vraie cause trouvée en lisant le code : une manche d'arène démarre
+// TOUJOURS via scheduleTrackPreviewSegment déclenché par un setTimeout
+// synchronisé serveur (aucun tap direct à cet instant), jamais depuis un
+// vrai geste utilisateur. Safari iOS bloque silencieusement .play() sur un
+// <audio> qui n'a encore jamais été débloqué par un appel .play() survenu
+// PENDANT un vrai geste (tap) -- une fois débloqué, le même élément reste
+// utilisable ensuite pour des .play() programmatiques (minuteur, callback
+// réseau), ce que ce fichier exploite déjà en réutilisant un seul
+// <audio> partagé. Si l'utilisateur n'a jamais, plus tôt dans la page,
+// tapé un bouton d'aperçu ailleurs dans l'app (Découvertes, Playlists...),
+// ce même élément n'a jamais été débloqué -- silence total dès la première
+// manche de Battle, sans exception ni log, donc invisible à la simple
+// lecture des retries déjà en place. Doit être appelée de façon SYNCHRONE
+// (avant tout `await`) depuis le gestionnaire onPress qui mène à un Battle
+// (jouer solo, rejoindre en ligne, accepter un défi/une revanche) --
+// jouer puis mettre en pause immédiatement sur le MÊME élément partagé
+// suffit à obtenir ce déblocage pour le reste de la session.
+export function unlockWebAudioForGesture(): void {
+  const element = getWebAudio();
+  if (!element) return;
+  try {
+    const playPromise = element.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise.then(() => { try { element.pause(); } catch {} }).catch(() => {});
+    } else {
+      try { element.pause(); } catch {}
+    }
+  } catch {}
 }

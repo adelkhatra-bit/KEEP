@@ -20,6 +20,38 @@ const C = {
   green: '#68F2B1', yellow: '#E5F266', pink: '#FF5F83', muted: '#8F879D', text: '#F8F6FC',
 };
 
+// Adel (02/09/2026) : "pourquoi il me pose pas la question pour l'activer"
+// -- comportement navigateur normal, pas un bug : une fois le micro refusé
+// pour ce site, aucun site ne peut jamais rouvrir la popup système, sur
+// aucun navigateur (Safari, Chrome, Samsung Internet...) -- seul l'utilisateur
+// peut la réinitialiser dans les réglages. Le message d'erreur seul ne le
+// disait pas ; ce guide s'affiche uniquement pour CETTE erreur précise et
+// s'adapte à l'appareil détecté.
+function micPermissionFixHint(): string | null {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return null;
+  const ua = navigator.userAgent || '';
+  // Adel (02/09/2026) : "j'ai fait le test sur un nouveau compte, le problème
+  // est lié à l'utilisateur" -- vraie cause trouvée : le raccourci "Loki" sur
+  // l'écran d'accueil iPhone tourne en mode autonome (standalone), une
+  // coquille SANS barre d'adresse Safari -- le bouton « aA » demandé plus
+  // haut n'existe littéralement pas là-dedans, et ce mode a son propre
+  // stockage d'autorisation microphone, séparé de celui d'un onglet Safari
+  // normal pour la même adresse. `navigator.standalone` (iOS uniquement)
+  // permet de le détecter et de donner la bonne procédure au lieu d'une
+  // qui ne peut pas s'appliquer dans ce contexte.
+  const isIosStandalone = /iPhone|iPad|iPod/i.test(ua) && (navigator as any).standalone === true;
+  if (isIosStandalone) {
+    return 'Ce raccourci ajouté à l’écran d’accueil n’a pas de barre d’adresse -- son autorisation micro est séparée de Safari. Supprime ce raccourci, ouvre ce lien directement dans Safari, autorise le micro quand ça le demande, puis réinstalle le raccourci (partager → Sur l’écran d’accueil).';
+  }
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return 'Dans Safari, appuie sur « aA » tout à gauche de la barre d’adresse → Réglages du site web → Microphone → Autoriser, puis recharge la page. (Si ce site n’apparaît pas dans Réglages → Safari → Microphone, c’est normal -- passe par « aA ».)';
+  }
+  if (/Android/i.test(ua)) {
+    return 'Appuie sur le 🔒 ou ⓘ à côté de l’adresse du site → Autorisations → Microphone → Autoriser, puis recharge la page.';
+  }
+  return 'Autorise le microphone pour ce site dans les réglages de ton navigateur, puis recharge la page.';
+}
+
 function formatElapsed(startedAt: string | null) {
   if (!startedAt) return '00:00';
   const total = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
@@ -43,11 +75,70 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [planCode, setPlanCode] = useState('FREE');
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
+  const [creditCostPerKeep, setCreditCostPerKeep] = useState(1);
   const [keepChoiceOpen, setKeepChoiceOpen] = useState(false);
   const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
   const [keepBusy, setKeepBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  // Adel (02/09/2026) : "neutralise le problème sans impacter le reste du
+  // code" -- ne change rien à la demande de micro elle-même (déjà correcte,
+  // synchrone dans le geste de clic, vérifié). Ajoute seulement une
+  // vérification passive de l'état AVANT que l'utilisateur appuie sur
+  // ÉCOUTER, pour afficher tout de suite le guide de réactivation au lieu
+  // d'attendre un premier échec. `navigator.permissions` n'est pas supporté
+  // partout (notamment anciennes versions de Safari) : silencieux si absent,
+  // aucun changement de comportement dans ce cas.
+  const [micPreflightDenied, setMicPreflightDenied] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+    let live = true;
+    navigator.permissions.query({ name: 'microphone' as PermissionName })
+      .then((status) => {
+        if (!live) return;
+        setMicPreflightDenied(status.state === 'denied');
+        status.onchange = () => { if (live) setMicPreflightDenied(status.state === 'denied'); };
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
+  // Adel (03/09/2026) : "mon téléphone se met en veille, je dois appuyer à
+  // chaque fois ... le système coupe le son automatiquement" -- vrai bug :
+  // l'écran qui s'éteint pendant une session d'écoute coupe la capture
+  // micro (le navigateur suspend le micro en arrière-plan écran verrouillé),
+  // pas juste l'affichage. La Screen Wake Lock API empêche l'écran de
+  // s'éteindre tant qu'une session est active ; un verrou est automatiquement
+  // relâché par le navigateur si l'onglet redevient caché pour une autre
+  // raison (changement d'appli), donc on le redemande sur `visibilitychange`
+  // tant que la session tourne encore. Non supportée par tous les
+  // navigateurs (ex. anciens Safari) : silencieux si absente, aucune
+  // régression, juste pas de protection sur ces navigateurs-là.
+  const wakeLockRef = useRef<any>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    let cancelled = false;
+    const release = () => {
+      wakeLockRef.current?.release?.().catch(() => {});
+      wakeLockRef.current = null;
+    };
+    if (!isActive) { release(); return; }
+    const acquire = async () => {
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen');
+        if (cancelled) { lock.release().catch(() => {}); return; }
+        wakeLockRef.current = lock;
+      } catch { /* ex. permission refusée par le navigateur -- rien à faire de plus */ }
+    };
+    void acquire();
+    const onVisibility = () => { if (document.visibilityState === 'visible' && !wakeLockRef.current) void acquire(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      release();
+    };
+  }, [isActive]);
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
@@ -74,6 +165,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       const status = await getDownloadCreditStatus();
       setCreditRemaining(status.remaining);
       setCreditUnlimited(status.unlimited);
+      setCreditCostPerKeep(status.costPerKeep);
       if (status.planCode && status.planCode !== 'GUEST' && status.planCode !== 'DEMO') {
         setPlanCode(status.planCode);
       }
@@ -168,6 +260,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
+  // Audit Adel (11/09/2026) : cet ecran a son propre rendu de carte (jamais
+  // TrackRow.tsx) et n'a jamais lu creditLocked -- le bouton GARDER restait
+  // actif meme a solde insuffisant pour le vrai cout (free_cost_per_keep,
+  // 3 au 11/09/2026). creditRemaining/creditUnlimited sont deja rafraichis
+  // par cet ecran (badge du haut) ; costPerKeep vient du meme appel.
+  const insufficientCredit = current?.creditLocked === true
+    || (pending && !creditUnlimited && creditRemaining != null && creditRemaining < creditCostPerKeep);
   const currentVisibility: KeepVisibility = current?.visibility ?? 'PRIVATE';
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
@@ -187,6 +286,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const openKeepChooser = () => {
     if (!current || alreadySaved || !pending || keepBusy) return;
+    if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
     setKeepPlaylistId(current.recommendations?.[0]?.playlistId || playlists[0]?.id);
     setKeepChoiceOpen(true);
   };
@@ -233,6 +333,8 @@ export default function HomeScreenCompact({ navigation }: any) {
           <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
           <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
           {error ? <Text style={s.error}>{error}</Text> : null}
+          {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
+          {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
           <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>♪  ÉCOUTER</Text></TouchableOpacity>
           {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
@@ -257,7 +359,13 @@ export default function HomeScreenCompact({ navigation }: any) {
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
       <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
-        <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveText}>{recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
+        {/* Adel (02/09/2026) : "tu as désactivé le micro sur l'iPhone" --
+            trouvé en audit : cette pastille ne reflétait jamais le vrai état
+            du micro, juste "une session tourne" (recognizing/pas). Le
+            navigateur pouvait refuser la permission (bannière rouge juste en
+            dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
+            deux signaux contradictoires à l'écran en même temps. */}
+        <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{error ? 'MICRO · BLOQUÉ' : recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
 
         <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
           <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
@@ -274,7 +382,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           </Animated.View>
         </ListenEnergyAura>
 
-        {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text></View> : null}
+        {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{/microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
         <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
@@ -329,10 +437,13 @@ export default function HomeScreenCompact({ navigation }: any) {
               ) : current.status === 'passed' ? (
                 <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
               ) : (
-                <View style={s.actions}>
-                  <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                  <TouchableOpacity style={[s.action, s.keep, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepText}>{keepBusy ? '…' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
-                </View>
+                <>
+                  {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
+                  <View style={s.actions}>
+                    <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
+                    <TouchableOpacity style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                  </View>
+                </>
               )}
             </View>
           </SwipeDeck>
@@ -455,7 +566,9 @@ const s = StyleSheet.create({
   mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
   liveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green, marginRight: 6 },
+  liveDotError: { backgroundColor: C.pink },
   liveText: { color: C.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  liveTextError: { color: C.pink },
   signalFrame: { position: 'relative', borderRadius: 13, padding: 3, backgroundColor: 'rgba(21,16,32,0.75)', overflow: 'hidden' },
   signalGlow: { ...StyleSheet.absoluteFillObject, borderRadius: 13, borderWidth: 1.5, borderColor: C.green },
   signalTop: { position: 'absolute', left: 16, right: 16, top: 0, height: 2, borderRadius: 2, backgroundColor: C.purpleLight },
@@ -466,8 +579,10 @@ const s = StyleSheet.create({
   miniStat: { flex: 1, height: 48, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(49,35,72,0.78)', backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   miniValue: { color: C.text, fontSize: 14, fontWeight: '800' },
   miniLabel: { color: C.muted, fontSize: 9, marginTop: 1 },
-  errorBanner: { marginTop: 7, minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: C.pink, justifyContent: 'center', paddingHorizontal: 10 },
+  errorBanner: { marginTop: 7, minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: C.pink, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 6 },
   errorBannerText: { color: C.pink, fontSize: 11, textAlign: 'center' },
+  micFixHintInBanner: { color: C.muted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 4 },
+  micFixHint: { color: C.muted, fontSize: 11, lineHeight: 15, textAlign: 'center', maxWidth: 300, marginTop: 6, marginBottom: 4 },
   sectionTitle: { color: C.text, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 9, marginBottom: 6 },
   queueNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7, gap: 8 },
   queueNavBtn: { minHeight: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -481,13 +596,16 @@ const s = StyleSheet.create({
   trackText: { flex: 1 },
   trackTitle: { color: C.text, fontSize: 16, fontWeight: '800' },
   trackArtist: { color: C.muted, fontSize: 12, marginTop: 2 },
-  destination: { color: C.purpleLight, fontSize: 10, marginTop: 5 },
+  destination: { color: C.purpleLight, fontSize: 11, marginTop: 5 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 9 },
   action: { flex: 1, minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pass: { borderWidth: 1, borderColor: C.pink, backgroundColor: 'rgba(255,95,131,0.08)' },
   keep: { backgroundColor: C.yellow },
+  keepLocked: { backgroundColor: '#27222E', borderWidth: 1, borderColor: '#5C5468' },
   passText: { color: C.pink, fontSize: 13, fontWeight: '900' },
   keepText: { color: '#19150A', fontSize: 13, fontWeight: '900' },
+  keepLockedText: { color: '#FFFFFF' },
+  lockedHint: { color: '#FFFFFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 7 },
   disabled: { opacity: 0.45 },
   saved: { minHeight: 42, marginTop: 9, borderRadius: 10, backgroundColor: 'rgba(104,242,177,0.10)', alignItems: 'center', justifyContent: 'center' },
   savedText: { color: C.green, fontWeight: '800', fontSize: 12 },
@@ -501,9 +619,9 @@ const s = StyleSheet.create({
   passedState: { minHeight: 42, marginTop: 9, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,95,131,0.38)', backgroundColor: 'rgba(255,95,131,0.06)', alignItems: 'center', justifyContent: 'center' },
   passedStateText: { color: C.pink, fontSize: 12, fontWeight: '900' },
   waiting: { minHeight: 88, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
-  waitingText: { color: C.muted, fontSize: 12, textAlign: 'center' },
+  waitingText: { color: C.text, fontSize: 12, textAlign: 'center' },
   manualSearchLink: { marginTop: 10, alignItems: 'center', paddingVertical: 4 },
-  manualSearchLinkText: { color: C.muted, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
+  manualSearchLinkText: { color: C.yellow, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
   manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', color: C.text, fontSize: 14, paddingHorizontal: 12 },
   manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
   footerActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
@@ -519,14 +637,14 @@ const s = StyleSheet.create({
   playlistChoiceWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   playlistChoice: { minHeight: 32, maxWidth: '100%', paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
   playlistChoiceOn: { borderColor: C.purpleLight, backgroundColor: 'rgba(139,92,246,0.18)' },
-  playlistChoiceText: { color: C.muted, fontSize: 10, fontWeight: '700', maxWidth: 140 },
+  playlistChoiceText: { color: C.muted, fontSize: 11, fontWeight: '700', maxWidth: 140 },
   playlistChoiceTextOn: { color: C.purpleLight },
   visibilityChoice: { minHeight: 58, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 10, marginTop: 10, justifyContent: 'center', borderWidth: 1 },
   visibilityChoicePublic: { borderColor: C.green, backgroundColor: 'rgba(104,242,177,0.08)' },
   visibilityChoicePrivate: { borderColor: C.line, backgroundColor: '#120D1B' },
   visibilityChoiceTitlePublic: { color: C.green, fontSize: 11, fontWeight: '900' },
   visibilityChoiceTitlePrivate: { color: C.text, fontSize: 11, fontWeight: '900' },
-  visibilityChoiceText: { color: C.muted, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  visibilityChoiceText: { color: C.muted, fontSize: 11, lineHeight: 15, marginTop: 3 },
   cancelChoice: { minHeight: 38, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
   cancelChoiceText: { color: C.muted, fontSize: 11, fontWeight: '800' },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 18 },

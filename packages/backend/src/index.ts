@@ -16,8 +16,6 @@ import cors from 'cors';
 import musicRoutes from './routes/music';
 import musicConnectionsRoutes from './routes/musicConnections';
 import musicLibraryRoutes from './routes/musicLibrary';
-import adminRoutes from './routes/admin';
-import adminIntegrationsRoutes from './routes/adminIntegrations';
 import emailRoutes from './routes/email';
 import notificationsRoutes from './routes/notifications';
 import { processExpoPushReceipts, processPendingPushNotifications } from './lib/pushNotifications';
@@ -35,8 +33,6 @@ app.get('/health', (req, res) => {
 app.use('/api/music', musicRoutes);
 app.use('/api/music', musicConnectionsRoutes);
 app.use('/api/music', musicLibraryRoutes);
-app.use('/api/admin/integrations', adminIntegrationsRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/notifications', notificationsRoutes);
 

@@ -20,6 +20,13 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
   BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki" },
   BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki" },
+  // Adel (08/09/2026) : "trouve une autre solution ... une autre plate-forme
+  // d'e-mail ... gratuite ... 6000 e-mails gratuit" -- Mailjet (200/jour =
+  // 6000/mois, sans carte bancaire), en repli/alternative a Brevo. Meme
+  // identite expediteur (BREVO_SENDER_EMAIL/NAME reutilises) : keep-auth-email
+  // bascule automatiquement sur Mailjet des que ces deux cles sont renseignees.
+  MAILJET_API_KEY: { category: "email", label: "Mailjet API Key" },
+  MAILJET_SECRET_KEY: { category: "email", label: "Mailjet Secret Key", secret: true },
   SPOTIFY_CLIENT_ID: { category: "music", label: "Spotify Client ID" },
   SPOTIFY_CLIENT_SECRET: { category: "music", label: "Spotify Client Secret", secret: true },
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
@@ -45,6 +52,14 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { category: "payments", label: "Google Play Service Account JSON", secret: true },
   STRIPE_SECRET_KEY: { category: "payments", label: "Stripe Secret Key", secret: true },
   STRIPE_WEBHOOK_SECRET: { category: "payments", label: "Stripe Webhook Secret", secret: true },
+  // Adel (08/09/2026) : "je vis a Dubai, j'ai pas de societe" -- Paddle
+  // choisi comme merchant of record (voir supabase/functions/keep-paddle-webhook).
+  // Seller ID + Client Token servent au Paddle.js cote client (checkout web,
+  // non secrets) ; API Key + Webhook Secret restent server-only.
+  PADDLE_SELLER_ID: { category: "payments", label: "Paddle Seller ID (Paddle.Initialize côté client)" },
+  PADDLE_CLIENT_TOKEN: { category: "payments", label: "Paddle Client-side Token (checkout web)" },
+  PADDLE_API_KEY: { category: "payments", label: "Paddle API Key (serveur)", secret: true },
+  PADDLE_WEBHOOK_SECRET: { category: "payments", label: "Paddle Webhook Secret", secret: true },
 };
 
 const ADMIN_TEAM_ROLES = ["ADMIN", "SUPPORT", "FINANCE", "MARKETING", "MODERATOR", "TECH"] as const;
@@ -266,6 +281,87 @@ async function setRecognitionRuntimeStatus(key: string, status: string, message:
   }, { onConflict: "key" });
 }
 
+// Adel (08/09/2026) : "fait un bouton pour tester les email verification e-mail
+// et mots de passe oublie comme ca je voie tout le design" -- EXACTEMENT le
+// meme gabarit que supabase/functions/keep-auth-email (shellHtml/escapeHtml),
+// duplique ici car chaque edge function Deno est deployee separement (pas de
+// module partage). Si l'un des deux change, reporter le changement dans
+// l'autre fichier.
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
+}
+
+function shellHtml(title: string, heading: string, intro: string, buttonLabel: string, link: string, footer: string) {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
+    <tr>
+      <td align="center" style="padding:24px 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
+          <tr>
+            <td style="padding:30px 26px 12px;text-align:center;">
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
+              <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
+              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${intro}</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:14px 24px 26px;">
+              <a href="${link}" style="display:inline-block;background:#e5f266;color:#15110b;font-weight:900;font-size:15px;text-decoration:none;border-radius:999px;padding:15px 34px;">${escapeHtml(buttonLabel)}</a>
+              <p style="margin:18px 0 0;font-size:11px;line-height:16px;color:#72697e;word-break:break-all;">${escapeHtml(link)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:6px 26px 30px;">
+              <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
+              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">${footer}</p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
+  const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
+  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
+  if (!senderEmail) return { ok: false, status: 409, error: "sender_not_configured" };
+
+  const mjKey = await getSecret("MAILJET_API_KEY");
+  const mjSecret = await getSecret("MAILJET_SECRET_KEY");
+  if (mjKey && mjSecret) {
+    const response = await fetch("https://api.mailjet.com/v3.1/send", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Basic ${btoa(`${mjKey}:${mjSecret}`)}` },
+      body: JSON.stringify({ Messages: [{ From: { Email: senderEmail, Name: senderName }, To: [{ Email: to }], Subject: subject, HTMLPart: html, TextPart: text }] }),
+    });
+    if (!response.ok) return { ok: false, status: response.status, error: "mailjet_send_failed", details: (await response.text()).slice(0, 500) };
+    return { ok: true, provider: "mailjet" };
+  }
+
+  const apiKey = await getSecret("BREVO_API_KEY");
+  if (!apiKey) return { ok: false, status: 409, error: "email_provider_not_configured" };
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
+    body: JSON.stringify({ sender: { email: senderEmail, name: senderName }, to: [{ email: to }], subject, htmlContent: html, textContent: text }),
+  });
+  if (!response.ok) return { ok: false, status: response.status, error: "brevo_send_failed", details: (await response.text()).slice(0, 500) };
+  return { ok: true, provider: "brevo" };
+}
+
 function generateTemporaryPassword() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(14));
@@ -376,7 +472,7 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "FINANCE"]);
       const { data, error } = await admin
         .from("plans")
-        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active)")
+        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active,free_bonus_per_month)")
         .order("code");
       if (error) throw error;
       return json(200, { data: data ?? [] });
@@ -394,18 +490,22 @@ Deno.serve(async (req) => {
       const { error: planError } = await admin.from("plans").update({ trial_days: trialDays }).eq("id", planId);
       if (planError) throw planError;
 
-      const updatedPrices: { id: string; amount: number }[] = [];
+      const updatedPrices: { id: string; amount: number; freeBonusPerMonth: number }[] = [];
       for (const price of prices) {
         const id = String(price?.id ?? "").trim();
         const amount = Number(price?.amount);
         if (!id || !Number.isFinite(amount) || amount < 0 || amount > 100000) return json(400, { error: "invalid_price" });
+        // Adel (04/09/2026) : "regarde bien où y a prix mensuel et prix
+        // annuel, le nombre de Free que je vais donner avec" -- réglable au
+        // même endroit et dans le même geste que le prix lui-même.
+        const freeBonusPerMonth = Math.max(0, Math.trunc(Number(price?.freeBonusPerMonth ?? 0)));
         const { error: priceError } = await admin
           .from("plan_prices")
-          .update({ amount })
+          .update({ amount, free_bonus_per_month: freeBonusPerMonth })
           .eq("id", id)
           .eq("plan_id", planId);
         if (priceError) throw priceError;
-        updatedPrices.push({ id, amount });
+        updatedPrices.push({ id, amount, freeBonusPerMonth });
       }
 
       await audit(actor.id, "plan.updated", "plan", planId, { trialDays, prices: updatedPrices });
@@ -540,26 +640,129 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
-      const apiKey = await getSecret("BREVO_API_KEY");
       const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
       const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
-      if (!apiKey || !senderEmail) return json(409, { error: "brevo_not_configured", message: "Renseigne BREVO_API_KEY et BREVO_SENDER_EMAIL." });
+      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki, partagée par tous les fournisseurs)." });
 
-      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
-        body: JSON.stringify({
-          sender: { email: senderEmail, name: senderName },
-          to: [{ email }],
-          subject: "Loki — test e-mail réussi",
-          htmlContent: `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">Loki</div><h2 style="margin-top:28px">Ton e-mail Loki est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p></div></div>`,
-          textContent: "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.",
-        }),
-      });
-      const details = await response.text();
-      if (!response.ok) return json(response.status, { error: "brevo_send_failed", details: details.slice(0, 500) });
-      await audit(actor.id, "integration_email.tested", "brevo", email, { ok: true });
-      return json(200, { ok: true, provider: "brevo" });
+      const subject = "Loki — test e-mail réussi";
+      const html = `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">Loki</div><h2 style="margin-top:28px">Ton e-mail Loki est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p></div></div>`;
+      const text = "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.";
+
+      // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... 6000 e-mails
+      // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
+      // que keep-auth-email : Mailjet en priorite s'il est configure).
+      const sent = await sendViaConfiguredProvider(email, subject, html, text);
+      if (!sent.ok) return json(sent.status, { error: sent.error, message: sent.status === 409 ? "Renseigne MAILJET_API_KEY+MAILJET_SECRET_KEY, ou BREVO_API_KEY." : undefined, details: sent.details });
+      await audit(actor.id, "integration_email.tested", sent.provider, email, { ok: true });
+      return json(200, { ok: true, provider: sent.provider });
+    }
+
+    // Adel (08/09/2026) : "fait un bouton pour tester les email verification
+    // e-mail et mots de passe oublie comme ca je voie tout le design" --
+    // envoie le VRAI gabarit visuel (shellHtml, identique a keep-auth-email)
+    // pour verifier le rendu sans avoir a passer par une vraie inscription.
+    // Le lien de confirmation d'inscription est un apercu (pas de compte
+    // jetable cree) ; celui de mot de passe oublie est REEL si l'adresse
+    // correspond a un compte existant, sinon repli sur un lien d'apercu.
+    if (action === "integrations.test_signup_email") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
+      const email = String(body?.email ?? "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
+      const html = shellHtml(
+        "Confirme ton compte Loki",
+        "Confirme ton adresse e-mail",
+        `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki et pouvoir récupérer ton mot de passe si besoin.`,
+        "Confirmer mon compte",
+        "https://adelkhatra-bit.github.io/KEEP/#apercu-design",
+        "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
+      );
+      const sent = await sendViaConfiguredProvider(email, "Loki — Confirme ton compte (aperçu design)", html, "Aperçu design — confirmation de compte Loki.");
+      if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
+      await audit(actor.id, "integration_email.preview_signup", sent.provider, email, { ok: true });
+      return json(200, { ok: true, provider: sent.provider, real: false });
+    }
+
+    if (action === "integrations.test_recovery_email") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
+      const email = String(body?.email ?? "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
+      let link = "https://adelkhatra-bit.github.io/KEEP/#apercu-design";
+      let real = false;
+      try {
+        const { data, error } = await admin.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: { redirectTo: "https://adelkhatra-bit.github.io/KEEP/?keep_auth=recovery" },
+        });
+        if (!error && data?.properties?.action_link) { link = data.properties.action_link; real = true; }
+      } catch { /* pas de compte pour cette adresse -> lien d'apercu */ }
+      const html = shellHtml(
+        "Réinitialise ton mot de passe Loki",
+        "Réinitialise ton mot de passe",
+        "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
+        "Choisir un nouveau mot de passe",
+        link,
+        "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
+      );
+      const sent = await sendViaConfiguredProvider(email, `Loki — Réinitialise ton mot de passe${real ? "" : " (aperçu design)"}`, html, "Réinitialise ton mot de passe Loki.");
+      if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
+      await audit(actor.id, "integration_email.preview_recovery", sent.provider, email, { ok: true, real });
+      return json(200, { ok: true, provider: sent.provider, real });
+    }
+
+    // Adel (08/09/2026) : "il faut on approuve le super admin la photo le
+    // texte pour eviter les choses ilegale et il recoit une notification
+    // quand c'est approuve ... il faut pas que les utilisateurs voient quoi
+    // que ce soit tant que le super admin a pas approuve" -- file d'attente
+    // (photo + texte au complet, jamais tronques) + approuver/refuser,
+    // portees par des fonctions SQL dediees (admin_event_*) qui gerent
+    // notification + diffusion a l'audience en une seule transaction.
+    if (action === "moderation.events_pending") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const { data, error } = await admin.rpc("admin_event_moderation_queue");
+      if (error) throw error;
+      return json(200, { data: data ?? [] });
+    }
+
+    if (action === "moderation.events_approve") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const eventId = String(body?.eventId ?? "").trim();
+      if (!eventId) return json(400, { error: "event_id_required" });
+      const { data, error } = await admin.rpc("admin_event_approve", { p_event_id: eventId, p_admin_id: actor.id });
+      if (error) throw error;
+      await audit(actor.id, "event.approved", "event", eventId, { sent: data?.sent ?? 0 });
+      return json(200, { ok: true, sent: data?.sent ?? 0 });
+    }
+
+    if (action === "moderation.events_reject") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const eventId = String(body?.eventId ?? "").trim();
+      const reason = String(body?.reason ?? "").trim().slice(0, 400);
+      if (!eventId) return json(400, { error: "event_id_required" });
+      const { error } = await admin.rpc("admin_event_reject", { p_event_id: eventId, p_admin_id: actor.id, p_reason: reason || null });
+      if (error) throw error;
+      await audit(actor.id, "event.rejected", "event", eventId, { reason });
+      return json(200, { ok: true });
+    }
+
+    // Adel (08/09/2026) : "je peux approuver une photo et decliner le texte
+    // et mettre un petit message et ca enverra une notification a
+    // l'utilisateur pour savoir ce qui doit modifier" -- decision fine par
+    // champ (photo OU texte), avec une note optionnelle transmise a
+    // l'organisateur.
+    if (action === "moderation.field_decide") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const eventId = String(body?.eventId ?? "").trim();
+      const field = String(body?.field ?? "").trim();
+      const decision = String(body?.decision ?? "").trim().toUpperCase();
+      const note = String(body?.note ?? "").trim().slice(0, 400);
+      if (!eventId) return json(400, { error: "event_id_required" });
+      if (field !== "photo" && field !== "text") return json(400, { error: "invalid_field" });
+      if (decision !== "APPROVE" && decision !== "REJECT") return json(400, { error: "invalid_decision" });
+      const { data, error } = await admin.rpc("admin_event_decide_field", { p_event_id: eventId, p_admin_id: actor.id, p_field: field, p_decision: decision, p_note: note || null });
+      if (error) throw error;
+      await audit(actor.id, `event.${field}.${decision.toLowerCase()}d`, "event", eventId, { field, decision, note, sent: data?.sent ?? 0 });
+      return json(200, { ok: true, sent: data?.sent ?? 0, overall: data?.overall ?? null });
     }
 
     if (action === "users.invite") {
@@ -663,6 +866,48 @@ Deno.serve(async (req) => {
       if (error) throw error;
       await audit(actor.id, "subscription.admin_revoked", "profile", user.id, { identity, revoked: Number(data ?? 0) });
       return json(200, { ok: true, revoked: Number(data ?? 0) });
+    }
+
+    if (action === "notifications.broadcast") {
+      // Adel (01/09/2026) : "envoyer un message à tous les utilisateurs en
+      // même temps, ou choisir individuellement/collectivement." Réutilise
+      // la table notifications déjà branchée à la fois sur l'écran
+      // Notifications de l'app ET sur le worker push existant -- un message
+      // envoyé d'ici arrive comme n'importe quelle autre notification Loki,
+      // en push compris, sans nouveau système de livraison.
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MARKETING"]);
+      const title = String(body?.title ?? "").trim();
+      const message = String(body?.body ?? "").trim();
+      const usernames: string[] = Array.isArray(body?.usernames)
+        ? Array.from(new Set(body.usernames.map((u: unknown) => String(u).trim().toLowerCase()).filter(Boolean)))
+        : [];
+      if (!title || title.length > 140) return json(400, { error: "invalid_title" });
+      if (!message || message.length > 2000) return json(400, { error: "invalid_body" });
+
+      const { data: allProfiles, error: profilesError } = await admin.from("profiles").select("id,username");
+      if (profilesError) throw profilesError;
+
+      let targets = allProfiles ?? [];
+      if (usernames.length) {
+        const found = new Set((allProfiles ?? []).map((row: any) => String(row.username).toLowerCase()));
+        const missing = usernames.filter((u) => !found.has(u));
+        if (missing.length) return json(404, { error: "username_not_found", missing });
+        const wanted = new Set(usernames);
+        targets = (allProfiles ?? []).filter((row: any) => wanted.has(String(row.username).toLowerCase()));
+      }
+      if (!targets.length) return json(400, { error: "no_recipients" });
+
+      const rows = targets.map((row: any) => ({
+        profile_id: row.id,
+        type: "ADMIN_BROADCAST",
+        title,
+        body: message,
+        data: { source: "super_admin", sent_by: actor.id },
+      }));
+      const { error: insertError } = await admin.from("notifications").insert(rows);
+      if (insertError) throw insertError;
+      await audit(actor.id, "notifications.broadcast", "profiles", usernames.length ? usernames.join(",") : "ALL", { title, body: message, recipientCount: targets.length });
+      return json(200, { ok: true, recipientCount: targets.length });
     }
 
     if (action === "admins.list") {

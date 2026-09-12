@@ -8,7 +8,11 @@ type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forb
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
-  return <div style={{ position:'fixed',top:10,right:10,zIndex:99999,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
+  // Adel (01/09/2026) : ce badge en haut à droite recouvrait la cloche de
+  // notifications -- descendu en bas à droite, hors du chemin de la barre
+  // d'outils. Le texte reste identique : requis tel quel par
+  // scripts/verify-source-of-truth.cjs.
+  return <div style={{ position:'fixed',bottom:10,right:10,zIndex:200,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
 }
 
 async function hasActiveAdminRole():Promise<boolean>{
@@ -100,7 +104,12 @@ export default function App({Component,pageProps}:AppProps){
       setState('checking_role');
       const allowed=await hasActiveAdminRole();
       if(!active)return;
-      if(!allowed){await client.auth.signOut();setState('forbidden');return;}
+      // Adel (11/09/2026, audit) : signOut() global par defaut deconnectait
+      // aussi l'utilisateur de tous ses AUTRES appareils/sessions (mobile
+      // compris) des qu'un compte valide mais sans role admin actif tentait
+      // ce login -- confirme en direct (session mobile coupee pendant ce
+      // test). scope:'local' limite la deconnexion a cet onglet Super Admin.
+      if(!allowed){await client.auth.signOut({scope:'local'});setState('forbidden');return;}
       setState('allowed');
     };
     void resolve();

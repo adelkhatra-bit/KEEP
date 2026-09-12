@@ -14,6 +14,10 @@ export interface SocialLink {
   platform: 'instagram' | 'tiktok' | 'facebook' | 'snapchat' | 'youtube' | 'x' | 'website' | 'other';
   url: string;
   visibility: LinkVisibility;
+  // Adel (02/09/2026) : "on me montrera pas le lien du site, on mettra un
+  // bouton ... tu prendras le nom du bouton" -- uniquement utilisé pour
+  // platform==='website' : texte du bouton public, jamais l'URL brute.
+  label?: string;
 }
 
 export interface ProfilePrivateInfo {
@@ -74,6 +78,14 @@ export interface SessionTrackEntry {
   creditLocked?: boolean;
   /** Défini lorsque Loki retrouve déjà le morceau dans une playlist connectée. */
   existingMatch?: ExistingLibraryMatch;
+  /**
+   * Adel (02/09/2026) : "il faut bien donner la provenance ... si ça vient de
+   * Spotify bien dire que c'est Spotify, si ça vient de Deezer bien dire que
+   * ça vient de Deezer." Présent uniquement pour un morceau détecté par la
+   * synchro automatique des favoris (voir useSessionHistoryStore.
+   * syncPendingFavoriteImports) -- jamais pour une détection micro classique.
+   */
+  importedFrom?: 'spotify' | 'deezer' | 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal';
 }
 
 export interface KeepSession {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -15,6 +15,21 @@ import {
   subscribeToNotifications,
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
+import { loadCurrentPlanCode } from '../services/planService';
+import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent } from '../services/creatorEventService';
+
+// Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
+// abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
+// pour aller directement sur le profil de la personne concernée. Le nom
+// du champ change selon le type de notification (héritage de plusieurs
+// migrations écrites séparément) -- on vérifie donc toutes les variantes
+// connues plutôt que de supposer un seul nom de champ.
+function notificationProfileUsername(item: KeepNotification): string | null {
+  const data = item.data as Record<string, unknown> | null;
+  if (!data) return null;
+  const candidate = data.username ?? data.actorUsername ?? data.actor_username;
+  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
+}
 
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
@@ -25,28 +40,83 @@ function notificationTypeLabel(type: string) {
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
+  // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
+  // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
+  // une porte ouverte, ca peut etre 1000 choses en meme temps" -- libelle
+  // generique, jamais fige sur "soiree".
+  if (key === 'EVENT_INVITE') return 'INVITATION';
+  if (key === 'EVENT_REMINDER') return 'RAPPEL';
+  // Adel (08/09/2026) : "il recoit une notification quand c'est approuve"
+  // -- statut de moderation de son propre evenement.
+  if (key === 'EVENT_APPROVED') return 'ÉVÉNEMENT APPROUVÉ';
+  if (key === 'EVENT_REJECTED') return 'ÉVÉNEMENT REFUSÉ';
+  if (key === 'EVENT_FIELD_REJECTED') return 'À CORRIGER';
+  if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki';
   return key.replace(/_/g, ' ');
 }
 
 export default function NotificationsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const [items, setItems] = useState<KeepNotification[]>([]);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: false });
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true, eventsEnabled: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Adel (08/09/2026) : "comme tu as fait pour les matchs ... trois petits
+  // boutons en dessous bien aligné, je ne participe pas, je répondrai plus
+  // tard ou je participe" -- l'infrastructure RSVP (event_rsvps,
+  // GOING/MAYBE/NOT_GOING) existe déjà côté serveur depuis event.broadcast,
+  // il ne restait que l'affichage/l'action ici.
+  const [eventRsvps, setEventRsvps] = useState<Record<string, EventRsvpStatus>>({});
+  const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
+  // Adel (08/09/2026) : "un bouton en savoir plus ... avoir quelques images
+  // de l'evenement ... un popup" -- detail complet et A JOUR (jamais le
+  // texte fige de la notification) charge a la demande, avec les memes
+  // boutons de reponse repris a l'identique dans le popup.
+  const [detailItem, setDetailItem] = useState<KeepNotification | null>(null);
+  const [detailEvent, setDetailEvent] = useState<CreatorEvent | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  // Adel (03/09/2026) : "le Marketing devrait toujours rester activé, sauf
+  // pour ceux qui payent au moins 9,99€ (Creator Pro) ou 29,99€ (Venue
+  // Pro) -- eux n'ont pas d'obligation" -- gratuit : notifications
+  // Marketing obligatoires (interrupteur verrouillé sur activé). Payant :
+  // libre de les désactiver.
+  const [planCode, setPlanCode] = useState('FREE');
+  const marketingLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  // Adel (04/09/2026) : "la seule chose qui ne pourra pas désactiver, c'est
+  // les événements ... ça lui demandera de passer en Pro pour avoir la
+  // possibilité de désactiver cette notification" -- même verrou que
+  // Marketing, catégorie séparée.
+  const eventsLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  useEffect(() => {
+    if (!user) return;
+    let live = true;
+    loadCurrentPlanCode(user.id).then((code) => { if (live) setPlanCode(code || 'FREE'); }).catch(() => {});
+    return () => { live = false; };
+  }, [user?.id]);
+  useEffect(() => {
+    if (marketingLocked && prefs.marketingEnabled === false && user) {
+      void updatePrefs({ marketingEnabled: true });
+    }
+    if (eventsLocked && prefs.eventsEnabled === false && user) {
+      void updatePrefs({ eventsEnabled: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketingLocked, prefs.marketingEnabled, eventsLocked, prefs.eventsEnabled, user?.id]);
 
   const refresh = async () => {
     if (!user) return;
     try {
-      const [notifications, preferences] = await Promise.all([
+      const [notifications, preferences, rsvps] = await Promise.all([
         loadNotifications(user.id),
         loadNotificationPreferences(user.id),
+        loadMyRsvps(user.id).catch(() => ({})),
       ]);
       setItems(notifications);
       setPrefs(preferences);
+      setEventRsvps(rsvps);
       setError(null);
     } catch {
       setError('Impossible de charger les notifications.');
@@ -61,13 +131,15 @@ export default function NotificationsScreen({ navigation }: any) {
 
     const run = async () => {
       try {
-        const [notifications, preferences] = await Promise.all([
+        const [notifications, preferences, rsvps] = await Promise.all([
           loadNotifications(user.id),
           loadNotificationPreferences(user.id),
+          loadMyRsvps(user.id).catch(() => ({})),
         ]);
         if (!cancelled) {
           setItems(notifications);
           setPrefs(preferences);
+          setEventRsvps(rsvps);
           setError(null);
         }
       } catch {
@@ -135,6 +207,53 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const battleTheme = (item: KeepNotification) => String(item.data?.themeCode || 'MIX').replace(/_/g, ' ');
 
+  // Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
+  // notification ou avec les boutons ... l'utilisateur puisse cocher" --
+  // l'organisateur choisit a l'envoi (includeRsvpButtons) ; ce champ n'est
+  // present dans data QUE si les boutons ont ete inclus, donc on se base
+  // dessus plutot que sur le seul type.
+  const isEventInvite = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'EVENT_INVITE' && Array.isArray(item.data?.response_options);
+  const eventIdOf = (item: KeepNotification) => {
+    const raw = item.data?.event_id ?? item.data?.eventId;
+    return typeof raw === 'string' && raw ? raw : null;
+  };
+
+  const chooseEventRsvp = async (item: KeepNotification, status: EventRsvpStatus) => {
+    const eventId = eventIdOf(item);
+    if (!user || !eventId || rsvpBusyId) return;
+    setRsvpBusyId(item.id);
+    const previous = eventRsvps[eventId];
+    setEventRsvps((current) => ({ ...current, [eventId]: status }));
+    void readOne(item);
+    try {
+      await setEventRsvp(user.id, eventId, status);
+    } catch {
+      setEventRsvps((current) => {
+        const next = { ...current };
+        if (previous) next[eventId] = previous; else delete next[eventId];
+        return next;
+      });
+      setError('Impossible d’enregistrer ta réponse pour le moment.');
+    } finally {
+      setRsvpBusyId(null);
+    }
+  };
+
+  const openEventDetail = async (item: KeepNotification) => {
+    const eventId = eventIdOf(item);
+    if (!eventId) return;
+    void readOne(item);
+    setDetailItem(item);
+    setDetailEvent(null);
+    setDetailLoading(true);
+    try {
+      setDetailEvent(await loadEventById(eventId));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeEventDetail = () => { setDetailItem(null); setDetailEvent(null); };
 
   const readAll = async () => {
     if (!user) return;
@@ -188,10 +307,6 @@ export default function NotificationsScreen({ navigation }: any) {
   const confirmClearAll = () => {
     if (!items.length || deleting) return;
     const message = 'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte ni tes préférences.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(message)) void clearAll();
-      return;
-    }
     Alert.alert(
       'Supprimer les notifications',
       message,
@@ -203,10 +318,10 @@ export default function NotificationsScreen({ navigation }: any) {
   };
 
   const openActions = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Marquer toutes les notifications comme lues ?')) void readAll();
-      return;
-    }
+    // BUG RÉEL (audit 01/09/2026) : le repli web via window.confirm ne
+    // proposait QUE "marquer comme lu" -- l'option "Tout supprimer" était
+    // silencieusement absente sur web. Alert.alert (brandé, fonctionnel sur
+    // web depuis le fix du 31/08) restaure les 3 choix partout.
     Alert.alert('Notifications', undefined, [
       { text: 'Tout marquer comme lu', onPress: () => void readAll() },
       { text: 'Tout supprimer', style: 'destructive', onPress: confirmClearAll },
@@ -231,18 +346,73 @@ export default function NotificationsScreen({ navigation }: any) {
           </View>
           {loading ? <ActivityIndicator color="#A884FA" /> : error && items.length === 0 ? <Text style={styles.error}>{error}</Text> : items.length === 0 ? (
             <View style={styles.empty}><Text style={styles.emptyIcon}>♩</Text><Text style={styles.muted}>Aucune notification pour le moment.</Text></View>
-          ) : items.map((item) => (
+          ) : items.map((item) => {
+            const profileUsername = notificationProfileUsername(item);
+            return (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
-              <TouchableOpacity style={styles.cardMain} onPress={() => { void readOne(item); }} activeOpacity={0.84} accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}`}>
+              <TouchableOpacity
+                style={styles.cardMain}
+                onPress={() => {
+                  void readOne(item);
+                  if (profileUsername) navigation.navigate('PublicProfile', { username: profileUsername });
+                }}
+                activeOpacity={0.84}
+                accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}${profileUsername ? `. Voir le profil de ${profileUsername}` : ''}`}
+              >
                 <View style={styles.cardTop}>
                   <Text style={styles.cardType}>{notificationTypeLabel(item.type)}</Text>
                   <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
                 </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardBody}>{item.body}</Text>
+                {/* Adel (08/09/2026) : "comment ca se fait que tu n'as pas
+                    mis le logo de la photo" -- vignette de l'evenement quand
+                    l'organisateur en a ajoute une. */}
+                <View style={styles.cardBodyRow}>
+                  {item.data?.image_url ? <Image source={{ uri: String(item.data.image_url) }} style={styles.cardThumbnail} /> : null}
+                  <View style={styles.cardTextColumn}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Text style={styles.cardBody} numberOfLines={3}>{item.body}</Text>
+                  </View>
+                </View>
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
-                <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
+                {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
+                <View style={styles.cardBottomRow}>
+                  <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
+                  {profileUsername ? <Text style={styles.cardProfileLink}>Voir @{profileUsername} ›</Text> : null}
+                </View>
               </TouchableOpacity>
+              {isEventInvite(item) && eventIdOf(item) ? (() => {
+                const eventId = eventIdOf(item) as string;
+                const current = eventRsvps[eventId];
+                const busy = rsvpBusyId === item.id;
+                return (
+                  <View style={styles.rsvpRow}>
+                    <TouchableOpacity
+                      style={[styles.rsvpButton, styles.rsvpGoing, current === 'GOING' && styles.rsvpGoingActive]}
+                      disabled={busy}
+                      onPress={() => void chooseEventRsvp(item, 'GOING')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.rsvpButtonText, styles.rsvpGoingText]}>{current === 'GOING' ? '✓ JE PARTICIPE' : 'JE PARTICIPE'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rsvpButton, styles.rsvpMaybe, current === 'MAYBE' && styles.rsvpMaybeActive]}
+                      disabled={busy}
+                      onPress={() => void chooseEventRsvp(item, 'MAYBE')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.rsvpButtonText, styles.rsvpMaybeText]}>{current === 'MAYBE' ? '✓ PLUS TARD' : 'PLUS TARD'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rsvpButton, styles.rsvpNotGoing, current === 'NOT_GOING' && styles.rsvpNotGoingActive]}
+                      disabled={busy}
+                      onPress={() => void chooseEventRsvp(item, 'NOT_GOING')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.rsvpButtonText, styles.rsvpNotGoingText]}>{current === 'NOT_GOING' ? '✓ JE NE VIENS PAS' : 'JE NE VIENS PAS'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })() : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
                 <TouchableOpacity onPress={() => { void removeOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
@@ -250,25 +420,100 @@ export default function NotificationsScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             </View>
-          ))}
+            );
+          })}
           {error && items.length > 0 && <Text style={styles.error}>{error}</Text>}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Réglages des notifications</Text>
           <Text style={styles.preferenceHint}>Active ou désactive ce que Loki peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
-          <Preference label="Système" value={prefs.systemEnabled} onValueChange={(v) => updatePrefs({ systemEnabled: v })} />
-          <Preference label="DJ & soirées" value={prefs.djEnabled} onValueChange={(v) => updatePrefs({ djEnabled: v })} />
-          <Preference label="Social" value={prefs.socialEnabled} onValueChange={(v) => updatePrefs({ socialEnabled: v })} />
-          <Preference label="Marketing" value={prefs.marketingEnabled} onValueChange={(v) => updatePrefs({ marketingEnabled: v })} />
+          {/* Adel (01/09/2026) : "DJ & soirées" contrôlait les invitations
+              d'événements -- retiré volontairement, ce n'est plus un choix
+              laissé à l'utilisateur (pas de publicité sur Loki à équilibrer). */}
+          <Preference
+            label="Système"
+            hint="Alertes essentielles de ton compte : sécurité, connexion, activité importante."
+            value={prefs.systemEnabled}
+            onValueChange={(v) => updatePrefs({ systemEnabled: v })}
+          />
+          <Preference
+            label="Social"
+            hint="Nouveaux abonnés, visites de ton profil, partages musicaux entre utilisateurs."
+            value={prefs.socialEnabled}
+            onValueChange={(v) => updatePrefs({ socialEnabled: v })}
+          />
+          <Preference
+            label="Marketing"
+            hint={marketingLocked
+              ? "Offres et actualités Loki. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
+              : 'Offres et actualités Loki. Tu peux le désactiver, ta formule te le permet.'}
+            value={marketingLocked ? true : prefs.marketingEnabled}
+            onValueChange={(v) => { if (!marketingLocked) updatePrefs({ marketingEnabled: v }); }}
+            locked={marketingLocked}
+          />
+          <Preference
+            label="Événements"
+            hint={eventsLocked
+              ? "Invitations aux soirées et événements des profils que tu suis ou dont tu as gardé un morceau. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
+              : 'Invitations aux soirées et événements. Tu peux le désactiver, ta formule te le permet.'}
+            value={eventsLocked ? true : prefs.eventsEnabled}
+            onValueChange={(v) => { if (!eventsLocked) updatePrefs({ eventsEnabled: v }); }}
+            locked={eventsLocked}
+          />
         </View>
       </ScrollView>
+
+      {/* Adel (08/09/2026) : "un popup ... la photo ... du texte avec des
+          explications, tenue exigee etc. ... un bouton en savoir plus ...
+          et ensuite a partir de la il a les boutons" -- detail complet,
+          jamais tronque, avec les memes boutons de reponse. */}
+      <Modal visible={Boolean(detailItem)} transparent animationType="fade" onRequestClose={closeEventDetail}>
+        <View style={styles.detailBackdrop}>
+          <View style={styles.detailSheet}>
+            <TouchableOpacity style={styles.detailClose} onPress={closeEventDetail} accessibilityLabel="Fermer"><Text style={styles.detailCloseText}>×</Text></TouchableOpacity>
+            {detailLoading ? <ActivityIndicator color="#A884FA" style={{ marginTop: 30 }} /> : detailEvent ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {detailEvent.imageUrl ? <Image source={{ uri: detailEvent.imageUrl }} style={styles.detailImage} /> : null}
+                <Text style={styles.detailTitle}>{detailEvent.name}</Text>
+                <Text style={styles.detailMeta}>{new Date(detailEvent.startsAt).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}{detailEvent.venueName ? ` · ${detailEvent.venueName}` : ''}</Text>
+                {detailEvent.description ? <Text style={styles.detailDescription}>{detailEvent.description}</Text> : null}
+                {detailEvent.youtubeUrl ? <TouchableOpacity style={styles.detailYoutube} onPress={() => { void Linking.openURL(detailEvent.youtubeUrl as string); }}><Text style={styles.detailYoutubeText}>▶ Voir sur YouTube</Text></TouchableOpacity> : null}
+                {detailItem && (detailItem.type === 'EVENT_INVITE') && Array.isArray(detailItem.data?.response_options) ? (() => {
+                  const eventId = eventIdOf(detailItem) as string;
+                  const current = eventRsvps[eventId];
+                  const busy = rsvpBusyId === detailItem.id;
+                  return (
+                    <View style={styles.rsvpRow}>
+                      <TouchableOpacity style={[styles.rsvpButton, styles.rsvpGoing, current === 'GOING' && styles.rsvpGoingActive]} disabled={busy} onPress={() => void chooseEventRsvp(detailItem, 'GOING')}>
+                        <Text style={[styles.rsvpButtonText, styles.rsvpGoingText]}>{current === 'GOING' ? '✓ JE PARTICIPE' : 'JE PARTICIPE'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.rsvpButton, styles.rsvpMaybe, current === 'MAYBE' && styles.rsvpMaybeActive]} disabled={busy} onPress={() => void chooseEventRsvp(detailItem, 'MAYBE')}>
+                        <Text style={[styles.rsvpButtonText, styles.rsvpMaybeText]}>{current === 'MAYBE' ? '✓ PLUS TARD' : 'PLUS TARD'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.rsvpButton, styles.rsvpNotGoing, current === 'NOT_GOING' && styles.rsvpNotGoingActive]} disabled={busy} onPress={() => void chooseEventRsvp(detailItem, 'NOT_GOING')}>
+                        <Text style={[styles.rsvpButtonText, styles.rsvpNotGoingText]}>{current === 'NOT_GOING' ? '✓ JE NE VIENS PAS' : 'JE NE VIENS PAS'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })() : null}
+              </ScrollView>
+            ) : <Text style={styles.muted}>Cet évènement n’est plus disponible.</Text>}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function Preference({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (value: boolean) => void }) {
-  return <View style={styles.preference}><Text style={styles.preferenceLabel}>{label}</Text><Switch value={value} onValueChange={onValueChange} trackColor={{ false: '#2A2035', true: '#6D35CF' }} thumbColor={value ? '#C3ADFF' : '#8F879D'} /></View>;
+function Preference({ label, hint, value, onValueChange, locked }: { label: string; hint?: string; value: boolean; onValueChange: (value: boolean) => void; locked?: boolean }) {
+  return <View style={styles.preference}>
+    <View style={styles.preferenceCopy}>
+      <Text style={styles.preferenceLabel}>{label}{locked ? ' · 🔒' : ''}</Text>
+      {hint ? <Text style={styles.preferenceItemHint}>{hint}</Text> : null}
+    </View>
+    <Switch value={value} onValueChange={onValueChange} disabled={locked} trackColor={{ false: '#2A2035', true: '#6D35CF' }} thumbColor={value ? '#C3ADFF' : '#8F879D'} />
+  </View>;
 }
 
 const styles = StyleSheet.create({
@@ -281,15 +526,17 @@ const styles = StyleSheet.create({
   moreButton: { minWidth: 42, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348' },
   moreText: { color: '#B79CFF', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   notice: { position: 'absolute', zIndex: 20, top: 12, alignSelf: 'center', maxWidth: '78%', backgroundColor: 'rgba(27,19,41,.96)', borderWidth: 1, borderColor: '#4D3A69', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
-  noticeText: { color: '#F8F6FC', fontSize: 10, lineHeight: 14, fontWeight: '800', textAlign: 'center' },
+  noticeText: { color: '#F8F6FC', fontSize: 12, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
   section: { marginBottom: spacing.xxl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { color: '#F8F6FC', fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
   sectionTitleNoMargin: { color: '#F8F6FC', fontSize: 16, fontWeight: '900' },
-  clearText: { color: '#FF7D92', fontSize: 10, fontWeight: '900' },
-  preferenceHint: { color:'#FFFFFF', fontSize: 10, lineHeight: 15, marginBottom: spacing.md },
-  preference: { minHeight: 56, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: radius.md, marginBottom: spacing.sm },
+  clearText: { color: '#FF7D92', fontSize: 11, fontWeight: '900' },
+  preferenceHint: { color:'#FFFFFF', fontSize: 11, lineHeight: 15, marginBottom: spacing.md },
+  preference: { minHeight: 56, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: radius.md, marginBottom: spacing.sm },
+  preferenceCopy: { flex: 1, minWidth: 0 },
   preferenceLabel: { color: '#F8F6FC', fontSize: 13, fontWeight: '700' },
+  preferenceItemHint: { color: '#FFFFFF', fontSize: 11, lineHeight: 15, marginTop: 3 },
   card: { backgroundColor: '#151020', borderWidth: 1, borderColor: '#312348', borderRadius: 16, marginBottom: spacing.sm, overflow: 'hidden' },
   cardUnread: { borderColor: '#8B5CF6', backgroundColor: '#1B1329' },
   cardMain: { padding: spacing.md, paddingBottom: spacing.sm },
@@ -300,11 +547,41 @@ const styles = StyleSheet.create({
   readText: { color:'#FFFFFF', fontSize: 8, fontWeight: '900', letterSpacing: .8 },
   cardTitle: { color: '#F8F6FC', fontSize: 14, fontWeight: '900', marginTop: 7 },
   cardBody: { color:'#FFFFFF', fontSize: 12, lineHeight: 18, marginTop: 4 },
-  cardDate: { color:'#FFFFFF', fontSize: 10, marginTop: 8 },
+  cardBodyRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  cardThumbnail: { width: 56, height: 56, borderRadius: 12, backgroundColor: '#241936', marginTop: 7 },
+  cardTextColumn: { flex: 1, minWidth: 0 },
+  cardMoreLink: { color: '#A884FA', fontSize: 11, fontWeight: '900', marginTop: 6 },
+  cardDate: { color:'#FFFFFF', fontSize: 10 },
+  cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  cardProfileLink: { color: '#A884FA', fontSize: 11, fontWeight: '800' },
   battleTheme: { marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: '#5D3D7B', backgroundColor: '#241630', paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   battleThemeLabel: { color: '#D8C7FF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   battleThemeValue: { color: '#E5F266', fontSize: 12, fontWeight: '900' },
   battleActions: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  // Adel (08/09/2026) : "trois petits boutons en dessous bien aligné" --
+  // même rangée, même hauteur, un seul en surbrillance (celui déjà choisi).
+  rsvpRow: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: 2 },
+  rsvpButton: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, backgroundColor: 'transparent' },
+  rsvpButtonText: { fontSize: 9, fontWeight: '900', textAlign: 'center' },
+  rsvpGoing: { borderColor: '#38D990' },
+  rsvpGoingActive: { backgroundColor: 'rgba(56,217,144,.16)' },
+  rsvpGoingText: { color: '#38D990' },
+  rsvpMaybe: { borderColor: '#F0B429' },
+  rsvpMaybeActive: { backgroundColor: 'rgba(240,180,41,.16)' },
+  rsvpMaybeText: { color: '#F0B429' },
+  rsvpNotGoing: { borderColor: '#FF6C8C' },
+  rsvpNotGoingActive: { backgroundColor: 'rgba(255,108,140,.16)' },
+  rsvpNotGoingText: { color: '#FF6C8C' },
+  detailBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  detailSheet: { width: '100%', maxWidth: 440, maxHeight: '86%', borderRadius: 26, padding: 20, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
+  detailClose: { position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: '#1F1830', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  detailCloseText: { color: '#FFF', fontSize: 20, lineHeight: 22, fontWeight: '700' },
+  detailImage: { width: '100%', height: 180, borderRadius: 18, backgroundColor: '#241936' },
+  detailTitle: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 14, paddingRight: 30 },
+  detailMeta: { color: '#A884FA', fontSize: 12, fontWeight: '800', marginTop: 4 },
+  detailDescription: { color: '#F8F6FC', fontSize: 13, lineHeight: 20, marginTop: 14, fontWeight: '600' },
+  detailYoutube: { alignSelf: 'flex-start', marginTop: 14, minHeight: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: '#3A1116', borderWidth: 1, borderColor: '#FF4B4B', alignItems: 'center', justifyContent: 'center' },
+  detailYoutubeText: { color: '#FF6C6C', fontSize: 11, fontWeight: '900' },
   battleAction: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   battleRefuse: { backgroundColor: '#1B121F', borderColor: '#78435A' },
   battleAccept: { backgroundColor: '#E5F266', borderColor: '#E5F266' },

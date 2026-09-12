@@ -6,6 +6,7 @@ import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
 
 interface Props {
@@ -28,6 +29,13 @@ interface Props {
 export default function TrackListenControls({ track, previewKey, onPreviewFinished }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
+  // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
+  // se met indisponible") : ce composant affichait "Audio indisponible" dès
+  // que le fournisseur de reconnaissance ne renvoyait aucun previewUrl/lien
+  // externe direct, sans jamais tenter le même repli iTunes déjà utilisé et
+  // fonctionnel dans TrackPreviewButton.tsx/MusicSwipeDeckModal.tsx.
+  const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl ?? null);
+  const [resolvingPreview, setResolvingPreview] = useState(false);
 
   const externalPlayUrl = track.externalUrls?.appleMusic
     || track.externalUrls?.spotify
@@ -50,6 +58,18 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
         : undefined;
   const embedProviderLabel = track.providerIds?.spotify ? 'Spotify' : track.providerIds?.deezer ? 'Deezer' : 'YouTube';
 
+  useEffect(() => {
+    setResolvedPreviewUrl(track.previewUrl ?? null);
+    if (track.previewUrl || embedUrl || externalPlayUrl) return;
+    let live = true;
+    setResolvingPreview(true);
+    resolveTrackPreviewUrl(track)
+      .then((url) => { if (live) setResolvedPreviewUrl(url); })
+      .finally(() => { if (live) setResolvingPreview(false); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.title, track.artist, track.previewUrl, embedUrl, externalPlayUrl]);
+
   useEffect(() => () => {
     void stopTrackPreview(previewKey);
   }, [previewKey]);
@@ -60,11 +80,25 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     await cancelAudioCapture().catch(() => {});
   };
 
+  // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+  // quand la musique est terminée l'écoute repart" -- lire un extrait
+  // exigeait AVANT tout d'arrêter complètement la session (requestEndSession,
+  // qui efface aussi les morceaux déjà détectés) via une confirmation
+  // bloquante. Remplacé par une simple pause (micro coupé) le temps de
+  // l'extrait, reprise automatique dès que le lecteur s'arrête -- fin
+  // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
+  // les deux cas.
+  const resumeListeningOnStop = (isPlaying: boolean) => {
+    if (isPlaying) return;
+    const session = useSessionStore.getState();
+    if (session.micPaused) session.resumeListening();
+  };
+
   const playSnippetNow = async (positionMillis: number) => {
-    if (!track.previewUrl || previewBusy) return;
+    if (!resolvedPreviewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      await playTrackPreviewSegment(previewKey, track.previewUrl, positionMillis, 7000, undefined, onPreviewFinished);
+      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
     } catch {
       Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
     } finally {
@@ -73,18 +107,9 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   };
 
   const playSnippet = (positionMillis: number) => {
-    if (!track.previewUrl || previewBusy) return;
-    if (useSessionStore.getState().isActive) {
-      Alert.alert(
-        'Écoute Loki en cours',
-        'Le micro Loki est encore actif. Arrête la session avant de lire un extrait afin que Loki n’identifie pas le son de ton propre téléphone.',
-        [
-          { text: 'Continuer l’écoute', style: 'cancel' },
-          { text: 'Arrêter et écouter', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await playSnippetNow(positionMillis); })() },
-        ],
-      );
-      return;
-    }
+    if (!resolvedPreviewUrl || previewBusy) return;
+    const session = useSessionStore.getState();
+    if (session.isActive) session.pauseListening();
     void playSnippetNow(positionMillis);
   };
 
@@ -111,19 +136,20 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     void openExternalNow();
   };
 
-  if (!track.previewUrl && !embedUrl && !externalPlayUrl) {
+  if (!resolvedPreviewUrl && !embedUrl && !externalPlayUrl) {
+    if (resolvingPreview) return <Text style={styles.audioUnavailable}>Recherche de l’extrait…</Text>;
     return <Text style={styles.audioUnavailable}>Audio indisponible</Text>;
   }
 
   return (
     <>
       <View style={styles.previewRow}>
-        {track.previewUrl ? <>
+        {resolvedPreviewUrl ? <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
         </> : null}
-        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : track.previewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
+        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : resolvedPreviewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
       </View>
 
       {Platform.OS === 'web' && embedUrl ? (
@@ -165,5 +191,5 @@ const styles = StyleSheet.create({
   embedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 },
   embedTitle: { color: '#F8F6FC', fontSize: 13, fontWeight: '800', flex: 1 },
   embedClose: { color: '#8F879D', fontSize: 16, fontWeight: '900', paddingHorizontal: 4 },
-  embedHint: { color: '#8F879D', fontSize: 10, textAlign: 'center', marginTop: 9 },
+  embedHint: { color: '#8F879D', fontSize: 11, textAlign: 'center', marginTop: 9 },
 });

@@ -26,8 +26,8 @@ jobs:
     env:
       CI: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -148,7 +148,7 @@ jobs:
           ! grep -R --exclude-dir=Pods -E 'AUDD_API_KEY|ACRCLOUD_ACCESS_SECRET|BREVO_API_KEY|STRIPE_SECRET_KEY' packages/mobile/ios
       - name: Upload native App Store preflight report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-app-store-native-preflight
           path: artifacts/app-store-native-preflight
@@ -159,8 +159,8 @@ jobs:
     env:
       CI: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -231,7 +231,7 @@ jobs:
           grep -E 'KeepIAP|KeepIAPModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
       - name: Upload native compile log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-ios-simulator-compile
           path: artifacts/ios-simulator-compile/xcodebuild.log

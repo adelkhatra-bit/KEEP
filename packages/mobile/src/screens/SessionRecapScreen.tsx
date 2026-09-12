@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import { shareSession } from '../services/sharingService';
 import TrackRow from '../components/TrackRow';
@@ -26,11 +27,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     refreshCreditLocks,
   } = useSessionHistoryStore();
   const { playlists } = usePlaylistStore();
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
   const [titleSaved, setTitleSaved] = useState(false);
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
+  const [firstShareOffered, setFirstShareOffered] = useState(false);
 
   useEffect(() => {
     void refreshCreditLocks().catch(() => {});
@@ -40,15 +43,41 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation, refreshCreditLocks]);
 
+  // Adel (13/09/2026, viralité) : "le premier partage doit arriver avant
+  // l'inscription" -- le partage existait déjà (bouton 🔗 dans l'en-tête)
+  // mais personne ne le remarque tout seul juste après son tout premier
+  // Keep. Proposé une seule fois, uniquement en mode invité (avant tout
+  // compte) et uniquement sur la toute première session jamais enregistrée.
+  useEffect(() => {
+    if (!session || !isLocalGuest || firstShareOffered) return;
+    const keptNow = session.tracks.filter((entry) => entry.status === 'kept').length;
+    if (!keptNow || useSessionHistoryStore.getState().sessions.length > 1) return;
+    setFirstShareOffered(true);
+    Alert.alert(
+      '🎉 Ton premier Keep !',
+      'Montre à tes amis ce que tu viens de découvrir, avant même de créer ton compte.',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Partager', onPress: () => { void shareSession(sessionId, titleDraft.trim() || t('session.recapTitle'), keptNow).catch(() => {}); } },
+      ],
+    );
+  }, [session, isLocalGuest, firstShareOffered, sessionId, titleDraft, t]);
+
   const pendingSwipeTracks = useMemo<CanonicalTrack[]>(() => {
     if (!session) return [];
     return session.tracks.filter((entry) => entry.status === 'pending').map((entry) => entry.track);
   }, [session]);
 
+  // Adel (02/09/2026) : "dans la session, quand j'efface des choses, pourquoi
+  // ça revient, nettoie la cage" -- PASSER ne faisait que renvoyer le
+  // morceau en bas de la liste (triée par statut), il restait visible pour
+  // toujours au lieu de disparaître. Un morceau passé quitte maintenant la
+  // liste affichée -- son statut reste bien enregistré dans session.tracks
+  // (compteurs, historique), seul l'affichage l'exclut.
   const sortedTracks = useMemo(() => {
     if (!session) return [];
-    const rank = (status: string) => status === 'pending' ? 0 : status === 'kept' ? 1 : 2;
-    return session.tracks.slice().sort((a, b) => {
+    const rank = (status: string) => status === 'pending' ? 0 : 1;
+    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => {
       const statusDiff = rank(a.status) - rank(b.status);
       if (statusDiff) return statusDiff;
       return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
@@ -143,10 +172,10 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       if (navigation.canGoBack()) navigation.goBack();
       else navigation.navigate('Main');
     };
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(message)) run();
-      return;
-    }
+    // BUG RÉEL (Adel, 01/09/2026, capture à l'appui) : ce `window.confirm`
+    // web contournait le système de popup brandé (AlertHost) construit plus
+    // tôt cette session -- résultat, une boîte de dialogue navigateur toute
+    // blanche, hors charte, alors que `Alert.alert` fonctionne déjà sur web.
     Alert.alert('Supprimer cette session ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: run },
@@ -263,8 +292,16 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.keepAllButton]} onPress={handleKeepAll} disabled={processing} accessibilityRole="button" accessibilityLabel="Garder tous les morceaux en attente">
-            <Text style={styles.keepAllButtonText}>{processing ? '…' : `♡ GARDER TOUT (${pendingCount})`}</Text>
+          <TouchableOpacity
+            style={[styles.compactAction, styles.keepAllButton, lockedCount >= pendingCount && styles.keepAllButtonLocked]}
+            onPress={lockedCount >= pendingCount ? () => { void openUnlock(); } : handleKeepAll}
+            disabled={processing}
+            accessibilityRole="button"
+            accessibilityLabel="Garder tous les morceaux en attente"
+          >
+            <Text style={[styles.keepAllButtonText, lockedCount >= pendingCount && styles.keepAllButtonTextLocked]}>
+              {processing ? '…' : lockedCount >= pendingCount ? `🔒 Free insuffisant (${pendingCount})` : `♡ GARDER TOUT (${pendingCount})`}
+            </Text>
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity style={[styles.compactAction, styles.deleteSessionButton]} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette session">
@@ -309,7 +346,7 @@ const styles = StyleSheet.create({
   titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   titleInput: { flex: 1, minHeight: 44, color: colors.textPrimary, fontSize: 15, fontWeight: '600', borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm },
   validateTitleButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  validateTitleText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
+  validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
   titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
   titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
@@ -321,17 +358,19 @@ const styles = StyleSheet.create({
   pendingPillText: { color: colors.black, fontSize: 9, fontWeight: '900', letterSpacing: .35 },
   lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
-  lockedBannerText: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, marginTop: 4 },
-  visibilityHint: { color: colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
+  lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
   sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
   compactAction: { flex: 1, minHeight: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
-  swipeActionText: { color: colors.black, fontSize: 9, fontWeight: '900' },
+  swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
   keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
-  keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 9, textAlign: 'center' },
+  keepAllButtonLocked: { backgroundColor: '#27222E', borderColor: '#5C5468' },
+  keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
+  keepAllButtonTextLocked: { color: '#FFFFFF' },
   deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
-  deleteSessionText: { color: colors.danger, fontSize: 9, fontWeight: '900' },
+  deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
 });

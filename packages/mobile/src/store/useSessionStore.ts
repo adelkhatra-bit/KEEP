@@ -4,6 +4,7 @@ import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } fr
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
 import { markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { getDownloadCreditStatus } from '../services/creditService';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
@@ -153,6 +154,16 @@ interface SessionStore {
   locationLabel?: string;
   lat?: number;
   lng?: number;
+  // Adel (05/09/2026) : "si j'appuie sur la lecture ça coupe l'écoute, et
+  // quand la musique est terminée l'écoute repart" -- jusqu'ici, lire un
+  // extrait pendant une session active exigeait de tout arrêter
+  // (requestEndSession, qui efface aussi les morceaux déjà détectés) avant
+  // de pouvoir écouter. micPaused ne fait que suspendre la capture micro
+  // (elle reprend automatiquement à la fin de l'extrait) sans jamais
+  // toucher à sessionId/tracks/startedAt.
+  micPaused: boolean;
+  pauseListening: () => void;
+  resumeListening: () => void;
   startSession: () => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
@@ -245,6 +256,24 @@ async function applyDetectedTrack(
   set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
   persistLiveSession(get());
 
+  // Audit Adel (11/09/2026) : "il faut que le bouton Garder soit bloque,
+  // grisonne, quand il n'a plus de free" -- avant ce correctif, une carte
+  // fraichement detectee affichait toujours GARDER actif meme a solde 0,
+  // le verrou (deja code dans TrackRow) ne s'activait qu'apres un premier
+  // GARDER rate. Verifie desormais le solde reel des la detection ;
+  // best-effort (reseau/invite en echec silencieux) -- le vrai barrage
+  // reste le controle serveur de recordDecision, ceci n'est qu'un confort
+  // visuel immediat.
+  void getDownloadCreditStatus().then((status) => {
+    // costPerKeep vient du serveur (free_cost_per_keep, 3 au 11/09/2026) --
+    // comparer a 0 laissait passer un solde de 1 ou 2 (insuffisant en
+    // pratique) comme si le bouton devait rester actif.
+    if (!status.unlimited && (status.remaining ?? 0) < status.costPerKeep) {
+      set((s) => ({ tracks: s.tracks.map((t) => t.id === entry.id && t.status === 'pending' ? { ...t, creditLocked: true } : t) }));
+      persistLiveSession(get());
+    }
+  }).catch(() => {});
+
   void (async () => {
     try {
       const { session, playlists, match } = await findExistingTrack(track);
@@ -311,6 +340,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   locationLabel: undefined,
   lat: undefined,
   lng: undefined,
+  micPaused: false,
+
+  pauseListening: () => {
+    if (!get().isActive || get().micPaused) return;
+    void cancelAudioCapture();
+    set({ micPaused: true, recognizing: false, micLevel: 0 });
+  },
+
+  resumeListening: () => {
+    if (!get().isActive || !get().micPaused) return;
+    // Le temps passé en pause ne doit jamais compter comme du silence côté
+    // détection ("session terminée faute de morceau").
+    lastDetectionAt = Date.now();
+    set({ micPaused: false });
+  },
 
   startSession: () => {
     // Doit être appelé dans le geste tactile d'origine pour Samsung Internet /
@@ -336,6 +380,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       showEndPrompt: false,
       recognizing: false,
       micLevel: 0,
+      micPaused: false,
       error: null,
       signalHint: null,
       locationLabel: resumable?.locationLabel,
@@ -344,7 +389,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
 
     const tick = async () => {
-      if (!get().isActive || get().recognizing) return;
+      if (!get().isActive || get().recognizing || get().micPaused) return;
       const now = Date.now();
       if (now < nextRecognitionAllowedAt) return;
       nextRecognitionAllowedAt = now + MIN_RECOGNITION_ATTEMPT_GAP_MS;
@@ -383,8 +428,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void tick();
     tickHandle = setInterval(() => { void tick(); }, RECOGNITION_TICK_MS);
     silenceCheckHandle = setInterval(() => {
-      const { isActive, silenceTimeoutMin, showEndPrompt } = get();
-      if (!isActive || showEndPrompt) return;
+      const { isActive, silenceTimeoutMin, showEndPrompt, micPaused } = get();
+      if (!isActive || showEndPrompt || micPaused) return;
       if (Date.now() - lastDetectionAt >= silenceTimeoutMin * 60 * 1000) {
         set({ showEndPrompt: true });
         if (silencePromptGraceHandle) clearTimeout(silencePromptGraceHandle);
@@ -411,7 +456,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!s.sessionId || !s.startedAt) return null;
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
-    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
 

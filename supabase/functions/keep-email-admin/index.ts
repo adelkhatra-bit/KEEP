@@ -108,7 +108,24 @@ async function ensureBrevoWebhook(actor: AdminActor) {
 
   const webhookToken = await ensureWebhookToken(actor.id);
   const url = `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/keep-brevo-webhook`;
-  const list = await brevoRequest(apiKey, "/webhooks?type=transactional&sort=desc", { method: "GET" });
+  let list: any;
+  try {
+    list = await brevoRequest(apiKey, "/webhooks", { method: "GET" });
+  } catch (error) {
+    // Adel (12/09/2026, audit) : Brevo refuse GET /webhooks pour cette cle
+    // ("Webhook record does not exist", teste avec et sans parametres de
+    // requete -- pas un souci de parametres) -- probable restriction de
+    // permission sur la cle API (certaines cles Brevo n'ont pas acces a la
+    // gestion des webhooks). Erreur claire et actionnable plutot qu'une 500
+    // technique : le suivi de delivrabilite reste facultatif, l'envoi reel
+    // des e-mails (teste et confirme fonctionnel) n'en depend pas.
+    const message = error instanceof Error ? error.message : String(error);
+    return json(409, {
+      error: "brevo_webhooks_unavailable",
+      message: "Brevo refuse l'accès à la gestion des webhooks avec cette clé API (permission insuffisante sur le compte Brevo ?). L'envoi réel des e-mails n'est pas affecté -- seul le tableau de délivrabilité reste indisponible.",
+      detail: message.slice(0, 300),
+    });
+  }
   const webhooks = Array.isArray(list?.webhooks) ? list.webhooks : [];
   const existing = webhooks.find((item: any) => String(item?.url || "") === url)
     ?? webhooks.find((item: any) => String(item?.description || "") === "KEEP transactional delivery");
@@ -123,20 +140,40 @@ async function ensureBrevoWebhook(actor: AdminActor) {
 
   let webhookId: number | null = null;
   let mode: "created" | "updated";
+  let updateFailed = false;
   if (existing?.id) {
-    await brevoRequest(apiKey, `/webhooks/${encodeURIComponent(String(existing.id))}`, {
-      method: "PUT",
-      body: JSON.stringify(definition),
-    });
-    webhookId = Number(existing.id);
-    mode = "updated";
-  } else {
-    const created = await brevoRequest(apiKey, "/webhooks", {
-      method: "POST",
-      body: JSON.stringify({ ...definition, type: "transactional" }),
-    });
-    webhookId = Number(created?.id) || null;
-    mode = "created";
+    try {
+      await brevoRequest(apiKey, `/webhooks/${encodeURIComponent(String(existing.id))}`, {
+        method: "PUT",
+        body: JSON.stringify(definition),
+      });
+      webhookId = Number(existing.id);
+      mode = "updated";
+    } catch (error) {
+      // Adel (11/09/2026, audit) : Brevo listait un webhook (meme url/description)
+      // dont l'ID ne repondait plus a PUT ("Webhook record does not exist") --
+      // reste probablement d'un webhook supprime cote Brevo pendant que la
+      // restriction IP bloquait nos appels. On ne bloque plus "reparer" sur ce
+      // cas : on repasse en creation au lieu de remonter une 500 seche.
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/does not exist/i.test(message)) {
+        return json(409, { error: "brevo_webhook_update_failed", message: "Impossible de mettre à jour le webhook Brevo existant.", detail: message.slice(0, 300) });
+      }
+      updateFailed = true;
+    }
+  }
+  if (!existing?.id || updateFailed) {
+    try {
+      const created = await brevoRequest(apiKey, "/webhooks", {
+        method: "POST",
+        body: JSON.stringify({ ...definition, type: "transactional" }),
+      });
+      webhookId = Number(created?.id) || null;
+      mode = "created";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(409, { error: "brevo_webhook_create_failed", message: "Impossible de créer le webhook Brevo.", detail: message.slice(0, 300) });
+    }
   }
 
   await audit(actor.id, "brevo.webhook.ensured", { webhookId, mode, url, events: DELIVERY_EVENTS });

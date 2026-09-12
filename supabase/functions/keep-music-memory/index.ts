@@ -2,12 +2,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeFingerprint, decodeWavPcm16 } from "../_shared/audioFingerprint.ts";
 
-// Dernier maillon de la cascade de reconnaissance KEEP : la mémoire
-// collective construite localement (voir keep-music-keyless-source pour
-// l'ensemencement). N'est interrogée qu'après un échec d'AudD ET d'ACRCloud
-// -- couvre le contenu indépendant/underground absent des catalogues
-// commerciaux, à condition qu'un utilisateur l'ait déjà fait identifier une
-// première fois (recherche manuelle ou partage).
+// Mémoire collective KEEP, empreintes calculées localement (voir
+// fingerprintSeed.ts pour l'ensemencement automatique à chaque
+// reconnaissance réussie). Commentaire corrigé le 03/09/2026 : ce n'est PLUS
+// le dernier maillon -- keepMusicCoreRecognition.ts (client) l'interroge
+// EN PREMIER depuis le 31/08/2026 (auto-hébergée, sans latence/quota
+// externe), avant AudD et ACRCloud. Ne renvoie un résultat que si le
+// meilleur candidat dépasse nettement le deuxième (voir plus bas) --
+// jamais moins fiable que les moteurs payants, juste plus rapide quand le
+// morceau est déjà connu.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -114,17 +117,42 @@ async function identify(req: Request) {
     }
   }
 
+  // Meilleur score PAR MORCEAU (pas juste par décalage) : un même morceau
+  // peut avoir des votes répartis sur plusieurs décalages proches (jitter
+  // d'alignement), les additionner sous-estimait moins le vrai meilleur
+  // candidat que ne garder que son pic isolé le plus haut.
   let bestTrackId: string | null = null;
   let bestVotes = 0;
+  let secondBestVotes = 0;
   for (const [trackId, offsets] of votesByTrack) {
-    for (const votes of offsets.values()) {
-      if (votes > bestVotes) { bestVotes = votes; bestTrackId = trackId; }
+    let trackBest = 0;
+    for (const votes of offsets.values()) if (votes > trackBest) trackBest = votes;
+    if (trackBest > bestVotes) {
+      secondBestVotes = bestVotes;
+      bestVotes = trackBest;
+      bestTrackId = trackId;
+    } else if (trackBest > secondBestVotes) {
+      secondBestVotes = trackBest;
     }
   }
 
   const requiredVotes = Math.max(MIN_VOTE_MATCH, hashes.length * MIN_VOTE_RATIO);
   if (!bestTrackId || bestVotes < requiredVotes) {
     return json(200, { ok: true, provider: "KEEP_MEMORY", recognition: null, reason: "no_confident_match", bestVotes, requiredVotes });
+  }
+  // AJOUT (03/09/2026, Adel : "des fois il me donne un artiste totalement
+  // différent") -- vrai trou trouvé en audit : le meilleur score n'était
+  // JAMAIS comparé au deuxième meilleur candidat. Deux morceaux différents
+  // qui partagent un fragment mélodique/rythmique proche peuvent tous les
+  // deux dépasser le seuil plancher -- sans marge de sécurité, celui qui
+  // gagnait de justesse était rendu avec la MÊME confiance qu'un match
+  // écrasant et sans ambiguïté. Ce risque grandit avec la mémoire (plus de
+  // morceaux = plus de hashs qui peuvent se recouper par hasard). Exige
+  // maintenant que le meilleur dépasse nettement le deuxième, sinon le
+  // résultat est trop ambigu pour être rendu avec confiance -- Loki passe la
+  // main à AudD/ACRCloud plutôt que de risquer un mauvais artiste.
+  if (secondBestVotes > 0 && bestVotes < secondBestVotes * 1.4) {
+    return json(200, { ok: true, provider: "KEEP_MEMORY", recognition: null, reason: "ambiguous_match", bestVotes, secondBestVotes });
   }
 
   const { data: track } = await admin.from("keep_fingerprint_tracks").select("*").eq("id", bestTrackId).maybeSingle();

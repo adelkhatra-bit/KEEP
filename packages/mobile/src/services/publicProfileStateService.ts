@@ -36,6 +36,12 @@ export type PublicProfileKeep = {
   sourceUserId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceCertificationTier?: ProfileCertificationTier;
+  // Adel (08/09/2026) : "si l'utilisateur est abonné à celui qui a
+  // découvert la musique, on met vert, si il est pas abonné, tu le mets
+  // rouge ... incité à cliquer dessus" -- calculé pour le VIEWER courant
+  // (auth.uid()), jamais pour le propriétaire du profil visité.
+  sourceIsFollowing?: boolean;
   sourceType?: string;
   creditSource: 'LISTEN' | 'SOCIAL';
 };
@@ -101,19 +107,41 @@ function normalizeKeepRow(row: any, fallbackVisibility: 'PUBLIC' | 'PRIVATE' = '
   };
 }
 
+// Adel (07/09/2026) : "quand un utilisateur repartage la musique, elle est
+// toujours tamponnée avec le code couleur de la certification ... hormis si
+// demain il arrête son abonnement, le système le détecte et remet en vert" --
+// la couleur d'attribution doit toujours venir d'un calcul EN DIRECT de la
+// formule actuelle du découvreur, jamais d'une valeur figée au moment du
+// partage. keep_public_certification_tiers recalcule à chaque chargement.
 async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
   if (!supabase || !rows.length) return rows;
-  const ids = Array.from(new Set(rows
+  const client = supabase;
+  const allSourceIds = Array.from(new Set(rows
+    .map((row) => row.sourceProfileId || row.sourceUserId)
+    .filter(Boolean) as string[]));
+  const needsUsername = Array.from(new Set(rows
     .filter((row) => !row.sourceUsername)
     .map((row) => row.sourceProfileId || row.sourceUserId)
     .filter(Boolean) as string[]));
-  if (!ids.length) return rows;
+  if (!allSourceIds.length) return rows;
 
   const usernames = new Map<string, string>();
+  const tiers = new Map<string, ProfileCertificationTier>();
+  const following = new Set<string>();
   const chunkSize = 100;
-  for (let start = 0; start < ids.length; start += chunkSize) {
-    const chunk = ids.slice(start, start + chunkSize);
-    const { data, error } = await supabase
+  const { data: viewerData } = await client.auth.getUser().catch(() => ({ data: { user: null } }));
+  const viewerId = viewerData?.user?.id;
+  if (viewerId) {
+    for (let start = 0; start < allSourceIds.length; start += chunkSize) {
+      const chunk = allSourceIds.slice(start, start + chunkSize);
+      const { data, error } = await client.from('follows').select('followee_id').eq('follower_id', viewerId).in('followee_id', chunk);
+      if (error) continue;
+      for (const row of data ?? []) if (row?.followee_id) following.add(String(row.followee_id));
+    }
+  }
+  for (let start = 0; start < needsUsername.length; start += chunkSize) {
+    const chunk = needsUsername.slice(start, start + chunkSize);
+    const { data, error } = await client
       .from('profiles')
       .select('id,username')
       .in('id', chunk)
@@ -123,13 +151,28 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
       if (profile?.id && profile?.username) usernames.set(String(profile.id), String(profile.username));
     }
   }
+  for (let start = 0; start < allSourceIds.length; start += chunkSize) {
+    const chunk = allSourceIds.slice(start, start + chunkSize);
+    const { data, error } = await client.rpc('keep_public_certification_tiers', { p_profile_ids: chunk });
+    if (error) continue;
+    for (const row of (data ?? []) as Array<{ profile_id: string; certification_tier: string }>) {
+      if (row?.profile_id) tiers.set(String(row.profile_id), certificationTier(row.certification_tier));
+    }
+  }
 
-  if (!usernames.size) return rows;
+  if (!usernames.size && !tiers.size && !viewerId) return rows;
   return rows.map((row) => {
-    if (row.sourceUsername) return row;
     const sourceId = row.sourceProfileId || row.sourceUserId;
-    const sourceUsername = sourceId ? usernames.get(sourceId) : undefined;
-    return sourceUsername ? { ...row, sourceUsername } : row;
+    const sourceUsername = row.sourceUsername || (sourceId ? usernames.get(sourceId) : undefined);
+    const sourceCertificationTier = sourceId ? tiers.get(sourceId) : undefined;
+    const sourceIsFollowing = viewerId && sourceId ? following.has(sourceId) : undefined;
+    if (sourceUsername === row.sourceUsername && sourceCertificationTier === undefined && sourceIsFollowing === undefined) return row;
+    return {
+      ...row,
+      ...(sourceUsername ? { sourceUsername } : {}),
+      ...(sourceCertificationTier ? { sourceCertificationTier } : {}),
+      ...(sourceIsFollowing !== undefined ? { sourceIsFollowing } : {}),
+    };
   });
 }
 
@@ -186,6 +229,40 @@ async function loadPagedKeeps(rpcName: 'keep_public_profile_tracks' | 'keep_own_
 export async function loadPublicProfileKeeps(profileId: string): Promise<PublicProfileKeep[]> {
   if (!profileId) return [];
   return loadPagedKeeps('keep_public_profile_tracks', { p_profile_id: profileId });
+}
+
+export type ProfileRepriser = {
+  profileId: string;
+  username: string;
+  avatarUrl: string | null;
+  kind: string;
+  certificationTier: ProfileCertificationTier;
+  favoriteGenres: string[];
+  repriseCount: number;
+  isFollowing: boolean;
+};
+
+/**
+ * Adel (07/09/2026) : "il faut trouver une solution pour voir directement la
+ * musique qu'a pris un autre utilisateur ... pour inciter les gens à
+ * s'abonner entre eux" -- qui a repris les morceaux de ce profil, avec leur
+ * style musical et s'ils sont déjà suivis, pour proposer de s'abonner en un
+ * geste.
+ */
+export async function loadProfileReprisers(profileId: string): Promise<ProfileRepriser[]> {
+  if (!supabase || !profileId) return [];
+  const { data, error } = await supabase.rpc('keep_profile_reprisers', { p_profile_id: profileId });
+  if (error || !Array.isArray(data)) return [];
+  return data.map((row: any) => ({
+    profileId: String(row.profile_id),
+    username: String(row.username || 'keep-user'),
+    avatarUrl: row.avatar_url || null,
+    kind: String(row.kind || 'USER'),
+    certificationTier: certificationTier(row.certification_tier),
+    favoriteGenres: Array.isArray(row.favorite_genres) ? row.favorite_genres.map(String) : [],
+    repriseCount: Number(row.reprise_count || 0),
+    isFollowing: Boolean(row.is_following),
+  }));
 }
 
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {

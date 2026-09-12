@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
@@ -19,10 +20,22 @@ class KeepMicrophoneForegroundService : Service() {
     const val CHANNEL_ID = "keep_listening"
     const val NOTIFICATION_ID = 7821
 
+    // Adel (01/09/2026) : "même si le téléphone se met en veille, je veux
+    // qu'il continue à écouter tant qu'il y a du son." Un service en premier
+    // plan seul ne suffit pas -- sans wake lock, Doze/les gestionnaires de
+    // batterie agressifs (Samsung, Xiaomi...) peuvent throttler le CPU une
+    // fois l'écran éteint, même avec la notification persistante affichée.
+    // Le timeout de sécurité (2h) évite une fuite de batterie si stopListening
+    // n'était jamais appelé (crash, kill brutal du process).
+    private const val WAKE_LOCK_TAG = "Loki:BackgroundListening"
+    private const val WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L
+
     @Volatile
     var isRunning: Boolean = false
       private set
   }
+
+  private var wakeLock: PowerManager.WakeLock? = null
 
   override fun onCreate() {
     super.onCreate()
@@ -43,6 +56,7 @@ class KeepMicrophoneForegroundService : Service() {
 
   override fun onDestroy() {
     isRunning = false
+    releaseWakeLock()
     super.onDestroy()
   }
 
@@ -58,13 +72,29 @@ class KeepMicrophoneForegroundService : Service() {
     } else {
       startForeground(NOTIFICATION_ID, notification)
     }
+    acquireWakeLock()
     isRunning = true
   }
 
   private fun stopListening() {
     isRunning = false
+    releaseWakeLock()
     ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
     stopSelf()
+  }
+
+  private fun acquireWakeLock() {
+    if (wakeLock?.isHeld == true) return
+    val powerManager = getSystemService(POWER_SERVICE) as? PowerManager ?: return
+    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG).apply {
+      setReferenceCounted(false)
+      acquire(WAKE_LOCK_TIMEOUT_MS)
+    }
+  }
+
+  private fun releaseWakeLock() {
+    wakeLock?.let { if (it.isHeld) it.release() }
+    wakeLock = null
   }
 
   private fun createChannel() {

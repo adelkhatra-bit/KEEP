@@ -1,13 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
-import { CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { iapAvailable, IAP_PRODUCT_IDS, loadIapProducts, purchasePlan, restorePurchases } from '../services/iapService';
+import { loadPaddleCatalog, openPaddleCheckout, paddleCheckoutAvailable, PaddleCatalogEntry } from '../services/paddleService';
+import type { KeepIAPProduct } from 'keep-iap';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { DEFAULT_KEEP_BATTLE_RULES, KeepBattleArenaRules, loadKeepBattleArenaRules } from '../services/keepBattleExperienceService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
-import { getDownloadCreditStatus } from '../services/creditService';
+import { FreeCreditBreakdown, getDownloadCreditStatus, loadFreeCreditBreakdown } from '../services/creditService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
-import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
+import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -15,6 +19,11 @@ const DEFAULT_RULES: CommercialRules = {
   freeDiscoveryProfiles: 3,
   premiumSmartSortTrials: 3,
   premiumDailyDownloads: 40,
+  creatorDailyDownloads: null,
+  venueDailyDownloads: null,
+  creatorEventsPerMonth: 1,
+  venueEventsPerMonth: null,
+  freeCostPerKeep: 3,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -64,6 +73,18 @@ function compatiblePlanCodes(feature: string, focusPlan: string): string[] {
   return start >= 0 ? PAID_PLAN_ORDER.slice(start) : focusPlan ? [focusPlan] : [];
 }
 
+// Adel (04/09/2026) : "où y a marqué illimité, je puisse le modifier
+// illimité ou limité ... si tu l'as mis dans le dur ça va être compliqué"
+// -- ces phrases écrivaient "illimité" en dur pour Creator Pro / Venue Pro,
+// indépendamment de ce que Super Admin > Limites par formule configure
+// réellement (downloads_per_day / events_per_month, déjà éditables pour
+// TOUTES les formules). null = toujours illimité aujourd'hui (comportement
+// inchangé par défaut) ; dès qu'un admin tape un chiffre, le texte des
+// offres l'affiche automatiquement au lieu de continuer à mentir.
+function eventsPerMonthClause(limit: number | null): string {
+  return limit == null ? 'en illimité' : `${limit} par mois`;
+}
+
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
@@ -71,32 +92,41 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte Loki pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
   if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
   if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro permet ensuite 1 soirée par mois ; Venue Pro passe les soirées en illimité.`;
+  if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} ; Venue Pro : soirées ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`;
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
 
-function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel): string[] {
+function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel, monthlyFreeBonus: number): string[] {
   const eventFollowers = rules.followerTiers[3] || 500;
+  // Adel (04/09/2026) : "il faut vraiment qu'ils sachent combien de Free il
+  // a par mois ... sans compter avec les matchs" -- monthlyFreeBonus vient
+  // directement de plan_prices (réglé dans Abonnements, Prix & Quotas au
+  // même endroit que le prix lui-même), séparé de ce que le Battle fait
+  // gagner/perdre en plus.
   if (planCode === 'FREE') return [
-    `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : 1 Free.`,
+    monthlyFreeBonus > 0 ? `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).` : 'Gagne du Free en partageant ton profil et en développant ta communauté.',
+    `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : ${rules.freeCostPerKeep} Free.`,
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
     `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
-    `Jusqu’à ${rules.premiumDailyDownloads} téléchargements par jour.`,
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Vibes.`,
   ];
   if (planCode === 'CREATOR_PRO') return [
-    'Téléchargements et Loki Vibes illimités.',
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
+    rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Vibes illimités.' : `Jusqu’à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Vibes illimité.`,
     'Profils DJ, Artiste, Créateur ou Producteur.',
-    `À partir de ${eventFollowers} abonnés : 1 soirée créée par mois et notifications aux abonnés.`,
+    `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
   ];
   if (planCode === 'VENUE_PRO') return [
+    `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Profil Lieu / établissement et outils professionnels.',
-    `À partir de ${eventFollowers} abonnés : soirées et événements en illimité.`,
+    `À partir de ${eventFollowers} abonnés : soirées et événements ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`,
+    'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki, personne ne peut désactiver la notification.',
     'QR, communauté et analytics avancés.',
     `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
   ];
@@ -120,10 +150,15 @@ export default function OffersScreen({ navigation, route }: any) {
   const isEventChoice = sourceFeature === 'CREATE_EVENT';
   const isUpgradeChoice = Boolean(focusPlan && compatibleCodes.length > 1);
   const [plans, setPlans] = useState<KeepPlan[]>([]);
-  const [funnel, setFunnel] = useState<CreditFunnel>({ guestSuccessLimit: 3, signupBonusSuccesses: 20 });
+  const [funnel, setFunnel] = useState<CreditFunnel>(CREDIT_FUNNEL_DEFAULTS);
   const [rules, setRules] = useState<CommercialRules>(DEFAULT_RULES);
   const [battleRules, setBattleRules] = useState<KeepBattleArenaRules>(DEFAULT_KEEP_BATTLE_RULES);
   const [growth, setGrowth] = useState<GrowthRewardStatus | null>(null);
+  // Adel (04/09/2026) : "l'utilisateur il a besoin de savoir comment elle a
+  // gagné des Free ... il faut qu'il comprenne exactement comment ils ont
+  // gagné" -- détail réel du solde (composantes nommées + derniers Battle),
+  // pas seulement le texte de règles générique déjà affiché plus haut.
+  const [breakdown, setBreakdown] = useState<FreeCreditBreakdown | null>(null);
   const [currentPlan, setCurrentPlan] = useState('FREE');
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
   const [freeUnlimited, setFreeUnlimited] = useState(false);
@@ -134,13 +169,82 @@ export default function OffersScreen({ navigation, route }: any) {
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
+  // Adel (04/09/2026) : "il faut qu'on branche le paiement" -- premier vrai
+  // achat StoreKit de bout en bout (KeepIAP -> keep-iap-verify -> activation
+  // réelle du plan), plus jamais un CTA qui ne fait que naviguer.
+  const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [iapProducts, setIapProducts] = useState<Record<string, KeepIAPProduct>>({});
+  // Adel (08/09/2026) : "j'ai juste a mettre connecter ensuite ca me dirige
+  // direct sur le mode de paiement" -- Paddle (merchant of record, pas de
+  // societe requise) prend le relais sur web, la ou iapAvailable() est
+  // toujours false. Reste invisible tant que PADDLE_SELLER_ID/CLIENT_TOKEN
+  // ne sont pas renseignes dans Super Admin > Integrations.
+  const [paddleReady, setPaddleReady] = useState(false);
+  const [paddleCatalog, setPaddleCatalog] = useState<PaddleCatalogEntry[]>([]);
+  const [paddleBusyPlan, setPaddleBusyPlan] = useState<string | null>(null);
+
+  const handlePaddleCheckout = async (planCode: string) => {
+    if (paddleBusyPlan) return;
+    setPaddleBusyPlan(planCode);
+    try {
+      const entry = paddleCatalog.find((row) => row.planCode === planCode && row.period === 'MONTHLY');
+      if (!entry) { Alert.alert('Abonnement', 'Cette formule n’est pas encore disponible au paiement.'); return; }
+      const result = await openPaddleCheckout(entry.paddlePriceId);
+      if (!result.ok && result.reason !== 'CHECKOUT_FAILED') {
+        Alert.alert('Abonnement', 'Impossible d’ouvrir le paiement pour le moment. Réessaie dans un instant.');
+      }
+      // Adel (07/09/2026, meme regle que partout ailleurs) : l'activation
+      // reelle vient du webhook Paddle cote serveur (keep-paddle-webhook),
+      // jamais d'une confiance aveugle dans ce que le client pretend avoir
+      // paye -- currentPlan se remettra a jour au prochain chargement normal
+      // de cet ecran une fois l'abonnement realise.
+    } finally {
+      setPaddleBusyPlan(null);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    try {
+      const { restored } = await restorePurchases();
+      if (restored > 0 && user) {
+        const planCode = await loadCurrentPlanCode(user.id).catch(() => null);
+        if (planCode) setCurrentPlan(planCode);
+        Alert.alert('Achats restaurés', `${restored} abonnement${restored > 1 ? 's' : ''} retrouvé${restored > 1 ? 's' : ''} et réactivé${restored > 1 ? 's' : ''}.`);
+      } else {
+        Alert.alert('Restauration', 'Aucun achat à restaurer sur ce compte Apple.');
+      }
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const handlePurchase = async (planCode: string) => {
+    if (purchasingPlan) return;
+    setPurchasingPlan(planCode);
+    try {
+      const result = await purchasePlan(planCode);
+      if (!result.ok) {
+        if (result.reason !== 'CANCELLED') {
+          Alert.alert('Achat', 'Impossible de finaliser cet achat pour le moment. Réessaie dans un instant.');
+        }
+        return;
+      }
+      setCurrentPlan(result.planCode);
+      Alert.alert('Merci !', `Ton abonnement ${planLabel(result.planCode)} est actif.`);
+    } finally {
+      setPurchasingPlan(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const canLoadGrowth = Boolean(user && !isLocalGuest && !isDemoMode);
-        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth, liveFreeStatus] = await Promise.all([
+        const [livePlans, liveFunnel, planCode, liveRules, liveBattleRules, liveGrowth, liveFreeStatus, liveBreakdown] = await Promise.all([
           loadPlans(),
           loadCreditFunnel(),
           user ? loadCurrentPlanCode(user.id) : Promise.resolve('FREE'),
@@ -150,6 +254,7 @@ export default function OffersScreen({ navigation, route }: any) {
           canLoadGrowth
             ? loadMyKeepBattleCreditStatus().catch(() => null)
             : getDownloadCreditStatus().catch(() => null),
+          canLoadGrowth ? loadFreeCreditBreakdown().catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setPlans(livePlans);
@@ -158,6 +263,7 @@ export default function OffersScreen({ navigation, route }: any) {
         setRules(liveRules);
         setBattleRules(liveBattleRules);
         setGrowth(liveGrowth);
+        setBreakdown(liveBreakdown);
         if (liveFreeStatus && 'remainingFree' in liveFreeStatus) {
           setFreeBalance(Number(liveFreeStatus.remainingFree ?? 0));
           setFreeUnlimited(false);
@@ -177,7 +283,30 @@ export default function OffersScreen({ navigation, route }: any) {
     return () => { cancelled = true; };
   }, [user?.id, isLocalGuest, isDemoMode]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!iapAvailable()) return () => { cancelled = true; };
+    void loadIapProducts()
+      .then((products) => { if (!cancelled) setIapProducts(products); })
+      .catch(() => { if (!cancelled) setIapProducts({}); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (iapAvailable()) return () => { cancelled = true; };
+    void Promise.all([paddleCheckoutAvailable(), loadPaddleCatalog()])
+      .then(([ready, catalog]) => { if (!cancelled) { setPaddleReady(ready); setPaddleCatalog(catalog); } })
+      .catch(() => { if (!cancelled) { setPaddleReady(false); setPaddleCatalog([]); } });
+    return () => { cancelled = true; };
+  }, []);
+
   const freeBalanceLabel = freeUnlimited ? '∞' : freeBalance == null ? '—' : String(Math.max(0, freeBalance));
+  // Adel (07/09/2026) : "il faut mettre le nombre de Free qui sera crédité
+  // chaque mois avec chaque certif" -- à côté du badge de certification sur
+  // l'écran "fonction verrouillée", afficher tout de suite le Free/mois de
+  // la formule requise, pas seulement dans le détail de la carte plus bas.
+  const focusPlanFreeBonus = plans.find((plan) => plan.code === focusPlan)?.monthlyFreeBonus;
   const visiblePlans = useMemo(() => {
     // La formule Free possède son propre bloc compact au-dessus. Les cartes
     // ci-dessous restent donc réservées aux offres Premium / Pro.
@@ -208,9 +337,13 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.requiredPlanRow}>
             <Text style={s.requiredIntroTitle}>{isEventChoice ? 'Creator Pro ou Venue Pro' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : planLabel(focusPlan)}</Text>
             <ProfileCertificationBadge tier={certificationTierForPlan(focusPlan)} />
+            {!isEventChoice && focusPlanFreeBonus ? (() => {
+              const tierColors = CERTIFICATION_META[certificationTierForPlan(focusPlan)];
+              return <View style={[s.requiredPlanFreeBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}><Text style={[s.requiredPlanFreeBadgeText, { color: tierColors.ring }]}>+{focusPlanFreeBonus} Free/mois</Text></View>;
+            })() : null}
           </View>
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
-          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : 1 soirée / mois · 29,99 € : soirées illimitées</Text></View> : null}
+          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
@@ -260,11 +393,46 @@ export default function OffersScreen({ navigation, route }: any) {
 
             {freeExpanded ? <>
               <Text style={s.creditText}>Ce nombre est ton solde réellement disponible. Au démarrage : {funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. Les Free utilisés sont déduits ; les récompenses communauté et Battle s’ajoutent automatiquement.</Text>
-              <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = 1 Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
+              <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = {rules.freeCostPerKeep} Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
               {growth ? <View style={s.growthGrid}>
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
                 <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>Free gagnés</Text></View>
+              </View> : null}
+              {/* Adel (15/09/2026) : "n'oubliez pas de rajouter dans les
+                  offres les dernières options qu'on a mis que tout soit à
+                  jour ... bien expliquer les avantages" -- Audience Pro et
+                  la vente de playlists sont réels, débloqués par les
+                  abonnés (pas par une formule payante), jamais montrés ici
+                  avant. */}
+              {growth ? <Text style={s.creditText}>
+                {growth.audienceProUnlocked
+                  ? `🏆 Audience Pro débloquée (${growth.followers} abonnés) : Free en bonus + profils Découverte/essais Vibes Auto en plus, et tu peux vendre tes playlists dès que tu passes le seuil dédié.`
+                  : growth.nextFollowerGoal
+                  ? `Prochain palier communauté : ${growth.followers}/${growth.nextFollowerGoal} abonnés -- Free en bonus, profils Découverte, essais Vibes Auto, et à terme le badge Audience Pro et la vente de playlists.`
+                  : null}
+              </Text> : null}
+
+              {breakdown ? <View style={s.breakdownBox}>
+                <Text style={s.breakdownTitle}>D’OÙ VIENT TON SOLDE ({breakdown.remaining} Free)</Text>
+                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Invité (avant inscription)</Text><Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text></View>
+                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus d’inscription</Text><Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text></View>
+                {breakdown.followerBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.followerCount} abonnés (palier {breakdown.followerCount >= breakdown.followerTier5 ? breakdown.followerTier5 : breakdown.followerTier3})</Text><Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text></View> : null}
+                {breakdown.referralBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.referralCount} filleul(s) parrainé(s)</Text><Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text></View> : null}
+                {breakdown.monthlyBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus mensuel</Text><Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text></View> : null}
+                {breakdown.adminGrant !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Crédit accordé par l’équipe</Text><Text style={s.breakdownValue}>{breakdown.adminGrant > 0 ? '+' : ''}{breakdown.adminGrant}</Text></View> : null}
+                {breakdown.battleAdjustment !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Résultat net des Battle</Text><Text style={s.breakdownValue}>{breakdown.battleAdjustment > 0 ? '+' : ''}{breakdown.battleAdjustment}</Text></View> : null}
+                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Free déjà utilisés (GARDER)</Text><Text style={s.breakdownValue}>−{breakdown.used}</Text></View>
+                {breakdown.lockedArena > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Mise verrouillée (Battle en cours)</Text><Text style={s.breakdownValue}>−{breakdown.lockedArena}</Text></View> : null}
+                {breakdown.recentBattles.length ? <>
+                  <Text style={s.breakdownSubtitle}>DERNIERS BATTLE</Text>
+                  {breakdown.recentBattles.slice(0, 6).map((event, i) => (
+                    <View key={i} style={s.breakdownRow}>
+                      <Text style={s.breakdownLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'}{event.themeCode ? ` · ${event.themeCode}` : ''} · {new Date(event.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</Text>
+                      <Text style={[s.breakdownValue, event.amount < 0 && s.breakdownValueNegative]}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
+                    </View>
+                  ))}
+                </> : null}
               </View> : null}
 
               <View style={s.rechargeBox}>
@@ -326,10 +494,30 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.disclosureText}>{battleExpanded ? 'Réduire' : 'En savoir plus'}</Text>
               <Text style={s.disclosureChevron}>{battleExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
+            {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
+                offres de bien expliquer les règles pour les Battle" -- le
+                texte disait encore "le vainqueur gagne X Free par
+                adversaire battu" (gagnant unique), faux depuis que le
+                podium à 2 places existe pour les Battle à 3 joueurs et
+                plus. Affiche maintenant la phrase que le serveur construit
+                lui-même à partir des vrais réglages -- une seule source de
+                vérité, plus jamais un texte à mettre à jour à la main
+                quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : le vainqueur gagne {battleRules.stakeFree} Free par adversaire battu.</Text>
-              <Text style={s.battleDetailHint}>Il faut au moins {battleRules.minimumFreeRequired} Free pour entrer. À {battleRules.maxPlayers} joueurs, le gain peut atteindre +{battleRules.fullArenaNetPrize} Free. Si tu perds, -{battleRules.stakeFree} Free.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l’adversaire. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
+              <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu’à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
+          </View>
+          {/* Adel (04/09/2026) : "il faut qu'il comprenne comment il peut
+              recharger" -- les 4 façons d'obtenir plus de Free, réunies au
+              même endroit une seule fois, plutôt que dispersées plan par
+              plan. */}
+          <View style={s.battleDetails}>
+            <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
+            <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d’abonnés, plus Loki t’offre de Free.</Text>
+            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne contre d’autres joueurs.</Text>
+            <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
+            <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
           </View>
         </>}
 
@@ -338,7 +526,7 @@ export default function OffersScreen({ navigation, route }: any) {
         {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
           const active = plan.code === currentPlan;
           const focused = !!focusPlan && plan.code === focusPlan;
-          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO';
+          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO' && rules.venueEventsPerMonth == null;
           return (
             <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused, venueUnlimited && s.planCardUnlimited]}>
               <View style={s.planTop}>
@@ -364,17 +552,53 @@ export default function OffersScreen({ navigation, route }: any) {
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
                 {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
-                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
-                {plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
+                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
+                {!iapAvailable() && plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               </View> : null}
               {!active && plan.code !== 'FREE' ? (
                 <TouchableOpacity style={[s.cta, venueUnlimited && s.ctaUnlimited]} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
                   <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
                 </TouchableOpacity>
               ) : null}
+              {!active && plan.code !== 'FREE' && iapAvailable() && iapProducts[IAP_PRODUCT_IDS[plan.code]] ? (
+                <TouchableOpacity
+                  style={s.purchaseCta}
+                  disabled={purchasingPlan !== null}
+                  onPress={() => void handlePurchase(plan.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
+                >
+                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
+                </TouchableOpacity>
+              ) : null}
+              {!active && plan.code !== 'FREE' && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === 'MONTHLY') ? (
+                <TouchableOpacity
+                  style={s.purchaseCta}
+                  disabled={paddleBusyPlan !== null}
+                  onPress={() => void handlePaddleCheckout(plan.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
+                >
+                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>}
+                </TouchableOpacity>
+              ) : null}
             </View>
           );
         })}
+
+        {iapAvailable() ? (
+          <View>
+            <Text style={s.renewalText}>Abonnement mensuel renouvelé automatiquement jusqu’à résiliation. Le paiement est débité sur ton compte Apple. Tu peux gérer ou résilier l’abonnement dans les réglages Apple.</Text>
+            <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
+              <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
+            </TouchableOpacity>
+            <View style={s.legalRow}>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/')} accessibilityRole="link"><Text style={s.legalText}>Conditions</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/privacy/')} accessibilityRole="link"><Text style={s.legalText}>Confidentialité</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://apps.apple.com/account/subscriptions')} accessibilityRole="link"><Text style={s.legalText}>Gérer</Text></TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         <View style={s.subscriptionCard}>
           <Text style={s.subscriptionTitle}>Règles simples</Text>
@@ -390,7 +614,7 @@ export default function OffersScreen({ navigation, route }: any) {
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
             <Text style={s.subscriptionText}>• Écouter, reconnaître et PASSER ne consomment aucun Free.</Text>
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise 1 Free. Le récupérer depuis le profil d’un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d’un autre membre utilise 0 Free.</Text>
             <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s’ajoutent à ta formule.</Text>
             <Text style={s.subscriptionText}>• La provenance d’une découverte reste rattachée au membre qui l’a reconnue avec Écouter.</Text>
           </View> : null}
@@ -415,13 +639,15 @@ const s = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
   requiredIntro: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
   requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
+  requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5, flexWrap: 'wrap' },
   requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', flexShrink: 1 },
+  requiredPlanFreeBadge: { minHeight: 22, paddingHorizontal: 9, borderRadius: 11, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#31C981', alignItems: 'center', justifyContent: 'center' },
+  requiredPlanFreeBadgeText: { color: '#7CF2B9', fontSize: 11, fontWeight: '900' },
   requiredIntroText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 7, fontWeight: '700' },
   eventChoiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36', paddingHorizontal: 10, paddingVertical: 8 },
-  eventChoiceHintText: { color: '#FFF4C2', fontSize: 10, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
+  eventChoiceHintText: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', paddingHorizontal: 10, paddingVertical: 8 },
-  choiceHintText: { color: '#F8F6FC', fontSize: 10, lineHeight: 15, fontWeight: '800', textAlign: 'center' },
+  choiceHintText: { color: '#F8F6FC', fontSize: 11, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
   promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
@@ -442,7 +668,7 @@ const s = StyleSheet.create({
   freePill: { borderRadius: 999, borderWidth: 1, borderColor: colors.keep, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#13251C' },
   freePillText: { color: colors.keep, fontSize: 9, fontWeight: '900' },
   creditText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700' },
-  creditRule: { color:'#FFFFFF', fontSize: 10, lineHeight: 15, marginTop: 7, fontWeight: '700' },
+  creditRule: { color:'#FFFFFF', fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
   disclosureButton: { minHeight: 42, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#493369', backgroundColor: '#151020', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   disclosureText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   disclosureChevron: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
@@ -450,28 +676,35 @@ const s = StyleSheet.create({
   growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   growthValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   growthLabel: { color: '#E9E3F0', fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2, fontWeight: '700' },
+  breakdownBox: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
+  breakdownTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .6, marginBottom: 6 },
+  breakdownSubtitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .6, marginTop: 8, marginBottom: 4 },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 26, gap: 8 },
+  breakdownLabel: { flex: 1, color: '#E9E3F0', fontSize: 11, fontWeight: '700' },
+  breakdownValue: { color: '#7FF2B7', fontSize: 12, fontWeight: '900' },
+  breakdownValueNegative: { color: '#FFB3C3' },
   rechargeBox: { marginTop: 13, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
   rechargeEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   rechargeTitle: { color: '#FFFFFF', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 3 },
-  rechargeIntro: { color: '#FFFFFF', fontSize: 10, lineHeight: 15, fontWeight: '700', marginTop: 4 },
+  rechargeIntro: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 4 },
   rechargeItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: '#254936' },
   rechargeIcon: { width: 25, color: '#7CF2B9', fontSize: 19, fontWeight: '900', textAlign: 'center' },
   rechargeCopy: { flex: 1 },
   rechargeItemTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
-  rechargeItemText: { color: '#FFFFFF', fontSize: 10, lineHeight: 15, fontWeight: '800', marginTop: 2 },
+  rechargeItemText: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, fontWeight: '800', marginTop: 2 },
   rechargeHint: { color: '#FFFFFF', fontSize: 8, lineHeight: 12, fontWeight: '700', marginTop: 3 },
   startBonus: { marginTop: 10, borderRadius: 12, backgroundColor: '#17241D', paddingHorizontal: 9, paddingVertical: 8 },
   startBonusTitle: { color: '#7CF2B9', fontSize: 8, fontWeight: '900', letterSpacing: .7 },
   startBonusText: { color: '#FFFFFF', fontSize: 9, lineHeight: 13, fontWeight: '700', marginTop: 2 },
   otherRewards: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#493369', paddingTop: 10 },
   otherRewardsTitle: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  otherRewardsIntro: { color: '#FFFFFF', fontSize: 10, lineHeight: 15, marginTop: 5, marginBottom: 4, fontWeight: '800' },
-  otherRewardsLine: { color: '#F8F6FC', fontSize: 10, lineHeight: 16, marginTop: 2, fontWeight: '700' },
+  otherRewardsIntro: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, marginTop: 5, marginBottom: 4, fontWeight: '800' },
+  otherRewardsLine: { color: '#F8F6FC', fontSize: 11, lineHeight: 17, marginTop: 2, fontWeight: '700' },
   vibesDefinition: { color: '#FFFFFF', fontSize: 9, lineHeight: 14, marginTop: 7, fontWeight: '800' },
   communityOpportunity: { marginTop: 14, borderRadius: 14, backgroundColor: '#151020', borderWidth: 1, borderColor: colors.primaryLight, padding: 12 },
   communityOpportunityEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: .9 },
   communityOpportunityTitle: { color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 5 },
-  communityOpportunityText: { color: '#FFFFFF', fontSize: 10, lineHeight: 16, fontWeight: '700', marginTop: 6 },
+  communityOpportunityText: { color: '#FFFFFF', fontSize: 11, lineHeight: 17, fontWeight: '700', marginTop: 6 },
   communityOpportunityNote: { color: '#FFFFFF', fontSize: 9, lineHeight: 14, fontWeight: '800', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#493369' },
   battleCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36' },
   battleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -480,7 +713,7 @@ const s = StyleSheet.create({
   battleTitle: { color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 4 },
   battleDetails: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#5B4A19' },
   battleDetailText: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, fontWeight: '800' },
-  battleDetailHint: { color: '#FFF4C2', fontSize: 10, lineHeight: 15, fontWeight: '700', marginTop: 5 },
+  battleDetailHint: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 5 },
   paidSectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
@@ -505,6 +738,13 @@ const s = StyleSheet.create({
   cta: { minHeight: 42, borderRadius: 21, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   ctaUnlimited: { backgroundColor: '#8A6A12' },
   ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
+  purchaseCta: { minHeight: 46, borderRadius: 23, marginTop: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success, opacity: 1 },
+  purchaseCtaText: { color: '#0A140F', fontSize: 13, fontWeight: '900' },
+  restoreButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 4 },
+  restoreButtonText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' },
+  renewalText: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4, paddingHorizontal: 8 },
+  legalRow: { flexDirection: 'row', justifyContent: 'center', gap: 18, marginBottom: 8 },
+  legalText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
   subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   rulesDetails: { marginTop: 3, gap: 3 },

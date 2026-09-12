@@ -24,7 +24,7 @@ function assertIncludes(source, marker, label) {
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
   '{user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}',
-  "{ value: profileFollowerCount, label: 'Abonnés' }",
+  "{ value: profileFollowerCount, label: 'Abonnés',",
   '<CommunityConnectionsPanel userId={user.id}',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
   'accessibilityLabel="Partager mon profil"',

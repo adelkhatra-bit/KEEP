@@ -1,4 +1,5 @@
 import { Alert as RNAlert, Platform } from 'react-native';
+import { useAlertStore } from '../store/useAlertStore';
 
 type AlertButtonStyle = 'default' | 'cancel' | 'destructive';
 type AlertButton = { text?: string; onPress?: () => void; style?: AlertButtonStyle };
@@ -25,29 +26,13 @@ type AlertButton = { text?: string; onPress?: () => void; style?: AlertButtonSty
  */
 function webAlert(title: string, message?: string, buttons?: AlertButton[]) {
   if (typeof window === 'undefined') return;
-  const text = [title, message].filter(Boolean).join('\n\n');
   const list = buttons && buttons.length ? buttons : [{ text: 'OK' } as AlertButton];
-
-  if (list.length <= 1) {
-    window.alert(text);
-    list[0]?.onPress?.();
-    return;
-  }
-
-  // window.confirm ne peut representer qu'un choix binaire OK/Annuler.
-  // La tres grande majorite des appels de ce depot utilisent exactement un
-  // bouton "cancel" + un bouton d'action (confirmer/detruire) -- le bouton
-  // "cancel" devient Annuler, le premier bouton restant devient OK. Pour un
-  // 3e bouton eventuel (rare), il reste inaccessible sur web plutot que de
-  // deviner au hasard lequel choisir.
-  const cancelIndex = list.findIndex((b) => b.style === 'cancel');
-  const proceedIndex = list.findIndex((_, i) => i !== cancelIndex);
-  const confirmed = window.confirm(text);
-  if (confirmed) {
-    list[proceedIndex >= 0 ? proceedIndex : 0]?.onPress?.();
-  } else if (cancelIndex >= 0) {
-    list[cancelIndex]?.onPress?.();
-  }
+  // Adel (01/09/2026) : window.alert/confirm etaient fonctionnels mais
+  // affichaient la boite systeme generique du navigateur, pas la charte Loki
+  // -- AlertHost.tsx (monte une fois dans App.tsx) rend cette file d'attente
+  // avec le vrai design de l'app, meme contrat d'appel pour les 144 sites
+  // Alert.alert() existants.
+  useAlertStore.getState().show(title, message, list);
 }
 
 export const Alert = Platform.OS === 'web' ? { alert: webAlert } : RNAlert;

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationRow = {
   key: string;
@@ -17,19 +19,6 @@ type RuntimeRow = {
   status: string;
   last_checked_at: string | null;
   last_error: string | null;
-};
-
-type DirectoryUser = {
-  id: string;
-  email: string | null;
-  username: string;
-  display_name: string | null;
-  support_number: number;
-  country_code: string | null;
-  kind: string | null;
-  created_at: string;
-  plan_code: string;
-  keeps_this_month: number;
 };
 
 type AutoRepairRow = { ran_at: string; stale_challenges_expired: number; battle_rounds_finalized: number; battle_rounds_advanced: number; notes: string | null };
@@ -54,33 +43,7 @@ type KeylessHealth = {
   minimumConfidence?: number;
 };
 
-const BILLING_LINKS: Record<string, { label: string; url: string }> = {
-  BREVO_API_KEY: { label: 'Brevo — crédits / offre', url: 'https://app.brevo.com/' },
-  BREVO_SMTP_KEY: { label: 'Brevo — crédits / offre', url: 'https://app.brevo.com/' },
-  AUDD_API_KEY: { label: 'AudD — recharger / abonnement', url: 'https://dashboard.audd.io/' },
-  ACRCLOUD_ACCESS_KEY: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
-  ACRCLOUD_ACCESS_SECRET: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
-  SPOTIFY_CLIENT_ID: { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
-  SPOTIFY_CLIENT_SECRET: { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
-  DEEZER_APP_ID: { label: 'Deezer Developers', url: 'https://developers.deezer.com/' },
-  DEEZER_APP_SECRET: { label: 'Deezer Developers', url: 'https://developers.deezer.com/' },
-  APPLE_MUSICKIT_TEAM_ID: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
-  APPLE_MUSICKIT_KEY_ID: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
-  APPLE_MUSICKIT_PRIVATE_KEY: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
-  MUSICAPI_CLIENT_ID: { label: 'MusicAPI Dashboard', url: 'https://app.musicapi.com/' },
-  MUSICAPI_CLIENT_SECRET: { label: 'MusicAPI Dashboard', url: 'https://app.musicapi.com/' },
-  PIPEDREAM_CLIENT_ID: { label: 'Pipedream API Settings', url: 'https://pipedream.com/settings/api' },
-  PIPEDREAM_CLIENT_SECRET: { label: 'Pipedream API Settings', url: 'https://pipedream.com/settings/api' },
-  PIPEDREAM_PROJECT_ID: { label: 'Pipedream Projects', url: 'https://pipedream.com/projects' },
-  PIPEDREAM_ENVIRONMENT: { label: 'Pipedream Projects', url: 'https://pipedream.com/projects' },
-  APPLE_IAP_ISSUER_ID: { label: 'App Store Connect', url: 'https://appstoreconnect.apple.com/' },
-  APPLE_IAP_KEY_ID: { label: 'App Store Connect', url: 'https://appstoreconnect.apple.com/' },
-  APPLE_IAP_PRIVATE_KEY: { label: 'App Store Connect', url: 'https://appstoreconnect.apple.com/' },
-  GOOGLE_PLAY_PACKAGE_NAME: { label: 'Google Play Console', url: 'https://play.google.com/console/' },
-  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { label: 'Google Play Console', url: 'https://play.google.com/console/' },
-  STRIPE_SECRET_KEY: { label: 'Stripe Dashboard', url: 'https://dashboard.stripe.com/' },
-  STRIPE_WEBHOOK_SECRET: { label: 'Stripe Dashboard', url: 'https://dashboard.stripe.com/' },
-};
+const BILLING_LINKS = INTEGRATION_PROVIDER_LINKS;
 
 const PUSH_LABELS: Record<string, string> = {
   CREATED: 'Créées',
@@ -102,13 +65,7 @@ const PUSH_TONES: Record<string, string> = {
   ATTEMPTS_24H: '#d8b4fe',
 };
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 function statusInfo(integration: IntegrationRow, runtime?: RuntimeRow) {
   if (!integration.configured) return { text: 'NON CONFIGURÉE', tone: '#8f849f' };
@@ -126,12 +83,10 @@ function statusInfo(integration: IntegrationRow, runtime?: RuntimeRow) {
 export default function Operations() {
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [runtime, setRuntime] = useState<RuntimeRow[]>([]);
-  const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [pushSummary, setPushSummary] = useState<PushSummaryRow[]>([]);
   const [autoRepair, setAutoRepair] = useState<AutoRepairRow[]>([]);
   const [pushRecent, setPushRecent] = useState<PushRecentRow[]>([]);
   const [keylessHealth, setKeylessHealth] = useState<KeylessHealth | null>(null);
-  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,22 +95,19 @@ export default function Operations() {
     setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const [integrationResult, runtimeResult, usersResult, pushSummaryResult, pushRecentResult, keylessResult, autoRepairResult] = await Promise.all([
+      const [integrationResult, runtimeResult, pushSummaryResult, pushRecentResult, keylessResult, autoRepairResult] = await Promise.all([
         invokeAdmin({ action: 'integrations.list' }),
         supabase.rpc('admin_integration_runtime_status'),
-        supabase.rpc('admin_user_directory'),
         supabase.rpc('admin_push_delivery_summary'),
         supabase.rpc('admin_push_delivery_recent', { p_limit: 50 }),
         supabase.functions.invoke('keep-keyless-social', { body: { action: 'health' } }),
         supabase.rpc('admin_auto_repair_status'),
       ]);
       if (runtimeResult.error) throw runtimeResult.error;
-      if (usersResult.error) throw usersResult.error;
       if (pushSummaryResult.error) throw pushSummaryResult.error;
       if (pushRecentResult.error) throw pushRecentResult.error;
       setIntegrations((integrationResult?.data ?? []) as IntegrationRow[]);
       setRuntime((runtimeResult.data ?? []) as RuntimeRow[]);
-      setUsers((usersResult.data ?? []) as DirectoryUser[]);
       setPushSummary((pushSummaryResult.data ?? []) as PushSummaryRow[]);
       setPushRecent((pushRecentResult.data ?? []) as PushRecentRow[]);
       setKeylessHealth(!keylessResult.error && keylessResult.data?.ok ? keylessResult.data as KeylessHealth : null);
@@ -187,19 +139,6 @@ export default function Operations() {
       : /OK|HEALTHY|ACTIVE|READY/.test(acrRaw)
         ? { text: 'OPÉRATIONNEL', tone: '#86efac' }
         : { text: 'CONFIGURÉ · À CONTRÔLER', tone: '#a78bfa' };
-  const filteredUsers = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return users;
-    return users.filter((u) => [
-      u.username,
-      u.display_name ?? '',
-      u.email ?? '',
-      u.plan_code,
-      String(u.support_number ?? ''),
-      `keep-${u.support_number ?? ''}`,
-    ].some((v) => v.toLowerCase().includes(needle)));
-  }, [query, users]);
-
   return (
     <AdminLayout>
       <div className="page-title">Santé Loki & Support abonnés</div>
@@ -320,31 +259,18 @@ export default function Operations() {
         </table>
       </div>
 
+      {/* Adel (08/09/2026) : "verifie bien que dans toutes ces rubriques
+          tu n'as pas cree des doublons" -- cette section (recherche +
+          tableau utilisateurs) dupliquait exactement la page Utilisateurs
+          (meme donnee admin_user_directory). Un seul endroit desormais. */}
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Numéros abonnés KEEP</h3>
-        <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          Chaque profil reçoit maintenant un numéro support permanent. Exemple : <strong>KEEP-100001</strong>. Le client peut donner ce numéro au support sans communiquer son identifiant technique interne.
+        <h3 style={{ marginTop: 0 }}>Recherche d’un utilisateur (numéro support, pseudo, e-mail)</h3>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 12 }}>
+          La recherche et la fiche complète d’un utilisateur (plan, actions, numéro support) vivent dans « Utilisateurs », pour ne pas avoir deux annuaires à maintenir.
         </p>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher par KEEP-100001, pseudo ou e-mail…"
-          style={{ width: '100%', boxSizing: 'border-box', marginBottom: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
-        />
-        <table>
-          <thead><tr><th>N° support</th><th>Utilisateur</th><th>E-mail</th><th>Plan</th><th>Morceaux gardés ce mois</th><th>Créé le</th></tr></thead>
-          <tbody>
-            {!loading && filteredUsers.length === 0 && <tr><td colSpan={6}>Aucun utilisateur trouvé.</td></tr>}
-            {filteredUsers.map((u) => <tr key={u.id}>
-              <td><strong>KEEP-{u.support_number}</strong></td>
-              <td><strong>@{u.username}</strong>{u.display_name ? <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{u.display_name}</div> : null}</td>
-              <td>{u.email ?? '—'}</td>
-              <td>{u.plan_code || 'FREE'}</td>
-              <td>{u.keeps_this_month ?? 0}</td>
-              <td>{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
-            </tr>)}
-          </tbody>
-        </table>
+        <a href="/users" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
+          Ouvrir « Utilisateurs »
+        </a>
       </div>
     </AdminLayout>
   );

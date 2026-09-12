@@ -74,6 +74,10 @@ export type KeepBattleCreditStatus = {
   lost: number;
   net: number;
   remainingFree: number;
+  // Adel (07/09/2026) : les CREATOR_PRO/VENUE_PRO/PREMIUM jouent sans jamais
+  // débiter de Free -- le client doit le savoir pour ne jamais leur afficher
+  // un faux avertissement "crédit insuffisant" basé sur remainingFree.
+  hasPaidBattleAccess?: boolean;
 };
 
 export type KeepBattleTheme = { code: string; label: string; sortOrder?: number };
@@ -102,6 +106,11 @@ export type KeepBattleArenaRound = {
   closesAt?: string | null;
   revealUntil?: string | null;
   revealed?: boolean;
+  // Adel (12/09/2026) : "il est resté coincé sur Funk" -- style réel du
+  // morceau tiré pour cette manche parmi les styles sélectionnés à l'hôte
+  // (KeepBattleArenaState.themeCode/themeCodes restent le libellé global de
+  // l'arène, jamais mis à jour manche après manche).
+  themeCode?: string | null;
   answered?: boolean;
   myAnswer?: {
     selectedAnswer: string;
@@ -119,18 +128,25 @@ export type KeepBattleArenaState = {
   maxPlayers: number;
   openSeats: number;
   queue: number;
+  // Adel (04/09/2026) : "on voit pas le troisieme joueur sur la jauge" --
+  // BUG RÉEL : le match démarrait tout seul dès 2 joueurs présents, même
+  // avec une 3e invite encore PENDING. Le serveur n'autorise plus le
+  // démarrage tant que ce compte n'est pas à zéro.
+  pendingInviteCount: number;
   roundCount: number;
   matchNo: number;
   currentRound: number;
   roundDurationMs: number;
   isHost: boolean;
-  me?: { profileId: string; status: 'ACTIVE' | 'QUEUED' | 'ELIMINATED' | 'LEFT'; score: number; placement?: number | null } | null;
+  me?: { profileId: string; status: 'ACTIVE' | 'QUEUED' | 'ELIMINATED' | 'LEFT'; score: number; placement?: number | null; rematchReady?: boolean | null } | null;
   seats: KeepBattleArenaSeat[];
   leaderboard: Array<{ profileId: string; username: string; score: number; placement?: number | null; responseMs: number }>;
   round?: KeepBattleArenaRound | null;
   roundWinner?: { profileId: string; username: string; avatarUrl?: string | null; responseMs: number } | null;
   lastResult?: { matchNo: number; placement: number; score: number; correct: number; responseMs: number; creditDelta: number; won: boolean } | null;
   lastWinner?: { profileId: string; username: string; avatarUrl?: string | null; score: number; responseMs: number } | null;
+  lastMatchResults?: Array<{ profileId: string; username: string; placement: number; score: number; correct: number; responseMs: number; won: boolean }>;
+  rematchDeadline?: string | null;
 };
 
 export type KeepBattleArenaWinner = {
@@ -142,6 +158,114 @@ export type KeepBattleArenaWinner = {
   responseMs: number;
   createdAt?: string | null;
 };
+
+export type KeepBattleGlobalLeaderboardEntry = {
+  profileId: string;
+  username: string;
+  avatarUrl?: string | null;
+  wins: number;
+  matchesPlayed: number;
+  totalScore: number;
+  totalCorrect: number;
+  avgResponseMs: number | null;
+  // Adel (02/09/2026) : "mettre aussi le style qu'il écoute ... dans quelle
+  // catégorie il est très fort" -- thème (genre) où ce joueur a le plus de
+  // victoires d'arène, calculé côté serveur (keep_battle_global_leaderboard).
+  topThemeCode: string | null;
+  // Adel (03/09/2026) : "joue en solo mix confirmé ... il faut rajouter ce
+  // système-là dans le classement global" -- même présence en direct et
+  // même niveau que sur l'écran "Joueurs disponibles", ajoutés ici en plus
+  // (aucun champ existant retiré).
+  skillTier: string | null;
+  isOnline: boolean;
+  presenceThemeCode: string | null;
+};
+
+export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
+  const { data, error } = await client().rpc('keep_battle_global_leaderboard', { p_limit: Math.max(1, Math.min(Math.round(limit), 50)) });
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    profileId: String(row.profile_id ?? row.profileId ?? ''),
+    username: String(row.username ?? 'KEEP'),
+    avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
+    wins: Number(row.wins ?? 0),
+    matchesPlayed: Number(row.matches_played ?? row.matchesPlayed ?? 0),
+    totalScore: Number(row.total_score ?? row.totalScore ?? 0),
+    totalCorrect: Number(row.total_correct ?? row.totalCorrect ?? 0),
+    avgResponseMs: row.avg_response_ms ?? row.avgResponseMs ?? null,
+    topThemeCode: row.top_theme_code ?? row.topThemeCode ?? null,
+    skillTier: row.skill_tier ?? row.skillTier ?? null,
+    isOnline: Boolean(row.is_online ?? row.isOnline ?? false),
+    presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
+  })).filter((row) => row.profileId);
+}
+
+// Adel (03/09/2026) : "quand j'appuie sur revanche, pareil, ça me met une
+// invite fixe" -- pour un membre qui n'a pas l'arène ouverte (accueil
+// Battle, classement...), seul moyen de savoir "ai-je une revanche en
+// attente de ma réponse" où que je sois dans l'app.
+export type KeepBattlePendingRematch = {
+  arenaId: string;
+  arenaCode: string;
+  themeCode: string;
+  rematchDeadline: string;
+  participantUsernames: string[];
+};
+
+export async function loadPendingArenaRematches(): Promise<KeepBattlePendingRematch[]> {
+  const { data, error } = await client().rpc('keep_battle_arena_pending_rematch_for_me');
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    arenaId: String(row.arena_id ?? row.arenaId ?? ''),
+    arenaCode: String(row.arena_code ?? row.arenaCode ?? ''),
+    themeCode: String(row.theme_code ?? row.themeCode ?? 'MIX'),
+    rematchDeadline: String(row.rematch_deadline ?? row.rematchDeadline ?? ''),
+    participantUsernames: Array.isArray(row.participant_usernames ?? row.participantUsernames) ? (row.participant_usernames ?? row.participantUsernames) : [],
+  })).filter((row) => row.arenaId);
+}
+
+// Adel (02/09/2026) : "un pop-up qui me permette de voir son style musical,
+// quel style il est vraiment imbattable, toutes les statistiques" -- appelé
+// à l'ouverture du pop-up d'un joueur (pas au chargement du classement
+// entier) : un seul aller-retour indexé par profil, jamais N appels pour N
+// lignes du classement.
+export type KeepBattlePlayerThemeStat = { themeCode: string; wins: number; matches: number };
+export type KeepBattlePlayerStats = {
+  wins: number;
+  matchesPlayed: number;
+  totalScore: number;
+  totalCorrect: number;
+  avgResponseMs: number | null;
+  topThemes: KeepBattlePlayerThemeStat[];
+  // Adel (04/09/2026) : "il faut mettre le nombre d'utilisateur [abonnés], le
+  // nombre de Free qu'il a et le nombre de Free qu'il a gagné" -- sur la
+  // fiche stats d'un joueur, déjà publique côté Battle (victoires, matchs).
+  followers: number;
+  freeBalance: number;
+  freeWon: number;
+  freeLost: number;
+  freeNet: number;
+};
+
+export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
+  const { data, error } = await client().rpc('keep_battle_profile_battle_stats', { p_profile_id: profileId, p_theme_limit: 3 });
+  const row = unwrap(data as any, error);
+  return {
+    wins: Number(row.wins ?? 0),
+    matchesPlayed: Number(row.matchesPlayed ?? 0),
+    totalScore: Number(row.totalScore ?? 0),
+    totalCorrect: Number(row.totalCorrect ?? 0),
+    avgResponseMs: row.avgResponseMs ?? null,
+    topThemes: Array.isArray(row.topThemes) ? row.topThemes.map((t: any) => ({
+      themeCode: String(t.themeCode ?? ''),
+      wins: Number(t.wins ?? 0),
+      matches: Number(t.matches ?? 0),
+    })).filter((t: KeepBattlePlayerThemeStat) => t.themeCode) : [],
+    followers: Number(row.followers ?? 0),
+    freeBalance: Number(row.freeBalance ?? 0),
+    freeWon: Number(row.freeWon ?? 0),
+    freeLost: Number(row.freeLost ?? 0),
+    freeNet: Number(row.freeNet ?? 0),
+  };
+}
 
 export type KeepBattleArenaCreated = {
   id: string;
@@ -286,8 +410,20 @@ export function subscribeKeepBattle(battleId: string, onChange: () => void) {
   return () => { void c.removeChannel(channel); };
 }
 
-export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleArenaCreated> {
-  const { data, error } = await client().rpc('keep_battle_arena_create', { p_theme_code: themeCode.toUpperCase(), p_round_count: Math.max(5, Math.min(roundCount, 12)) });
+// Adel (04/09/2026) : "si j'ai sélectionné cinq [styles] ... il faut qu'il
+// me mette un peu de tout, un mix de tout" -- themeCode reste l'étiquette
+// d'affichage (premier style réel), mais themeCodes porte la sélection
+// réelle pour que le serveur mixe l'UNION exacte de ces styles au lieu de
+// n'utiliser que le premier, exactement comme loadKeepBattleSoloPack.
+export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleArenaCreated> {
+  const selectedThemes = Array.from(new Set((themeCodes || [])
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+  const { data, error } = await client().rpc('keep_battle_arena_create', {
+    p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
+    p_round_count: Math.max(5, Math.min(roundCount, 12)),
+    p_theme_codes: selectedThemes.length ? selectedThemes : null,
+  });
   return unwrap(data as KeepBattleArenaCreated | null, error);
 }
 
@@ -301,6 +437,51 @@ export async function joinKeepBattleArena(arenaCode: string): Promise<KeepBattle
 export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_state', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+// Adel (04/09/2026) : "lorsqu'un utilisateur sans faire exprès passe sur une
+// autre page, il faut que lorsqu'il revienne automatiquement ... il revienne
+// même s'il a loupé un ou deux morceaux" -- BUG RÉEL : quitter l'écran
+// Battle (changement d'onglet) démonte KeepBattleArenaPanel et perd l'état
+// local `arena`, sans aucun moyen de retrouver son siège actif au retour.
+// Retourne l'état de l'arène où le joueur a encore un siège ACTIVE, ou null.
+export async function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {
+  const { data, error } = await client().rpc('keep_battle_arena_my_active');
+  if (error) return null;
+  return (data as KeepBattleArenaState | null) ?? null;
+}
+
+// Adel (03/09/2026) : "un utilisateur pourra regarder le match en cours ...
+// et pouvoir dire je veux participer sans envoyer d'invite, quand le match
+// est terminé ça fera rentrer l'utilisateur" -- mode spectateur : un tiers
+// (pas membre de l'arène) peut suivre un match EN COURS en lecture seule
+// (scores, manche, révélation), sans jamais voir l'état de réponse propre à
+// un joueur (myAnswer n'existe pas ici, contrairement a KeepBattleArenaState).
+// joinKeepBattleArena (deja existante) fait le "+" : elle met en file
+// d'attente (QUEUED) si un match tourne déjà, et fait automatiquement entrer
+// au match suivant -- exactement le mécanisme déjà cablé côté serveur.
+export type KeepBattleArenaSpectateSeat = { profileId: string; username: string; avatarUrl?: string | null; score: number; placement?: number | null };
+export type KeepBattleArenaSpectate = {
+  id: string;
+  arenaCode: string;
+  themeCode: string;
+  status: 'WAITING' | 'ACTIVE' | 'CLOSED' | 'EXPIRED';
+  maxPlayers: number;
+  openSeats: number;
+  queue: number;
+  roundCount: number;
+  matchNo: number;
+  currentRound: number;
+  roundDurationMs: number;
+  seats: KeepBattleArenaSpectateSeat[];
+  round?: { position: number; artist?: string | null; artworkUrl?: string | null; startedAt?: string | null; closesAt?: string | null; revealUntil?: string | null; revealed?: boolean } | null;
+};
+
+export async function spectateKeepBattleArena(arenaCode: string): Promise<KeepBattleArenaSpectate> {
+  const code = arenaCode.trim().toUpperCase();
+  if (!code) throw new Error('BATTLE_ARENA_CODE_REQUIRED');
+  const { data, error } = await client().rpc('keep_battle_arena_spectate', { p_arena_code: code });
+  return unwrap(data as KeepBattleArenaSpectate | null, error);
 }
 
 export async function loadKeepBattleArenaWinnerHistory(arenaId: string, limit = 10): Promise<KeepBattleArenaWinner[]> {
@@ -319,6 +500,21 @@ export async function startKeepBattleArena(arenaId: string): Promise<KeepBattleA
 export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedAnswer: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_submit_quiz', { p_arena_id: arenaId, p_selected_answer: selectedAnswer.trim() });
   return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function proposeKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_propose_rematch', { p_arena_id: arenaId });
+  return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function respondKeepBattleArenaRematch(arenaId: string, ready: boolean): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_rematch_respond', { p_arena_id: arenaId, p_ready: ready });
+  return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function leaveKeepBattleArena(arenaId: string): Promise<void> {
+  const { error } = await client().rpc('keep_battle_arena_leave', { p_arena_id: arenaId });
+  if (error) throw error;
 }
 
 export async function loadKeepBattleArenaLobby(): Promise<KeepBattleArenaLobby> {

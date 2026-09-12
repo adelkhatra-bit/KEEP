@@ -18,6 +18,11 @@ export type GrowthRewardStatus = {
   bonusDiscoveryProfiles: number;
   bonusSortTrials: number;
   nextShareGoal: number | null;
+  // Adel (13/09/2026, viralité) : "il faut qu'ils comprennent qu'ils vont
+  // gagner une communauté" -- même principe que nextShareGoal, côté
+  // abonnés : le prochain palier (25/100/250/500/1000) à afficher AVANT
+  // qu'il soit atteint, jamais seulement après coup.
+  nextFollowerGoal: number | null;
   audienceProUnlocked: boolean;
   audienceProThreshold: number;
 };
@@ -42,6 +47,24 @@ export type CommercialRules = {
   freeDiscoveryProfiles: number;
   premiumSmartSortTrials: number;
   premiumDailyDownloads: number;
+  // Adel (04/09/2026) : "où y a marqué illimité, je puisse le modifier
+  // illimité ou limité" -- ces 4 champs viennent de la MEME grille "Limites
+  // par formule" (downloads_per_day / events_per_month) que celle qui gère
+  // déjà Premium ci-dessus. null = illimité (réglage actuel par défaut,
+  // rien ne change tant qu'un admin ne tape pas un chiffre) ; un chiffre =
+  // vrai plafond. Plus jamais un "illimité" écrit en dur dans le texte des
+  // offres, indépendamment de ce que Super Admin configure réellement.
+  creatorDailyDownloads: number | null;
+  venueDailyDownloads: number | null;
+  creatorEventsPerMonth: number | null;
+  venueEventsPerMonth: number | null;
+  // Adel (04/09/2026) : "quand un utilisateur bascule une musique sur son
+  // profil, il faut lui enlever des Free ... tout ça dans les paramètres du
+  // super admin" -- déjà 100% piloté par remote_config (free_cost_per_keep,
+  // Super Admin > Remote Config > Croissance). Exposé ici pour que le texte
+  // affiché à l'utilisateur (Offres, solde Free du profil) suive TOUJOURS le
+  // vrai coût configuré au lieu d'un "1 Free" écrit en dur.
+  freeCostPerKeep: number;
   shareDailyCap: number;
   audienceProThreshold: number;
   shareTiers: [number, number, number];
@@ -54,6 +77,11 @@ const FALLBACK_RULES: CommercialRules = {
   freeDiscoveryProfiles: 3,
   premiumSmartSortTrials: 3,
   premiumDailyDownloads: 40,
+  creatorDailyDownloads: null,
+  venueDailyDownloads: null,
+  creatorEventsPerMonth: 1,
+  venueEventsPerMonth: null,
+  freeCostPerKeep: 3,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -100,6 +128,13 @@ export async function getSmartSortAccess(consume = false): Promise<QuotaAccess> 
   return quota(Array.isArray(data) ? data[0] : data);
 }
 
+export async function getCompareAccess(consume = false): Promise<QuotaAccess> {
+  if (!supabase) return { planCode: 'FREE', allowed: true, used: 0, limit: 3, remaining: 3, unlimited: false };
+  const { data, error } = await supabase.rpc('keep_compare_access', { p_consume: consume });
+  if (error) throw error;
+  return quota(Array.isArray(data) ? data[0] : data);
+}
+
 export async function getEventCreationAccess(): Promise<QuotaAccess> {
   if (!supabase) return { planCode: 'FREE', allowed: false, used: 0, limit: 0, remaining: 0, unlimited: false };
   const { data, error } = await supabase.rpc('keep_event_creation_status');
@@ -108,7 +143,7 @@ export async function getEventCreationAccess(): Promise<QuotaAccess> {
 }
 
 export async function getGrowthRewardStatus(): Promise<GrowthRewardStatus> {
-  if (!supabase) return { qualifiedShares: 0, followers: 0, bonusFreeCredits: 0, bonusDiscoveryProfiles: 0, bonusSortTrials: 0, nextShareGoal: 20, audienceProUnlocked: false, audienceProThreshold: 1000 };
+  if (!supabase) return { qualifiedShares: 0, followers: 0, bonusFreeCredits: 0, bonusDiscoveryProfiles: 0, bonusSortTrials: 0, nextShareGoal: 20, nextFollowerGoal: 25, audienceProUnlocked: false, audienceProThreshold: 1000 };
   const { data, error } = await supabase.rpc('keep_growth_reward_status');
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
@@ -119,6 +154,7 @@ export async function getGrowthRewardStatus(): Promise<GrowthRewardStatus> {
     bonusDiscoveryProfiles: Number(row?.bonus_discovery_profiles || 0),
     bonusSortTrials: Number(row?.bonus_sort_trials || 0),
     nextShareGoal: row?.next_share_goal == null ? null : Number(row.next_share_goal),
+    nextFollowerGoal: row?.next_follower_goal == null ? null : Number(row.next_follower_goal),
     audienceProUnlocked: Boolean(row?.audience_pro_unlocked),
     audienceProThreshold: Number(row?.audience_pro_threshold || 1000),
   };
@@ -139,6 +175,11 @@ export async function getCommercialRules(): Promise<CommercialRules> {
     freeDiscoveryProfiles: Number(row.free_discovery_profiles ?? FALLBACK_RULES.freeDiscoveryProfiles),
     premiumSmartSortTrials: Number(row.premium_smart_sort_trials ?? FALLBACK_RULES.premiumSmartSortTrials),
     premiumDailyDownloads: Number(row.premium_daily_downloads ?? FALLBACK_RULES.premiumDailyDownloads),
+    creatorDailyDownloads: row.creator_daily_downloads == null ? null : Number(row.creator_daily_downloads),
+    venueDailyDownloads: row.venue_daily_downloads == null ? null : Number(row.venue_daily_downloads),
+    creatorEventsPerMonth: row.creator_events_per_month == null ? null : Number(row.creator_events_per_month),
+    venueEventsPerMonth: row.venue_events_per_month == null ? null : Number(row.venue_events_per_month),
+    freeCostPerKeep: Number(row.free_cost_per_keep ?? FALLBACK_RULES.freeCostPerKeep),
     shareDailyCap: Number(row.share_daily_cap ?? FALLBACK_RULES.shareDailyCap),
     audienceProThreshold: followerTiers[4],
     shareTiers,

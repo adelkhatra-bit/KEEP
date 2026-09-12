@@ -34,6 +34,23 @@ if (typeof document !== 'undefined') {
   syncViewport();
   window.visualViewport?.addEventListener('resize', syncViewport, { passive: true });
   window.addEventListener('orientationchange', syncViewport, { passive: true });
+
+  // Adel (02/09/2026) : "il y a un problème de zoom ... il faudrait bloquer
+  // le système qui ne puisse pas zoomer" -- diagnostic revu : ce qui
+  // ressemblait à un texte "coupé" après un rafraîchissement sur iPhone
+  // était en fait la page chargée déjà zoomée (iOS Safari peut restaurer un
+  // niveau de zoom précédent au reload), pas un souci de mise en page.
+  // La balise viewport par défaut d'Expo (initial-scale=1) n'empêche pas ce
+  // zoom résiduel ni le pincement manuel qui a pu le déclencher au départ.
+  // On verrouille le zoom explicitement : plus aucun niveau de zoom à
+  // restaurer, jamais.
+  let viewportMeta = document.querySelector('meta[name="viewport"]');
+  if (!viewportMeta) {
+    viewportMeta = document.createElement('meta');
+    viewportMeta.setAttribute('name', 'viewport');
+    document.head.appendChild(viewportMeta);
+  }
+  viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover');
 }
 
 function KeepRoot() {

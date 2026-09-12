@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
+import { supabase } from './supabaseClient';
 
 export type KeepApproximateCoordinates = {
   lat: number;
@@ -189,4 +190,48 @@ export async function searchKeepCity(query: string): Promise<KeepResolvedLocatio
   } catch {
     return { ...approx, city: query.trim() || undefined, source: 'native' };
   }
+}
+
+export type AddressSuggestion = {
+  label: string;
+  primaryText: string;
+  secondaryText: string;
+  city?: string;
+  countryCode?: string;
+  lat: number;
+  lng: number;
+};
+
+/**
+ * Adel (08/09/2026) : "le systeme puisse proposer des adresses
+ * automatiquement selon le pays ... le FR doit etre automatique" --
+ * autocomplete d'adresse (plusieurs suggestions pendant la saisie) pour le
+ * champ Lieu d'un evenement, biaise sur le pays de l'evenement (FR par
+ * defaut). Distinct de searchKeepCity ci-dessus (qui resout UNE ville pour
+ * Decouvertes) : ici on veut une liste d'adresses completes proposees en
+ * direct, via keep-location-resolver (memes fournisseurs gratuits, deja
+ * proxyfies cote serveur pour respecter l'entete User-Agent exige par
+ * Nominatim et permettre la mise en cache).
+ */
+export async function searchAddress(query: string, countryCode = 'FR'): Promise<AddressSuggestion[]> {
+  if (!supabase || query.trim().length < 3) return [];
+  const { data, error } = await supabase.functions.invoke('keep-location-resolver', {
+    body: { action: 'search', query: query.trim(), countryCode },
+  });
+  if (error || !data?.ok) return [];
+  return Array.isArray(data.suggestions) ? data.suggestions : [];
+}
+
+// Adel (08/09/2026) : "va t'inspirer des grandes plateformes" -- bouton
+// "utiliser ma position" pour le lieu d'un evenement (comme Airbnb/Eventbrite
+// quand on cree depuis le lieu meme). Reutilise getCurrentKeepLocation
+// ci-dessus pour la permission GPS, puis demande une adresse COMPLETE
+// (rue + numero, pas seulement ville/pays) au resolver.
+export async function reverseGeocodeAddress(lat: number, lng: number): Promise<AddressSuggestion | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.functions.invoke('keep-location-resolver', {
+    body: { action: 'reverse-address', lat, lng },
+  });
+  if (error || !data?.ok || !data.suggestion) return null;
+  return data.suggestion as AddressSuggestion;
 }

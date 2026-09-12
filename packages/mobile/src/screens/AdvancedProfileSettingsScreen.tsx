@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -14,6 +14,7 @@ import { createAuthService } from '../services/authService';
 import { deleteOwnKeepAccount } from '../services/accountDeletionService';
 import { supabase } from '../services/supabaseClient';
 import { BlockedUserSummary, listBlockedUsers, unblockUser } from '../services/moderationService';
+import { loadCurrentPlanCode } from '../services/planService';
 
 const NETWORKS: { platform: SocialLink['platform']; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' },
@@ -41,10 +42,33 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
   const [signingOut, setSigningOut] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  // Adel (08/09/2026) : "je trouve que c'est trop charge ... on retrouve
+  // les espace createurs, les notifications, service musical, offre pas
+  // credit ... faire des petits boutons 1234 et ca change automatiquement
+  // sur place" -- un seul long defilement de 10 sections remplace par 4
+  // petits onglets numerotes qui changent le contenu SUR PLACE (meme
+  // ecran, pas de nouvelle navigation), en regroupant ce qui se repetait.
+  const [activeTab, setActiveTab] = React.useState<1 | 2 | 3 | 4>(1);
   const [blockedListOpen, setBlockedListOpen] = React.useState(false);
   const [blockedUsers, setBlockedUsers] = React.useState<BlockedUserSummary[]>([]);
   const [blockedLoading, setBlockedLoading] = React.useState(false);
   const [unblockingId, setUnblockingId] = React.useState<string | null>(null);
+  // Adel (02/09/2026) : "il faudra prendre l'offre à 29,99 et pareil pour les
+  // profils, je pense qu'il faudrait qu'au moins ils payent 9,99" -- bouton
+  // site web réservé à CREATOR_PRO/VENUE_PRO ; réseaux sociaux existants
+  // restent gratuits pour tous, inchangés.
+  const [planCode, setPlanCode] = React.useState('FREE');
+  const [websiteSaving, setWebsiteSaving] = React.useState(false);
+  React.useEffect(() => {
+    if (!user?.id || isLocalGuest || isDemoMode) return;
+    let live = true;
+    loadCurrentPlanCode(user.id).then((code) => { if (live) setPlanCode(code); }).catch(() => {});
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
+  const websiteAccess = planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO';
+  const websiteLink = user?.socialLinks.find((l) => l.platform === 'website');
+  const websiteLabelDraft = drafts.website_label ?? websiteLink?.label ?? '';
+  const websiteUrlDraft = drafts.website_url ?? websiteLink?.url ?? '';
 
   const openBlockedList = async () => {
     setBlockedListOpen(true);
@@ -136,6 +160,37 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     setDrafts((prev) => ({ ...prev, [platform]: '' }));
   };
 
+  // Adel (02/09/2026) : "on me montrera pas le lien du site, on mettra un
+  // bouton, je clique par exemple tu prendras le nom du bouton" -- deux
+  // champs distincts (nom affiché + lien réel), jamais l'URL affichée
+  // directement sur le profil public.
+  const saveWebsite = async () => {
+    if (!websiteAccess) return void Alert.alert('Formule requise', 'Le bouton site web est réservé à Creator Pro et Venue Pro.', [
+      { text: 'Plus tard', style: 'cancel' }, { text: 'Voir les offres', onPress: () => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'WEBSITE_BUTTON' }) },
+    ]);
+    const url = websiteUrlDraft.trim();
+    const label = websiteLabelDraft.trim();
+    if (!url) return void Alert.alert('Lien manquant', 'Ajoute le lien de ton site.');
+    if (!label) return void Alert.alert('Nom manquant', 'Donne un nom à ton bouton (ex : Mon site, Réserver, Boutique).');
+    setWebsiteSaving(true);
+    try {
+      const links = [
+        ...user.socialLinks.filter((l) => l.platform !== 'website'),
+        { platform: 'website', url, label, visibility: websiteLink?.visibility ?? 'PUBLIC' } as SocialLink,
+      ];
+      await persistSocialLinks(links, 'website', 'Ton bouton site web est actif sur ton profil.');
+      setDrafts((prev) => ({ ...prev, website_label: label, website_url: url }));
+    } finally {
+      setWebsiteSaving(false);
+    }
+  };
+
+  const removeWebsite = async () => {
+    const links = user.socialLinks.filter((link) => link.platform !== 'website');
+    await persistSocialLinks(links, 'website', 'Le bouton site web a été retiré de ton profil.');
+    setDrafts((prev) => ({ ...prev, website_label: '', website_url: '' }));
+  };
+
   const signOutNow = async () => {
     if (signingOut) return;
     setSigningOut(true);
@@ -152,10 +207,6 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
 
   const confirmSignOut = () => {
     const message = 'Ton profil Loki reste enregistré. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Se déconnecter ?\n\n${message}`)) void signOutNow();
-      return;
-    }
     Alert.alert('Se déconnecter ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
@@ -182,10 +233,6 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
       return;
     }
     const message = 'Cette action supprime définitivement ton compte Loki, ton profil, tes musiques gardées, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée. Si tu as plus tard un abonnement App Store actif, il faudra aussi le résilier dans les abonnements Apple.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`Supprimer définitivement mon compte ?\n\n${message}`)) void deleteAccountNow();
-      return;
-    }
     Alert.alert('Supprimer définitivement mon compte ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'SUPPRIMER MON COMPTE', style: 'destructive', onPress: () => { void deleteAccountNow(); } },
@@ -200,32 +247,31 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
         <TouchableOpacity style={s.headerButton} onPress={() => goToTab('MyMusic')} accessibilityLabel="Revenir aux Playlists"><Text style={[s.headerText, s.right]}>Playlists</Text></TouchableOpacity>
       </View>
 
+      {/* Adel (08/09/2026) : "des petits boutons 1234 et ca change
+          automatiquement de page comme ca t'as pas l'impression de
+          changer de page" -- onglets numerotes, contenu change SUR PLACE. */}
+      <View style={s.tabRow}>
+        {([
+          { id: 1, label: 'Profil' },
+          { id: 2, label: 'Créateur' },
+          { id: 3, label: 'Aide' },
+          { id: 4, label: 'Compte' },
+        ] as const).map((tab) => (
+          <TouchableOpacity key={tab.id} style={[s.tabBtn, activeTab === tab.id && s.tabBtnOn]} onPress={() => setActiveTab(tab.id)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.id }}>
+            <Text style={[s.tabBtnNum, activeTab === tab.id && s.tabBtnNumOn]}>{tab.id}</Text>
+            <Text style={[s.tabBtnLabel, activeTab === tab.id && s.tabBtnLabelOn]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Navigation</Text>
-          <Action label="← Revenir aux Playlists" onPress={() => goToTab('MyMusic')} />
-          <Action label="Retour au profil" onPress={() => goToTab('Profile')} />
-        </View>
-
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Raccourcis</Text>
-          <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
-          <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
-          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
-        </View>
-
+        {activeTab === 1 ? <>
         <View style={s.section}>
           <Text style={s.sectionTitle}>Profil public</Text>
           <View style={s.switchRow}>
             <View style={s.switchText}><Text style={s.label}>Profil visible</Text><Text style={s.help}>Permet aux autres utilisateurs de découvrir tes goûts musicaux.</Text></View>
             <Switch value={user.isPublic} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.background, true: colors.primary }} />
           </View>
-        </View>
-
-        <View style={s.creatorSection}>
-          <Text style={s.sectionTitle}>Espace créateur</Text>
-          <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>
-          <CreatorToolsPanel navigation={navigation} />
         </View>
 
         <View style={s.section}>
@@ -260,6 +306,42 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           })}
         </View>
 
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Site web {websiteAccess ? '' : '🔒'}</Text>
+          <Text style={s.help}>{websiteAccess
+            ? 'Un bouton avec le nom de ton choix s’affiche sur ton profil public -- le lien réel n’est jamais montré directement.'
+            : 'Réservé aux formules Creator Pro (9,99 €) et Venue Pro (29,99 €) : plus de visibilité personnelle pour ton profil.'}</Text>
+          {websiteAccess ? (
+            <View style={s.networkBlock}>
+              <TextInput style={s.input} value={websiteLabelDraft} onChangeText={(text) => setDrafts((prev) => ({ ...prev, website_label: text }))} placeholder="Nom du bouton (ex : Mon site, Boutique, Réserver)" placeholderTextColor={colors.textMuted} maxLength={24} />
+              <TextInput style={s.input} value={websiteUrlDraft} onChangeText={(text) => setDrafts((prev) => ({ ...prev, website_url: text }))} placeholder="Lien du site (https://...)" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} />
+              <View style={s.row}>
+                <TouchableOpacity style={s.primaryButton} onPress={() => void saveWebsite()} disabled={websiteSaving} accessibilityLabel="Enregistrer le site web"><Text style={s.primaryText}>{websiteSaving ? 'Enregistrement…' : 'Enregistrer'}</Text></TouchableOpacity>
+                {websiteLink ? <TouchableOpacity style={s.secondaryButton} onPress={() => void removeWebsite()} disabled={websiteSaving} accessibilityLabel="Supprimer le site web"><Text style={s.dangerText}>Supprimer</Text></TouchableOpacity> : null}
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={s.primaryButton} onPress={() => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'WEBSITE_BUTTON' })}><Text style={s.primaryText}>Voir Creator Pro</Text></TouchableOpacity>
+          )}
+        </View>
+        </> : null}
+
+        {activeTab === 2 ? <>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Raccourcis</Text>
+          <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
+          <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
+          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
+        </View>
+
+        <View style={s.creatorSection}>
+          <Text style={s.sectionTitle}>Espace créateur</Text>
+          <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>
+          <CreatorToolsPanel navigation={navigation} />
+        </View>
+        </> : null}
+
+        {activeTab === 3 ? <>
         <SupportCenterPanel profileId={user.id} username={user.username} enabled={!isLocalGuest && !isDemoMode} />
 
         <View style={s.section}>
@@ -274,7 +356,9 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
           <Text style={s.sectionTitle}>Confidentialité</Text>
           <Action label="Comptes bloqués" onPress={() => void openBlockedList()} />
         </View>
+        </> : null}
 
+        {activeTab === 4 ? <>
         <View style={s.section}>
           <Text style={s.sectionTitle}>Compte</Text>
           <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données Loki restent enregistrés.</Text>
@@ -288,6 +372,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
             <Text style={s.deleteAccountText}>{deletingAccount ? 'Suppression…' : 'Supprimer définitivement mon compte'}</Text>
           </TouchableOpacity>
         </View>
+        </> : null}
       </ScrollView>
 
       <Modal visible={blockedListOpen} transparent animationType="fade" onRequestClose={() => setBlockedListOpen(false)}>
@@ -306,7 +391,7 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
                 {blockedUsers.map((u) => (
                   <View key={u.id} style={s.blockedRow}>
                     {u.avatarUrl ? <Image source={{ uri: u.avatarUrl }} style={s.blockedAvatar} /> : <View style={[s.blockedAvatar, s.blockedAvatarFallback]}><Text style={s.blockedAvatarText}>K</Text></View>}
-                    <Text style={s.blockedUsername} numberOfLines={1}>@{u.username}</Text>
+                    <Text style={s.blockedUsername} numberOfLines={1}>{u.username}</Text>
                     <TouchableOpacity style={s.blockedUnblockButton} disabled={unblockingId === u.id} onPress={() => void handleUnblock(u.id)}>
                       <Text style={s.blockedUnblockText}>{unblockingId === u.id ? '…' : 'Débloquer'}</Text>
                     </TouchableOpacity>
@@ -325,26 +410,38 @@ function Action({ label, onPress }: { label: string; onPress: () => void }) {
   return <TouchableOpacity style={s.action} onPress={onPress}><Text style={s.actionText}>{label}</Text><Text style={s.actionArrow}>›</Text></TouchableOpacity>;
 }
 
+// Adel (15/09/2026) : "l'écriture est trop petite ... refais toutes les
+// écritures correctement pour qu'on voit bien" -- cet écran utilisait des
+// tailles nettement plus petites (9 à 13px) que "Modifier le profil" à côté
+// (13 à 18px) pour un contenu comparable. Toutes remontées d'au moins 2px,
+// plus aucune sous 12px, cohérent avec le reste de l'app.
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, muted: { color: colors.textMuted },
   header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
-  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
-  label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
+  headerButton: { width: 90, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 15, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 19, fontWeight: '900' },
+  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  tabBtn: { flex: 1, minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabBtnNum: { color: colors.primaryLight, fontSize: 15, fontWeight: '900' },
+  tabBtnNumOn: { color: '#FFFFFF' },
+  tabBtnLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: 1 },
+  tabBtnLabelOn: { color: '#FFFFFF' },
+  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginBottom: 8 },
+  label: { color: colors.textSecondary, fontSize: 15, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 4 }, action: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   blockedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   blockedCard: { width: '100%', maxWidth: 380, maxHeight: '75%', borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: 14 },
   blockedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  blockedTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
-  blockedClose: { color: colors.textMuted, fontSize: 16, fontWeight: '900', paddingHorizontal: 4 },
+  blockedTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  blockedClose: { color: colors.textMuted, fontSize: 18, fontWeight: '900', paddingHorizontal: 4 },
   blockedScroll: { maxHeight: 340 },
   blockedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderBottomWidth: 1, borderBottomColor: colors.border },
   blockedAvatar: { width: 34, height: 34, borderRadius: 17 },
   blockedAvatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
-  blockedAvatarText: { color: colors.primaryLight, fontSize: 13, fontWeight: '900' },
-  blockedUsername: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
-  blockedUnblockButton: { minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  blockedUnblockText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
-  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
-  primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
-  signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' }, deleteAccountButton: { minHeight: 44, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  blockedAvatarText: { color: colors.primaryLight, fontSize: 15, fontWeight: '900' },
+  blockedUsername: { flex: 1, color: colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  blockedUnblockButton: { minHeight: 34, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  blockedUnblockText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
+  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 15, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
+  primaryButton: { minHeight: 40, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 14, fontWeight: '900' }, secondaryButton: { minHeight: 40, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 14, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 14, fontWeight: '800' },
+  signOutButton: { minHeight: 46, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 14, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 15, fontWeight: '900' }, deleteAccountButton: { minHeight: 46, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 13, fontWeight: '900', textAlign: 'center' },
 });

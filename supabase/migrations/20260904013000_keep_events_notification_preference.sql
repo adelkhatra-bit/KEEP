@@ -1,0 +1,12 @@
+-- Adel (04/09/2026) : "il faut que l'utilisateur puisse activer ou
+-- désactiver [les notifications] ... la seule chose qui ne pourra pas
+-- désactiver, c'est les événements -- quand il appuiera dessus, ça lui
+-- demandera de passer en Pro pour avoir la possibilité de désactiver cette
+-- notification." Un ancien interrupteur "DJ & soirées" avait été retiré
+-- volontairement (voir NotificationsScreen : "pas de publicité sur Loki à
+-- équilibrer") pour garantir la portée des invitations événement. Adel
+-- redemande explicitement ce même choix, mais verrouillé comme Marketing
+-- déjà : visible pour tous, actif et impossible à couper en formule
+-- gratuite, débloqué uniquement à partir de Creator Pro / Venue Pro --
+-- même mécanique, nouvelle catégorie.
+alter table public.notification_preferences add column if not exists events_enabled boolean not null default true;

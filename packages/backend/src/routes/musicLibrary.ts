@@ -1,4 +1,6 @@
-import { Router, Response } from 'express';
+import { createHash } from 'crypto';
+import { Router, Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { requireKeepAuth, KeepAuthedRequest } from '../lib/keepAuth';
 import { createSupabaseTokenVerifier } from '../lib/supabaseTokenVerifier';
 import {
@@ -8,12 +10,35 @@ import {
   importConnectedSavedLibrary,
   listConnectedPlaylists,
   listImportedMusicLibrary,
+  listPendingSessionImports,
   setImportedMusicVisibility,
+  syncFavoritesForAllConnectedProfiles,
   syncKeepPlaylistToConnectedProvider,
 } from '../lib/connectedMusicLibrary';
 
 const router = Router();
 const verifier = createSupabaseTokenVerifier();
+
+// AJOUT (02/09/2026) : même mécanisme que keep-push-worker (Edge Function) --
+// un secret Vault + son hash SHA-256 dans keep_internal_worker_secrets,
+// jamais le secret en clair ailleurs. pg_cron appelle ce endpoint toutes les
+// 30 minutes avec l'en-tête x-keep-worker-key ; aucun JWT utilisateur n'est
+// impliqué, donc cette route ne passe pas par `guard`.
+async function verifyFavoritesSyncWorkerKey(req: Request): Promise<boolean> {
+  const supplied = String(req.header('x-keep-worker-key') || '');
+  if (!supplied) return false;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return false;
+  const database = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await database
+    .from('keep_internal_worker_secrets')
+    .select('secret_hash')
+    .eq('name', 'favorites-sync-worker')
+    .maybeSingle();
+  if (error || !data?.secret_hash) return false;
+  return createHash('sha256').update(supplied).digest('hex') === String(data.secret_hash);
+}
 
 type Provider = 'spotify' | 'deezer';
 type Visibility = 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE';
@@ -130,6 +155,31 @@ async function syncHandler(req: KeepAuthedRequest, res: Response) {
   }
 }
 
+async function pendingSessionImportsHandler(req: KeepAuthedRequest, res: Response) {
+  try {
+    const data = await listPendingSessionImports(req.keepUserId!);
+    res.json({ data });
+  } catch (error: any) {
+    res.status(502).json({ error: 'library_pending_imports_failed', message: error?.message });
+  }
+}
+
+async function syncFavoritesWorkerHandler(req: Request, res: Response) {
+  const authorized = await verifyFavoritesSyncWorkerKey(req);
+  if (!authorized) return void res.status(401).json({ error: 'unauthorized' });
+  try {
+    const result = await syncFavoritesForAllConnectedProfiles();
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: 'favorites_sync_worker_failed', message: error?.message });
+  }
+}
+
+// Route worker enregistrée même sans `verifier` : la synchro auto Spotify<->
+// Deezer ne dépend pas de la vérification JWT utilisateur, seulement du
+// secret worker ci-dessus.
+router.post('/library/sync-favorites-worker', syncFavoritesWorkerHandler);
+
 if (verifier) {
   const guard = requireKeepAuth(verifier);
   router.get('/library/playlists', guard, playlistsHandler);
@@ -138,9 +188,13 @@ if (verifier) {
   router.post('/library/add', guard, addHandler);
   router.post('/library/import/:provider', guard, importHandler);
   router.get('/library/imported', guard, importedHandler);
+  router.get('/library/pending-session-imports', guard, pendingSessionImportsHandler);
   router.patch('/library/imported/:itemId/visibility', guard, visibilityHandler);
   router.post('/library/sync', guard, syncHandler);
 } else {
+  // sync-favorites-worker reste joignable (route déjà enregistrée plus haut,
+  // avant ce bloc) même quand la vérification JWT utilisateur n'est pas
+  // configurée -- elle ne dépend que du secret worker, pas de `verifier`.
   router.use('/library', (_req, res) => res.status(503).json({ error: 'auth_not_configured' }));
 }
 

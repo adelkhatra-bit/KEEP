@@ -14,6 +14,27 @@ const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
+
+// AJOUT (02/09/2026, demande Adel : "je suis dans la voiture, la musique est
+// longue -- si l'écoute a déjà identifié le morceau, il ne faut pas qu'elle
+// continue à nous faire payer pour la même chanson encore en train de jouer.
+// Un système intelligent qui détecte que ce n'est pas une nouvelle musique.")
+// Tant qu'un morceau vient d'être identifié (par n'importe quel palier), un
+// raté de la mémoire gratuite ne relance plus tout de suite AudD/ACRCloud
+// (payants) -- Loki suppose d'abord qu'il s'agit toujours de la même chanson
+// (bruit de fond, silence entre deux passages, couplet différent) et attend
+// un second raté consécutif avant de conclure que la musique a changé et de
+// rouvrir la cascade payante. Le morceau reste affiché normalement dans la
+// session pendant ce temps ; seule la dépense réseau est mise en pause.
+const STICKY_MATCH_WINDOW_MS = 3 * 60 * 1000;
+const STICKY_MEMORY_MISS_TOLERANCE = 2;
+let stickyMatchUntil = 0;
+let stickyMemoryMissStreak = 0;
+
+function armStickyMatch() {
+  stickyMatchUntil = Date.now() + STICKY_MATCH_WINDOW_MS;
+  stickyMemoryMissStreak = 0;
+}
 let lastKeylessSourceSignature = '';
 let lastKeylessSourceAttemptAt = 0;
 
@@ -388,7 +409,17 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     if (memory) {
       recognitionBackoffUntil = 0;
       fallbackUnavailableUntil = 0;
+      armStickyMatch();
       return memory;
+    }
+
+    // Musique probablement toujours la même qu'à l'instant : on laisse une
+    // chance de plus à la mémoire gratuite avant de rouvrir AudD/ACRCloud.
+    if (Date.now() < stickyMatchUntil) {
+      stickyMemoryMissStreak += 1;
+      if (stickyMemoryMissStreak < STICKY_MEMORY_MISS_TOLERANCE) return null;
+      stickyMatchUntil = 0;
+      stickyMemoryMissStreak = 0;
     }
 
     const primary = await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);

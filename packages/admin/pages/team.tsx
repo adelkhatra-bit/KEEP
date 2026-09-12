@@ -1,6 +1,7 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 type AdminMember = { id: string; email: string | null; role: AdminRole; isActive: boolean; createdAt: string };
@@ -14,13 +15,7 @@ const ROLES: { value: Exclude<AdminRole, 'SUPER_ADMIN'>; label: string }[] = [
   { value: 'TECH', label: 'Technique / intégrations' },
 ];
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 export default function TeamPage() {
   const [members, setMembers] = useState<AdminMember[]>([]);

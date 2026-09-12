@@ -172,6 +172,15 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
+  // Audit multi-agent 07/09/2026 (juge securite) : cette fonction ecrit en base
+  // (service_role) et interroge iTunes en boucle sans jamais verifier l'appelant --
+  // appelable anonymement en boucle. Elle est bien appelee par l'app (Battle exige deja
+  // un compte reel dans les RPC associees), donc on exige juste un JWT utilisateur valide
+  // plutot qu'un secret dedie, pour ne rien casser cote client existant.
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  const { data: authData, error: authError } = token ? await admin.auth.getUser(token) : { data: null, error: new Error("no_token") };
+  if (authError || !authData?.user?.id) return json(401, { ok: false, error: "unauthorized" });
+
   try {
     const body = await req.json().catch(() => ({}));
     const requested = Number(body?.limit ?? 24);
