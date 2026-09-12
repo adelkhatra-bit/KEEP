@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Loki — Remboursement</title><style>body{margin:0;background:#0e0a14;color:#fff;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:820px;margin:auto;padding:32px 20px 64px}a{color:#b89cff}h1,h2{line-height:1.2}.muted{color:#cfc6d8}.card{background:#171020;border:1px solid #33253f;border-radius:16px;padding:18px;margin:18px 0}</style></head><body><main>
+<h1>Remboursement et droit de rétractation</h1><p class="muted">Applicable aux abonnements Loki souscrits en dehors de l’App Store (paiement web via Paddle). Dernière mise à jour : 12 septembre 2026.</p>
+
+<h2>1. Achats Apple (App Store)</h2><p>Si votre abonnement a été souscrit via l’achat intégré Apple sur iOS, il est géré, facturé et remboursé exclusivement par Apple selon ses propres conditions. Une demande de remboursement se fait depuis <a href="https://reportaproblem.apple.com" target="_blank" rel="noreferrer">reportaproblem.apple.com</a> ou Réglages iOS → votre identifiant Apple → Abonnements. Loki ne peut ni initier ni garantir un remboursement Apple.</p>
+
+<h2>2. Achats web (Paddle)</h2><p>Si votre abonnement a été souscrit sur le site web Loki, la vente est effectuée par Paddle.com Market Limited, revendeur agréé (Merchant of Record) qui agit en tant que vendeur officiel du contenu numérique et gère la facturation, les taxes et les remboursements pour ces achats.</p>
+
+<h2>3. Droit de rétractation (14 jours)</h2><p>Conformément à l’article L221-18 du Code de la consommation, vous disposez d’un délai de 14 jours à compter de la souscription pour exercer votre droit de rétractation sur un achat effectué à distance, sans avoir à justifier de motif.</p>
+<div class="card">Loki fournit un contenu numérique non fourni sur un support matériel. Conformément à l’article L221-28 13° du Code de la consommation, si vous demandez expressément à commencer à utiliser l’abonnement immédiatement (accès direct aux fonctionnalités dès le paiement) et reconnaissez cette demande au moment de l’achat, vous renoncez à votre droit de rétractation dès le début de l’exécution. Si vous n’avez pas exercé cette demande expresse, ou si vous n’avez pas encore utilisé l’abonnement, le droit de rétractation de 14 jours s’applique pleinement.</p></div>
+
+<h2>4. Résiliation en cours d’abonnement</h2><p>En dehors du délai de rétractation, vous pouvez résilier votre abonnement à tout moment ; la résiliation empêche le renouvellement suivant mais n’ouvre pas droit à un remboursement de la période déjà entamée, sauf disposition légale contraire ou erreur de facturation de notre part.</p>
+
+<h2>5. Comment demander un remboursement ou exercer votre rétractation</h2><p>Pour un achat Paddle, contactez d’abord le support Paddle depuis l’e-mail de confirmation de commande reçu au moment de l’achat, ou écrivez-nous à l’adresse ci-dessous en indiquant l’e-mail utilisé pour l’achat et la date de la transaction. Une demande recevable est traitée sous 14 jours.</p>
+<div class="card" id="contactCard">Contact : <span id="contactValue">chargement…</span></div>
+
+<p><a href="../pricing/">Tarifs</a> · <a href="../terms/">Conditions d’utilisation</a> · <a href="../support/">Support</a> · <a href="../">Retour à Loki</a></p>
+<script>
+(() => {
+  const SUPABASE_URL = 'https://rrhqsqzcplvmwxizqnla.supabase.co';
+  const ANON_KEY = 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru';
+  fetch(`${SUPABASE_URL}/rest/v1/remote_config?key=eq.legal_publisher_contact&select=value`, {
+    headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` },
+  }).then((r) => r.json()).then((rows) => {
+    const value = (rows && rows[0] && typeof rows[0].value === 'string' ? rows[0].value : '').trim();
+    document.getElementById('contactValue').textContent = value || 'voir la page Mentions légales';
+  }).catch(() => {
+    document.getElementById('contactValue').textContent = 'voir la page Mentions légales';
+  });
+})();
+</script>
+</main></body></html>
