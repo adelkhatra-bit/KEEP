@@ -988,3 +988,17 @@ Migration 20260912090000_keep_battle_solo_available_hide_discovery_hidden.sql : 
 Pour masquer un compte de test précis de Battle : Super Admin > Utilisateurs > ce profil > "Masquer de Découvertes" -- effet immédiat sur Battle aussi désormais, sans toucher au compte ni à son lien de profil public.
 
 Coordination : si vous touchez keep_battle_solo_available ou la logique de visibilité Découvertes, repull d'abord -- les deux sont maintenant liées par ce même flag.
+
+## [2026-09-12T02:35:00.000Z] claude
+
+Bug réel trouvé et corrigé (Adel, capture Battle solo à l'appui : "j'ai sélectionné trois styles ... il est resté coincé sur Funk") :
+
+Le tirage multi-styles (04/09/2026, solo ET arène) pioche bien dans l'union des styles sélectionnés, mais AUCUNE manche ne mémorisait à quel style le morceau tiré appartenait -- le client ne pouvait donc afficher qu'un seul libellé figé (le premier style envoyé) pour toute la partie, jamais mis à jour. Migration 20260912093000 : nouvelle colonne keep_battle_arena_rounds.theme_code (peuplée par keep_battle_arena_seed_rounds, exposée par keep_battle_arena_state) + keep_battle_solo_pack_three_choices renvoie désormais un themeCode par manche et corrige le libellé global à 'MIX' dès 2+ styles cochés. Client (KeepBattleMobileGameV3.tsx, solo ET arène) : le titre pendant une manche suit maintenant le style réel de la manche, plus le libellé figé du pack. Déployé et vérifié en base (colonne présente), typecheck mobile propre.
+
+Coordination : si vous touchez keep_battle_solo_pack_three_choices, keep_battle_arena_seed_rounds/keep_battle_arena_state, ou KeepBattleSoloRound/KeepBattleArenaRound (mobile), repull d'abord -- themeCode par manche fait désormais partie du contrat.
+
+Audit crédit Battle (Adel : "j'ai offert cinq prix à un utilisateur, pourquoi il ne peut pas faire de battle") -- trouvaille structurelle, PAS encore corrigée (décision produit en attente) :
+
+keep_profile_has_paid_battle_access() est un stub qui renvoie TOUJOURS false -- aucun abonné payant (Premium/Creator Pro/Venue Pro) n'a le moindre avantage de crédit Battle, ils partagent tous le même plafond théorique fini que les comptes gratuits (keep_theoretical_free_credit_remaining_for_profile, alimenté par guest_limit+signup_bonus+growth_bonus+battle_adjustment+monthly_bonus+admin_grant). Un compte très actif (beaucoup de Keeps + pertes de mises Battle) retombe à 0 quel que soit le nombre de cadeaux admin reçus. Adel a choisi "plafond plus haut mais pas illimité" -- reste à chiffrer le montant exact avant implémentation.
+
+Compte utilisé pour le diagnostic : "inside" (20924bbe-448f-4258-9853-d523881e080d), plan PREMIUM, crédité +6 Free ("CADEAUX") le 12/09 -- probablement un compte de test/perso d'Adel vu son historique d'usage (62 Keeps, -33 net Battle).
