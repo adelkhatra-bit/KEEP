@@ -35,6 +35,7 @@ import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import PresenceDot from '../components/PresenceDot';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
+import PlaylistSaleCard from '../components/PlaylistSaleCard';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -106,6 +107,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // même fenêtre -- devenu faux dès que l'admin change la valeur. Chargé
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
+  const [playlistSaleOffers, setPlaylistSaleOffers] = useState<any[]>([]);
   const [freeHistoryOpen, setFreeHistoryOpen] = useState(false);
   // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
   // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
@@ -464,6 +466,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
     getGrowthRewardStatus().then((v) => live && setGrowthStatus(v)).catch(() => { if (live) setGrowthStatus(null); });
     return () => { live = false; };
   }, [accountRequired, profileFollowerCount]);
+
+  useEffect(() => {
+    if (!user || !supabase) { setPlaylistSaleOffers([]); return undefined; }
+    let live = true;
+    const loadOffers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('playlist_sale_offers')
+          .select('*')
+          .eq('seller_id', user.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        if (live && !error) setPlaylistSaleOffers(data || []);
+        else if (live) setPlaylistSaleOffers([]);
+      } catch {
+        if (live) setPlaylistSaleOffers([]);
+      }
+    };
+    void loadOffers();
+    return () => { live = false; };
+  }, [user?.id, supabase]);
+
   const fallbackCertification: ProfileCertificationTier = accountRequired
     ? 'UNVERIFIED'
     : planCode === 'PREMIUM' || planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO' ? planCode : 'FREE';
@@ -881,6 +905,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
           })}</View> : <Text style={s.muted}>Commence une session Loki pour construire ton ADN musical.</Text>}
         </View>
       )}
+
+      {playlistSaleOffers.length > 0 && playlistSaleOffers.map((offer) => (
+        <PlaylistSaleCard
+          key={offer.id}
+          offer={offer}
+          isAuthenticated={!accountRequired && !!user}
+          onAuthRequired={() => openAccount('create')}
+        />
+      ))}
 
       <View style={s.keepCounters}>
         <ProfileCounterRow kind="keeps" items={[
