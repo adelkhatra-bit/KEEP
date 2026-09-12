@@ -179,7 +179,9 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
     <Text style={s.subscriptionNote}>Le plan actif pilote réellement les cadenas. Si l’abonnement s’arrête, les données restent mais les fonctions payantes se reverrouillent.</Text>
 
-    {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? 'Venue Pro : créations illimitées.' : eventAccess?.planCode === 'CREATOR_PRO' ? 'Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite.' : 'Les réponses Oui / Peut-être / Non restent dans l’onglet Soirées.'}</Text></> : null}
+    {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? ‘Venue Pro : créations illimitées.’ : eventAccess?.planCode === ‘CREATOR_PRO’ ? ‘Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite.’ : ‘Les réponses Oui / Peut-être / Non restent dans l’onglet Soirées.’}</Text></> : null}
+
+    {saleAccess ? <><TouchableOpacity style={[s.eventButton, !saleAccess.unlocked && s.eventButtonLocked]} onPress={() => navigation.navigate(‘PlaylistSale’)}><Text style={s.eventButtonText}>💰 {saleAccess.unlocked ? ‘Vendre mes playlists’ : ‘Vendre mes playlists (verrouillé)’}</Text></TouchableOpacity><Text style={s.hint}>{saleAccess.unlocked ? ‘Fixe tes prix et vends tes sélections musicales.’ : `Débloqué à partir de ${saleAccess.threshold} abonnés -- tu en as ${saleAccess.followers}.`}</Text></> : null}
 
     {/* Adel (08/09/2026, puis 15/09/2026) : "trouver une place dans les
         paramètres avec des explications ... débloqué lorsque les évènements
