@@ -39,6 +39,10 @@ export default function PlaylistSaleCard({
     setBusy(true);
 
     try {
+      if (!supabase) {
+        Alert.alert('Erreur', 'Service non disponible.');
+        return;
+      }
       const token = (await supabase.auth.getSession())?.data?.session?.access_token;
       if (!token) {
         Alert.alert('Authentification', 'Connecte-toi pour acheter cette playlist.');

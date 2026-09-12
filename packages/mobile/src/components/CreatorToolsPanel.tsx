@@ -141,7 +141,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
   // QR...). Un seul formulaire désormais : ce bouton délègue à Soirées au
   // lieu de maintenir une deuxième version qui dérive.
   const openEventComposer = () => {
-    if (!eventsFeatureEnabled) return Alert.alert('Événements', 'La création d’événements est temporairement suspendue.');
+    if (!eventsFeatureEnabled) return Alert.alert('Événements', "La création d'événements est temporairement suspendue.");
     if (!creatorEnabled) return openPaywall('CREATE_EVENT', 'CREATOR_PRO');
     // Soirée du mois déjà utilisée ce mois-ci (Creator Pro) : montrer
     // l'événement existant dans Soirées, jamais rouvrir un formulaire de
@@ -177,11 +177,11 @@ export default function CreatorToolsPanel({ navigation }: any) {
         confondre avec un lien de navigation. */}
     {user.kind !== 'USER' ? <TouchableOpacity style={s.standardProfileLink} onPress={() => changeKind('USER')} disabled={busy} accessibilityLabel="Redevenir un profil Utilisateur standard"><Text style={s.standardProfileLinkText}>↩ Redevenir un profil Utilisateur standard</Text></TouchableOpacity> : null}
 
-    <Text style={s.subscriptionNote}>Le plan actif pilote réellement les cadenas. Si l’abonnement s’arrête, les données restent mais les fonctions payantes se reverrouillent.</Text>
+    <Text style={s.subscriptionNote}>{"Le plan actif pilote réellement les cadenas. Si l'abonnement s'arrête, les données restent mais les fonctions payantes se reverrouillent."}</Text>
 
-    {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? ‘Venue Pro : créations illimitées.’ : eventAccess?.planCode === ‘CREATOR_PRO’ ? ‘Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite.’ : ‘Les réponses Oui / Peut-être / Non restent dans l’onglet Soirées.’}</Text></> : null}
+    {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? "Venue Pro : créations illimitées." : eventAccess?.planCode === 'CREATOR_PRO' ? "Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite." : "Les réponses Oui / Peut-être / Non restent dans l'onglet Soirées."}</Text></> : null}
 
-    {saleAccess ? <><TouchableOpacity style={[s.eventButton, !saleAccess.unlocked && s.eventButtonLocked]} onPress={() => navigation.navigate(‘PlaylistSale’)}><Text style={s.eventButtonText}>💰 {saleAccess.unlocked ? ‘Vendre mes playlists’ : ‘Vendre mes playlists (verrouillé)’}</Text></TouchableOpacity><Text style={s.hint}>{saleAccess.unlocked ? ‘Fixe tes prix et vends tes sélections musicales.’ : `Débloqué à partir de ${saleAccess.threshold} abonnés -- tu en as ${saleAccess.followers}.`}</Text></> : null}
+    {saleAccess ? <><TouchableOpacity style={[s.eventButton, !saleAccess.unlocked && s.eventButtonLocked]} onPress={() => navigation.navigate("PlaylistSale")}><Text style={s.eventButtonText}>💰 {saleAccess.unlocked ? "Vendre mes playlists" : "Vendre mes playlists (verrouillé)"}</Text></TouchableOpacity><Text style={s.hint}>{saleAccess.unlocked ? "Fixe tes prix et vends tes sélections musicales." : `Débloqué à partir de ${saleAccess.threshold} abonnés -- tu en as ${saleAccess.followers}.`}</Text></> : null}
 
     {/* Adel (08/09/2026, puis 15/09/2026) : "trouver une place dans les
         paramètres avec des explications ... débloqué lorsque les évènements
@@ -196,14 +196,14 @@ export default function CreatorToolsPanel({ navigation }: any) {
         playlist -- n'importe quelle formule, pas seulement Creator Pro). */}
     {creatorEnabled || saleAccess?.unlocked ? (() => {
       const usages: string[] = [];
-      if (creatorEnabled) usages.push('encaisser le prix d’entrée de tes évènements payants');
+      if (creatorEnabled) usages.push("encaisser le prix d'entrée de tes évènements payants");
       if (saleAccess?.unlocked) usages.push('encaisser tes ventes de playlists');
       const usageText = usages.join(' et ');
       return <TouchableOpacity
         style={s.paymentTeaser}
         onPress={() => Alert.alert(
           '💳 Mode de paiement',
-          `Bientôt : connecte ton propre compte Stripe (ou PayPal) pour ${usageText}. L’argent arrivera sur TON compte, jamais sur celui de Loki -- Loki ne prend aucune commission pour l’instant. Cette option se débloquera automatiquement dès que ce sera prêt côté serveur -- inutile de la configurer avant.`,
+          `Bientôt : connecte ton propre compte Stripe (ou PayPal) pour ${usageText}. L'argent arrivera sur TON compte, jamais sur celui de Loki -- Loki ne prend aucune commission pour l'instant. Cette option se débloquera automatiquement dès que ce sera prêt côté serveur -- inutile de la configurer avant.`,
         )}
       >
         <Text style={s.paymentTeaserTitle}>💳 Mode de paiement · Bientôt disponible</Text>
@@ -212,7 +212,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
     })() : saleAccess && !saleAccess.unlocked ? (
       <View style={s.paymentTeaser}>
         <Text style={s.paymentTeaserTitle}>💶 Vendre mes playlists</Text>
-        <Text style={s.paymentTeaserText}>Débloqué à partir de {saleAccess.threshold} abonnés -- tu en as {saleAccess.followers} pour l’instant.</Text>
+        <Text style={s.paymentTeaserText}>Débloqué à partir de {saleAccess.threshold} abonnés -- tu en as {saleAccess.followers} pour l'instant.</Text>
       </View>
     ) : (
       // Adel (15/09/2026) : "je n'ai pas vu encore l'emplacement pour les

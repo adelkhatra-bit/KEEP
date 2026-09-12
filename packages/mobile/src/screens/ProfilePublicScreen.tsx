@@ -472,7 +472,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     let live = true;
     const loadOffers = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from('playlist_sale_offers')
           .select('*')
           .eq('seller_id', user.id)
