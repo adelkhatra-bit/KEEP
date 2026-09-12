@@ -1689,7 +1689,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       </View>;
     }
     return <View style={s.root}>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>{themeLabel(solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/{solo.rounds.length}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>{themeLabel(solo.rounds[soloIndex]?.themeCode || solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/{solo.rounds.length}</Text></View>
       {/* Adel (02/09/2026) : "règle une fois pour toute ... je ne vois pas
           l'utilisateur entier" -- sans ScrollView, sur un écran/viewport
           court (barre d'adresse + barre d'onglets fixe du build web), le
@@ -1936,7 +1936,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
           ou "QUITTER LE BATTLE" sur l'écran de fin. Conservée uniquement là. */}
       <Animated.View pointerEvents="none" style={[s.versus, { opacity: versusOpacity, transform: [{ scale: versusScale }] }]}><Text style={s.versusText}>⚡ BATTLE ⚡</Text><Text style={s.versusNames} numberOfLines={2}>{versusLabel}</Text></Animated.View>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(round?.themeCode || arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
       {myCreditStatus ? <View style={s.creditBadgeRow}><Text style={s.creditBadgeText}>🎁 {formatCompactNumber(myCreditStatus.remainingFree)} Free restant</Text></View> : null}
       {/* Adel (03/09/2026) : "on voit pas les titres en dessous, on voit pas
           la suite du bas" -- vrai bug : cet écran n'avait AUCUN scroll, donc

@@ -21,6 +21,12 @@ export type KeepBattleSoloRound = {
   previewUrl: string;
   choices: string[];
   correctAnswer: string;
+  // Adel (12/09/2026) : "il est resté coincé sur Funk ... pourquoi il ne
+  // change pas automatiquement" -- style réel du morceau tiré pour CETTE
+  // manche parmi les styles sélectionnés, distinct du libellé global figé
+  // (KeepBattleSoloPack.themeCode) qui ne peut représenter qu'un seul style
+  // à la fois ('MIX' dès que 2+ styles sont cochés).
+  themeCode?: string | null;
 };
 
 export type KeepBattleSoloPack = {
@@ -121,6 +127,7 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
       artist: simplifyArtistCredit(String(round.artist || '')) || correctAnswer,
       artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
       previewUrl: String(round.previewUrl || ''),
+      themeCode: round.themeCode ? String(round.themeCode).toUpperCase() : null,
       choices: cleanedChoices,
       correctAnswer,
     };

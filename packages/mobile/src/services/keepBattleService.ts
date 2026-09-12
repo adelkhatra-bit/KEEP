@@ -106,6 +106,11 @@ export type KeepBattleArenaRound = {
   closesAt?: string | null;
   revealUntil?: string | null;
   revealed?: boolean;
+  // Adel (12/09/2026) : "il est resté coincé sur Funk" -- style réel du
+  // morceau tiré pour cette manche parmi les styles sélectionnés à l'hôte
+  // (KeepBattleArenaState.themeCode/themeCodes restent le libellé global de
+  // l'arène, jamais mis à jour manche après manche).
+  themeCode?: string | null;
   answered?: boolean;
   myAnswer?: {
     selectedAnswer: string;
