@@ -1,22 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
+import { usePlaylistStore } from '../store/usePlaylistStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers } from '../services/playlistSaleService';
 import { Alert as KeepAlert } from '../utils/keepAlert';
 
 type PriceEditState = { playlistId: string; priceText: string } | null;
+type AddingState = { playlist: ProviderPlaylist; priceText: string } | null;
 
 export default function PlaylistSalePanel({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const { playlists } = usePlaylistStore();
   const [access, setAccess] = useState<PlaylistSaleAccess | null>(null);
   const [offers, setOffers] = useState<PlaylistSaleOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
+  const [adding, setAdding] = useState<AddingState>(null);
   const [error, setError] = useState('');
 
   const loadData = async () => {
@@ -92,6 +97,34 @@ export default function PlaylistSalePanel({ navigation }: any) {
       },
     ]);
   };
+
+  const handleAddPrice = async (playlist: ProviderPlaylist, priceText: string) => {
+    const priceCents = Math.round(parseFloat(priceText) * 100);
+    if (!priceText || isNaN(priceCents) || priceCents <= 0) {
+      KeepAlert.alert('Prix invalide', 'Entrez un prix positif.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await setPlaylistSalePrice(playlist.id, playlist.name, priceCents);
+      await loadData();
+      setAdding(null);
+      KeepAlert.alert('Succès', `Playlist ${playlist.name} mise en vente pour ${(priceCents / 100).toFixed(2)}€.`);
+    } catch (e: any) {
+      const message = String(e?.message || e || '');
+      if (message.includes('PLAYLIST_SALE_LOCKED')) {
+        KeepAlert.alert('Vente verrouillée', 'Tu dois atteindre le seuil d\'abonnés pour vendre.');
+      } else {
+        KeepAlert.alert('Erreur', e?.message || 'Impossible de fixer le prix.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const availablePlaylists = useMemo<ProviderPlaylist[]>(() => {
+    return playlists.filter((p) => !offers.some((o) => o.playlistId === p.id));
+  }, [playlists, offers]);
 
   if (!user) {
     return (
@@ -214,6 +247,33 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
             )}
 
+            {/* Playlists disponibles pour la vente */}
+            {access.unlocked && availablePlaylists.length > 0 && (
+              <View style={s.availableSection}>
+                <Text style={s.sectionTitle}>AJOUTER À LA VENTE ({availablePlaylists.length})</Text>
+                <FlatList
+                  scrollEnabled={false}
+                  data={availablePlaylists}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={s.availableCard}>
+                      <View style={s.availableInfo}>
+                        <Text style={s.availableName}>{item.name}</Text>
+                        <Text style={s.availableCount}>{item.trackCount} morceaux</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={s.addBtn}
+                        disabled={busy}
+                        onPress={() => setAdding({ playlist: item, priceText: '' })}
+                      >
+                        <Text style={s.addBtnText}>+ Vendre</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+              </View>
+            )}
+
             {/* Message si verrouillé */}
             {!access.unlocked && (
               <View style={s.lockedBox}>
@@ -224,16 +284,55 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
             )}
 
-            {/* Message si accès mais pas d'offres */}
-            {access.unlocked && offers.length === 0 && (
+            {/* Message si accès mais pas d'offres et pas de playlists */}
+            {access.unlocked && offers.length === 0 && availablePlaylists.length === 0 && (
               <View style={s.emptyBox}>
-                <Text style={s.emptyBoxTitle}>Aucune playlist en vente</Text>
-                <Text style={s.emptyBoxText}>Tu peux commencer à en vendre en sélectionnant une playlist dans ton profil.</Text>
+                <Text style={s.emptyBoxTitle}>Aucune playlist</Text>
+                <Text style={s.emptyBoxText}>Ajoute des musiques à ton profil pour pouvoir les vendre.</Text>
               </View>
             )}
           </>
         )}
       </ScrollView>
+
+      {/* Modal d'ajout de nouvelle offre */}
+      {adding && (
+        <View style={s.modal}>
+          <TouchableOpacity style={s.modalOverlay} onPress={() => setAdding(null)} />
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Vendre cette playlist</Text>
+            <Text style={s.modalSubtitle}>{adding.playlist.name}</Text>
+            <Text style={s.modalDescription}>{adding.playlist.trackCount} morceaux</Text>
+            <View style={s.modalInput}>
+              <Text style={s.modalCurrency}>€</Text>
+              <TextInput
+                style={s.modalTextInput}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                value={adding.priceText}
+                onChangeText={(text) => setAdding({ ...adding, priceText: text })}
+                editable={!busy}
+              />
+            </View>
+            <View style={s.modalActions}>
+              <TouchableOpacity
+                style={s.modalCancelBtn}
+                disabled={busy}
+                onPress={() => setAdding(null)}
+              >
+                <Text style={s.modalCancelBtnText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.modalSaveBtn}
+                disabled={busy}
+                onPress={() => void handleAddPrice(adding.playlist, adding.priceText)}
+              >
+                {busy ? <ActivityIndicator color="#FFF" /> : <Text style={s.modalSaveBtnText}>Mettre en vente</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Modal d'édition de prix */}
       {editing && (
@@ -321,6 +420,13 @@ const s = StyleSheet.create({
   editBtnText: { color: colors.white, fontSize: 11, fontWeight: '900' },
   removeBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: '#E74C8C', alignItems: 'center' },
   removeBtnText: { color: '#E74C8C', fontSize: 11, fontWeight: '900' },
+  availableSection: { marginTop: spacing.lg },
+  availableCard: { borderRadius: radius.lg, backgroundColor: '#1A3E2E', borderWidth: 1, borderColor: '#4DA673', padding: spacing.lg, marginBottom: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  availableInfo: { flex: 1 },
+  availableName: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
+  availableCount: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: spacing.xs },
+  addBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: '#4DA673', marginLeft: spacing.md },
+  addBtnText: { color: '#0A140F', fontSize: 11, fontWeight: '900' },
   lockedBox: { borderRadius: radius.lg, backgroundColor: '#2C1A3E', borderWidth: 1, borderColor: colors.primaryLight, padding: spacing.lg },
   lockedTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
   lockedText: { color: '#F8F6FC', fontSize: 12, fontWeight: '700', marginTop: spacing.sm, lineHeight: 17 },
@@ -329,6 +435,7 @@ const s = StyleSheet.create({
   modalContent: { backgroundColor: colors.backgroundCard, borderRadius: radius.xl, padding: spacing.lg, width: '85%', borderWidth: 1, borderColor: colors.border },
   modalTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'center' },
   modalSubtitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: spacing.sm },
+  modalDescription: { color: colors.textMuted, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 2 },
   modalInput: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
   modalCurrency: { color: colors.textMuted, fontSize: 14, fontWeight: '900' },
   modalTextInput: { flex: 1, paddingVertical: spacing.md, color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
