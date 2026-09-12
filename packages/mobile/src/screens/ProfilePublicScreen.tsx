@@ -74,6 +74,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
   useEffect(() => { let live = true; isKeepBattleEnabled().then((v) => live && setBattleFeatureEnabled(v)); return () => { live = false; }; }, []);
   const [growthStatus, setGrowthStatus] = useState<GrowthRewardStatus | null>(null);
   const [smartSortAccess, setSmartSortAccess] = useState<QuotaAccess | null>(null);
+  // Adel (14/09/2026) : "ça fait trop de boutons ... il faut un système de
+  // roulette ... comme tu as fait pour les battles" -- même bouton compact +
+  // dérouleur que côté profil visiteur, jamais un mur de puces qui grossit
+  // avec la taille de la collection.
+  const [styleModalOpen, setStyleModalOpen] = useState(false);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -624,16 +629,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       return <View style={s.keepList}>
         <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
         {trackGenreOptions.length > 0 ? (
-          <View style={s.growthPanel}>
-            <Text style={s.listText}>Parcourir par style</Text>
-            <View style={s.browseChipsRow}>
-              {trackGenreOptions.map(({ genre, count }) => (
-                <TouchableOpacity key={genre} style={s.browseChip} onPress={() => setSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === genre)) })}>
-                  <Text style={s.browseChipText}>{genre} · {count}</Text>
-                </TouchableOpacity>
-              ))}
+          <TouchableOpacity style={s.growthPanel} onPress={() => setStyleModalOpen(true)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1, minWidth: 0 }}><Text style={s.listText}>Parcourir par style</Text><Text style={s.growthText}>{trackGenreOptions.length} style{trackGenreOptions.length > 1 ? 's' : ''} disponible{trackGenreOptions.length > 1 ? 's' : ''}</Text></View>
+              <Text style={{ color: colors.primaryLight, fontSize: 20, fontWeight: '900', marginLeft: 8 }}>›</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ) : null}
         {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined))}
       </View>;
@@ -805,7 +806,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.growthPanel}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text></View>
           ) : growthStatus.nextFollowerGoal ? (
             <View style={s.growthPanel}>
-              <Text style={s.growthText}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <Text style={[s.growthText, { flex: 1 }]}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki</Text>
+                {/* Adel (14/09/2026) : "un point d'interrogation, il met une
+                    explication claire. C'est quoi le bonus ?" -- les paliers
+                    d'abonnés (25/100/250/500/1000) donnent des bonus
+                    différents (profils Découverte, essais Vibes Auto, Free,
+                    Audience Pro à 1000) ; jamais un seul type de bonus,
+                    d'où une explication générale plutôt qu'un chiffre figé
+                    qui pourrait se tromper si Adel change les seuils. */}
+                <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
+                  <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '900', marginLeft: 6 }}>ⓘ</Text>
+                </TouchableOpacity>
+              </View>
               <View style={s.growthBarTrack}><View style={[s.growthBarFill, { width: `${Math.min(100, Math.round((growthStatus.followers / growthStatus.nextFollowerGoal) * 100))}%` }]} /></View>
             </View>
           ) : null
@@ -837,7 +850,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       {dnaFeatureEnabled && (
         <View style={s.dna}>
           <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
-          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=><View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>)}</View> : <Text style={s.muted}>Commence une session Loki pour construire ton ADN musical.</Text>}
+          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=>{
+            const match = trackGenreOptions.find((row) => row.genre === g.genre);
+            return match ? (
+              <TouchableOpacity key={g.genre} style={s.chip} onPress={() => setSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((genre) => genre.trim() === g.genre)) })}><Text style={s.chipText}>{g.genre}</Text></TouchableOpacity>
+            ) : <View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>;
+          })}</View> : <Text style={s.muted}>Commence une session Loki pour construire ton ADN musical.</Text>}
         </View>
       )}
 
@@ -863,6 +881,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
       previewOnly
       onClose={() => setProfileSwipeOpen(false)}
     />
+
+    <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
+      <View style={s.modalBackdrop}><View style={s.shareSheet}>
+        <Text style={s.shareTitle}>Parcourir par style</Text>
+        <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
+          {trackGenreOptions.map(({ genre, count }) => (
+            <TouchableOpacity key={genre} style={s.listRow} onPress={() => { setStyleModalOpen(false); setSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === genre)) }); }}>
+              <Text style={[s.listText, { flex: 1 }]}>{genre}</Text>
+              <Text style={s.playlistCount}>{count}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity style={{ minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 }} onPress={() => setStyleModalOpen(false)}><Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '700' }}>Fermer</Text></TouchableOpacity>
+      </View></View>
+    </Modal>
 
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
