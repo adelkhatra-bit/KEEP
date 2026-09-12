@@ -410,33 +410,38 @@ function Action({ label, onPress }: { label: string; onPress: () => void }) {
   return <TouchableOpacity style={s.action} onPress={onPress}><Text style={s.actionText}>{label}</Text><Text style={s.actionArrow}>›</Text></TouchableOpacity>;
 }
 
+// Adel (15/09/2026) : "l'écriture est trop petite ... refais toutes les
+// écritures correctement pour qu'on voit bien" -- cet écran utilisait des
+// tailles nettement plus petites (9 à 13px) que "Modifier le profil" à côté
+// (13 à 18px) pour un contenu comparable. Toutes remontées d'au moins 2px,
+// plus aucune sous 12px, cohérent avec le reste de l'app.
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, muted: { color: colors.textMuted },
   header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerButton: { width: 82, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  headerButton: { width: 90, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 15, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 19, fontWeight: '900' },
   tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  tabBtn: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  tabBtn: { flex: 1, minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabBtnNum: { color: colors.primaryLight, fontSize: 13, fontWeight: '900' },
+  tabBtnNum: { color: colors.primaryLight, fontSize: 15, fontWeight: '900' },
   tabBtnNumOn: { color: '#FFFFFF' },
-  tabBtnLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 1 },
+  tabBtnLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: 1 },
   tabBtnLabelOn: { color: '#FFFFFF' },
-  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 8 },
-  label: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, action: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
+  content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginBottom: 8 },
+  label: { color: colors.textSecondary, fontSize: 15, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 4 }, action: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   blockedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   blockedCard: { width: '100%', maxWidth: 380, maxHeight: '75%', borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: 14 },
   blockedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  blockedTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
-  blockedClose: { color: colors.textMuted, fontSize: 16, fontWeight: '900', paddingHorizontal: 4 },
+  blockedTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  blockedClose: { color: colors.textMuted, fontSize: 18, fontWeight: '900', paddingHorizontal: 4 },
   blockedScroll: { maxHeight: 340 },
   blockedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderBottomWidth: 1, borderBottomColor: colors.border },
   blockedAvatar: { width: 34, height: 34, borderRadius: 17 },
   blockedAvatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
-  blockedAvatarText: { color: colors.primaryLight, fontSize: 13, fontWeight: '900' },
-  blockedUsername: { flex: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
-  blockedUnblockButton: { minHeight: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  blockedUnblockText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
-  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
-  primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 12, fontWeight: '900' }, secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
-  signOutButton: { minHeight: 44, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' }, deleteAccountButton: { minHeight: 44, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  blockedAvatarText: { color: colors.primaryLight, fontSize: 15, fontWeight: '900' },
+  blockedUsername: { flex: 1, color: colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  blockedUnblockButton: { minHeight: 34, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  blockedUnblockText: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
+  networkBlock: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 }, logo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent:'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' }, connectionState: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: 2 }, input: { minHeight: 46, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 15, color: colors.textPrimary, backgroundColor: colors.background }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 9 },
+  primaryButton: { minHeight: 40, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 14, fontWeight: '900' }, secondaryButton: { minHeight: 40, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 14, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 14, fontWeight: '800' },
+  signOutButton: { minHeight: 46, marginTop: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }, signOutText: { color: colors.danger, fontSize: 14, fontWeight: '900' }, deleteDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 }, deleteTitle: { color: colors.danger, fontSize: 15, fontWeight: '900' }, deleteAccountButton: { minHeight: 46, marginTop: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A1319', borderWidth: 1, borderColor: colors.danger, paddingHorizontal: 12 }, deleteAccountText: { color: '#FF9AA8', fontSize: 13, fontWeight: '900', textAlign: 'center' },
 });
