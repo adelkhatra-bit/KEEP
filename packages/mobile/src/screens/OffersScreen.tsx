@@ -399,6 +399,19 @@ export default function OffersScreen({ navigation, route }: any) {
                 <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
                 <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>Free gagnés</Text></View>
               </View> : null}
+              {/* Adel (15/09/2026) : "n'oubliez pas de rajouter dans les
+                  offres les dernières options qu'on a mis que tout soit à
+                  jour ... bien expliquer les avantages" -- Audience Pro et
+                  la vente de playlists sont réels, débloqués par les
+                  abonnés (pas par une formule payante), jamais montrés ici
+                  avant. */}
+              {growth ? <Text style={s.creditText}>
+                {growth.audienceProUnlocked
+                  ? `🏆 Audience Pro débloquée (${growth.followers} abonnés) : Free en bonus + profils Découverte/essais Vibes Auto en plus, et tu peux vendre tes playlists dès que tu passes le seuil dédié.`
+                  : growth.nextFollowerGoal
+                  ? `Prochain palier communauté : ${growth.followers}/${growth.nextFollowerGoal} abonnés -- Free en bonus, profils Découverte, essais Vibes Auto, et à terme le badge Audience Pro et la vente de playlists.`
+                  : null}
+              </Text> : null}
 
               {breakdown ? <View style={s.breakdownBox}>
                 <Text style={s.breakdownTitle}>D’OÙ VIENT TON SOLDE ({breakdown.remaining} Free)</Text>

@@ -819,7 +819,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
         {!accountRequired && communityMode === 'followers' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
         {!accountRequired && growthStatus ? (
           growthStatus.audienceProUnlocked ? (
-            <View style={s.growthPanel}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text></View>
+            // Adel (15/09/2026) : "je veux que quand on clique dessus, il y
+            // ait un petit pop-up qui explique à quoi ça va servir. Qu'est-ce
+            // que ça débloque, quels seront les avantages ?" -- réponse
+            // honnête, sans inventer d'avantage qui n'existe pas encore.
+            <TouchableOpacity style={s.growthPanel} onPress={() => Alert.alert(
+              '🏆 Audience Pro débloquée',
+              `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers la vente de playlists (déblocage séparé, par abonnés) quand tu en as assez.`,
+            )}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text><Text style={[s.growthText, { textAlign: 'center', marginTop: 4 }]}>Toucher pour voir les avantages ⓘ</Text></TouchableOpacity>
           ) : growthStatus.nextFollowerGoal ? (
             <View style={s.growthPanel}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>

@@ -6,6 +6,7 @@ import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessSer
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { getPlaylistSaleAccess, PlaylistSaleAccess } from '../services/playlistSaleService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
@@ -61,6 +62,18 @@ export default function CreatorToolsPanel({ navigation }: any) {
   // interrupteur décoratif dans Super Admin -- coupe-circuit d'urgence réel.
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(false);
   useEffect(() => { let live = true; isFeatureEnabled('events').then((enabled) => live && setEventsFeatureEnabled(enabled)); return () => { live = false; }; }, []);
+  // Adel (15/09/2026) : "je ne vois pas l'installation de Stripe ...
+  // n'importe quel utilisateur pourra vendre sa playlist" -- le mode de
+  // paiement sert maintenant a DEUX choses (evenements payants ET vente de
+  // playlists), debloque par un seuil d'abonnes independant du plan payant
+  // -- visible des qu'un des deux s'applique, pas seulement Creator Pro.
+  const [saleAccess, setSaleAccess] = useState<PlaylistSaleAccess | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (!user || isLocalGuest || isDemoMode) { setSaleAccess(null); return undefined; }
+    getPlaylistSaleAccess().then((v) => live && setSaleAccess(v)).catch(() => { if (live) setSaleAccess(null); });
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
 
   useEffect(() => {
     let live = true;
@@ -182,21 +195,38 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
     {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? 'Venue Pro : créations illimitées.' : eventAccess?.planCode === 'CREATOR_PRO' ? 'Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite.' : 'Les réponses Oui / Peut-être / Non restent dans l’onglet Soirées.'}</Text></> : null}
 
-    {/* Adel (08/09/2026) : "trouver une place dans les paramètres avec des
-        explications ... débloqué lorsque les évènements payants seront
-        possible ... sinon ça sert à rien de l'intégrer" -- vitrine
-        informative, pas de connexion Stripe reelle tant que le systeme de
-        paiement d'entree n'existe pas cote serveur. */}
-    {creatorEnabled ? <TouchableOpacity
-      style={s.paymentTeaser}
-      onPress={() => Alert.alert(
-        '💳 Mode de paiement',
-        'Bientôt : connecte ton propre compte Stripe (ou PayPal) pour encaisser directement le prix d’entrée de tes évènements payants. L’argent arrivera sur TON compte, jamais sur celui de Loki. Cette option se débloquera automatiquement dès que les évènements payants seront activés sur Loki — inutile de la configurer avant.',
-      )}
-    >
-      <Text style={s.paymentTeaserTitle}>💳 Mode de paiement · Bientôt disponible</Text>
-      <Text style={s.paymentTeaserText}>Connecte ton Stripe/PayPal pour encaisser toi-même le prix d’entrée de tes évènements. Se débloque avec les évènements payants.</Text>
-    </TouchableOpacity> : null}
+    {/* Adel (08/09/2026, puis 15/09/2026) : "trouver une place dans les
+        paramètres avec des explications ... débloqué lorsque les évènements
+        payants seront possible ... sinon ça sert à rien de l'intégrer" --
+        puis "je ne vois pas l'installation de Stripe ... super simple à
+        installer" pour la vente de playlists. Un seul mode de paiement
+        (un seul compte Stripe/PayPal par utilisateur) sert les deux usages
+        -- vitrine informative tant que Stripe Connect n'est pas branché
+        côté serveur (démarche réservée à Adel), jamais une fausse connexion.
+        Visible dès que L'UN des deux usages s'applique (évènements payants
+        Creator Pro/Venue Pro, OU seuil d'abonnés atteint pour vendre une
+        playlist -- n'importe quelle formule, pas seulement Creator Pro). */}
+    {creatorEnabled || saleAccess?.unlocked ? (() => {
+      const usages: string[] = [];
+      if (creatorEnabled) usages.push('encaisser le prix d’entrée de tes évènements payants');
+      if (saleAccess?.unlocked) usages.push('encaisser tes ventes de playlists');
+      const usageText = usages.join(' et ');
+      return <TouchableOpacity
+        style={s.paymentTeaser}
+        onPress={() => Alert.alert(
+          '💳 Mode de paiement',
+          `Bientôt : connecte ton propre compte Stripe (ou PayPal) pour ${usageText}. L’argent arrivera sur TON compte, jamais sur celui de Loki -- Loki ne prend aucune commission pour l’instant. Cette option se débloquera automatiquement dès que ce sera prêt côté serveur -- inutile de la configurer avant.`,
+        )}
+      >
+        <Text style={s.paymentTeaserTitle}>💳 Mode de paiement · Bientôt disponible</Text>
+        <Text style={s.paymentTeaserText}>Connecte ton Stripe/PayPal pour {usageText}.</Text>
+      </TouchableOpacity>;
+    })() : saleAccess && !saleAccess.unlocked ? (
+      <View style={s.paymentTeaser}>
+        <Text style={s.paymentTeaserTitle}>💶 Vendre mes playlists</Text>
+        <Text style={s.paymentTeaserText}>Débloqué à partir de {saleAccess.threshold} abonnés -- tu en as {saleAccess.followers} pour l’instant.</Text>
+      </View>
+    ) : null}
 
     <Modal visible={eventOpen} transparent animationType="slide" onRequestClose={() => setEventOpen(false)}>
       <View style={s.backdrop}><View style={s.sheet}>
