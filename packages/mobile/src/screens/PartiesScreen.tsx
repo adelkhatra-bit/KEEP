@@ -451,6 +451,18 @@ export default function PartiesScreen({ navigation, route }: any) {
     navigation.setParams?.({ openBattle: undefined, source: undefined, arenaId: undefined });
     stripBattleUrlParams();
   }, [navigation, route?.params?.openBattle]);
+  // Adel (15/09/2026) : "comment ça se fait qu'on n'a pas le même pop-up
+  // que dans la rubrique Soirée ... je veux le même des deux côtés" --
+  // Réglages avancés (CreatorToolsPanel) avait sa propre création
+  // d'événement simplifiée, divergente de celle-ci (qui vérifie en plus le
+  // seuil d'abonnés, gère l'édition, les images, le QR...). Un seul
+  // formulaire de création désormais : ce bouton délègue ici plutôt que de
+  // maintenir une deuxième version qui dérive.
+  useEffect(() => {
+    if (!route?.params?.openCreateEvent) return;
+    navigation.setParams?.({ openCreateEvent: undefined });
+    void openCreate();
+  }, [navigation, route?.params?.openCreateEvent]);
   const currentEvent = events.length ? events[eventIndex % events.length] : null;
   const audienceReady = followers >= minEventFollowers;
   const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited) && audienceReady;

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
-import { broadcastEventToFollowers, createCreatorEvent } from '../services/creatorEventService';
 import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
@@ -50,14 +49,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
   const [planCode, setPlanCode] = useState('FREE');
   const [eventAccess, setEventAccess] = useState<QuotaAccess | null>(null);
   const [planPrices, setPlanPrices] = useState<Record<string, string>>({ PREMIUM: '2,99 € / mois', CREATOR_PRO: '9,99 € / mois', VENUE_PRO: '29,99 € / mois' });
-  const [eventOpen, setEventOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [name, setName] = useState('');
-  const [startsAt, setStartsAt] = useState('');
-  const [venueName, setVenueName] = useState('');
-  const [countryCode, setCountryCode] = useState(user?.countryCode || 'FR');
-  const [description, setDescription] = useState('');
-  const [message, setMessage] = useState('');
   // Adel : brancher le flag "events" pour de vrai plutôt que de laisser un
   // interrupteur décoratif dans Super Admin -- coupe-circuit d'urgence réel.
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(false);
@@ -141,43 +133,21 @@ export default function CreatorToolsPanel({ navigation }: any) {
   // creatorEnabled (seule condition d'affichage de ce bouton), c'est
   // "déjà utilisé ce mois-ci" -- direction vers Soirées (même écran que
   // l'onglet), jamais un nouveau paywall pour un évènement qui existe déjà.
-  const openEventComposer = async () => {
+  // Adel (15/09/2026) : "comment ça se fait qu'on n'a pas le même pop-up
+  // que dans la rubrique Soirée ... je veux le même des deux côtés" -- ce
+  // panneau avait sa propre création d'événement simplifiée (nom/date/lieu/
+  // description seulement), divergente de celle de l'onglet Soirées (qui
+  // vérifie en plus le seuil d'abonnés, gère l'édition, les images, le
+  // QR...). Un seul formulaire désormais : ce bouton délègue à Soirées au
+  // lieu de maintenir une deuxième version qui dérive.
+  const openEventComposer = () => {
     if (!eventsFeatureEnabled) return Alert.alert('Événements', 'La création d’événements est temporairement suspendue.');
     if (!creatorEnabled) return openPaywall('CREATE_EVENT', 'CREATOR_PRO');
-    const access = await getEventCreationAccess().catch(() => eventAccess);
-    if (access) setEventAccess(access);
-    if (!access || (!access.allowed && !access.unlimited)) return navigation.navigate('Main', { screen: 'Parties' });
-    setEventOpen(true);
-  };
-
-  const parseDate = () => {
-    const clean = startsAt.trim();
-    if (!clean) return null;
-    const parsed = new Date(clean.length === 16 ? `${clean}:00` : clean);
-    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-  };
-
-  const publish = async (notifyFollowers: boolean) => {
-    if (!eventsFeatureEnabled) return Alert.alert('Événements', 'La création d’événements est temporairement suspendue.');
-    if (!creatorEnabled) return openPaywall('CREATE_EVENT', 'CREATOR_PRO');
-    const iso = parseDate();
-    if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom d’événement.');
-    if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM, par exemple 2026-09-12T22:00.');
-    setBusy(true);
-    try {
-      const event = await createCreatorEvent({ name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0, 2), djArtistNames: [user.username] });
-      let sent = 0;
-      if (notifyFollowers) sent = await broadcastEventToFollowers(event.id, message.trim());
-      setEventOpen(false);
-      setName(''); setStartsAt(''); setVenueName(''); setDescription(''); setMessage('');
-      setEventAccess(await getEventCreationAccess().catch(() => eventAccess));
-      Alert.alert('Événement publié', notifyFollowers ? `${event.name} est créé. ${sent} abonné(s) ont reçu l’invitation dans Loki.` : `${event.name} est créé.`);
-    } catch (e: any) {
-      const code = String(e?.message || '');
-      if (code.includes('VENUE_PRO_EVENT_LIMIT')) openPaywall('CREATE_EVENT', 'VENUE_PRO');
-      else if (code.includes('CREATOR_PRO_REQUIRED')) openPaywall('CREATE_EVENT', 'CREATOR_PRO');
-      else Alert.alert('Événement', code || 'Impossible de publier cet événement.');
-    } finally { setBusy(false); }
+    // Soirée du mois déjà utilisée ce mois-ci (Creator Pro) : montrer
+    // l'événement existant dans Soirées, jamais rouvrir un formulaire de
+    // création qui redirigerait vers un palier payant pour rien.
+    if (!eventCanCreate && !eventAccess?.unlimited) return navigation.navigate('Main', { screen: 'Parties' });
+    navigation.navigate('Main', { screen: 'Parties', params: { openCreateEvent: true } });
   };
 
   const eventLabel = eventAccess?.unlimited ? '+ Créer une soirée · illimité' : eventAccess?.planCode === 'CREATOR_PRO' ? (eventCanCreate ? '+ Créer ma soirée du mois' : '👉 Voir ma soirée du mois dans Soirées') : '+ Créer un événement';
@@ -253,22 +223,6 @@ export default function CreatorToolsPanel({ navigation }: any) {
         <Text style={s.paymentTeaserText}>Connecte ton propre Stripe ou PayPal pour encaisser tes ventes (playlists, évènements) directement sur TON compte. Se débloque selon ta formule ou tes abonnés -- crée ton compte Loki pour voir ta progression.</Text>
       </View>
     )}
-
-    <Modal visible={eventOpen} transparent animationType="slide" onRequestClose={() => setEventOpen(false)}>
-      <View style={s.backdrop}><View style={s.sheet}>
-        <View style={s.modalHeader}><Text style={s.modalTitle}>Créer un événement</Text><TouchableOpacity onPress={() => setEventOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
-          <TextInput style={s.input} value={startsAt} onChangeText={setStartsAt} placeholder="2026-09-12T22:00" placeholderTextColor={colors.textMuted} autoCapitalize="none"/>
-          <TextInput style={s.input} value={venueName} onChangeText={setVenueName} placeholder="Lieu / établissement" placeholderTextColor={colors.textMuted}/>
-          <TextInput style={s.input} value={countryCode} onChangeText={setCountryCode} placeholder="Pays (FR)" placeholderTextColor={colors.textMuted} autoCapitalize="characters" maxLength={2}/>
-          <TextInput style={[s.input,s.multiline]} value={description} onChangeText={setDescription} placeholder="Description de l’événement" placeholderTextColor={colors.textMuted} multiline/>
-          <TextInput style={[s.input,s.multiline]} value={message} onChangeText={setMessage} placeholder="Message aux abonnés (optionnel)" placeholderTextColor={colors.textMuted} multiline/>
-          <TouchableOpacity style={s.primary} onPress={() => publish(true)} disabled={busy}>{busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>PUBLIER + NOTIFIER MES ABONNÉS</Text>}</TouchableOpacity>
-          <TouchableOpacity style={s.secondary} onPress={() => publish(false)} disabled={busy}><Text style={s.secondaryText}>Publier sans notification</Text></TouchableOpacity>
-        </ScrollView>
-      </View></View>
-    </Modal>
   </View>;
 }
 
@@ -277,5 +231,5 @@ const s = StyleSheet.create({
   // passage avait re-transforme certaines tailles deja augmentees) --
   // valeurs reprises a la main, avec un lineHeight qui depasse toujours le
   // fontSize (jamais egal, sinon texte multi-lignes trop serre).
-  card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginTop:3},planSectionTitle:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:62,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planHeadingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7},unlockedHeading:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7,marginTop:9,marginBottom:5},planPrice:{color:'#E9DFFF',fontSize:15,fontWeight:'900'},tierBadge:{minHeight:24,borderRadius:999,borderWidth:1,paddingHorizontal:8,flexDirection:'row',alignItems:'center',gap:5},tierPremium:{backgroundColor:'#2A203A',borderColor:'#B993FF'},tierCreator:{backgroundColor:'#2C2530',borderColor:'#D5B46A'},tierVenue:{backgroundColor:'#1C2A34',borderColor:'#7DC5E8'},tierBadgeText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.55},tierDot:{width:6,height:6,borderRadius:3,backgroundColor:'#6D6376'},tierDotActive:{backgroundColor:'#FFFFFF'},planChoiceSubtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:4},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},standardProfileLink:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:9,borderRadius:22,borderWidth:1,borderColor:'#40354E',backgroundColor:'#211A2B',paddingHorizontal:14},standardProfileLinkText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},subscriptionNote:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},eventButtonText:{color:'#FFF',fontSize:15,fontWeight:'900'},paymentTeaser:{marginTop:10,padding:12,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},paymentTeaserTitle:{color:'#FFD166',fontSize:15,fontWeight:'900'},paymentTeaserText:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:4},backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'flex-end',alignItems:'center'},sheet:{width:'100%',maxWidth:520,maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18,paddingBottom:28},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8},modalTitle:{color:'#FFF',fontSize:19,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:15,fontWeight:'800'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#40354E',backgroundColor:'#0E0A14',paddingHorizontal:13,color:'#FFF',fontSize:16,marginTop:9},multiline:{minHeight:82,paddingTop:12,textAlignVertical:'top'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},primaryText:{color:'#FFF',fontSize:15,fontWeight:'900'},secondary:{minHeight:44,alignItems:'center',justifyContent:'center'},secondaryText:{color:colors.primaryLight,fontSize:15,fontWeight:'800'},
+  card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginTop:3},planSectionTitle:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:62,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planHeadingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7},unlockedHeading:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7,marginTop:9,marginBottom:5},planPrice:{color:'#E9DFFF',fontSize:15,fontWeight:'900'},tierBadge:{minHeight:24,borderRadius:999,borderWidth:1,paddingHorizontal:8,flexDirection:'row',alignItems:'center',gap:5},tierPremium:{backgroundColor:'#2A203A',borderColor:'#B993FF'},tierCreator:{backgroundColor:'#2C2530',borderColor:'#D5B46A'},tierVenue:{backgroundColor:'#1C2A34',borderColor:'#7DC5E8'},tierBadgeText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.55},tierDot:{width:6,height:6,borderRadius:3,backgroundColor:'#6D6376'},tierDotActive:{backgroundColor:'#FFFFFF'},planChoiceSubtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:4},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},standardProfileLink:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:9,borderRadius:22,borderWidth:1,borderColor:'#40354E',backgroundColor:'#211A2B',paddingHorizontal:14},standardProfileLinkText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},subscriptionNote:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},eventButtonText:{color:'#FFF',fontSize:15,fontWeight:'900'},paymentTeaser:{marginTop:10,padding:12,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},paymentTeaserTitle:{color:'#FFD166',fontSize:15,fontWeight:'900'},paymentTeaserText:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:4},
 });
