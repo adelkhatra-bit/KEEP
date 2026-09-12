@@ -19,6 +19,8 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { commitKeep } from '../services/keepTrackAction';
+import { enrichMissingGenres } from '../services/keylessGenreService';
+import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
@@ -290,6 +292,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [swipeTracks]);
   const artistGroups = useMemo(() => groupTracksByArtist(swipeTracks), [swipeTracks]);
+  // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
+  // style musical ?" -- même enrichissement en tâche de fond que le propre
+  // profil : les morceaux sans genre de CE profil visité sont enrichis et
+  // partagés avec toute l'app (jamais bloquant, plafonné).
+  useEffect(() => {
+    const missing = swipeTracks.filter((t) => !t.genres || t.genres.length === 0).slice(0, 15).map((t) => ({ id: t.id, title: t.title, artist: t.artist, genres: [] as string[] }));
+    if (!missing.length) return undefined;
+    let live = true;
+    enrichMissingGenres(missing).then((enriched) => { if (live) void persistEnrichedGenres(enriched); }).catch(() => {});
+    return () => { live = false; };
+  }, [swipeTracks]);
   const browseSwipeTracks = useMemo(() => {
     if (!browseFilter) return swipeTracks;
     return browseFilter.type === 'genre'

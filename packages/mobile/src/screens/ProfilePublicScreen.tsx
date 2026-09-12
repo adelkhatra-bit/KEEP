@@ -20,7 +20,8 @@ import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
-import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
+import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
+import { enrichMissingGenres } from '../services/keylessGenreService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -393,6 +394,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [publicKeptTracks]);
+  // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
+  // style musical ?" -- la détection de genre existait déjà mais restait
+  // réservée à Creator Pro/Venue Pro (Vibes Auto) et n'était jamais
+  // partagée. Ici, en tâche de fond, pour TOUS les plans (jamais bloquant,
+  // jamais visible si ça échoue) : les morceaux encore sans genre de CE
+  // profil sont enrichis et partagés avec toute l'app -- plafonné pour ne
+  // jamais spammer le catalogue gratuit à chaque ouverture d'écran.
+  useEffect(() => {
+    if (accountRequired) return undefined;
+    const missing = publicKeptTracks.map((entry) => entry.track).filter((t) => !t.genres || t.genres.length === 0).slice(0, 15).map((t) => ({ id: t.id, title: t.title, artist: t.artist, genres: [] as string[] }));
+    if (!missing.length) return undefined;
+    let live = true;
+    enrichMissingGenres(missing).then((enriched) => { if (live) void persistEnrichedGenres(enriched); }).catch(() => {});
+    return () => { live = false; };
+  }, [accountRequired, publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
     if (providerPlaylists.length) result.push(...providerPlaylists);
