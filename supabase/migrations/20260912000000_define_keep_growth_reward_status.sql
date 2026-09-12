@@ -1,3 +1,25 @@
+-- ============================================================================
+-- Fonction complémentaire manquante : keep_qualified_share_count
+-- Comptabilise le nombre de fois que les keeps d'un profil ont été copiés
+-- ============================================================================
+
+create or replace function public.keep_qualified_share_count(p_uid uuid)
+returns integer
+language sql
+stable
+security definer
+set search_path to 'public'
+as $function$
+  select coalesce(count(*)::integer, 0)
+  from public.keep_decisions
+  where source_user_id = p_uid
+    and decision = 'KEPT'
+    and source_type is not null;
+$function$;
+
+grant execute on function public.keep_qualified_share_count(uuid) to authenticated;
+
+-- ============================================================================
 -- Définition de la fonction keep_growth_reward_status() manquante
 -- Retourne les métriques de croissance réelles de l'utilisateur actuel
 -- AUDIT: Cette fonction était appelée mais jamais définie. Elle doit compter réellement
@@ -124,24 +146,3 @@ grant execute on function public.keep_growth_reward_status() to authenticated;
 -- Elle compte réellement les followers et partages qualifiés.
 -- Elle NE DOIT PAS être utilisée pour valider des droits d'accès ou débloquer des fonctionnalités.
 -- Les vérifications de plan doivent toujours se faire côté application via loadCurrentPlanCode().
-
--- ============================================================================
--- Fonction complémentaire manquante : keep_qualified_share_count
--- Comptabilise le nombre de fois que les keeps d'un profil ont été copiés
--- ============================================================================
-
-create or replace function public.keep_qualified_share_count(p_uid uuid)
-returns integer
-language sql
-stable
-security definer
-set search_path to 'public'
-as $function$
-  select coalesce(count(*)::integer, 0)
-  from public.keep_decisions
-  where source_user_id = p_uid
-    and decision = 'KEPT'
-    and source_type is not null;
-$function$;
-
-grant execute on function public.keep_qualified_share_count(uuid) to authenticated;
