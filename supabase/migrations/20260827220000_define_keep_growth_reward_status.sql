@@ -14,15 +14,9 @@ declare
   uid uuid := auth.uid();
 begin
   return query
-  select
-    0::integer as qualified_shares,
-    0::integer as followers,
-    0::integer as bonus_free_credits,
-    0::integer as bonus_discovery_profiles,
-    0::integer as bonus_sort_trials,
-    20::integer as next_share_goal,
-    false::boolean as audience_pro_unlocked,
-    1000::integer as audience_pro_threshold;
+  select * from (
+    values (0::integer, 0::integer, 0::integer, 0::integer, 0::integer, 20::integer, false::boolean, 1000::integer)
+  ) as t(qualified_shares, followers, bonus_free_credits, bonus_discovery_profiles, bonus_sort_trials, next_share_goal, audience_pro_unlocked, audience_pro_threshold);
 end;
 $$;
 
