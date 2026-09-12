@@ -8,7 +8,7 @@ returns integer
 language sql
 stable
 security definer
-set search_path to 'public'
+set search_path = public
 as $$
   select coalesce(count(*)::integer, 0)
   from public.keep_decisions
