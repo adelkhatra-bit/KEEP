@@ -7,10 +7,8 @@ returns integer
 language sql
 stable
 security definer
-set search_path = public
-as $$
-  select 0;
-$$;
+set search_path to 'public'
+as $$ select 0; $$;
 
 grant execute on function public.keep_qualified_share_count(uuid) to authenticated;
 
@@ -19,9 +17,7 @@ returns table(qualified_shares integer, followers integer, bonus_free_credits in
 language sql
 stable
 security definer
-set search_path = public
-as $$
-  select 0::integer, 0::integer, 0::integer, 0::integer, 0::integer, 20::integer, false, 1000::integer;
-$$;
+set search_path to 'public'
+as $$ select 0::integer, 0::integer, 0::integer, 0::integer, 0::integer, 20::integer, false, 1000::integer; $$;
 
 grant execute on function public.keep_growth_reward_status() to authenticated;
