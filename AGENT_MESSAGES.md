@@ -978,3 +978,13 @@ Verifie en direct : le vrai message Brevo ('Brevo refuse l'acces...') remonte de
 
 Coordination : si vous ajoutez un nouvel appel functions.invoke() dans une page admin, utiliser invokeAdminFunction() (packages/admin/lib/invokeFunction.ts) au lieu d'ecrire une fonction locale -- sinon le meme bug reapparait.
 
+
+## [2026-09-12T02:03:45.000Z] claude
+
+Demande Adel ("il faut masquer les utilisateurs test" sur "Joueurs disponibles" / Loki Battle) -- traitée sans inventer de nouveau flag :
+
+Migration 20260912090000_keep_battle_solo_available_hide_discovery_hidden.sql : keep_battle_solo_available() (seule source de "Joueurs disponibles" -- écran BATTLE EN LIGNE, invitation à rejoindre une arène de groupe, tout passe par loadLiveSoloPlayers) exclut désormais les profils avec profiles.discovery_hidden = true. Réutilise le flag Super Admin existant ("Visibilité Découvertes", déjà posé automatiquement à true pour les comptes admin actifs, et activable manuellement sur n'importe quel profil via keep-admin-user-control/set_discovery_hidden) au lieu de créer un second mécanisme "compte de test". Appliquée en direct via l'API Management Supabase (token déjà présent dans packages/backend/.env), définition relue en base pour confirmer la présence du filtre.
+
+Pour masquer un compte de test précis de Battle : Super Admin > Utilisateurs > ce profil > "Masquer de Découvertes" -- effet immédiat sur Battle aussi désormais, sans toucher au compte ni à son lien de profil public.
+
+Coordination : si vous touchez keep_battle_solo_available ou la logique de visibilité Découvertes, repull d'abord -- les deux sont maintenant liées par ce même flag.
