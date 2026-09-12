@@ -21,20 +21,35 @@ grant execute on function public.keep_qualified_share_count(uuid) to authenticat
 
 create or replace function public.keep_growth_reward_status()
 returns table(qualified_shares integer, followers integer, bonus_free_credits integer, bonus_discovery_profiles integer, bonus_sort_trials integer, next_share_goal integer, audience_pro_unlocked boolean, audience_pro_threshold integer)
-language sql
-stable
+language plpgsql
 security definer
 set search_path = public, auth
 as $$
-  select
-    public.keep_qualified_share_count(auth.uid())::integer as qualified_shares,
-    (select count(*)::integer from public.follows where followee_id = auth.uid())::integer as followers,
-    0::integer as bonus_free_credits,
-    0::integer as bonus_discovery_profiles,
-    0::integer as bonus_sort_trials,
-    20::integer as next_share_goal,
-    ((select count(*)::integer from public.follows where followee_id = auth.uid()) >= 1000)::boolean as audience_pro_unlocked,
-    1000::integer as audience_pro_threshold;
+declare
+  uid uuid;
+  follower_count integer;
+  qualified_count integer;
+begin
+  uid := auth.uid();
+
+  if uid is null then
+    raise exception 'authentication_required';
+  end if;
+
+  select count(*)::integer into follower_count from public.follows where followee_id = uid;
+  select public.keep_qualified_share_count(uid) into qualified_count;
+
+  qualified_shares := coalesce(qualified_count, 0);
+  followers := coalesce(follower_count, 0);
+  bonus_free_credits := 0;
+  bonus_discovery_profiles := 0;
+  bonus_sort_trials := 0;
+  next_share_goal := 20;
+  audience_pro_unlocked := (coalesce(follower_count, 0) >= 1000);
+  audience_pro_threshold := 1000;
+
+  return next;
+end;
 $$;
 
 revoke all on function public.keep_growth_reward_status() from public;
