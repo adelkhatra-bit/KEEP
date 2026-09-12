@@ -13,29 +13,16 @@ as $$
 declare
   uid uuid := auth.uid();
 begin
-  if uid is null then
-    qualified_shares := 0;
-    followers := 0;
-    bonus_free_credits := 0;
-    bonus_discovery_profiles := 0;
-    bonus_sort_trials := 0;
-    next_share_goal := 20;
-    audience_pro_unlocked := false;
-    audience_pro_threshold := 1000;
-    return next;
-    return;
-  end if;
-
-  qualified_shares := 0;
-  followers := 0;
-  bonus_free_credits := 0;
-  bonus_discovery_profiles := 0;
-  bonus_sort_trials := 0;
-  next_share_goal := 20;
-  audience_pro_unlocked := false;
-  audience_pro_threshold := 1000;
-
-  return next;
+  return query
+  select
+    0::integer as qualified_shares,
+    0::integer as followers,
+    0::integer as bonus_free_credits,
+    0::integer as bonus_discovery_profiles,
+    0::integer as bonus_sort_trials,
+    20::integer as next_share_goal,
+    false::boolean as audience_pro_unlocked,
+    1000::integer as audience_pro_threshold;
 end;
 $$;
 
