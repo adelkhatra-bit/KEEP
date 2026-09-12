@@ -25,16 +25,15 @@ grant execute on function public.keep_qualified_share_count(uuid) to authenticat
 -- AUDIT: Cette fonction était appelée mais jamais définie. Elle doit compter réellement
 -- les abonnés et partages en base de données et retourner les récompenses correspondantes.
 
-create or replace function public.keep_growth_reward_status()
-returns table(
-  qualified_shares integer,
-  followers integer,
-  bonus_free_credits integer,
-  bonus_discovery_profiles integer,
-  bonus_sort_trials integer,
-  next_share_goal integer,
-  audience_pro_unlocked boolean,
-  audience_pro_threshold integer
+create or replace function public.keep_growth_reward_status(
+  out qualified_shares integer,
+  out followers integer,
+  out bonus_free_credits integer,
+  out bonus_discovery_profiles integer,
+  out bonus_sort_trials integer,
+  out next_share_goal integer,
+  out audience_pro_unlocked boolean,
+  out audience_pro_threshold integer
 )
 language plpgsql
 security definer
@@ -42,15 +41,7 @@ set search_path = public, auth
 as $$
 declare
   uid uuid := auth.uid();
-  qualified_shares integer := 0;
-  followers integer := 0;
-  bonus_free_credits integer := 0;
-  bonus_discovery_profiles integer := 0;
-  bonus_sort_trials integer := 0;
-  next_share_goal integer := null;
   current_plan text := 'FREE';
-  audience_pro_unlocked boolean := false;
-  audience_pro_threshold integer := 1000;
   s2 integer;
   s3 integer;
   f1 integer;
@@ -67,7 +58,6 @@ begin
     next_share_goal := 20;
     audience_pro_unlocked := false;
     audience_pro_threshold := 1000;
-    return next;
     return;
   end if;
 
@@ -126,8 +116,6 @@ begin
   end if;
 
   audience_pro_unlocked := (current_plan in ('CREATOR_PRO', 'VENUE_PRO', 'PREMIUM') and followers >= audience_pro_threshold);
-
-  return next;
 end;
 $$;
 
