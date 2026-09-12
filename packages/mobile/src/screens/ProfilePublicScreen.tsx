@@ -35,13 +35,19 @@ import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore'
 import PresenceDot from '../components/PresenceDot';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 
-type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS' | 'ALBUMS';
+type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
 type AccountMode = 'create' | 'login';
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
 const TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'TRACKS', label: 'Musiques' }, { key: 'PLAYLISTS', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
+  // Adel (13/09/2026, audit) : "musique et artiste c'est la même chose ...
+  // albums, je ne sais pas à quoi ça sert" -- vérifié sur les vraies
+  // données : 93,9% des artistes gardés n'ont qu'un seul morceau, 98,8% des
+  // albums aussi (on garde un morceau à la fois, pas un album entier).
+  // Albums affichait donc quasi toujours la même chose qu'Artistes, avec le
+  // même bloc d'affichage -- rubrique retirée plutôt que gardée pour rien.
+  { key: 'TRACKS', label: 'Musiques' }, { key: 'PLAYLISTS', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' },
 ];
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' }, { platform: 'tiktok', label: 'TikTok' }, { platform: 'snapchat', label: 'Snapchat' }, { platform: 'youtube', label: 'YouTube' }, { platform: 'x', label: 'X' }, { platform: 'facebook', label: 'Facebook' },
@@ -346,22 +352,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // d'ajout des morceaux gardés (arbitraire côté utilisateur) -- tri
   // alphabétique pour que ce soit vraiment rangé, sans toucher au design.
   const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))).sort((a, b) => a.localeCompare(b)).map((name) => ({ key: name, label: name })), [publicKeptTracks]);
-  // Adel (12/09/2026, audit) : "un album c'est toujours le meme artiste ?" --
-  // groupait avant par SEUL titre d'album (track.album), sans jamais verifier
-  // l'artiste. Deux albums differents qui partagent exactement le meme titre
-  // (reedition, compilation, album eponyme...) se retrouvaient donc melanges
-  // sous une seule entree. Cle composite artiste+album -- meme titre affiche,
-  // jamais deux artistes fusionnes dans le meme groupe.
-  const albums = useMemo(() => {
-    const seen = new Map<string, { key: string; label: string }>();
-    for (const entry of publicKeptTracks) {
-      const albumName = entry.track.album;
-      if (!albumName) continue;
-      const key = `${entry.track.artist}|||${albumName}`;
-      if (!seen.has(key)) seen.set(key, { key, label: albumName });
-    }
-    return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
     if (providerPlaylists.length) result.push(...providerPlaylists);
@@ -583,7 +573,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (activeTab === 'TRACKS') {
       if (!publicKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
-        <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes, artistes et albums. Tu gardes le contrôle du Public/Privé et des noms.</Text>
+        <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
         {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined))}
       </View>;
     }
@@ -611,13 +601,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       })}</View>;
     }
 
-    const items = activeTab === 'ARTISTS' ? artists : albums;
-    if (!items.length) return <Empty text={activeTab === 'ARTISTS' ? 'Tes artistes apparaîtront ici.' : 'Tes albums apparaîtront ici.'} />;
+    const items = artists;
+    if (!items.length) return <Empty text="Tes artistes apparaîtront ici." />;
     // Adel (01/09/2026) : "range les albums comme sur playlist" -- même bloc
     // encadré, même bouton ▶ SWIPE dédié et même dépli inline des morceaux
     // que l'onglet Vibes, plutôt qu'une simple ligne avec une note générique.
     return <View style={s.list}>{items.map((item) => {
-      const selected = publicSwipeTracks.filter((track) => activeTab === 'ARTISTS' ? track.artist === item.label : `${track.artist}|||${track.album ?? ''}` === item.key);
+      const selected = publicSwipeTracks.filter((track) => track.artist === item.label);
       const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
       const expanded = expandedGroupItem === item.key;
       return <View key={item.key} style={s.playlistBlock}>
@@ -627,7 +617,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
         </TouchableOpacity>
         <View style={s.playlistButtons}>
-          <TouchableOpacity style={s.playlistShareButton} onPress={() => setSelectionSwipe({ title: item.label, subtitle: activeTab === 'ARTISTS' ? 'Tous les morceaux de cet artiste dans ta collection.' : 'Cet album dans ta collection, prêt à swiper.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
+          <TouchableOpacity style={s.playlistShareButton} onPress={() => setSelectionSwipe({ title: item.label, subtitle: 'Tous les morceaux de cet artiste dans ta collection.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
         </View>
         {expanded ? <View style={s.playlistTracks}>{selected.map((track) => renderCompactTrack(track, `${item.key}-${track.id}`))}</View> : null}
       </View>;

@@ -30,16 +30,19 @@ type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[]
 // Adel (02/09/2026) : "il devrait avoir quatre briques comme sur le profil
 // dans ma playlist ... un utilisateur télécharge plusieurs musiques de
 // Maître Gims, ça devrait créer un [groupe] vu que c'est le même chanteur
-// ... il manque connecté au profil." Même repère à 4 onglets que
-// ProfilePublicScreen (Musiques/Vibes/Artistes/Albums), pour que le
-// rangement soit cohérent partout au lieu de deux systèmes séparés.
-type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES' | 'ALBUMS';
+// ... il manque connecté au profil." Même repère que ProfilePublicScreen,
+// pour que le rangement soit cohérent partout au lieu de deux systèmes
+// séparés.
+// Adel (13/09/2026, audit) : Albums retiré ici aussi (même correction que
+// ProfilePublicScreen) -- vérifié sur les vraies données, 98,8% des albums
+// gardés n'ont qu'un seul morceau : la rubrique affichait quasi toujours la
+// même chose qu'Artistes, avec le même bloc d'affichage.
+type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES';
 const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
   { key: 'MUSIQUES', label: 'Musiques' }, { key: 'VIBES', label: 'Vibes' },
-  { key: 'ARTISTES', label: 'Artistes' }, { key: 'ALBUMS', label: 'Albums' },
+  { key: 'ARTISTES', label: 'Artistes' },
 ];
 const ARTIST_ID_PREFIX = 'keep-artist:';
-const ALBUM_ID_PREFIX = 'keep-album:';
 
 function trackIdentity(track: CanonicalTrack) {
   const isrc = track.isrc?.trim().toUpperCase();
@@ -182,15 +185,7 @@ export default function MyMusicScreen({ navigation }: any) {
       .map(([artist, count]) => ({ id: `${ARTIST_ID_PREFIX}${artist}`, name: artist, trackCount: count, isKeepManaged: true }));
   }, [localKeptTracks]);
 
-  const albumPlaylists = useMemo<ProviderPlaylist[]>(() => {
-    const counts = new Map<string, number>();
-    for (const track of localKeptTracks) { if (track.album) counts.set(track.album, (counts.get(track.album) ?? 0) + 1); }
-    return Array.from(counts.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([album, count]) => ({ id: `${ALBUM_ID_PREFIX}${album}`, name: album, trackCount: count, isKeepManaged: true }));
-  }, [localKeptTracks]);
-
-  const tabPlaylists = activeTab === 'ARTISTES' ? artistPlaylists : activeTab === 'ALBUMS' ? albumPlaylists : displayPlaylists;
+  const tabPlaylists = activeTab === 'ARTISTES' ? artistPlaylists : displayPlaylists;
 
   const loadProviderTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
     if (tracksByPlaylist[playlist.id]) return tracksByPlaylist[playlist.id];
@@ -208,12 +203,6 @@ export default function MyMusicScreen({ navigation }: any) {
     if (playlist.id.startsWith(ARTIST_ID_PREFIX)) {
       const artist = playlist.id.slice(ARTIST_ID_PREFIX.length);
       const tracks = localKeptTracks.filter((track) => track.artist === artist);
-      setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
-      return tracks;
-    }
-    if (playlist.id.startsWith(ALBUM_ID_PREFIX)) {
-      const album = playlist.id.slice(ALBUM_ID_PREFIX.length);
-      const tracks = localKeptTracks.filter((track) => track.album === album);
       setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
       return tracks;
     }
@@ -499,7 +488,7 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => {
     const isAllKeepView = item.id === ALL_KEEP_VIEW_ID;
-    const isGroupView = item.id.startsWith(ARTIST_ID_PREFIX) || item.id.startsWith(ALBUM_ID_PREFIX);
+    const isGroupView = item.id.startsWith(ARTIST_ID_PREFIX);
     const isSmart = isSmartAlbumUiId(item.id);
     const pref = isAllKeepView || isGroupView ? null : preferenceFor(preferences, providerId, item.id);
     const expanded = expandedId === item.id;
@@ -618,7 +607,7 @@ export default function MyMusicScreen({ navigation }: any) {
           contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : activeTab === 'ALBUMS' ? 'Tes albums apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
         />
       )}
 
