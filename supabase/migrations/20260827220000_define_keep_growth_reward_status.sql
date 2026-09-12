@@ -9,13 +9,13 @@ language sql
 stable
 security definer
 set search_path to 'public'
-as $function$
+as $$
   select coalesce(count(*)::integer, 0)
   from public.keep_decisions
   where source_user_id = p_uid
     and decision = 'KEPT'
     and source_type is not null;
-$function$;
+$$;
 
 grant execute on function public.keep_qualified_share_count(uuid) to authenticated;
 
@@ -29,8 +29,8 @@ create or replace function public.keep_growth_reward_status()
 returns table (qualified_shares integer, followers integer, bonus_free_credits integer, bonus_discovery_profiles integer, bonus_sort_trials integer, next_share_goal integer, audience_pro_unlocked boolean, audience_pro_threshold integer)
 language plpgsql
 security definer
-set search_path to 'public', 'auth'
-as $function$
+set search_path = public, auth
+as $$
 declare
   uid uuid := auth.uid();
   share_count integer := 0;
@@ -120,7 +120,7 @@ begin
     is_audience_pro_unlocked,
     threshold;
 end;
-$function$;
+$$;
 
 -- Accorder l'accès à la fonction pour les utilisateurs authentifiés
 grant execute on function public.keep_growth_reward_status() to authenticated;
