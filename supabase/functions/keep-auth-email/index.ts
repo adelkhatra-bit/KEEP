@@ -284,7 +284,7 @@ async function handleRecovery(body: any) {
     options: { redirectTo: `${KEEP_PUBLIC_URL}?keep_auth=recovery` },
   });
 
-  // Ne jamais reveler si l'e-mail existe ou non (anti-enumeration) : un echec
+  // Ne jamais reveler si l’e-mail existe ou non (anti-enumeration) : un echec
   // "utilisateur introuvable" repond ok:true exactement comme un succes.
   if (error || !data?.properties?.action_link) {
     const msg = String(error?.message ?? "").toLowerCase();
@@ -293,21 +293,43 @@ async function handleRecovery(body: any) {
     return json({ ok: false, error: "server_error" }, 500);
   }
 
+  const htmlContent = shellHtml(
+    "Réinitialise ton mot de passe Loki",
+    "Réinitialise ton mot de passe",
+    "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
+    "Choisir un nouveau mot de passe",
+    data.properties.action_link,
+    "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
+  );
+  const textContent = `Réinitialise ton mot de passe Loki en ouvrant ce lien : ${data.properties.action_link}`;
+
   const sent = await sendTransactionalEmail(
     email,
     "Réinitialise ton mot de passe Loki",
-    shellHtml(
-      "Réinitialise ton mot de passe Loki",
-      "Réinitialise ton mot de passe",
-      "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
-      "Choisir un nouveau mot de passe",
-      data.properties.action_link,
-      "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
-    ),
-    `Réinitialise ton mot de passe Loki en ouvrant ce lien : ${data.properties.action_link}`,
+    htmlContent,
+    textContent,
     "password-recovery",
   );
-  if (!sent.ok) return json({ ok: false, error: sent.error }, 503);
+
+  // Adel (12/09/2026) : "il ne faut pas bloquer les utilisateurs" sur la
+  // recuperation de mot de passe -- si Brevo/Mailjet est en panne, on queued
+  // l’email et on retourne ok:true immediatement. Un Super Admin peut rejouer
+  // manuellement via email_queue_retry_failed() quand la panne est resolue.
+  if (!sent.ok) {
+    const { error: queueError } = await admin.from("email_queue").insert({
+      recipient_email: email,
+      subject: "Réinitialise ton mot de passe Loki",
+      html_content: htmlContent,
+      text_content: textContent,
+      email_type: "recovery",
+      user_id: data.user?.id || null,
+      status: "pending",
+      metadata: { action_link: data.properties.action_link },
+    });
+    if (queueError) console.error("[keep-auth-email] email_queue insert failed", queueError);
+    else console.log("[keep-auth-email] recovery email queued, will retry later");
+  }
+
   return json({ ok: true });
 }
 

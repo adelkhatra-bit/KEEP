@@ -1,0 +1,32 @@
+name: Email Queue Retry
+
+on:
+  schedule:
+    # Rejouer les emails toutes les heures
+    - cron: "0 * * * *"
+  workflow_dispatch: # Permettre un déclenchement manuel
+
+jobs:
+  retry-email-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retry email queue
+        run: |
+          # Appeler la fonction keep-email-retry-queue
+          RESPONSE=$(curl -s -X POST \
+            "https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-email-retry-queue" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json")
+
+          echo "Email queue retry response: $RESPONSE"
+
+          # Extraire processed et failed
+          PROCESSED=$(echo "$RESPONSE" | jq -r '.processed // 0')
+          FAILED=$(echo "$RESPONSE" | jq -r '.failed // 0')
+
+          echo "Processed: $PROCESSED, Failed: $FAILED"
+
+          # Optionnel: notifier Adel si beaucoup d'échecs
+          if [ "$FAILED" -gt 5 ]; then
+            echo "⚠️ Warning: $FAILED emails failed to send. Check email_queue table."
+          fi
