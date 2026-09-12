@@ -194,21 +194,6 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; };
   }, [isDemoMode, user?.id]);
 
-  useEffect(() => {
-    let live = true;
-    const loadFollowing = async () => {
-      if (!user?.id || isLocalGuest || isDemoMode || !supabase) { if (live) setFollowingIds(new Set()); return; }
-      try {
-        const { data, error } = await supabase.from('follows').select('followee_id').eq('follower_id', user.id);
-        if (error) throw error;
-        if (live) setFollowingIds(new Set((data ?? []).map((row: any) => row.followee_id)));
-      } catch {
-        if (live) setFollowingIds(new Set());
-      }
-    };
-    void loadFollowing();
-    return () => { live = false; };
-  }, [user?.id, isLocalGuest, isDemoMode]);
 
   useEffect(() => {
     let live = true;
@@ -228,7 +213,6 @@ export default function DiscoverScreen({ navigation }: any) {
     setProfileIndex(0);
     setDiscoveryAccess(null);
     setGuestSeenIds([]);
-    setFollowNotice('');
     setSearchPosition(null);
     setHasSearched(false);
     setCurrentProfileSnapshot(null);
@@ -334,7 +318,6 @@ export default function DiscoverScreen({ navigation }: any) {
     setProfileIndex(0);
     setDiscoveryAccess(null);
     setCurrentProfileSnapshot(null);
-    setFollowNotice('');
   };
 
   const searchAroundMe = async () => {
@@ -388,7 +371,6 @@ export default function DiscoverScreen({ navigation }: any) {
   };
 
   const nextProfile = () => {
-    setFollowNotice('');
     if (filteredProfiles.length) setProfileIndex((value) => (value + 1) % filteredProfiles.length);
   };
 
