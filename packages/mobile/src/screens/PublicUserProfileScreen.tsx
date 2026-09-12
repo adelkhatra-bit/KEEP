@@ -23,7 +23,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
+import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -193,7 +193,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         } as PublicKeepTrack));
 
         if (cancelled) return;
-        setTracks(normalized);
+        // Adel (15/09/2026) : "je ne vends pas de la musique, je vends ma
+        // découverte et ma playlist ... pas de doublon" -- si tout est déjà
+        // visible gratuitement ailleurs sur le profil, il n'y a rien à
+        // débloquer en payant. Les morceaux d'une playlist en vente active
+        // sont donc masqués de TOUTES les vues publiques gratuites (liste,
+        // styles, artistes), jamais pour le propriétaire lui-même.
+        const isOwnProfile = Boolean(viewer?.id && viewer.id === result.id);
+        const maskedIds = isOwnProfile ? [] : await loadMaskedPlaylistSaleTrackIds(result.id).catch(() => []);
+        if (cancelled) return;
+        const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;
+        setTracks(visible);
         const impacts = await impactPromise;
         if (cancelled) return;
         setDiscoveryImpacts(impacts);
@@ -202,12 +212,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         if (cancelled) return;
         if (snapshot) {
           setPublicSnapshot(snapshot);
-          setDirectKeepCount(snapshot.directPublicKeeps);
+          // Adel (15/09/2026) : le compteur "Morceaux" ne doit jamais
+          // annoncer plus que ce qui est réellement visible -- il inclurait
+          // sinon les morceaux masqués (playlist en vente), incohérent avec
+          // la liste juste en dessous.
+          setDirectKeepCount(Math.max(0, snapshot.directPublicKeeps - maskedIds.length));
           setSocialKeepCount(snapshot.socialPublicKeeps);
           setFollowerCount(snapshot.followers);
         } else {
           setSocialKeepCount(localDiscoveryImpactCount);
-          setDirectKeepCount(normalized.length);
+          setDirectKeepCount(visible.length);
         }
 
         const ids = Array.from(new Set(normalized.map((track) => track.trackId).filter(Boolean)));

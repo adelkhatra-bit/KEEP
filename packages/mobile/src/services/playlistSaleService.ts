@@ -83,6 +83,18 @@ export async function loadPlaylistSaleOffersForProfile(profileId: string): Promi
   })).filter((row) => row.playlistId);
 }
 
+// Adel (15/09/2026) : "je ne vends pas de la musique, je vends ma
+// découverte et ma playlist" -- les morceaux d'une playlist en vente
+// active doivent rester masqués des vues publiques gratuites du profil
+// (sinon rien à débloquer en payant). Retourne l'union de tous les
+// track_id actuellement masqués pour ce profil, en un seul appel.
+export async function loadMaskedPlaylistSaleTrackIds(sellerId: string): Promise<string[]> {
+  if (!supabase || !sellerId) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_masked_track_ids', { p_seller_id: sellerId });
+  if (error) throw error;
+  return Array.isArray(data) ? data.map(String) : [];
+}
+
 export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_offers');
