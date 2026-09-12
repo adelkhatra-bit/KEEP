@@ -18,6 +18,11 @@ export type GrowthRewardStatus = {
   bonusDiscoveryProfiles: number;
   bonusSortTrials: number;
   nextShareGoal: number | null;
+  // Adel (13/09/2026, viralité) : "il faut qu'ils comprennent qu'ils vont
+  // gagner une communauté" -- même principe que nextShareGoal, côté
+  // abonnés : le prochain palier (25/100/250/500/1000) à afficher AVANT
+  // qu'il soit atteint, jamais seulement après coup.
+  nextFollowerGoal: number | null;
   audienceProUnlocked: boolean;
   audienceProThreshold: number;
 };
@@ -138,7 +143,7 @@ export async function getEventCreationAccess(): Promise<QuotaAccess> {
 }
 
 export async function getGrowthRewardStatus(): Promise<GrowthRewardStatus> {
-  if (!supabase) return { qualifiedShares: 0, followers: 0, bonusFreeCredits: 0, bonusDiscoveryProfiles: 0, bonusSortTrials: 0, nextShareGoal: 20, audienceProUnlocked: false, audienceProThreshold: 1000 };
+  if (!supabase) return { qualifiedShares: 0, followers: 0, bonusFreeCredits: 0, bonusDiscoveryProfiles: 0, bonusSortTrials: 0, nextShareGoal: 20, nextFollowerGoal: 25, audienceProUnlocked: false, audienceProThreshold: 1000 };
   const { data, error } = await supabase.rpc('keep_growth_reward_status');
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
@@ -149,6 +154,7 @@ export async function getGrowthRewardStatus(): Promise<GrowthRewardStatus> {
     bonusDiscoveryProfiles: Number(row?.bonus_discovery_profiles || 0),
     bonusSortTrials: Number(row?.bonus_sort_trials || 0),
     nextShareGoal: row?.next_share_goal == null ? null : Number(row.next_share_goal),
+    nextFollowerGoal: row?.next_follower_goal == null ? null : Number(row.next_follower_goal),
     audienceProUnlocked: Boolean(row?.audience_pro_unlocked),
     audienceProThreshold: Number(row?.audience_pro_threshold || 1000),
   };

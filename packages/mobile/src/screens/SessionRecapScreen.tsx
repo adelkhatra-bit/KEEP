@@ -5,6 +5,7 @@ import type { CanonicalTrack } from '@keep/music';
 import { useTranslation } from 'react-i18next';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import { shareSession } from '../services/sharingService';
 import TrackRow from '../components/TrackRow';
@@ -26,11 +27,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     refreshCreditLocks,
   } = useSessionHistoryStore();
   const { playlists } = usePlaylistStore();
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
   const [titleSaved, setTitleSaved] = useState(false);
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
+  const [firstShareOffered, setFirstShareOffered] = useState(false);
 
   useEffect(() => {
     void refreshCreditLocks().catch(() => {});
@@ -39,6 +42,26 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     });
     return () => unsubscribe?.();
   }, [navigation, refreshCreditLocks]);
+
+  // Adel (13/09/2026, viralité) : "le premier partage doit arriver avant
+  // l'inscription" -- le partage existait déjà (bouton 🔗 dans l'en-tête)
+  // mais personne ne le remarque tout seul juste après son tout premier
+  // Keep. Proposé une seule fois, uniquement en mode invité (avant tout
+  // compte) et uniquement sur la toute première session jamais enregistrée.
+  useEffect(() => {
+    if (!session || !isLocalGuest || firstShareOffered) return;
+    const keptNow = session.tracks.filter((entry) => entry.status === 'kept').length;
+    if (!keptNow || useSessionHistoryStore.getState().sessions.length > 1) return;
+    setFirstShareOffered(true);
+    Alert.alert(
+      '🎉 Ton premier Keep !',
+      'Montre à tes amis ce que tu viens de découvrir, avant même de créer ton compte.',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Partager', onPress: () => { void shareSession(sessionId, titleDraft.trim() || t('session.recapTitle'), keptNow).catch(() => {}); } },
+      ],
+    );
+  }, [session, isLocalGuest, firstShareOffered, sessionId, titleDraft, t]);
 
   const pendingSwipeTracks = useMemo<CanonicalTrack[]>(() => {
     if (!session) return [];

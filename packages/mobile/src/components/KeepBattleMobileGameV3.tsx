@@ -11,7 +11,7 @@ import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer,
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
-import { shareProfile } from '../services/sharingService';
+import { shareBattleResult, shareProfile } from '../services/sharingService';
 import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
@@ -1671,6 +1671,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
           <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
+          {/* Adel (13/09/2026, viralité) : un score juste obtenu est le
+              contenu le plus partageable de Loki -- jamais de sortie vers
+              l'extérieur avant ce bouton, contrairement à INVITER UN AMI qui
+              existait déjà. */}
+          <TouchableOpacity style={s.finishSecondary} onPress={() => { void shareBattleResult(`${perfect ? 'PARFAIT · ' : ''}${soloScore}/${solo.rounds.length} sur ${themeLabel(solo.themeCode)}`); }}><Text style={s.finishSecondaryText}>↗ PARTAGER MON SCORE</Text></TouchableOpacity>
           {enabled ? <TouchableOpacity style={s.finishSecondary} onPress={() => { setSoloFinished(false); void openOnline(); }}><Text style={s.finishSecondaryText}>DÉFIER UN JOUEUR</Text></TouchableOpacity> : null}
           {onOpenSession ? (
             battleSessionId ? (
@@ -1786,6 +1791,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }, new Map<string, KeepBattleArenaWinner & { wins: number }>()).values()).sort((a, b) => b.wins - a.wins || b.matchNo - a.matchNo).slice(0, 3);
     if (arena.status === 'WAITING' && arena.lastResult) {
       const winner = arena.lastWinner;
+      const myLastResult = arena.lastResult;
       const arenaTrackCount = arenaPlayedTracksRef.current.size;
       const rematchDeadline = arena.rematchDeadline;
       const rematchRemaining = rematchDeadline ? Math.max(0, Math.ceil((new Date(rematchDeadline).getTime() - now) / 1000)) : 0;
@@ -1908,6 +1914,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               }).finally(() => setBusy(false));
             }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : rematchDeadline ? `EN ATTENTE DES AUTRES · ${rematchRemaining}s` : 'REVANCHE'}</Text></TouchableOpacity>
           )}
+          {/* Adel (13/09/2026, viralité) : même bouton que la fin de partie
+              solo -- un résultat de Battle en groupe (score, classement) est
+              déjà le contenu le plus partageable de Loki. */}
+          <TouchableOpacity style={s.finishSecondary} onPress={() => { void shareBattleResult(`${myLastResult.won ? 'GAGNÉ · ' : ''}${winner?.score ?? myLastResult.score} pts sur ${themeLabel(arena.themeCode)} · ${arena.seats.length}J`); }}><Text style={s.finishSecondaryText}>↗ PARTAGER MON RÉSULTAT</Text></TouchableOpacity>
           {arenaTrackCount > 0 ? (
             arenaSessionId ? (
               <TouchableOpacity style={s.finishSecondary} onPress={() => onOpenSession?.(arenaSessionId)}>

@@ -25,8 +25,8 @@ function isPlaceholder(value: string | undefined): boolean {
 
 export const isWebShareConfigured = !isPlaceholder(WEB_URL);
 
-type ShareKind = 'profile' | 'track' | 'vibe' | 'session' | 'compare' | 'event';
-type ShareEvent = 'profile_share' | 'profile_share_email' | 'playlist_share' | 'compare_share' | 'event_share';
+type ShareKind = 'profile' | 'track' | 'vibe' | 'session' | 'compare' | 'event' | 'battle';
+type ShareEvent = 'profile_share' | 'profile_share_email' | 'playlist_share' | 'compare_share' | 'event_share' | 'battle_share';
 
 type ShareCopy = {
   kind: ShareKind;
@@ -371,6 +371,17 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
       intro: `🎉 « ${label} » est sur ${APP_NAME}. Découvre l’ambiance et rejoins-nous.`,
       eventName: 'event_share',
     },
+    // Adel (13/09/2026, viralité) : un Battle gagné (question, bonne
+    // réponse, temps de réaction) est déjà le contenu le plus partageable de
+    // Loki -- il restait enfermé dans l'app, aucune sortie vers l'extérieur
+    // après une victoire. Même mécanisme unifié que le reste (jamais un
+    // Share.share() isolé dans son coin).
+    battle: {
+      heading: `Partager mon Battle`,
+      subject: `Mon score Battle · ${APP_NAME}`,
+      intro: `⚡ Battle ${APP_NAME} : ${label}. Tu fais mieux ?`,
+      eventName: 'battle_share',
+    },
   };
 
   const info = details[kind];
@@ -437,4 +448,8 @@ export async function shareCompareInvite(username: string): Promise<void> {
 
 export async function shareEvent(eventId: string, eventName: string): Promise<void> {
   return presentShare(buildContextCopy('event', eventName, eventId));
+}
+
+export async function shareBattleResult(resultLabel: string): Promise<void> {
+  return presentShare(buildContextCopy('battle', resultLabel));
 }

@@ -15,7 +15,7 @@ import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
-import { getCommercialRules } from '../services/growthAccessService';
+import { getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
@@ -72,6 +72,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
   const [battleAvailabilityInfoOpen, setBattleAvailabilityInfoOpen] = useState(false);
   useEffect(() => { let live = true; isKeepBattleEnabled().then((v) => live && setBattleFeatureEnabled(v)); return () => { live = false; }; }, []);
+  const [growthStatus, setGrowthStatus] = useState<GrowthRewardStatus | null>(null);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -394,6 +395,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const profileTotalKeepCount = ownSnapshot?.totalKeeps ?? profileKeptTracks.length;
   const profileFollowerCount = publicSnapshot?.followers ?? user.followerCount;
   const profileFollowingCount = publicSnapshot?.following ?? user.followingCount;
+  // Adel (13/09/2026, viralité) : "il faut qu'ils comprennent qu'ils vont
+  // gagner une communauté" -- les paliers d'abonnés existaient déjà côté
+  // serveur (Free bonus à 25/100/250/500, Audience Pro à 1000) mais restaient
+  // invisibles : rien n'annonçait le prochain palier avant qu'il soit atteint.
+  // Chargé uniquement sur son propre profil réel (accountRequired = invité/
+  // démo, pas de vraie communauté à afficher), rafraîchi quand le nombre
+  // d'abonnés change.
+  useEffect(() => {
+    if (accountRequired) { setGrowthStatus(null); return undefined; }
+    let live = true;
+    getGrowthRewardStatus().then((v) => live && setGrowthStatus(v)).catch(() => { if (live) setGrowthStatus(null); });
+    return () => { live = false; };
+  }, [accountRequired, profileFollowerCount]);
   const fallbackCertification: ProfileCertificationTier = accountRequired
     ? 'UNVERIFIED'
     : planCode === 'PREMIUM' || planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO' ? planCode : 'FREE';
@@ -722,6 +736,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
           { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
         ]} />
         {!accountRequired && communityMode === 'followers' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
+        {!accountRequired && growthStatus ? (
+          growthStatus.audienceProUnlocked ? (
+            <View style={s.growthPanel}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text></View>
+          ) : growthStatus.nextFollowerGoal ? (
+            <View style={s.growthPanel}>
+              <Text style={s.growthText}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki</Text>
+              <View style={s.growthBarTrack}><View style={[s.growthBarFill, { width: `${Math.min(100, Math.round((growthStatus.followers / growthStatus.nextFollowerGoal) * 100))}%` }]} /></View>
+            </View>
+          ) : null
+        ) : null}
       </View>
 
       <View style={s.socialHub}>
@@ -940,6 +964,7 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},muted:{color:'#FFFFFF',fontSize:13,lineHeight:18},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#24163A',borderWidth:1,borderColor:'#8B5CF6'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#C5ACFF'},
+  growthPanel:{marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:'#2B2238',overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:'#FFD166',fontSize:13,fontWeight:'900',textAlign:'center'},
   keepCounters:{marginHorizontal:18},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},originUserText:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},originProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
