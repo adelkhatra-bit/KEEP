@@ -33,15 +33,7 @@ set search_path = public, auth
 as $$
 declare
   uid uuid := auth.uid();
-  v_qualified_shares integer := 0;
-  v_followers integer := 0;
-  v_bonus_free_credits integer := 0;
-  v_bonus_discovery_profiles integer := 0;
-  v_bonus_sort_trials integer := 0;
-  v_next_share_goal integer := null;
   current_plan text := 'FREE';
-  v_audience_pro_unlocked boolean := false;
-  v_audience_pro_threshold integer := 1000;
   s2 integer;
   s3 integer;
   f1 integer;
@@ -50,21 +42,21 @@ declare
   f5 integer;
 begin
   if uid is null then
-    v_qualified_shares := 0;
-    v_followers := 0;
-    v_bonus_free_credits := 0;
-    v_bonus_discovery_profiles := 0;
-    v_bonus_sort_trials := 0;
-    v_next_share_goal := 20;
-    v_audience_pro_unlocked := false;
-    v_audience_pro_threshold := 1000;
-    return query select v_qualified_shares, v_followers, v_bonus_free_credits, v_bonus_discovery_profiles, v_bonus_sort_trials, v_next_share_goal, v_audience_pro_unlocked, v_audience_pro_threshold;
+    qualified_shares := 0;
+    followers := 0;
+    bonus_free_credits := 0;
+    bonus_discovery_profiles := 0;
+    bonus_sort_trials := 0;
+    next_share_goal := 20;
+    audience_pro_unlocked := false;
+    audience_pro_threshold := 1000;
+    return next;
     return;
   end if;
 
-  v_qualified_shares := public.keep_qualified_share_count(uid);
+  qualified_shares := public.keep_qualified_share_count(uid);
 
-  select coalesce(count(*)::integer, 0) into v_followers
+  select coalesce(count(*)::integer, 0) into followers
   from public.follows
   where followee_id = uid;
 
@@ -85,40 +77,48 @@ begin
   f2 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_tier2_threshold' limit 1), 100);
   f3 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_tier3_threshold' limit 1), 250);
   f5 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_tier5_threshold' limit 1), 1000);
-  v_audience_pro_threshold := f5;
+  audience_pro_threshold := f5;
 
-  if v_qualified_shares >= s3 then
-    v_bonus_free_credits := v_bonus_free_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_reward_100' limit 1), 20);
-    v_bonus_sort_trials := v_bonus_sort_trials + 1;
-  elsif v_qualified_shares >= s2 then
-    v_bonus_free_credits := v_bonus_free_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_reward_50' limit 1), 5);
-  end if;
-
-  if v_followers >= f5 then
-    v_bonus_free_credits := v_bonus_free_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_1000_credits' limit 1), 20);
-    v_bonus_discovery_profiles := v_bonus_discovery_profiles + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_500_discovery' limit 1), 5);
-    v_bonus_sort_trials := v_bonus_sort_trials + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_500_sort' limit 1), 1);
-  elsif v_followers >= f3 then
-    v_bonus_free_credits := v_bonus_free_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_250_credits' limit 1), 5);
-  elsif v_followers >= f2 then
-    v_bonus_sort_trials := v_bonus_sort_trials + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_100_sort' limit 1), 1);
-  elsif v_followers >= f1 then
-    v_bonus_discovery_profiles := v_bonus_discovery_profiles + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_25_discovery' limit 1), 3);
-  end if;
-
-  if v_qualified_shares < 20 then
-    v_next_share_goal := 20;
-  elsif v_qualified_shares < s2 then
-    v_next_share_goal := s2;
-  elsif v_qualified_shares < s3 then
-    v_next_share_goal := s3;
+  if qualified_shares >= s3 then
+    bonus_free_credits := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_reward_100' limit 1), 20);
+    bonus_sort_trials := 1;
+  elsif qualified_shares >= s2 then
+    bonus_free_credits := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_reward_50' limit 1), 5);
   else
-    v_next_share_goal := null;
+    bonus_free_credits := 0;
   end if;
 
-  v_audience_pro_unlocked := (current_plan in ('CREATOR_PRO', 'VENUE_PRO', 'PREMIUM') and v_followers >= v_audience_pro_threshold);
+  if followers >= f5 then
+    bonus_free_credits := bonus_free_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_1000_credits' limit 1), 20);
+    bonus_discovery_profiles := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_500_discovery' limit 1), 5);
+    bonus_sort_trials := bonus_sort_trials + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_500_sort' limit 1), 1);
+  elsif followers >= f3 then
+    bonus_free_credits := bonus_free_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_250_credits' limit 1), 5);
+    bonus_discovery_profiles := 0;
+  elsif followers >= f2 then
+    bonus_sort_trials := bonus_sort_trials + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_100_sort' limit 1), 1);
+    bonus_discovery_profiles := 0;
+  elsif followers >= f1 then
+    bonus_discovery_profiles := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_25_discovery' limit 1), 3);
+    bonus_sort_trials := 0;
+  else
+    bonus_discovery_profiles := 0;
+    bonus_sort_trials := 0;
+  end if;
 
-  return query select v_qualified_shares, v_followers, v_bonus_free_credits, v_bonus_discovery_profiles, v_bonus_sort_trials, v_next_share_goal, v_audience_pro_unlocked, v_audience_pro_threshold;
+  if qualified_shares < 20 then
+    next_share_goal := 20;
+  elsif qualified_shares < s2 then
+    next_share_goal := s2;
+  elsif qualified_shares < s3 then
+    next_share_goal := s3;
+  else
+    next_share_goal := null;
+  end if;
+
+  audience_pro_unlocked := (current_plan in ('CREATOR_PRO', 'VENUE_PRO', 'PREMIUM') and followers >= audience_pro_threshold);
+
+  return next;
 end;
 $$;
 
