@@ -26,16 +26,7 @@ grant execute on function public.keep_qualified_share_count(uuid) to authenticat
 -- les abonnés et partages en base de données et retourner les récompenses correspondantes.
 
 create or replace function public.keep_growth_reward_status()
-returns table (
-  qualified_shares integer,
-  followers integer,
-  bonus_free_credits integer,
-  bonus_discovery_profiles integer,
-  bonus_sort_trials integer,
-  next_share_goal integer,
-  audience_pro_unlocked boolean,
-  audience_pro_threshold integer
-)
+returns table (qualified_shares integer, followers integer, bonus_free_credits integer, bonus_discovery_profiles integer, bonus_sort_trials integer, next_share_goal integer, audience_pro_unlocked boolean, audience_pro_threshold integer)
 language plpgsql
 security definer
 set search_path to 'public', 'auth'
@@ -58,21 +49,17 @@ declare
   f3 integer;
   f5 integer;
 begin
-  -- Si anonyme ou pas d'utilisateur, retourner des zéros
   if uid is null then
     return query select 0::integer, 0::integer, 0::integer, 0::integer, 0::integer, 20::integer, false::boolean, 1000::integer;
     return;
   end if;
 
-  -- Compter les partages qualifiés (nombres réels en base)
   share_count := public.keep_qualified_share_count(uid);
 
-  -- Compter les abonnés réels (followers) — via table follows
   select coalesce(count(*)::integer, 0) into follower_count
   from public.follows
   where followee_id = uid;
 
-  -- Charger le plan actuel de l'utilisateur
   current_plan := coalesce((
     select p.code::text
     from public.subscriptions s
@@ -84,7 +71,6 @@ begin
     limit 1
   ), 'FREE');
 
-  -- Charger les seuils depuis remote_config
   s2 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_tier2_threshold' limit 1), 50);
   s3 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_tier3_threshold' limit 1), 100);
   f1 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_tier1_threshold' limit 1), 25);
@@ -93,7 +79,6 @@ begin
   f5 := coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_tier5_threshold' limit 1), 1000);
   threshold := f5;
 
-  -- Calculer les récompenses progressives basées sur les métriques réelles
   if share_count >= s3 then
     bonus_credits := bonus_credits + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_share_reward_100' limit 1), 20);
     bonus_sort := bonus_sort + 1;
@@ -113,7 +98,6 @@ begin
     bonus_discovery := bonus_discovery + coalesce((select (value #>> '{}')::integer from public.remote_config where key='growth_followers_reward_25_discovery' limit 1), 3);
   end if;
 
-  -- Déterminer le prochain palier de partages
   if share_count < 20 then
     next_goal := 20;
   elsif share_count < s2 then
@@ -124,7 +108,6 @@ begin
     next_goal := null;
   end if;
 
-  -- Audience Pro déverrouillé uniquement pour les plans payants ET >= seuil followers
   is_audience_pro_unlocked := (current_plan in ('CREATOR_PRO', 'VENUE_PRO', 'PREMIUM') and follower_count >= threshold);
 
   return query select
