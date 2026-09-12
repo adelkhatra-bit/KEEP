@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
-import { analyzeLibrary, CanonicalTrack, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
+import { analyzeLibrary, canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
@@ -177,12 +177,14 @@ export default function MyMusicScreen({ navigation }: any) {
   // Profil (ProfilePublicScreen) -- si plusieurs morceaux de Maître Gims
   // sont gardés, ils se retrouvent dans le même groupe au lieu d'être
   // éparpillés un par un.
+  // Adel (14/09/2026) : "un système anti doublon" -- même correction que
+  // ProfilePublicScreen, groupTracksByArtist (packages/music, déjà testé,
+  // jamais branché avant) au lieu d'une égalité de chaîne : insensible aux
+  // accents/majuscules/espaces, regroupe un featuring sous l'artiste principal.
   const artistPlaylists = useMemo<ProviderPlaylist[]>(() => {
-    const counts = new Map<string, number>();
-    for (const track of localKeptTracks) counts.set(track.artist, (counts.get(track.artist) ?? 0) + 1);
-    return Array.from(counts.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([artist, count]) => ({ id: `${ARTIST_ID_PREFIX}${artist}`, name: artist, trackCount: count, isKeepManaged: true }));
+    return groupTracksByArtist(localKeptTracks)
+      .map((group) => ({ id: `${ARTIST_ID_PREFIX}${group.key}`, name: group.name, trackCount: group.trackCount, isKeepManaged: true }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [localKeptTracks]);
 
   const tabPlaylists = activeTab === 'ARTISTES' ? artistPlaylists : displayPlaylists;
@@ -201,8 +203,8 @@ export default function MyMusicScreen({ navigation }: any) {
       return localKeptTracks;
     }
     if (playlist.id.startsWith(ARTIST_ID_PREFIX)) {
-      const artist = playlist.id.slice(ARTIST_ID_PREFIX.length);
-      const tracks = localKeptTracks.filter((track) => track.artist === artist);
+      const key = playlist.id.slice(ARTIST_ID_PREFIX.length);
+      const tracks = localKeptTracks.filter((track) => canonicalArtistIdentity(track) === key);
       setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
       return tracks;
     }

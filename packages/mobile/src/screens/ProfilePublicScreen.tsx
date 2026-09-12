@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
-import { CanonicalTrack, computeMusicDNA, DnaSourceDecision, ProviderPlaylist } from '@keep/music';
+import { canonicalArtistIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, groupTracksByArtist, ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -15,7 +15,7 @@ import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
-import { getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
+import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
@@ -73,6 +73,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [battleAvailabilityInfoOpen, setBattleAvailabilityInfoOpen] = useState(false);
   useEffect(() => { let live = true; isKeepBattleEnabled().then((v) => live && setBattleFeatureEnabled(v)); return () => { live = false; }; }, []);
   const [growthStatus, setGrowthStatus] = useState<GrowthRewardStatus | null>(null);
+  const [smartSortAccess, setSmartSortAccess] = useState<QuotaAccess | null>(null);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -291,6 +292,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [accountRequired, navigation, planCode, user?.id]);
 
+  // Adel (14/09/2026) : "Vibe, il sert à quoi ... c'est les mêmes musiques"
+  // -- sans plateforme connectée ni Vibe déjà générée, l'onglet retombait sur
+  // un dossier générique "Mes musiques" qui duplique Musiques, sans jamais
+  // expliquer pourquoi. Décision : garder le verrou de formule (Creator Pro/
+  // Venue Pro génèrent automatiquement, les autres ont des essais limités),
+  // mais l'expliquer clairement -- même accès en lecture seule que le bouton
+  // "Tester Vibes Auto" déjà présent sur Mes musiques (getSmartSortAccess).
+  useEffect(() => {
+    if (accountRequired) { setSmartSortAccess(null); return undefined; }
+    let live = true;
+    getSmartSortAccess(false).then((v) => live && setSmartSortAccess(v)).catch(() => { if (live) setSmartSortAccess(null); });
+    return () => { live = false; };
+  }, [accountRequired, smartAlbums.length]);
+
   useEffect(() => {
     let live = true;
     if (!user || accountRequired) {
@@ -352,7 +367,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // Adel (01/09/2026) : les onglets Artistes/Albums listaient dans l'ordre
   // d'ajout des morceaux gardés (arbitraire côté utilisateur) -- tri
   // alphabétique pour que ce soit vraiment rangé, sans toucher au design.
-  const artists = useMemo(() => Array.from(new Set(publicKeptTracks.map((entry) => entry.track.artist))).sort((a, b) => a.localeCompare(b)).map((name) => ({ key: name, label: name })), [publicKeptTracks]);
+  // Adel (14/09/2026) : "un système anti doublon qui va détecter le nom de
+  // l'artiste automatique" -- ce système existe déjà (packages/music/src/
+  // MusicCollectionIdentity.ts, testé), jamais branché nulle part avant : une
+  // simple égalité de chaîne aurait affiché "Naps" et "NAPS" (deux sources de
+  // reconnaissance différentes) comme deux artistes distincts. Insensible aux
+  // accents/majuscules/espaces, regroupe aussi un featuring sous l'artiste
+  // principal (jamais un doublon "Artiste" + "Artiste feat. Invité").
+  const artists = useMemo(() => groupTracksByArtist(publicKeptTracks.map((entry) => entry.track)).map((group) => ({ key: group.key, label: group.name })).sort((a, b) => a.label.localeCompare(b.label)), [publicKeptTracks]);
+  // Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style ...
+  // une autre brique" -- même filtre gratuit et instantané que côté profil
+  // visiteur (PublicUserProfileScreen), ajouté SANS toucher à la liste
+  // Musiques existante : un style ouvre juste un Swipe limité à ces
+  // morceaux, via le même mécanisme que le SWIPE par artiste/Vibe déjà là.
+  const trackGenreOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of publicKeptTracks) for (const genre of entry.track.genres ?? []) {
+      const clean = genre.trim();
+      if (clean) counts.set(clean, (counts.get(clean) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
+  }, [publicKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
     if (providerPlaylists.length) result.push(...providerPlaylists);
@@ -588,13 +623,42 @@ export default function ProfilePublicScreen({ navigation }: any) {
       if (!publicKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
         <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
+        {trackGenreOptions.length > 0 ? (
+          <View style={s.growthPanel}>
+            <Text style={s.listText}>Parcourir par style</Text>
+            <View style={s.browseChipsRow}>
+              {trackGenreOptions.map(({ genre, count }) => (
+                <TouchableOpacity key={genre} style={s.browseChip} onPress={() => setSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === genre)) })}>
+                  <Text style={s.browseChipText}>{genre} · {count}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
         {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined))}
       </View>;
     }
 
     if (activeTab === 'PLAYLISTS') {
-      if (!displayPlaylists.length) return <Empty text="Tes Vibes apparaîtront ici automatiquement." />;
-      return <View style={s.list}>{displayPlaylists.map((playlist) => {
+      // Adel (14/09/2026) : "Vibe, il sert à quoi ... c'est les mêmes
+      // musiques" -- sans Vibe générée (smartAlbums vide), la liste retombe
+      // sur un dossier générique qui duplique Musiques sans jamais expliquer
+      // pourquoi. Verrou de formule volontairement conservé (Creator Pro/
+      // Venue Pro génèrent automatiquement, les autres ont des essais
+      // limités) -- seule l'explication change, jamais un déblocage silencieux.
+      const vibesHint = !accountRequired && smartAlbums.length === 0 ? (
+        <View style={s.growthPanel}>
+          <Text style={s.growthText}>
+            {smartSortAccess?.unlimited
+              ? 'Génération automatique de tes Vibes en cours -- reviens dans quelques instants.'
+              : smartSortAccess?.allowed
+              ? `Pas encore de Vibe automatique par genre. Il te reste ${smartSortAccess.remaining ?? 0} essai${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} gratuit${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} -- lance "TESTER VIBES AUTO" depuis Mes musiques.`
+              : 'Pas encore de Vibe automatique par genre. Le classement automatique est réservé à Creator Pro/Venue Pro, ou à gagner en développant ta communauté.'}
+          </Text>
+        </View>
+      ) : null;
+      if (!displayPlaylists.length) return <View>{vibesHint}<Empty text="Tes Vibes apparaîtront ici automatiquement." /></View>;
+      return <View style={s.list}>{vibesHint}{displayPlaylists.map((playlist) => {
         const expanded = expandedPlaylistId === playlist.id;
         const tracks = playlistTracks[playlist.id] ?? [];
         const preference = preferenceFor(playlistPreferences, providerId, playlist.id);
@@ -621,7 +685,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     // encadré, même bouton ▶ SWIPE dédié et même dépli inline des morceaux
     // que l'onglet Vibes, plutôt qu'une simple ligne avec une note générique.
     return <View style={s.list}>{items.map((item) => {
-      const selected = publicSwipeTracks.filter((track) => track.artist === item.label);
+      const selected = publicSwipeTracks.filter((track) => canonicalArtistIdentity(track) === item.key);
       const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
       const expanded = expandedGroupItem === item.key;
       return <View key={item.key} style={s.playlistBlock}>
@@ -964,7 +1028,7 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},muted:{color:'#FFFFFF',fontSize:13,lineHeight:18},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#24163A',borderWidth:1,borderColor:'#8B5CF6'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#C5ACFF'},
-  growthPanel:{marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:'#2B2238',overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:'#FFD166',fontSize:13,fontWeight:'900',textAlign:'center'},
+  growthPanel:{marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:'#2B2238',overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:'#FFD166',fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   keepCounters:{marginHorizontal:18},
   tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},originUserText:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},originProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},

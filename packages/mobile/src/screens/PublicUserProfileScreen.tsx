@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
-import { CanonicalTrack } from '@keep/music';
+import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { requestSocialLink } from '../services/notificationService';
@@ -246,6 +246,35 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     genres: track.genres,
     providerIds: track.providerIds || {},
   })), [tracks]);
+
+  // Adel (14/09/2026) : "il va écouter mille musiques ... il faut qu'il
+  // puisse sélectionner par style, après par artiste" -- avant, un visiteur
+  // n'avait qu'UN SEUL gros bouton Swipe sur TOUTE la collection, aucun moyen
+  // de la découper. Nouvelle brique séparée (la liste "Morceaux publics" en
+  // dessous ne change pas) : des styles (genres réels des morceaux, aucune
+  // génération payante requise contrairement aux Vibes) et des artistes
+  // (même regroupement anti-doublon que le propre profil), chacun ouvrant un
+  // Swipe limité à sa propre sélection.
+  const [browseFilter, setBrowseFilter] = useState<{ type: 'genre' | 'artist'; value: string; label: string } | null>(null);
+  const genreOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const track of swipeTracks) for (const genre of track.genres ?? []) {
+      const clean = genre.trim();
+      if (clean) counts.set(clean, (counts.get(clean) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
+  }, [swipeTracks]);
+  const artistGroups = useMemo(() => groupTracksByArtist(swipeTracks), [swipeTracks]);
+  const browseSwipeTracks = useMemo(() => {
+    if (!browseFilter) return swipeTracks;
+    return browseFilter.type === 'genre'
+      ? swipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === browseFilter.value))
+      : swipeTracks.filter((track) => canonicalArtistIdentity(track) === browseFilter.value);
+  }, [swipeTracks, browseFilter]);
+  const openBrowseSwipe = (filter: { type: 'genre' | 'artist'; value: string; label: string } | null) => {
+    setBrowseFilter(filter);
+    setSwipeOpen(true);
+  };
 
   const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
   const shareThisProfile = async () => {
@@ -529,7 +558,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>{isFollowing ? 'Abonné(e)' : '+ Suivre'}</Text>
                     </TouchableOpacity>
                   )}
-                  {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipePreview} onPress={() => setSwipeOpen(true)}><Text style={styles.swipePreviewText}>▶ SWIPE</Text></TouchableOpacity> : null}
+                  {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipePreview} onPress={() => openBrowseSwipe(null)}><Text style={styles.swipePreviewText}>▶ SWIPE</Text></TouchableOpacity> : null}
                 </View>
               </View>
             </View>
@@ -578,7 +607,38 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {albums.length > 0 ? <Text style={styles.albumSummaryText} numberOfLines={2}>Albums : {albums.slice(0,5).join(' · ')}</Text> : null}
         </View>
 
-        {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => setSwipeOpen(true)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
+        {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => openBrowseSwipe(null)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
+
+        {/* Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style,
+            après par artiste ... une autre brique" -- nouveau bloc séparé de
+            la liste "Morceaux publics" plus bas (qui ne change pas). Filtre
+            gratuit et instantané (aucune génération à payer, contrairement
+            aux Vibes du propre profil) : chaque style/artiste ouvre un Swipe
+            limité à sa propre sélection au lieu de toute la collection. */}
+        {tracks.length > 0 && viewer?.id !== profile.id && (genreOptions.length > 0 || artistGroups.length > 1) ? (
+          <View style={styles.browseSection}>
+            <Text style={styles.sectionTitle}>Parcourir par style ou artiste</Text>
+            {genreOptions.length > 0 ? (
+              <View style={styles.browseChipsRow}>
+                {genreOptions.map(({ genre, count }) => (
+                  <TouchableOpacity key={genre} style={styles.browseChip} onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}>
+                    <Text style={styles.browseChipText}>{genre} · {count}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+            {artistGroups.length > 1 ? (
+              <View style={styles.browseArtistList}>
+                {artistGroups.slice(0, 8).map((group) => (
+                  <TouchableOpacity key={group.key} style={styles.browseArtistRow} onPress={() => openBrowseSwipe({ type: 'artist', value: group.key, label: group.name })}>
+                    <Text style={styles.browseArtistName} numberOfLines={1}>{group.name}</Text>
+                    <Text style={styles.browseArtistCount}>{group.trackCount} {group.trackCount > 1 ? 'morceaux' : 'morceau'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.visitorKeepCounters}>
           <ProfileCounterRow kind="keeps" items={[
@@ -665,12 +725,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
       <MusicSwipeDeckModal
         visible={swipeOpen}
-        tracks={swipeTracks}
-        title={`La collection de ${profile.username}`}
+        tracks={browseSwipeTracks}
+        title={browseFilter ? `${profile.username} · ${browseFilter.label}` : `La collection de ${profile.username}`}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         requiresAccount={!viewer || isLocalGuest || isDemoMode}
-        onClose={() => setSwipeOpen(false)}
+        onClose={() => { setSwipeOpen(false); setBrowseFilter(null); }}
         onKeep={addCanonicalToMyKeep}
       />
 
@@ -770,6 +830,7 @@ const styles = StyleSheet.create({
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},albumSummaryText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
+  browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},browseArtistList:{marginTop:10,gap:6},browseArtistRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:38,paddingHorizontal:12,borderRadius:12,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border},browseArtistName:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:13,fontWeight:'700'},browseArtistCount:{color:colors.textMuted,fontSize:11,marginLeft:8},
   visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:64,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:11,lineHeight:15,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},
