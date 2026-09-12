@@ -8,7 +8,7 @@ returns integer
 language sql
 stable
 security definer
-set search_path = public
+set search_path to public
 as $function$
   select coalesce(count(*)::integer, 0)
   from public.keep_decisions
@@ -38,7 +38,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public, auth
+set search_path to public, auth
 as $function$
 declare
   uid uuid := auth.uid();
