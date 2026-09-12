@@ -132,12 +132,21 @@ export default function CreatorToolsPanel({ navigation }: any) {
     finally { setBusy(false); }
   };
 
+  // Adel (15/09/2026) : "j'ai créé ma soirée du mois. Quand je clique
+  // dessus, ça ne me propose pas la même chose que quand je clique sur
+  // Soirée -- il faut le même design et les mêmes fonctions" -- BUG RÉEL :
+  // une fois la soirée du mois déjà créée (quota utilisé), ce bouton
+  // redirigeait vers l'offre Venue Pro au lieu de montrer l'événement déjà
+  // créé. Le seul cas où le quota est épuisé pour un compte déjà
+  // creatorEnabled (seule condition d'affichage de ce bouton), c'est
+  // "déjà utilisé ce mois-ci" -- direction vers Soirées (même écran que
+  // l'onglet), jamais un nouveau paywall pour un évènement qui existe déjà.
   const openEventComposer = async () => {
     if (!eventsFeatureEnabled) return Alert.alert('Événements', 'La création d’événements est temporairement suspendue.');
     if (!creatorEnabled) return openPaywall('CREATE_EVENT', 'CREATOR_PRO');
     const access = await getEventCreationAccess().catch(() => eventAccess);
     if (access) setEventAccess(access);
-    if (!access || (!access.allowed && !access.unlimited)) return openPaywall('CREATE_EVENT', 'VENUE_PRO');
+    if (!access || (!access.allowed && !access.unlimited)) return navigation.navigate('Main', { screen: 'Parties' });
     setEventOpen(true);
   };
 
@@ -171,7 +180,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
     } finally { setBusy(false); }
   };
 
-  const eventLabel = eventAccess?.unlimited ? '+ Créer une soirée · illimité' : eventAccess?.planCode === 'CREATOR_PRO' ? (eventCanCreate ? '+ Créer ma soirée du mois' : '🔒 Soirée du mois utilisée') : '+ Créer un événement';
+  const eventLabel = eventAccess?.unlimited ? '+ Créer une soirée · illimité' : eventAccess?.planCode === 'CREATOR_PRO' ? (eventCanCreate ? '+ Créer ma soirée du mois' : '👉 Voir ma soirée du mois dans Soirées') : '+ Créer un événement';
 
   return <View style={s.card}>
     <View style={s.header}><View><Text style={s.eyebrow}>ESPACE CRÉATEUR</Text><Text style={s.title}>Profil, visibilité & communauté</Text></View></View>
