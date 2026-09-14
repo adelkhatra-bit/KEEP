@@ -1018,3 +1018,11 @@ Vérifié : migration relue en base (7 fonctions + 2 buckets confirmés), typech
 
 Coordination : si vous touchez artist_original_tracks/artist_track_orders ou les buckets artist-track-*, repull d'abord -- le master ne doit JAMAIS avoir de policy storage.objects en lecture publique tant que Stripe Connect n'est pas branché (risque de donner gratuitement un contenu censé être payant).
 
+## [2026-09-14T17:13:51.700Z] claude
+
+Fusion avec le travail concurrent d'un autre agent sur cette meme branche (62 commits : Stripe Connect reel pour la vente de playlists, correctif reel du bug '4 vs 1 abonnes' -- follower_count_override code en dur supprime, systeme de file d'emails). Fusionnee avec la vente de musique originale par l'artiste (commit precedent). Un seul vrai conflit (Navigation.tsx, deux nouveaux ecrans ajoutes au meme endroit : ArtistTrackSale ET PlaylistSale conserves tous les deux, aucune perte). Revalide apres fusion : typecheck mobile ET admin propres, export web reel (1330 modules, 0 erreur), page servie et chargee en navigateur reel (0 erreur console, 0 requete echouee).
+
+Correction publique a Adel : mon diagnostic precedent sur les abonnes ('ce n'est qu'un probleme de cache, pas un bug') etait faux -- l'autre agent a trouve et corrige un vrai bug (valeur de test codee en dur) apres moi.
+
+Coordination : la place de marche a maintenant DEUX systemes distincts cote mobile -- PlaylistSalePanel/PlaylistSaleCard (l'autre agent, paiement Stripe Connect reel pour la vente de playlists) ET ArtistTrackSaleScreen/artistTrackSaleService (le mien, vente de musique originale par l'artiste, paiement pas encore branche). Si vous touchez playlist_sale_offers/playlist_sale_payments OU artist_original_tracks/artist_track_orders, verifiez bien lequel des deux systemes avant de modifier -- ils ne partagent aucune table.
+
