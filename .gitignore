@@ -22,3 +22,4 @@ CHATGPT_RUNTIME_STATUS.json
 
 # Verrou de coordination local entre agents (Claude Code / Codex) -- état machine-spécifique
 .agent-lock.json
+.claude/settings.json

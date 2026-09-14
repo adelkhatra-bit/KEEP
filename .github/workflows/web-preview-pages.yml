@@ -8,6 +8,8 @@ on:
       - 'packages/music/**'
       - 'packages/admin/**'
       - 'supabase/functions/keep-admin-control/**'
+      - 'supabase/functions/keep-backend/**'
+      - 'supabase/migrations/**'
       - 'supabase/templates/**'
       - 'scripts/verify-source-of-truth.cjs'
       - 'package.json'
