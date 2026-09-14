@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 
 type OfferRow = { id: string; seller_id: string; seller_username: string; playlist_id: string; playlist_name: string; price_cents: number; currency_code: string; is_active: boolean; created_at: string; updated_at: string };
 type PaymentRow = { id: string; seller_id: string; seller_username: string; buyer_id: string; buyer_username: string; playlist_name: string; amount_cents: number; currency_code: string; platform_fee_cents: number; status: string; provider: string; created_at: string };
+type ArtistTrackRow = { id: string; seller_id: string; seller_username: string; title: string; album_name: string | null; pricing_mode: string; price_cents: number; min_price_cents: number | null; currency_code: string; has_master: boolean; rights_confirmed: boolean; is_active: boolean; created_at: string; updated_at: string };
+type ArtistOrderRow = { id: string; seller_id: string; seller_username: string; buyer_id: string; buyer_username: string; track_title: string; amount_cents: number; currency_code: string; platform_fee_cents: number; status: string; provider: string; created_at: string };
 
 function money(cents: number, currency: string) {
   return `${(cents / 100).toFixed(2)} ${currency}`;
@@ -19,6 +21,8 @@ function money(cents: number, currency: string) {
 export default function Marketplace() {
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [artistTracks, setArtistTracks] = useState<ArtistTrackRow[]>([]);
+  const [artistOrders, setArtistOrders] = useState<ArtistOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,14 +30,25 @@ export default function Marketplace() {
     setLoading(true); setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const [{ data: offerRows, error: offersError }, { data: paymentRows, error: paymentsError }] = await Promise.all([
+      const [
+        { data: offerRows, error: offersError },
+        { data: paymentRows, error: paymentsError },
+        { data: artistTrackRows, error: artistTracksError },
+        { data: artistOrderRows, error: artistOrdersError },
+      ] = await Promise.all([
         supabase.rpc('keep_admin_playlist_sale_offers', { p_limit: 200, p_offset: 0 }),
         supabase.rpc('keep_admin_playlist_sale_payments', { p_limit: 200, p_offset: 0 }),
+        supabase.rpc('keep_admin_artist_track_uploads', { p_limit: 200, p_offset: 0 }),
+        supabase.rpc('keep_admin_artist_track_orders', { p_limit: 200, p_offset: 0 }),
       ]);
       if (offersError) throw offersError;
       if (paymentsError) throw paymentsError;
+      if (artistTracksError) throw artistTracksError;
+      if (artistOrdersError) throw artistOrdersError;
       setOffers((offerRows ?? []) as OfferRow[]);
       setPayments((paymentRows ?? []) as PaymentRow[]);
+      setArtistTracks((artistTrackRows ?? []) as ArtistTrackRow[]);
+      setArtistOrders((artistOrderRows ?? []) as ArtistOrderRow[]);
     } catch (e: any) { setError(e?.message ?? 'Impossible de charger la place de marché.'); }
     finally { setLoading(false); }
   };
@@ -45,23 +60,37 @@ export default function Marketplace() {
     acc[p.currency_code] = (acc[p.currency_code] ?? 0) + p.amount_cents;
     return acc;
   }, {});
+  const artistTotalByCurrency = artistOrders.reduce<Record<string, number>>((acc, o) => {
+    if (o.status !== 'COMPLETED') return acc;
+    acc[o.currency_code] = (acc[o.currency_code] ?? 0) + o.amount_cents;
+    return acc;
+  }, {});
 
   return (
     <AdminLayout>
-      <div className="page-title">Place de marché — Vente de playlists</div>
+      <div className="page-title">Place de marché — Playlists & musique originale</div>
       <div className="page-subtitle">Offres de prix fixées par les utilisateurs et paiements entre eux — 0% de commission Loki pour l’instant</div>
 
       <div className="demo-banner" style={{ borderColor: '#8B5CF6' }}>
-        💶 Le paiement réel (Stripe Connect, un compte par utilisateur) n’est pas encore branché. Les offres ci-dessous sont réelles et déjà enregistrées ; le registre des paiements reste vide tant qu’aucun encaissement n’est possible.
+        💶 Le paiement réel (Stripe Connect, un compte par utilisateur) n’est pas encore branché. Les offres ci-dessous sont réelles et déjà enregistrées ; les registres de paiements/commandes restent vides tant qu’aucun encaissement n’est possible.
       </div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Total encaissé (paiements COMPLETED)</h3>
+        <h3 style={{ marginTop: 0 }}>Total encaissé — playlists (paiements COMPLETED)</h3>
         {Object.keys(totalByCurrency).length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucun paiement pour l’instant.</p> : (
           <table><thead><tr><th>Devise</th><th>Montant</th><th>Commission Loki</th></tr></thead><tbody>
             {Object.entries(totalByCurrency).map(([currency, cents]) => <tr key={currency}><td>{currency}</td><td>{money(cents, currency)}</td><td>0%</td></tr>)}
+          </tbody></table>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Total encaissé — musique originale (commandes COMPLETED)</h3>
+        {Object.keys(artistTotalByCurrency).length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucune commande pour l’instant.</p> : (
+          <table><thead><tr><th>Devise</th><th>Montant</th><th>Commission Loki</th></tr></thead><tbody>
+            {Object.entries(artistTotalByCurrency).map(([currency, cents]) => <tr key={currency}><td>{currency}</td><td>{money(cents, currency)}</td><td>0%</td></tr>)}
           </tbody></table>
         )}
       </div>
@@ -83,8 +112,8 @@ export default function Marketplace() {
         )}
       </div>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Paiements ({payments.length})</h3>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Paiements — playlists ({payments.length})</h3>
         {loading ? <p>Chargement…</p> : payments.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucun paiement pour l’instant — normal tant que Stripe Connect n’est pas branché.</p> : (
           <table><thead><tr><th>Date</th><th>Acheteur</th><th>Vendeur</th><th>Playlist</th><th>Montant</th><th>Commission Loki</th><th>Statut</th></tr></thead><tbody>
             {payments.map((p) => (
@@ -96,6 +125,45 @@ export default function Marketplace() {
                 <td>{money(p.amount_cents, p.currency_code)}</td>
                 <td>{money(p.platform_fee_cents, p.currency_code)}</td>
                 <td>{p.status}</td>
+              </tr>
+            ))}
+          </tbody></table>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Titres en vente — musique originale ({artistTracks.filter((t) => t.is_active).length})</h3>
+        {loading ? <p>Chargement…</p> : artistTracks.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucun titre pour l’instant.</p> : (
+          <table><thead><tr><th>Artiste</th><th>Titre</th><th>Album</th><th>Prix</th><th>Fichier complet</th><th>Droits confirmés</th><th>Statut</th><th>Mise à jour</th></tr></thead><tbody>
+            {artistTracks.map((t) => (
+              <tr key={t.id} style={{ opacity: t.is_active ? 1 : 0.5 }}>
+                <td>@{t.seller_username}</td>
+                <td>{t.title}</td>
+                <td>{t.album_name ?? '—'}</td>
+                <td>{t.pricing_mode === 'PAY_WHAT_YOU_WANT' && t.min_price_cents != null ? `Dès ${money(t.min_price_cents, t.currency_code)}` : money(t.price_cents, t.currency_code)}</td>
+                <td>{t.has_master ? 'Déposé' : 'Extrait seul'}</td>
+                <td>{t.rights_confirmed ? '✅' : '⚠️ non'}</td>
+                <td>{t.is_active ? 'Active' : 'Retirée'}</td>
+                <td>{new Date(t.updated_at).toLocaleString('fr-FR')}</td>
+              </tr>
+            ))}
+          </tbody></table>
+        )}
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>Commandes — musique originale ({artistOrders.length})</h3>
+        {loading ? <p>Chargement…</p> : artistOrders.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucune commande pour l’instant — normal tant que Stripe Connect n’est pas branché.</p> : (
+          <table><thead><tr><th>Date</th><th>Acheteur</th><th>Artiste</th><th>Titre</th><th>Montant</th><th>Commission Loki</th><th>Statut</th></tr></thead><tbody>
+            {artistOrders.map((o) => (
+              <tr key={o.id}>
+                <td>{new Date(o.created_at).toLocaleString('fr-FR')}</td>
+                <td>@{o.buyer_username}</td>
+                <td>@{o.seller_username}</td>
+                <td>{o.track_title}</td>
+                <td>{money(o.amount_cents, o.currency_code)}</td>
+                <td>{money(o.platform_fee_cents, o.currency_code)}</td>
+                <td>{o.status}</td>
               </tr>
             ))}
           </tbody></table>

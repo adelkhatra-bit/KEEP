@@ -24,6 +24,7 @@ import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
+import { loadArtistTrackOffersForProfile, PublicArtistTrackOffer } from '../services/artistTrackSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -122,6 +123,19 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!profile?.id) { setSaleOffers([]); return undefined; }
     let live = true;
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
+    return () => { live = false; };
+  }, [profile?.id]);
+
+  // Adel (14/09/2026) : "comment va se passer pour qu'un utilisateur puisse
+  // faire payer ses musiques, ses albums" -- distinct de saleOffers
+  // (curation de morceaux externes) : ici l'artiste vend SA PROPRE création,
+  // l'extrait est réellement écoutable (bucket public), jamais le fichier
+  // complet tant que le paiement réel n'existe pas.
+  const [artistTrackOffers, setArtistTrackOffers] = useState<PublicArtistTrackOffer[]>([]);
+  useEffect(() => {
+    if (!profile?.id) { setArtistTrackOffers([]); return undefined; }
+    let live = true;
+    loadArtistTrackOffersForProfile(profile.id).then((rows) => { if (live) setArtistTrackOffers(rows); }).catch(() => { if (live) setArtistTrackOffers([]); });
     return () => { live = false; };
   }, [profile?.id]);
 
@@ -708,6 +722,34 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </View>
         ) : null}
 
+        {artistTrackOffers.length > 0 ? (
+          <View style={styles.browseSection}>
+            <Text style={styles.sectionTitle}>🎵 Musique originale de {profile.username}</Text>
+            <Text style={styles.browseHint}>Écoute l'extrait librement · le titre complet s'achète directement à l'artiste.</Text>
+            {artistTrackOffers.map((offer) => {
+              const priceLabel = offer.pricingMode === 'PAY_WHAT_YOU_WANT' && offer.minPriceCents != null
+                ? `Nomme ton prix · dès ${(offer.minPriceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`
+                : `${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+              return (
+                <View key={offer.id} style={styles.artistTrackRow}>
+                  {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.artistTrackCover} /> : <View style={[styles.artistTrackCover, styles.artistTrackCoverPlaceholder]}><Text style={styles.artistTrackCoverPlaceholderText}>🎵</Text></View>}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.artistTrackTitle} numberOfLines={1}>{offer.title}</Text>
+                    {offer.albumName ? <Text style={styles.artistTrackAlbum} numberOfLines={1}>{offer.albumName}</Text> : null}
+                    <Text style={styles.artistTrackPrice}>{priceLabel}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TrackPreviewButton trackKey={`artist-track-${offer.id}`} previewUrl={offer.previewUrl} compact />
+                    <TouchableOpacity style={styles.artistTrackBuyButton} onPress={() => Alert.alert('Bientôt disponible', `${offer.title} · ${priceLabel}\n\nL'achat direct n'est pas encore activé sur Loki -- pour l'instant, seul l'extrait est écoutable.`)}>
+                      <Text style={styles.artistTrackBuyButtonText}>Acheter</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
         {/* Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style,
             après par artiste ... une autre brique" -- nouveau bloc séparé de
             la liste "Morceaux publics" plus bas (qui ne change pas). Filtre
@@ -958,6 +1000,7 @@ const styles = StyleSheet.create({
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
+  browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:64,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:11,lineHeight:15,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},

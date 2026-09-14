@@ -1002,3 +1002,19 @@ Audit crédit Battle (Adel : "j'ai offert cinq prix à un utilisateur, pourquoi 
 keep_profile_has_paid_battle_access() est un stub qui renvoie TOUJOURS false -- aucun abonné payant (Premium/Creator Pro/Venue Pro) n'a le moindre avantage de crédit Battle, ils partagent tous le même plafond théorique fini que les comptes gratuits (keep_theoretical_free_credit_remaining_for_profile, alimenté par guest_limit+signup_bonus+growth_bonus+battle_adjustment+monthly_bonus+admin_grant). Un compte très actif (beaucoup de Keeps + pertes de mises Battle) retombe à 0 quel que soit le nombre de cadeaux admin reçus. Adel a choisi "plafond plus haut mais pas illimité" -- reste à chiffrer le montant exact avant implémentation.
 
 Compte utilisé pour le diagnostic : "inside" (20924bbe-448f-4258-9853-d523881e080d), plan PREMIUM, crédité +6 Free ("CADEAUX") le 12/09 -- probablement un compte de test/perso d'Adel vu son historique d'usage (62 Keeps, -33 net Battle).
+## [2026-09-14T16:59:43.341Z] claude
+
+Vente de musique originale par l'artiste (Adel, 14/09/2026 : "comment va se passer pour qu'un utilisateur puisse faire payer ses musiques, ses albums" + "fait le mieux, regarde la concurrence") -- construit et déployé :
+
+Distinct de playlistSaleService.ts (curation de morceaux externes) : ici l'artiste vend SA PROPRE création, droits à lui -- donc pas de risque de requalification en revendeur de musique, contrairement à la vente de playlists. Modèle Bandcamp repris : extrait audio réellement écoutable (bucket storage public artist-track-previews), prix fixe OU "nomme ton prix" avec minimum, fichier complet jamais livré tant que le paiement réel (Stripe Connect) n'existe pas (bucket privé artist-track-masters, aucune policy de lecture publique -- même pas pour un acheteur).
+
+Migration 20260916090000_keep_artist_original_track_sale_foundation.sql : 2 buckets storage + tables artist_original_tracks/artist_track_orders + 7 RPC (keep_artist_track_access/upsert/clear/my_uploads/offers_for_profile + keep_admin_artist_track_uploads/orders). Réservé CREATOR_PRO/VENUE_PRO (règle déjà en vigueur), pas de palier d'abonnés (contrairement aux playlists) -- vendre sa propre musique n'a pas besoin d'audience préalable. Appliquée en direct via API Management Supabase, vérifiée (buckets + fonctions présents en base).
+
+Mobile : artistTrackSaleService.ts (nouveau), écran ArtistTrackSaleScreen.tsx (nouveau, route 'ArtistTrackSale') accessible depuis CreatorToolsPanel via un bouton court (pas de section géante ajoutée, panneau déjà signalé 'trop d'écritures'). PublicUserProfileScreen.tsx : section '🎵 Musique originale' avec TrackPreviewButton réellement fonctionnel (extrait jouable) + bouton Acheter en teaser (même pattern que la vente de playlists, achat réel pas encore possible). Nouvelle dépendance expo-document-picker~14.0.8 (SDK 54) pour sélectionner les fichiers audio locaux.
+
+Super Admin : packages/admin/pages/marketplace.tsx étendu (titres en vente + commandes musique originale, même registre 0% commission), renommé 'Place de marché' dans AdminLayout.tsx.
+
+Vérifié : migration relue en base (7 fonctions + 2 buckets confirmés), typecheck mobile ET admin propres, export web réel réussi (1328 modules, 0 erreur), page exportée servie et chargée en navigateur réel (0 erreur console, 0 requête échouée).
+
+Coordination : si vous touchez artist_original_tracks/artist_track_orders ou les buckets artist-track-*, repull d'abord -- le master ne doit JAMAIS avoir de policy storage.objects en lecture publique tant que Stripe Connect n'est pas branché (risque de donner gratuitement un contenu censé être payant).
+

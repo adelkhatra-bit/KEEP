@@ -223,6 +223,22 @@ export default function CreatorToolsPanel({ navigation }: any) {
         <Text style={s.paymentTeaserText}>Connecte ton propre Stripe ou PayPal pour encaisser tes ventes (playlists, évènements) directement sur TON compte. Se débloque selon ta formule ou tes abonnés -- crée ton compte Loki pour voir ta progression.</Text>
       </View>
     )}
+
+    {/* Adel (14/09/2026) : "comment va se passer pour qu'un utilisateur
+        puisse faire payer ses musiques, ses albums" -- distinct de la vente
+        de playlists (curation) : ici l'artiste vend SA PROPRE création.
+        Entrée courte vers un écran dédié (comme "Créer ma soirée du mois"),
+        pour ne pas alourdir encore ce panneau déjà signalé "trop
+        d'écritures, mal présenté". */}
+    {creatorEnabled ? (
+      <TouchableOpacity style={s.eventButton} onPress={() => navigation?.navigate?.('ArtistTrackSale')}>
+        <Text style={s.eventButtonText}>🎵 Vendre ma musique originale</Text>
+      </TouchableOpacity>
+    ) : (
+      <TouchableOpacity style={[s.eventButton, s.eventButtonLocked]} onPress={() => openPaywall('CREATOR_KIND')}>
+        <Text style={[s.eventButtonText, { color: colors.primaryLight }]}>🎵 Vendre ma musique · Creator Pro requis</Text>
+      </TouchableOpacity>
+    )}
   </View>;
 }
 
