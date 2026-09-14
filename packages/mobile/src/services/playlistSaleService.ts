@@ -95,6 +95,78 @@ export async function loadMaskedPlaylistSaleTrackIds(sellerId: string): Promise<
   return Array.isArray(data) ? data.map(String) : [];
 }
 
+// Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
+// directement ... KEEP encaisse rien" -- l'acheteur clique Acheter, KEEP
+// ouvre le lien de paiement PERSONNEL du vendeur (jamais un compte KEEP) et
+// note la demande pour que le vendeur sache qui débloquer une fois payé.
+export type PlaylistPurchaseRequest = {
+  paymentId: string;
+  status: 'PENDING' | 'COMPLETED';
+  amountCents: number;
+  currencyCode: string;
+  sellerUsername: string;
+  payoutLink: string;
+};
+
+export async function requestPlaylistPurchase(offerId: string): Promise<PlaylistPurchaseRequest> {
+  const { data, error } = await client().rpc('keep_playlist_sale_request_purchase', { p_offer_id: offerId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_PURCHASE_REQUEST_FAILED'));
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? ''),
+    status: (row?.status ?? 'PENDING') as 'PENDING' | 'COMPLETED',
+    amountCents: Number(row?.amountCents ?? 0),
+    currencyCode: String(row?.currencyCode ?? 'EUR'),
+    sellerUsername: String(row?.sellerUsername ?? ''),
+    payoutLink: String(row?.payoutLink ?? ''),
+  };
+}
+
+export async function markPlaylistSalePaid(paymentId: string): Promise<void> {
+  const { error } = await client().rpc('keep_playlist_sale_mark_paid', { p_payment_id: paymentId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_MARK_PAID_FAILED'));
+}
+
+export type PlaylistSaleTransaction = {
+  id: string;
+  counterpartUsername: string;
+  playlistName: string;
+  amountCents: number;
+  currencyCode: string;
+  status: 'PENDING' | 'COMPLETED';
+  createdAt: string;
+};
+
+export async function loadMyPlaylistSales(): Promise<PlaylistSaleTransaction[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_my_sales');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    counterpartUsername: String(row.buyer_username ?? ''),
+    playlistName: String(row.playlist_name ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    createdAt: String(row.created_at ?? ''),
+  })).filter((row) => row.id);
+}
+
+export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_my_purchases');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    counterpartUsername: String(row.seller_username ?? ''),
+    playlistName: String(row.playlist_name ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    createdAt: String(row.created_at ?? ''),
+  })).filter((row) => row.id);
+}
+
 export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_offers');

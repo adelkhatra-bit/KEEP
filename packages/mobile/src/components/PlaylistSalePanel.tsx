@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleShee
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers } from '../services/playlistSaleService';
+import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
 import { Alert as KeepAlert } from '../utils/keepAlert';
 
 type PriceEditState = { playlistId: string; priceText: string } | null;
@@ -14,6 +14,8 @@ export default function PlaylistSalePanel({ navigation }: any) {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [access, setAccess] = useState<PlaylistSaleAccess | null>(null);
   const [offers, setOffers] = useState<PlaylistSaleOffer[]>([]);
+  const [sales, setSales] = useState<PlaylistSaleTransaction[]>([]);
+  const [purchases, setPurchases] = useState<PlaylistSaleTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
@@ -23,23 +25,56 @@ export default function PlaylistSalePanel({ navigation }: any) {
     if (!user || isLocalGuest || isDemoMode) {
       setAccess(null);
       setOffers([]);
+      setSales([]);
+      setPurchases([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const [liveAccess, liveOffers] = await Promise.all([
+      const [liveAccess, liveOffers, liveSales, livePurchases] = await Promise.all([
         getPlaylistSaleAccess(),
         loadMyPlaylistSaleOffers(),
+        loadMyPlaylistSales(),
+        loadMyPlaylistPurchases(),
       ]);
       setAccess(liveAccess);
       setOffers(liveOffers);
+      setSales(liveSales);
+      setPurchases(livePurchases);
     } catch (e: any) {
       setError(e?.message || 'Erreur lors du chargement');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Adel (16-17/09/2026) : "l'utilisateur se fait payer directement" -- une
+  // fois payé sur SON lien perso (hors KEEP), le vendeur confirme ici -- ça
+  // débloque l'accès de CET acheteur précis (démasquage des morceaux).
+  const handleMarkPaid = (transaction: PlaylistSaleTransaction) => {
+    Alert.alert(
+      'Confirmer la réception du paiement',
+      `Confirme uniquement si tu as bien reçu ${(transaction.amountCents / 100).toFixed(2)} ${transaction.currencyCode} de @${transaction.counterpartUsername} sur ton lien de paiement personnel. Ça débloquera "${transaction.playlistName}" pour lui.`,
+      [
+        { text: 'Annuler', onPress: () => {} },
+        {
+          text: 'J’ai bien été payé',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await markPlaylistSalePaid(transaction.id);
+              await loadData();
+            } catch (e: any) {
+              KeepAlert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   useEffect(() => {
@@ -214,6 +249,28 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
             )}
 
+            {/* Ventes en attente de confirmation -- l'acheteur a déjà cliqué
+                Acheter (payé ou en train de payer sur le lien du vendeur) */}
+            {sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
+              <View style={s.offersSection}>
+                <Text style={s.sectionTitle}>VENTES EN ATTENTE ({sales.filter((s2) => s2.status === 'PENDING').length})</Text>
+                {sales.filter((s2) => s2.status === 'PENDING').map((sale) => (
+                  <View key={sale.id} style={s.offerCard}>
+                    <View style={s.offerTop}>
+                      <View style={s.offerInfo}>
+                        <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
+                        <Text style={s.offerPrice}>{(sale.amountCents / 100).toFixed(2)}€ {sale.currencyCode}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.offerDate}>Demandé le {new Date(sale.createdAt).toLocaleDateString('fr-FR')} -- pas encore confirmé</Text>
+                    <TouchableOpacity style={s.editBtn} disabled={busy} onPress={() => handleMarkPaid(sale)}>
+                      <Text style={s.editBtnText}>✓ J’ai été payé -- débloquer</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Message si verrouillé */}
             {!access.unlocked && (
               <View style={s.lockedBox}>
@@ -229,6 +286,31 @@ export default function PlaylistSalePanel({ navigation }: any) {
               <View style={s.emptyBox}>
                 <Text style={s.emptyBoxTitle}>Aucune playlist en vente</Text>
                 <Text style={s.emptyBoxText}>Tu peux commencer à en vendre en sélectionnant une playlist dans ton profil.</Text>
+              </View>
+            )}
+
+            {sales.filter((s2) => s2.status === 'COMPLETED').length > 0 && (
+              <View style={s.offersSection}>
+                <Text style={s.sectionTitle}>VENTES CONFIRMÉES ({sales.filter((s2) => s2.status === 'COMPLETED').length})</Text>
+                {sales.filter((s2) => s2.status === 'COMPLETED').map((sale) => (
+                  <View key={sale.id} style={s.offerCard}>
+                    <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
+                    <Text style={s.offerPrice}>{(sale.amountCents / 100).toFixed(2)}€ {sale.currencyCode}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {purchases.length > 0 && (
+              <View style={s.offersSection}>
+                <Text style={s.sectionTitle}>MES ACHATS ({purchases.length})</Text>
+                {purchases.map((purchase) => (
+                  <View key={purchase.id} style={s.offerCard}>
+                    <Text style={s.offerName}>@{purchase.counterpartUsername} · {purchase.playlistName}</Text>
+                    <Text style={s.offerPrice}>{(purchase.amountCents / 100).toFixed(2)}€ {purchase.currencyCode}</Text>
+                    <Text style={s.offerDate}>{purchase.status === 'COMPLETED' ? '✓ Débloqué -- va sur son profil pour voir les morceaux' : '⏳ En attente que le vendeur confirme ton paiement'}</Text>
+                  </View>
+                ))}
               </View>
             )}
           </>

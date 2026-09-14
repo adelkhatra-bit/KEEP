@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from '../utils/keepAlert';
 import {
   clearArtistTrack,
   getArtistTrackAccess,
+  getArtistTrackMasterSignedUrl,
   loadMyArtistTracks,
+  loadMyArtistTrackPurchases,
+  loadMyArtistTrackSales,
+  markArtistTrackPaid,
   MyArtistTrack,
+  ArtistTrackTransaction,
   PricingMode,
   saveArtistTrack,
   uploadArtistTrackCover,
@@ -32,6 +37,9 @@ export default function ArtistTrackSaleScreen({ navigation }: any) {
   const [unlocked, setUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [myTracks, setMyTracks] = useState<MyArtistTrack[]>([]);
+  const [mySales, setMySales] = useState<ArtistTrackTransaction[]>([]);
+  const [myPurchases, setMyPurchases] = useState<ArtistTrackTransaction[]>([]);
+  const [downloadBusyId, setDownloadBusyId] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [albumName, setAlbumName] = useState('');
@@ -49,10 +57,17 @@ export default function ArtistTrackSaleScreen({ navigation }: any) {
 
   const refresh = React.useCallback(async () => {
     try {
-      const [access, tracks] = await Promise.all([getArtistTrackAccess(), loadMyArtistTracks()]);
+      const [access, tracks, sales, purchases] = await Promise.all([
+        getArtistTrackAccess(),
+        loadMyArtistTracks(),
+        loadMyArtistTrackSales(),
+        loadMyArtistTrackPurchases(),
+      ]);
       setPlanCode(access.planCode);
       setUnlocked(access.unlocked);
       setMyTracks(tracks);
+      setMySales(sales);
+      setMyPurchases(purchases);
     } catch {
       setUnlocked(false);
       setMyTracks([]);
@@ -60,6 +75,38 @@ export default function ArtistTrackSaleScreen({ navigation }: any) {
       setLoading(false);
     }
   }, []);
+
+  // Adel (16-17/09/2026) : "l'utilisateur se fait payer directement" -- une
+  // fois payé sur SON lien perso (hors KEEP), l'artiste confirme ici -- ça
+  // débloque le fichier complet pour cet acheteur précis.
+  const handleMarkPaid = (transaction: ArtistTrackTransaction) => {
+    Alert.alert(
+      'Confirmer la réception du paiement',
+      `Confirme uniquement si tu as bien reçu ${(transaction.amountCents / 100).toFixed(2)} ${transaction.currencyCode} de @${transaction.counterpartUsername} sur ton lien de paiement personnel. Ça débloquera "${transaction.trackTitle}" pour lui.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'J’ai bien été payé', onPress: async () => {
+            try { await markArtistTrackPaid(transaction.id); await refresh(); }
+            catch (e: any) { Alert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.'); }
+          },
+        },
+      ],
+    );
+  };
+
+  const downloadPurchasedTrack = async (purchase: ArtistTrackTransaction) => {
+    if (downloadBusyId) return;
+    if (!purchase.masterStoragePath) { Alert.alert('Pas encore de fichier complet', 'L’artiste n’a pas encore déposé le fichier complet -- il verra ta commande dès qu’il le fera.'); return; }
+    setDownloadBusyId(purchase.id);
+    try {
+      const url = await getArtistTrackMasterSignedUrl(purchase.masterStoragePath);
+      if (!url) { Alert.alert('Erreur', 'Impossible de générer le lien de téléchargement pour le moment.'); return; }
+      await Linking.openURL(url);
+    } finally {
+      setDownloadBusyId(null);
+    }
+  };
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -228,7 +275,7 @@ export default function ArtistTrackSaleScreen({ navigation }: any) {
             <TouchableOpacity style={styles.pickButton} onPress={pickMaster} disabled={busy}>
               <Text style={styles.pickButtonText}>{masterName || '📀 Déposer le fichier complet'}</Text>
             </TouchableOpacity>
-            <Text style={styles.hint}>Le fichier complet est mis en sécurité dès maintenant, mais ne sera livré à un acheteur que lorsque le paiement réel sera activé -- personne ne peut y accéder avant, pas même Loki.</Text>
+            <Text style={styles.hint}>Le fichier complet est mis en sécurité -- il ne sera livré à un acheteur qu'après TA confirmation manuelle d'avoir bien été payé sur ton lien de paiement personnel. Personne ne peut y accéder avant, pas même Loki.</Text>
 
             <TouchableOpacity style={styles.rightsCheckRow} onPress={() => setRightsConfirmed((v) => !v)}>
               <View style={[styles.checkbox, rightsConfirmed && styles.checkboxOn]}>{rightsConfirmed ? <Text style={styles.checkboxMark}>✓</Text> : null}</View>
@@ -256,6 +303,42 @@ export default function ArtistTrackSaleScreen({ navigation }: any) {
                     <TouchableOpacity style={styles.removeButton} onPress={() => removeTrack(track)}>
                       <Text style={styles.removeButtonText}>Retirer</Text>
                     </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            ) : null}
+
+            {mySales.filter((s) => s.status === 'PENDING').length > 0 ? (
+              <>
+                <Text style={styles.sectionLabel}>Ventes en attente ({mySales.filter((s) => s.status === 'PENDING').length})</Text>
+                {mySales.filter((s) => s.status === 'PENDING').map((sale) => (
+                  <View key={sale.id} style={styles.myTrackRow}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.myTrackTitle} numberOfLines={1}>@{sale.counterpartUsername} · {sale.trackTitle}</Text>
+                      <Text style={styles.myTrackPrice}>{(sale.amountCents / 100).toFixed(2)}€ -- pas encore confirmé</Text>
+                    </View>
+                    <TouchableOpacity style={styles.submitButton} onPress={() => handleMarkPaid(sale)}>
+                      <Text style={[styles.submitButtonText, { fontSize: 12 }]}>✓ Payé</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            ) : null}
+
+            {myPurchases.length > 0 ? (
+              <>
+                <Text style={styles.sectionLabel}>Mes achats ({myPurchases.length})</Text>
+                {myPurchases.map((purchase) => (
+                  <View key={purchase.id} style={styles.myTrackRow}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.myTrackTitle} numberOfLines={1}>@{purchase.counterpartUsername} · {purchase.trackTitle}</Text>
+                      <Text style={styles.myTrackPrice}>{purchase.status === 'COMPLETED' ? '✓ Débloqué' : '⏳ En attente de confirmation'}</Text>
+                    </View>
+                    {purchase.status === 'COMPLETED' ? (
+                      <TouchableOpacity style={styles.removeButton} disabled={downloadBusyId === purchase.id} onPress={() => void downloadPurchasedTrack(purchase)}>
+                        <Text style={[styles.removeButtonText, { color: '#7CF2B9' }]}>{downloadBusyId === purchase.id ? '…' : '⬇ Fichier'}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ))}
               </>

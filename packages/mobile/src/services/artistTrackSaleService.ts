@@ -170,6 +170,91 @@ export async function loadMyArtistTracks(): Promise<MyArtistTrack[]> {
   })).filter((row) => row.id);
 }
 
+// Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
+// directement ... KEEP encaisse rien" -- même principe que
+// playlistSaleService.ts : KEEP ouvre le lien de paiement personnel de
+// l'artiste, note la demande, l'artiste confirme manuellement une fois payé
+// sur SON compte -- ça débloque alors le fichier complet pour cet acheteur.
+export type ArtistTrackPurchaseRequest = {
+  orderId: string;
+  status: 'PENDING' | 'COMPLETED';
+  amountCents: number;
+  currencyCode: string;
+  sellerUsername: string;
+  payoutLink: string;
+};
+
+export async function requestArtistTrackPurchase(trackId: string): Promise<ArtistTrackPurchaseRequest> {
+  const { data, error } = await client().rpc('keep_artist_track_request_purchase', { p_track_id: trackId });
+  if (error) throw new Error(String(error.message || 'ARTIST_TRACK_PURCHASE_REQUEST_FAILED'));
+  const row = data as any;
+  return {
+    orderId: String(row?.orderId ?? ''),
+    status: (row?.status ?? 'PENDING') as 'PENDING' | 'COMPLETED',
+    amountCents: Number(row?.amountCents ?? 0),
+    currencyCode: String(row?.currencyCode ?? 'EUR'),
+    sellerUsername: String(row?.sellerUsername ?? ''),
+    payoutLink: String(row?.payoutLink ?? ''),
+  };
+}
+
+export async function markArtistTrackPaid(orderId: string): Promise<void> {
+  const { error } = await client().rpc('keep_artist_track_mark_paid', { p_order_id: orderId });
+  if (error) throw new Error(String(error.message || 'ARTIST_TRACK_MARK_PAID_FAILED'));
+}
+
+export type ArtistTrackTransaction = {
+  id: string;
+  counterpartUsername: string;
+  trackTitle: string;
+  amountCents: number;
+  currencyCode: string;
+  status: 'PENDING' | 'COMPLETED';
+  createdAt: string;
+  trackId?: string;
+  masterStoragePath?: string | null;
+};
+
+export async function loadMyArtistTrackSales(): Promise<ArtistTrackTransaction[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_artist_track_my_sales');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    counterpartUsername: String(row.buyer_username ?? ''),
+    trackTitle: String(row.track_title ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    createdAt: String(row.created_at ?? ''),
+  })).filter((row) => row.id);
+}
+
+export async function loadMyArtistTrackPurchases(): Promise<ArtistTrackTransaction[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_artist_track_my_purchases');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    counterpartUsername: String(row.seller_username ?? ''),
+    trackTitle: String(row.track_title ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    createdAt: String(row.created_at ?? ''),
+    trackId: row.track_id ?? undefined,
+    masterStoragePath: row.master_storage_path ?? null,
+  })).filter((row) => row.id);
+}
+
+/** Signed URL du fichier complet -- ne fonctionne que si l'achat est COMPLETED (policy storage). */
+export async function getArtistTrackMasterSignedUrl(masterStoragePath: string): Promise<string> {
+  if (!supabase || !masterStoragePath) return '';
+  const { data, error } = await supabase.storage.from('artist-track-masters').createSignedUrl(masterStoragePath, 3600);
+  if (error || !data?.signedUrl) return '';
+  return data.signedUrl;
+}
+
 export async function loadArtistTrackOffersForProfile(profileId: string): Promise<PublicArtistTrackOffer[]> {
   if (!supabase || !profileId) return [];
   const { data, error } = await supabase.rpc('keep_artist_track_offers_for_profile', { p_profile_id: profileId });

@@ -23,8 +23,8 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
-import { loadArtistTrackOffersForProfile, PublicArtistTrackOffer } from '../services/artistTrackSaleService';
+import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadArtistTrackOffersForProfile, PublicArtistTrackOffer, requestArtistTrackPurchase } from '../services/artistTrackSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -340,6 +340,44 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const openBrowseSwipe = (filter: { type: 'genre' | 'artist'; value: string; label: string } | null) => {
     setBrowseFilter(filter);
     setSwipeOpen(true);
+  };
+
+  // Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
+  // directement ... KEEP encaisse rien" -- Acheter ouvre le lien de
+  // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
+  // notée pour que le vendeur sache qui débloquer une fois vraiment payé.
+  const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
+  const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
+    if (purchaseBusyId) return;
+    setPurchaseBusyId(offer.playlistId);
+    try {
+      const request = await requestPlaylistPurchase(offer.playlistId);
+      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce vendeur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
+      await Linking.openURL(request.payoutLink);
+      Alert.alert('Paie directement sur le lien du vendeur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- l'accès se débloquera dès que ${request.sellerUsername || 'le vendeur'} confirme.`);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('authentication_required')) goToOwnProfile();
+      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
+    } finally {
+      setPurchaseBusyId(null);
+    }
+  };
+  const buyArtistTrack = async (offer: PublicArtistTrackOffer) => {
+    if (purchaseBusyId) return;
+    setPurchaseBusyId(offer.id);
+    try {
+      const request = await requestArtistTrackPurchase(offer.id);
+      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Cet artiste'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
+      await Linking.openURL(request.payoutLink);
+      Alert.alert('Paie directement sur le lien de l’artiste', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- le fichier complet se débloquera dès que ${request.sellerUsername || 'l’artiste'} confirme.`);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('authentication_required')) goToOwnProfile();
+      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
+    } finally {
+      setPurchaseBusyId(null);
+    }
   };
 
   const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
@@ -714,8 +752,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <Text style={styles.sectionTitle}>🎧 Playlists à vendre</Text>
             <View style={styles.browseChipsRow}>
               {saleOffers.map((offer) => (
-                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} onPress={() => Alert.alert('Bientôt disponible', `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}\n\nL'achat direct n'est pas encore activé sur Loki.`)}>
-                  <Text style={styles.browseChipText} numberOfLines={1}>{offer.playlistName} · {(offer.priceCents / 100).toFixed(2)}{offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}</Text>
+                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} disabled={purchaseBusyId === offer.playlistId} onPress={() => void buyPlaylistOffer(offer)}>
+                  <Text style={styles.browseChipText} numberOfLines={1}>{purchaseBusyId === offer.playlistId ? '…' : `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -740,8 +778,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TrackPreviewButton trackKey={`artist-track-${offer.id}`} previewUrl={offer.previewUrl} compact />
-                    <TouchableOpacity style={styles.artistTrackBuyButton} onPress={() => Alert.alert('Bientôt disponible', `${offer.title} · ${priceLabel}\n\nL'achat direct n'est pas encore activé sur Loki -- pour l'instant, seul l'extrait est écoutable.`)}>
-                      <Text style={styles.artistTrackBuyButtonText}>Acheter</Text>
+                    <TouchableOpacity style={styles.artistTrackBuyButton} disabled={purchaseBusyId === offer.id} onPress={() => void buyArtistTrack(offer)}>
+                      <Text style={styles.artistTrackBuyButtonText}>{purchaseBusyId === offer.id ? '…' : 'Acheter'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

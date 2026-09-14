@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadCurrentPlanCode, loadPlans } from '../services/planService';
 import { getPlaylistSaleAccess, PlaylistSaleAccess } from '../services/playlistSaleService';
+import { getPayoutLinkForProfile, setMyPayoutLink } from '../services/payoutLinkService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
@@ -66,6 +67,26 @@ export default function CreatorToolsPanel({ navigation }: any) {
     getPlaylistSaleAccess().then((v) => live && setSaleAccess(v)).catch(() => { if (live) setSaleAccess(null); });
     return () => { live = false; };
   }, [user?.id, isLocalGuest, isDemoMode]);
+
+  const [payoutLinkInput, setPayoutLinkInput] = useState('');
+  const [savingPayoutLink, setSavingPayoutLink] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (!user || isLocalGuest || isDemoMode) { setPayoutLinkInput(''); return undefined; }
+    getPayoutLinkForProfile(user.id).then((v) => live && setPayoutLinkInput(v)).catch(() => {});
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
+  const savePayoutLink = async () => {
+    setSavingPayoutLink(true);
+    try {
+      await setMyPayoutLink(payoutLinkInput);
+      Alert.alert('Lien enregistré', 'Ton lien de paiement personnel est prêt à recevoir des paiements.');
+    } catch (e: any) {
+      Alert.alert('Lien invalide', e?.message === 'PAYOUT_LINK_MUST_BE_A_URL' ? 'Colle un lien complet (commençant par https://).' : (e?.message || 'Impossible d’enregistrer ce lien.'));
+    } finally {
+      setSavingPayoutLink(false);
+    }
+  };
 
   useEffect(() => {
     let live = true;
@@ -183,48 +204,39 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
     {saleAccess ? <><TouchableOpacity style={[s.eventButton, !saleAccess.unlocked && s.eventButtonLocked]} onPress={() => navigation.navigate("PlaylistSale")}><Text style={s.eventButtonText}>💰 {saleAccess.unlocked ? "Vendre mes playlists" : "Vendre mes playlists (verrouillé)"}</Text></TouchableOpacity><Text style={s.hint}>{saleAccess.unlocked ? "Fixe tes prix et vends tes sélections musicales." : `Débloqué à partir de ${saleAccess.threshold} abonnés -- tu en as ${saleAccess.followers}.`}</Text></> : null}
 
-    {/* Adel (08/09/2026, puis 15/09/2026) : "trouver une place dans les
-        paramètres avec des explications ... débloqué lorsque les évènements
-        payants seront possible ... sinon ça sert à rien de l'intégrer" --
-        puis "je ne vois pas l'installation de Stripe ... super simple à
-        installer" pour la vente de playlists. Un seul mode de paiement
-        (un seul compte Stripe/PayPal par utilisateur) sert les deux usages
-        -- vitrine informative tant que Stripe Connect n'est pas branché
-        côté serveur (démarche réservée à Adel), jamais une fausse connexion.
-        Visible dès que L'UN des deux usages s'applique (évènements payants
-        Creator Pro/Venue Pro, OU seuil d'abonnés atteint pour vendre une
-        playlist -- n'importe quelle formule, pas seulement Creator Pro). */}
-    {creatorEnabled || saleAccess?.unlocked ? (() => {
-      const usages: string[] = [];
-      if (creatorEnabled) usages.push("encaisser le prix d'entrée de tes évènements payants");
-      if (saleAccess?.unlocked) usages.push('encaisser tes ventes de playlists');
-      const usageText = usages.join(' et ');
-      return <TouchableOpacity
-        style={s.paymentTeaser}
-        onPress={() => Alert.alert(
-          '💳 Mode de paiement',
-          `Bientôt : connecte ton propre compte Stripe (ou PayPal) pour ${usageText}. L'argent arrivera sur TON compte, jamais sur celui de Loki -- Loki ne prend aucune commission pour l'instant. Cette option se débloquera automatiquement dès que ce sera prêt côté serveur -- inutile de la configurer avant.`,
-        )}
-      >
-        <Text style={s.paymentTeaserTitle}>💳 Mode de paiement · Bientôt disponible</Text>
-        <Text style={s.paymentTeaserText}>Connecte ton Stripe/PayPal pour {usageText}.</Text>
-      </TouchableOpacity>;
-    })() : saleAccess && !saleAccess.unlocked ? (
+    {/* Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
+        directement ... KEEP encaisse rien" -- après vérification (TikTok
+        encaisse en réalité TOUT et reverse en différé avec une grosse
+        commission, l'inverse de ce qu'Adel veut), le seul modèle qui garantit
+        que KEEP ne touche jamais l'argent : chaque vendeur colle SON PROPRE
+        lien de paiement (PayPal.me, Lydia, lien Stripe personnel...), une
+        seule fois, ici. Sert à la fois la vente de playlists ET la vente de
+        musique originale -- un seul emplacement, jamais dupliqué. Toujours
+        visible (pas caché derrière une formule), comme demandé le 15/09. */}
+    <View style={s.paymentTeaser}>
+      <Text style={s.paymentTeaserTitle}>🔗 Mon lien de paiement personnel</Text>
+      <Text style={s.paymentTeaserText}>Colle ton lien PayPal.me, Lydia, ou un lien de paiement Stripe personnel. KEEP ne touche jamais cet argent -- l'acheteur paie directement sur ce lien, toi seul confirmes la vente pour débloquer l'accès.</Text>
+      <TextInput
+        style={s.payoutLinkInput}
+        value={payoutLinkInput}
+        onChangeText={setPayoutLinkInput}
+        placeholder="https://paypal.me/tonpseudo"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+      <TouchableOpacity style={s.payoutLinkSaveButton} disabled={savingPayoutLink} onPress={() => void savePayoutLink()}>
+        {savingPayoutLink ? <ActivityIndicator color="#0E0A14" /> : <Text style={s.payoutLinkSaveButtonText}>Enregistrer ce lien</Text>}
+      </TouchableOpacity>
+    </View>
+
+    {creatorEnabled ? (
       <View style={s.paymentTeaser}>
-        <Text style={s.paymentTeaserTitle}>💶 Vendre mes playlists</Text>
-        <Text style={s.paymentTeaserText}>Débloqué à partir de {saleAccess.threshold} abonnés -- tu en as {saleAccess.followers} pour l'instant.</Text>
+        <Text style={s.paymentTeaserTitle}>💳 Entrée payante d'évènement · Bientôt disponible</Text>
+        <Text style={s.paymentTeaserText}>Encaisser le prix d'entrée de tes soirées demande encore un circuit dédié -- pas branché pour l'instant.</Text>
       </View>
-    ) : (
-      // Adel (15/09/2026) : "je n'ai pas vu encore l'emplacement pour les
-      // modes de paiement" -- avant, ce bloc disparaissait complètement le
-      // temps que saleAccess se charge (ou pour un compte invité/démo),
-      // donc invisible la plupart du temps. Toujours quelque chose à
-      // l'écran maintenant, jamais un emplacement introuvable.
-      <View style={s.paymentTeaser}>
-        <Text style={s.paymentTeaserTitle}>💳 Mode de paiement</Text>
-        <Text style={s.paymentTeaserText}>Connecte ton propre Stripe ou PayPal pour encaisser tes ventes (playlists, évènements) directement sur TON compte. Se débloque selon ta formule ou tes abonnés -- crée ton compte Loki pour voir ta progression.</Text>
-      </View>
-    )}
+    ) : null}
 
     {/* Adel (14/09/2026) : "comment va se passer pour qu'un utilisateur
         puisse faire payer ses musiques, ses albums" -- distinct de la vente
@@ -250,4 +262,5 @@ const s = StyleSheet.create({
   // valeurs reprises a la main, avec un lineHeight qui depasse toujours le
   // fontSize (jamais egal, sinon texte multi-lignes trop serre).
   card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginTop:3},planSectionTitle:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:62,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planHeadingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7},unlockedHeading:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7,marginTop:9,marginBottom:5},planPrice:{color:'#E9DFFF',fontSize:15,fontWeight:'900'},tierBadge:{minHeight:24,borderRadius:999,borderWidth:1,paddingHorizontal:8,flexDirection:'row',alignItems:'center',gap:5},tierPremium:{backgroundColor:'#2A203A',borderColor:'#B993FF'},tierCreator:{backgroundColor:'#2C2530',borderColor:'#D5B46A'},tierVenue:{backgroundColor:'#1C2A34',borderColor:'#7DC5E8'},tierBadgeText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.55},tierDot:{width:6,height:6,borderRadius:3,backgroundColor:'#6D6376'},tierDotActive:{backgroundColor:'#FFFFFF'},planChoiceSubtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:4},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},standardProfileLink:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:9,borderRadius:22,borderWidth:1,borderColor:'#40354E',backgroundColor:'#211A2B',paddingHorizontal:14},standardProfileLinkText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},subscriptionNote:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},eventButtonText:{color:'#FFF',fontSize:15,fontWeight:'900'},paymentTeaser:{marginTop:10,padding:12,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},paymentTeaserTitle:{color:'#FFD166',fontSize:15,fontWeight:'900'},paymentTeaserText:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:4},
+  payoutLinkInput:{minHeight:44,borderRadius:12,backgroundColor:'#1A1225',borderWidth:1,borderColor:'#3F3154',paddingHorizontal:12,color:colors.textPrimary,fontSize:14,marginTop:9},payoutLinkSaveButton:{minHeight:40,borderRadius:20,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center',marginTop:9},payoutLinkSaveButtonText:{color:'#0E0A14',fontSize:13,fontWeight:'900'},
 });
