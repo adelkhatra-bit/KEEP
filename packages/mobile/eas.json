@@ -31,7 +31,9 @@
   },
   "submit": {
     "production": {
-      "ios": {}
+      "ios": {
+        "appleTeamId": "WTG9399DBK"
+      }
     }
   }
 }
