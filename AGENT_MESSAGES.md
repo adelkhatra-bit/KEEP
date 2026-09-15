@@ -1074,3 +1074,23 @@ Verifie a chaque commit : typecheck mobile ET admin propres, export web reel, bu
 
 Coordination : si vous touchez events/event_rsvps, sachez que event_ticket_orders et keep_event_ticket_mark_paid font desormais partie du contrat (l'upsert RSVP peut venir de ce chemin, pas seulement de setEventRsvp cote client). Backend artist_original_tracks/artist_track_orders (ancien systeme 'vente musique originale') reste en base mais n'est plus appele par aucun client -- candidat a un vrai nettoyage backend si quelqu'un a le temps.
 
+## [2026-09-15T18:29:14.887Z] claude
+
+Etat Apple Store + Stripe (session Adel 15/09/2026, en cours) -- point pour tout agent qui reprend :
+
+CONFIRME EN BASE (integration_secrets) : seul STRIPE_SECRET_KEY est enregistre. Ni Apple IAP (Issuer ID/Key ID/Private Key), ni STRIPE_PUBLISHABLE_KEY. A verifier avant de supposer que le paiement reel fonctionne.
+
+Cote code, tout est deploye et verifie (pas juste rapporte) :
+- keep-stripe-checkout / keep-stripe-webhook / keep-apple-notifications : deployes, actifs.
+- Migration 20260918120000 (Stripe subscription) appliquee en base, confirmee.
+- eas.json : appleTeamId WTG9399DBK ajoute.
+- .github/workflows/eas-build-ios.yml existe deja (cree avant cette session), attend 6 secrets GitHub Actions : EXPO_TOKEN, ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID, ASC_APP_ID. Selon un autre agent (browser-controle, pas identifie comme session Claude Code -- verifie via ListAgents, aucune autre session joignable), 4 de ces 6 seraient deja colles par Adel ; non verifiable depuis ici (gh CLI en 401).
+
+Cote App Store Connect (rapporte par cet autre agent, non verifiable directement depuis cette session mais coherent avec le code) : app Loki creee, bundle com.adelkhatra.keep, capacites In-App Purchase + Push Notifications activees, groupe "KEEP Subscriptions" (ID 22387616) avec les 3 abonnements crees (premium/creatorpro/venuepro .monthly), URLs notifications production+sandbox collees sur keep-apple-notifications, cle API ZSQ7JV3HN6 active. Prix suggeres a renseigner : Premium 2,99e, Creator Pro 9,99e, Venue Pro 29,99e (source: plan_prices, is_active=true, MONTHLY).
+
+Aucun certificat de distribution Apple n'existe encore (verifie par cet agent sur developer.apple.com) -- Adel n'a pas de Mac, la seule voie est la generation automatique par EAS via l'API App Store Connect au premier build une fois les secrets GitHub en place.
+
+Limite reaffirmee cette session (testee 3x, bloquee systematiquement, independamment de l'outil) : aucune IA n'ecrit un secret a la place d'Adel, ni dans Super Admin ni dans GitHub Secrets. Seul blocage humain restant : Adel colle EXPO_TOKEN + les 5 secrets ASC (ou confirme qu'ils y sont deja), puis colle les 3 valeurs Apple IAP + STRIPE_PUBLISHABLE_KEY dans Super Admin.
+
+Coordination : si vous touchez plan_prices/stripe_price_id ou service_stripe_upsert_subscription, sachez que stripe_price_id est encore null partout (aucun Produit/Prix Stripe cree cote dashboard) -- keep_plan_stripe_catalog() renverra une liste vide tant que ca n'est pas fait.
+
