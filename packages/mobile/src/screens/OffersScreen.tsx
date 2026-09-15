@@ -51,6 +51,13 @@ function money(plan: KeepPlan) {
   return `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`;
 }
 
+function paddlePrice(catalog: PaddleCatalogEntry[], planCode: string): string {
+  const entry = catalog.find((e) => e.planCode === planCode && e.period === 'MONTHLY');
+  if (!entry) return 'N/A';
+  const formatted = (entry.amount / 100).toFixed(2).replace('.', ',');
+  return `${formatted} ${entry.currencyCode} / mois`;
+}
+
 function planLabel(code: string) {
   if (code === 'CREATOR_PRO') return 'Creator Pro';
   if (code === 'VENUE_PRO') return 'Venue Pro';
@@ -571,15 +578,15 @@ export default function OffersScreen({ navigation, route }: any) {
                   {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
                 </TouchableOpacity>
               ) : null}
-              {!active && plan.code !== 'FREE' && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === 'MONTHLY') ? (
+              {!active && plan.code !== "FREE" && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === "MONTHLY") ? (
                 <TouchableOpacity
                   style={s.purchaseCta}
                   disabled={paddleBusyPlan !== null}
                   onPress={() => void handlePaddleCheckout(plan.code)}
                   accessibilityRole="button"
-                  accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
+                  accessibilityLabel={`S’abonner a ${planLabel(plan.code)}`}
                 >
-                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>}
+                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER - {paddlePrice(paddleCatalog, plan.code)}</Text>}
                 </TouchableOpacity>
               ) : null}
             </View>
