@@ -327,13 +327,13 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
         </> : null}
 
         {activeTab === 2 ? <>
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Raccourcis</Text>
-          <Action label="Notifications" onPress={() => navigation.navigate('Notifications')} />
-          <Action label="Services musicaux" onPress={() => navigation.navigate('MusicConnections')} />
-          <Action label="Offre, pastilles & crédits" onPress={() => navigation.navigate('Offers')} />
-        </View>
-
+        {/* Adel (16-17/09/2026) : "vérifie qu'il n'y a pas des boutons un
+            peu de partout ... tout part du pop-up, je clique ça me dirige
+            directement, pas besoin de re-rencontrer une info déjà dans le
+            pop-up" -- Notifications/Services musicaux/Offres ont chacun
+            désormais leur propre entrée directe dans le menu accordéon du
+            profil (ProfilePublicScreen.tsx). Ce raccourci ici devenait un
+            deuxième chemin vers exactement la même chose -- retiré. */}
         <View style={s.creatorSection}>
           <Text style={s.sectionTitle}>Espace créateur</Text>
           <Text style={s.help}>Les fonctions créateur et les fonctions verrouillées sont regroupées ici avec leur formule requise.</Text>

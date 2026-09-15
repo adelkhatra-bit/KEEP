@@ -5,7 +5,6 @@ import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessSer
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadCurrentPlanCode, loadPlans } from '../services/planService';
-import { getPlaylistSaleAccess, PlaylistSaleAccess } from '../services/playlistSaleService';
 import { getPayoutLinkForProfile, setMyPayoutLink } from '../services/payoutLinkService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
@@ -55,18 +54,6 @@ export default function CreatorToolsPanel({ navigation }: any) {
   // interrupteur décoratif dans Super Admin -- coupe-circuit d'urgence réel.
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(false);
   useEffect(() => { let live = true; isFeatureEnabled('events').then((enabled) => live && setEventsFeatureEnabled(enabled)); return () => { live = false; }; }, []);
-  // Adel (15/09/2026) : "je ne vois pas l'installation de Stripe ...
-  // n'importe quel utilisateur pourra vendre sa playlist" -- le mode de
-  // paiement sert maintenant a DEUX choses (evenements payants ET vente de
-  // playlists), debloque par un seuil d'abonnes independant du plan payant
-  // -- visible des qu'un des deux s'applique, pas seulement Creator Pro.
-  const [saleAccess, setSaleAccess] = useState<PlaylistSaleAccess | null>(null);
-  useEffect(() => {
-    let live = true;
-    if (!user || isLocalGuest || isDemoMode) { setSaleAccess(null); return undefined; }
-    getPlaylistSaleAccess().then((v) => live && setSaleAccess(v)).catch(() => { if (live) setSaleAccess(null); });
-    return () => { live = false; };
-  }, [user?.id, isLocalGuest, isDemoMode]);
 
   const [payoutLinkInput, setPayoutLinkInput] = useState('');
   const [savingPayoutLink, setSavingPayoutLink] = useState(false);
@@ -202,7 +189,13 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
     {creatorEnabled && eventsFeatureEnabled ? <><TouchableOpacity style={[s.eventButton, !eventCanCreate && !eventAccess?.unlimited && s.eventButtonLocked]} onPress={() => void openEventComposer()}><Text style={s.eventButtonText}>{eventLabel}</Text></TouchableOpacity><Text style={s.hint}>{eventAccess?.unlimited ? "Venue Pro : créations illimitées." : eventAccess?.planCode === 'CREATOR_PRO' ? "Creator Pro : 1 création de soirée par mois. Venue Pro retire cette limite." : "Les réponses Oui / Peut-être / Non restent dans l'onglet Soirées."}</Text></> : null}
 
-    {saleAccess ? <><TouchableOpacity style={[s.eventButton, !saleAccess.unlocked && s.eventButtonLocked]} onPress={() => navigation.navigate("PlaylistSale")}><Text style={s.eventButtonText}>💰 {saleAccess.unlocked ? "Vendre mes playlists" : "Vendre mes playlists (verrouillé)"}</Text></TouchableOpacity><Text style={s.hint}>{saleAccess.unlocked ? "Fixe tes prix et vends tes sélections musicales." : `Débloqué à partir de ${saleAccess.threshold} abonnés -- tu en as ${saleAccess.followers}.`}</Text></> : null}
+    {/* Adel (16-17/09/2026) : "vérifie qu'il n'y a pas des boutons un peu
+        de partout ... tout part du pop-up, je clique ça me dirige
+        directement, pas besoin de re-rencontrer une info déjà dans le
+        pop-up" -- "Vendre mes playlists" a désormais sa propre entrée
+        directe dans le menu accordéon du profil (ProfilePublicScreen.tsx).
+        Bouton retiré d'ici, seul le lien de paiement personnel (unique,
+        partagé par les deux ventes) reste dans ce panneau. */}
 
     {/* Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
         directement ... KEEP encaisse rien" -- après vérification (TikTok
@@ -238,21 +231,6 @@ export default function CreatorToolsPanel({ navigation }: any) {
       </View>
     ) : null}
 
-    {/* Adel (14/09/2026) : "comment va se passer pour qu'un utilisateur
-        puisse faire payer ses musiques, ses albums" -- distinct de la vente
-        de playlists (curation) : ici l'artiste vend SA PROPRE création.
-        Entrée courte vers un écran dédié (comme "Créer ma soirée du mois"),
-        pour ne pas alourdir encore ce panneau déjà signalé "trop
-        d'écritures, mal présenté". */}
-    {creatorEnabled ? (
-      <TouchableOpacity style={s.eventButton} onPress={() => navigation?.navigate?.('ArtistTrackSale')}>
-        <Text style={s.eventButtonText}>🎵 Vendre ma musique originale</Text>
-      </TouchableOpacity>
-    ) : (
-      <TouchableOpacity style={[s.eventButton, s.eventButtonLocked]} onPress={() => openPaywall('CREATOR_KIND')}>
-        <Text style={[s.eventButtonText, { color: colors.primaryLight }]}>🎵 Vendre ma musique · Creator Pro requis</Text>
-      </TouchableOpacity>
-    )}
   </View>;
 }
 
