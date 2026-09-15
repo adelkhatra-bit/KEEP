@@ -295,7 +295,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : isLocalGuest ? 'Enregistrer sur cet appareil' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
 
       <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
-      <TouchableOpacity style={s.advanced} onPress={()=>accountRequired ? requireAccount() : navigation.navigate('AdvancedProfileSettings', { initialTab: 1 })}><Text style={s.advancedText}>{accountRequired ? '🔒 Réseaux et réglages avancés' : 'Réglages avancés du profil'}</Text></TouchableOpacity>
+      {/* Adel (16-17/09/2026) : "Réglages avancés" n'est plus un écran à
+          part -- ses fonctions (réseaux, créateur, aide, compte) sont
+          toutes directement dans le menu ☰ du profil. Pour un compte
+          réel, ce raccourci devenait un chemin en plus vers le même menu
+          -- retiré. Le cas invité garde son rôle propre (inciter à créer
+          un compte), sans lien mort vers un écran qui n'existe plus. */}
+      {accountRequired ? <TouchableOpacity style={s.advanced} onPress={requireAccount}><Text style={s.advancedText}>🔒 Réseaux et réglages avancés</Text></TouchableOpacity> : null}
 
       <TouchableOpacity
         style={hasRealAccount ? s.disconnectButton : s.connectButton}

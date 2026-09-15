@@ -36,6 +36,10 @@ import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore'
 import PresenceDot from '../components/PresenceDot';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PlaylistSaleCard from '../components/PlaylistSaleCard';
+import PublicProfilePanel from '../components/PublicProfilePanel';
+import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import HelpLegalPanel from '../components/HelpLegalPanel';
+import AccountActionsPanel from '../components/AccountActionsPanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -596,7 +600,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const link = publicLinks.find((item) => item.platform === platform && item.url.trim());
     if (!link) {
       Alert.alert('Réseau non renseigné', 'Ajoute ce réseau depuis les réglages avancés.', [
-        { text: 'Plus tard', style: 'cancel' }, { text: 'Ajouter le lien', onPress: () => navigation.navigate('AdvancedProfileSettings', { initialTab: 1 }) },
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Ajouter le lien', onPress: () => { setMenuOpen(true); setExpandedMenuItem('publicProfile'); } },
       ]);
       return;
     }
@@ -851,26 +855,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'publicProfile') return <>
       <Text style={s.shareTitle}>Profil public, réseaux &amp; site web</Text>
-      <Text style={s.shareSubtitle}>Rends ton profil visible ou non aux autres, connecte Instagram/TikTok/Snapchat/YouTube/X/Facebook, et ajoute un bouton site web (Creator Pro/Venue Pro).</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 1 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+      <PublicProfilePanel navigation={navigation} />
     </>;
 
     if (key === 'creator') return <>
       <Text style={s.shareTitle}>Type de profil &amp; outils créateur</Text>
-      <Text style={s.shareSubtitle}>Deviens DJ, Artiste, Créateur, Producteur ou Lieu, débloque les formules payantes, et crée ta soirée du mois.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 2 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+      <CreatorToolsPanel navigation={navigation} />
     </>;
 
     if (key === 'help') return <>
       <Text style={s.shareTitle}>Aide, légal &amp; comptes bloqués</Text>
-      <Text style={s.shareSubtitle}>Contacter le support, politique de confidentialité, conditions d'utilisation, et gérer les comptes que tu as bloqués.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 3 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+      <HelpLegalPanel profileId={user.id} username={user.username} enabled={!accountRequired} />
     </>;
 
     if (key === 'account') return <>
       <Text style={s.shareTitle}>Compte &amp; déconnexion</Text>
-      <Text style={s.shareSubtitle}>Se déconnecter de cet appareil (le compte reste enregistré), ou supprimer définitivement ton compte Loki.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 4 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+      <AccountActionsPanel />
     </>;
 
     return null;

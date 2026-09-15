@@ -12,7 +12,6 @@ import PartiesScreen from '../screens/PartiesScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
 import ProfileSettingsMobileScreen from '../screens/ProfileSettingsMobileScreen';
-import AdvancedProfileSettingsScreen from '../screens/AdvancedProfileSettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
@@ -45,7 +44,6 @@ const linking = {
       SessionRecap: 'session-recap',
       SessionHistory: 'session-history',
       ProfileSettings: 'profile-settings',
-      AdvancedProfileSettings: 'profile-settings/advanced',
       PublicProfile: 'profile/:username',
       MusicConnections: 'music-connections',
       Notifications: 'notifications',
@@ -142,7 +140,6 @@ export default function Navigation() {
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
         <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
-        <RootStack.Screen name="AdvancedProfileSettings" component={AdvancedProfileSettingsScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="Offers" component={OffersScreen} />
         <RootStack.Screen name="ArtistTrackSale" component={ArtistTrackSaleScreen} />

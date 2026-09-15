@@ -67,17 +67,18 @@ check('Module Android exige RECORD_AUDIO avant service', exists(androidModule) &
 check('Capture Android démarre le foreground service', contains(mic, 'ensureBackgroundListeningService()'));
 check('ARRÊTER coupe le foreground service Android', contains(mic, 'stopBackgroundListeningService()'));
 
-const settings = 'packages/mobile/src/screens/AdvancedProfileSettingsScreen.tsx';
+const accountPanel = 'packages/mobile/src/components/AccountActionsPanel.tsx';
+const helpPanel = 'packages/mobile/src/components/HelpLegalPanel.tsx';
 const supportPanel = 'packages/mobile/src/components/SupportTicketPanel.tsx';
-check('Suppression de compte accessible dans l’app', contains(settings, 'Supprimer définitivement mon compte'));
-check('Politique de confidentialité accessible dans l’app', contains(settings, 'Politique de confidentialité'));
-check('Choix de confidentialité accessibles dans l’app', contains(settings, 'Choix de confidentialité'));
-check('CGU accessibles dans l’app', contains(settings, 'Conditions d’utilisation'));
+check('Suppression de compte accessible dans l’app', contains(accountPanel, 'Supprimer définitivement mon compte'));
+check('Politique de confidentialité accessible dans l’app', contains(helpPanel, 'Politique de confidentialité'));
+check('Choix de confidentialité accessibles dans l’app', contains(helpPanel, 'Choix de confidentialité'));
+check('CGU accessibles dans l’app', contains(helpPanel, 'Conditions d’utilisation'));
 check(
   'Support accessible dans l’app',
-  contains(settings, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support Loki') && contains(supportPanel, 'Envoyer à Loki'),
+  contains(helpPanel, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support Loki') && contains(supportPanel, 'Envoyer à Loki'),
 );
-check('Liens légaux ouvrables via Linking', contains(settings, 'Linking.openURL'));
+check('Liens légaux ouvrables via Linking', contains(helpPanel, 'Linking.openURL'));
 
 for (const [file, marker, label] of [
   ['packages/mobile/legal/privacy.html', 'Politique de confidentialité Loki', 'Politique de confidentialité publique'],

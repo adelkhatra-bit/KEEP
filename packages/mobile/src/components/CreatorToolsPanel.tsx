@@ -4,7 +4,7 @@ import { Alert } from '../utils/keepAlert';
 import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
-import { loadCurrentPlanCode, loadPlans } from '../services/planService';
+import { loadCurrentPlanCode } from '../services/planService';
 import { getPayoutLinkForProfile, setMyPayoutLink } from '../services/payoutLinkService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
@@ -12,7 +12,6 @@ import { useUserStore } from '../store/useUserStore';
 import { ProfileKind } from '../types';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
-import { CERTIFICATION_META } from './ProfileCertificationBadge';
 
 const CREATOR_KINDS: { key: ProfileKind; label: string }[] = [
   { key: 'CREATOR', label: 'Créateur' },
@@ -25,22 +24,6 @@ const KIND_LABELS: Record<ProfileKind, string> = {
   USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu / établissement',
 };
 
-type TierBadgeProps = { tier: 'PREMIUM' | 'CREATOR' | 'VENUE'; active?: boolean };
-
-// Règle (07/09/2026, Adel) : un badge de formule reprend toujours la couleur
-// de la certification correspondante -- ces trois pastilles utilisaient des
-// couleurs inventées à part (et mélangées entre elles), au lieu de reprendre
-// bleu/violet/or comme partout ailleurs dans l'app.
-function TierBadge({ tier, active = false }: TierBadgeProps) {
-  const label = tier === 'PREMIUM' ? 'Loki PREMIUM' : tier === 'CREATOR' ? 'Loki CREATOR PRO' : 'Loki VENUE PRO';
-  const certTier = tier === 'PREMIUM' ? 'PREMIUM' : tier === 'CREATOR' ? 'CREATOR_PRO' : 'VENUE_PRO';
-  const tierColors = CERTIFICATION_META[certTier];
-  return <View style={[s.tierBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}>
-    <View style={[s.tierDot, { backgroundColor: tierColors.ring, opacity: active ? 1 : 0.4 }]} />
-    <Text style={[s.tierBadgeText, { color: tierColors.ring }]}>{label}</Text>
-  </View>;
-}
-
 export default function CreatorToolsPanel({ navigation }: any) {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
@@ -48,7 +31,6 @@ export default function CreatorToolsPanel({ navigation }: any) {
   const isDemoMode = useUserStore((state) => state.isDemoMode);
   const [planCode, setPlanCode] = useState('FREE');
   const [eventAccess, setEventAccess] = useState<QuotaAccess | null>(null);
-  const [planPrices, setPlanPrices] = useState<Record<string, string>>({ PREMIUM: '2,99 € / mois', CREATOR_PRO: '9,99 € / mois', VENUE_PRO: '29,99 € / mois' });
   const [busy, setBusy] = useState(false);
   // Adel : brancher le flag "events" pour de vrai plutôt que de laisser un
   // interrupteur décoratif dans Super Admin -- coupe-circuit d'urgence réel.
@@ -77,19 +59,6 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
   useEffect(() => {
     let live = true;
-    loadPlans().then((plans) => {
-      if (!live) return;
-      setPlanPrices((current) => {
-        const next = { ...current };
-        plans.forEach((plan) => { if (plan.monthlyAmount > 0) next[plan.code] = `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`; });
-        return next;
-      });
-    }).catch(() => {});
-    return () => { live = false; };
-  }, []);
-
-  useEffect(() => {
-    let live = true;
     const loadAccess = async () => {
       if (!user || isLocalGuest || isDemoMode) {
         if (live) { setPlanCode('FREE'); setEventAccess(null); }
@@ -108,7 +77,6 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
   if (!user) return null;
 
-  const premiumEnabled = planCode === 'PREMIUM' || planCode === 'CREATOR_PRO' || planCode === 'VENUE_PRO';
   const creatorKindEnabled = hasFeature(planCode, 'CREATOR_KIND');
   const venueKindEnabled = hasFeature(planCode, 'VENUE_KIND');
   const creatorEnabled = hasFeature(planCode, 'CREATE_EVENT');
@@ -160,21 +128,24 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
   const eventLabel = eventAccess?.unlimited ? '+ Créer une soirée · illimité' : eventAccess?.planCode === 'CREATOR_PRO' ? (eventCanCreate ? '+ Créer ma soirée du mois' : '👉 Voir ma soirée du mois dans Soirées') : '+ Créer un événement';
 
+  // Adel (16-17/09/2026) : "tu as mis les offres, on n'a pas besoin de les
+  // mettre à ce niveau-là, on les a déjà ailleurs" -- ce panneau vivait
+  // avant en plein écran (d'où son propre gros en-tête + les 3 cartes de
+  // prix Premium/Creator Pro/Venue Pro). Maintenant embarqué DANS la
+  // section "Type de profil & outils créateur" du menu, dont le titre
+  // fait déjà doublon avec l'en-tête -- et les prix font doublon avec
+  // "Offres & crédits", sa propre entrée du menu. Retirés : il ne reste
+  // que ce que cette section a d'unique (choix du type de profil, soirée
+  // du mois, lien de paiement).
   return <View style={s.card}>
-    <View style={s.header}><View><Text style={s.eyebrow}>ESPACE CRÉATEUR</Text><Text style={s.title}>Profil, visibilité & communauté</Text></View></View>
-
-    <Text style={s.planSectionTitle}>Débloquer plus</Text>
-    <TouchableOpacity style={[s.planChoiceLocked, premiumEnabled && s.planChoiceActive]} onPress={() => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PROFILE_SHARE' })} accessibilityLabel="Premium 2,99 euros par mois">
-      <View style={s.planChoiceText}><View style={s.planHeadingRow}><TierBadge tier="PREMIUM" active={premiumEnabled} /><Text style={s.planPrice}>{planPrices.PREMIUM}</Text></View><Text style={s.planChoiceSubtitle}>Découvertes illimitées, Vibes publiques et usage Premium. Le type de profil reste Utilisateur.</Text></View><Text style={s.planChoiceArrow}>›</Text>
-    </TouchableOpacity>
-
-    {creatorKindEnabled ? <>
-      <View style={s.unlockedHeading}><TierBadge tier="CREATOR" active /><Text style={s.planPrice}>{planPrices.CREATOR_PRO}</Text></View>
-      <Text style={s.planChoiceSubtitle}>Vibes automatiques illimitées + profils DJ, Artiste, Créateur ou Producteur + 1 soirée par mois.</Text>
+    <Text style={s.planSectionTitle}>Type de profil</Text>
+    {creatorKindEnabled ? (
       <View style={s.kindWrap}>{CREATOR_KINDS.map((item) => <TouchableOpacity key={item.key} style={[s.kindChip, user.kind === item.key && s.kindChipOn]} onPress={() => changeKind(item.key, 'CREATOR_KIND')} disabled={busy}><Text style={[s.kindText, user.kind === item.key && s.kindTextOn]}>{item.label}</Text></TouchableOpacity>)}</View>
-    </> : <TouchableOpacity style={s.planChoiceLocked} onPress={() => openPaywall('CREATOR_KIND')} disabled={busy} accessibilityLabel="Creator Pro requis"><View style={s.planChoiceText}><View style={s.planHeadingRow}><TierBadge tier="CREATOR" /><Text style={s.planPrice}>{planPrices.CREATOR_PRO}</Text></View><Text style={s.planChoiceSubtitle}>Vibes automatiques · DJ · Artiste · Créateur · Producteur · 1 soirée par mois.</Text></View><Text style={s.planChoiceArrow}>›</Text></TouchableOpacity>}
+    ) : <Text style={s.hint}>🔒 DJ, Artiste, Créateur, Producteur -- nécessite Creator Pro (voir "Offres & crédits").</Text>}
 
-    {venueKindEnabled ? <><View style={s.unlockedHeading}><TierBadge tier="VENUE" active /><Text style={s.planPrice}>{planPrices.VENUE_PRO}</Text></View><TouchableOpacity style={[s.kindChip, user.kind === 'VENUE' && s.kindChipOn]} onPress={() => changeKind('VENUE', 'VENUE_KIND')} disabled={busy}><Text style={[s.kindText, user.kind === 'VENUE' && s.kindTextOn]}>Lieu / établissement</Text></TouchableOpacity><Text style={s.planChoiceSubtitle}>Soirées illimitées + outils professionnels Venue.</Text></> : <TouchableOpacity style={s.planChoiceLocked} onPress={() => openPaywall('VENUE_KIND')} disabled={busy} accessibilityLabel="Venue Pro requis"><View style={s.planChoiceText}><View style={s.planHeadingRow}><TierBadge tier="VENUE" /><Text style={s.planPrice}>{planPrices.VENUE_PRO}</Text></View><Text style={s.planChoiceSubtitle}>Creator Pro inclus + profil Lieu / établissement + soirées illimitées.</Text></View><Text style={s.planChoiceArrow}>›</Text></TouchableOpacity>}
+    {venueKindEnabled ? (
+      <TouchableOpacity style={[s.kindChip, user.kind === 'VENUE' && s.kindChipOn, { marginTop: 8 }]} onPress={() => changeKind('VENUE', 'VENUE_KIND')} disabled={busy}><Text style={[s.kindText, user.kind === 'VENUE' && s.kindTextOn]}>Lieu / établissement</Text></TouchableOpacity>
+    ) : <Text style={[s.hint, { marginTop: 8 }]}>🔒 Lieu / établissement -- nécessite Venue Pro (voir "Offres & crédits").</Text>}
 
     {/* Adel (15/09/2026) : "il y a un bouton qui ne sert à rien, revenir au
         profil utilisateur ... en haut on a un bouton pour revenir" -- pris
