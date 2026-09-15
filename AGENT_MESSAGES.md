@@ -1060,3 +1060,17 @@ Tout verifie a chaque commit : typecheck propre, export web reel (1333 modules, 
 
 Coordination : AdvancedProfileSettingsScreen n'existe plus -- si un autre agent y avait une reference en tete, repull. Si vous touchez playlist_sale_offers/keep_playlist_sale_track_ids, sachez que le prefixe playlist_id a maintenant 3 formes (provider_playlist_id reel, keep-smart:<uuid>, keep-selection:<uuid>) et que price_cents est contraint a une liste fixe (50/100/200/300/500/1000).
 
+## [2026-09-15T12:09:57.894Z] claude
+
+Entree payante de soiree construite (Adel : 'construis tout ce qui manque ... trouve une solution ... essaye de prendre la main pour les cles qui te manquent'). Limite maintenue et reexpliquee : impossible de creer un compte Paddle/Stripe pour Adel (identite/banque/CGU -- son action, pas la mienne). La vraie solution qui ne depend d'aucune cle tierce : meme modele 'lien de paiement personnel' deja valide pour le marketplace playlists/musique.
+
+Migration 20260918110000 : events.ticket_price_cents (montants fixes 2-50e), table event_ticket_orders, RPC keep_event_set_ticket_price/keep_event_request_ticket_purchase/keep_event_ticket_mark_paid (la confirmation manuelle de l'organisateur fait directement l'upsert event_rsvps -- source de verite unique). Mobile : chips de prix dans le formulaire de creation de soiree (PartiesScreen), 'J'y participe' ouvre le lien de paiement de l'organisateur pour un evenement payant, section 'Billets a confirmer' cote organisateur. CreatorToolsPanel : vitrine 'bientot disponible' remplacee par le vrai renvoi.
+
+Nettoyage au passage : packages/admin/pages/marketplace.tsx retire les sections 'musique originale' (obsoletes depuis la suppression d'ArtistTrackSaleScreen dans un commit precedent) et corrige sa banniere qui mentionnait encore Stripe Connect alors que le modele reel est 'lien de paiement personnel' depuis plusieurs commits deja.
+
+Egalement dans cette session : audit general demande par Adel ('fait une audit de loki') a trouve et corrige une vraie faille de securite (RLS absent sur playlist_sale_offer_tracks et email_queue, niveau ERROR chez Supabase Advisors -- lisible publiquement via l'API REST). Corrige et verifie en base (migration 20260918100000).
+
+Verifie a chaque commit : typecheck mobile ET admin propres, export web reel, build admin reel, teste en navigateur reel.
+
+Coordination : si vous touchez events/event_rsvps, sachez que event_ticket_orders et keep_event_ticket_mark_paid font desormais partie du contrat (l'upsert RSVP peut venir de ce chemin, pas seulement de setEventRsvp cote client). Backend artist_original_tracks/artist_track_orders (ancien systeme 'vente musique originale') reste en base mais n'est plus appele par aucun client -- candidat a un vrai nettoyage backend si quelqu'un a le temps.
+
