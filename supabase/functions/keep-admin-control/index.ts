@@ -51,6 +51,7 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   APPLE_IAP_PRIVATE_KEY: { category: "payments", label: "Apple IAP Private Key", secret: true },
   GOOGLE_PLAY_PACKAGE_NAME: { category: "payments", label: "Google Play Package Name" },
   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { category: "payments", label: "Google Play Service Account JSON", secret: true },
+  STRIPE_PUBLISHABLE_KEY: { category: "payments", label: "Stripe Publishable Key (Stripe.js côté client)" },
   STRIPE_SECRET_KEY: { category: "payments", label: "Stripe Secret Key", secret: true },
   STRIPE_WEBHOOK_SECRET: { category: "payments", label: "Stripe Webhook Secret", secret: true },
   // Adel (08/09/2026) : "je vis a Dubai, j'ai pas de societe" -- Paddle
