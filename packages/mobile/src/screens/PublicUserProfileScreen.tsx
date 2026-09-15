@@ -24,7 +24,6 @@ import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
-import { loadArtistTrackOffersForProfile, PublicArtistTrackOffer, requestArtistTrackPurchase } from '../services/artistTrackSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -123,19 +122,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!profile?.id) { setSaleOffers([]); return undefined; }
     let live = true;
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
-    return () => { live = false; };
-  }, [profile?.id]);
-
-  // Adel (14/09/2026) : "comment va se passer pour qu'un utilisateur puisse
-  // faire payer ses musiques, ses albums" -- distinct de saleOffers
-  // (curation de morceaux externes) : ici l'artiste vend SA PROPRE création,
-  // l'extrait est réellement écoutable (bucket public), jamais le fichier
-  // complet tant que le paiement réel n'existe pas.
-  const [artistTrackOffers, setArtistTrackOffers] = useState<PublicArtistTrackOffer[]>([]);
-  useEffect(() => {
-    if (!profile?.id) { setArtistTrackOffers([]); return undefined; }
-    let live = true;
-    loadArtistTrackOffersForProfile(profile.id).then((rows) => { if (live) setArtistTrackOffers(rows); }).catch(() => { if (live) setArtistTrackOffers([]); });
     return () => { live = false; };
   }, [profile?.id]);
 
@@ -363,23 +349,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setPurchaseBusyId(null);
     }
   };
-  const buyArtistTrack = async (offer: PublicArtistTrackOffer) => {
-    if (purchaseBusyId) return;
-    setPurchaseBusyId(offer.id);
-    try {
-      const request = await requestArtistTrackPurchase(offer.id);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Cet artiste'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
-      await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l’artiste', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- le fichier complet se débloquera dès que ${request.sellerUsername || 'l’artiste'} confirme.`);
-    } catch (e: any) {
-      const message = String(e?.message || '');
-      if (message.includes('authentication_required')) goToOwnProfile();
-      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
-    } finally {
-      setPurchaseBusyId(null);
-    }
-  };
-
   const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
   const shareThisProfile = async () => {
     if (!profile) return;
@@ -747,9 +716,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => openBrowseSwipe(null)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
 
+        {/* Adel (16-17/09/2026) : "on ne vend pas la playlist, ils vendent
+            suivant une liste de musique qui pourra avoir sur son profil"
+            -- une seule liste désormais (playlist entière, album ou un
+            seul morceau, tout passe par la même offre côté serveur) au
+            lieu de deux sections parallèles qui se recoupaient. */}
         {saleOffers.length > 0 ? (
           <View style={styles.browseSection}>
-            <Text style={styles.sectionTitle}>🎧 Playlists à vendre</Text>
+            <Text style={styles.sectionTitle}>🎧 Musique à vendre</Text>
             <View style={styles.browseChipsRow}>
               {saleOffers.map((offer) => (
                 <TouchableOpacity key={offer.playlistId} style={styles.browseChip} disabled={purchaseBusyId === offer.playlistId} onPress={() => void buyPlaylistOffer(offer)}>
@@ -757,34 +731,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-        ) : null}
-
-        {artistTrackOffers.length > 0 ? (
-          <View style={styles.browseSection}>
-            <Text style={styles.sectionTitle}>🎵 Musique originale de {profile.username}</Text>
-            <Text style={styles.browseHint}>Écoute l'extrait librement · le titre complet s'achète directement à l'artiste.</Text>
-            {artistTrackOffers.map((offer) => {
-              const priceLabel = offer.pricingMode === 'PAY_WHAT_YOU_WANT' && offer.minPriceCents != null
-                ? `Nomme ton prix · dès ${(offer.minPriceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`
-                : `${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-              return (
-                <View key={offer.id} style={styles.artistTrackRow}>
-                  {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.artistTrackCover} /> : <View style={[styles.artistTrackCover, styles.artistTrackCoverPlaceholder]}><Text style={styles.artistTrackCoverPlaceholderText}>🎵</Text></View>}
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.artistTrackTitle} numberOfLines={1}>{offer.title}</Text>
-                    {offer.albumName ? <Text style={styles.artistTrackAlbum} numberOfLines={1}>{offer.albumName}</Text> : null}
-                    <Text style={styles.artistTrackPrice}>{priceLabel}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TrackPreviewButton trackKey={`artist-track-${offer.id}`} previewUrl={offer.previewUrl} compact />
-                    <TouchableOpacity style={styles.artistTrackBuyButton} disabled={purchaseBusyId === offer.id} onPress={() => void buyArtistTrack(offer)}>
-                      <Text style={styles.artistTrackBuyButtonText}>{purchaseBusyId === offer.id ? '…' : 'Acheter'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
           </View>
         ) : null}
 

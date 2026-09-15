@@ -1040,3 +1040,23 @@ Verifie : migration relue en base (nouvelles fonctions + policy storage confirme
 
 Coordination : si vous touchez playlist_sale_payments/artist_track_orders ou keep_playlist_sale_masked_track_ids, sachez que 'provider' vaut desormais EXTERNAL_LINK (plus STRIPE_CONNECT) pour toute nouvelle demande, et que le statut COMPLETED est pose UNIQUEMENT par une action manuelle du vendeur -- aucune fonction cliente ne le pose automatiquement.
 
+## [2026-09-15T01:32:16.786Z] claude
+
+Session marathon menu profil + marketplace (Adel, 16-17/09/2026). Resume des 4 derniers commits pousses :
+
+1) Menu hamburger devenu un accordeon complet (ProfilePublicScreen.tsx) : ☰ ouvrait avant un ecran Reglages separe -- desormais un seul popup listant 11 rubriques, chacune depliee SUR PLACE (plus de navigation pour une simple info).
+
+2) 'Reglages avances' (4 onglets sur un ecran) integralement demantele : AdvancedProfileSettingsScreen.tsx SUPPRIME. Son contenu vit desormais dans 3 nouveaux composants reutilisables rendus DIRECTEMENT dans le popup -- PublicProfilePanel.tsx (visibilite+reseaux+site web), HelpLegalPanel.tsx (support+legal+bloques), AccountActionsPanel.tsx (deconnexion+suppression) -- plus CreatorToolsPanel.tsx deja existant. scripts/verify-app-store-readiness.cjs mis a jour en consequence (75/76, le seul echec est externe/preexistant).
+
+3) CreatorToolsPanel.tsx nettoye : les 3 cartes de prix Premium/Creator Pro/Venue Pro retirees (doublon avec l'entree 'Offres & credits' du menu) -- TierBadge/planPrices/loadPlans devenus morts, supprimes.
+
+4) Vente par morceau/album (pas seulement playlist nommee entiere) : nouvelle table playlist_sale_offer_tracks + RPC keep_playlist_sale_set_price_for_selection (migration 20260918090000), keep_playlist_sale_track_ids etendue pour le prefixe 'keep-selection:'. Reutilise 100% du masquage/paiement deja en place -- meme modele legal (curation), juste plus fin. Prix desormais limites a une liste fixe cote serveur ET client (0.50/1/2/3/5/10 euros, contrainte SQL playlist_sale_offers_price_preset) -- s'applique aussi a l'ancienne vente de playlist entiere.
+
+BUG REEL trouve et corrige au passage : le bouton VENDRE d'une playlist (MyMusicScreen.tsx) changeait l'etat sellingPlaylist mais AUCUN Modal ne l'affichait nulle part dans le fichier -- la mise en vente etait inaccessible depuis toujours. Popup construit (chips de prix fixes), boutons 'Vendre ce morceau'/'Vendre cet album' ajoutes.
+
+Limite connue acceptee : le badge 'deja en vente' d'un morceau/album individuel (pas une playlist entiere) peut ne pas se reafficher apres un rechargement complet de l'app -- l'offre reste active et fonctionnelle cote serveur, juste l'indicateur visuel qui necessiterait une resolution inverse cout/benefice non faite dans cette passe.
+
+Tout verifie a chaque commit : typecheck propre, export web reel (1333 modules, 0 erreur), teste en navigateur reel.
+
+Coordination : AdvancedProfileSettingsScreen n'existe plus -- si un autre agent y avait une reference en tete, repull. Si vous touchez playlist_sale_offers/keep_playlist_sale_track_ids, sachez que le prefixe playlist_id a maintenant 3 formes (provider_playlist_id reel, keep-smart:<uuid>, keep-selection:<uuid>) et que price_cents est contraint a une liste fixe (50/100/200/300/500/1000).
+

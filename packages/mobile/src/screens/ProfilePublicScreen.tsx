@@ -58,8 +58,7 @@ const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'notifications', icon: '🔔', label: 'Notifications' },
   { key: 'music', icon: '🎧', label: 'Services musicaux' },
   { key: 'offers', icon: '💳', label: 'Offres & crédits' },
-  { key: 'sellPlaylists', icon: '💰', label: 'Vendre mes playlists' },
-  { key: 'sellMusic', icon: '🎵', label: 'Vendre ma musique originale' },
+  { key: 'sellPlaylists', icon: '💰', label: 'Vendre mes musiques' },
   { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web' },
   { key: 'creator', icon: '🪪', label: 'Type de profil & outils créateur' },
   { key: 'help', icon: '🆘', label: 'Aide, légal & comptes bloqués' },
@@ -843,14 +842,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'sellPlaylists') return <>
       <Text style={s.shareTitle}>Vendre mes playlists</Text>
-      <Text style={s.shareSubtitle}>Fixe un prix sur une de tes sélections musicales. L'acheteur paie directement sur ton lien de paiement personnel -- Loki ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés.</Text>
+      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES VENTES</Text></TouchableOpacity>
-    </>;
-
-    if (key === 'sellMusic') return <>
-      <Text style={s.shareTitle}>Vendre ma musique originale</Text>
-      <Text style={s.shareSubtitle}>Réservé à ta propre création (droits à toi). Extrait écoutable par tous, fichier complet livré à l'acheteur seulement après ta confirmation de paiement reçu. Formule Creator Pro ou Venue Pro requise.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ArtistTrackSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES TITRES</Text></TouchableOpacity>
     </>;
 
     if (key === 'publicProfile') return <>
