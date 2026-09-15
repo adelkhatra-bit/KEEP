@@ -23,7 +23,7 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
-      "distribution": "app-store",
+      "distribution": "store",
       "ios": {
         "resourceClass": "m-medium",
         "image": "sdk-54",
