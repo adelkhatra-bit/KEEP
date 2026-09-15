@@ -1,0 +1,363 @@
+# 🤖 Multi-Agent Configuration
+# Configuration centralisée pour agents IA (Claude, Styve, Jac, JT, etc.)
+
+agents:
+  claude:
+    name: "Claude Copilot"
+    description: "OpenAI Claude-based GitHub Copilot"
+    enabled: true
+    permissions:
+      - read:repo
+      - write:repo
+      - admin:repo_hook
+      - admin:org_hook
+      - repo:status
+      - repo:deployment
+      - workflow
+      - gist
+      - notifications
+      - user
+      - delete_repo
+      - codespace
+    capabilities:
+      - code_search
+      - code_generation
+      - pull_request_management
+      - issue_management
+      - workflow_management
+      - repository_management
+      - api_creation
+      - deployment
+      - testing
+      - documentation
+    scopes:
+      - full_repo_access
+      - workflow_execution
+      - secrets_read
+      - secrets_write
+      - actions_admin
+
+  styve:
+    name: "Styve AI"
+    description: "Styve autonomous agent"
+    enabled: true
+    permissions:
+      - read:repo
+      - write:repo
+      - admin:repo_hook
+      - admin:org_hook
+      - repo:status
+      - repo:deployment
+      - workflow
+      - gist
+      - notifications
+      - user
+      - delete_repo
+      - codespace
+    capabilities:
+      - code_search
+      - code_generation
+      - pull_request_management
+      - issue_management
+      - workflow_management
+      - repository_management
+      - api_creation
+      - deployment
+      - testing
+      - documentation
+      - browser_automation
+      - external_api_calls
+    scopes:
+      - full_repo_access
+      - workflow_execution
+      - secrets_read
+      - secrets_write
+      - actions_admin
+
+  jac:
+    name: "Jac AI"
+    description: "Jac autonomous agent"
+    enabled: true
+    permissions:
+      - read:repo
+      - write:repo
+      - admin:repo_hook
+      - admin:org_hook
+      - repo:status
+      - repo:deployment
+      - workflow
+      - gist
+      - notifications
+      - user
+      - delete_repo
+      - codespace
+    capabilities:
+      - code_search
+      - code_generation
+      - pull_request_management
+      - issue_management
+      - workflow_management
+      - repository_management
+      - api_creation
+      - deployment
+      - testing
+      - documentation
+      - browser_automation
+      - external_api_calls
+    scopes:
+      - full_repo_access
+      - workflow_execution
+      - secrets_read
+      - secrets_write
+      - actions_admin
+
+  jt:
+    name: "JT AI"
+    description: "JT autonomous agent"
+    enabled: true
+    permissions:
+      - read:repo
+      - write:repo
+      - admin:repo_hook
+      - admin:org_hook
+      - repo:status
+      - repo:deployment
+      - workflow
+      - gist
+      - notifications
+      - user
+      - delete_repo
+      - codespace
+    capabilities:
+      - code_search
+      - code_generation
+      - pull_request_management
+      - issue_management
+      - workflow_management
+      - repository_management
+      - api_creation
+      - deployment
+      - testing
+      - documentation
+      - browser_automation
+      - external_api_calls
+    scopes:
+      - full_repo_access
+      - workflow_execution
+      - secrets_read
+      - secrets_write
+      - actions_admin
+
+  generic_agent:
+    name: "Generic AI Agent"
+    description: "Any GitHub Actions compatible AI agent"
+    enabled: true
+    permissions:
+      - read:repo
+      - write:repo
+      - admin:repo_hook
+      - admin:org_hook
+      - repo:status
+      - repo:deployment
+      - workflow
+      - gist
+      - notifications
+      - user
+      - delete_repo
+      - codespace
+    capabilities:
+      - code_search
+      - code_generation
+      - pull_request_management
+      - issue_management
+      - workflow_management
+      - repository_management
+      - api_creation
+      - deployment
+      - testing
+      - documentation
+      - browser_automation
+      - external_api_calls
+    scopes:
+      - full_repo_access
+      - workflow_execution
+      - secrets_read
+      - secrets_write
+      - actions_admin
+
+# 🔐 Global Permissions
+global_permissions:
+  - read:repo
+  - write:repo
+  - admin:repo_hook
+  - admin:org_hook
+  - repo:status
+  - repo:deployment
+  - workflow
+  - gist
+  - notifications
+  - user
+  - delete_repo
+  - codespace
+  - read:gpg_key
+  - write:gpg_key
+  - read:public_key
+  - write:public_key
+  - read:ssh_key
+  - write:ssh_key
+
+# 🌐 External API Access
+external_apis:
+  google:
+    name: "Google APIs"
+    enabled: true
+    services:
+      - google_search
+      - google_sheets
+      - google_drive
+      - google_cloud
+      - firebase
+    rate_limit: 10000
+    timeout: 300
+
+  openai:
+    name: "OpenAI APIs"
+    enabled: true
+    services:
+      - gpt_models
+      - embeddings
+      - vision
+    rate_limit: 10000
+    timeout: 300
+
+  supabase:
+    name: "Supabase"
+    enabled: true
+    services:
+      - database
+      - auth
+      - storage
+      - realtime
+    rate_limit: 10000
+    timeout: 300
+
+  stripe:
+    name: "Stripe APIs"
+    enabled: true
+    services:
+      - payments
+      - webhooks
+      - subscriptions
+    rate_limit: 5000
+    timeout: 300
+
+  aws:
+    name: "AWS Services"
+    enabled: true
+    services:
+      - s3
+      - lambda
+      - ec2
+      - rds
+      - dynamodb
+    rate_limit: 10000
+    timeout: 300
+
+  cloudflare:
+    name: "Cloudflare"
+    enabled: true
+    services:
+      - cdn
+      - dns
+      - workers
+      - pages
+    rate_limit: 10000
+    timeout: 300
+
+# 🔧 Workflow Execution
+workflows:
+  auto_merge_build:
+    name: "multi-agent-merge-build.yml"
+    enabled: true
+    trigger: "workflow_dispatch"
+    agents_allowed:
+      - claude
+      - styve
+      - jac
+      - jt
+      - generic_agent
+
+  eas_build_ios:
+    name: "eas-build-ios.yml"
+    enabled: true
+    trigger: "workflow_dispatch"
+    agents_allowed:
+      - claude
+      - styve
+      - jac
+      - jt
+      - generic_agent
+
+# 📊 Rate Limiting & Quotas
+rate_limits:
+  api_calls_per_minute: 10000
+  pr_operations_per_hour: 100
+  workflow_triggers_per_hour: 50
+  external_api_calls_per_day: 100000
+
+# 🔒 Security
+security:
+  require_approval: false
+  allow_destructive_operations: true
+  allow_secret_access: true
+  allow_workflow_editing: true
+  allow_repository_deletion: true
+  audit_logging: true
+  ip_whitelist: []
+  ip_blacklist: []
+
+# 📝 Audit & Logging
+audit:
+  enabled: true
+  log_all_operations: true
+  retention_days: 365
+  sensitive_operations_log: true
+  agents_activity_tracking: true
+
+# 🚀 Advanced Features
+features:
+  browser_automation: true
+  headless_browser: true
+  screenshot_capture: true
+  page_navigation: true
+  form_filling: true
+  javascript_execution: true
+  cookie_management: true
+  local_storage_access: true
+  network_interception: true
+  api_mocking: true
+
+# 📦 Package Management
+packages:
+  npm: true
+  pip: true
+  ruby_gems: true
+  cargo: true
+  maven: true
+  gradle: true
+
+# 🧪 Testing
+testing:
+  unit_tests: true
+  integration_tests: true
+  e2e_tests: true
+  performance_tests: true
+  security_tests: true
+  coverage_requirements: 80
+
+# 📚 Documentation
+documentation:
+  auto_generate: true
+  markdown_support: true
+  api_docs: true
+  changelog_generation: true
