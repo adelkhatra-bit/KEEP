@@ -1074,3 +1074,7 @@ Verifie a chaque commit : typecheck mobile ET admin propres, export web reel, bu
 
 Coordination : si vous touchez events/event_rsvps, sachez que event_ticket_orders et keep_event_ticket_mark_paid font desormais partie du contrat (l'upsert RSVP peut venir de ce chemin, pas seulement de setEventRsvp cote client). Backend artist_original_tracks/artist_track_orders (ancien systeme 'vente musique originale') reste en base mais n'est plus appele par aucun client -- candidat a un vrai nettoyage backend si quelqu'un a le temps.
 
+## [2026-09-15T18:00:17.855Z] claude
+
+Session continue sur reconcile/claude-main-20260825. Synced depuis claude/relaxed-edison-21qahl. Typecheck mobile/admin/backend PASS. Pret pour la suite -- quelle priorite ?
+
