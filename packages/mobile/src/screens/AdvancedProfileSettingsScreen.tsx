@@ -32,7 +32,7 @@ const LEGAL_URLS = {
   support: 'https://adelkhatra-bit.github.io/KEEP/support/',
 } as const;
 
-export default function AdvancedProfileSettingsScreen({ navigation }: any) {
+export default function AdvancedProfileSettingsScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const logout = useUserStore((s) => s.logout);
@@ -42,13 +42,18 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
   const [savingNetwork, setSavingNetwork] = React.useState<SocialLink['platform'] | null>(null);
   const [signingOut, setSigningOut] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
-  // Adel (08/09/2026) : "je trouve que c'est trop charge ... on retrouve
-  // les espace createurs, les notifications, service musical, offre pas
-  // credit ... faire des petits boutons 1234 et ca change automatiquement
-  // sur place" -- un seul long defilement de 10 sections remplace par 4
-  // petits onglets numerotes qui changent le contenu SUR PLACE (meme
-  // ecran, pas de nouvelle navigation), en regroupant ce qui se repetait.
-  const [activeTab, setActiveTab] = React.useState<1 | 2 | 3 | 4>(1);
+  // Adel (08/09/2026) : "je trouve que c'est trop charge ... faire des
+  // petits boutons 1234" -- 4 onglets d'abord. Puis Adel (16-17/09/2026) :
+  // "je clique, et dans une page je peux cliquer plusieurs choses, il y a
+  // plusieurs fonctions ... tout part du pop-up, maximum un, deux clics" --
+  // le sélecteur d'onglets ÉTAIT justement ça : une page avec 4 fonctions
+  // différentes à choisir. Chaque groupe a maintenant sa propre entrée
+  // directe dans le menu accordéon du profil (ProfilePublicScreen.tsx),
+  // qui ouvre CET écran déjà sur le bon onglet -- plus de sélecteur visible,
+  // plus moyen de dériver vers une autre fonction depuis ici.
+  const initialTab = (Number(route?.params?.initialTab) as 1 | 2 | 3 | 4) || 1;
+  const [activeTab] = React.useState<1 | 2 | 3 | 4>(initialTab);
+  const TAB_TITLES: Record<1 | 2 | 3 | 4, string> = { 1: 'Profil public', 2: 'Créateur', 3: 'Aide & légal', 4: 'Compte' };
   const [blockedListOpen, setBlockedListOpen] = React.useState(false);
   const [blockedUsers, setBlockedUsers] = React.useState<BlockedUserSummary[]>([]);
   const [blockedLoading, setBlockedLoading] = React.useState(false);
@@ -243,25 +248,8 @@ export default function AdvancedProfileSettingsScreen({ navigation }: any) {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity style={s.headerButton} onPress={() => goToTab('Profile')} accessibilityLabel="Retour au profil"><Text style={s.headerText}>‹ Profil</Text></TouchableOpacity>
-        <Text style={s.title}>Réglages avancés</Text>
-        <TouchableOpacity style={s.headerButton} onPress={() => goToTab('MyMusic')} accessibilityLabel="Revenir aux Playlists"><Text style={[s.headerText, s.right]}>Playlists</Text></TouchableOpacity>
-      </View>
-
-      {/* Adel (08/09/2026) : "des petits boutons 1234 et ca change
-          automatiquement de page comme ca t'as pas l'impression de
-          changer de page" -- onglets numerotes, contenu change SUR PLACE. */}
-      <View style={s.tabRow}>
-        {([
-          { id: 1, label: 'Profil' },
-          { id: 2, label: 'Créateur' },
-          { id: 3, label: 'Aide' },
-          { id: 4, label: 'Compte' },
-        ] as const).map((tab) => (
-          <TouchableOpacity key={tab.id} style={[s.tabBtn, activeTab === tab.id && s.tabBtnOn]} onPress={() => setActiveTab(tab.id)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.id }}>
-            <Text style={[s.tabBtnNum, activeTab === tab.id && s.tabBtnNumOn]}>{tab.id}</Text>
-            <Text style={[s.tabBtnLabel, activeTab === tab.id && s.tabBtnLabelOn]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
+        <Text style={s.title}>{TAB_TITLES[activeTab]}</Text>
+        <View style={s.headerButton} />
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -419,13 +407,6 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, muted: { color: colors.textMuted },
   header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerButton: { width: 90, minHeight: 42, justifyContent: 'center' }, headerText: { color: colors.primaryLight, fontSize: 15, fontWeight: '800' }, right: { textAlign: 'right' }, title: { color: colors.textPrimary, fontSize: 19, fontWeight: '900' },
-  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  tabBtn: { flex: 1, minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
-  tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabBtnNum: { color: colors.primaryLight, fontSize: 15, fontWeight: '900' },
-  tabBtnNumOn: { color: '#FFFFFF' },
-  tabBtnLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: 1 },
-  tabBtnLabelOn: { color: '#FFFFFF' },
   content: { padding: 16, paddingBottom: 42 }, section: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 }, creatorSection: { marginBottom: 14 }, sectionTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginBottom: 8 },
   label: { color: colors.textSecondary, fontSize: 15, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 4 }, action: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border }, actionText: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 22 }, switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   blockedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 22 },

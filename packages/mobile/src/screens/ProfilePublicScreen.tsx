@@ -41,6 +41,13 @@ type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
 type AccountMode = 'create' | 'login';
 
+// Adel (16-17/09/2026) : "je clique, et dans une page je peux cliquer
+// plusieurs choses, il y a plusieurs fonctions ... tout part du pop-up,
+// maximum un, deux clics" -- "Réglages avancés" était UNE entrée qui
+// menait vers un écran à 4 fonctions différentes (profil public, créateur,
+// aide, compte). Éclaté en 4 entrées directes, chacune n'ouvrant plus
+// qu'UNE seule fonction (l'écran cible n'a plus de sélecteur pour dériver
+// vers les 3 autres).
 const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'free', icon: '💛', label: 'Mon solde Free' },
   { key: 'profile', icon: '👤', label: 'Réglages du profil' },
@@ -49,7 +56,10 @@ const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'offers', icon: '💳', label: 'Offres & crédits' },
   { key: 'sellPlaylists', icon: '💰', label: 'Vendre mes playlists' },
   { key: 'sellMusic', icon: '🎵', label: 'Vendre ma musique originale' },
-  { key: 'advanced', icon: '⚙️', label: 'Réglages avancés' },
+  { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web' },
+  { key: 'creator', icon: '🪪', label: 'Type de profil & outils créateur' },
+  { key: 'help', icon: '🆘', label: 'Aide, légal & comptes bloqués' },
+  { key: 'account', icon: '🚪', label: 'Compte & déconnexion' },
 ];
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
@@ -586,7 +596,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const link = publicLinks.find((item) => item.platform === platform && item.url.trim());
     if (!link) {
       Alert.alert('Réseau non renseigné', 'Ajoute ce réseau depuis les réglages avancés.', [
-        { text: 'Plus tard', style: 'cancel' }, { text: 'Ajouter le lien', onPress: () => navigation.navigate('AdvancedProfileSettings') },
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Ajouter le lien', onPress: () => navigation.navigate('AdvancedProfileSettings', { initialTab: 1 }) },
       ]);
       return;
     }
@@ -777,7 +787,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // Seul "Mon solde Free" reste entièrement navigable ici (info pure) ;
   // les autres gardent un bouton "Ouvrir" vers leur écran dédié pour toute
   // action réellement complexe (achat, upload, connexion de service).
-  const openFromMenu = (screen: string) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen); };
+  const openFromMenu = (screen: string, params?: Record<string, unknown>) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
   const renderMenuDetail = (key: string) => {
     if (key === 'free') return <>
       <Text style={s.shareTitle}>Ton solde Free</Text>
@@ -839,10 +849,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ArtistTrackSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES TITRES</Text></TouchableOpacity>
     </>;
 
-    if (key === 'advanced') return <>
-      <Text style={s.shareTitle}>Réglages avancés</Text>
-      <Text style={s.shareSubtitle}>Type de profil (DJ, Artiste, Créateur, Producteur, Lieu), création de soirée du mois, lien de paiement personnel, et tous les outils créateur réunis ici.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings')}><Text style={s.shareActionPrimaryText}>OUVRIR LES RÉGLAGES AVANCÉS</Text></TouchableOpacity>
+    if (key === 'publicProfile') return <>
+      <Text style={s.shareTitle}>Profil public, réseaux &amp; site web</Text>
+      <Text style={s.shareSubtitle}>Rends ton profil visible ou non aux autres, connecte Instagram/TikTok/Snapchat/YouTube/X/Facebook, et ajoute un bouton site web (Creator Pro/Venue Pro).</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 1 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'creator') return <>
+      <Text style={s.shareTitle}>Type de profil &amp; outils créateur</Text>
+      <Text style={s.shareSubtitle}>Deviens DJ, Artiste, Créateur, Producteur ou Lieu, débloque les formules payantes, et crée ta soirée du mois.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 2 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'help') return <>
+      <Text style={s.shareTitle}>Aide, légal &amp; comptes bloqués</Text>
+      <Text style={s.shareSubtitle}>Contacter le support, politique de confidentialité, conditions d'utilisation, et gérer les comptes que tu as bloqués.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 3 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'account') return <>
+      <Text style={s.shareTitle}>Compte &amp; déconnexion</Text>
+      <Text style={s.shareSubtitle}>Se déconnecter de cet appareil (le compte reste enregistré), ou supprimer définitivement ton compte Loki.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('AdvancedProfileSettings', { initialTab: 4 })}><Text style={s.shareActionPrimaryText}>OUVRIR</Text></TouchableOpacity>
     </>;
 
     return null;
