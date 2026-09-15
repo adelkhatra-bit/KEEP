@@ -195,10 +195,14 @@ export default function CreatorToolsPanel({ navigation }: any) {
       </TouchableOpacity>
     </View>
 
+    {/* Adel (17-18/09/2026) : "construis tout ce qui manque" -- l'entrée
+        payante d'évènement est construite : le prix se fixe directement
+        dans le formulaire de création de soirée (onglet Soirées), même
+        modèle de paiement direct que le reste (lien personnel ci-dessus). */}
     {creatorEnabled ? (
       <View style={s.paymentTeaser}>
-        <Text style={s.paymentTeaserTitle}>💳 Entrée payante d'évènement · Bientôt disponible</Text>
-        <Text style={s.paymentTeaserText}>Encaisser le prix d'entrée de tes soirées demande encore un circuit dédié -- pas branché pour l'instant.</Text>
+        <Text style={s.paymentTeaserTitle}>🎟 Entrée payante d'évènement</Text>
+        <Text style={s.paymentTeaserText}>Fixe le prix directement en créant ta soirée du mois (onglet Soirées) -- même lien de paiement personnel que ci-dessus.</Text>
       </View>
     ) : null}
 
