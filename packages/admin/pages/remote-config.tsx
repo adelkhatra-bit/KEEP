@@ -9,7 +9,7 @@ interface RemoteConfigRow {
   updated_at?: string | null;
 }
 
-type GroupKey = 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
+type GroupKey = 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
 
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'Morceaux offerts avant inscription',
@@ -32,14 +32,42 @@ const FRIENDLY_LABELS: Record<string, string> = {
   growth_followers_reward_500_discovery: 'Bonus Découvertes · abonnés palier 4',
   growth_followers_reward_500_sort: 'Essais Vibes · abonnés palier 4',
   growth_followers_reward_1000_credits: 'Bonus crédits · Audience Pro',
+  // Adel (04/09/2026) : "je sais pas comment t'as calculé ton coût pour le
+  // lien d'affiliation ... il faut que je puisse l'avoir dans les
+  // paramètres" -- ces 5 clés existaient déjà côté serveur
+  // (keep_referral_rules, utilisées par l'écran Inviter un ami / QR code
+  // de parrainage) mais n'avaient ni libellé ni groupe ici : elles
+  // tombaient dans "Configuration avancée" sans explication.
+  referral_free_per_signup: 'Free gagnés par filleul inscrit via mon lien',
+  referral_bonus_3: 'Bonus Free au 3ᵉ filleul inscrit ce mois',
+  referral_bonus_5: 'Bonus Free au 5ᵉ filleul inscrit ce mois',
+  referral_bonus_10: 'Bonus Free au 10ᵉ filleul inscrit ce mois',
+  referral_monthly_free_cap: 'Plafond de Free gagnés par parrainage / mois',
   music_services_limit_free: 'Services musicaux · FREE',
   music_services_limit_premium: 'Services musicaux · Premium 2,99 €',
   music_services_limit_creator: 'Services musicaux · Creator Pro 9,99 €',
   music_services_limit_venue: 'Services musicaux · Venue Pro 29,99 €',
+  free_monthly_bonus_free: 'Free offerts / mois · formule Free',
+  free_monthly_bonus_premium: 'Free offerts / mois · Premium 2,99 €',
+  free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro 9,99 €',
+  free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
+  free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
+  battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
+  // Adel (04/09/2026) : "c'est deloyal qui perdent tous ... le premier
+  // gagne un truc, le deuxieme peut gagner un truc aussi" -- a partir de 3
+  // joueurs dans un Battle collectif, le pot des perdants (3e place et
+  // au-dela) est desormais partage entre le 1er et le 2e selon ce %.
+  battle_arena_payout_share_rank1: 'Part du gagnant sur le podium (Battle à 3 joueurs et +, % — le reste va au 2e)',
+  // Adel (04/09/2026) : suite de "rien n'empêche d'envoyer des invites en
+  // boucle" -- plafond anti-spam global (tous destinataires confondus),
+  // distinct du plafond par formule/par mois de matchs joués.
+  battle_invites_per_day: 'Invitations Battle envoyées maximum / jour (anti-spam)',
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
   smart_album_config: 'Configuration Loki Vibes automatique',
+  legal_publisher_name: 'Nom de l’éditeur (mentions légales/CGU)',
+  legal_publisher_contact: 'Contact de l’éditeur (mentions légales)',
 };
 
 function editableValue(row: RemoteConfigRow) {
@@ -47,16 +75,18 @@ function editableValue(row: RemoteConfigRow) {
 }
 
 function groupFor(key: string): GroupKey {
-  if (key.startsWith('growth_')) return 'GROWTH';
+  if (key.startsWith('legal_')) return 'LEGAL';
+  if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
-  if (key.startsWith('guest_') || key.startsWith('signup_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
+  if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
   if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
 }
 
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
-  { key: 'GROWTH', title: 'Croissance Free · paliers & cadeaux', subtitle: 'Transforme partages et abonnés en bonus sans modifier l’application. Les règles serveur utilisent ces valeurs.' },
+  { key: 'LEGAL', title: 'Informations légales', subtitle: 'Nom et contact affichés dans les mentions légales, CGU et politique de confidentialité publiques -- un seul changement ici met à jour toutes les pages automatiquement, sans republier l’app.' },
+  { key: 'GROWTH', title: 'Croissance Free · paliers & cadeaux', subtitle: 'Transforme partages, abonnés ET parrainage (lien d’affiliation / QR code, "Inviter un ami") en bonus Free, sans modifier l’application. Les règles serveur (keep_referral_rules) utilisent ces mêmes valeurs.' },
   { key: 'PLANS', title: 'Essai, crédits & limites', subtitle: 'Réglages transversaux. Les limites propres à chaque formule se gèrent aussi dans Abonnements, Prix & Quotas.' },
   { key: 'SERVICES', title: 'Services musicaux · emplacements par formule', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },
   { key: 'LISTEN', title: 'Écouter & compte', subtitle: 'Textes et comportement à distance de l’écran Écouter.' },

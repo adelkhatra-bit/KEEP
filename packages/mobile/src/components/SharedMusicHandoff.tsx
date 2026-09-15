@@ -5,7 +5,8 @@ import { useSessionStore } from '../store/useSessionStore';
 import { buildSharedMusicSource, setSharedMusicSource } from '../services/sharedMusicSourceService';
 import { resolveKeylessSocialMusic } from '../services/keylessSocialRecognition';
 import { ingestExternalRecognition } from '../services/externalRecognitionIngest';
-import { claimPendingReferral, stageReferralFromUrl } from '../services/referralService';
+import { claimPendingReferral, sharedProfileUsernameFromUrl, stageReferralFromUrl } from '../services/referralService';
+import { navigateToSharedProfile } from '../navigation/navigationRef';
 import { supabase } from '../services/supabaseClient';
 
 /**
@@ -30,6 +31,12 @@ export default function SharedMusicHandoff() {
       if (!alive || !url) return;
       const code = await stageReferralFromUrl(url).catch(() => '');
       if (code) await claimPendingReferral().catch(() => false);
+      // Adel (08/09/2026) : "il peut Swiper les musiques" -- un lien de
+      // partage ouvert dans un navigateur (fallback web de share-profile.html,
+      // ou tout lien `?u=...&share=...` reçu directement) doit rouvrir le
+      // vrai profil swipeable, pas retomber sur l'écran d'accueil générique.
+      const sharedUsername = sharedProfileUsernameFromUrl(url);
+      if (sharedUsername) navigateToSharedProfile(sharedUsername);
     };
     void Linking.getInitialURL().then(stage).catch(() => {});
     const linkSub = Linking.addEventListener('url', ({ url }) => { void stage(url); });

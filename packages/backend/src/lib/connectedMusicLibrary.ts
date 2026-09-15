@@ -45,12 +45,30 @@ function db() {
 async function connection(profileId: string, provider: Provider) {
   const { data, error } = await db()
     .from('music_provider_connections')
-    .select('provider,provider_user_id,access_token,refresh_token,expires_at')
+    .select('provider,provider_user_id,access_token,refresh_token,expires_at,scope')
     .eq('profile_id', profileId)
     .eq('provider', provider)
     .maybeSingle();
   if (error) throw error;
   return data as any | null;
+}
+
+// Adel (02/09/2026) : "vice versa pour eviter les doublons" -- ecrire un like
+// depuis un fournisseur vers l'autre exige un scope d'ECRITURE sur les
+// favoris, distinct de la simple LECTURE deja utilisee par l'import manuel.
+// Les deux scopes sont deja demandes a la connexion (musicConnections.ts),
+// mais un compte connecte AVANT ce changement peut avoir un jeton plus
+// ancien qui ne les couvre pas -- on verifie donc le scope stocke avant
+// d'écrire, au lieu de supposer qu'il est toujours present.
+const PROVIDER_WRITE_SCOPE: Record<Provider, string> = {
+  spotify: 'user-library-modify',
+  deezer: 'manage_library',
+};
+
+function hasWriteScope(provider: Provider, scope: string | null | undefined): boolean {
+  if (!scope) return false;
+  const needed = PROVIDER_WRITE_SCOPE[provider];
+  return scope.split(/[\s,]+/).map((s) => s.trim()).includes(needed);
 }
 
 async function saveSpotifyTokens(profileId: string, accessToken: string, refreshToken: string | undefined, expiresIn: number | undefined) {
@@ -459,4 +477,235 @@ export async function syncKeepPlaylistToConnectedProvider(args: {
     failed: failures.length,
     failures: failures.slice(0, 25),
   };
+}
+
+// AJOUT (02/09/2026, demande Adel : "je like sur Spotify ... est-ce que ça
+// peut aller directement dans les autres plateformes ... vice versa pour
+// eviter les doublons ... en mode extrait, dans les sessions"). Trouve ou
+// crée la ligne canonique dans `tracks` (le même catalogue partagé que
+// Découvertes/Battle) pour un morceau importé -- c'est cet id partagé qui
+// permet de repérer "même morceau, provider différent" sans dépendre d'un
+// ISRC toujours présent.
+async function resolveCanonicalTrackId(track: LibraryTrack): Promise<string | null> {
+  const database = db();
+  if (track.isrc) {
+    const { data: existing } = await database.from('tracks').select('id').eq('isrc', track.isrc).maybeSingle();
+    if (existing?.id) return existing.id as string;
+  }
+  const { data: created, error } = await database
+    .from('tracks')
+    .insert({
+      isrc: track.isrc || null,
+      title: track.title,
+      artist: track.artist,
+      album: track.album || null,
+      artwork_url: track.artworkUrl || null,
+      provider_ids: track.provider === 'spotify' ? { spotify: track.id } : { deezer: track.id },
+      source: `${track.provider}_favorites_sync`,
+      external_urls: track.externalUrl ? { [track.provider]: track.externalUrl } : {},
+      available_on: [track.provider === 'spotify' ? 'Spotify' : 'Deezer'],
+    })
+    .select('id')
+    .single();
+  if (error) {
+    if (track.isrc) {
+      const { data: retry } = await database.from('tracks').select('id').eq('isrc', track.isrc).maybeSingle();
+      if (retry?.id) return retry.id as string;
+    }
+    return null;
+  }
+  return (created?.id as string) ?? null;
+}
+
+/**
+ * Ajoute un morceau aux favoris ("Liked Songs"/bibliothèque) d'un
+ * fournisseur -- pas à une playlist (addTrackToConnectedPlaylist ci-dessus
+ * gère déjà ce cas séparé). Exige le scope d'écriture bibliothèque
+ * (vérifié par l'appelant via hasWriteScope avant d'appeler cette fonction).
+ */
+export async function addTrackToFavorites(profileId: string, provider: Provider, track: CanonicalTrackInput): Promise<{ added: boolean; providerTrackId?: string }> {
+  if (provider === 'spotify') {
+    const token = await spotifyToken(profileId);
+    if (!token) throw new Error('Spotify non connecté');
+    const resolved = await resolveSpotifyTrack(profileId, track);
+    await axios.put(
+      'https://api.spotify.com/v1/me/tracks',
+      { ids: [resolved.id] },
+      { headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' }, timeout: 15000 },
+    );
+    return { added: true, providerTrackId: resolved.id };
+  }
+
+  const token = await deezerToken(profileId);
+  if (!token) throw new Error('Deezer non connecté');
+  const resolved = await resolveDeezerTrack(profileId, track);
+  const response = await axios.post(
+    'https://api.deezer.com/user/me/tracks',
+    null,
+    { params: { access_token: token, track_id: resolved.id }, timeout: 15000 },
+  );
+  if (response.data === false || response.data?.error) throw new Error(response.data?.error?.message || 'Échec ajout favoris Deezer');
+  return { added: true, providerTrackId: resolved.id };
+}
+
+/**
+ * Coeur de la synchro automatique pour UN utilisateur : repère les nouveaux
+ * favoris sur chaque fournisseur connecté depuis le dernier passage, les
+ * marque `pending_review` (jamais visibles tant que l'utilisateur n'a pas
+ * décidé dans Mes Sessions), et -- si l'autre fournisseur est aussi connecté
+ * et autorise l'écriture -- le réplique là-bas aussi, dédupliqué par
+ * `track_id` canonique pour ne jamais créer de doublon.
+ */
+export async function syncFavoritesForProfile(profileId: string) {
+  const database = db();
+  const [spotifyConn, deezerConn] = await Promise.all([
+    connection(profileId, 'spotify'),
+    connection(profileId, 'deezer'),
+  ]);
+  const connections: Array<{ provider: Provider; conn: any }> = [];
+  if (spotifyConn?.access_token) connections.push({ provider: 'spotify', conn: spotifyConn });
+  if (deezerConn?.access_token) connections.push({ provider: 'deezer', conn: deezerConn });
+  if (!connections.length) return { profileId, checked: 0, newLikes: 0, crossWritten: 0, errors: [] as string[] };
+
+  let newLikes = 0;
+  let crossWritten = 0;
+  const errors: string[] = [];
+
+  for (const { provider } of connections) {
+    try {
+      const remoteTracks = await getConnectedSavedTracks(profileId, provider);
+      if (!remoteTracks.length) continue;
+
+      const { data: knownRows } = await database
+        .from('music_library_items')
+        .select('provider_track_id')
+        .eq('profile_id', profileId)
+        .eq('provider', provider)
+        .eq('source_kind', 'saved');
+      const known = new Set((knownRows ?? []).map((r: any) => r.provider_track_id));
+      const freshTracks = remoteTracks.filter((t) => !known.has(t.id));
+      if (!freshTracks.length) continue;
+
+      const now = new Date().toISOString();
+      for (const track of freshTracks) {
+        const trackId = await resolveCanonicalTrackId(track);
+
+        const { error: insertError } = await database.from('music_library_items').upsert({
+          profile_id: profileId,
+          provider,
+          provider_track_id: track.id,
+          track_id: trackId,
+          provider_uri: track.uri || null,
+          isrc: track.isrc || null,
+          title: track.title,
+          artist: track.artist,
+          album: track.album || null,
+          artwork_url: track.artworkUrl || null,
+          source_kind: 'saved',
+          pending_review: true,
+          last_seen_at: now,
+          metadata: { externalUrl: track.externalUrl || null, autoSync: true },
+        }, { onConflict: 'profile_id,provider,provider_track_id' });
+        if (insertError) { errors.push(`${provider}:${track.id}:${insertError.message}`); continue; }
+        newLikes += 1;
+
+        const other = connections.find((c) => c.provider !== provider);
+        if (!other || !trackId) continue;
+        if (!hasWriteScope(other.provider, other.conn.scope)) continue;
+
+        const { data: alreadyThere } = await database
+          .from('music_library_items')
+          .select('id')
+          .eq('profile_id', profileId)
+          .eq('provider', other.provider)
+          .eq('track_id', trackId)
+          .maybeSingle();
+        if (alreadyThere) continue;
+
+        try {
+          const result = await addTrackToFavorites(profileId, other.provider, { isrc: track.isrc, title: track.title, artist: track.artist });
+          await database.from('music_library_items').upsert({
+            profile_id: profileId,
+            provider: other.provider,
+            provider_track_id: result.providerTrackId || `mirror-${track.id}`,
+            track_id: trackId,
+            isrc: track.isrc || null,
+            title: track.title,
+            artist: track.artist,
+            album: track.album || null,
+            artwork_url: track.artworkUrl || null,
+            source_kind: 'saved',
+            // Le morceau d'origine porte déjà la décision "pending_review" --
+            // ce miroir ne doit pas produire une deuxième proposition de
+            // session pour le même morceau.
+            pending_review: false,
+            last_seen_at: now,
+            metadata: { mirroredFrom: provider, autoSync: true },
+          }, { onConflict: 'profile_id,provider,provider_track_id' });
+          crossWritten += 1;
+        } catch (crossError: any) {
+          errors.push(`cross:${other.provider}:${track.id}:${String(crossError?.message || crossError)}`);
+        }
+      }
+    } catch (providerError: any) {
+      errors.push(`${provider}:${String(providerError?.message || providerError)}`);
+    }
+  }
+
+  return { profileId, checked: connections.length, newLikes, crossWritten, errors: errors.slice(0, 10) };
+}
+
+/** Point d'entrée appelé par le worker cron (pg_cron -> ce backend, toutes les 30 min). */
+export async function syncFavoritesForAllConnectedProfiles(limit = 25) {
+  const database = db();
+  const { data: rows, error } = await database
+    .from('music_provider_connections')
+    .select('profile_id')
+    .in('provider', ['spotify', 'deezer']);
+  if (error) throw error;
+  const profileIds = Array.from(new Set((rows ?? []).map((r: any) => r.profile_id))).slice(0, Math.max(1, Math.min(limit, 100)));
+
+  const results: any[] = [];
+  for (const profileId of profileIds) {
+    try { results.push(await syncFavoritesForProfile(profileId)); }
+    catch (error: any) { results.push({ profileId, error: String(error?.message || error) }); }
+  }
+  return { processed: results.length, results };
+}
+
+/**
+ * Lu par le mobile pour matérialiser les nouveaux favoris détectés en
+ * session Loki ("Mes Sessions") -- même geste GARDER/PASSER qu'un morceau
+ * détecté au micro, jamais publié tout seul. Dédoublonne défensivement par
+ * morceau canonique avant de "réclamer" (session_queued_at) les lignes,
+ * pour ne jamais proposer deux fois la même chanson si elle a été likée sur
+ * les deux plateformes à quelques minutes d'écart.
+ */
+export async function listPendingSessionImports(profileId: string) {
+  const database = db();
+  const { data: rows, error } = await database
+    .from('music_library_items')
+    .select('id,provider,track_id,isrc,title,artist,album,artwork_url,imported_at')
+    .eq('profile_id', profileId)
+    .eq('pending_review', true)
+    .is('session_queued_at', null)
+    .order('imported_at', { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  const items = rows ?? [];
+  if (!items.length) return [];
+
+  const seen = new Set<string>();
+  const output: any[] = [];
+  const idsToClaim: string[] = [];
+  for (const row of items) {
+    idsToClaim.push(row.id);
+    const key = row.track_id || row.isrc || `${String(row.title).toLowerCase()}|${String(row.artist).toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(row);
+  }
+
+  await database.from('music_library_items').update({ session_queued_at: new Date().toISOString() }).in('id', idsToClaim);
+  return output;
 }

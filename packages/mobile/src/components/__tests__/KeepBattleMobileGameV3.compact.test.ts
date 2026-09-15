@@ -13,7 +13,12 @@ describe('Loki Battle mobile style selector', () => {
 
   it('renders one inline Battle invite between artwork and Qui chante', () => {
     const visual = source.indexOf('<View style={s.visual}>');
-    const invite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?');
+    // Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
+    // invitation" -- la bannière d'invitation existe maintenant aussi sur
+    // l'écran "PARTIE TERMINÉE" (avant s.visual dans le fichier, cet écran
+    // n'a pas de jaquette). On cherche donc l'occurrence dans l'écran de
+    // manche active spécifiquement, celle qui suit s.visual.
+    const invite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', visual);
     const question = source.indexOf('<Text style={s.question}>Qui chante ?</Text>');
     const answers = source.indexOf('<View style={s.answers}>');
     expect(visual).toBeGreaterThanOrEqual(0);
@@ -24,6 +29,15 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).not.toContain("Alert.alert('Défi envoyé'");
     expect(source).toContain('REFUSER');
     expect(source).toContain('ACCEPTER');
+  });
+
+  it('also shows the incoming Battle invite on the finished-game screen (Adel, 02/09/2026: "à l\'étape huit pourquoi tu mets pas cette invitation")', () => {
+    const finishedHeader = source.indexOf('PARTIE TERMINÉE');
+    const finishedInvite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', finishedHeader);
+    const finishedHero = source.indexOf('s.finishHero', finishedHeader);
+    expect(finishedHeader).toBeGreaterThanOrEqual(0);
+    expect(finishedInvite).toBeGreaterThan(finishedHeader);
+    expect(finishedInvite).toBeLessThan(finishedHero);
   });
 
   it('uses phone-sized Battle decision controls and immediate accept feedback', () => {
@@ -42,7 +56,31 @@ describe('Loki Battle mobile style selector', () => {
     expect(source).toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
     expect(source).toContain("[solo?.themeCode, soloIndex, playVerified, incoming[0]?.id, pausedSoloRemaining]");
     expect(source).toContain('setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS)');
-    expect(source).toContain('setSoloStartedAt(Date.now() - (ROUND_MS - savedRemaining))');
+    expect(source).toContain('soloStartedAtRef.current = Date.now() - (ROUND_MS - savedRemaining); setSoloStartedAt(soloStartedAtRef.current)');
+  });
+
+  it('never lets the round-2+ timeout-detection effect fire on the previous round\'s stale audioReady/soloStartedAt (Adel, 02/09/2026: "la première musique ça fonctionne, la deuxième ça bloque, pas de son, et ça répond automatiquement tout seul")', () => {
+    // BUG RÉEL confirmé en direct (instrumentation HTMLMediaElement.pause/play
+    // sur le site déployé) : quand soloIndex avance, deux effets qui en
+    // dépendent tous les deux s'exécutent dans le MÊME commit React. Celui de
+    // démarrage de manche remet audioReady/soloStartedAt à zéro via setState,
+    // mais celui de détection de timeout -- déjà planifié pour ce même commit
+    // -- lisait encore la fermeture de l'ANCIEN rendu (audioReady=true,
+    // soloStartedAt = l'horodatage de la manche précédente), calculait un
+    // temps restant à 0 par erreur, et déclenchait un faux "trop tard" qui
+    // coupait le son de la manche qui venait de démarrer. Un ref toujours à
+    // jour (soloStartedAtRef) doit être utilisé à la place de la fermeture
+    // d'état dans ce calcul précis.
+    expect(source).toContain('const soloStartedAtRef = React.useRef(0);');
+    const timeoutEffect = source.indexOf("if (!solo || activeIncomingId || !audioReady || soloAnswer) return;");
+    expect(timeoutEffect).toBeGreaterThan(-1);
+    const nextLines = source.slice(timeoutEffect, timeoutEffect + 1200);
+    expect(nextLines).toContain('const startedAt = soloStartedAtRef.current;');
+    expect(nextLines).toContain('const remaining = pausedSoloRemaining ?? (startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS);');
+    expect(nextLines).toContain('if (remaining > 0) return;');
+    // displayedSoloRemaining (dérivé de l'état soloStartedAt, sujet à la
+    // fermeture obsolète) ne doit plus jamais servir de garde à cet effet.
+    expect(nextLines).not.toContain('displayedSoloRemaining > 0');
   });
 
   it('keeps solo on refusal and switches to the returned shared arena on acceptance', () => {
@@ -60,10 +98,16 @@ describe('Loki Battle mobile style selector', () => {
   });
 
   it('makes the match style explicit before the challenge is accepted', () => {
-    expect(source).toContain('STYLE DU MATCH');
+    expect(source).toContain('MES STYLES ACCEPTÉS');
     expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
-    expect(source).toContain('BATTLE · {themeLabel(themeCode)}');
-    expect(source).toContain('await sendBattleChallenge(player.profileId, themeCode)');
+    expect(source).toContain('`BATTLE · ${themeLabel(themeCode)} · ${roundCount}`');
+    // Adel (04/09/2026) : "j'ai juste à envoyer une invite comme ça je
+    // puisse en envoyer plusieurs" -- BATTLE depuis "Joueurs disponibles"
+    // crée/rejoint désormais un salon de groupe (arène) au lieu d'un défi
+    // 1 contre 1 isolé, pour que plusieurs invites tombent dans le même
+    // match au lieu d'en recréer un nouveau à chaque fois.
+    expect(source).toContain('const created = await createKeepBattleArena(themeCode, roundCount, realThemes.length > 1 ? realThemes : undefined)');
+    expect(source).toContain('await sendBattleArenaChallenge(arenaId, player.profileId)');
   });
 
   it('polls incoming challenges throughout Battle before an arena starts', () => {
@@ -89,20 +133,29 @@ describe('Loki Battle mobile style selector', () => {
     expect(audioSource).toContain('if (activeStartTimer)');
   });
 
-  it('uses one TikTok-style pressure gauge with real names for 1v1 and teams for groups', () => {
+  it('uses a TikTok-style pressure gauge for 1v1 and a real-name standings list for groups', () => {
+    // Adel (04/09/2026) : "on a fait équipe A équipe B mais on sait pas qui
+    // est qui" -- BUG DE DESIGN confirmé : au-delà de 2 joueurs, séparer en
+    // deux équipes par simple alternance d'index ne correspond à rien dans
+    // un match individuel. Remplacé par un classement avec les vrais noms,
+    // jauge à 2 côtés conservée uniquement pour un vrai face-à-face à 2.
     expect(source).toContain('const teamA = players.filter');
     expect(source).toContain('const teamB = players.filter');
-    expect(source).toContain('players.length === 2 ? `@${first.username}`');
-    expect(source).toContain('players.length === 2 ? `@${second.username}`');
-    expect(source).toContain('`ÉQUIPE A · ${teamA.length}`');
-    expect(source).toContain('`ÉQUIPE B · ${teamB.length}`');
-    expect(source).toContain('{teamAScore} pts');
-    expect(source).toContain('{teamBScore} pts');
-    expect(source).toContain('style={[s.powerLeft, { width: `${leftShare}%` }]}');
+    expect(source).toContain('players.length === 2 ?');
+    expect(source).toContain('<Text style={s.duelName}>{first.username}</Text>');
+    expect(source).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>{second.username}</Text>');
+    expect(source).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
+    expect(source).toContain('players.length > 2 ? <View style={s.groupStandings}>');
+    expect(source).toContain('rank === 0 ? \'👑\' : `#${rank + 1}`');
+    expect(source).toContain('<Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text>');
+    // Adel (05/09/2026) : "si demain on est 10, est-ce qu'on va être obligé
+    // de Swiper" -- le direct plafonne à 5 joueurs + ma propre ligne pour
+    // ne jamais forcer de scroll pendant une manche chronométrée.
+    expect(source).toContain('const top = players.slice(0, 5);');
   });
 
-  it('shows a complete 8-round endgame with replay and challenge choices', () => {
-    expect(source).toContain('PARFAIT · 8/8');
+  it('shows a complete endgame (round count now selectable, 8/15/20/30) with replay and challenge choices', () => {
+    expect(source).toContain('PARFAIT · ${solo.rounds.length}/${solo.rounds.length}');
     expect(source).toContain('REFAIRE UNE PARTIE');
     expect(source).toContain('DÉFIER UN JOUEUR');
     expect(source).toContain('INVITER UN AMI');
@@ -142,20 +195,97 @@ describe('Loki Battle mobile style selector', () => {
 
   it('keeps the horizontal music-style selector compact on 390x844', () => {
     expect(source).toContain('style={s.themeScroll}');
-    expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 38, maxHeight: 38 }");
-    expect(source).toContain("theme: { height: 32, minHeight: 32");
+    // Adel (07/09/2026) : la pastille affiche désormais aussi la mise Free du
+    // nombre de manches ("🎁N") sur une seconde ligne -- légèrement plus
+    // haute qu'avant, mais toujours une simple rangée horizontale compacte.
+    expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 }");
+    expect(source).toContain("theme: { height: 46, minHeight: 46");
     expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
+  });
+
+  it('renders four equal answer choices in solo and online Battle', () => {
+    expect(source).toContain('round.choices.slice(0, 4)');
+    expect(source).toContain('(round.choices || []).slice(0, 4)');
+    expect(source).toContain('10 secondes réelles d’écoute · 4 choix · aucun swipe');
+    expect(source).not.toContain('i === 2 && s.answerFull');
+    expect(source).toContain("borderColor: '#4E8DFF'");
+  });
+
+  it('keeps the timer and multiplayer score gauge below the artwork and before Qui chante', () => {
+    const soloStart = source.indexOf('<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>');
+    const soloVisual = source.indexOf('<View style={s.visual}>', soloStart);
+    const soloClock = source.indexOf('<View style={s.clockRow}>', soloVisual);
+    const soloQuestion = source.indexOf('<Text style={s.question}>Qui chante ?</Text>', soloClock);
+    expect(soloVisual).toBeLessThan(soloClock);
+    expect(soloClock).toBeLessThan(soloQuestion);
+
+    const arenaStart = source.indexOf("if (arena) {");
+    const arenaVisual = source.indexOf('<View style={s.visual}>', arenaStart);
+    const arenaClock = source.indexOf('<View style={s.clockRow}>', arenaVisual);
+    const duelGauge = source.indexOf('players.length === 2 ? <View style={s.duel}>', arenaClock);
+    const groupGauge = source.indexOf('players.length > 2 ? <View style={s.groupStandings}>', arenaClock);
+    const arenaQuestion = source.indexOf('<Text style={s.question}>Qui chante ?</Text>', arenaClock);
+    expect(arenaVisual).toBeLessThan(arenaClock);
+    expect(arenaClock).toBeLessThan(duelGauge);
+    expect(duelGauge).toBeLessThan(arenaQuestion);
+    expect(groupGauge).toBeLessThan(arenaQuestion);
   });
 
   it('explains credit failures instead of leaving accept/challenge apparently dead', () => {
     expect(source).toContain('BATTLE_CHALLENGER_NO_CREDIT');
     expect(source).toContain('BATTLE_TARGET_NO_CREDIT');
-    expect(source).toContain('Il te faut au moins 3 Free');
+    // Adel (07/09/2026) : "pour huit musiques il perd trois Free, pour 15
+    // musiques ... plus la mise est grosse" -- la mise n'est plus fixe à 3,
+    // le message doit annoncer le montant REEL requis pour le nombre de
+    // manches concerné (embarqué par le serveur dans "...REQUIRED:<n>").
+    expect(source).toContain('Il te faut au moins ${');
+    expect(source).toContain('parseRequiredFree');
+    expect(source).toContain('stakeForRounds');
   });
 
-  it('advances solo rapidly after an answer', () => {
-    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
-    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 950)');
+  it('leaves enough time to see the cover art, the red/green result, AND lets the track play to its natural end even on a fast answer (Adel, 01/09/2026: "on a même pas eu le temps de voir la jaquette"; 02/09/2026: "ralentir la cadence" + "écouter la musique jusqu\'à la fin même s\'il a été très rapide")', () => {
+    expect(source).toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, Math.max(2800, naturalRemaining))');
+    expect(source).toContain('const naturalRemaining = soloStartedAt ? (soloStartedAt + ROUND_MS + 800) - Date.now() : 0;');
+    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 360)');
+    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 1800)');
+    expect(source).not.toContain('setSoloIndex((v) => v + 1); setSoloAnswer(null); }, 2800)');
+  });
+
+  // Adel (02/09/2026) : "je vois plus la mauvaise réponse en rouge ... y a
+  // plus le bouton pour ajouter à la playlist ... t'as remis l'éclair, y a
+  // plus l'animation ... trouve une solution mais dans le code à chaque
+  // fois de faire un audit pour ne pas enlever des fonctions." Ces trois
+  // signalements se sont avérés être un bundle web caché par le navigateur,
+  // pas une vraie régression (vérifié en lisant directement le bundle
+  // déployé) -- mais l'audit qu'il demande mérite un vrai filet, pas
+  // seulement ma vérification manuelle ponctuelle. Ce test verrouille les
+  // trois comportements pour qu'une régression future casse la suite au
+  // lieu de dépendre d'un signalement en prod.
+  it('keeps the red wrong-answer highlight, the animated result icon (no static lightning), and the session-save buttons', () => {
+    expect(source).toContain("answerWrong: { borderWidth: 2, borderColor: '#FF6C8C'");
+    expect(source).toContain("s.answerWrong]}");
+    expect(source).toContain('function ResultIcon(');
+    expect(source).toContain('<ResultIcon icon={perfect ?');
+    // Le rond de fin de partie ne doit plus utiliser l'éclair fixe -- seul un
+    // usage legitime et distinct (bannière "gagne la manche" en arène) garde
+    // le symbole ⚡ ailleurs dans ce fichier.
+    expect(source).not.toContain("perfect ? '👑' : soloScore >= 6 ? '🏆' : '⚡'");
+    expect(source).toContain('ENREGISTRER CE BATTLE DANS MA SESSION');
+    expect(source).toContain('VOIR CES MORCEAUX DANS MA SESSION');
+  });
+
+  // Adel (02/09/2026) : "l'humain ne voit pas très bien ... trouve une
+  // solution dans le code pour ne plus avoir ce problème" -- plusieurs
+  // écritures (kicker "Loki BATTLE", clockHint, username des joueurs en
+  // ligne, badges d'équipe...) étaient tombées à 8-9px au fil des
+  // itérations précédentes. Un plancher de 11px a été appliqué partout dans
+  // ce fichier ; ce test empêche qu'une future retouche fasse redescendre
+  // une taille de police en dessous.
+  it('never lets any Battle text size drop below the 11px readability floor', () => {
+    const sizes = Array.from(source.matchAll(/fontSize: ?(\d+(?:\.\d+)?)/g)).map((m) => Number(m[1]));
+    expect(sizes.length).toBeGreaterThan(0);
+    const tooSmall = sizes.filter((size) => size < 11);
+    expect(tooSmall).toEqual([]);
   });
 });
 

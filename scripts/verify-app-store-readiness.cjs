@@ -67,35 +67,42 @@ check('Module Android exige RECORD_AUDIO avant service', exists(androidModule) &
 check('Capture Android démarre le foreground service', contains(mic, 'ensureBackgroundListeningService()'));
 check('ARRÊTER coupe le foreground service Android', contains(mic, 'stopBackgroundListeningService()'));
 
-const settings = 'packages/mobile/src/screens/AdvancedProfileSettingsScreen.tsx';
+const accountPanel = 'packages/mobile/src/components/AccountActionsPanel.tsx';
+const helpPanel = 'packages/mobile/src/components/HelpLegalPanel.tsx';
 const supportPanel = 'packages/mobile/src/components/SupportTicketPanel.tsx';
-check('Suppression de compte accessible dans l’app', contains(settings, 'Supprimer définitivement mon compte'));
-check('Politique de confidentialité accessible dans l’app', contains(settings, 'Politique de confidentialité'));
-check('Choix de confidentialité accessibles dans l’app', contains(settings, 'Choix de confidentialité'));
-check('CGU accessibles dans l’app', contains(settings, 'Conditions d’utilisation'));
+check('Suppression de compte accessible dans l’app', contains(accountPanel, 'Supprimer définitivement mon compte'));
+check('Politique de confidentialité accessible dans l’app', contains(helpPanel, 'Politique de confidentialité'));
+check('Choix de confidentialité accessibles dans l’app', contains(helpPanel, 'Choix de confidentialité'));
+check('CGU accessibles dans l’app', contains(helpPanel, 'Conditions d’utilisation'));
 check(
   'Support accessible dans l’app',
-  contains(settings, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support Loki') && contains(supportPanel, 'Envoyer à Loki'),
+  contains(helpPanel, 'SupportCenterPanel') && exists(supportPanel) && contains(supportPanel, 'Aide & support Loki') && contains(supportPanel, 'Envoyer à Loki'),
 );
-check('Liens légaux ouvrables via Linking', contains(settings, 'Linking.openURL'));
+check('Liens légaux ouvrables via Linking', contains(helpPanel, 'Linking.openURL'));
 
 for (const [file, marker, label] of [
   ['packages/mobile/legal/privacy.html', 'Politique de confidentialité Loki', 'Politique de confidentialité publique'],
   ['packages/mobile/legal/privacy-choices.html', 'Choix de confidentialité', 'Page choix de confidentialité'],
   ['packages/mobile/legal/terms.html', 'Conditions d’utilisation Loki', 'Conditions d’utilisation publiques'],
   ['packages/mobile/legal/support.html', 'Support Loki', 'Page support publique'],
+  ['packages/mobile/legal/pricing.html', 'Tarifs Loki', 'Page tarifs publique'],
+  ['packages/mobile/legal/refund.html', 'Remboursement et droit de rétractation', 'Page remboursement publique'],
 ]) {
   check(label, exists(file) && contains(file, marker));
 }
 check('Politique décrit la suppression du compte', contains('packages/mobile/legal/privacy.html', 'Supprimer définitivement mon compte'));
 check('Politique décrit microphone et localisation', contains('packages/mobile/legal/privacy.html', 'Microphone') && contains('packages/mobile/legal/privacy.html', 'Localisation'));
 check('Politique déclare absence de vente/suivi publicitaire', contains('packages/mobile/legal/privacy.html', 'ne vend pas') && contains('packages/mobile/legal/privacy.html', 'suivi publicitaire'));
+check('CGU renvoient vers les tarifs et le remboursement web', contains('packages/mobile/legal/terms.html', '../pricing/') && contains('packages/mobile/legal/terms.html', '../refund/'));
+check('Remboursement décrit le délai légal de rétractation de 14 jours', contains('packages/mobile/legal/refund.html', 'L221-18') && contains('packages/mobile/legal/refund.html', '14 jours'));
 
 const pages = '.github/workflows/web-preview-pages.yml';
 check('Pages publie /privacy/', contains(pages, '_site/privacy/index.html') && contains(pages, '$base/privacy/'));
 check('Pages publie /privacy-choices/', contains(pages, '_site/privacy-choices/index.html'));
 check('Pages publie /terms/', contains(pages, '_site/terms/index.html'));
 check('Pages publie /support/', contains(pages, '_site/support/index.html') && contains(pages, '$base/support/'));
+check('Pages publie /pricing/', contains(pages, '_site/pricing/index.html') && contains(pages, '$base/pricing/'));
+check('Pages publie /refund/', contains(pages, '_site/refund/index.html') && contains(pages, '$base/refund/'));
 
 const eas = json('packages/mobile/eas.json');
 check('Profil EAS production existe', Boolean(eas.build?.production));
@@ -112,6 +119,18 @@ check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') &&
 check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
 check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
 check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
+
+const iapService = 'packages/mobile/src/services/iapService.ts';
+const offers = 'packages/mobile/src/screens/OffersScreen.tsx';
+const iapVerifier = 'supabase/functions/keep-iap-verify/index.ts';
+check('StoreKit charge les produits Apple réels', contains(iapService, 'KeepIAP.getProducts') && contains(offers, 'loadIapProducts'));
+check('Prix d’abonnement fourni par Apple', contains(offers, '.displayPrice') && !contains(offers, '<Text style={s.purchaseCtaText}>S’ABONNER · {money(plan)}</Text>'));
+check('Achat StoreKit distingue attente et transaction non vérifiée', contains(iapService, "transaction.status === 'PENDING'") && contains(iapService, "transaction.status === 'UNVERIFIED'"));
+check('Restauration des achats StoreKit disponible', contains(iapService, 'KeepIAP.restorePurchases') && contains(offers, 'Restaurer mes achats'));
+check('Renouvellements StoreKit resynchronisés au démarrage', contains(iapService, 'KeepIAP.currentEntitlements') && contains('packages/mobile/App.tsx', 'syncCurrentEntitlements'));
+check('Abonnement affiche renouvellement et liens légaux', contains(offers, 'renouvelé automatiquement') && contains(offers, '/KEEP/terms/') && contains(offers, '/KEEP/privacy/'));
+check('Vérification serveur exige le compte Loki lié', contains(iapVerifier, '!payload.appAccountToken') && contains(iapVerifier, 'account_mismatch'));
+check('Vérification serveur refuse abonnement expiré ou révoqué', contains(iapVerifier, 'expiresAtMs <= Date.now()') && contains(iapVerifier, 'subscription_expired') && contains(iapVerifier, 'subscription_revoked'));
 
 check('Dossier de soumission App Store préparé', exists('docs/APP_STORE_SUBMISSION_READY.md'));
 check('Préflight iOS natif sans credential présent', exists('.github/workflows/app-store-native-preflight.yml'));

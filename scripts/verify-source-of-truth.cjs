@@ -69,8 +69,8 @@ const claudeInstructions = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8')
 for (const expected of [expectedRepository, expectedBranch, `${expectedPublicRoot}/`, `${expectedPublicRoot}/share-profile/?u=<username>`]) {
   if (!claudeInstructions.includes(expected)) failures.push(`CLAUDE SOURCE MARKER MISSING: ${expected}`);
 }
-if (!/pseudo KEEP[^\n]*mot de passe[^\n]*sans e-mail obligatoire|identifiant KEEP \+ mot de passe sans e-mail obligatoire/i.test(claudeInstructions)) {
-  failures.push('CLAUDE AUTH RULE DOES NOT PRESERVE USERNAME + PASSWORD WITHOUT REQUIRED EMAIL');
+if (!/pseudo \+ mot de passe \+ e-mail vérifié \(les trois obligatoires\)/i.test(claudeInstructions)) {
+  failures.push('CLAUDE AUTH RULE DOES NOT REQUIRE USERNAME + PASSWORD + VERIFIED EMAIL AT SIGNUP');
 }
 
 const copilotInstructions = fs.readFileSync(path.join(root, '.github/copilot-instructions.md'), 'utf8');
@@ -105,10 +105,17 @@ if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const sharedProfileHtml = fs.readFileSync(path.join(root, 'packages/mobile/share-profile.html'), 'utf8');
-for (const expected of ['profile_username_aliases', 'followAccountRoute', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile', expectedPublicRoot]) {
+for (const expected of ['profile_username_aliases', 'openAuthOverlay', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile', expectedPublicRoot]) {
   if (!sharedProfileHtml.includes(expected)) failures.push(`PERMANENT SHARE PROFILE MARKER MISSING: ${expected}`);
 }
-if (!sharedProfileHtml.includes("followAccountRoute(p.username,'login')")) failures.push('SHARED PROFILE FOLLOW MUST PRIORITIZE LOGIN FOR EXISTING KEEP USERS');
+// Adel (08/09/2026) : "il faut pas qu'il soit redirigé, il faut qu'il reste
+// au même endroit" -- le suivi depuis un lien partagé ouvre désormais une
+// pop-up EN PLACE (plus de redirection followAccountRoute/location.href),
+// mais l'exigence d'origine reste vraie sous une autre forme : un compte
+// Loki existant ne doit jamais être poussé vers la CRÉATION pour suivre,
+// donc la pop-up doit ouvrir sur l'onglet Connexion par défaut.
+if (sharedProfileHtml.includes('location.href=followAccountRoute')) failures.push('REDIRECT-BASED SHARED PROFILE FOLLOW REINTRODUCED');
+if (!sharedProfileHtml.includes("button.onclick=()=>{openAuthOverlay('login');};")) failures.push('SHARED PROFILE FOLLOW MUST PRIORITIZE LOGIN FOR EXISTING KEEP USERS');
 if (!sharedProfileHtml.includes("setTimeout(()=>controller.abort(),10000)")) failures.push('SHARED PROFILE FOLLOW REQUEST TIMEOUT MISSING');
 if (/https?:\/\/localhost|raw\.githubusercontent\.com|\/web-preview\//i.test(sharedProfileHtml)) {
   failures.push('STALE OR LOCAL PUBLIC PROFILE TARGET REINTRODUCED');
@@ -135,14 +142,14 @@ if (!authService.includes("username_only: '1'")) failures.push('USERNAME AUTH DO
 if (/https?:\/\/localhost/i.test(authService)) failures.push('LOCALHOST REINTRODUCED IN AUTH REDIRECT');
 
 const accountForm = fs.readFileSync(path.join(root, 'packages/mobile/src/components/UsernameAccountForm.tsx'), 'utf8');
-for (const expected of ['signUpWithUsername', 'signInWithUsername', 'Pseudo Loki']) {
+for (const expected of ['signInWithUsername', 'Pseudo Loki']) {
   if (!accountForm.includes(expected)) failures.push(`USERNAME/PASSWORD ACCOUNT MARKER MISSING: ${expected}`);
 }
-if (!/aucun e-mail[^\n]*(?:aucun code|n[’']est nécessaire|n'est nécessaire)/i.test(accountForm)) {
-  failures.push('USERNAME/PASSWORD ACCOUNT MARKER MISSING: no-email primary account flow');
+if (!/adresse e-mail vérifiée sont nécessaires/i.test(accountForm)) {
+  failures.push('USERNAME/PASSWORD/EMAIL ACCOUNT MARKER MISSING: mandatory email at signup (01/09/2026 policy)');
 }
-if (/Adresse e-mail obligatoire|emailRequired|signUpWithEmailIdentity\(/i.test(accountForm)) {
-  failures.push('MANDATORY EMAIL REINTRODUCED IN PRIMARY ACCOUNT FORM');
+if (!accountForm.includes('signUpWithEmailIdentity(')) {
+  failures.push('PRIMARY ACCOUNT FORM MUST CALL signUpWithEmailIdentity (mandatory verified email at signup)');
 }
 
 const usernameAuth = fs.readFileSync(path.join(root, 'supabase/functions/keep-username-auth/index.ts'), 'utf8');
@@ -227,7 +234,7 @@ console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('public profile links: permanent aliases reserved per profile');
-console.log('auth user: pseudo KEEP + mot de passe, aucun e-mail obligatoire');
+console.log('auth user: pseudo + mot de passe + e-mail vérifié obligatoires à la création (depuis le 01/09/2026)');
 console.log('free credits: 3 guest + 20 signup bonus = 23');
 console.log('auth admin: direct password session (no magic-link redirect)');
 console.log('music recognition: server-side AudD + optional ACRCloud fallback, no provider secret in mobile');

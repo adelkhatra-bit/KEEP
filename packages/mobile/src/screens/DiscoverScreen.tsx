@@ -6,11 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
-import { getDiscoveryAccess, DiscoveryAccess } from '../services/growthAccessService';
+import { useAccountGateStore } from '../store/useAccountGateStore';
+import { getDiscoveryAccess, getCompareAccess, DiscoveryAccess, QuotaAccess } from '../services/growthAccessService';
 import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -70,15 +72,21 @@ export default function DiscoverScreen({ navigation }: any) {
   const [discoveryAccess, setDiscoveryAccess] = useState<DiscoveryAccess | null>(null);
   const [accessLoading, setAccessLoading] = useState(false);
   const [guestSeenIds, setGuestSeenIds] = useState<string[]>([]);
-  const [followBusy, setFollowBusy] = useState(false);
-  const [followNotice, setFollowNotice] = useState('');
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
-  // BUG RÉEL trouvé le 31/08/2026 (Adel : "j'ai un utilisateur, je le suis
-  // déjà, et ça me dit de le suivre") : Découvertes ne chargeait jamais les
-  // abonnements existants du compte, donc "+ SUIVRE" s'affichait pour tout le
-  // monde sans exception, même les profils déjà suivis.
-  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  // Adel : brancher le flag "local_discovery" pour de vrai plutôt que de
+  // laisser un interrupteur décoratif dans Super Admin -- coupe-circuit
+  // d'urgence réel pour tout l'écran Découvertes. `true` par défaut tant que
+  // la vérification n'est pas revenue pour éviter un flash "indisponible" à
+  // chaque ouverture ; une fois vérifiée, false coupe réellement l'écran.
+  const [localDiscoveryEnabled, setLocalDiscoveryEnabled] = useState(true);
+  const [localDiscoveryChecked, setLocalDiscoveryChecked] = useState(false);
+  useEffect(() => { let live = true; isFeatureEnabled('local_discovery').then((enabled) => { if (live) { setLocalDiscoveryEnabled(enabled); setLocalDiscoveryChecked(true); } }); return () => { live = false; }; }, []);
+  // Adel : le bloc "AFFINITÉ %" ci-dessous est la vraie fonctionnalité
+  // derrière le flag Super Admin "compare_keep" ("Comparer nos KEEP") --
+  // jamais branché jusqu'ici. Coupe-circuit réel, pas décoratif.
+  const [compareFeatureEnabled, setCompareFeatureEnabled] = useState(true);
+  useEffect(() => { let live = true; isFeatureEnabled('compare_keep').then((enabled) => live && setCompareFeatureEnabled(enabled)); return () => { live = false; }; }, []);
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -99,6 +107,49 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => clearTimeout(timer);
   }, [profileQuery]);
 
+  // Audit multi-agent 07/09/2026 : la recherche ne filtrait que le lot de
+  // profils déjà chargé (plafonné) -- chercher un pseudo qui existe mais qui
+  // n'était pas dans ce lot ne retournait jamais rien, silencieusement.
+  // Recherche directe côté serveur dès qu'une requête est en cours, en
+  // complément du filtrage local instantané (qui reste affiché pendant
+  // l'aller-retour réseau pour ne rien casser du confort existant).
+  const [searchedProfiles, setSearchedProfiles] = useState<ProfileCard[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    const needle = committedQuery.trim().replace(/^@/, '');
+    if (!needle || isDemoMode || !supabase) { setSearchedProfiles(null); return () => { live = false; }; }
+    const client = supabase;
+    const run = async () => {
+      try {
+        let query = client
+          .from('profiles')
+          .select('id,username,avatar_url,bio,city,country_code,approx_lat,approx_lng,favorite_genres,favorite_artists,certification_tier')
+          .eq('is_public', true)
+          .eq('discovery_hidden', false)
+          .ilike('username', `%${needle}%`)
+          .limit(50);
+        if (user?.id) query = query.neq('id', user.id);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (live) setSearchedProfiles((data ?? []).map((row: any) => ({
+          id: row.id,
+          username: row.username || 'keep-user',
+          avatarUrl: row.avatar_url || undefined,
+          bio: row.bio || undefined,
+          city: row.city || undefined,
+          countryCode: row.country_code || undefined,
+          approxLat: normalizeOptionalCoordinate(row.approx_lat),
+          approxLng: normalizeOptionalCoordinate(row.approx_lng),
+          favoriteGenres: normalizeList(row.favorite_genres),
+          favoriteArtists: normalizeList(row.favorite_artists),
+          certificationTier: row.certification_tier || undefined,
+        })));
+      } catch { if (live) setSearchedProfiles(null); }
+    };
+    void run();
+    return () => { live = false; };
+  }, [committedQuery, user?.id, isDemoMode]);
+
   useEffect(() => {
     let live = true;
     const load = async () => {
@@ -118,7 +169,7 @@ export default function DiscoverScreen({ navigation }: any) {
           .eq('is_public', true)
           .eq('discovery_hidden', false)
           .order('updated_at', { ascending: false })
-          .limit(100);
+          .limit(1000);
         if (user?.id) query = query.neq('id', user.id);
         const { data, error } = await query;
         if (error) throw error;
@@ -143,21 +194,6 @@ export default function DiscoverScreen({ navigation }: any) {
     return () => { live = false; };
   }, [isDemoMode, user?.id]);
 
-  useEffect(() => {
-    let live = true;
-    const loadFollowing = async () => {
-      if (!user?.id || isLocalGuest || isDemoMode || !supabase) { if (live) setFollowingIds(new Set()); return; }
-      try {
-        const { data, error } = await supabase.from('follows').select('followee_id').eq('follower_id', user.id);
-        if (error) throw error;
-        if (live) setFollowingIds(new Set((data ?? []).map((row: any) => row.followee_id)));
-      } catch {
-        if (live) setFollowingIds(new Set());
-      }
-    };
-    void loadFollowing();
-    return () => { live = false; };
-  }, [user?.id, isLocalGuest, isDemoMode]);
 
   useEffect(() => {
     let live = true;
@@ -177,7 +213,6 @@ export default function DiscoverScreen({ navigation }: any) {
     setProfileIndex(0);
     setDiscoveryAccess(null);
     setGuestSeenIds([]);
-    setFollowNotice('');
     setSearchPosition(null);
     setHasSearched(false);
     setCurrentProfileSnapshot(null);
@@ -187,7 +222,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const filteredProfiles = useMemo(() => {
     const needle = committedQuery.trim().replace(/^@/, '').toLowerCase();
     const candidates = needle
-      ? profiles.filter((profile) => profile.username.toLowerCase().includes(needle))
+      ? (searchedProfiles ?? profiles.filter((profile) => profile.username.toLowerCase().includes(needle)))
       : profiles;
 
     // Découvertes doit être utile dès l'ouverture : le GPS affine le classement,
@@ -208,7 +243,7 @@ export default function DiscoverScreen({ navigation }: any) {
       return a.distance - b.distance;
     });
     return ranked.map((item) => item.profile);
-  }, [profiles, committedQuery, radiusKm, searchPosition, hasSearched]);
+  }, [profiles, searchedProfiles, committedQuery, radiusKm, searchPosition, hasSearched]);
 
   const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
@@ -248,6 +283,25 @@ export default function DiscoverScreen({ navigation }: any) {
 
   useEffect(() => { setAvatarFailedFor(null); }, [currentProfile?.id, currentProfile?.avatarUrl]);
 
+  // Adel : compares_per_month était configurable dans Super Admin mais
+  // jamais compté nulle part -- même trou que follows_max/local_discovery.
+  const [compareAccess, setCompareAccess] = useState<QuotaAccess | null>(null);
+  useEffect(() => {
+    let live = true;
+    const check = async () => {
+      if (!currentProfile || !compareFeatureEnabled) { if (live) setCompareAccess(null); return; }
+      if (!user || isLocalGuest || isDemoMode) { if (live) setCompareAccess({ planCode: 'FREE', allowed: true, used: 0, limit: null, remaining: null, unlimited: true }); return; }
+      try {
+        const access = await getCompareAccess(true);
+        if (live) setCompareAccess(access);
+      } catch {
+        if (live) setCompareAccess({ planCode, allowed: true, used: 0, limit: null, remaining: null, unlimited: true });
+      }
+    };
+    void check();
+    return () => { live = false; };
+  }, [currentProfile?.id, compareFeatureEnabled, user?.id, isLocalGuest, isDemoMode]);
+
   useEffect(() => {
     let live = true;
     setCurrentProfileSnapshot(null);
@@ -264,7 +318,6 @@ export default function DiscoverScreen({ navigation }: any) {
     setProfileIndex(0);
     setDiscoveryAccess(null);
     setCurrentProfileSnapshot(null);
-    setFollowNotice('');
   };
 
   const searchAroundMe = async () => {
@@ -318,39 +371,15 @@ export default function DiscoverScreen({ navigation }: any) {
   };
 
   const nextProfile = () => {
-    setFollowNotice('');
     if (filteredProfiles.length) setProfileIndex((value) => (value + 1) % filteredProfiles.length);
   };
 
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
   const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
-  const openAccount = () => navigation.navigate('Main', { screen: 'Profile' });
-
-  const alreadyFollowingCurrent = Boolean(currentProfile && followingIds.has(currentProfile.id));
-
-  const followCurrent = async () => {
-    if (!currentProfile || followBusy || !discoveryAccess?.allowed || alreadyFollowingCurrent) return;
-    if (!user || isLocalGuest || isDemoMode || !supabase) {
-      setFollowNotice('Crée ton compte Loki pour pouvoir suivre cet utilisateur.');
-      Alert.alert('Compte Loki requis', 'Crée ton compte Loki pour pouvoir suivre cet utilisateur.', [
-        { text: 'Plus tard', style: 'cancel' },
-        { text: 'Créer mon compte', onPress: openAccount },
-      ]);
-      return;
-    }
-    setFollowBusy(true);
-    setFollowNotice('');
-    try {
-      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: currentProfile.id });
-      if (error) throw error;
-      setFollowingIds((prev) => new Set(prev).add(currentProfile.id));
-      setFollowNotice(`Tu suis maintenant @${currentProfile.username}.`);
-      nextProfile();
-    } catch {
-      setFollowNotice('Le suivi n’a pas abouti. Réessaie dans un instant.');
-      Alert.alert('Suivre', 'Impossible de suivre ce profil pour le moment.');
-    } finally { setFollowBusy(false); }
-  };
+  // Adel (08/09/2026) : "il faut pas qu'il soit redirigé, il faut qu'il
+  // reste au même endroit" -- même popup en place que partout ailleurs
+  // (useAccountGateStore), plus de saut vers l'onglet Profil.
+  const openAccount = () => useAccountGateStore.getState().requestAccount('create');
 
   const compatibility = currentProfile ? overlapScore([...(user?.favoriteGenres ?? []), ...(user?.favoriteArtists ?? [])], [...currentProfile.favoriteGenres, ...currentProfile.favoriteArtists]) : null;
   const currentDistance = currentProfile && searchPosition && Number.isFinite(currentProfile.approxLat) && Number.isFinite(currentProfile.approxLng)
@@ -367,6 +396,17 @@ export default function DiscoverScreen({ navigation }: any) {
 
   const discoveryUnlocked = isDemoMode || discoveryAccess?.allowed === true;
   const freeRemaining = discoveryAccess?.planCode === 'FREE' ? discoveryAccess.remaining : null;
+
+  if (localDiscoveryChecked && !localDiscoveryEnabled) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyCard}>
+          <Text style={styles.title}>{t('nav.discover')}</Text>
+          <Text style={styles.mutedHint}>Les découvertes sont temporairement indisponibles. Reviens un peu plus tard.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -393,17 +433,20 @@ export default function DiscoverScreen({ navigation }: any) {
         {loadingProfiles || (currentProfile && accessLoading) ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
           <TouchableOpacity style={styles.lockCard} onPress={openPremium}><Text style={styles.lockIcon}>🔒</Text><Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text><Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant Loki et en faisant grandir tes abonnés.</Text><Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text></TouchableOpacity>
         ) : !currentProfile ? (
-          <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à @${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun autre profil public disponible pour le moment.'}</Text></View>
+          <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à ${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun autre profil public disponible pour le moment.'}</Text></View>
         ) : (
           <View style={styles.profileCard}>
             <TouchableOpacity activeOpacity={0.85} onPress={openCurrentProfile} style={styles.profileHero} accessibilityLabel={`Ouvrir le profil de ${currentProfile.username}`}>
               {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.avatar} onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
-              <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>@{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki'}</Text></View>
+              <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki'}</Text></View>
             </TouchableOpacity>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
-            <View style={styles.matchRow}><View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View><View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
-            <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity><TouchableOpacity style={[styles.followButton, alreadyFollowingCurrent && styles.followButtonOn]} onPress={() => void followCurrent()} disabled={followBusy || alreadyFollowingCurrent}><Text style={styles.followText}>{followBusy ? '…' : alreadyFollowingCurrent ? '✓ ABONNÉ(E)' : '+ SUIVRE'}</Text></TouchableOpacity></View>
-            {followNotice ? <Text style={styles.followNotice}>{followNotice}</Text> : null}
+            <View style={styles.matchRow}>{compareFeatureEnabled ? (
+              compareAccess?.allowed === false
+                ? <TouchableOpacity style={styles.matchBlock} onPress={openPremium}><Text style={styles.matchValue}>🔒</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></TouchableOpacity>
+                : <View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View>
+            ) : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
+            <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity></View>
           </View>
         )}
       </ScrollView>
@@ -421,5 +464,5 @@ const styles = StyleSheet.create({
   searchPanel:{padding:10,borderRadius:15,backgroundColor:'#130F1B',borderWidth:1,borderColor:'#332642',marginBottom:8},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:'#C8B7E5',fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:'#23192F',alignItems:'center'},radiusValueText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:'#2B2037',overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:'#9B6DFF'},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:6,marginBottom:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:4,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:'#6543A0'},radiusChoiceText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:'#FFFFFF'},searchButton:{minHeight:48,borderRadius:14,backgroundColor:'#6D46AE',alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:'#AFA5BF',fontSize:8,marginTop:5,textAlign:'center'},
   lockCard:{padding:16,borderRadius:20,backgroundColor:'#181121',borderWidth:1,borderColor:'#5C3E78',alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:'#C9C0D4',fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:'#D9C3FF',fontSize:12,fontWeight:'900',marginTop:12},
   emptyCard:{padding:18,borderRadius:18,backgroundColor:'#120E18',borderWidth:1,borderColor:'#30233C'},
-  profileCard:{padding:12,borderRadius:22,backgroundColor:'#15101D',borderWidth:1,borderColor:'#4D3762'},profileHero:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241B30'},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarInitial:{color:'#FFFFFF',fontSize:30,fontWeight:'900'},profileInfo:{flex:1},profileNameRow:{flexDirection:'row',alignItems:'center',gap:6},profileName:{color:'#FFFFFF',fontSize:17,fontWeight:'900'},profileBio:{color:'#D2CADB',fontSize:12,lineHeight:17,marginTop:3},proximity:{color:'#A98BE2',fontSize:11,fontWeight:'800',marginTop:4},matchRow:{flexDirection:'row',gap:8,marginTop:12},matchBlock:{flex:1,minHeight:52,borderRadius:15,backgroundColor:'#20172A',alignItems:'center',justifyContent:'center'},matchValue:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},matchLabel:{color:'#AFA4BF',fontSize:8,fontWeight:'900',marginTop:2},cardActions:{flexDirection:'row',gap:9,marginTop:12},passButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#28202F',alignItems:'center',justifyContent:'center'},passText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#6945A8',alignItems:'center',justifyContent:'center'},followButtonOn:{backgroundColor:'#28202F',borderWidth:1,borderColor:'#6945A8'},followText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},followNotice:{color:'#82EEB6',fontSize:11,fontWeight:'800',textAlign:'center',marginTop:8},
+  profileCard:{padding:12,borderRadius:22,backgroundColor:'#15101D',borderWidth:1,borderColor:'#4D3762'},profileHero:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241B30'},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarInitial:{color:'#FFFFFF',fontSize:30,fontWeight:'900'},profileInfo:{flex:1},profileNameRow:{flexDirection:'row',alignItems:'center',gap:6},profileName:{color:'#FFFFFF',fontSize:17,fontWeight:'900'},profileBio:{color:'#D2CADB',fontSize:12,lineHeight:17,marginTop:3},proximity:{color:'#A98BE2',fontSize:11,fontWeight:'800',marginTop:4},matchRow:{flexDirection:'row',gap:8,marginTop:12},matchBlock:{flex:1,minHeight:52,borderRadius:15,backgroundColor:'#20172A',alignItems:'center',justifyContent:'center'},matchValue:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},matchLabel:{color:'#AFA4BF',fontSize:8,fontWeight:'900',marginTop:2},cardActions:{flexDirection:'row',gap:9,marginTop:12},passButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:'#28202F',alignItems:'center',justifyContent:'center'},passText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
 });

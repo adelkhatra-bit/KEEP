@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
@@ -37,6 +37,38 @@ function clearWebIntent() {
   url.searchParams.delete('__keep_auth');
   url.searchParams.delete('__keep_follow');
   window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
+const TERMS_URL = 'https://adelkhatra-bit.github.io/KEEP/terms/';
+const PRIVACY_URL = 'https://adelkhatra-bit.github.io/KEEP/privacy/';
+
+function LegalNotice({ style }: { style: any }) {
+  const { t, i18n } = useTranslation();
+  const full = t('onboarding.legalNotice');
+  const isFr = (i18n.language || '').startsWith('fr');
+  const termsWord = isFr ? 'CGU' : 'Terms';
+  const privacyWord = isFr ? 'politique de confidentialité' : 'Privacy Policy';
+  const termsIdx = full.indexOf(termsWord);
+  const privacyIdx = full.indexOf(privacyWord);
+  if (termsIdx < 0 || privacyIdx < 0 || privacyIdx < termsIdx) {
+    return <Text style={style}>{full}</Text>;
+  }
+  const before = full.slice(0, termsIdx);
+  const between = full.slice(termsIdx + termsWord.length, privacyIdx);
+  const after = full.slice(privacyIdx + privacyWord.length);
+  return (
+    <Text style={style}>
+      {before}
+      <Text style={styles.legalLink} onPress={() => { void Linking.openURL(TERMS_URL); }} accessibilityRole="link">
+        {termsWord}
+      </Text>
+      {between}
+      <Text style={styles.legalLink} onPress={() => { void Linking.openURL(PRIVACY_URL); }} accessibilityRole="link">
+        {privacyWord}
+      </Text>
+      {after}
+    </Text>
+  );
 }
 
 export default function OnboardingScreen() {
@@ -145,7 +177,7 @@ export default function OnboardingScreen() {
               {busy ? <ActivityIndicator color={colors.textPrimary} /> : <Text style={styles.accountButtonText}>CONTINUER SANS INSCRIPTION</Text>}
             </TouchableOpacity>
             <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte Loki plus tard.</Text>
-            <Text style={styles.legal}>{t('onboarding.legalNotice')}</Text>
+            <LegalNotice style={styles.legal} />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -207,4 +239,5 @@ const styles = StyleSheet.create({
   demoButton:{minHeight:38,alignItems:'center',justifyContent:'center'},
   demoButtonText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},
   legal:{marginTop:spacing.sm,fontSize:11,color:colors.textMuted,textAlign:'center'},
+  legalLink:{color:colors.primaryLight,textDecorationLine:'underline',fontWeight:'700'},
 });

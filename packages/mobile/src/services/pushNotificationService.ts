@@ -59,12 +59,15 @@ function showWebKeepToast(title: string, body: string, row?: Record<string, unkn
   const toast = doc.createElement('button');
   toast.id = 'keep-live-notification-toast';
   toast.type = 'button';
-  toast.setAttribute('aria-label', `${title}. ${body}`);
+  toast.setAttribute('aria-label', `${title}. ${body}. Glisser vers le haut pour fermer.`);
   Object.assign(toast.style, {
     position: 'fixed',
     top: '14px',
     left: '50%',
-    transform: 'translateX(-50%)',
+    transform: 'translateX(-50%) translateY(0px)',
+    transition: 'transform .2s ease, opacity .18s ease',
+    touchAction: 'none',
+    opacity: '1',
     width: 'min(92vw, 420px)',
     zIndex: '2147483647',
     border: '1px solid rgba(168,132,250,.55)',
@@ -89,13 +92,58 @@ function showWebKeepToast(title: string, body: string, row?: Record<string, unkn
   Object.assign(bodyNode.style, { marginTop: '3px', fontSize: '12px', lineHeight: '1.35', color:'#FFFFFF' });
 
   toast.append(brand, titleNode, bodyNode);
+
+  const dismiss = () => {
+    if (webToastTimer) { clearTimeout(webToastTimer); webToastTimer = null; }
+    toast.style.transform = 'translateX(-50%) translateY(-140px)';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 200);
+  };
+
+  // Adel (04/09/2026) : "il faut vraiment trouver une solution qu'on puisse
+  // les Swiper et les remonter vers le haut ... pour qu'on puisse les
+  // enlever directement et tu n'as toujours pas réglé le problème" -- ce
+  // toast web (bridge temps réel Platform.OS==='web', distinct de
+  // GlobalNotificationBanner déjà corrigé) n'avait AUCUN geste de
+  // fermeture, seulement une disparition automatique à 6.5s -- c'est lui,
+  // pas l'autre bandeau, que le build web affiche réellement pour ce type
+  // de notification. Glisser le doigt vers le HAUT au-delà d'un seuil
+  // ferme immédiatement, un relâchement en dessous ramène le toast à sa
+  // place -- Pointer Events natifs, aucune dépendance supplémentaire.
+  let dragStartY = 0;
+  let dragging = false;
+  let dragDy = 0;
+  toast.addEventListener('pointerdown', (event) => {
+    const pointer = event as PointerEvent;
+    dragging = true;
+    dragStartY = pointer.clientY;
+    dragDy = 0;
+    toast.style.transition = 'none';
+    try { toast.setPointerCapture(pointer.pointerId); } catch {}
+  });
+  toast.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    dragDy = Math.min(0, (event as PointerEvent).clientY - dragStartY);
+    toast.style.transform = `translateX(-50%) translateY(${dragDy}px)`;
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    toast.style.transition = 'transform .2s ease, opacity .18s ease';
+    if (dragDy < -50) dismiss();
+    else toast.style.transform = 'translateX(-50%) translateY(0px)';
+  };
+  toast.addEventListener('pointerup', endDrag);
+  toast.addEventListener('pointercancel', endDrag);
+
   toast.onclick = () => {
+    if (Math.abs(dragDy) > 8) return;
     const base = `${globalThis.location?.origin ?? ''}/KEEP/notifications`;
     if (base.startsWith('http')) globalThis.location.href = base;
-    else toast.remove();
+    else dismiss();
   };
   doc.body.appendChild(toast);
-  webToastTimer = setTimeout(() => toast.remove(), 6500);
+  webToastTimer = setTimeout(dismiss, 6500);
 }
 
 async function startWebRealtimeNotificationBridge(): Promise<boolean> {

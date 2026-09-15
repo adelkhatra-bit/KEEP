@@ -25,8 +25,8 @@ function isPlaceholder(value: string | undefined): boolean {
 
 export const isWebShareConfigured = !isPlaceholder(WEB_URL);
 
-type ShareKind = 'profile' | 'track' | 'vibe' | 'session' | 'compare' | 'event';
-type ShareEvent = 'profile_share' | 'profile_share_email' | 'playlist_share' | 'compare_share' | 'event_share';
+type ShareKind = 'profile' | 'track' | 'vibe' | 'session' | 'compare' | 'event' | 'battle';
+type ShareEvent = 'profile_share' | 'profile_share_email' | 'playlist_share' | 'compare_share' | 'event_share' | 'battle_share';
 
 type ShareCopy = {
   kind: ShareKind;
@@ -307,12 +307,12 @@ function buildProfileCopy(username: string): ShareCopy {
   const own = Boolean(current?.username && cleanUsername(current.username).toLowerCase() === clean.toLowerCase());
   const link = buildPublicProfileLink(clean);
   const identity = own ? [current?.city, current?.countryCode].filter(Boolean).join(' · ') : '';
-  const profileLine = own ? `Découvre mon profil ${APP_NAME} @${clean}` : `Découvre le profil ${APP_NAME} @${clean}`;
+  const profileLine = own ? `Découvre mon profil ${APP_NAME} ${clean}` : `Découvre le profil ${APP_NAME} ${clean}`;
   const message = `${profileLine} 🎧\n${APP_NAME} DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'profile',
-    heading: own ? `Partager mon profil ${APP_NAME}` : `Partager la collection de @${clean}`,
-    subject: own ? `Mon profil ${APP_NAME} — @${clean}` : `Le profil ${APP_NAME} de @${clean}`,
+    heading: own ? `Partager mon profil ${APP_NAME}` : `Partager la collection de ${clean}`,
+    subject: own ? `Mon profil ${APP_NAME} — ${clean}` : `Le profil ${APP_NAME} de ${clean}`,
     message,
     emailBody: `${message}\n\nUn scan, un clic, et tu entres dans cet univers musical.`,
     link,
@@ -326,7 +326,7 @@ function buildTrackCopy(username: string, title: string, artist: string): ShareC
   const clean = cleanUsername(username);
   const link = buildPublicTrackLink(clean, title, artist);
   const own = cleanUsername(useUserStore.getState().user?.username).toLowerCase() === clean.toLowerCase();
-  const origin = own ? `mon profil @${clean}` : `le profil @${clean}`;
+  const origin = own ? `mon profil ${clean}` : `le profil ${clean}`;
   const message = `🎵 ${title.trim()} — ${artist.trim()}\nRetrouve ce morceau sur ${origin} dans ${APP_NAME}.\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'track',
@@ -360,9 +360,9 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
       eventName: 'profile_share',
     },
     compare: {
-      heading: `Comparer avec @${label}`,
-      subject: `Compare ton ${APP_NAME} DNA avec @${label}`,
-      intro: `🧬 On écoute vraiment la même chose ? Compare ton ${APP_NAME} DNA avec celui de @${label}.`,
+      heading: `Comparer avec ${label}`,
+      subject: `Compare ton ${APP_NAME} DNA avec ${label}`,
+      intro: `🧬 On écoute vraiment la même chose ? Compare ton ${APP_NAME} DNA avec celui de ${label}.`,
       eventName: 'compare_share',
     },
     event: {
@@ -370,6 +370,17 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
       subject: `${label} · ${APP_NAME}`,
       intro: `🎉 « ${label} » est sur ${APP_NAME}. Découvre l’ambiance et rejoins-nous.`,
       eventName: 'event_share',
+    },
+    // Adel (13/09/2026, viralité) : un Battle gagné (question, bonne
+    // réponse, temps de réaction) est déjà le contenu le plus partageable de
+    // Loki -- il restait enfermé dans l'app, aucune sortie vers l'extérieur
+    // après une victoire. Même mécanisme unifié que le reste (jamais un
+    // Share.share() isolé dans son coin).
+    battle: {
+      heading: `Partager mon Battle`,
+      subject: `Mon score Battle · ${APP_NAME}`,
+      intro: `⚡ Battle ${APP_NAME} : ${label}. Tu fais mieux ?`,
+      eventName: 'battle_share',
     },
   };
 
@@ -437,4 +448,8 @@ export async function shareCompareInvite(username: string): Promise<void> {
 
 export async function shareEvent(eventId: string, eventName: string): Promise<void> {
   return presentShare(buildContextCopy('event', eventName, eventId));
+}
+
+export async function shareBattleResult(resultLabel: string): Promise<void> {
+  return presentShare(buildContextCopy('battle', resultLabel));
 }

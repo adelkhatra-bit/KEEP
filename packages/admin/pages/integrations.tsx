@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
@@ -59,20 +61,12 @@ const STATUS_COLORS: Record<IntegrationStatus, string> = {
   NOT_CONFIGURED: 'var(--text-muted)',
 };
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 async function invokeRecognitionTest() {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-recognition-admin-test', { body: { action: 'test' } });
-  if (error) throw error;
+  const data = await invokeAdminFunction<{ ok: boolean; testedAt: string; recognitionReady: boolean; providers: RecognitionProviderResult[]; error?: string }>('keep-recognition-admin-test', { action: 'test' });
   if (!data?.ok) throw new Error(data?.error || 'Test des moteurs impossible.');
-  return data as { ok: true; testedAt: string; recognitionReady: boolean; providers: RecognitionProviderResult[] };
+  return data;
 }
 
 export default function Integrations() {
@@ -82,7 +76,7 @@ export default function Integrations() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [testEmail, setTestEmail] = useState('');
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
   const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
 
@@ -130,6 +124,8 @@ export default function Integrations() {
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
     if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
+    if (/\s/.test(value)) return setError(`${row.label} : cette valeur contient un espace -- vérifie que tu n'as pas copié un caractère en trop.`);
+    if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return setError(`${row.label} : cette valeur ressemble à un exemple/placeholder, pas à une vraie clé. Colle la vraie valeur du fournisseur.`);
     setBusy(row.key); setError(null); setMessage(null);
     try {
       const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value });
@@ -174,18 +170,6 @@ export default function Integrations() {
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Test des moteurs de reconnaissance impossible.');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const sendTest = async () => {
-    setBusy('EMAIL_TEST'); setError(null); setMessage(null);
-    try {
-      await invokeAdmin({ action: 'integrations.test_email', email: testEmail.trim() });
-      setMessage(`E-mail Loki envoyé à ${testEmail.trim()} via Brevo.`);
-    } catch (e: any) {
-      setError(e?.message ?? 'Test Brevo impossible.');
     } finally {
       setBusy(null);
     }
@@ -271,7 +255,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>E-mails Loki</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          Les comptes utilisateurs Loki utilisent maintenant <strong>identifiant Loki + mot de passe</strong> : aucun e-mail n’est obligatoire pour créer ou utiliser un compte. Les e-mails restent optionnels pour les invitations, messages système et récupération future. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki.
+          Les comptes utilisateurs Loki utilisent <strong>identifiant Loki + mot de passe + e-mail vérifié</strong> (obligatoire depuis le 01/09/2026, pour que « mot de passe oublié » fonctionne toujours). Les comptes créés avant cette date restent utilisables sans e-mail. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
@@ -283,21 +267,20 @@ export default function Integrations() {
         </a>
       </div>
 
+      {/* Adel (08/09/2026) : "verifie bien que dans toutes ces rubriques
+          tu n'as pas cree des doublons" -- ce card dupliquait exactement
+          /email-test (meme action integrations.test_email). Un seul
+          endroit pour tester l'envoi desormais, avec en plus les vrais
+          gabarits signup/mot de passe oublie et le diagnostic de
+          delivrabilite. */}
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Tester l’envoi Brevo</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL configurés ci-dessous. Ce test est indépendant de la connexion utilisateur Loki.</p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            type="email"
-            placeholder="adresse@test.fr"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-            style={{ flex: '1 1 280px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
-          />
-          <button onClick={() => void sendTest()} disabled={busy === 'EMAIL_TEST' || !testEmail.trim()}>
-            {busy === 'EMAIL_TEST' ? 'Envoi…' : 'Envoyer un test Loki'}
-          </button>
-        </div>
+        <h3 style={{ marginTop: 0 }}>Tester l’envoi e-mail</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>
+          Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL (ou MAILJET_API_KEY + MAILJET_SECRET_KEY) configurés ci-dessous.
+        </p>
+        <a href="/email-test" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
+          Ouvrir « Test e-mail »
+        </a>
       </div>
 
       {loading && <div className="card">Chargement des intégrations…</div>}
@@ -323,14 +306,43 @@ export default function Integrations() {
                     {row.lastCheckedAt ? ` · contrôle ${new Date(row.lastCheckedAt).toLocaleString('fr-FR')}` : ''}
                   </div>
                 )}
+                {/* Adel (08/09/2026) : "un bouton ... pour que j'active et
+                    ca me dirige directement" -- ouvre la bonne page du bon
+                    fournisseur juste a cote du champ ou coller la cle
+                    resultante. N'automatise pas l'inscription elle-meme
+                    (identite/paiement restent a faire par Adel sur le site
+                    du fournisseur), seulement la recherche de la page. */}
+                {INTEGRATION_PROVIDER_LINKS[row.key] && (
+                  <a
+                    href={INTEGRATION_PROVIDER_LINKS[row.key].url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
+                  >
+                    🔗 Ouvrir {INTEGRATION_PROVIDER_LINKS[row.key].label}
+                  </a>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    type={row.secret ? 'password' : 'text'}
-                    placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
-                    value={values[row.key] ?? ''}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                    style={{ flex: '1 1 360px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' }}
-                  />
+                  <div style={{ position: 'relative', flex: '1 1 360px' }}>
+                    <input
+                      type={row.secret && !revealed[row.key] ? 'password' : 'text'}
+                      placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
+                      value={values[row.key] ?? ''}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
+                    />
+                    {row.secret && (
+                      <button
+                        type="button"
+                        onClick={() => setRevealed((prev) => ({ ...prev, [row.key]: !prev[row.key] }))}
+                        aria-label={revealed[row.key] ? 'Masquer la valeur' : 'Afficher la valeur'}
+                        title={revealed[row.key] ? 'Masquer' : 'Afficher'}
+                        style={{ position: 'absolute', right: 4, top: 4, bottom: 4, width: 32, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}
+                      >
+                        {revealed[row.key] ? '🙈' : '👁'}
+                      </button>
+                    )}
+                  </div>
                   <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
                     {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
                   </button>

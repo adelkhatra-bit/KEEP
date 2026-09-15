@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, Text } from 'react-native';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
@@ -11,13 +12,13 @@ import PartiesScreen from '../screens/PartiesScreen';
 import ProfilePublicScreen from '../screens/ProfilePublicScreen';
 import PublicUserProfileScreen from '../screens/PublicUserProfileScreen';
 import ProfileSettingsMobileScreen from '../screens/ProfileSettingsMobileScreen';
-import AdvancedProfileSettingsScreen from '../screens/AdvancedProfileSettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SessionRecapScreen from '../screens/SessionRecapScreen';
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import OffersScreen from '../screens/OffersScreen';
+import PlaylistSalePanel from '../components/PlaylistSalePanel';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -42,11 +43,11 @@ const linking = {
       SessionRecap: 'session-recap',
       SessionHistory: 'session-history',
       ProfileSettings: 'profile-settings',
-      AdvancedProfileSettings: 'profile-settings/advanced',
       PublicProfile: 'profile/:username',
       MusicConnections: 'music-connections',
       Notifications: 'notifications',
       Offers: 'offers',
+      PlaylistSale: 'playlist-sale',
       AppleMusicConnect: 'apple-music-connect',
     },
   },
@@ -131,15 +132,15 @@ function MainTabs() {
 
 export default function Navigation() {
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
         <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
         <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
-        <RootStack.Screen name="AdvancedProfileSettings" component={AdvancedProfileSettingsScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="Offers" component={OffersScreen} />
+        <RootStack.Screen name="PlaylistSale" component={PlaylistSalePanel} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />

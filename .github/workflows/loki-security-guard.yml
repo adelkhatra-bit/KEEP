@@ -1,0 +1,90 @@
+name: Loki — Security guard
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-policy:
+    name: Repository policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Reject private credential files
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              *.env.example|*.env.sample) continue ;;
+              .env|*/.env|.env.*|*/.env.*|*.pem|*.p12|*.pfx|*.jks|*/id_rsa|*/id_ed25519)
+                printf 'Forbidden credential file: %s\n' "$file"
+                bad=1
+                ;;
+            esac
+          done < <(git ls-files -z)
+          test "$bad" -eq 0
+
+      - name: Reject high-confidence secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='sk_(live|test)_[A-Za-z0-9_-]{16,}|sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|sbp_[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}|-----BEGIN [A-Z ]*PRIVATE KE[Y]-----'
+          if git grep -IlE "$pattern" -- ':!*.example' ':!*.sample'; then
+            echo 'A high-confidence secret pattern was found. Rotate it before merging.'
+            exit 1
+          fi
+
+      - name: Block unapproved local model bridges
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='[F]reeToken|[F]lashML|hf[-]mirror[.]com|127[.]0[.]0[.]1:1919|ft[[:space:]]+launch[[:space:]]+(claude|codex)'
+          if git grep -IlE "$pattern"; then
+            echo 'An unapproved local-model bridge marker was found.'
+            exit 1
+          fi
+
+      - name: Reject dangerous workflow primitives
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -nE 'pull_request_targe[t]|permissions:[[:space:]]*write-al[l]' -- .github/workflows; then
+            echo 'A dangerous GitHub Actions permission or trigger was found.'
+            exit 1
+          fi
+
+      - name: Require immutable external actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS= read -r use; do
+            action="${use%@*}"
+            ref="${use##*@}"
+            case "$action" in
+              ./*) continue ;;
+            esac
+            if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+              printf 'Unpinned external action: %s\n' "$use"
+              bad=1
+            fi
+          done < <(sed -nE 's/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1/p' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true)
+          test "$bad" -eq 0

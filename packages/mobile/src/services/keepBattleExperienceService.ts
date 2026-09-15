@@ -21,6 +21,12 @@ export type KeepBattleSoloRound = {
   previewUrl: string;
   choices: string[];
   correctAnswer: string;
+  // Adel (12/09/2026) : "il est resté coincé sur Funk ... pourquoi il ne
+  // change pas automatiquement" -- style réel du morceau tiré pour CETTE
+  // manche parmi les styles sélectionnés, distinct du libellé global figé
+  // (KeepBattleSoloPack.themeCode) qui ne peut représenter qu'un seul style
+  // à la fois ('MIX' dès que 2+ styles sont cochés).
+  themeCode?: string | null;
 };
 
 export type KeepBattleSoloPack = {
@@ -71,24 +77,74 @@ export async function loadKeepBattleArenaRules(): Promise<KeepBattleArenaRules> 
   }
 }
 
-export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8): Promise<KeepBattleSoloPack> {
+// Adel (01/09/2026, capture d'écran à l'appui) : certains morceaux (BO de
+// film, musique orchestrale) ont un champ "artist" rempli avec la liste
+// complète des crédits ("Lisa Gerrard, Gavin Greenaway, The Lyndhurst
+// Orchestra, ... & Hans Zimmer") au lieu du seul nom d'artiste -- illisible
+// comme réponse de quiz et casse l'alignement des boutons ("les boutons
+// doivent faire la même taille"). Un vrai duo/feat légitime ("Anuel AA &
+// KAROL G") n'a jamais de virgule et reste inchangé ; une liste à rallonge
+// (3+ noms séparés par des virgules) est réduite au premier nom, plus un
+// éventuel "& Dernier Nom" final s'il ressemble à un second artiste crédité.
+function simplifyArtistCredit(raw: string): string {
+  const trimmed = raw.trim();
+  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+  let simplified = trimmed;
+  if (parts.length > 2) {
+    const last = parts[parts.length - 1];
+    const ampersandMatch = last.match(/&\s*(.+)$/);
+    simplified = ampersandMatch ? `${parts[0]} & ${ampersandMatch[1].trim()}` : parts[0];
+  }
+  return simplified.length > 42 ? `${simplified.slice(0, 39).trimEnd()}…` : simplified;
+}
+
+// Adel (03/09/2026) : "si je coche plusieurs styles ... ca doit faire un mix
+// de TOUS les styles que j'ai selectionnes" -- themeCode reste 'MIX' comme
+// etiquette generique des qu'il y a 2+ styles coches (voir KeepBattleMobileGameV3),
+// mais themeCodes porte la selection reelle pour que le serveur restreigne le
+// tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
+export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
+  const selectedThemes = Array.from(new Set((themeCodes || [])
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
-    p_theme_code: themeCode.toUpperCase(),
-    p_round_count: Math.max(5, Math.min(roundCount, 12)),
+    p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
+    p_round_count: Math.max(5, Math.min(roundCount, 30)),
+    p_theme_codes: selectedThemes.length ? selectedThemes : null,
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;
-  const rounds = Array.isArray(raw.rounds) ? raw.rounds.map((round: any) => ({
-    position: Number(round.position || 0),
-    trackId: String(round.trackId || ''),
-    title: String(round.title || ''),
-    artist: String(round.artist || ''),
-    artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
-    previewUrl: String(round.previewUrl || ''),
-    choices: Array.isArray(round.choices) ? round.choices.map(String) : [],
-    correctAnswer: String(round.correctAnswer || round.artist || ''),
-  })).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
+  const rounds = Array.isArray(raw.rounds) ? raw.rounds.map((round: any) => {
+    const rawChoices: string[] = Array.isArray(round.choices) ? round.choices.map(String) : [];
+    const cleanedChoices = rawChoices.map(simplifyArtistCredit);
+    const rawCorrect = String(round.correctAnswer || round.artist || '');
+    const correctIndex = rawChoices.indexOf(rawCorrect);
+    const correctAnswer = correctIndex >= 0 ? cleanedChoices[correctIndex] : simplifyArtistCredit(rawCorrect);
+    return {
+      position: Number(round.position || 0),
+      trackId: String(round.trackId || ''),
+      title: String(round.title || ''),
+      artist: simplifyArtistCredit(String(round.artist || '')) || correctAnswer,
+      artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
+      previewUrl: String(round.previewUrl || ''),
+      themeCode: round.themeCode ? String(round.themeCode).toUpperCase() : null,
+      choices: cleanedChoices,
+      correctAnswer,
+    };
+  }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
+  // Le serveur historique renvoie trois choix. Pour conserver la même source
+  // musicale et garantir quatre réponses sans inventer d'artiste, on complète
+  // chaque manche avec un artiste d'une autre manche du pack, déjà validé par
+  // le catalogue et distinct des choix présents.
+  rounds.forEach((round: KeepBattleSoloRound) => {
+    const unique = Array.from(new Set(round.choices.filter(Boolean)));
+    for (const candidate of rounds.map((item: KeepBattleSoloRound) => item.artist)) {
+      if (unique.length >= 4) break;
+      if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
+    }
+    round.choices = unique.slice(0, 4);
+  });
   return {
     mode: 'SOLO_TRAINING',
     themeCode: String(raw.themeCode || themeCode).toUpperCase(),

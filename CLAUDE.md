@@ -2,6 +2,10 @@
 
 Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne crée **aucune deuxième version** du projet.
 
+## Langue
+
+Adel est francophone. Toute réponse, tout message, toute mise à jour à destination d'Adel doit être écrite **en français**, sans exception, y compris les messages courts, les confirmations et les résumés de fin de tâche. Ne jamais basculer en anglais au milieu d'une conversation.
+
 ## Projet officiel
 
 - Repository unique : `adelkhatra-bit/KEEP`
@@ -80,7 +84,7 @@ Une correction de logique ne doit pas devenir une refonte graphique.
 - L'essai gratuit ne doit jamais créer des dizaines d'utilisateurs Supabase au refresh.
 - Le mode invité local est stable sur l'appareil et limité aux fonctions prévues pour l'essai.
 - Une conversion vers un compte réel doit préserver le profil préparé et l'historique local ; ne jamais remplacer silencieusement les données de l'utilisateur.
-- Le flux principal de compte accepte identifiant KEEP + mot de passe sans e-mail obligatoire ; les flux e-mail restent récupération/compatibilité séparée.
+- Depuis le 01/09/2026, la création de compte exige pseudo + mot de passe + e-mail vérifié (les trois obligatoires), pour que « mot de passe oublié » fonctionne toujours. La connexion continue d'accepter pseudo OU e-mail, pour ne jamais casser les anciens comptes créés avant cette date sans e-mail.
 - Les fonctions sociales qui écrivent en base (suivre, liker, etc.) doivent à terme exiger une identité authentifiée permanente ou afficher clairement qu'une connexion est nécessaire.
 
 ## Profil créateur / formules

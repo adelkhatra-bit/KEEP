@@ -43,7 +43,7 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Vérifier les migrations + triggers + RLS
         shell: bash
@@ -79,7 +79,7 @@ jobs:
 
       - name: Conserver les diagnostics SQL
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: verify-migrations-log
           path: |

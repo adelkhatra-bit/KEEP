@@ -36,6 +36,29 @@ export interface AuthService {
 
 const KEEP_PUBLIC_URL = 'https://adelkhatra-bit.github.io/KEEP/';
 
+// Audit 08/09/2026 (Adel a reçu "Connexion Loki indisponible pour le
+// moment" sur un simple "mot de passe oublié" -- la vraie cause était une
+// clé Brevo invalide côté serveur, mais ce message générique masquait tout)
+// : `supabase-js` transforme toute réponse non-2xx de `functions.invoke()`
+// en `FunctionsHttpError`, avec `data:null` -- le corps JSON précis que
+// `keep-auth-email` renvoie déjà (invalid_email, username_taken,
+// email_delivery_unavailable, etc.) n'était donc JAMAIS lu dès que l'edge
+// function répondait autre chose que 200, et retombait systématiquement sur
+// le générique 'server_error'. On relit le corps de la réponse HTTP réelle
+// (`error.context`) avant d'abandonner.
+async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
+  const { data, error } = await client.functions.invoke('keep-auth-email', { body });
+  if (!error) return (data as any) ?? { ok: false, error: 'server_error' };
+  const context = (error as any)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const parsed = await context.json();
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch { /* corps non-JSON ou déjà consommé : repli sur server_error ci-dessous */ }
+  }
+  return { ok: false, error: 'server_error' };
+}
+
 function normalizeUsername(username: string) {
   return username.trim().replace(/^@+/, '').normalize('NFKC');
 }
@@ -67,7 +90,20 @@ function mapSignupError(message: string): string {
   if (value.includes('expired') || value.includes('otp')) return 'email_link_invalid';
   if (value.includes('already') || value.includes('registered') || value.includes('exists')) return 'email_taken';
   if (value.includes('email not confirmed') || value.includes('not confirmed')) return 'email_not_confirmed';
-  if (value.includes('email')) return 'invalid_email';
+  // Adel (03/09/2026) : une adresse e-mail PARFAITEMENT valide
+  // ("teyous007@hotmail.com") a été refusée "invalide" alors que la vraie
+  // cause était une panne d'envoi SMTP côté Supabase Auth (Brevo -- "535
+  // 5.7.8 Authentication failed", confirmé dans auth_logs). GoTrue renvoie
+  // alors un message qui contient juste le mot "email" ("Error sending
+  // confirmation email"), ce que l'ancien mapping accusait à tort comme un
+  // format d'adresse invalide. On ne doit JAMAIS accuser l'adresse saisie
+  // par l'utilisateur pour une panne de livraison : seul un message qui
+  // parle explicitement du format ("invalid"/"unable to validate") est une
+  // vraie adresse invalide ; tout le reste qui touche à "email" est une
+  // panne de service (SMTP, quota, etc.), à afficher comme telle.
+  if (value.includes('invalid') && value.includes('email')) return 'invalid_email';
+  if (value.includes('unable to validate') && value.includes('email')) return 'invalid_email';
+  if (value.includes('email')) return 'email_delivery_unavailable';
   if (value.includes('password')) return 'invalid_password';
   if (value.includes('profile') || value.includes('username') || value.includes('duplicate') || value.includes('unique')) return 'username_taken';
   return message || 'server_error';
@@ -131,33 +167,52 @@ export function createAuthService(client: SupabaseClient): AuthService {
         .limit(1);
       if (usernames?.length) return { error: 'username_taken' };
 
-      const { data, error } = await client.auth.signUp({
+      // Adel (03/09/2026) : client.auth.signUp() faisait envoyer l'e-mail de
+      // confirmation par Supabase Auth lui-meme, via la cle SMTP configuree
+      // dans le Dashboard Supabase -- une copie SEPAREE et desynchronisable
+      // de la cle Brevo utilisee partout ailleurs dans Loki (integration_secrets).
+      // Le jour ou l'une des deux cles est regeneree sans l'autre, TOUTE
+      // inscription tombe en panne avec "535 5.7.8 Authentication failed",
+      // affiche a tort comme "adresse e-mail invalide" (voir mapSignupError).
+      // keep-auth-email genere le lien cote serveur (n'envoie rien lui-meme)
+      // et l'envoie via l'API HTTP Brevo deja utilisee et prouvee fiable par
+      // keep-account-email -- un seul endroit ou la cle Brevo vit desormais.
+      const data = await invokeAuthEmail(client, {
+        action: 'signup',
         email: cleanEmail,
         password,
-        options: {
-          emailRedirectTo: KEEP_PUBLIC_URL,
-          data: {
-            keep_username: cleanUsername,
-            keep_username_only: false,
-            pending_follow_username: cleanFollow || null,
-          },
-        },
+        username: cleanUsername,
+        pendingFollowUsername: cleanFollow || null,
       });
-      if (error) return { error: mapSignupError(error.message) };
+      if (!data?.ok) return { error: String(data?.error || 'server_error') };
 
-      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        return { error: 'email_taken' };
-      }
-
-      if (data.session) {
-        await client.auth.signOut().catch(() => {});
-        return { error: 'email_confirmation_required_config' };
+      // Adel (03/09/2026) : "il ne faut pas bloquer les utilisateurs" quand
+      // l'envoi d'e-mail est en panne -- si keep-auth-email a du activer le
+      // compte lui-meme faute de pouvoir livrer l'e-mail, il renvoie une
+      // session prete a l'emploi (access_token/refresh_token) : on l'installe
+      // directement, l'inscription se termine normalement au lieu de bloquer
+      // l'utilisateur sur un ecran "verifie ta boite mail" pour un lien qui ne
+      // partira jamais. La verification reelle de l'e-mail reste a finaliser
+      // plus tard (Super Admin), separement, sans jamais retarder l'utilisateur.
+      if (data.access_token && data.refresh_token) {
+        const { error: sessionError } = await client.auth.setSession({
+          access_token: String(data.access_token),
+          refresh_token: String(data.refresh_token),
+        });
+        if (!sessionError) {
+          return {
+            error: null,
+            username: cleanUsername,
+            userId: data.userId ? String(data.userId) : undefined,
+            requiresEmailConfirmation: false,
+          };
+        }
       }
 
       return {
         error: null,
         username: cleanUsername,
-        userId: data.user?.id,
+        userId: data.userId ? String(data.userId) : undefined,
         requiresEmailConfirmation: true,
       };
     },
@@ -198,12 +253,15 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async requestPasswordReset(email) {
+      // Adel (03/09/2026) : meme panne SMTP Dashboard que signUpWithEmailIdentity
+      // ci-dessus ("mot de passe oublie" doit TOUJOURS fonctionner -- c'est la
+      // raison d'etre de l'e-mail obligatoire a l'inscription). Meme solution :
+      // keep-auth-email genere le lien et l'envoie via l'API HTTP Brevo.
       const cleanEmail = normalizeEmail(email);
       if (!validRecoveryEmail(cleanEmail)) return { error: 'invalid_email' };
-      const { error } = await client.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: `${KEEP_PUBLIC_URL}?keep_auth=recovery`,
-      });
-      return { error: error ? mapSignupError(error.message) : null };
+      const data = await invokeAuthEmail(client, { action: 'recovery', email: cleanEmail });
+      if (!data?.ok) return { error: String(data?.error || 'server_error') };
+      return { error: null };
     },
 
     async updatePassword(password) {

@@ -9,27 +9,84 @@ const admin = createClient(
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-worker-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const CONFIG: Record<string, { term: string; country: string }> = {
-  FUNK: { term: "funk", country: "US" },
-  DISCO: { term: "disco", country: "US" },
-  AFRO: { term: "afrobeats", country: "GB" },
-  RAP_FR: { term: "rap français", country: "FR" },
-  RAP_US: { term: "hip hop rap", country: "US" },
-  ELECTRO: { term: "electronic dance", country: "US" },
-  POP: { term: "pop", country: "US" },
-  RNB: { term: "r&b soul", country: "US" },
-  ROCK: { term: "rock", country: "US" },
-  LATINO: { term: "latin reggaeton", country: "US" },
-  RAI: { term: "rai algerien", country: "FR" },
-  SOUL: { term: "soul", country: "US" },
-  REGGAE: { term: "reggae", country: "US" },
-  JAZZ: { term: "jazz", country: "US" },
-  CLASSIQUE: { term: "classical", country: "FR" },
-  CHANSON_FR: { term: "chanson française", country: "FR" },
+// Audit multi-agent 07/09/2026 (juge securite) : cette fonction ecrit massivement
+// en base (service_role, bypass RLS) et interroge iTunes en boucle, sans jamais
+// verifier qui appelle -- appelable anonymement par n'importe qui. Meme garde que
+// keep-push-worker : cle partagee hachee, comparee en base.
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function authorized(req: Request) {
+  const supplied = req.headers.get("x-keep-worker-key") || "";
+  if (!supplied) return false;
+  const { data, error } = await admin
+    .from("keep_internal_worker_secrets")
+    .select("secret_hash")
+    .eq("name", "battle-catalog-seed")
+    .maybeSingle();
+  if (error || !data?.secret_hash) return false;
+  return (await sha256(supplied)) === String(data.secret_hash);
+}
+
+// Adel (02/09/2026) : "plus d'artistes ... des vieux titres et recents ...
+// aller chercher plus profond" -- chaque theme n'interrogeait iTunes qu'avec
+// UN SEUL terme de recherche (limit 40, 24 gardes) : catalogue plat et peu
+// varie. Chaque theme utilise maintenant PLUSIEURS requetes (styles/decennies/
+// artistes differents) fusionnees et dedupliquees, avec une limite iTunes plus
+// haute par requete. Ajout aussi de RUSSE/TURC/KPOP/ARABE/BRESIL/INDE
+// ("tous les pays qui pourraient etre interessants ... large culture
+// musicale") et des deux themes ANNEES_80/ANNEES_90 qui existaient deja dans
+// la table keep_battle_themes mais n'avaient jamais eu de config de seed.
+const CONFIG: Record<string, Array<{ term: string; country: string }>> = {
+  FUNK: [{ term: "funk", country: "US" }, { term: "funk classics", country: "US" }],
+  DISCO: [{ term: "disco", country: "US" }, { term: "disco classics 70s", country: "US" }],
+  AFRO: [{ term: "afrobeats", country: "GB" }, { term: "afropop", country: "GB" }, { term: "afrobeat classics", country: "US" }],
+  RAP_FR: [{ term: "rap français", country: "FR" }, { term: "rap français old school", country: "FR" }, { term: "rap français 2024", country: "FR" }],
+  RAP_US: [{ term: "hip hop rap", country: "US" }, { term: "old school hip hop", country: "US" }, { term: "rap 2024", country: "US" }],
+  ELECTRO: [{ term: "electronic dance", country: "US" }, { term: "house music", country: "US" }, { term: "techno", country: "DE" }],
+  POP: [{ term: "pop", country: "US" }, { term: "pop hits 2024", country: "US" }, { term: "pop classics", country: "US" }],
+  RNB: [{ term: "r&b soul", country: "US" }, { term: "r&b 2024", country: "US" }],
+  ROCK: [{ term: "rock", country: "US" }, { term: "rock classics", country: "US" }, { term: "rock 2024", country: "US" }],
+  LATINO: [{ term: "latin reggaeton", country: "US" }, { term: "musica latina", country: "MX" }],
+  RAI: [{ term: "rai algerien", country: "FR" }, { term: "rai marocain", country: "FR" }],
+  SOUL: [{ term: "soul", country: "US" }, { term: "motown soul classics", country: "US" }],
+  REGGAE: [{ term: "reggae", country: "US" }, { term: "reggae roots", country: "US" }],
+  JAZZ: [{ term: "jazz", country: "US" }, { term: "jazz vocal classics", country: "US" }],
+  CLASSIQUE: [{ term: "classical", country: "FR" }, { term: "classical piano", country: "FR" }],
+  CHANSON_FR: [{ term: "chanson française", country: "FR" }, { term: "variété française", country: "FR" }],
+  ANNEES_80: [{ term: "80s hits", country: "US" }, { term: "pop 1985", country: "FR" }],
+  ANNEES_90: [{ term: "90s hits", country: "US" }, { term: "pop 1995", country: "FR" }],
+  RUSSE: [{ term: "russian pop", country: "RU" }, { term: "russian rap", country: "RU" }],
+  TURC: [{ term: "turkish pop", country: "TR" }, { term: "turkish arabesk", country: "TR" }],
+  KPOP: [{ term: "k-pop", country: "KR" }, { term: "korean pop", country: "KR" }],
+  ARABE: [{ term: "arabic pop", country: "SA" }, { term: "khaleeji", country: "AE" }],
+  BRESIL: [{ term: "musica brasileira", country: "BR" }, { term: "sertanejo", country: "BR" }],
+  INDE: [{ term: "bollywood", country: "IN" }, { term: "hindi pop", country: "IN" }],
+};
+
+// Adel (04/09/2026) : "je suis pas sûre que ce soit de la funk" puis "il met
+// du reggae, il mélange tout" -- BUG RÉEL confirmé sur les DEUX thèmes :
+// chaque résultat iTunes pour un terme simple ("funk", "reggae") était tagué
+// à 96% de confiance SANS jamais vérifier item.primaryGenreName -- le mot
+// apparaît dans plein de titres qui n'ont rien à voir (funk brésilien, EDM,
+// hip-hop, rock, musique pour enfants... pour FUNK ; genres totalement
+// étrangers pour REGGAE). Seuls ces deux thèmes ont un filtre pour
+// l'instant (les deux seuls signalés, chacun confirmé à ~37-39% de
+// contamination) -- un audit large sur les 22 autres thèmes a montré des
+// répartitions bien plus ambiguës (ex. DISCO/ROCK perdraient injustement
+// leurs plus gros lots "Alternative"/"Pop" sans preuve réelle de mauvais
+// classement) : mieux vaut ne rien y toucher tant qu'un problème concret
+// n'y est pas signalé, que risquer de vider un catalogue sain sur une
+// simple supposition.
+const GENRE_ALLOW: Record<string, RegExp> = {
+  FUNK: /funk|r&b|soul/i,
+  REGGAE: /reggae|dancehall|ska|dub/i,
 };
 
 function out(status: number, payload: unknown) {
@@ -48,23 +105,38 @@ function year(date: unknown) {
   return match ? Number(match[0]) : null;
 }
 
-async function seed(theme: string) {
-  const config = CONFIG[theme];
-  if (!config) throw new Error("THEME_NOT_SEEDABLE");
-
-  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(config.term)}&entity=song&limit=40&country=${config.country}`;
+async function fetchQuery(query: { term: string; country: string }) {
+  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query.term)}&entity=song&limit=100&country=${query.country}`;
   const response = await fetch(searchUrl, { headers: { "user-agent": "KEEP/1.0 Battle Seed" } });
-  if (!response.ok) throw new Error(`ITUNES_${response.status}`);
-  const body = await response.json();
-  const rows = (Array.isArray(body?.results) ? body.results : []).filter((item: any) =>
-    String(item?.previewUrl ?? "").startsWith("https://")
-  );
+  if (!response.ok) return [];
+  const body = await response.json().catch(() => null);
+  return Array.isArray(body?.results) ? body.results : [];
+}
+
+async function seed(theme: string) {
+  const queries = CONFIG[theme];
+  if (!queries) throw new Error("THEME_NOT_SEEDABLE");
+
+  const byAppleId = new Map<string, any>();
+  for (const query of queries) {
+    const results = await fetchQuery(query);
+    for (const item of results) {
+      const appleId = String(item?.trackId ?? "");
+      if (!appleId || !String(item?.previewUrl ?? "").startsWith("https://")) continue;
+      if (!byAppleId.has(appleId)) byAppleId.set(appleId, item);
+    }
+  }
 
   let linked = 0;
   let inserted = 0;
   let updated = 0;
 
-  for (const item of rows.slice(0, 24)) {
+  // Adel (04/09/2026) : "il faut aller chercher du son au maximum" -- chaque
+  // thème dédupliquait déjà plusieurs requêtes iTunes (jusqu'à limit=100
+  // chacune) mais ne gardait que les 80 premiers résultats fusionnés,
+  // laissant une bonne partie du volume réellement récupéré de côté.
+  // Garde maintenant jusqu'à 200 pistes par ré-alimentation.
+  for (const item of Array.from(byAppleId.values()).slice(0, 200)) {
     const appleId = String(item.trackId ?? "");
     const title = String(item.trackName ?? "").trim();
     const artist = String(item.artistName ?? "").trim();
@@ -84,7 +156,7 @@ async function seed(theme: string) {
       duration_sec: item.trackTimeMillis ? Math.round(Number(item.trackTimeMillis) / 1000) : null,
       artwork_url: item.artworkUrl100 ? artwork(String(item.artworkUrl100)) : null,
       genres: item.primaryGenreName ? [String(item.primaryGenreName)] : [],
-      provider_ids: { appleMusic: appleId, appleStorefront: config.country },
+      provider_ids: { appleMusic: appleId, appleStorefront: queries[0].country },
       source: "itunes_public_battle",
       source_url: String(item.trackViewUrl ?? "") || null,
       preview_url: String(item.previewUrl),
@@ -115,6 +187,10 @@ async function seed(theme: string) {
       }
     }
 
+    const genreAllow = GENRE_ALLOW[theme];
+    const genreOk = !genreAllow || genreAllow.test(String(item.primaryGenreName ?? ""));
+    if (!genreOk) continue;
+
     const { error: linkError } = await admin
       .from("keep_battle_track_themes")
       .upsert(
@@ -124,11 +200,12 @@ async function seed(theme: string) {
     if (!linkError) linked += 1;
   }
 
-  return { theme, inserted, updated, linked };
+  return { theme, found: byAppleId.size, inserted, updated, linked };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (!(await authorized(req))) return out(401, { ok: false, error: "unauthorized" });
   try {
     let theme = "";
     if (req.method === "GET") theme = new URL(req.url).searchParams.get("theme")?.toUpperCase() ?? "";

@@ -11,8 +11,15 @@ import {
   recordKeepDecision,
   updateKeepDecisionVisibility,
 } from '../services/keepMusicCoreRecognition';
+import { loadPendingFavoriteImports } from '../services/musicProviderSyncService';
 
 export const CLOUD_PROFILE_RECOVERY_SESSION_ID = '__keep-cloud-profile-recovery__';
+// Adel (02/09/2026) : "je like sur Spotify ... elle va dans les sessions
+// extrait ... il decide s'il la partage ou pas" -- une seule session dédiée
+// reçoit les nouveaux favoris détectés par la synchro auto Spotify/Deezer
+// (jamais publiés tout seuls), pour qu'ils passent par le même geste
+// GARDER/PASSER que le reste de Mes Sessions au lieu d'un écran séparé.
+export const FAVORITES_IMPORT_SESSION_ID = '__keep-favorites-import__';
 
 export function isCloudProfileRecoverySession(session: KeepSession): boolean {
   return session.id === CLOUD_PROFILE_RECOVERY_SESSION_ID;
@@ -20,6 +27,18 @@ export function isCloudProfileRecoverySession(session: KeepSession): boolean {
 
 interface SessionHistoryStore {
   sessions: KeepSession[];
+  // Adel (04/09/2026) : "ces trois sessions, à chaque fois que je les
+  // efface, elles reviennent" -- BUG RÉEL confirmé : `deleteSession`
+  // n'effaçait la session QUE côté local, mais `syncUnsyncedKeeps` (appelé
+  // à chaque focus de l'écran) recharge les Keep confirmés côté serveur
+  // (`loadOwnPersistedKeeps`) et `mergePersistedKeeps` reconstruit
+  // fidèlement toute session dont un morceau gardé server-side n'a plus
+  // d'entrée locale -- exactement ce qu'une suppression locale vient de
+  // produire. Cette liste retient les `keepDecisionId` explicitement
+  // effacés par l'utilisateur pour ne plus jamais les faire réapparaître
+  // dans une session reconstruite, SANS toucher au Keep lui-même (toujours
+  // intact côté serveur, toujours visible sur le profil/Mes Morceaux).
+  dismissedKeepDecisionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
   deleteSession: (sessionId: string) => void;
@@ -32,6 +51,7 @@ interface SessionHistoryStore {
   setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
   keepAllPendingInSession: (sessionId: string, visibility?: KeepVisibility) => Promise<void>;
   syncUnsyncedKeeps: () => Promise<void>;
+  syncPendingFavoriteImports: () => Promise<void>;
   refreshCreditLocks: () => Promise<void>;
   getSession: (sessionId: string) => KeepSession | undefined;
 }
@@ -78,6 +98,22 @@ function unlockPending(sessions: KeepSession[]): KeepSession[] {
     tracks: session.tracks.map((track) =>
       track.status === 'pending' && track.creditLocked
         ? { ...track, creditLocked: false }
+        : track,
+    ),
+  }));
+}
+
+// Audit Adel (11/09/2026) : symetrique de unlockPending -- jusqu'ici rien ne
+// verrouillait proactivement une session DEJA persistee (ancien recap rouvert
+// avec un solde insuffisant). Le seul verrou existant etait reactif (apres un
+// GARDER rate), donc une session ouverte avec un solde <costPerKeep affichait
+// toujours GARDER actif jusqu'au premier essai.
+function lockAllPending(sessions: KeepSession[]): KeepSession[] {
+  return sessions.map((session) => ({
+    ...session,
+    tracks: session.tracks.map((track) =>
+      track.status === 'pending' && !track.creditLocked
+        ? { ...track, creditLocked: true }
         : track,
     ),
   }));
@@ -159,7 +195,8 @@ function buildRecoveredSession(sessionId: string, keeps: PersistedKeepDecision[]
  * une session entière. Les changements de vrai compte sont traités séparément
  * dans useUserStore, au moment où l'identité est réellement connue.
  */
-export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[]): KeepSession[] {
+export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: PersistedKeepDecision[], dismissedDecisionIds: string[] = []): KeepSession[] {
+  const dismissed = new Set(dismissedDecisionIds);
   const remoteByDecision = new Map(remoteKeeps.map((item) => [item.decisionId, item]));
 
   let next = sessions.map((session) => ({
@@ -196,7 +233,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
   for (const session of next) {
     for (const entry of session.tracks) if (entry.keepDecisionId) represented.add(entry.keepDecisionId);
   }
-  const missing = remoteKeeps.filter((item) => !represented.has(item.decisionId));
+  const missing = remoteKeeps.filter((item) => !represented.has(item.decisionId) && !dismissed.has(item.decisionId));
 
   // Les décisions récentes transportent le vrai sessionId dans leur contexte.
   // On reconstruit donc LA session correspondante au lieu de jeter tous les
@@ -273,13 +310,21 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
   persist(
     (set, get) => ({
       sessions: [],
+      dismissedKeepDecisionIds: [],
 
       addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
       upsertSession: (session) => set((s) => {
         const exists = s.sessions.some((item) => item.id === session.id);
         return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
       }),
-      deleteSession: (sessionId) => set((s) => ({ sessions: s.sessions.filter((session) => session.id !== sessionId) })),
+      deleteSession: (sessionId) => set((s) => {
+        const target = s.sessions.find((session) => session.id === sessionId);
+        const decisionIds = (target?.tracks ?? []).map((t) => t.keepDecisionId).filter((id): id is string => Boolean(id));
+        return {
+          sessions: s.sessions.filter((session) => session.id !== sessionId),
+          dismissedKeepDecisionIds: decisionIds.length ? Array.from(new Set([...s.dismissedKeepDecisionIds, ...decisionIds])) : s.dismissedKeepDecisionIds,
+        };
+      }),
       clearSessions: () => set({ sessions: [] }),
       renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
 
@@ -298,7 +343,12 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         try {
           const { targetPlaylistId, keepDecisionId } = await commitKeep(entry.track, entry.recommendations, playlistId, {
             visibility,
-            context: { sessionId, detectedAt: entry.detectedAt, source: 'session_history' },
+            context: {
+              sessionId,
+              detectedAt: entry.detectedAt,
+              source: entry.importedFrom ? 'provider_favorite_import' : 'session_history',
+              importedFrom: entry.importedFrom,
+            },
           });
           set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'kept', targetPlaylistId, visibility, keepDecisionId, false) }));
         } catch (error) {
@@ -365,16 +415,73 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           const remoteKeeps = await loadOwnPersistedKeeps();
           // Le serveur enrichit et restaure. Il ne supprime jamais une session
           // locale sur la seule base d'une absence dans cette lecture distante.
-          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps) }));
+          // `dismissedKeepDecisionIds` empêche uniquement la RECONSTRUCTION
+          // d'une session que l'utilisateur a explicitement effacée -- les
+          // Keep eux-mêmes restent inchangés côté serveur.
+          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps, state.dismissedKeepDecisionIds) }));
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
         }
       },
 
+      syncPendingFavoriteImports: async () => {
+        let pending: Awaited<ReturnType<typeof loadPendingFavoriteImports>>;
+        try {
+          pending = await loadPendingFavoriteImports();
+        } catch {
+          return; // Hors ligne / non connecté : rien à ajouter cette fois-ci.
+        }
+        if (!pending.length) return;
+
+        set((state) => {
+          const existing = state.sessions.find((s) => s.id === FAVORITES_IMPORT_SESSION_ID);
+          const knownProviderIds = new Set((existing?.tracks ?? []).map((t) => t.id));
+          const now = new Date().toISOString();
+          const additions: SessionTrackEntry[] = pending
+            .filter((item) => !knownProviderIds.has(`favimport-${item.id}`))
+            .map((item) => ({
+              id: `favimport-${item.id}`,
+              track: {
+                id: item.track_id || item.id,
+                isrc: item.isrc || undefined,
+                title: item.title,
+                artist: item.artist,
+                album: item.album || undefined,
+                artworkUrl: item.artwork_url || undefined,
+                providerIds: {},
+              },
+              recommendations: [],
+              status: 'pending' as SessionTrackStatus,
+              detectedAt: item.imported_at || now,
+              importedFrom: item.provider,
+            }));
+          if (!additions.length) return state;
+
+          const session: KeepSession = existing
+            ? { ...existing, tracks: [...additions, ...existing.tracks] }
+            : {
+                id: FAVORITES_IMPORT_SESSION_ID,
+                startedAt: now,
+                endedAt: null,
+                title: 'Favoris importés',
+                tracks: additions,
+              };
+          const sessions = existing
+            ? state.sessions.map((s) => s.id === FAVORITES_IMPORT_SESSION_ID ? session : s)
+            : [session, ...state.sessions];
+          return { sessions };
+        });
+      },
+
       refreshCreditLocks: async () => {
         const status = await getDownloadCreditStatus();
-        const available = status.unlimited || (status.remaining ?? 0) > 0;
-        if (available) set((state) => ({ sessions: unlockPending(state.sessions) }));
+        // Audit Adel (11/09/2026) : comparait a > 0, jamais au vrai cout par
+        // GARDER (costPerKeep, 3 au 11/09/2026) -- un solde de 1 ou 2 etait
+        // donc traite comme "disponible" et deverrouillait a tort. Verrouille
+        // maintenant aussi proactivement (lockAllPending) quand insuffisant,
+        // pas seulement deverrouille quand suffisant.
+        const available = status.unlimited || (status.remaining ?? 0) >= status.costPerKeep;
+        set((state) => ({ sessions: available ? unlockPending(state.sessions) : lockAllPending(state.sessions) }));
       },
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),

@@ -8,7 +8,14 @@ describe('Loki shared profile follow handoff', () => {
 
   it('never forces an existing user through account creation', () => {
     expect(share).toContain('SE CONNECTER / CRÉER POUR SUIVRE');
-    expect(share).toContain("followAccountRoute(p.username,'login')");
+    // Adel (08/09/2026) : "il faut pas qu'il soit redirigé, il faut qu'il
+    // reste au même endroit" -- le tap sur "+ SUIVRE" sans session ouvre une
+    // pop-up EN PLACE (deux onglets, création ET connexion), plus jamais un
+    // location.href vers une autre page.
+    expect(share).toContain("button.onclick=()=>{openAuthOverlay('login');};");
+    expect(share).toContain('data-mode="signup"');
+    expect(share).toContain('data-mode="login"');
+    expect(share).not.toContain('location.href=followAccountRoute');
     expect(onboarding).toContain("intent.mode || (intent.followUsername ? 'login' : 'create')");
   });
 
@@ -30,9 +37,14 @@ describe('Loki shared profile follow handoff', () => {
     expect(share).not.toContain('__keep_route');
   });
 
-  it('preserves the shared profile context across login', () => {
-    expect(share).toContain('&share=profile');
-    expect(share).toContain('&u=${encodeURIComponent(u)}');
-    expect(share).toContain('__keep_follow=${encodeURIComponent(u)}');
+  it('preserves the shared profile follow intent without ever leaving the page', () => {
+    // Adel (08/09/2026) : plus de redirection = plus de query string
+    // __keep_follow/u/share à faire transiter -- l'intention de suivre est
+    // désormais garantie par le serveur lui-même (déclencheur sur
+    // pending_follow_username à l'inscription) ou rejouée explicitement
+    // juste après une connexion réussie, jamais perdue en changeant de page.
+    expect(share).toContain('pendingFollowUsername:currentProfile.username');
+    expect(share).toContain('await followNow(currentProfile,auth)');
+    expect(share).not.toContain('__keep_follow');
   });
 });

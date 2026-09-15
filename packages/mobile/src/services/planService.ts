@@ -7,18 +7,30 @@ export type KeepPlan = {
   trialDays: number;
   monthlyAmount: number;
   currencyCode: string;
+  // Adel (04/09/2026) : "regarde bien où y a prix mensuel et prix annuel, le
+  // nombre de Free que je vais donner avec" -- réglé au même endroit que le
+  // prix (plan_prices.free_bonus_per_month), une seule source de vérité au
+  // lieu d'une clé remote_config séparée par plan.
+  monthlyFreeBonus: number;
 };
 
 export type CreditFunnel = {
   guestSuccessLimit: number;
   signupBonusSuccesses: number;
+  // Adel (04/09/2026) : "il faut vraiment qu'ils sachent combien de Free il
+  // a par mois" -- Free offerts chaque mois écoulé, par formule, distincts
+  // des mises/gains de Battle (voir keep_monthly_free_bonus_for_profile).
+  monthlyBonusFree: number;
+  monthlyBonusPremium: number;
+  monthlyBonusCreatorPro: number;
+  monthlyBonusVenuePro: number;
 };
 
 export async function loadPlans(): Promise<KeepPlan[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('plans')
-    .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from)')
+    .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
     .eq('is_active', true)
     .eq('plan_prices.is_active', true)
     .eq('plan_prices.period', 'MONTHLY');
@@ -34,18 +46,36 @@ export async function loadPlans(): Promise<KeepPlan[]> {
       trialDays: Number(row.trial_days || 0),
       monthlyAmount: Number(price?.amount || 0),
       currencyCode: price?.currency_code || 'EUR',
+      monthlyFreeBonus: Number(price?.free_bonus_per_month || 0),
     };
   }).sort((a: KeepPlan, b: KeepPlan) => ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(a.code) - ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(b.code));
 }
 
+export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
+  guestSuccessLimit: 3,
+  signupBonusSuccesses: 20,
+  monthlyBonusFree: 5,
+  monthlyBonusPremium: 15,
+  monthlyBonusCreatorPro: 40,
+  monthlyBonusVenuePro: 100,
+};
+
 export async function loadCreditFunnel(): Promise<CreditFunnel> {
-  if (!supabase) return { guestSuccessLimit: 3, signupBonusSuccesses: 20 };
-  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['guest_success_limit', 'signup_bonus_successes']);
+  if (!supabase) return CREDIT_FUNNEL_DEFAULTS;
+  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', [
+    'guest_success_limit', 'signup_bonus_successes',
+    'free_monthly_bonus_free', 'free_monthly_bonus_premium', 'free_monthly_bonus_creator_pro', 'free_monthly_bonus_venue_pro',
+  ]);
   if (error) throw error;
   const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
+  const pick = (key: string, fallback: number) => Number.isFinite(map[key]) ? map[key] : fallback;
   return {
-    guestSuccessLimit: Number.isFinite(map.guest_success_limit) ? map.guest_success_limit : 3,
-    signupBonusSuccesses: Number.isFinite(map.signup_bonus_successes) ? map.signup_bonus_successes : 20,
+    guestSuccessLimit: pick('guest_success_limit', CREDIT_FUNNEL_DEFAULTS.guestSuccessLimit),
+    signupBonusSuccesses: pick('signup_bonus_successes', CREDIT_FUNNEL_DEFAULTS.signupBonusSuccesses),
+    monthlyBonusFree: pick('free_monthly_bonus_free', CREDIT_FUNNEL_DEFAULTS.monthlyBonusFree),
+    monthlyBonusPremium: pick('free_monthly_bonus_premium', CREDIT_FUNNEL_DEFAULTS.monthlyBonusPremium),
+    monthlyBonusCreatorPro: pick('free_monthly_bonus_creator_pro', CREDIT_FUNNEL_DEFAULTS.monthlyBonusCreatorPro),
+    monthlyBonusVenuePro: pick('free_monthly_bonus_venue_pro', CREDIT_FUNNEL_DEFAULTS.monthlyBonusVenuePro),
   };
 }
 

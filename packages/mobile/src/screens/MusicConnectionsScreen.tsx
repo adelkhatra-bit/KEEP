@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
 import MusicServiceActivationModal from '../components/MusicServiceActivationModal';
+import { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import {
   clearKeylessMusicExport,
   KEYLESS_MUSIC_SERVICES,
@@ -59,11 +62,26 @@ function nextPlanLabel(plan: MusicServiceSelectionState['plan']) {
 }
 
 function showMessage(title: string, message: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(`${title}\n\n${message}`);
-  else Alert.alert(title, message);
+  Alert.alert(title, message);
 }
 
 export default function MusicConnectionsScreen({ navigation }: any) {
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
+  // Adel (08/09/2026) : "il n'est pas normal qu'on puisse connecter quoi que
+  // ce soit ... il faut eviter tous les faux profils" -- brancher un vrai
+  // compte musical (Spotify/Deezer/etc.) exige un compte Loki reel : on ne
+  // laisse plus jamais l'appel partir pour un invite/demo, popup direct.
+  const requireRealAccount = () => {
+    Alert.alert(
+      'Compte Loki requis',
+      'Crée ton compte Loki pour connecter un service musical à ton profil.',
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+      ],
+    );
+  };
   const [queue, setQueue] = useState<KeylessExportQueue | null>(null);
   const [selection, setSelection] = useState<MusicServiceSelectionState>(EMPTY_SELECTION);
   const [providerConnections, setProviderConnections] = useState<ProviderConnectionMap>(EMPTY_PROVIDER_CONNECTIONS);
@@ -120,7 +138,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     }
   };
 
-  const useConnectedService = (service: MusicServiceKey) => {
+  const openConnectedService = (service: MusicServiceKey) => {
     if (queue?.tracks.length) {
       setSelectedService(service);
       setTrackIndex(0);
@@ -131,6 +149,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const connectProvider = async (provider: SyncProvider, name: string) => {
     if (providerBusy || busy) return;
+    if (isLocalGuest || isDemoMode) return requireRealAccount();
     setProviderBusy(provider);
     try {
       const state = providerConnections[provider];
@@ -149,6 +168,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const importFavorites = async (provider: ImportProvider, name: string) => {
     if (providerBusy || busy) return;
+    if (isLocalGuest || isDemoMode) return requireRealAccount();
     setProviderBusy(provider);
     try {
       const result = await importProviderFavorites(provider);
@@ -165,16 +185,11 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const showUpgrade = () => {
     if (selection.plan === 'VENUE_PRO') {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert('Tous tes services sont déjà disponibles avec Venue Pro.');
-      else Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par Loki.');
+      Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par Loki.');
       return;
     }
 
     const message = `${musicServicePlanLabel(selection.plan)} permet ${selection.limit} service${selection.limit > 1 ? 's' : ''}.\n\n${nextPlanLabel(selection.plan)}.`;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`${message}\n\nVoir la formule ?`)) openOffers();
-      return;
-    }
     Alert.alert('Tous tes emplacements sont utilisés', message, [
       { text: 'Plus tard', style: 'cancel' },
       { text: 'Voir la formule', onPress: openOffers },
@@ -214,14 +229,13 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         return true;
       }
 
-      useConnectedService(service);
+      openConnectedService(service);
       return true;
     } catch (e: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
         ? 'Connecte ton compte Loki pour choisir tes services musicaux.'
         : 'Impossible d’activer ce service pour le moment.';
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(text);
-      else Alert.alert('Loki', text);
+      Alert.alert('Loki', text);
       return false;
     } finally {
       setActivatingService(null);
@@ -233,14 +247,10 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     if (alreadyClaimed) {
       if (!activeServices.has(service)) {
         const message = `${name} reste associé à ton compte, mais ta formule actuelle ne permet d’utiliser que ${selection.limit} service${selection.limit > 1 ? 's' : ''}.`;
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          if (window.confirm(`${message}\n\nVoir les offres ?`)) openOffers();
-        } else {
-          Alert.alert('Service réservé', message, [
-            { text: 'Fermer', style: 'cancel' },
-            { text: 'Voir les offres', onPress: openOffers },
-          ]);
-        }
+        Alert.alert('Service réservé', message, [
+          { text: 'Fermer', style: 'cancel' },
+          { text: 'Voir les offres', onPress: openOffers },
+        ]);
         return;
       }
 
@@ -256,7 +266,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         }
       }
 
-      useConnectedService(service);
+      openConnectedService(service);
       return;
     }
 
@@ -306,7 +316,9 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         <View style={styles.keylessCard}>
           <View style={styles.keylessTop}>
-            <View style={styles.keylessBadge}><Text style={styles.keylessBadgeText}>{musicServicePlanLabel(selection.plan).toUpperCase()}</Text></View>
+            {(() => { const tierColors = CERTIFICATION_META[selection.plan]; return (
+              <View style={[styles.keylessBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}><Text style={[styles.keylessBadgeText, { color: tierColors.ring }]}>{musicServicePlanLabel(selection.plan).toUpperCase()}</Text></View>
+            ); })()}
             <Text style={styles.keylessTitle}>{selectionLoading ? 'Chargement…' : `${selection.used} / ${selection.limit} service${selection.limit > 1 ? 's' : ''} choisi${selection.used > 1 ? 's' : ''}`}</Text>
           </View>
           <Text style={styles.keylessText}>Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki te laisse utiliser de services en parallèle.</Text>
@@ -447,11 +459,11 @@ const styles = StyleSheet.create({
   exportProgress: { color: '#8AF3BF', fontSize: 9, fontWeight: '900' },
   destination: { color: '#BFA9FF', fontSize: 9, fontWeight: '900' },
   currentTrackTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 9 },
-  currentTrackArtist: { color:'#FFFFFF', fontSize: 10, marginTop: 3 },
+  currentTrackArtist: { color:'#FFFFFF', fontSize: 12, marginTop: 3 },
   openTrackButton: { marginTop: 12, minHeight: 44, borderRadius: 22, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  openTrackButtonText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', textAlign: 'center' },
+  openTrackButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', textAlign: 'center' },
   nextButton: { marginTop: 8, minHeight: 40, borderRadius: 20, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#38D990', alignItems: 'center', justifyContent: 'center' },
-  nextButtonText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
+  nextButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   changeButton: { minHeight: 34, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
   changeButtonText: { color: '#BFA9FF', fontSize: 9, fontWeight: '800' },
   sectionHeader: { marginTop: 2 },

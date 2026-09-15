@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { invokeAdminFunction } from '../lib/invokeFunction';
 
 const PLAN_OPTIONS = ['ALL', 'FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
 type PlanFilter = typeof PLAN_OPTIONS[number];
@@ -35,6 +36,7 @@ type UserSnapshot = {
     id: string; username: string; display_name: string | null; bio: string | null; avatar_url: string | null;
     city: string | null; country_code: string | null; kind: string | null; website: string | null; is_public: boolean;
     discovery_hidden: boolean;
+    follower_count_override: number | null;
   };
   privateInfo: { birth_date?: string | null; gender?: string | null } | null;
   socialLinks: Array<{ platform: string; url: string; visibility: string }>;
@@ -54,21 +56,8 @@ const REQUIREMENTS = [
   ['SOCIAL_LINK', 'Au moins un réseau'], ['WEBSITE', 'Site web'],
 ] as const;
 
-async function invokeAdmin(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
-
-async function invokeUserControl(body: Record<string, unknown>) {
-  if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-  const { data, error } = await supabase.functions.invoke('keep-admin-user-control', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
-}
+const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
+const invokeUserControl = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-user-control', body);
 
 function visibleEmail(email: string | null) {
   if (!email || email.endsWith('@keep.local')) return 'Sans e-mail';
@@ -102,8 +91,21 @@ export default function Users() {
   const [requirements, setRequirements] = useState<string[]>([]);
   const [plan, setPlan] = useState<PaidPlan>('PREMIUM');
   const [months, setMonths] = useState(12);
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditReason, setCreditReason] = useState('');
+  // Adel (04/09/2026) : "je veux pouvoir le débloquer à un utilisateur ...
+  // pareil pour soirée limitée pour la formule Pro ... mettre un minimum
+  // d'abonnés comme ça je pourrais faire des tests" -- keep_event_creation_
+  // status ET keep_growth_reward_status lisent tous les deux le nombre RÉEL
+  // d'abonnés (follows) ; ce champ force une valeur de test pour CE compte
+  // uniquement, sans toucher aux vrais abonnés ni aux réglages globaux.
+  const [followerOverride, setFollowerOverride] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailSavedAt, setEmailSavedAt] = useState<string | null>(null);
 
   const [legacyUsername, setLegacyUsername] = useState('');
   const [legacyRecovery, setLegacyRecovery] = useState<LegacyRecovery | null>(null);
@@ -149,11 +151,13 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setMessage(null); setError(null); setBusy('load');
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load'); setFollowerOverride('');
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
       setRequirements(Array.isArray(result.data?.requirements) ? result.data.requirements : []);
+      const override = (result.data as UserSnapshot)?.profile?.follower_count_override;
+      setFollowerOverride(override == null ? '' : String(override));
     } catch (e: any) { setError(e?.message ?? 'Impossible de charger ce profil.'); }
     finally { setBusy(null); }
   };
@@ -199,6 +203,41 @@ export default function Users() {
     finally { setBusy(null); }
   };
 
+  const grantCredits = async (amountValue: number) => {
+    if (!selected) return;
+    if (!Number.isFinite(amountValue) || amountValue === 0) return setError('Indique un nombre de Free différent de 0.');
+    // Adel (04/09/2026) : "je veux pouvoir valider, je veux pas que quand
+    // j'appuie sur un bouton ça part direct ... j'ai même pas pu mettre la
+    // raison" -- une vraie confirmation avant l'envoi réel (même geste que
+    // la réinitialisation de mot de passe plus bas), qui rappelle le montant
+    // ET la raison telle qu'elle sera vue par l'utilisateur.
+    const reasonPreview = creditReason.trim() || '(aucune raison précisée)';
+    if (typeof window !== 'undefined' && !window.confirm(`Confirmer ${amountValue > 0 ? '+' : ''}${amountValue} Free pour @${selected.username} ?\n\nRaison affichée à l'utilisateur : ${reasonPreview}\n\nUne notification part immédiatement après validation.`)) return;
+    setBusy('credits'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'grant_credits', profileId: selected.id, amount: amountValue, reason: creditReason.trim() });
+      setSelected((prev) => prev ? { ...prev, credit_remaining: Number(result.creditRemaining ?? prev.credit_remaining) } : prev);
+      setSnapshot(result.data as UserSnapshot);
+      setMessage(`${amountValue > 0 ? '+' : ''}${amountValue} Free pour @${selected.username} -- notification envoyée. Nouveau solde : ${result.creditRemaining}.`);
+      setCreditAmount(''); setCreditReason('');
+      await load();
+    } catch (e: any) { setError(e?.message ?? 'Impossible de créditer ce compte.'); }
+    finally { setBusy(null); }
+  };
+
+  const saveFollowerOverride = async (value: number | null) => {
+    if (!selected || !supabase) return;
+    setBusy('followerOverride'); setError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_set_follower_count_override', { p_profile_id: selected.id, p_override: value });
+      if (rpcError) throw rpcError;
+      setFollowerOverride(value == null ? '' : String(value));
+      setSnapshot((prev) => prev ? { ...prev, profile: { ...prev.profile, follower_count_override: value } } : prev);
+      setMessage(value == null ? `Nombre d'abonnés réel restauré pour @${selected.username}.` : `Nombre d'abonnés forcé à ${value} pour @${selected.username} (test uniquement, n'affecte pas les vrais abonnés).`);
+    } catch (e: any) { setError(e?.message ?? 'Impossible de modifier ce réglage de test.'); }
+    finally { setBusy(null); }
+  };
+
   const resetPassword = async () => {
     if (!selected) return;
     if (typeof window !== 'undefined' && !window.confirm(`Générer un nouveau mot de passe temporaire pour @${selected.username} ? L’ancien ne fonctionnera plus.`)) return;
@@ -210,6 +249,31 @@ export default function Users() {
       if (result.data) setSnapshot(result.data as UserSnapshot);
     } catch (e: any) { setError(e?.message ?? 'Réinitialisation impossible.'); }
     finally { setBusy(null); }
+  };
+
+  const setUserEmail = async () => {
+    if (!selected || !emailInput.trim()) return;
+    setBusy('email'); setError(null);
+    try {
+      const result = await invokeUserControl({ action: 'set_email', profileId: selected.id, email: emailInput.trim() });
+      if (result.data) setSnapshot(result.data as UserSnapshot);
+      setMessage(`Adresse e-mail enregistrée pour @${selected.username}.`);
+      setEmailInput('');
+      setEditingEmail(false);
+      setEmailSavedAt(new Date().toLocaleTimeString('fr-FR'));
+      await load();
+    } catch (e: any) {
+      const code = String(e?.message || '');
+      setError(code === 'invalid_email' ? 'Adresse e-mail invalide.' : code === 'email_taken' ? 'Cette adresse est déjà utilisée par un autre compte Loki.' : e?.message ?? 'Enregistrement impossible.');
+    } finally { setBusy(null); }
+  };
+
+  const copyTemporaryPassword = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { setError('Copie impossible -- sélectionne le mot de passe manuellement.'); }
   };
 
   const toggleBlocked = async () => {
@@ -317,10 +381,11 @@ export default function Users() {
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:8,marginTop:16}}>
             {[
               ['Certification', selected.account_verified ? certificationLabel(selected) : 'Compte non validé'],
+              ['FREE restant', selected.credit_remaining == null ? '∞ (illimité)' : String(selected.credit_remaining)],
               ['E-mail', snapshot.auth.email ? (snapshot.auth.emailVerified?'Vérifié':'Présent') : 'Non ajouté'],
               ['Reconnaissances', String(snapshot.usage.recognizedCount)],
               ['Morceaux débités', String(snapshot.usage.ownKeeps)],
-              ['Reprises', String(snapshot.usage.socialKeeps)],
+              ['Reprises par d’autres (impact)', String(snapshot.usage.socialKeeps)],
               ['Morceaux total', String(snapshot.usage.kept)],
               ['Publics', String(snapshot.usage.publicKeeps)],
               ['Playlists', String(snapshot.usage.playlists)],
@@ -331,11 +396,88 @@ export default function Users() {
             ].map(([label,value])=><div key={label} style={{border:'1px solid var(--border)',borderRadius:10,padding:10,minWidth:0}}><div style={{fontSize:10,color:'var(--text-muted)'}}>{label}</div><strong style={{overflowWrap:'anywhere'}}>{value}</strong></div>)}
           </div>
 
+          {/* Adel (04/09/2026) : "je puisse cliquer dessus et rajouter du
+              Free pour recréditer ... ça enverra une notification à
+              l'utilisateur, par exemple offrir un bonus pour le dérangement."
+              Ledger audité (admin_credit_grants) + notification automatique,
+              jamais un UPDATE muet d'un compteur. */}
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
+            <h3 style={{margin:'0 0 6px'}}>Créditer / débiter des Free</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Un nombre positif ajoute des Free (ex : bonus surprise, geste commercial suite à un bug). Un nombre négatif corrige le solde à la baisse. Rien ne part avant que tu valides sur la fenêtre de confirmation.</div>
+            <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+              <input type="number" value={creditAmount} onChange={(e)=>setCreditAmount(e.target.value)} placeholder="Ex : 10 ou -5" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <input value={creditReason} onChange={(e)=>setCreditReason(e.target.value)} placeholder="Raison affichée à l’utilisateur (facultatif)" style={{flex:'1 1 260px',background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null||!creditAmount.trim()?0.6:1}}>{busy==='credits'?'Envoi…':'Valider'}</button>
+            </div>
+            {/* Adel (04/09/2026) : "je mets 5 Free et ça part automatiquement
+                ... j'ai même pas pu mettre la raison, c'est pas logique" --
+                un raccourci ne doit plus jamais envoyer directement : il se
+                contente maintenant de remplir le montant, pour laisser le
+                temps d'écrire la raison puis de valider via le seul bouton
+                qui envoie réellement (avec confirmation en plus). */}
+            <div style={{color:'var(--text-muted)',fontSize:11,marginTop:10}}>Raccourcis (remplissent juste le montant, n’envoient rien) :</div>
+            <div style={{display:'flex',gap:8,marginTop:6,flexWrap:'wrap'}}>
+              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>setCreditAmount(String(preset))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 14px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>+{preset} Free</button>)}
+            </div>
+          </div>
+
+          {/* Adel (04/09/2026) : "je veux pouvoir le débloquer à un
+              utilisateur ... pareil pour soirée limitée pour la formule Pro
+              ... mettre un minimum d'abonnés comme ça je pourrais faire des
+              tests" -- Soirées (VENUE_PRO comme les autres) et les paliers de
+              croissance sont bloqués tant que le compte n'a pas 500 abonnés
+              RÉELS. Ce champ force un nombre d'abonnés de test pour CE
+              compte uniquement (n'écrit jamais dans `follows`, ne touche à
+              aucun autre utilisateur) ; vide = comportement réel normal. */}
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
+            <h3 style={{margin:'0 0 6px'}}>Test : forcer le nombre d’abonnés</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Débloque « Créer un événement » et les paliers de croissance (Découvertes, Essais Vibes, Audience Pro) sans attendre de vrais abonnés. N’affecte que ce compte, jamais ses vrais abonnés ni les autres utilisateurs. Laisse vide pour revenir au nombre réel.</div>
+            <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
+              <input type="number" min="0" value={followerOverride} onChange={(e)=>setFollowerOverride(e.target.value)} placeholder="Ex : 500" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <button onClick={()=>void saveFollowerOverride(followerOverride.trim()==='' ? null : Math.max(0,Math.trunc(Number(followerOverride))))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>{busy==='followerOverride'?'Enregistrement…':'Appliquer'}</button>
+              {snapshot.profile.follower_count_override != null && <button onClick={()=>void saveFollowerOverride(null)} disabled={busy!==null} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 16px',fontWeight:700,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>Revenir au réel</button>}
+            </div>
+            {snapshot.profile.follower_count_override != null && <div style={{color:'#ffb454',fontSize:11,marginTop:8,fontWeight:700}}>⚠ Actif : ce compte est actuellement vu avec {snapshot.profile.follower_count_override} abonnés (valeur de test).</div>}
+          </div>
+
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
             <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
-            <button style={{marginTop:10,background:'#6b4bb7'}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
-            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}><div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div><div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,marginTop:4,wordBreak:'break-all'}}>{temporaryPassword}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div></div>}
+            <button style={{marginTop:10,background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
+            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}>
+              <div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,wordBreak:'break-all',flex:1}}>{temporaryPassword}</div>
+                <button onClick={()=>void copyTemporaryPassword(temporaryPassword)} style={{flexShrink:0,background:copied?'#2e7d32':'#3a3450'}}>{copied?'Copié ✓':'Copier'}</button>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div>
+            </div>}
+
+            <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+              <div style={{fontWeight:700,marginBottom:4}}>Attribuer une adresse e-mail</div>
+              <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:8}}>Pour un compte créé avant le 01/09/2026 (proche, ami...) sans e-mail -- utile aussi pour que « mot de passe oublié » fonctionne pour lui.</div>
+              {snapshot.auth.email && !editingEmail ? (
+                <div style={{padding:12,border:'1px solid #2e7d32',borderRadius:10,background:'#0f1f14',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:'#7fd99a',fontWeight:900}}>✓ E-mail enregistré{emailSavedAt ? ` à ${emailSavedAt}` : ''}</div>
+                    <div style={{fontWeight:700,marginTop:2,overflowWrap:'anywhere'}}>{snapshot.auth.email}</div>
+                  </div>
+                  <button onClick={()=>{setEditingEmail(true); setEmailInput(snapshot.auth.email || '');}} style={{flexShrink:0}}>Modifier</button>
+                </div>
+              ) : (
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e)=>setEmailInput(e.target.value)}
+                    placeholder="nom@exemple.com"
+                    style={{flex:'1 1 220px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}
+                  />
+                  <button onClick={()=>void setUserEmail()} disabled={busy!==null || !emailInput.trim()}>{busy==='email'?'Enregistrement…':'Enregistrer l’e-mail'}</button>
+                  {snapshot.auth.email && <button onClick={()=>{setEditingEmail(false); setEmailInput('');}} disabled={busy!==null}>Annuler</button>}
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>

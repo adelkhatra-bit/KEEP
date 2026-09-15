@@ -78,6 +78,19 @@ export function referralCodeFromUrl(url?: string | null): string {
   return '';
 }
 
+// Adel (08/09/2026) : audit des liens de partage -- extrait le pseudo ciblé
+// par n'importe quel lien de partage Loki (`?u=<pseudo>`, présent pour tous
+// les `share=` : profile/track/vibe/session/compare/event), indépendamment
+// du code de parrainage ci-dessus. Utilisé pour rouvrir le vrai profil
+// swipeable (PublicUserProfileScreen) au lieu de laisser l'invité sur
+// l'écran d'accueil générique.
+export function sharedProfileUsernameFromUrl(url?: string | null): string {
+  const raw = String(url || '');
+  const match = raw.match(/[?&]u=([^&#]+)/i);
+  if (!match) return '';
+  return decodeURIComponent(match[1]).trim().replace(/^@+/, '');
+}
+
 export async function stageReferralFromUrl(url?: string | null): Promise<string> {
   const code = referralCodeFromUrl(url);
   if (!code) return '';

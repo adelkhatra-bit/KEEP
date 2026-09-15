@@ -1,19 +1,26 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
+import AppUpdateBanner from './src/components/AppUpdateBanner';
+import AlertHost from './src/components/AlertHost';
+import AccountGateModal from './src/components/AccountGateModal';
 import { useUserStore } from './src/store/useUserStore';
+import { useAppUpdateStore } from './src/store/useAppUpdateStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
+import { useBattleAvailabilityStore } from './src/store/useBattleAvailabilityStore';
 import { colors } from './src/theme/colors';
 import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
 import { importStagedGuestCreditsForAuthenticatedAccount } from './src/services/creditService';
 import { registerForPushNotifications } from './src/services/pushNotificationService';
+import { syncCurrentEntitlements } from './src/services/iapService';
 import {
   clearLocalGuestMarker,
   clearStagedGuestProfile,
@@ -44,6 +51,52 @@ export default function App() {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
     const state = useUserStore.getState();
     if (!state.user) state.enterDemoMode();
+  }, []);
+
+  // Adel (02/09/2026) : "quand je réfraîchis ... faut que je le remette avec
+  // mes doigts" -- sur iPhone Safari uniquement (jamais reproduit sur
+  // Chromium desktop/mobile, testé en direct), un rafraîchissement pouvait
+  // laisser la page avec un décalage de défilement horizontal résiduel
+  // (l'historique du navigateur tente de restaurer une position de scroll
+  // après reload ; iOS Safari peut aussi garder un léger rebond horizontal
+  // d'un précédent overscroll). Le texte semblait alors "coupé" à droite
+  // jusqu'à ce qu'un geste tactile force Safari à recalculer -- exactement
+  // ce que l'utilisateur décrit. Ce correctif désactive la restauration
+  // automatique de scroll du navigateur et force explicitement la page à
+  // x=0 dès le montage, sans toucher au Design d'aucun écran.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {
+      if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+      window.scrollTo(0, window.scrollY);
+      document.documentElement.style.overflowX = 'hidden';
+      document.body.style.overflowX = 'hidden';
+    } catch {
+      // Le navigateur peut refuser certains réglages (mode privé, etc.) :
+      // l'app reste utilisable, seul ce filet de sécurité est perdu.
+    }
+  }, []);
+
+  // Adel (02/09/2026) : "comme une application normale ... popup pour qu'il
+  // puisse faire sa mise à jour, toujours avoir la possibilité de dire je la
+  // ferai plus tard" -- vérifie périodiquement si le bundle déployé est plus
+  // récent que celui chargé (voir useAppUpdateStore), et revérifie chaque
+  // fois que l'onglet redevient visible (retour d'un switch d'app), pas
+  // seulement sur une minuterie fixe.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    void useAppUpdateStore.getState().checkNow();
+    const interval = setInterval(() => { void useAppUpdateStore.getState().checkNow(); }, 15 * 60 * 1000);
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void useAppUpdateStore.getState().checkNow();
+      }
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -92,6 +145,7 @@ export default function App() {
     const handleSession = async (session: KeepAuthSession | null) => {
       if (!session) {
         profileLoadedFor = null;
+        useBattleAvailabilityStore.getState().reset();
         if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1') {
           const state = useUserStore.getState();
           if (!state.user) state.enterDemoMode();
@@ -140,6 +194,12 @@ export default function App() {
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
         if (!session.isAnonymous) {
+          void syncCurrentEntitlements().catch((error) => {
+            if (__DEV__) console.warn('[KEEP] StoreKit entitlement sync unavailable', error);
+          });
+        }
+        void useBattleAvailabilityStore.getState().syncFromServer();
+        if (!session.isAnonymous) {
           registerForPushNotifications().catch(() => {});
         }
       } catch (error) {
@@ -177,6 +237,9 @@ export default function App() {
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
       {user ? <GlobalNotificationBanner /> : null}
+      <AppUpdateBanner />
+      <AlertHost />
+      <AccountGateModal />
       <StatusBar style="light" backgroundColor={colors.background} />
     </>
   );

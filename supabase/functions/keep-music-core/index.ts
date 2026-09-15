@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -350,6 +351,28 @@ async function resolveSocialOrigin(sourceProfileId: string | null, trackId: stri
   return validUuid(data?.source_user_id) ?? sourceProfileId;
 }
 
+// Audit Adel (11/09/2026) : "un utilisateur peut transferer une musique sur
+// son profil en sachant qu'il n'a plus de free" -- confirme en direct, cette
+// fonction inserait la decision KEPT sans jamais verifier/debiter de credit
+// cote serveur. Le seul controle existait dans le JS mobile
+// (ensureDownloadCreditAvailable/consumeDownloadCredit) -- contournable a la
+// main depuis les DevTools d'un navigateur (KEEP tourne aussi en web) en
+// appelant cette fonction directement. keep_consume_download_credit() lit
+// auth.uid() (security definer) : on l'appelle donc avec un client scope sur
+// le JWT de l'appelant (jamais le service_role, qui n'a pas d'auth.uid()) --
+// meme RPC, meme comptage que le chemin client, desormais AUSSI autoritaire
+// cote serveur.
+async function consumeKeepCredit(token: string): Promise<{ allowed: boolean; error?: string }> {
+  const scoped = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await scoped.rpc("keep_consume_download_credit");
+  if (error) return { allowed: false, error: error.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { allowed: Boolean(row?.allowed) };
+}
+
 async function existingKeptDecision(userId: string, trackId: string) {
   const { data, error } = await admin
     .from("keep_decisions")
@@ -403,6 +426,17 @@ async function recordDecision(req: Request) {
   const sourceProfileId = validUuid((context as any)?.sourceProfileId);
   const socialSource = sourceProfileId && sourceProfileId !== userId ? sourceProfileId : null;
   const originProfileId = decision === "KEPT" ? await resolveSocialOrigin(socialSource, trackId) : null;
+
+  // Un GARDER direct (pas une reprise sociale, pas un doublon deja gere plus
+  // haut) coute un credit Free reel -- verifie ET debite ICI, cote serveur,
+  // avant toute ecriture. Sans ce controle, n'importe qui pouvait appeler
+  // cette fonction directement (ex: console navigateur sur la version web) et
+  // enregistrer des GARDER illimites sans jamais toucher au solde Free.
+  if (decision === "KEPT" && !socialSource) {
+    const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const credit = await consumeKeepCredit(token);
+    if (!credit.allowed) return json(402, { error: "CREDITS_EXHAUSTED" });
+  }
 
   const { data, error } = await admin.from("keep_decisions").insert({
     profile_id: userId,

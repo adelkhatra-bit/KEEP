@@ -47,6 +47,57 @@ function clean(value: unknown, max = 500) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+// Adel (08/09/2026) : "il puisse ajouter plusieurs photos ... 2 ou 3
+// photos" -- jusqu'a 3, image_url reste en synchro (= premiere photo) pour
+// ne rien casser cote lecture existante (file d'attente admin, etc.).
+function cleanImageUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v) => clean(v, 600)).filter(Boolean).slice(0, 3);
+}
+
+// Adel (08/09/2026) : "un lien YouTube pour montrer les evenements, la
+// decoration, etc." -- accepte uniquement youtube.com/youtu.be, jamais un
+// lien arbitraire (evite qu'un evenement serve a diffuser n'importe quelle
+// URL au nom de Loki).
+function cleanYoutubeUrl(value: unknown): string | null {
+  const raw = clean(value, 300);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "youtube.com" || host === "youtu.be" || host === "m.youtube.com") return url.toString();
+  } catch { /* URL invalide */ }
+  return null;
+}
+
+// Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
+// numero de telephone ou pas" -- format libre (juste affiche/compose via
+// tel:, jamais utilise pour envoyer un SMS programmatiquement), donc
+// validation permissive plutot qu'un parseur E.164 strict.
+function cleanPhone(value: unknown): string | null {
+  const raw = clean(value, 32);
+  if (!raw) return null;
+  const stripped = raw.replace(/[^\d+\-() ]/g, "").trim();
+  return stripped.length >= 6 ? stripped : null;
+}
+
+// Adel (08/09/2026) : "un systeme qui peut detecter quand il y a une
+// suspicion au niveau du texte ... qui s'allume et qu'on la verifie" --
+// assistant heuristique par mots-cles (jamais bloquant : le Super Admin
+// reste seul decideur, ce n'est qu'un badge d'alerte dans sa file d'attente).
+const MODERATION_FLAG_TERMS = [
+  "porn", "porno", "xxx", "escort", "onlyfans", "strip-tease", "striptease",
+  "orgie", "gangbang", "viol ", "pedo", "pédo", "nude", "nudes", "sextape",
+  "cocaine", "cocaïne", "héroïne", "heroine", "crack", "ecstasy", "mdma",
+  "kalachnikov", "arme à feu", "armes à feu", "explosif", "terroris",
+];
+function computeModerationFlag(name: string, description: string): { flagged: boolean; reason: string | null } {
+  const haystack = `${name} ${description}`.toLowerCase();
+  const hits = MODERATION_FLAG_TERMS.filter((term) => haystack.includes(term));
+  if (!hits.length) return { flagged: false, reason: null };
+  return { flagged: true, reason: `Termes détectés (vérification humaine requise) : ${hits.join(", ")}` };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -65,6 +116,17 @@ Deno.serve(async (req) => {
       const venueName = clean(body?.venueName, 120);
       const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
       const ticketUrl = clean(body?.ticketUrl, 500) || null;
+      const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
+      const imageUrls = cleanImageUrls(body?.imageUrls);
+      const imageUrl = imageUrls[0] ?? (clean(body?.imageUrl, 600) || null);
+      const requireQrCode = body?.requireQrCode === true;
+      const organizerPhone = cleanPhone(body?.organizerPhone);
+      const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
+      // Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
+      // notification ou avec les boutons" -- ce choix vit maintenant sur la
+      // ligne elle-meme (include_rsvp_buttons), car la diffusion ne part
+      // plus a la creation mais a l'approbation admin (voir plus bas).
+      const includeRsvpButtons = body?.includeRsvpButtons !== false;
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -76,6 +138,12 @@ Deno.serve(async (req) => {
         ? body.djArtistNames.map((v: unknown) => clean(v, 60)).filter(Boolean).slice(0, 12)
         : [profile?.username ? String(profile.username) : ""].filter(Boolean);
 
+      // Adel (08/09/2026) : "il faut on approuve le super admin la photo le
+      // texte pour eviter les choses ilegale ... il faut pas que les
+      // utilisateurs voient quoi que ce soit tant que le super admin a pas
+      // approuve" -- PENDING par defaut (colonne moderation_status), jamais
+      // diffuse tant qu'un admin ne l'a pas valide (admin_event_approve).
+      const flag = computeModerationFlag(name, description);
       const { data, error } = await admin.from("events").insert({
         creator_id: user.id,
         name,
@@ -88,57 +156,162 @@ Deno.serve(async (req) => {
         approx_lng: Number.isFinite(Number(body?.lng)) ? Number(body.lng) : null,
         dj_artist_names: names,
         external_ticket_url: ticketUrl,
+        youtube_url: youtubeUrl,
+        image_url: imageUrl,
+        image_urls: imageUrls,
+        require_qr_code: requireQrCode,
+        organizer_phone: organizerPhone,
+        show_organizer_phone: showOrganizerPhone,
+        include_rsvp_buttons: includeRsvpButtons,
+        moderation_status: "PENDING",
+        moderation_flag: flag.flagged,
+        moderation_flag_reason: flag.reason,
       }).select("id,name,starts_at,venue_name").single();
       if (error) throw error;
-      return json({ ok: true, event: data, plan });
+      return json({ ok: true, event: data, plan, moderation: "PENDING" });
     }
 
+    // Adel (08/09/2026) : "il faut qu'il puisse effacer les evenements
+    // qu'il a deja mis, tous les modifier ... si il les efface, il faut que
+    // dans le systeme comptabilise comme debit" -- update classique, mais
+    // "supprimer" est un SOFT delete (is_disabled=true, jamais un vrai
+    // DELETE) : keep_event_creation_status compte deja les evenements du
+    // mois par created_at sans jamais filtrer sur is_disabled, donc un
+    // evenement supprime continue de compter dans le quota mensuel comme
+    // s'il n'avait jamais ete efface -- exactement le comportement demande.
+    if (action === "event.update") {
+      const eventId = clean(body?.eventId, 80);
+      if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
+      const { data: existing, error: existingError } = await admin.from("events").select("id,name,description,image_url,moderation_status").eq("id", eventId).eq("creator_id", user.id).maybeSingle();
+      if (existingError) throw existingError;
+      if (!existing) return json({ ok: false, error: "event_not_found" }, 404);
+      // Adel (08/09/2026) : "on lui laisse la possibilite de modifier tant
+      // que le super admin n'a pas encore approuve. Quand le super admin a
+      // approuve, il ne peut plus modifier quoi que ce soit" -- verrouillage
+      // total post-approbation.
+      if (existing.moderation_status === "APPROVED") return json({ ok: false, error: "event_locked_after_approval" }, 409);
+
+      const name = clean(body?.name, 100);
+      const description = clean(body?.description, 1200);
+      const venueName = clean(body?.venueName, 120);
+      const countryCode = clean(body?.countryCode, 2).toUpperCase() || null;
+      const ticketUrl = clean(body?.ticketUrl, 500) || null;
+      const youtubeUrl = cleanYoutubeUrl(body?.youtubeUrl);
+      const imageUrls = cleanImageUrls(body?.imageUrls);
+      const imageUrl = imageUrls[0] ?? (clean(body?.imageUrl, 600) || null);
+      const requireQrCode = body?.requireQrCode === true;
+      const organizerPhone = cleanPhone(body?.organizerPhone);
+      const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
+      const startsAt = new Date(String(body?.startsAt ?? ""));
+      const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
+      if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
+      if (Number.isNaN(startsAt.getTime())) return json({ ok: false, error: "event_date_required" }, 400);
+      if (endsAtRaw && (Number.isNaN(endsAtRaw.getTime()) || endsAtRaw <= startsAt)) return json({ ok: false, error: "invalid_event_end" }, 400);
+
+      // Adel (08/09/2026) : puisque l'edition n'est plus possible une fois
+      // APPROVED (bloque plus haut), tout evenement modifiable ici est deja
+      // PENDING ou REJECTED -- toute modification relance systematiquement
+      // une revue complete (photo + texte), avec detection heuristique a jour.
+      const flag = computeModerationFlag(name, description);
+      const { data, error } = await admin.from("events").update({
+        name,
+        description: description || null,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAtRaw?.toISOString() ?? null,
+        venue_name: venueName || null,
+        country_code: countryCode,
+        approx_lat: Number.isFinite(Number(body?.lat)) ? Number(body.lat) : null,
+        approx_lng: Number.isFinite(Number(body?.lng)) ? Number(body.lng) : null,
+        external_ticket_url: ticketUrl,
+        youtube_url: youtubeUrl,
+        image_url: imageUrl,
+        image_urls: imageUrls,
+        require_qr_code: requireQrCode,
+        organizer_phone: organizerPhone,
+        show_organizer_phone: showOrganizerPhone,
+        moderation_status: "PENDING",
+        moderation_note: null,
+        moderated_by: null,
+        moderated_at: null,
+        photo_status: "PENDING",
+        photo_note: null,
+        text_status: "PENDING",
+        text_note: null,
+        moderation_flag: flag.flagged,
+        moderation_flag_reason: flag.reason,
+        updated_at: new Date().toISOString(),
+      }).eq("id", eventId).eq("creator_id", user.id).select("id,name,starts_at,venue_name").single();
+      if (error) throw error;
+      return json({ ok: true, event: data, moderation: "PENDING" });
+    }
+
+    if (action === "event.disable") {
+      const eventId = clean(body?.eventId, 80);
+      if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
+      const { data, error } = await admin.from("events").update({ is_disabled: true, updated_at: new Date().toISOString() }).eq("id", eventId).eq("creator_id", user.id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) return json({ ok: false, error: "event_not_found" }, 404);
+      return json({ ok: true });
+    }
+
+    // Adel (08/09/2026) : depuis la moderation admin, la diffusion part
+    // automatiquement a l'approbation (admin_event_approve) -- l'app ne
+    // declenche plus cette action a la creation. Reste disponible pour un
+    // renvoi manuel eventuel.
     if (action === "event.broadcast") {
       const eventId = clean(body?.eventId, 80);
       const message = clean(body?.message, 600);
+      // Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
+      // notification ou avec les boutons ... l'utilisateur puisse cocher
+      // cette fonction" -- l'organisateur choisit, mais reste true par
+      // defaut (c'est ce qui donne le compteur participe/plus tard/pas).
+      const includeRsvpButtons = body?.includeRsvpButtons !== false;
       if (!eventId) return json({ ok: false, error: "event_id_required" }, 400);
 
       const { data: event, error: eventError } = await admin
         .from("events")
-        .select("id,name,starts_at,venue_name,creator_id")
+        .select("id,name,starts_at,venue_name,creator_id,image_url")
         .eq("id", eventId)
         .eq("creator_id", user.id)
         .maybeSingle();
       if (eventError) throw eventError;
       if (!event) return json({ ok: false, error: "event_not_found" }, 404);
 
+      // Adel (01/09/2026) : audience élargie et obligatoire pour les
+      // événements. "on ne leur laisse pas le choix... vu que notre
+      // plateforme ne diffuse pas de pub" -- confirmé : le réglage
+      // "DJ & soirées" (dj_enabled) coupait bien ces notifications avant.
+      // Il ne s'applique plus ici. L'audience n'est plus seulement les
+      // abonnés directs : toute personne ayant déjà gardé un morceau
+      // provenant du profil du créateur (source_user_id) reçoit aussi
+      // l'invitation, même sans le suivre.
       const { data: followers, error: followersError } = await admin
         .from("follows")
         .select("follower_id")
         .eq("followee_id", user.id);
       if (followersError) throw followersError;
-      const followerIds = (followers ?? []).map((row: any) => String(row.follower_id));
-      if (!followerIds.length) return json({ ok: true, sent: 0, event_id: eventId });
 
-      // Respecte réellement le réglage « DJ & soirées ». Une préférence absente
-      // vaut true, mais un utilisateur qui la coupe ne reçoit ni notification
-      // in-app ni push pour les invitations d'événements.
-      const { data: preferences, error: preferencesError } = await admin
-        .from("notification_preferences")
-        .select("profile_id,dj_enabled")
-        .in("profile_id", followerIds);
-      if (preferencesError) throw preferencesError;
-      const djDisabled = new Set(
-        (preferences ?? [])
-          .filter((row: any) => row.dj_enabled === false)
-          .map((row: any) => String(row.profile_id)),
-      );
-      const eligibleFollowerIds = followerIds.filter((id) => !djDisabled.has(id));
-      if (!eligibleFollowerIds.length) return json({ ok: true, sent: 0, notifications_disabled: true, event_id: eventId });
+      const { data: takers, error: takersError } = await admin
+        .from("keep_decisions")
+        .select("profile_id")
+        .eq("source_user_id", user.id)
+        .eq("decision", "KEPT");
+      if (takersError) throw takersError;
+
+      const audienceIds = Array.from(new Set([
+        ...(followers ?? []).map((row: any) => String(row.follower_id)),
+        ...(takers ?? []).map((row: any) => String(row.profile_id)),
+      ])).filter((id) => id !== user.id);
+      if (!audienceIds.length) return json({ ok: true, sent: 0, event_id: eventId });
 
       const { data: alreadySent, error: sentError } = await admin
         .from("event_recommendation_sends")
         .select("profile_id")
         .eq("event_id", eventId)
-        .in("profile_id", eligibleFollowerIds);
+        .in("profile_id", audienceIds);
       if (sentError) throw sentError;
       const seen = new Set((alreadySent ?? []).map((row: any) => String(row.profile_id)));
-      const targets = eligibleFollowerIds.filter((id) => !seen.has(id));
+      const targets = audienceIds.filter((id) => !seen.has(id));
       if (!targets.length) return json({ ok: true, sent: 0, already_sent: true, event_id: eventId });
 
       const startsLabel = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(event.starts_at));
@@ -148,7 +321,13 @@ Deno.serve(async (req) => {
         type: "EVENT_INVITE",
         title: `Invitation · ${event.name}`,
         body: bodyText,
-        data: { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"] },
+        // Adel (08/09/2026) : "comment ca se fait que tu n'as pas mis le
+        // logo de la photo" -- la vignette suit la notification pour un
+        // affichage immediat dans le centre (la carte "en savoir plus"
+        // recharge quand meme l'evenement a jour au moment du tap).
+        data: includeRsvpButtons
+          ? { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"], image_url: event.image_url ?? null }
+          : { event_id: eventId, creator_id: user.id, image_url: event.image_url ?? null },
       }));
       const sends = targets.map((profileId) => ({ event_id: eventId, profile_id: profileId, sent_at: new Date().toISOString() }));
 

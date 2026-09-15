@@ -6,6 +6,20 @@ export type KeepBattleLivePlayer = {
   avatarUrl?: string | null;
   themeCode: string;
   lastSeenAt: string;
+  skillTier: 'DEBUTANT' | 'CONFIRME' | 'EXPERT';
+  // Adel (03/09/2026) : "le style de match qu'il attend, le nombre de
+  // morceaux ... ça reste enregistré, visible par les autres" -- préférence
+  // durable (plusieurs styles possibles), séparée du thème de présence
+  // ci-dessus (themeCode) qui ne reflète que l'écran où il se trouve là,
+  // maintenant.
+  preferredThemeCodes: string[];
+  preferredRoundCount: number;
+  // Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas
+  // assez de Free, pourquoi il est visible ?" -- expose le credit ici pour
+  // avertir AVANT de defier, au lieu de laisser le serveur rejeter une fois
+  // le salon deja cree (BATTLE_TARGET_NO_CREDIT).
+  remainingFree: number;
+  hasPaidAccess: boolean;
 };
 
 export type KeepBattleIncomingChallenge = {
@@ -14,6 +28,9 @@ export type KeepBattleIncomingChallenge = {
   username: string;
   avatarUrl?: string | null;
   themeCode: string;
+  // Adel (03/09/2026) : "arrange-toi que les autres utilisateurs le voient"
+  // -- nombre de morceaux choisi par celui qui défie, visible avant d'accepter.
+  roundCount: number;
   createdAt: string;
   expiresAt: string;
 };
@@ -47,6 +64,27 @@ export async function heartbeatSoloBattle(themeCode: string): Promise<void> {
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_HEARTBEAT_FAILED'));
 }
 
+// Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
+// rendre disponible même s'il est pas en train de faire des Battle" -- bascule
+// manuelle indépendante du heartbeat de partie solo (voir
+// keep_battle_set_manual_available). Utilisée globalement, pas seulement
+// depuis l'écran Battle.
+export async function setManualBattleAvailability(available: boolean, themeCode = 'MIX'): Promise<void> {
+  const { error } = await client().rpc('keep_battle_set_manual_available', { p_available: available, p_theme_code: themeCode || 'MIX' });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_FAILED'));
+}
+
+export async function pingManualBattleAvailability(): Promise<void> {
+  const { error } = await client().rpc('keep_battle_manual_availability_ping');
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
+}
+
+export async function getManualBattleAvailability(): Promise<boolean> {
+  const { data, error } = await client().rpc('keep_battle_get_manual_availability');
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_READ_FAILED'));
+  return Boolean(data);
+}
+
 export async function leaveSoloBattle(): Promise<void> {
   const { error } = await client().rpc('keep_battle_solo_leave');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));
@@ -61,11 +99,58 @@ export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePla
     avatarUrl: row?.avatarUrl ?? row?.avatar_url ?? null,
     themeCode: str(row, 'themeCode', 'theme_code', 'MIX'),
     lastSeenAt: str(row, 'lastSeenAt', 'last_seen_at'),
+    skillTier: str(row, 'skillTier', 'skill_tier', 'DEBUTANT') as KeepBattleLivePlayer['skillTier'],
+    preferredThemeCodes: Array.isArray(row?.preferredThemeCodes ?? row?.preferred_theme_codes) ? (row.preferredThemeCodes ?? row.preferred_theme_codes) : ['MIX'],
+    preferredRoundCount: Number(row?.preferredRoundCount ?? row?.preferred_round_count ?? 8) || 8,
+    remainingFree: Number(row?.remainingFree ?? row?.remaining_free ?? 0) || 0,
+    hasPaidAccess: Boolean(row?.hasPaidAccess ?? row?.has_paid_access ?? false),
   })).filter((row) => row.profileId) : [];
 }
 
-export async function sendBattleChallenge(targetId: string, themeCode: string): Promise<{ id: string; status: string; expiresAt?: string }> {
-  const { data, error } = await client().rpc('keep_battle_challenge_send', { p_target_id: targetId, p_theme_code: themeCode || 'MIX' });
+// Adel (03/09/2026) : "je puisse sélectionner plusieurs styles ... et que ça
+// reste enregistré" -- préférence durable de match, séparée du thème choisi
+// pour UN envoi d'invite précis (qui reste toujours un seul thème -- une
+// arène n'a qu'une colonne theme_code).
+export type KeepBattleMatchPreferences = { themeCodes: string[]; roundCount: number };
+
+function normalizePreferredThemeCodes(themeCodes: unknown): string[] {
+  if (!Array.isArray(themeCodes)) return ['MIX'];
+  const real = Array.from(new Set(themeCodes
+    .map((code) => String(code || '').trim().toUpperCase())
+    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+  return real.length ? real : ['MIX'];
+}
+
+export async function loadMyMatchPreferences(): Promise<KeepBattleMatchPreferences> {
+  const { data, error } = await client().rpc('keep_battle_load_match_preferences');
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_LOAD_FAILED'));
+  const raw = data as any;
+  const themeCodes = normalizePreferredThemeCodes(raw?.themeCodes);
+  return { themeCodes, roundCount: Number(raw?.roundCount ?? 8) || 8 };
+}
+
+export async function saveMyMatchPreferences(themeCodes: string[], roundCount: number): Promise<KeepBattleMatchPreferences> {
+  const normalizedThemes = normalizePreferredThemeCodes(themeCodes);
+  const { data, error } = await client().rpc('keep_battle_save_match_preferences', { p_theme_codes: normalizedThemes, p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_SAVE_FAILED'));
+  const raw = data as any;
+  const codes = normalizePreferredThemeCodes(raw?.themeCodes);
+  return { themeCodes: codes, roundCount: Number(raw?.roundCount ?? 8) || 8 };
+}
+
+// Adel (02/09/2026) : "un petit joueur devra monter sa note en solo pour
+// pouvoir participer" -- seul signal de niveau qui existe aujourd'hui (le
+// solo est 100% local sinon) : appelé à la fin de chaque partie solo pour
+// alimenter le palier serveur (keep_battle_skill_tier) utilisé pour bloquer
+// un défi entre deux joueurs trop éloignés en niveau.
+export async function reportSoloBattleResult(correct: number, total: number): Promise<void> {
+  if (!(total > 0)) return;
+  const { error } = await client().rpc('keep_battle_solo_report_result', { p_correct: correct, p_total: total });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_SOLO_REPORT_FAILED'));
+}
+
+export async function sendBattleChallenge(targetId: string, themeCode: string, roundCount = 8): Promise<{ id: string; status: string; expiresAt?: string }> {
+  const { data, error } = await client().rpc('keep_battle_challenge_send', { p_target_id: targetId, p_theme_code: themeCode || 'MIX', p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_FAILED'));
   return {
     id: String((data as any)?.id || ''),
@@ -95,6 +180,7 @@ export async function loadIncomingBattleChallenges(): Promise<KeepBattleIncoming
     username: str(row, 'username', 'username', 'keep'),
     avatarUrl: row?.avatarUrl ?? row?.avatar_url ?? null,
     themeCode: str(row, 'themeCode', 'theme_code', 'MIX'),
+    roundCount: Number(row?.roundCount ?? row?.round_count ?? 8) || 8,
     createdAt: str(row, 'createdAt', 'created_at'),
     expiresAt: str(row, 'expiresAt', 'expires_at'),
   })).filter((row) => row.id) : [];
