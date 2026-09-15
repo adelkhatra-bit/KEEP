@@ -15,6 +15,11 @@ export type PlaylistSaleAccess = {
   unlocked: boolean;
 };
 
+// Adel (16-17/09/2026) : "assure-toi que les montants sont pré-écrits pour
+// éviter les bugs ... ça peut se vendre maximum 10 euros" -- plus de
+// saisie libre, une liste fixe seulement (imposée aussi côté serveur).
+export const SALE_PRESET_PRICES_CENTS = [50, 100, 200, 300, 500, 1000] as const;
+
 export type PlaylistSaleOffer = {
   playlistId: string;
   playlistName: string;
@@ -165,6 +170,32 @@ export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction
     status: row.status,
     createdAt: String(row.created_at ?? ''),
   })).filter((row) => row.id);
+}
+
+// Adel (16-17/09/2026) : "l'utilisateur va pouvoir sélectionner les
+// musiques qu'il va vendre ou les albums complets ... créer une sorte de
+// playlist dans sa playlist" -- vente d'une sélection explicite de
+// morceaux (un seul morceau, un album entier via ses morceaux, ou tout
+// autre choix), distincte d'une playlist nommée entière. Même
+// infrastructure de masquage/paiement, juste une autre façon de désigner
+// ce qui est vendu.
+export async function setPlaylistSalePriceForSelection(trackIds: string[], name: string, priceCents: number, currencyCode = 'EUR'): Promise<PlaylistSaleOffer> {
+  const { data, error } = await client().rpc('keep_playlist_sale_set_price_for_selection', {
+    p_track_ids: trackIds,
+    p_name: name,
+    p_price_cents: Math.round(priceCents),
+    p_currency_code: currencyCode,
+  });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_SELECTION_FAILED'));
+  const row = data as any;
+  return {
+    playlistId: String(row?.playlistId ?? ''),
+    playlistName: String(row?.playlistName ?? name),
+    priceCents: Number(row?.priceCents ?? priceCents),
+    currencyCode: String(row?.currencyCode ?? currencyCode),
+    isActive: true,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
