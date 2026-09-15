@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { lokiEmailShell } from "../_shared/lokiEmailShell.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -645,7 +646,12 @@ Deno.serve(async (req) => {
       if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki, partagée par tous les fournisseurs)." });
 
       const subject = "Loki — test e-mail réussi";
-      const html = `<div style="background:#07070d;padding:32px;font-family:Arial,sans-serif;color:#fff"><div style="max-width:560px;margin:auto;background:#151021;border:1px solid #382a55;border-radius:24px;padding:32px"><div style="font-size:28px;font-weight:900;letter-spacing:8px">Loki</div><h2 style="margin-top:28px">Ton e-mail Loki est bien connecté.</h2><p style="color:#c8bfd8;line-height:1.6">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p></div></div>`;
+      const html = lokiEmailShell(
+        subject,
+        "Ton e-mail Loki est bien connecté",
+        `<p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p>`,
+        "Ceci est un e-mail de test envoyé depuis le Super Admin -- aucune action requise.",
+      );
       const text = "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.";
 
       // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... 6000 e-mails
