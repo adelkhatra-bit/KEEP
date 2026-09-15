@@ -23,15 +23,20 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "distribution": "app-store",
       "ios": {
         "resourceClass": "m-medium",
-        "image": "sdk-54"
+        "image": "sdk-54",
+        "buildConfiguration": "Release"
       }
     }
   },
   "submit": {
     "production": {
-      "ios": {}
+      "ios": {
+        "ascAppId": "AUTO",
+        "appleTeamId": "AUTO"
+      }
     }
   }
 }
