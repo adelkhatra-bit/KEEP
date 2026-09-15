@@ -81,6 +81,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // dérouleur que côté profil visiteur, jamais un mur de puces qui grossit
   // avec la taille de la collection.
   const [styleModalOpen, setStyleModalOpen] = useState(false);
+  // Adel (16-17/09/2026) : "quand on clique sur l'hamburger, on doit avoir
+  // toutes les rubriques, tout en une fois ... je sélectionne et ça me met
+  // sur la bonne page, là c'est trop compliqué ... va t'inspirer de la
+  // concurrence, TikTok etc." -- avant, ☰ ouvrait directement l'écran
+  // Réglages (profil), qui ne menait vers Notifications/Services
+  // musicaux/Offres/Réglages avancés qu'après un ou deux taps de plus. Un
+  // seul menu plat désormais, toutes les destinations visibles d'un coup.
+  const [menuOpen, setMenuOpen] = useState(false);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -752,7 +760,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.bell}>🔔</Text>
             {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
           </TouchableOpacity>
-          <TouchableOpacity style={s.menuButton} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
+          <TouchableOpacity style={s.menuButton} onPress={() => setMenuOpen(true)} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
         </View>
       </View>
 
@@ -937,6 +945,42 @@ export default function ProfilePublicScreen({ navigation }: any) {
       previewOnly
       onClose={() => setProfileSwipeOpen(false)}
     />
+
+    <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+      <View style={s.modalBackdrop}><View style={s.shareSheet}>
+        <View style={s.sheetHandle} />
+        <Text style={s.shareTitle}>Menu</Text>
+        <ScrollView style={{ maxHeight: 440, marginTop: 4 }}>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); setFreeHistoryOpen(true); }}>
+            <Text style={[s.listText, { flex: 1 }]}>💛 Mon solde Free</Text>
+            <Text style={s.playlistCount}>{freeBalance ?? '…'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('ProfileSettings'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>👤 Réglages du profil</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('Notifications'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>🔔 Notifications</Text>
+            {unreadCount > 0 ? <Text style={s.playlistCount}>{unreadCount > 99 ? '99+' : unreadCount}</Text> : null}
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('MusicConnections'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>🎧 Services musicaux</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('Offers'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>💳 Offres &amp; crédits</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('PlaylistSale'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>💰 Vendre mes playlists</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('ArtistTrackSale'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>🎵 Vendre ma musique originale</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.listRow} onPress={() => { setMenuOpen(false); navigation.navigate('AdvancedProfileSettings'); }}>
+            <Text style={[s.listText, { flex: 1 }]}>⚙️ Réglages avancés</Text>
+          </TouchableOpacity>
+        </ScrollView>
+        <TouchableOpacity style={{ minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 }} onPress={() => setMenuOpen(false)}><Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '700' }}>Fermer</Text></TouchableOpacity>
+      </View></View>
+    </Modal>
 
     <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
