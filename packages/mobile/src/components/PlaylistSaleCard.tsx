@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
 import { colors, typography, spacing, radius } from '../theme';
-import { supabase } from '../services/supabaseClient';
+import { requestPlaylistPurchase } from '../services/playlistSaleService';
 
 interface PlaylistSaleOffer {
   id: string;
@@ -39,40 +39,26 @@ export default function PlaylistSaleCard({
     setBusy(true);
 
     try {
-      if (!supabase) {
-        Alert.alert('Erreur', 'Service non disponible.');
+      const request = await requestPlaylistPurchase(offer.id);
+      if (!request.payoutLink) {
+        Alert.alert(
+          'Paiement pas encore prêt',
+          `${request.sellerUsername || 'Ce vendeur'} n'a pas encore ajouté de lien de paiement personnel. Ta demande est enregistrée -- réessaie plus tard.`,
+        );
         return;
       }
-      const token = (await supabase.auth.getSession())?.data?.session?.access_token;
-      if (!token) {
-        Alert.alert('Authentification', 'Connecte-toi pour acheter cette playlist.');
-        onAuthRequired?.();
-        return;
-      }
-
-      const response = await fetch('https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-stripe-playlist-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ offerId: offer.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Erreur', data?.error || 'Impossible de créer la session de paiement.');
-        return;
-      }
-
-      if (data?.checkoutUrl) {
-        await Linking.openURL(data.checkoutUrl);
-      } else {
-        Alert.alert('Erreur', 'URL de paiement non trouvée.');
-      }
+      const canOpen = await Linking.canOpenURL(request.payoutLink).catch(() => true);
+      if (!canOpen) throw new Error('unavailable');
+      await Linking.openURL(request.payoutLink);
+      Alert.alert(
+        'Paie directement sur le lien du vendeur',
+        `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- une fois payé, ${request.sellerUsername || 'le vendeur'} confirmera et ta playlist se débloquera.`,
+      );
     } catch (err: any) {
-      Alert.alert('Erreur', err?.message || 'Erreur lors de l\'accès au paiement.');
+      const message = String(err?.message || '');
+      if (message.includes('CANNOT_BUY_OWN_PLAYLIST')) Alert.alert('Impossible', 'Tu ne peux pas acheter ta propre playlist.');
+      else if (message.includes('authentication_required')) { Alert.alert('Authentification', 'Connecte-toi pour acheter cette playlist.'); onAuthRequired?.(); }
+      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
     } finally {
       setBusy(false);
     }

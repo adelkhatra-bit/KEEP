@@ -20,6 +20,10 @@ export type CreatorEvent = {
   // photos" -- jusqu'a 3 ; imageUrl reste la couverture (= premiere photo).
   imageUrls: string[];
   requireQrCode: boolean;
+  // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
+  // payante" -- même modèle que le marketplace (lien de paiement
+  // personnel, KEEP n'encaisse rien). null = évènement gratuit.
+  ticketPriceCents?: number | null;
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- valeur publique deja masquee cote base
   // (organizer_phone_public, colonne generee) : present ici <=> l'organisateur
@@ -37,7 +41,7 @@ export type CreatorEvent = {
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
-const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
   return {
@@ -55,6 +59,7 @@ function mapEventRow(row: any): CreatorEvent {
     imageUrl: row.image_url,
     imageUrls: Array.isArray(row.image_urls) && row.image_urls.length ? row.image_urls : (row.image_url ? [row.image_url] : []),
     requireQrCode: Boolean(row.require_qr_code),
+    ticketPriceCents: row.ticket_price_cents ?? null,
     organizerPhone: row.organizer_phone_public,
     moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) || 'PENDING',
     photoStatus: (row.photo_status as CreatorEvent['photoStatus']) || 'PENDING',
@@ -105,6 +110,88 @@ export async function setEventRsvp(profileId: string, eventId: string, status: E
   if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
   const { error } = await supabase.from('event_rsvps').upsert({ event_id: eventId, profile_id: profileId, status }, { onConflict: 'event_id,profile_id' });
   if (error) throw error;
+}
+
+// Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée payante
+// ... trouve une solution" -- même modèle que le marketplace : lien de
+// paiement personnel de l'organisateur, KEEP n'encaisse rien, montants
+// fixes (pas de saisie libre).
+export const EVENT_TICKET_PRESET_PRICES_CENTS = [200, 500, 1000, 1500, 2000, 3000, 5000] as const;
+
+export async function setEventTicketPrice(eventId: string, priceCents: number | null): Promise<void> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { error } = await supabase.rpc('keep_event_set_ticket_price', { p_event_id: eventId, p_price_cents: priceCents });
+  if (error) throw new Error(String(error.message || 'EVENT_TICKET_PRICE_FAILED'));
+}
+
+export type EventTicketPurchaseRequest = {
+  orderId: string;
+  status: 'PENDING' | 'COMPLETED';
+  amountCents: number;
+  currencyCode: string;
+  sellerUsername: string;
+  payoutLink: string;
+};
+
+export async function requestEventTicketPurchase(eventId: string): Promise<EventTicketPurchaseRequest> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { data, error } = await supabase.rpc('keep_event_request_ticket_purchase', { p_event_id: eventId });
+  if (error) throw new Error(String(error.message || 'EVENT_TICKET_REQUEST_FAILED'));
+  const row = data as any;
+  return {
+    orderId: String(row?.orderId ?? ''),
+    status: (row?.status ?? 'PENDING') as 'PENDING' | 'COMPLETED',
+    amountCents: Number(row?.amountCents ?? 0),
+    currencyCode: String(row?.currencyCode ?? 'EUR'),
+    sellerUsername: String(row?.sellerUsername ?? ''),
+    payoutLink: String(row?.payoutLink ?? ''),
+  };
+}
+
+export async function markEventTicketPaid(orderId: string): Promise<void> {
+  if (!supabase) throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  const { error } = await supabase.rpc('keep_event_ticket_mark_paid', { p_order_id: orderId });
+  if (error) throw new Error(String(error.message || 'EVENT_TICKET_MARK_PAID_FAILED'));
+}
+
+export type EventTicketTransaction = {
+  id: string;
+  counterpartUsername: string;
+  eventName: string;
+  amountCents: number;
+  currencyCode: string;
+  status: 'PENDING' | 'COMPLETED';
+  createdAt: string;
+};
+
+export async function loadMyEventTicketSales(): Promise<EventTicketTransaction[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_event_ticket_my_sales');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    counterpartUsername: String(row.buyer_username ?? ''),
+    eventName: String(row.event_name ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    createdAt: String(row.created_at ?? ''),
+  })).filter((row) => row.id);
+}
+
+export async function loadMyEventTicketPurchases(): Promise<EventTicketTransaction[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_event_ticket_my_purchases');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    counterpartUsername: String(row.seller_username ?? ''),
+    eventName: String(row.event_name ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    createdAt: String(row.created_at ?? ''),
+  })).filter((row) => row.id);
 }
 
 export async function createCreatorEvent(input: {

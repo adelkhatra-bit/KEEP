@@ -23,7 +23,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
+import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -328,6 +328,27 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setSwipeOpen(true);
   };
 
+  // Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
+  // directement ... KEEP encaisse rien" -- Acheter ouvre le lien de
+  // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
+  // notée pour que le vendeur sache qui débloquer une fois vraiment payé.
+  const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
+  const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
+    if (purchaseBusyId) return;
+    setPurchaseBusyId(offer.playlistId);
+    try {
+      const request = await requestPlaylistPurchase(offer.playlistId);
+      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce vendeur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
+      await Linking.openURL(request.payoutLink);
+      Alert.alert('Paie directement sur le lien du vendeur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- l'accès se débloquera dès que ${request.sellerUsername || 'le vendeur'} confirme.`);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('authentication_required')) goToOwnProfile();
+      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
+    } finally {
+      setPurchaseBusyId(null);
+    }
+  };
   const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
   const shareThisProfile = async () => {
     if (!profile) return;
@@ -695,13 +716,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => openBrowseSwipe(null)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
 
+        {/* Adel (16-17/09/2026) : "on ne vend pas la playlist, ils vendent
+            suivant une liste de musique qui pourra avoir sur son profil"
+            -- une seule liste désormais (playlist entière, album ou un
+            seul morceau, tout passe par la même offre côté serveur) au
+            lieu de deux sections parallèles qui se recoupaient. */}
         {saleOffers.length > 0 ? (
           <View style={styles.browseSection}>
-            <Text style={styles.sectionTitle}>🎧 Playlists à vendre</Text>
+            <Text style={styles.sectionTitle}>🎧 Musique à vendre</Text>
             <View style={styles.browseChipsRow}>
               {saleOffers.map((offer) => (
-                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} onPress={() => Alert.alert('Bientôt disponible', `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}\n\nL'achat direct n'est pas encore activé sur Loki.`)}>
-                  <Text style={styles.browseChipText} numberOfLines={1}>{offer.playlistName} · {(offer.priceCents / 100).toFixed(2)}{offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}</Text>
+                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} disabled={purchaseBusyId === offer.playlistId} onPress={() => void buyPlaylistOffer(offer)}>
+                  <Text style={styles.browseChipText} numberOfLines={1}>{purchaseBusyId === offer.playlistId ? '…' : `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -958,6 +984,7 @@ const styles = StyleSheet.create({
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
+  browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:64,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:11,lineHeight:15,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},

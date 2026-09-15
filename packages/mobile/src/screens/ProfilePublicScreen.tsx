@@ -36,10 +36,34 @@ import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore'
 import PresenceDot from '../components/PresenceDot';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PlaylistSaleCard from '../components/PlaylistSaleCard';
+import PublicProfilePanel from '../components/PublicProfilePanel';
+import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import HelpLegalPanel from '../components/HelpLegalPanel';
+import AccountActionsPanel from '../components/AccountActionsPanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
 type AccountMode = 'create' | 'login';
+
+// Adel (16-17/09/2026) : "je clique, et dans une page je peux cliquer
+// plusieurs choses, il y a plusieurs fonctions ... tout part du pop-up,
+// maximum un, deux clics" -- "Réglages avancés" était UNE entrée qui
+// menait vers un écran à 4 fonctions différentes (profil public, créateur,
+// aide, compte). Éclaté en 4 entrées directes, chacune n'ouvrant plus
+// qu'UNE seule fonction (l'écran cible n'a plus de sélecteur pour dériver
+// vers les 3 autres).
+const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
+  { key: 'free', icon: '💛', label: 'Mon solde Free' },
+  { key: 'profile', icon: '👤', label: 'Réglages du profil' },
+  { key: 'notifications', icon: '🔔', label: 'Notifications' },
+  { key: 'music', icon: '🎧', label: 'Services musicaux' },
+  { key: 'offers', icon: '💳', label: 'Offres & crédits' },
+  { key: 'sellPlaylists', icon: '💰', label: 'Vendre mes musiques' },
+  { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web' },
+  { key: 'creator', icon: '🪪', label: 'Type de profil & outils créateur' },
+  { key: 'help', icon: '🆘', label: 'Aide, légal & comptes bloqués' },
+  { key: 'account', icon: '🚪', label: 'Compte & déconnexion' },
+];
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
 const TABS: { key: ProfileTab; label: string }[] = [
@@ -81,6 +105,25 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // dérouleur que côté profil visiteur, jamais un mur de puces qui grossit
   // avec la taille de la collection.
   const [styleModalOpen, setStyleModalOpen] = useState(false);
+  // Adel (16-17/09/2026) : "quand on clique sur l'hamburger, on doit avoir
+  // toutes les rubriques, tout en une fois ... je sélectionne et ça me met
+  // sur la bonne page, là c'est trop compliqué ... va t'inspirer de la
+  // concurrence, TikTok etc." -- avant, ☰ ouvrait directement l'écran
+  // Réglages (profil), qui ne menait vers Notifications/Services
+  // musicaux/Offres/Réglages avancés qu'après un ou deux taps de plus. Un
+  // seul menu plat désormais, toutes les destinations visibles d'un coup.
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Adel (16-17/09/2026) : "fais en sorte qu'on ne sorte pas de la page ...
+  // je veux que toutes les fonctionnalités soient sur le pop-up ... il y a
+  // une explication, et il y a ce qu'on doit faire" -- un simple lien vers
+  // un autre écran suffisait pour les infos, mais pas pour "je ne sors
+  // jamais du pop-up". Chaque rubrique se déplie maintenant SUR PLACE avec
+  // son explication ; seules les actions vraiment complexes (acheter une
+  // formule, uploader un fichier pour vendre sa musique, etc.) gardent un
+  // bouton qui ouvre l'écran dédié -- décision confirmée avec Adel (l'info
+  // simple reste dans le pop-up, les actions complexes restent en plein
+  // écran).
+  const [expandedMenuItem, setExpandedMenuItem] = useState<string | null>(null);
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -108,7 +151,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<any[]>([]);
-  const [freeHistoryOpen, setFreeHistoryOpen] = useState(false);
   // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
   // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
   // paramètres" -- la pastille ouvrait les Réglages avancés au lieu d'un
@@ -557,7 +599,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const link = publicLinks.find((item) => item.platform === platform && item.url.trim());
     if (!link) {
       Alert.alert('Réseau non renseigné', 'Ajoute ce réseau depuis les réglages avancés.', [
-        { text: 'Plus tard', style: 'cancel' }, { text: 'Ajouter le lien', onPress: () => navigation.navigate('AdvancedProfileSettings') },
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Ajouter le lien', onPress: () => { setMenuOpen(true); setExpandedMenuItem('publicProfile'); } },
       ]);
       return;
     }
@@ -743,16 +785,100 @@ export default function ProfilePublicScreen({ navigation }: any) {
     })}</View>;
   };
 
+  // Adel (16-17/09/2026) : "il y a une explication, et il y a ce qu'on doit
+  // faire" -- chaque rubrique du menu affiche son explication SUR PLACE.
+  // Seul "Mon solde Free" reste entièrement navigable ici (info pure) ;
+  // les autres gardent un bouton "Ouvrir" vers leur écran dédié pour toute
+  // action réellement complexe (achat, upload, connexion de service).
+  const openFromMenu = (screen: string, params?: Record<string, unknown>) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
+  const renderMenuDetail = (key: string) => {
+    if (key === 'free') return <>
+      <Text style={s.shareTitle}>Ton solde Free</Text>
+      <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'}</Text>
+      {freeBalance === 0 ? (
+        <View style={s.freeEmptyCallout}>
+          <Text style={s.freeEmptyCalloutTitle}>Solde à zéro : comment recharger ?</Text>
+          <Text style={s.freeEmptyCalloutText}>1. Partage ton profil : chaque nouvel abonné qu'il t'apporte te rapporte des Free.</Text>
+          <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Battle : gagne des Free en répondant juste.</Text>
+          <Text style={s.freeEmptyCalloutText}>3. Passe à une formule payante : plus de Free offerts chaque mois, sans attendre.</Text>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); void shareProfile(user.username); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
+        </View>
+      ) : null}
+      <View style={s.linkPreview}>
+        <Text style={s.linkPreviewText}>🎧 Écouter et reconnaître : toujours gratuit</Text>
+        <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -{freeCostPerKeep} Free</Text>
+        <Text style={s.linkPreviewText}>🎮 Battle solo (entraînement) : gratuit</Text>
+        <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
+        <Text style={s.linkPreviewText}>🏆 Gagné au Battle au total : +{freeWon} Free</Text>
+        <Text style={s.linkPreviewText}>💔 Perdu au Battle au total : -{freeLost} Free</Text>
+        <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule — prochain versement dans {daysUntilNextFreeCredit} jour{daysUntilNextFreeCredit > 1 ? 's' : ''} (le 1er du mois)</Text>
+      </View>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('Offers')}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'profile') return <>
+      <Text style={s.shareTitle}>Réglages du profil</Text>
+      <Text style={s.shareSubtitle}>@{user.username} · modifie ta photo, ta bio, ton pseudo, et retrouve le bouton pour te déconnecter.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ProfileSettings')}><Text style={s.shareActionPrimaryText}>OUVRIR LES RÉGLAGES</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'notifications') return <>
+      <Text style={s.shareTitle}>Notifications</Text>
+      <Text style={s.shareSubtitle}>{unreadCount > 0 ? `${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}.` : 'Tu es à jour, aucune notification en attente.'} Nouveaux abonnés, reprises de tes découvertes, réponses à tes soirées : tout arrive ici.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('Notifications')}><Text style={s.shareActionPrimaryText}>VOIR MES NOTIFICATIONS</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'music') return <>
+      <Text style={s.shareTitle}>Services musicaux</Text>
+      <Text style={s.shareSubtitle}>Connecte Spotify, Deezer, YouTube Music ou SoundCloud pour importer tes favoris et garder ta musique automatiquement. Le nombre de services actifs en même temps dépend de ta formule.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('MusicConnections')}><Text style={s.shareActionPrimaryText}>GÉRER MES SERVICES</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'offers') return <>
+      <Text style={s.shareTitle}>Offres &amp; crédits</Text>
+      <Text style={s.shareSubtitle}>Formule actuelle : {planCode}. {creditUnlimited ? 'Téléchargements illimités.' : creditRemaining != null ? `${creditRemaining} téléchargement${creditRemaining > 1 ? 's' : ''} restant${creditRemaining > 1 ? 's' : ''}.` : ''} Compare Premium, Creator Pro et Venue Pro, et vois tous les avantages en détail.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('Offers')}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'sellPlaylists') return <>
+      <Text style={s.shareTitle}>Vendre mes playlists</Text>
+      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES VENTES</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'publicProfile') return <>
+      <Text style={s.shareTitle}>Profil public, réseaux &amp; site web</Text>
+      <PublicProfilePanel navigation={navigation} />
+    </>;
+
+    if (key === 'creator') return <>
+      <Text style={s.shareTitle}>Type de profil &amp; outils créateur</Text>
+      <CreatorToolsPanel navigation={navigation} />
+    </>;
+
+    if (key === 'help') return <>
+      <Text style={s.shareTitle}>Aide, légal &amp; comptes bloqués</Text>
+      <HelpLegalPanel profileId={user.id} username={user.username} enabled={!accountRequired} />
+    </>;
+
+    if (key === 'account') return <>
+      <Text style={s.shareTitle}>Compte &amp; déconnexion</Text>
+      <AccountActionsPanel />
+    </>;
+
+    return null;
+  };
+
   return <SafeAreaView style={s.container}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar}>
-        <TouchableOpacity style={[s.plan, planStyle]} onPress={() => setFreeHistoryOpen(true)} accessibilityLabel="Solde Free et historique"><Text style={s.planText}>{planLabel}</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.plan, planStyle]} onPress={() => { setMenuOpen(true); setExpandedMenuItem('free'); }} accessibilityLabel="Solde Free et historique"><Text style={s.planText}>{planLabel}</Text></TouchableOpacity>
         <View style={s.actions}>
           <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
             <Text style={s.bell}>🔔</Text>
             {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
           </TouchableOpacity>
-          <TouchableOpacity style={s.menuButton} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
+          <TouchableOpacity style={s.menuButton} onPress={() => setMenuOpen(true)} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
         </View>
       </View>
 
@@ -938,6 +1064,33 @@ export default function ProfilePublicScreen({ navigation }: any) {
       onClose={() => setProfileSwipeOpen(false)}
     />
 
+    <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => (expandedMenuItem ? setExpandedMenuItem(null) : setMenuOpen(false))}>
+      <View style={s.modalBackdrop}><View style={s.shareSheet}>
+        <View style={s.sheetHandle} />
+        {expandedMenuItem ? (
+          <>
+            <TouchableOpacity style={s.menuBackRow} onPress={() => setExpandedMenuItem(null)}><Text style={s.menuBackText}>‹ Menu</Text></TouchableOpacity>
+            <ScrollView style={{ maxHeight: 440 }}>{renderMenuDetail(expandedMenuItem)}</ScrollView>
+          </>
+        ) : (
+          <>
+            <Text style={s.shareTitle}>Menu</Text>
+            <ScrollView style={{ maxHeight: 440, marginTop: 4 }}>
+              {MENU_ITEMS.map((item) => (
+                <TouchableOpacity key={item.key} style={s.listRow} onPress={() => setExpandedMenuItem(item.key)}>
+                  <Text style={[s.listText, { flex: 1 }]}>{item.icon} {item.label}</Text>
+                  {item.key === 'free' ? <Text style={s.playlistCount}>{freeBalance ?? '…'}</Text> : null}
+                  {item.key === 'notifications' && unreadCount > 0 ? <Text style={s.playlistCount}>{unreadCount > 99 ? '99+' : unreadCount}</Text> : null}
+                  <Text style={s.menuChevron}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+        <TouchableOpacity style={{ minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 }} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); }}><Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '700' }}>Fermer</Text></TouchableOpacity>
+      </View></View>
+    </Modal>
+
     <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
         <Text style={s.shareTitle}>Parcourir par style</Text>
@@ -980,40 +1133,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.sheetHandle} />
           <UsernameAccountForm initialMode={accountMode} followUsername={pendingFollowUsername} onSuccess={() => { setAccountOpen(false); setPendingFollowUsername(''); }} />
           <TouchableOpacity style={s.cancelShare} onPress={() => { setAccountOpen(false); setPendingFollowUsername(''); }}><Text style={s.cancelShareText}>CONTINUER EN MODE DÉMO</Text></TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-
-    <Modal visible={freeHistoryOpen} transparent animationType="fade" onRequestClose={() => setFreeHistoryOpen(false)}>
-      <View style={s.modalBackdrop}>
-        <View style={s.shareSheet}>
-          <View style={s.sheetHandle} />
-          <Text style={s.shareTitle}>Ton solde Free</Text>
-          <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'}</Text>
-          {/* Adel (08/09/2026) : "quand il arrive à zéro de Free, il faut
-              qu'il puisse cliquer dessus et ça lui dise qu'est-ce qu'il doit
-              faire pour recréditer" -- à sec, on ne montre plus seulement le
-              solde, on donne directement les 3 façons d'en regagner. */}
-          {freeBalance === 0 ? (
-            <View style={s.freeEmptyCallout}>
-              <Text style={s.freeEmptyCalloutTitle}>Solde à zéro : comment recharger ?</Text>
-              <Text style={s.freeEmptyCalloutText}>1. Partage ton profil : chaque nouvel abonné qu'il t'apporte te rapporte des Free.</Text>
-              <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Battle : gagne des Free en répondant juste.</Text>
-              <Text style={s.freeEmptyCalloutText}>3. Passe à une formule payante : plus de Free offerts chaque mois, sans attendre.</Text>
-              <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setFreeHistoryOpen(false); void shareProfile(user.username); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
-            </View>
-          ) : null}
-          <View style={s.linkPreview}>
-            <Text style={s.linkPreviewText}>🎧 Écouter et reconnaître : toujours gratuit</Text>
-            <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -{freeCostPerKeep} Free</Text>
-            <Text style={s.linkPreviewText}>🎮 Battle solo (entraînement) : gratuit</Text>
-            <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
-            <Text style={s.linkPreviewText}>🏆 Gagné au Battle au total : +{freeWon} Free</Text>
-            <Text style={s.linkPreviewText}>💔 Perdu au Battle au total : -{freeLost} Free</Text>
-            <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule — prochain versement dans {daysUntilNextFreeCredit} jour{daysUntilNextFreeCredit > 1 ? 's' : ''} (le 1er du mois)</Text>
-          </View>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setFreeHistoryOpen(false); navigation.navigate('Offers'); }}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
-          <TouchableOpacity style={s.cancelShare} onPress={() => setFreeHistoryOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -1111,7 +1230,7 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
-  topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#6E4BA5',position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
+  topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#6E4BA5',position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:62,height:62,borderRadius:31,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#21182F',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},ownerShareButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},ownerSwipeButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},ownerActionText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:'#FFFFFF',fontSize:13,lineHeight:18,marginTop:3},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:'#18121F',borderWidth:1,borderColor:'#31263B'},battleAvailabilityRowOn:{backgroundColor:'#12271C',borderColor:'#38D990'},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:'#B79CFF',fontSize:15,fontWeight:'900'},battleAvailabilityHint:{color:'#FFFFFF',fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},muted:{color:'#FFFFFF',fontSize:13,lineHeight:18},
