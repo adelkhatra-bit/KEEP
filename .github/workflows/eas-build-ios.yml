@@ -95,6 +95,56 @@ jobs:
             echo "::warning::Auto-soumission TestFlight non armée : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID ou ASC_APP_ID."
           fi
 
+      - name: Vérifier les secrets auth e-mail côté runner
+        id: email_gate
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+          BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+          MAILJET_API_KEY: ${{ secrets.MAILJET_API_KEY }}
+          MAILJET_SECRET_KEY: ${{ secrets.MAILJET_SECRET_KEY }}
+          MAILJET_SENDER_EMAIL: ${{ secrets.MAILJET_SENDER_EMAIL }}
+          MAILJET_SENDER_NAME: ${{ secrets.MAILJET_SENDER_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          core_ready=true
+          for name in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              core_ready=false
+              echo "::warning::$name absent côté GitHub Actions runner."
+            fi
+          done
+
+          sender_email="${BREVO_SENDER_EMAIL:-${MAILJET_SENDER_EMAIL:-}}"
+          sender_name="${BREVO_SENDER_NAME:-${MAILJET_SENDER_NAME:-}}"
+          email_provider=none
+          if [ -n "${BREVO_API_KEY:-}" ] && [ -n "${sender_email:-}" ]; then
+            email_provider=brevo
+          fi
+          if [ -n "${MAILJET_API_KEY:-}" ] && [ -n "${MAILJET_SECRET_KEY:-}" ] && [ -n "${sender_email:-}" ]; then
+            if [ "$email_provider" = "none" ]; then
+              email_provider=mailjet
+            else
+              email_provider=brevo+mailjet
+            fi
+          fi
+
+          if [ "$email_provider" = "none" ]; then
+            echo "::warning::Aucun provider e-mail complet détecté côté GitHub Actions (BREVO_API_KEY + sender email, ou MAILJET_API_KEY + MAILJET_SECRET_KEY + sender email)."
+          fi
+          if [ -z "${BREVO_SMTP_LOGIN:-}" ] || [ -z "${BREVO_SMTP_KEY:-}" ] || [ -z "${sender_name:-}" ]; then
+            echo "::warning::Secrets SMTP/identité Brevo incomplets (BREVO_SMTP_LOGIN, BREVO_SMTP_KEY, BREVO_SENDER_NAME) ; le fallback HTTP reste prioritaire."
+          fi
+
+          echo "core_ready=$core_ready" >> "$GITHUB_OUTPUT"
+          echo "email_provider=$email_provider" >> "$GITHUB_OUTPUT"
+
       - name: Setup EAS CLI
         if: steps.gate.outputs.build_ready == 'true'
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
@@ -166,11 +216,16 @@ jobs:
             echo "- Profil : ${{ steps.gate.outputs.profile || 'production' }}"
             echo "- Build EAS armé : ${{ steps.gate.outputs.build_ready || 'false' }}"
             echo "- Auto-submit TestFlight armé : ${{ steps.gate.outputs.submit_ready || 'false' }}"
+            echo "- Secrets auth e-mail runner : ${{ steps.email_gate.outputs.core_ready || 'false' }}"
+            echo "- Provider(s) e-mail détecté(s) : ${{ steps.email_gate.outputs.email_provider || 'none' }}"
             if [ '${{ steps.gate.outputs.build_ready }}' != 'true' ]; then
               echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
             fi
             if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
               echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+            fi
+            if [ '${{ steps.email_gate.outputs.email_provider }}' = 'none' ]; then
+              echo '- Pour l’auth e-mail Loki : configurer soit `BREVO_API_KEY` + un sender email, soit `MAILJET_API_KEY` + `MAILJET_SECRET_KEY` + un sender email.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

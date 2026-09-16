@@ -1112,3 +1112,11 @@ Adel autorise explicitement la correction iOS sur main sans ordinateur local. Tr
 ## [2026-09-16] codex — signature iOS automatique
 
 Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/profils OK avec les secrets existants. Ajout workflow main commit 4310f60 : import non interactif via modules de eas-cli 24.6.0 (pas de commande fictive credentials:sync), reutilisation certificat EAS valide ou creation Apple puis stockage EAS, profils APP_STORE pour com.adelkhatra.keep et com.adelkhatra.keep.share-extension. Aucune revocation. Concurrence serialisee. Tests locaux mocks : deux profils, reutilisation sans creation, refus HTTP403, isolation team. Syntaxe YAML/shell/JS validee. Exécution réelle run 35069115335 en cours ; TestFlight NON confirme. Pas de modification application/design.
+## [2026-09-16T16:42:40.453Z] codex
+
+Je commence le fix auth e-mail Loki indisponible : audit keep-auth-email / keep-account-email / authService / workflow secrets + validation ciblée.
+
+## [2026-09-16T17:01:55.120Z] codex
+
+Fix auth e-mail termine : helper mobile fetch direct /functions/v1 avec parse JSON + retry, fallback Brevo->Mailjet sur keep-auth-email / keep-account-email / keep-email-retry-queue, audit secrets dans eas-build-ios, tests cibles PASS, typecheck mobile PASS, export web + Chromium headless OK. verify-source-of-truth reste FAIL pour cause structurelle preexistante (branche copilot/* + auto-eas-build.yml cible main).
+
