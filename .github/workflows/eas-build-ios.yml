@@ -137,8 +137,51 @@ jobs:
           console.log('EAS submit config injected in runner only.');
           NODE
 
+      - name: Vérifier l'accès App Store Connect (lecture seule)
+        id: apple_api
+        if: steps.gate.outputs.submit_ready == 'true'
+        env:
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+
+          (async () => {
+            const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+            const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+            const now = Math.floor(Date.now() / 1000);
+            const payload = `${encode({ alg: 'ES256', kid: process.env.EXPO_ASC_KEY_ID, typ: 'JWT' })}.${encode({
+              iss: process.env.EXPO_ASC_ISSUER_ID,
+              iat: now - 30,
+              exp: now + 300,
+              aud: 'appstoreconnect-v1',
+            })}`;
+            const token = `${payload}.${crypto.sign('sha256', Buffer.from(payload), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
+            const response = await fetch(`https://api.appstoreconnect.apple.com/v1/apps/${process.env.ASC_APP_ID}`, {
+              headers: { Authorization: 'Bearer ' + token },
+              signal: AbortSignal.timeout(30000),
+            });
+            if (!response.ok) {
+              throw new Error(`Apple HTTP ${response.status}`);
+            }
+            console.log('Apple API access check passed.');
+          })().catch((error) => {
+            console.error(error.message);
+            process.exit(1);
+          });
+          NODE
+          then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::API App Store Connect inaccessible avec les secrets actuels ; build iOS ignoré pour éviter un échec non interactif."
+          fi
+
       - name: Build iOS EAS
-        if: steps.gate.outputs.build_ready == 'true'
+        if: steps.gate.outputs.build_ready == 'true' && (steps.gate.outputs.submit_ready != 'true' || steps.apple_api.outputs.ready == 'true')
         env:
           EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -166,11 +209,16 @@ jobs:
             echo "- Profil : ${{ steps.gate.outputs.profile || 'production' }}"
             echo "- Build EAS armé : ${{ steps.gate.outputs.build_ready || 'false' }}"
             echo "- Auto-submit TestFlight armé : ${{ steps.gate.outputs.submit_ready || 'false' }}"
+            if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
+              echo "- API App Store Connect accessible : ${{ steps.apple_api.outputs.ready || 'false' }}"
+            fi
             if [ '${{ steps.gate.outputs.build_ready }}' != 'true' ]; then
               echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
             fi
             if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
               echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+            elif [ '${{ steps.apple_api.outputs.ready }}' != 'true' ]; then
+              echo '- Build ignoré : les credentials App Store Connect sont invalides/expirés ou insuffisants (HTTP 401/403).'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
