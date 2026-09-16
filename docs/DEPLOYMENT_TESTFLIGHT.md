@@ -108,8 +108,8 @@ avant le build iOS :
 - il affiche la liste exacte des secrets manquants ;
 - il nettoie (`trim`) `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID` et
   `ASC_APP_ID` pour supprimer les retours ligne cachés ;
-- il valide le jeton App Store Connect (`apps/<ASC_APP_ID>`) avant de lancer
-  `eas build`.
+- il reconstruit la clé `.p8` dans le runner et échoue immédiatement si la
+  valeur base64 ne produit pas une clé privée PEM valide.
 
 Si tu vois encore `Distribution Certificate is not validated for non-interactive builds`,
 le résumé GitHub Actions indiquera désormais clairement :
