@@ -149,8 +149,8 @@ jobs:
           }
           try {
             const parsed = crypto.createPrivateKey({ key: decoded, format: 'pem' });
-            const namedCurve = parsed.asymmetricKeyDetails?.namedCurve;
-            if (parsed.asymmetricKeyType !== 'ec' || (namedCurve && namedCurve !== 'prime256v1')) {
+            const jwk = parsed.export({ format: 'jwk' });
+            if (parsed.asymmetricKeyType !== 'ec' || jwk.kty !== 'EC' || jwk.crv !== 'P-256') {
               throw new Error('Invalid Apple key type');
             }
           } catch {
