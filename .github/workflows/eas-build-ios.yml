@@ -250,7 +250,22 @@ jobs:
           else
             echo 'Build EAS armé sans auto-submit TestFlight.'
           fi
-          eas "${args[@]}"
+          set +e
+          build_output="$(eas "${args[@]}" 2>&1)"
+          build_code="$?"
+          set -e
+          printf '%s\n' "$build_output"
+          if [ "$build_code" -ne 0 ]; then
+            if grep -q 'Credentials are not set up. Run this command again in interactive mode.' <<<"$build_output"; then
+              echo "credential_gap=true" >> "$GITHUB_OUTPUT"
+              echo "effective_result=skipped_credentials" >> "$GITHUB_OUTPUT"
+              echo "::warning::Credentials iOS distants incomplets sur EAS (mode non interactif). Build ignoré jusqu'à configuration."
+              exit 0
+            fi
+            exit "$build_code"
+          fi
+          echo "credential_gap=false" >> "$GITHUB_OUTPUT"
+          echo "effective_result=success" >> "$GITHUB_OUTPUT"
 
       - name: Résumé pipeline Apple
         if: always()
@@ -263,6 +278,9 @@ jobs:
             echo "- Build EAS armé : ${{ steps.gate.outputs.build_ready || 'false' }}"
             echo "- Build iOS autorisé : ${{ steps.build_gate.outputs.execute || 'false' }}"
             echo "- Résultat build iOS : ${{ steps.ios_build.outcome || 'skipped' }}"
+            if [ '${{ steps.ios_build.outputs.effective_result }}' = 'skipped_credentials' ]; then
+              echo "- Build iOS effectif : ignoré (credentials iOS distants incomplets)"
+            fi
             echo "- Auto-submit TestFlight armé : ${{ steps.gate.outputs.submit_ready || 'false' }}"
             if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
               echo "- API App Store Connect accessible : ${{ steps.apple_api.outputs.ready || 'false' }}"
