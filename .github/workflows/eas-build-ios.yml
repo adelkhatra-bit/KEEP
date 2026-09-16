@@ -108,10 +108,7 @@ jobs:
 
       - name: Setup EAS CLI
         if: steps.gate.outputs.build_ready == 'true'
-        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+        run: npm install -g eas-cli@24.6.0
 
       - name: Install dependencies (workspace root)
         if: steps.gate.outputs.build_ready == 'true'
