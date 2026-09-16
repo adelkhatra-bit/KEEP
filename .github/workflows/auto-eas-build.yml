@@ -12,6 +12,11 @@ on:
           - production
           - preview
           - development
+      forceNewCertificate:
+        description: 'Ignorer le certificat de distribution en cache (recreer meme si un certificat actif existe) -- utile si un certificat cache est corrompu, ex. p12 exporte avant le correctif -legacy'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - reconcile/claude-main-20260825
@@ -165,6 +170,7 @@ jobs:
         timeout-minutes: 10
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          LOKI_FORCE_NEW_CERTIFICATE: ${{ inputs.forceNewCertificate }}
         working-directory: packages/mobile
         run: |
           export NODE_PATH="$(npm root -g)"
@@ -235,7 +241,9 @@ jobs:
             check(!portal.links?.next, 'Certificate list pagination requires review');
             const active = portal.data.filter(c => new Date(c.attributes.expirationDate).getTime() > Date.now()+7*86400000);
             const normalize = serial => String(serial).replace(/^0+/,'').toUpperCase();
-            const existing = await ios.getDistributionCertificatesForAccountAsync(graphqlClient, base.account);
+            const forceNewCertificate = process.env.LOKI_FORCE_NEW_CERTIFICATE === 'true';
+            const existing = forceNewCertificate ? [] : await ios.getDistributionCertificatesForAccountAsync(graphqlClient, base.account);
+            if (forceNewCertificate) console.log('LOKI_FORCE_NEW_CERTIFICATE=true : cache de certificat ignore, creation forcee.');
             let cert = existing.find(c => c.appleTeam?.appleTeamIdentifier === teamId && c.certificateP12 && active.some(a => normalize(a.attributes.serialNumber) === normalize(c.serialNumber)));
             let portalCert;
             if (cert) {
