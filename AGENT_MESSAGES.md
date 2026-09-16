@@ -1112,3 +1112,11 @@ Adel autorise explicitement la correction iOS sur main sans ordinateur local. Tr
 ## [2026-09-16] codex — signature iOS automatique
 
 Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/profils OK avec les secrets existants. Ajout workflow main commit 4310f60 : import non interactif via modules de eas-cli 24.6.0 (pas de commande fictive credentials:sync), reutilisation certificat EAS valide ou creation Apple puis stockage EAS, profils APP_STORE pour com.adelkhatra.keep et com.adelkhatra.keep.share-extension. Aucune revocation. Concurrence serialisee. Tests locaux mocks : deux profils, reutilisation sans creation, refus HTTP403, isolation team. Syntaxe YAML/shell/JS validee. Exécution réelle run 35069115335 en cours ; TestFlight NON confirme. Pas de modification application/design.
+## [2026-09-16T16:26:51.315Z] codex
+
+Je prends en charge le fix critique build iOS EAS/TestFlight + vérification popup iPhone; investigation CI puis correctifs minimaux.
+
+## [2026-09-16T16:39:02.998Z] codex
+
+Fix iOS EAS/TestFlight livre: workflow eas-build-ios durci (trim secrets ASC, validation decode .p8, diagnostic secrets manquants/invalides, split build auto-submit vs sans auto-submit) + doc DEPLOYMENT_TESTFLIGHT mise a jour.
+

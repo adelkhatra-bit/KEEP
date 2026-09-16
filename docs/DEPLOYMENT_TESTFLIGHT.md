@@ -100,6 +100,32 @@ Tu peux aussi déclencher un build à la demande sans attendre un push :
 onglet "Actions" du dépôt GitHub → "KEEP — Build iOS (EAS) + TestFlight" →
 "Run workflow".
 
+## Diagnostic automatique de l’erreur certificat non validé (CI)
+
+Le workflow `.github/workflows/eas-build-ios.yml` fait maintenant un pré-contrôle
+avant le build iOS :
+
+- il affiche la liste exacte des secrets manquants ;
+- il nettoie (`trim`) `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID` et
+  `ASC_APP_ID` pour supprimer les retours ligne cachés ;
+- il reconstruit la clé `.p8` dans le runner et échoue immédiatement si la
+  valeur base64 ne produit pas une clé privée PEM valide.
+
+Si tu vois encore `Distribution Certificate is not validated for non-interactive builds`,
+le résumé GitHub Actions indiquera désormais clairement :
+
+1. quels secrets sont absents, ou
+2. que les secrets ASC sont présents mais invalides/expirés côté Apple.
+
+### Format exact attendu pour les 6 secrets GitHub Actions
+
+- `EXPO_TOKEN` : token Expo (texte simple)
+- `ASC_API_KEY_P8_BASE64` : contenu `.p8` encodé en base64 **sur une seule ligne**
+- `ASC_KEY_ID` : ex. `AB12C3D4E5` (sans espaces ni saut de ligne)
+- `ASC_ISSUER_ID` : UUID Apple (sans espaces ni saut de ligne)
+- `APPLE_TEAM_ID` : ex. `WTG9399DBK` (sans espaces ni saut de ligne)
+- `ASC_APP_ID` : ID numérique App Store Connect (ex. `6812393589`)
+
 ## Blocage indépendant, déjà documenté ailleurs
 
 Le push de ce commit (et donc le premier déclenchement réel de ce workflow)

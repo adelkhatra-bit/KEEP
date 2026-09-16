@@ -69,9 +69,15 @@ jobs:
           build_ready=false
           submit_ready=false
           has_p8=false
+          missing_submit=''
 
           if [ -n "${EXPO_TOKEN:-}" ]; then build_ready=true; fi
           if [ -n "${ASC_API_KEY_P8_BASE64:-}" ]; then has_p8=true; fi
+          [ -n "${ASC_API_KEY_P8_BASE64:-}" ] || missing_submit="${missing_submit} ASC_API_KEY_P8_BASE64"
+          [ -n "${ASC_KEY_ID:-}" ] || missing_submit="${missing_submit} ASC_KEY_ID"
+          [ -n "${ASC_ISSUER_ID:-}" ] || missing_submit="${missing_submit} ASC_ISSUER_ID"
+          [ -n "${APPLE_TEAM_ID:-}" ] || missing_submit="${missing_submit} APPLE_TEAM_ID"
+          [ -n "${ASC_APP_ID:-}" ] || missing_submit="${missing_submit} ASC_APP_ID"
           if [ "$profile" = "production" ] && [ "$requested_auto_submit" != "false" ] \
              && [ -n "${EXPO_TOKEN:-}" ] \
              && [ -n "${ASC_API_KEY_P8_BASE64:-}" ] \
@@ -82,17 +88,23 @@ jobs:
             submit_ready=true
           fi
 
+          missing_submit="$(echo "$missing_submit" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
           echo "requested_auto_submit=$requested_auto_submit" >> "$GITHUB_OUTPUT"
           echo "build_ready=$build_ready" >> "$GITHUB_OUTPUT"
           echo "submit_ready=$submit_ready" >> "$GITHUB_OUTPUT"
           echo "has_p8=$has_p8" >> "$GITHUB_OUTPUT"
+          echo "missing_submit_secrets=$missing_submit" >> "$GITHUB_OUTPUT"
 
           if [ "$build_ready" != "true" ]; then
             echo "::warning::EXPO_TOKEN absent : build EAS non lancé. Le préflight code reste valide et le workflow s'activera automatiquement dès que le secret sera ajouté."
           fi
           if [ "$requested_auto_submit" != "false" ] && [ "$submit_ready" != "true" ]; then
-            echo "::warning::Auto-soumission TestFlight non armée : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID ou ASC_APP_ID."
+            if [ -n "$missing_submit" ]; then
+              echo "::warning::Auto-soumission TestFlight non armée : secrets manquants -> $missing_submit"
+            else
+              echo "::warning::Auto-soumission TestFlight non armée : secrets présents mais invalides/illisibles (vérifier ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID)."
+            fi
           fi
 
       - name: Setup EAS CLI
@@ -107,22 +119,49 @@ jobs:
         working-directory: .
         run: npm ci
 
-      - name: Écrire la clé API App Store Connect
+      - name: Préparer les credentials App Store Connect (trim + validation)
+        id: asc_env
         if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
         env:
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
+          trim_edges() {
+            sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+          }
+          asc_key_id="$(printf '%s' "${ASC_KEY_ID:-}" | trim_edges)"
+          asc_issuer_id="$(printf '%s' "${ASC_ISSUER_ID:-}" | trim_edges)"
+          apple_team_id="$(printf '%s' "${APPLE_TEAM_ID:-}" | trim_edges)"
+          asc_app_id="$(printf '%s' "${ASC_APP_ID:-}" | trim_edges)"
+          asc_api_key_p8_base64="$(printf '%s' "${ASC_API_KEY_P8_BASE64:-}" | trim_edges | tr -d '\r\n')"
+          if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ] && { [ -z "$asc_key_id" ] || [ -z "$asc_issuer_id" ] || [ -z "$apple_team_id" ] || [ -z "$asc_app_id" ]; }; then
+            echo "::error::Secrets ASC présents mais invalides après trim (valeur vide)."
+            exit 1
+          fi
+          printf '%s' "$asc_api_key_p8_base64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
+          if [ ! -s "$RUNNER_TEMP/asc-api-key.p8" ]; then
+            echo "::error::ASC_API_KEY_P8_BASE64 invalide: décodage vide."
+            exit 1
+          fi
+          node -e "const fs=require('node:fs');const crypto=require('node:crypto');try{crypto.createPrivateKey(fs.readFileSync(process.argv[1]));}catch{console.error('::error::ASC_API_KEY_P8_BASE64 invalide: clé privée PEM illisible.');process.exit(1)}" "$RUNNER_TEMP/asc-api-key.p8"
           chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
-          echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
+          echo "asc_api_key_path=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_OUTPUT"
+          echo "asc_key_id=$asc_key_id" >> "$GITHUB_OUTPUT"
+          echo "asc_issuer_id=$asc_issuer_id" >> "$GITHUB_OUTPUT"
+          echo "apple_team_id=$apple_team_id" >> "$GITHUB_OUTPUT"
+          echo "asc_app_id=$asc_app_id" >> "$GITHUB_OUTPUT"
+          echo "credentials_env_ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
         env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          APPLE_TEAM_ID: ${{ steps.asc_env.outputs.apple_team_id }}
+          ASC_APP_ID: ${{ steps.asc_env.outputs.asc_app_id }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -137,23 +176,30 @@ jobs:
           console.log('EAS submit config injected in runner only.');
           NODE
 
-      - name: Build iOS EAS
-        if: steps.gate.outputs.build_ready == 'true'
+      - name: Build iOS EAS (auto-submit armé)
+        if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.submit_ready == 'true'
         env:
-          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPO_ASC_API_KEY_PATH: ${{ steps.asc_env.outputs.asc_api_key_path }}
+          EXPO_ASC_KEY_ID: ${{ steps.asc_env.outputs.asc_key_id }}
+          EXPO_ASC_ISSUER_ID: ${{ steps.asc_env.outputs.asc_issuer_id }}
+          EXPO_APPLE_TEAM_ID: ${{ steps.asc_env.outputs.apple_team_id }}
         shell: bash
         run: |
           set -euo pipefail
           profile='${{ steps.gate.outputs.profile }}'
           args=(build --platform ios --profile "$profile" --non-interactive --no-wait)
-          if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
-            args+=(--auto-submit-with-profile production)
-            echo 'Build + auto-submit TestFlight armé.'
-          else
-            echo 'Build EAS armé sans auto-submit TestFlight.'
-          fi
+          args+=(--auto-submit-with-profile production)
+          echo 'Build + auto-submit TestFlight armé.'
+          eas "${args[@]}"
+
+      - name: Build iOS EAS (sans auto-submit)
+        if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.submit_ready != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          profile='${{ steps.gate.outputs.profile }}'
+          args=(build --platform ios --profile "$profile" --non-interactive --no-wait)
+          echo 'Build EAS armé sans auto-submit TestFlight.'
           eas "${args[@]}"
 
       - name: Résumé pipeline Apple
@@ -170,7 +216,16 @@ jobs:
               echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
             fi
             if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
-              echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+              profile='${{ steps.gate.outputs.profile }}'
+              requested_auto_submit='${{ steps.gate.outputs.requested_auto_submit }}'
+              missing_submit='${{ steps.gate.outputs.missing_submit_secrets }}'
+              if [ "$profile" != 'production' ] || [ "$requested_auto_submit" = 'false' ]; then
+                echo '- Auto-submit TestFlight désactivé (profil non-production ou option auto_submit=false).'
+              elif [ -n "$missing_submit" ]; then
+                echo "- Secrets manquants pour TestFlight auto : \`$missing_submit\`."
+              else
+                echo '- Secrets ASC présents mais invalides/illisibles : vérifier `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+              fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
