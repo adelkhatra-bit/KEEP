@@ -152,8 +152,8 @@ jobs:
             }
             const app = await get('apps/6812393589','App access');
             if(app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') throw new Error('Apple app bundle mismatch');
-            const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=2','Bundle access');
-            if(bundles.data?.length !== 1) { console.log('Bundle identifiers found (' + (bundles.data?.length ?? 0) + '): ' + JSON.stringify((bundles.data || []).map(b => ({id: b.id, identifier: b.attributes?.identifier})))); throw new Error('Expected exactly one KEEP bundle identifier (found ' + (bundles.data?.length ?? 0) + ')'); }
+            const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=50','Bundle access'); const exactBundles = (bundles.data || []).filter(b => b.attributes?.identifier === 'com.adelkhatra.keep');
+            if(exactBundles.length !== 1) { console.log('Bundle identifiers found via Apple prefix filter (' + (bundles.data?.length ?? 0) + '): ' + JSON.stringify((bundles.data || []).map(b => ({id: b.id, identifier: b.attributes?.identifier})))); throw new Error('Expected exactly one exact-match KEEP bundle identifier (found ' + exactBundles.length + ')'); }
             await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1','Distribution certificate access');
             await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1','Provisioning profile access');
             console.log('Read-only Apple API preflight passed; no signing resources created.');
@@ -220,9 +220,9 @@ jobs:
             check(appleApp.data.attributes.bundleId === targets[0], 'Unexpected Apple app');
             for (const bundleIdentifier of targets) {
               phase = 'resolve bundle ' + bundleIdentifier;
-              const result = await apple('bundleIds?filter[identifier]=' + encodeURIComponent(bundleIdentifier) + '&limit=2');
-              check(result.data.length <= 1, 'Ambiguous bundle identifier');
-              let bundle = result.data[0];
+              const result = await apple('bundleIds?filter[identifier]=' + encodeURIComponent(bundleIdentifier) + '&limit=50');
+              const exactResultData = result.data.filter(b => b.attributes?.identifier === bundleIdentifier); check(exactResultData.length <= 1, 'Ambiguous bundle identifier');
+              let bundle = exactResultData[0];
               if (!bundle) {
                 check(bundleIdentifier === targets[1], 'Main Apple bundle missing');
                 bundle = (await apple('bundleIds','POST',{type:'bundleIds',attributes:{identifier:bundleIdentifier,name:'Loki Share Extension',platform:'IOS'}})).data;
