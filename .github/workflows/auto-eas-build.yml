@@ -20,6 +20,10 @@ on:
       - 'packages/mobile/eas.json'
       - '.github/workflows/auto-eas-build.yml'
 
+concurrency:
+  group: loki-ios-signing
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: '22'
 
@@ -154,6 +158,148 @@ jobs:
             await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1','Provisioning profile access');
             console.log('Read-only Apple API preflight passed; no signing resources created.');
           })().catch(error => { console.error(error.message); process.exitCode=1; });
+          NODE
+
+      - name: Bootstrap Loki signing in Apple and EAS
+        if: ${{ (inputs.profile || 'production') == 'production' }}
+        timeout-minutes: 10
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        working-directory: packages/mobile
+        run: |
+          export NODE_PATH="$(npm root -g)"
+          node - <<'NODE'
+          // Pinned EAS 24.6.0 APIs: no interactive prompts and no private values in logs.
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const { createGraphqlClient } = require('eas-cli/build/commandUtils/context/contextUtils/createGraphqlClient');
+          const { AppQuery } = require('eas-cli/build/graphql/queries/AppQuery');
+          const ios = require('eas-cli/build/credentials/ios/api/GraphqlClient');
+          const { assignBuildCredentialsAsync } = require('eas-cli/build/credentials/ios/actions/BuildCredentialsUtils');
+          const { parse } = require('eas-cli/build/credentials/ios/utils/provisioningProfile');
+          class SigningError extends Error {}
+          const check = (value, message) => { if (!value) throw new SigningError(message); };
+          let phase = 'initialisation';
+          let temporaryDirectory;
+          async function main() {
+            const teamId = 'WTG9399DBK';
+            check(process.env.EXPO_APPLE_TEAM_ID === teamId, 'Unexpected Apple team');
+            check(process.env.EXPO_TOKEN, 'Missing Expo token');
+            const config = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+            const projectId = 'f9598ced-2480-4fa6-8d6e-885dd4e489e8';
+            check(config.extra.eas.projectId === projectId && config.ios.bundleIdentifier === 'com.adelkhatra.keep', 'Unexpected project');
+            const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+            async function apple(route, method = 'GET', data) {
+              const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+              const now = Math.floor(Date.now() / 1000);
+              const body = enc({alg:'ES256',kid:process.env.EXPO_ASC_KEY_ID,typ:'JWT'}) + '.' + enc({iss:process.env.EXPO_ASC_ISSUER_ID,iat:now-30,exp:now+300,aud:'appstoreconnect-v1'});
+              const token = body + '.' + crypto.sign('sha256', Buffer.from(body), {key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+              const response = await fetch('https://api.appstoreconnect.apple.com/v1/' + route, {
+                method, headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+                body: data ? JSON.stringify({data}) : undefined, signal:AbortSignal.timeout(30000)
+              });
+              if (!response.ok) {
+                const failure = await response.json().catch(() => ({}));
+                const codes = (failure.errors || []).map(e => String(e.code || '').replace(/[^A-Z0-9_.-]/g,'')).join(',');
+                throw new SigningError('Apple HTTP ' + response.status + ' ' + codes);
+              }
+              return response.json();
+            }
+            phase = 'verify Expo project';
+            const graphqlClient = createGraphqlClient({accessToken:process.env.EXPO_TOKEN});
+            const project = await AppQuery.byIdAsync(graphqlClient, projectId);
+            check(project.ownerAccount.name === 'saleme01s-team', 'Unexpected Expo owner');
+            const base = {account:project.ownerAccount,projectName:config.slug};
+            const ctx = {graphqlClient,ios,nonInteractive:true};
+            const targets = ['com.adelkhatra.keep','com.adelkhatra.keep.share-extension'];
+            const bundles = [];
+            phase = 'verify Apple app';
+            const appleApp = await apple('apps/6812393589');
+            check(appleApp.data.attributes.bundleId === targets[0], 'Unexpected Apple app');
+            for (const bundleIdentifier of targets) {
+              phase = 'resolve bundle ' + bundleIdentifier;
+              const result = await apple('bundleIds?filter[identifier]=' + encodeURIComponent(bundleIdentifier) + '&limit=2');
+              check(result.data.length <= 1, 'Ambiguous bundle identifier');
+              let bundle = result.data[0];
+              if (!bundle) {
+                check(bundleIdentifier === targets[1], 'Main Apple bundle missing');
+                bundle = (await apple('bundleIds','POST',{type:'bundleIds',attributes:{identifier:bundleIdentifier,name:'Loki Share Extension',platform:'IOS'}})).data;
+                console.log('Registered Loki share-extension bundle.');
+              }
+              bundles.push(bundle);
+            }
+            phase = 'resolve distribution certificate';
+            const portal = await apple('certificates?filter[certificateType]=DISTRIBUTION,IOS_DISTRIBUTION&limit=200');
+            check(!portal.links?.next, 'Certificate list pagination requires review');
+            const active = portal.data.filter(c => new Date(c.attributes.expirationDate).getTime() > Date.now()+7*86400000);
+            const normalize = serial => String(serial).replace(/^0+/,'').toUpperCase();
+            const existing = await ios.getDistributionCertificatesForAccountAsync(graphqlClient, base.account);
+            let cert = existing.find(c => c.appleTeam?.appleTeamIdentifier === teamId && c.certificateP12 && active.some(a => normalize(a.attributes.serialNumber) === normalize(c.serialNumber)));
+            let portalCert;
+            if (cert) {
+              portalCert = active.find(a => normalize(a.attributes.serialNumber) === normalize(cert.serialNumber));
+              console.log('Reusing existing valid distribution certificate; no revocation.');
+            } else {
+              phase = 'create distribution certificate';
+              temporaryDirectory = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP,'loki-signing-'));
+              fs.chmodSync(temporaryDirectory,0o700);
+              const keyFile = path.join(temporaryDirectory,'signing.key');
+              const csrFile = path.join(temporaryDirectory,'signing.csr');
+              const certFile = path.join(temporaryDirectory,'signing.der');
+              const pemFile = path.join(temporaryDirectory,'signing.pem');
+              const p12File = path.join(temporaryDirectory,'signing.p12');
+              const password = crypto.randomBytes(32).toString('hex');
+              const run = args => execFileSync('openssl',args,{stdio:'ignore',env:{...process.env,LOKI_P12_PASSWORD:password}});
+              run(['req','-new','-newkey','rsa:2048','-nodes','-keyout',keyFile,'-out',csrFile,'-subj','/CN=Loki EAS Signing']);
+              portalCert = (await apple('certificates','POST',{type:'certificates',attributes:{certificateType:'DISTRIBUTION',csrContent:fs.readFileSync(csrFile,'utf8')}})).data;
+              console.log('Created Apple distribution certificate ID: '+portalCert.id);
+              fs.writeFileSync(certFile,Buffer.from(portalCert.attributes.certificateContent,'base64'),{mode:0o600});
+              const parsed = new crypto.X509Certificate(fs.readFileSync(certFile));
+              check(parsed.subject.split('\n').some(line => line === 'OU='+teamId), 'Certificate team mismatch');
+              run(['x509','-inform','DER','-in',certFile,'-out',pemFile]);
+              run(['pkcs12','-export','-inkey',keyFile,'-in',pemFile,'-out',p12File,'-passout','env:LOKI_P12_PASSWORD']);
+              phase = 'persist distribution certificate in EAS';
+              cert = await ios.createDistributionCertificateAsync(graphqlClient,base.account,{
+                certId:portalCert.id,certP12:fs.readFileSync(p12File).toString('base64'),certPassword:password,teamId
+              });
+              console.log('Distribution certificate stored in EAS.');
+            }
+            phase = 'resolve EAS Apple team';
+            const appleTeam = await ios.createOrGetExistingAppleTeamAndUpdateNameIfChangedAsync(graphqlClient,base.account.id,{appleTeamIdentifier:teamId});
+            for (let i=0;i<targets.length;i++) {
+              const bundleIdentifier = targets[i];
+              const app = {...base,bundleIdentifier,...(i ? {parentBundleIdentifier:targets[0]} : {})};
+              phase = 'resolve profile '+bundleIdentifier;
+              const current = await ios.getIosAppCredentialsWithBuildCredentialsAsync(graphqlClient,app,{iosDistributionType:'APP_STORE'});
+              const prior = current?.iosAppBuildCredentialsList?.[0];
+              if (prior?.distributionCertificate?.id === cert.id && prior.provisioningProfile?.developerPortalIdentifier) {
+                const profile = await apple('profiles/'+prior.provisioningProfile.developerPortalIdentifier);
+                if(profile.data.attributes.profileState === 'ACTIVE' && new Date(profile.data.attributes.expirationDate).getTime() > Date.now()+7*86400000) {
+                  console.log('Existing active profile kept for '+bundleIdentifier);
+                  continue;
+                }
+              }
+              const profile = (await apple('profiles','POST',{type:'profiles',attributes:{name:'Loki EAS '+(i?'Share':'App')+' '+Date.now(),profileType:'IOS_APP_STORE'},relationships:{bundleId:{data:{type:'bundleIds',id:bundles[i].id}},certificates:{data:[{type:'certificates',id:portalCert.id}]}}})).data;
+              const content = profile.attributes.profileContent;
+              const plist = parse(content);
+              check(plist.TeamIdentifier?.[0] === teamId && plist.Entitlements?.['application-identifier'] === teamId+'.'+bundleIdentifier, 'Profile team / bundle mismatch');
+              check(!plist.Entitlements?.['get-task-allow'] && !plist.ProvisionedDevices && !plist.ProvisionsAllDevices, 'Not an App Store profile');
+              phase = 'persist profile '+bundleIdentifier;
+              const identifier = await ios.createOrGetExistingAppleAppIdentifierAsync(graphqlClient,app,appleTeam);
+              const stored = await ios.createProvisioningProfileAsync(graphqlClient,app,identifier,{appleProvisioningProfile:content});
+              await assignBuildCredentialsAsync(ctx,app,'APP_STORE',cert,stored,appleTeam);
+              console.log('App Store signing configured in EAS for '+bundleIdentifier);
+            }
+            console.log('Loki signing bootstrap completed. Build and TestFlight still require separate verification.');
+          }
+          main().catch(error => {
+            console.error('Signing bootstrap stopped during: '+phase);
+            console.error(error instanceof SigningError ? error.message : 'EAS or local signing operation failed; private response details suppressed.');
+            process.exitCode=1;
+          }).finally(() => { if(temporaryDirectory) fs.rmSync(temporaryDirectory,{recursive:true,force:true}); });
+          module.exports = { main };
           NODE
 
       - name: 🏗️ Build iOS (${{ inputs.profile || 'production' }})
