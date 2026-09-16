@@ -1,0 +1,80 @@
+name: 🚀 Auto EAS Build iOS Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Build profile'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+          - development
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/mobile/app.json'
+      - 'packages/mobile/eas.json'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    name: Build iOS ${{ inputs.profile || 'production' }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 🔐 Setup Expo credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          echo "✅ Expo credentials configured"
+          echo "EXPO_TOKEN is set: ${{ secrets.EXPO_TOKEN != '' }}"
+
+      - name: 📥 Install EAS CLI
+        run: npm install -g eas-cli@latest
+
+      - name: ✅ Validate Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas whoami
+
+      - name: 🏗️ Build iOS (${{ inputs.profile || 'production' }})
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        working-directory: packages/mobile
+        run: |
+          echo "🔨 Starting EAS build for profile: ${{ inputs.profile || 'production' }}"
+          eas build \
+            --platform ios \
+            --profile ${{ inputs.profile || 'production' }} \
+            --non-interactive \
+            --wait
+
+      - name: 📊 Build Summary
+        if: always()
+        run: |
+          echo "✅ Build process completed"
+          echo "Platform: iOS"
+          echo "Profile: ${{ inputs.profile || 'production' }}"
+          echo "Repository: adelkhatra-bit/KEEP"
+
+      - name: 🔔 Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Build failed. Check the logs above for details."
+          exit 1
