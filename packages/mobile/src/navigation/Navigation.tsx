@@ -1,5 +1,6 @@
 import React from 'react';
 import { Platform, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { navigationRef } from './navigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -95,6 +96,13 @@ const TAB = {
 };
 
 function MainTabs() {
+  // Bug reel signale par Adel (16/09/2026, test TestFlight sur iPhone reel) :
+  // "la barre elle est trop basse elle est un peu cachee avec les rebords de
+  // l'iPhone" -- height/paddingBottom fixes ne laissaient aucune place pour
+  // la zone de securite (barre d'accueil) des iPhone sans bouton Home. Le
+  // simulateur/Android n'a pas cette zone, le bug n'etait donc jamais visible
+  // avant un vrai test sur iPhone.
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       initialRouteName="Listen"
@@ -105,8 +113,8 @@ function MainTabs() {
           backgroundColor: TAB.bg,
           borderTopColor: TAB.border,
           borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 7,
           display: 'flex',
         },
