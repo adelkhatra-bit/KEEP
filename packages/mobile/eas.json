@@ -27,16 +27,23 @@
       "ios": {
         "resourceClass": "m-medium",
         "image": "sdk-54",
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "enterpriseProvisioning": "adhoc"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "AUTO",
-        "appleTeamId": "AUTO"
+        "ascAppId": "6812393589",
+        "appleTeamId": "WTG9399DBK",
+        "appleId": "adel.khatra@live.fr",
+        "password": "@keychain:ASC_PASSWORD",
+        "signingTeam": "WTG9399DBK"
       }
     }
+  },
+  "credentials": {
+    "manager": "github"
   }
 }
