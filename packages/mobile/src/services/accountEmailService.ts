@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 
 export type AccountEmailStatus = {
@@ -13,6 +13,13 @@ function requireSupabase() {
   return supabase;
 }
 
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+function configured(value: string | undefined): value is string {
+  return Boolean(value && value !== 'undefined' && !value.startsWith('your_'));
+}
+
 function mapError(code: string) {
   if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
   if (code === 'rate_limited') return 'Un code vient déjà d’être envoyé. Attends quelques instants.';
@@ -22,15 +29,29 @@ function mapError(code: string) {
   if (code === 'code_expired') return 'Ce code a expiré. Demande un nouveau code.';
   if (code === 'too_many_attempts') return 'Trop d’essais. Demande un nouveau code.';
   if (code === 'email_taken') return `Cette adresse e-mail est déjà liée à un autre compte ${APP_NAME}.`;
+  if (code === 'email_mismatch') return 'Cette adresse ne correspond pas à la demande en cours.';
+  if (code === 'no_pending_verification') return 'Aucune vérification e-mail en attente pour le moment.';
   if (code === 'unauthorized') return `Reconnecte-toi à ${APP_NAME} pour modifier la sécurité du compte.`;
   return 'La sécurité du compte est momentanément indisponible.';
 }
 
 async function invoke(body: Record<string, unknown>) {
-  const client = requireSupabase();
-  const { data, error } = await client.functions.invoke('keep-account-email', { body });
-  if (error) throw new Error(error.message || 'server_error');
-  if (!data?.ok) throw new Error(mapError(String(data?.error || 'server_error')));
+  requireSupabase();
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
+    throw new Error(`Connexion ${APP_NAME} indisponible.`);
+  }
+  const accessToken = await getSupabaseAccessToken();
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-account-email`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: ['Bearer', accessToken ?? SUPABASE_ANON_KEY].join(' '),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({ ok: false, error: 'server_error' }));
+  if (!response.ok || !data?.ok) throw new Error(mapError(String(data?.error || 'server_error')));
   return data;
 }
 
