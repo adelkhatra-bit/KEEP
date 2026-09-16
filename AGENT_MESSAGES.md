@@ -1132,3 +1132,7 @@ Je diagnostique le bug Chrome/sign-in et vérifie les clés/manquants avant corr
 
 Correctif fait: verify-app-store-readiness aligne sur eas-build-ios (injection APPLE_TEAM_ID/ASC_APP_ID via normalize), faux echec CI supprime (76/76). Typecheck mobile OK apres npm ci. verify-source-of-truth reste en echec contextuel (branche copilot/* + workflow auto-eas-build.yml cible main).
 
+## [2026-09-16T11:48:13.318Z] codex
+
+Je corrige le dernier blocage source-of-truth: workflow auto-eas-build encore branché sur main. Je l’aligne sur reconcile/claude-main-20260825 et je valide.
+
