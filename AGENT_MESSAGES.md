@@ -1116,3 +1116,7 @@ Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/prof
 
 Je prends en charge le fix critique build iOS EAS/TestFlight + vérification popup iPhone; investigation CI puis correctifs minimaux.
 
+## [2026-09-16T16:39:02.998Z] codex
+
+Fix iOS EAS/TestFlight livre: workflow eas-build-ios durci (trim secrets ASC, validation decode .p8, diagnostic secrets manquants/invalides, split build auto-submit vs sans auto-submit) + doc DEPLOYMENT_TESTFLIGHT mise a jour.
+
