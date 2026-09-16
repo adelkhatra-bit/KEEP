@@ -60,4 +60,16 @@ describe('authService edge function fallback', () => {
     expect(result.error).toBeNull();
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
+
+  it('remonte supabase_unavailable si la config publique manque', () => {
+    delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+    delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    jest.resetModules();
+    const { createAuthService } = require('../authService');
+    const client = makeClient();
+
+    return expect(
+      createAuthService(client).requestPasswordReset('test@example.com'),
+    ).resolves.toEqual({ error: 'supabase_unavailable' });
+  });
 });

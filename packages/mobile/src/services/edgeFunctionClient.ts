@@ -46,8 +46,13 @@ export async function invokeEdgeFunction<T = any>(
 
   const retries = Math.max(0, options.retries ?? 1);
   const timeoutMs = Math.max(1000, options.timeoutMs ?? 12000);
-  const { data: sessionData } = await client.auth.getSession();
-  const accessToken = sessionData.session?.access_token ?? null;
+  let accessToken: string | null = null;
+  try {
+    const { data: sessionData } = await client.auth.getSession();
+    accessToken = sessionData.session?.access_token ?? null;
+  } catch (error: any) {
+    console.warn(`[edgeFunctionClient] ${name} getSession failed`, { message: error?.message ?? String(error) });
+  }
   if (options.requiresAuth && !accessToken) {
     return { ok: false, status: 401, data: { ok: false, error: 'unauthorized' } as T };
   }
