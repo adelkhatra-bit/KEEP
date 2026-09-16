@@ -1136,3 +1136,7 @@ Correctif fait: verify-app-store-readiness aligne sur eas-build-ios (injection A
 
 Je corrige le dernier blocage source-of-truth: workflow auto-eas-build encore branché sur main. Je l’aligne sur reconcile/claude-main-20260825 et je valide.
 
+## [2026-09-16T11:50:59.047Z] codex
+
+Solution intégrée: .github/workflows/auto-eas-build.yml ne cible plus main, maintenant reconcile/claude-main-20260825. verify-app-store-readiness 76/76 PASS, typecheck mobile PASS après npm ci, secret scan OK, CodeQL actions 0 alerte.
+
