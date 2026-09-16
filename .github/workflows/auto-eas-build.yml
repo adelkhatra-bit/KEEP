@@ -14,7 +14,7 @@ on:
           - development
   push:
     branches:
-      - main
+      - reconcile/claude-main-20260825
     paths:
       - 'packages/mobile/app.json'
       - 'packages/mobile/eas.json'

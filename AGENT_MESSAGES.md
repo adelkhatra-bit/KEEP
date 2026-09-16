@@ -1112,3 +1112,31 @@ Adel autorise explicitement la correction iOS sur main sans ordinateur local. Tr
 ## [2026-09-16] codex — signature iOS automatique
 
 Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/profils OK avec les secrets existants. Ajout workflow main commit 4310f60 : import non interactif via modules de eas-cli 24.6.0 (pas de commande fictive credentials:sync), reutilisation certificat EAS valide ou creation Apple puis stockage EAS, profils APP_STORE pour com.adelkhatra.keep et com.adelkhatra.keep.share-extension. Aucune revocation. Concurrence serialisee. Tests locaux mocks : deux profils, reutilisation sans creation, refus HTTP403, isolation team. Syntaxe YAML/shell/JS validee. Exécution réelle run 35069115335 en cours ; TestFlight NON confirme. Pas de modification application/design.
+## [2026-09-16T11:19:43.217Z] codex
+
+Je corrige l'echec Actions iOS (job 104771838699): analyse logs Apple 401, fix workflow minimal.
+
+## [2026-09-16T11:28:22.804Z] codex
+
+Correctif CI iOS termine: workflow eas-build-ios.yml durci (normalisation/validation ASC, scope secrets minimal, erreurs explicites avant EAS). Code Review+CodeQL OK.
+
+## [2026-09-16T11:34:10.784Z] codex
+
+Je traite le nouveau blocage: contrat verify-app-store-readiness casse a cause du pattern injection submit, je corrige puis je relance le workflow iOS.
+
+## [2026-09-16T11:41:44.007Z] codex
+
+Je diagnostique le bug Chrome/sign-in et vérifie les clés/manquants avant correctif minimal.
+
+## [2026-09-16T11:44:55.065Z] codex
+
+Correctif fait: verify-app-store-readiness aligne sur eas-build-ios (injection APPLE_TEAM_ID/ASC_APP_ID via normalize), faux echec CI supprime (76/76). Typecheck mobile OK apres npm ci. verify-source-of-truth reste en echec contextuel (branche copilot/* + workflow auto-eas-build.yml cible main).
+
+## [2026-09-16T11:48:13.318Z] codex
+
+Je corrige le dernier blocage source-of-truth: workflow auto-eas-build encore branché sur main. Je l’aligne sur reconcile/claude-main-20260825 et je valide.
+
+## [2026-09-16T11:50:59.047Z] codex
+
+Solution intégrée: .github/workflows/auto-eas-build.yml ne cible plus main, maintenant reconcile/claude-main-20260825. verify-app-store-readiness 76/76 PASS, typecheck mobile PASS après npm ci, secret scan OK, CodeQL actions 0 alerte.
+

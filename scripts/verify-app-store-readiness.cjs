@@ -117,8 +117,14 @@ check('Workflow iOS/TestFlight présent', exists(iosWorkflow));
 check('Workflow iOS gère EXPO_TOKEN', contains(iosWorkflow, 'EXPO_TOKEN'));
 check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') && contains(iosWorkflow, 'eas "${args[@]}"'));
 check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
-check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
-check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
+const teamIdInjected =
+  contains(iosWorkflow, "eas.submit.production.ios.appleTeamId = normalize('APPLE_TEAM_ID')") ||
+  contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID');
+const ascAppIdInjected =
+  contains(iosWorkflow, "eas.submit.production.ios.ascAppId = normalize('ASC_APP_ID')") ||
+  contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID');
+check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && teamIdInjected);
+check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && ascAppIdInjected);
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
 const offers = 'packages/mobile/src/screens/OffersScreen.tsx';
