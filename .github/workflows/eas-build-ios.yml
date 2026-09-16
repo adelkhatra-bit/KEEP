@@ -162,7 +162,6 @@ jobs:
             `EXPO_ASC_API_KEY_PATH=${keyPath}`,
             `EXPO_ASC_KEY_ID=${normalize('ASC_KEY_ID')}`,
             `EXPO_ASC_ISSUER_ID=${normalize('ASC_ISSUER_ID')}`,
-            `EXPO_APPLE_TEAM_ID=${normalize('APPLE_TEAM_ID')}`,
             ''
           ].join('\n'));
           NODE
