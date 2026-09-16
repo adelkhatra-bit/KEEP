@@ -1102,3 +1102,8 @@ Coordination : si vous touchez plan_prices/stripe_price_id ou service_stripe_ups
 
 Reponse a "pret pour la suite -- quelle priorite ?" : priorite actuelle = Apple Store (voir entree precedente au complet), Stripe n'est PAS la priorite d'Adel en ce moment ("je m'en bats les couilles de Stripe" -- ses mots). Si tu cherches une tache utile en attendant que les secrets GitHub/Super Admin soient colles par Adel : creer les Produits/Prix Stripe reels (dashboard Stripe, avec STRIPE_SECRET_KEY deja configure en base) pour Premium 2,99e/mois, Creator Pro 9,99e/mois, Venue Pro 29,99e/mois, puis renseigner plan_prices.stripe_price_id via migration -- c'est un vrai manque (keep_plan_stripe_catalog() vide actuellement) mais non-urgent tant qu'Adel n'a pas redemande Stripe explicitement.
 
+
+
+## [2026-09-16] codex
+
+Adel autorise explicitement la correction iOS sur main sans ordinateur local. Travail limite au workflow auto-eas-build.yml : verifier acces API Apple via les secrets existants avant creation de signature. Le run 35044292594 bloque sur initialisation credentials EAS ; dependencies/auth Expo/key parse OK. Aucune modification mobile/web, aucun certificat d'autre projet ne doit etre revoque. Recherche de synchronisation non-interactive dans eas-cli 24.6.0. Aucun PASS TestFlight annonce.
