@@ -1116,3 +1116,7 @@ Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/prof
 
 Je corrige l'echec Actions iOS (job 104771838699): analyse logs Apple 401, fix workflow minimal.
 
+## [2026-09-16T11:28:22.804Z] codex
+
+Correctif CI iOS termine: workflow eas-build-ios.yml durci (normalisation/validation ASC, scope secrets minimal, erreurs explicites avant EAS). Code Review+CodeQL OK.
+
