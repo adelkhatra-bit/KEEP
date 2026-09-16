@@ -62,7 +62,7 @@ export async function invokeEdgeFunction<T = any>(
         method: 'POST',
         headers: {
           apikey: SUPABASE_ANON_KEY,
-          Authorization: `****** || SUPABASE_ANON_KEY}`,
+          Authorization: 'Bearer ' + (accessToken || SUPABASE_ANON_KEY),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),

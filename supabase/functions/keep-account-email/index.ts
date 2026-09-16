@@ -229,7 +229,7 @@ async function requestCode(user: any, body: any) {
   const sent = await sendVerificationCode(email, code, String(profile?.username ?? ""));
   if (!sent.ok) {
     await admin.from("account_email_verifications").delete().eq("profile_id", user.id);
-    return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 500);
+    return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 503);
   }
   return json({ ok: true, email_hint: maskEmail(email), expires_in_seconds: 600 });
 }
