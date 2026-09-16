@@ -69,9 +69,15 @@ jobs:
           build_ready=false
           submit_ready=false
           has_p8=false
+          missing_submit=''
 
           if [ -n "${EXPO_TOKEN:-}" ]; then build_ready=true; fi
           if [ -n "${ASC_API_KEY_P8_BASE64:-}" ]; then has_p8=true; fi
+          [ -n "${ASC_API_KEY_P8_BASE64:-}" ] || missing_submit="${missing_submit} ASC_API_KEY_P8_BASE64"
+          [ -n "${ASC_KEY_ID:-}" ] || missing_submit="${missing_submit} ASC_KEY_ID"
+          [ -n "${ASC_ISSUER_ID:-}" ] || missing_submit="${missing_submit} ASC_ISSUER_ID"
+          [ -n "${APPLE_TEAM_ID:-}" ] || missing_submit="${missing_submit} APPLE_TEAM_ID"
+          [ -n "${ASC_APP_ID:-}" ] || missing_submit="${missing_submit} ASC_APP_ID"
           if [ "$profile" = "production" ] && [ "$requested_auto_submit" != "false" ] \
              && [ -n "${EXPO_TOKEN:-}" ] \
              && [ -n "${ASC_API_KEY_P8_BASE64:-}" ] \
@@ -82,17 +88,23 @@ jobs:
             submit_ready=true
           fi
 
+          missing_submit="$(echo "$missing_submit" | xargs)"
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
           echo "requested_auto_submit=$requested_auto_submit" >> "$GITHUB_OUTPUT"
           echo "build_ready=$build_ready" >> "$GITHUB_OUTPUT"
           echo "submit_ready=$submit_ready" >> "$GITHUB_OUTPUT"
           echo "has_p8=$has_p8" >> "$GITHUB_OUTPUT"
+          echo "missing_submit_secrets=$missing_submit" >> "$GITHUB_OUTPUT"
 
           if [ "$build_ready" != "true" ]; then
             echo "::warning::EXPO_TOKEN absent : build EAS non lancé. Le préflight code reste valide et le workflow s'activera automatiquement dès que le secret sera ajouté."
           fi
           if [ "$requested_auto_submit" != "false" ] && [ "$submit_ready" != "true" ]; then
-            echo "::warning::Auto-soumission TestFlight non armée : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID ou ASC_APP_ID."
+            if [ -n "$missing_submit" ]; then
+              echo "::warning::Auto-soumission TestFlight non armée : secrets manquants -> $missing_submit"
+            else
+              echo "::warning::Auto-soumission TestFlight non armée : secrets présents mais invalides/illisibles (vérifier ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID)."
+            fi
           fi
 
       - name: Setup EAS CLI
@@ -107,22 +119,39 @@ jobs:
         working-directory: .
         run: npm ci
 
-      - name: Écrire la clé API App Store Connect
+      - name: Préparer les credentials App Store Connect (trim + validation)
+        id: asc_env
         if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
         env:
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
+          asc_key_id="$(echo "${ASC_KEY_ID:-}" | tr -d '\r\n' | xargs)"
+          asc_issuer_id="$(echo "${ASC_ISSUER_ID:-}" | tr -d '\r\n' | xargs)"
+          apple_team_id="$(echo "${APPLE_TEAM_ID:-}" | tr -d '\r\n' | xargs)"
+          asc_app_id="$(echo "${ASC_APP_ID:-}" | tr -d '\r\n' | xargs)"
+          if [ -z "$asc_key_id" ] || [ -z "$asc_issuer_id" ] || [ -z "$apple_team_id" ] || [ -z "$asc_app_id" ]; then
+            echo "::error::Secrets ASC présents mais invalides après trim (valeur vide)."
+            exit 1
+          fi
+          printf '%s' "${ASC_API_KEY_P8_BASE64:-}" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
           chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
           echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
+          echo "EXPO_ASC_KEY_ID=$asc_key_id" >> "$GITHUB_ENV"
+          echo "EXPO_ASC_ISSUER_ID=$asc_issuer_id" >> "$GITHUB_ENV"
+          echo "EXPO_APPLE_TEAM_ID=$apple_team_id" >> "$GITHUB_ENV"
+          echo "KEEP_ASC_APP_ID=$asc_app_id" >> "$GITHUB_ENV"
+          echo "APPLE_TEAM_ID=$apple_team_id" >> "$GITHUB_ENV"
+          echo "ASC_APP_ID=$asc_app_id" >> "$GITHUB_ENV"
+          echo "credentials_env_ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -131,18 +160,42 @@ jobs:
           eas.submit ||= {};
           eas.submit.production ||= {};
           eas.submit.production.ios ||= {};
-          eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID;
-          eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID;
+          eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID || process.env.EXPO_APPLE_TEAM_ID;
+          eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID || process.env.KEEP_ASC_APP_ID;
           fs.writeFileSync(file, JSON.stringify(eas, null, 2) + '\n');
           console.log('EAS submit config injected in runner only.');
           NODE
 
+      - name: Vérifier le jeton App Store Connect avant build
+        if: steps.gate.outputs.submit_ready == 'true'
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          (async () => {
+            const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+            const now = Math.floor(Date.now() / 1000);
+            const encode = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+            const body = `${encode({ alg: 'ES256', kid: process.env.EXPO_ASC_KEY_ID, typ: 'JWT' })}.${encode({ iss: process.env.EXPO_ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' })}`;
+            const signature = crypto.sign('sha256', Buffer.from(body), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+            const token = `${body}.${signature}`;
+            const appId = process.env.KEEP_ASC_APP_ID;
+            const res = await fetch(`https://api.appstoreconnect.apple.com/v1/apps/${appId}`, {
+              headers: { Authorization: 'Bearer ' + token },
+              signal: AbortSignal.timeout(30000),
+            });
+            if (!res.ok) {
+              throw new Error(`Apple API ${res.status} pour apps/${appId} (ASC clé/issuer/team invalides ou expirés).`);
+            }
+            console.log('Apple API token validé (apps endpoint).');
+          })().catch((error) => {
+            console.error(error.message);
+            process.exit(1);
+          });
+          NODE
+
       - name: Build iOS EAS
         if: steps.gate.outputs.build_ready == 'true'
-        env:
-          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -170,7 +223,7 @@ jobs:
               echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
             fi
             if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
-              echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+             echo '- Secrets manquants pour TestFlight auto : `${{ steps.gate.outputs.missing_submit_secrets || 'aucun (vérifier validité des secrets ASC existants)' }}`.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
