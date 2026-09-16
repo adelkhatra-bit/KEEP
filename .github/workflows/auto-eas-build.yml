@@ -153,7 +153,7 @@ jobs:
             const app = await get('apps/6812393589','App access');
             if(app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') throw new Error('Apple app bundle mismatch');
             const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=2','Bundle access');
-            if(bundles.data?.length !== 1) throw new Error('Expected exactly one KEEP bundle identifier');
+            if(bundles.data?.length !== 1) { console.log('Bundle identifiers found (' + (bundles.data?.length ?? 0) + '): ' + JSON.stringify((bundles.data || []).map(b => ({id: b.id, identifier: b.attributes?.identifier})))); throw new Error('Expected exactly one KEEP bundle identifier (found ' + (bundles.data?.length ?? 0) + ')'); }
             await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1','Distribution certificate access');
             await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1','Provisioning profile access');
             console.log('Read-only Apple API preflight passed; no signing resources created.');
