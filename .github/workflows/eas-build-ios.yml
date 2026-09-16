@@ -137,7 +137,89 @@ jobs:
           console.log('EAS submit config injected in runner only.');
           NODE
 
+      - name: Vérifier l'accès App Store Connect (lecture seule)
+        id: apple_api
+        if: steps.gate.outputs.submit_ready == 'true'
+        env:
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const https = require('node:https');
+
+          (async () => {
+            const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+            const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+            const now = Math.floor(Date.now() / 1000);
+            const payload = `${encode({ alg: 'ES256', kid: process.env.EXPO_ASC_KEY_ID, typ: 'JWT' })}.${encode({
+              iss: process.env.EXPO_ASC_ISSUER_ID,
+              iat: now - 30,
+              exp: now + 300,
+              aud: 'appstoreconnect-v1',
+            })}`;
+            const token = `${payload}.${crypto.sign('sha256', Buffer.from(payload), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
+            const status = await new Promise((resolve, reject) => {
+              const req = https.request(
+                `https://api.appstoreconnect.apple.com/v1/apps/${process.env.ASC_APP_ID}`,
+                { method: 'GET', headers: { Authorization: 'Bearer ' + token } },
+                (response) => {
+                  response.resume();
+                  resolve(response.statusCode || 0);
+                }
+              );
+              req.setTimeout(30000, () => req.destroy(new Error('TRANSIENT:timeout')));
+              req.on('error', reject);
+              req.end();
+            });
+            if (status !== 200) {
+              if ([401, 403].includes(status)) {
+                throw new Error(`AUTH:${status}`);
+              }
+              if (status === 404) {
+                throw new Error('CONFIG:404');
+              }
+              throw new Error(`TRANSIENT:${status}`);
+            }
+            console.log('Apple API access check passed.');
+          })().catch((error) => {
+            const message = String(error?.message || '');
+            if (message.startsWith('AUTH:')) {
+              console.error('Apple auth error ' + message.slice(5));
+              process.exit(42);
+            }
+            if (message === 'CONFIG:404') {
+              console.error('ASC_APP_ID cible une app introuvable (HTTP 404).');
+              process.exit(2);
+            }
+            console.error('Apple transient error ' + (message.startsWith('TRANSIENT:') ? message.slice(10) : message));
+            process.exit(1);
+          });
+          NODE
+          then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "reason=ok" >> "$GITHUB_OUTPUT"
+          else
+            code="$?"
+            if [ "$code" = "42" ]; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              echo "reason=auth_invalid" >> "$GITHUB_OUTPUT"
+              echo "::warning::API App Store Connect inaccessible avec les secrets actuels ; auto-submit TestFlight désactivé pour éviter un échec non interactif."
+            elif [ "$code" = "2" ]; then
+              echo "reason=config_invalid" >> "$GITHUB_OUTPUT"
+              echo "::error::ASC_APP_ID ne correspond à aucune app App Store Connect (HTTP 404). Corriger la configuration avant relance."
+              exit "$code"
+            else
+              echo "reason=transient_error" >> "$GITHUB_OUTPUT"
+              echo "::error::Échec temporaire App Store Connect (hors auth). Relancer le workflow."
+              exit "$code"
+            fi
+          fi
+
       - name: Build iOS EAS
+        id: ios_build
         if: steps.gate.outputs.build_ready == 'true'
         env:
           EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -148,13 +230,31 @@ jobs:
           set -euo pipefail
           profile='${{ steps.gate.outputs.profile }}'
           args=(build --platform ios --profile "$profile" --non-interactive --no-wait)
-          if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
+          if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ] && [ '${{ steps.apple_api.outputs.reason }}' != 'auth_invalid' ]; then
             args+=(--auto-submit-with-profile production)
             echo 'Build + auto-submit TestFlight armé.'
           else
-            echo 'Build EAS armé sans auto-submit TestFlight.'
+            echo 'Build EAS armé sans auto-submit TestFlight (ou auto-submit désactivé).'
           fi
-          eas "${args[@]}"
+          set +e
+          build_output="$(eas "${args[@]}" 2>&1)"
+          build_code="$?"
+          set -e
+          printf '%s\n' "$build_output"
+          if [ "$build_code" -ne 0 ]; then
+            normalized_output="$(printf '%s\n' "$build_output" | tr '[:upper:]' '[:lower:]')"
+            if grep -q 'failed to set up credentials' <<<"$normalized_output" \
+              && grep -q 'credentials are not set up' <<<"$normalized_output" \
+              && grep -q 'distribution certificate is not validated for non-interactive builds' <<<"$normalized_output"; then
+              echo "credential_gap=true" >> "$GITHUB_OUTPUT"
+              echo "effective_result=skipped_credentials" >> "$GITHUB_OUTPUT"
+              echo "::warning::Credentials iOS distants incomplets sur EAS (mode non interactif). Build ignoré jusqu'à configuration."
+              exit 0
+            fi
+            exit "$build_code"
+          fi
+          echo "credential_gap=false" >> "$GITHUB_OUTPUT"
+          echo "effective_result=success" >> "$GITHUB_OUTPUT"
 
       - name: Résumé pipeline Apple
         if: always()
@@ -164,13 +264,28 @@ jobs:
             echo '### KEEP — pipeline iOS'
             echo
             echo "- Profil : ${{ steps.gate.outputs.profile || 'production' }}"
-            echo "- Build EAS armé : ${{ steps.gate.outputs.build_ready || 'false' }}"
+            echo "- Build iOS autorisé : ${{ steps.gate.outputs.build_ready || 'false' }}"
+            echo "- Résultat build iOS : ${{ steps.ios_build.outcome || 'skipped' }}"
+            if [ '${{ steps.ios_build.outputs.effective_result }}' = 'skipped_credentials' ]; then
+              echo "- Build iOS effectif : ignoré (credentials iOS distants incomplets)"
+            fi
             echo "- Auto-submit TestFlight armé : ${{ steps.gate.outputs.submit_ready || 'false' }}"
+            if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
+              apple_state='${{ steps.apple_api.outputs.reason }}'
+              if [ -z "$apple_state" ]; then apple_state='non_evalue'; fi
+              echo "- État API App Store Connect : $apple_state"
+            fi
             if [ '${{ steps.gate.outputs.build_ready }}' != 'true' ]; then
               echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
             fi
             if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
               echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+            elif [ '${{ steps.apple_api.outputs.reason }}' = 'auth_invalid' ]; then
+              echo '- Auto-submit désactivé : credentials App Store Connect invalides/expirés/insuffisants (HTTP 401/403). Le build iOS continue sans soumission.'
+            elif [ '${{ steps.apple_api.outputs.reason }}' = 'config_invalid' ]; then
+              echo '- Erreur bloquante : ASC_APP_ID invalide (HTTP 404).'
+            elif [ '${{ steps.apple_api.outputs.reason }}' = 'transient_error' ]; then
+              echo '- Erreur bloquante : incident temporaire App Store Connect.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
