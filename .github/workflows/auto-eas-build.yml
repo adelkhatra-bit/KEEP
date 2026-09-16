@@ -120,6 +120,42 @@ jobs:
           console.log('Apple credentials configured without printing private key.');
           NODE
 
+      - name: Verify Apple signing API access (read-only)
+        if: ${{ (inputs.profile || 'production') == 'production' }}
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          (async () => {
+            const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+            const enc = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
+            const now = Math.floor(Date.now() / 1000);
+            const body = enc({alg:'ES256',kid:process.env.EXPO_ASC_KEY_ID,typ:'JWT'}) + '.' +
+              enc({iss:process.env.EXPO_ASC_ISSUER_ID,iat:now-30,exp:now+300,aud:'appstoreconnect-v1'});
+            const token = body + '.' + crypto.sign('sha256',Buffer.from(body),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+            async function get(route, label) {
+              const response = await fetch('https://api.appstoreconnect.apple.com/v1/' + route, {
+                headers: {Authorization:'Bearer '+token}, signal:AbortSignal.timeout(30000)
+              });
+              if (!response.ok) {
+                // Never print response bodies or JWTs: a status is sufficient to identify an access blocker.
+                throw new Error(label + ': Apple HTTP ' + response.status +
+                  (response.status===401 ? ' (key / issuer / private key rejected)' :
+                   response.status===403 ? ' (insufficient Apple permission)' : ''));
+              }
+              console.log(label + ': Apple HTTP 200');
+              return response.json();
+            }
+            const app = await get('apps/6812393589','App access');
+            if(app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') throw new Error('Apple app bundle mismatch');
+            const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=2','Bundle access');
+            if(bundles.data?.length !== 1) throw new Error('Expected exactly one KEEP bundle identifier');
+            await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1','Distribution certificate access');
+            await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1','Provisioning profile access');
+            console.log('Read-only Apple API preflight passed; no signing resources created.');
+          })().catch(error => { console.error(error.message); process.exitCode=1; });
+          NODE
+
       - name: 🏗️ Build iOS (${{ inputs.profile || 'production' }})
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
