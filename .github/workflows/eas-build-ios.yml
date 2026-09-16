@@ -163,24 +163,26 @@ jobs:
             `EXPO_ASC_KEY_ID=${normalize('ASC_KEY_ID')}`,
             `EXPO_ASC_ISSUER_ID=${normalize('ASC_ISSUER_ID')}`,
             `EXPO_APPLE_TEAM_ID=${normalize('APPLE_TEAM_ID')}`,
-            `ASC_APP_ID=${normalize('ASC_APP_ID')}`,
-            `APPLE_TEAM_ID=${normalize('APPLE_TEAM_ID')}`,
             ''
           ].join('\n'));
           NODE
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
+          const normalize = (name) => (process.env[name] || '').trim();
           const file = 'eas.json';
           const eas = JSON.parse(fs.readFileSync(file, 'utf8'));
           eas.submit ||= {};
           eas.submit.production ||= {};
           eas.submit.production.ios ||= {};
-          eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID;
-          eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID;
+          eas.submit.production.ios.appleTeamId = normalize('APPLE_TEAM_ID');
+          eas.submit.production.ios.ascAppId = normalize('ASC_APP_ID');
           fs.writeFileSync(file, JSON.stringify(eas, null, 2) + '\n');
           console.log('EAS submit config injected in runner only.');
           NODE
