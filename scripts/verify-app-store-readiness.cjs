@@ -119,6 +119,8 @@ check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') &&
 check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
 check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
 check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
+check('Workflow iOS pré-vérifie l’accès Apple en lecture seule', contains(iosWorkflow, 'Préflight Apple en lecture seule OK.'));
+check('Workflow iOS amorce aussi la share extension', contains(iosWorkflow, 'com.adelkhatra.keep.share-extension') && contains(iosWorkflow, 'assignBuildCredentialsAsync'));
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
 const offers = 'packages/mobile/src/screens/OffersScreen.tsx';

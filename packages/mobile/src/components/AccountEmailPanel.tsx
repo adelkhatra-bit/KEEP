@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
@@ -68,7 +68,15 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
   }
 
   const verified = Boolean(status?.emailVerified && status?.email);
-  return <View style={s.card}>
+  return <ScrollView
+    style={s.scroll}
+    contentContainerStyle={s.scrollContent}
+    keyboardShouldPersistTaps="handled"
+    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+    automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+    nestedScrollEnabled
+    showsVerticalScrollIndicator={false}
+  ><View style={s.card}>
     <View style={s.headerRow}>
       <View style={{ flex: 1 }}>
         <Text style={s.title}>Sécurité du compte</Text>
@@ -80,7 +88,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
     {verified ? <View style={s.verifiedBox}>
       <Text style={s.verifiedTitle}>✓ Adresse e-mail validée</Text>
       <Text style={s.verifiedEmail}>{status?.email}</Text>
-      <Text style={s.help}>Connexion possible avec ${username} ou cette adresse e-mail, avec le même mot de passe.</Text>
+      <Text style={s.help}>Connexion possible avec {username} ou cette adresse e-mail, avec le même mot de passe.</Text>
     </View> : null}
 
     <Text style={s.label}>{verified ? 'Changer l’adresse e-mail' : 'Adresse e-mail de récupération'}</Text>
@@ -114,10 +122,12 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
         <Text style={s.secondaryText}>Valider le code</Text>
       </TouchableOpacity>
     </View> : null}
-  </View>;
+  </View></ScrollView>;
 }
 
 const s = StyleSheet.create({
+  scroll: { maxHeight: 420 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingBottom: 6 },
   card: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 15, marginBottom: 14 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   title: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 6 },

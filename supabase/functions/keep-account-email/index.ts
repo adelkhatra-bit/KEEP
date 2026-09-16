@@ -100,28 +100,106 @@ function verificationEmailHtml(code: string, username: string) {
 </html>`;
 }
 
-async function sendBrevoCode(to: string, code: string, username: string) {
+function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+type EmailSendResult =
+  | { ok: true; provider: "brevo" | "mailjet"; messageId?: string }
+  | { ok: false; configured: boolean; detail?: string };
+
+async function sendBrevoCode(to: string, code: string, username: string): Promise<EmailSendResult> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
-  if (!apiKey || !senderEmail) return { ok: false as const, error: "email_provider_unconfigured" };
+  if (!apiKey || !senderEmail) return { ok: false, configured: false };
 
   const subject = "Ton code de vérification Loki";
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
-    body: JSON.stringify({
-      sender: { email: senderEmail, name: senderName },
-      to: [{ email: to }],
-      subject,
-      htmlContent: verificationEmailHtml(code, username),
-      textContent: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
-      tags: ["keep", "account", "email-verification"],
-    }),
+  const body = JSON.stringify({
+    sender: { email: senderEmail, name: senderName },
+    to: [{ email: to }],
+    subject,
+    htmlContent: verificationEmailHtml(code, username),
+    textContent: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
+    tags: ["keep", "account", "email-verification"],
   });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) return { ok: false as const, error: "email_send_failed", detail: String(payload?.message || response.status) };
-  return { ok: true as const, messageId: String(payload?.messageId || "") };
+  let lastStatus = 0;
+  let lastPayload: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await wait(300 * attempt);
+    let response: Response;
+    try {
+      response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
+        body,
+      });
+    } catch (networkError) {
+      lastStatus = 0;
+      lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
+      continue;
+    }
+    if (response.ok) {
+      const payload = await response.json().catch(() => null);
+      return { ok: true, provider: "brevo", messageId: String(payload?.messageId || "") };
+    }
+    lastStatus = response.status;
+    lastPayload = await response.json().catch(() => null);
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  console.error("[keep-account-email] Brevo send failed", lastStatus, lastPayload);
+  return { ok: false, configured: true, detail: String(lastPayload?.message || lastStatus) };
+}
+
+async function sendMailjetCode(to: string, code: string, username: string): Promise<EmailSendResult> {
+  const apiKey = await integrationSecret("MAILJET_API_KEY");
+  const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
+  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  if (!apiKey || !secretKey || !senderEmail) return { ok: false, configured: false };
+
+  const subject = "Ton code de vérification Loki";
+  const body = JSON.stringify({
+    Messages: [{
+      From: { Email: senderEmail, Name: senderName },
+      To: [{ Email: to }],
+      Subject: subject,
+      HTMLPart: verificationEmailHtml(code, username),
+      TextPart: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
+    }],
+  });
+  let lastStatus = 0;
+  let lastPayload: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await wait(300 * attempt);
+    let response: Response;
+    try {
+      response = await fetch("https://api.mailjet.com/v3.1/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Basic ${btoa(`${apiKey}:${secretKey}`)}` },
+        body,
+      });
+    } catch (networkError) {
+      lastStatus = 0;
+      lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
+      continue;
+    }
+    if (response.ok) return { ok: true, provider: "mailjet" };
+    lastStatus = response.status;
+    lastPayload = await response.json().catch(() => null);
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  console.error("[keep-account-email] Mailjet send failed", lastStatus, lastPayload);
+  return { ok: false, configured: true, detail: String(lastPayload?.ErrorMessage || lastPayload?.message || lastStatus) };
+}
+
+async function sendVerificationCode(to: string, code: string, username: string) {
+  const results = [
+    await sendBrevoCode(to, code, username),
+    await sendMailjetCode(to, code, username),
+  ];
+  for (const result of results) if (result.ok) return result;
+  const attempted = results.filter((result) => result.configured);
+  if (!attempted.length) return { ok: false as const, error: "email_provider_unconfigured" };
+  return { ok: false as const, error: "email_send_failed", detail: attempted.map((result) => result.detail).filter(Boolean).join(" | ") || null };
 }
 
 async function requestCode(user: any, body: any) {
@@ -143,7 +221,7 @@ async function requestCode(user: any, body: any) {
   const { error: saveError } = await admin.from("account_email_verifications").upsert({ profile_id: user.id, email, code_hash: codeHash, attempts: 0, requested_at: now.toISOString(), expires_at: expires.toISOString(), verified_at: null }, { onConflict: "profile_id" });
   if (saveError) return json({ ok: false, error: "server_error" }, 500);
 
-  const sent = await sendBrevoCode(email, code, String(profile?.username ?? ""));
+  const sent = await sendVerificationCode(email, code, String(profile?.username ?? ""));
   if (!sent.ok) {
     await admin.from("account_email_verifications").delete().eq("profile_id", user.id);
     return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 503);
