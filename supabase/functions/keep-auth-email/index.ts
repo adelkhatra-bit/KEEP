@@ -183,15 +183,21 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
   return { ok: false, error: "email_delivery_unavailable", detail: String(lastPayload?.ErrorMessage || lastStatus) };
 }
 
-// Point d'entree unique : Mailjet en priorite s'il est configure (c'est ce
-// qu'Adel a demande de tester en ce moment), Brevo en repli automatique
-// sinon -- aucun code appelant n'a besoin de savoir lequel des deux est
-// actif.
+// Point d'entree unique : Brevo reste le chemin nominal, mais si Brevo est
+// indisponible/mal configure et que Mailjet est arme, on bascule
+// automatiquement sans rien demander au client. Inversement, si Mailjet est
+// configure mais renvoie un echec, on retente Brevo avant d'abandonner.
 async function sendTransactionalEmail(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
-  const mjKey = await integrationSecret("MAILJET_API_KEY");
-  const mjSecret = await integrationSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) return sendMailjet(to, subject, html, text);
-  return sendBrevo(to, subject, html, text, tag);
+  const failures: string[] = [];
+  const brevo = await sendBrevo(to, subject, html, text, tag);
+  if (brevo.ok) return brevo;
+  if (brevo.detail) failures.push(`Brevo: ${brevo.detail}`);
+
+  const mailjet = await sendMailjet(to, subject, html, text);
+  if (mailjet.ok) return mailjet;
+  if (mailjet.detail) failures.push(`Mailjet: ${mailjet.detail}`);
+
+  return { ok: false, error: "email_delivery_unavailable", detail: failures.join(" | ") || undefined };
 }
 
 async function handleSignup(body: any) {

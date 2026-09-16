@@ -67,17 +67,19 @@ jobs:
           profile="${INPUT_PROFILE:-production}"
           requested_auto_submit="${INPUT_AUTO_SUBMIT:-true}"
           build_ready=false
+          signing_ready=false
           submit_ready=false
-          has_p8=false
 
           if [ -n "${EXPO_TOKEN:-}" ]; then build_ready=true; fi
-          if [ -n "${ASC_API_KEY_P8_BASE64:-}" ]; then has_p8=true; fi
-          if [ "$profile" = "production" ] && [ "$requested_auto_submit" != "false" ] \
-             && [ -n "${EXPO_TOKEN:-}" ] \
+          if [ -n "${EXPO_TOKEN:-}" ] \
              && [ -n "${ASC_API_KEY_P8_BASE64:-}" ] \
              && [ -n "${ASC_KEY_ID:-}" ] \
              && [ -n "${ASC_ISSUER_ID:-}" ] \
-             && [ -n "${APPLE_TEAM_ID:-}" ] \
+             && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            signing_ready=true
+          fi
+          if [ "$profile" = "production" ] && [ "$requested_auto_submit" != "false" ] \
+             && [ "$signing_ready" = "true" ] \
              && [ -n "${ASC_APP_ID:-}" ]; then
             submit_ready=true
           fi
@@ -85,14 +87,17 @@ jobs:
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
           echo "requested_auto_submit=$requested_auto_submit" >> "$GITHUB_OUTPUT"
           echo "build_ready=$build_ready" >> "$GITHUB_OUTPUT"
+          echo "signing_ready=$signing_ready" >> "$GITHUB_OUTPUT"
           echo "submit_ready=$submit_ready" >> "$GITHUB_OUTPUT"
-          echo "has_p8=$has_p8" >> "$GITHUB_OUTPUT"
 
           if [ "$build_ready" != "true" ]; then
             echo "::warning::EXPO_TOKEN absent : build EAS non lancé. Le préflight code reste valide et le workflow s'activera automatiquement dès que le secret sera ajouté."
           fi
+          if [ "$build_ready" = "true" ] && [ "$signing_ready" != "true" ]; then
+            echo "::warning::Bootstrap de signature iOS non armé : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID ou APPLE_TEAM_ID."
+          fi
           if [ "$requested_auto_submit" != "false" ] && [ "$submit_ready" != "true" ]; then
-            echo "::warning::Auto-soumission TestFlight non armée : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID ou ASC_APP_ID."
+            echo "::warning::Auto-soumission TestFlight non armée : il manque au moins le secret ASC_APP_ID (ou un secret de signature Apple)."
           fi
 
       - name: Setup EAS CLI
@@ -108,15 +113,39 @@ jobs:
         run: npm ci
 
       - name: Écrire la clé API App Store Connect
-        if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
+        if: steps.gate.outputs.signing_ready == 'true'
         env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
-        shell: bash
         run: |
-          set -euo pipefail
-          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
-          chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
-          echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const names = ['ASC_API_KEY_P8_BASE64', 'ASC_KEY_ID', 'ASC_ISSUER_ID', 'APPLE_TEAM_ID'];
+          const missing = names.filter((name) => !process.env[name]?.trim());
+          if (missing.length) throw new Error(`Secrets Apple manquants: ${missing.join(', ')}`);
+          const keyPath = path.join(process.env.RUNNER_TEMP, 'keep-asc-api-key.p8');
+          const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+          try {
+            const parsed = crypto.createPrivateKey(key);
+            if (parsed.asymmetricKeyType !== 'ec' || parsed.asymmetricKeyDetails?.namedCurve !== 'prime256v1') throw new Error();
+          } catch {
+            throw new Error('ASC_API_KEY_P8_BASE64 doit encoder une clé privée Apple P-256 valide.');
+          }
+          fs.writeFileSync(keyPath, key, { mode: 0o600 });
+          const value = (name) => process.env[name].trim();
+          fs.appendFileSync(process.env.GITHUB_ENV, [
+            `EXPO_ASC_API_KEY_PATH=${keyPath}`,
+            `EXPO_ASC_KEY_ID=${value('ASC_KEY_ID')}`,
+            `EXPO_ASC_ISSUER_ID=${value('ASC_ISSUER_ID')}`,
+            `EXPO_APPLE_TEAM_ID=${value('APPLE_TEAM_ID')}`,
+            '',
+          ].join('\n'));
+          console.log('Clé App Store Connect chargée dans le runner.');
+          NODE
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
@@ -137,12 +166,193 @@ jobs:
           console.log('EAS submit config injected in runner only.');
           NODE
 
+      - name: Vérifier l'accès API Apple en lecture seule
+        if: steps.gate.outputs.signing_ready == 'true'
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          (async () => {
+           const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+           const enc = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+           const now = Math.floor(Date.now() / 1000);
+           const body = `${enc({ alg: 'ES256', kid: process.env.EXPO_ASC_KEY_ID, typ: 'JWT' })}.${enc({ iss: process.env.EXPO_ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' })}`;
+           const token = `${body}.${crypto.sign('sha256', Buffer.from(body), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
+           async function get(route, label) {
+             const response = await fetch(`https://api.appstoreconnect.apple.com/v1/${route}`, {
+               headers: { Authorization: 'Bearer ' + token },
+               signal: AbortSignal.timeout(30000),
+             });
+             if (!response.ok) throw new Error(`${label}: Apple HTTP ${response.status}`);
+             console.log(`${label}: Apple HTTP 200`);
+             return response.json();
+           }
+           const app = await get('apps/6812393589', 'App access');
+           if (app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') throw new Error('Apple app bundle mismatch');
+           await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=2', 'Bundle access');
+           await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1', 'Distribution certificate access');
+           await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1', 'Provisioning profile access');
+           console.log('Préflight Apple en lecture seule OK.');
+          })().catch((error) => {
+           console.error(error.message);
+           process.exitCode = 1;
+          });
+          NODE
+
+      - name: Amorcer les credentials iOS EAS pour l'app et la share extension
+        if: steps.gate.outputs.signing_ready == 'true'
+        timeout-minutes: 10
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          export NODE_PATH="$(npm root -g)"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const { createGraphqlClient } = require('eas-cli/build/commandUtils/context/contextUtils/createGraphqlClient');
+          const { AppQuery } = require('eas-cli/build/graphql/queries/AppQuery');
+          const ios = require('eas-cli/build/credentials/ios/api/GraphqlClient');
+          const { assignBuildCredentialsAsync } = require('eas-cli/build/credentials/ios/actions/BuildCredentialsUtils');
+          const { parse } = require('eas-cli/build/credentials/ios/utils/provisioningProfile');
+          class SigningError extends Error {}
+          const check = (value, message) => { if (!value) throw new SigningError(message); };
+          let phase = 'initialisation';
+          let temporaryDirectory;
+          async function main() {
+           const teamId = process.env.EXPO_APPLE_TEAM_ID;
+           check(teamId === 'WTG9399DBK', 'Unexpected Apple team');
+           check(process.env.EXPO_TOKEN, 'Missing Expo token');
+           const config = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+           const projectId = config?.extra?.eas?.projectId;
+           check(projectId === 'f9598ced-2480-4fa6-8d6e-885dd4e489e8' && config?.ios?.bundleIdentifier === 'com.adelkhatra.keep', 'Unexpected Expo project');
+           const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+           async function apple(route, method = 'GET', data) {
+             const enc = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+             const now = Math.floor(Date.now() / 1000);
+             const body = `${enc({ alg: 'ES256', kid: process.env.EXPO_ASC_KEY_ID, typ: 'JWT' })}.${enc({ iss: process.env.EXPO_ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' })}`;
+             const token = `${body}.${crypto.sign('sha256', Buffer.from(body), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
+             const response = await fetch(`https://api.appstoreconnect.apple.com/v1/${route}`, {
+               method,
+               headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+               body: data ? JSON.stringify({ data }) : undefined,
+               signal: AbortSignal.timeout(30000),
+             });
+             if (!response.ok) {
+               const failure = await response.json().catch(() => ({}));
+               const codes = (failure.errors || []).map((entry) => String(entry.code || '').replace(/[^A-Z0-9_.-]/g, '')).join(',');
+               throw new SigningError(`Apple HTTP ${response.status}${codes ? ` ${codes}` : ''}`);
+             }
+             return response.json();
+           }
+           phase = 'verify Expo project';
+           const graphqlClient = createGraphqlClient({ accessToken: process.env.EXPO_TOKEN });
+           const project = await AppQuery.byIdAsync(graphqlClient, projectId);
+           check(project.ownerAccount.name === 'saleme01s-team', 'Unexpected Expo owner');
+           const base = { account: project.ownerAccount, projectName: config.slug };
+           const ctx = { graphqlClient, ios, nonInteractive: true };
+           const targets = ['com.adelkhatra.keep', 'com.adelkhatra.keep.share-extension'];
+           const bundles = [];
+           phase = 'verify Apple app';
+           const appleApp = await apple('apps/6812393589');
+           check(appleApp.data.attributes.bundleId === targets[0], 'Unexpected Apple app');
+           for (const bundleIdentifier of targets) {
+             phase = `resolve bundle ${bundleIdentifier}`;
+             const result = await apple(`bundleIds?filter[identifier]=${encodeURIComponent(bundleIdentifier)}&limit=2`);
+             check(result.data.length <= 1, 'Ambiguous bundle identifier');
+             let bundle = result.data[0];
+             if (!bundle) {
+               check(bundleIdentifier === targets[1], 'Main Apple bundle missing');
+               bundle = (await apple('bundleIds', 'POST', { type: 'bundleIds', attributes: { identifier: bundleIdentifier, name: 'Loki Share Extension', platform: 'IOS' } })).data;
+               console.log('Bundle share-extension enregistré côté Apple.');
+             }
+             bundles.push(bundle);
+           }
+           phase = 'resolve distribution certificate';
+           const portal = await apple('certificates?filter[certificateType]=DISTRIBUTION,IOS_DISTRIBUTION&limit=200');
+           check(!portal.links?.next, 'Certificate list pagination requires review');
+           const active = portal.data.filter((certificate) => new Date(certificate.attributes.expirationDate).getTime() > Date.now() + 7 * 86400000);
+           const normalize = (serial) => String(serial).replace(/^0+/, '').toUpperCase();
+           const existing = await ios.getDistributionCertificatesForAccountAsync(graphqlClient, base.account);
+           let cert = existing.find((certificate) => certificate.appleTeam?.appleTeamIdentifier === teamId && certificate.certificateP12 && active.some((appleCertificate) => normalize(appleCertificate.attributes.serialNumber) === normalize(certificate.serialNumber)));
+           let portalCert;
+           if (cert) {
+             portalCert = active.find((appleCertificate) => normalize(appleCertificate.attributes.serialNumber) === normalize(cert.serialNumber));
+             console.log('Certificat de distribution EAS valide réutilisé.');
+           } else {
+             phase = 'create distribution certificate';
+             temporaryDirectory = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP, 'keep-signing-'));
+             fs.chmodSync(temporaryDirectory, 0o700);
+             const keyFile = path.join(temporaryDirectory, 'signing.key');
+             const csrFile = path.join(temporaryDirectory, 'signing.csr');
+             const certFile = path.join(temporaryDirectory, 'signing.der');
+             const pemFile = path.join(temporaryDirectory, 'signing.pem');
+             const p12File = path.join(temporaryDirectory, 'signing.p12');
+             const password = crypto.randomBytes(32).toString('hex');
+             const run = (args) => execFileSync('openssl', args, { stdio: 'ignore', env: { ...process.env, KEEP_P12_PASSWORD: password } });
+             run(['req', '-new', '-newkey', 'rsa:2048', '-nodes', '-keyout', keyFile, '-out', csrFile, '-subj', '/CN=KEEP EAS Signing']);
+             portalCert = (await apple('certificates', 'POST', { type: 'certificates', attributes: { certificateType: 'DISTRIBUTION', csrContent: fs.readFileSync(csrFile, 'utf8') } })).data;
+             fs.writeFileSync(certFile, Buffer.from(portalCert.attributes.certificateContent, 'base64'), { mode: 0o600 });
+             const parsed = new crypto.X509Certificate(fs.readFileSync(certFile));
+             check(parsed.subject.split('\n').some((line) => line === `OU=${teamId}`), 'Certificate team mismatch');
+             run(['x509', '-inform', 'DER', '-in', certFile, '-out', pemFile]);
+             run(['pkcs12', '-export', '-inkey', keyFile, '-in', pemFile, '-out', p12File, '-passout', 'env:KEEP_P12_PASSWORD']);
+             phase = 'persist distribution certificate in EAS';
+             cert = await ios.createDistributionCertificateAsync(graphqlClient, base.account, {
+               certId: portalCert.id,
+               certP12: fs.readFileSync(p12File).toString('base64'),
+               certPassword: password,
+               teamId,
+             });
+             console.log('Nouveau certificat de distribution stocké dans EAS.');
+           }
+           phase = 'resolve EAS Apple team';
+           const appleTeam = await ios.createOrGetExistingAppleTeamAndUpdateNameIfChangedAsync(graphqlClient, base.account.id, { appleTeamIdentifier: teamId });
+           for (let i = 0; i < targets.length; i += 1) {
+             const bundleIdentifier = targets[i];
+             const app = { ...base, bundleIdentifier, ...(i ? { parentBundleIdentifier: targets[0] } : {}) };
+             phase = `resolve profile ${bundleIdentifier}`;
+             const current = await ios.getIosAppCredentialsWithBuildCredentialsAsync(graphqlClient, app, { iosDistributionType: 'APP_STORE' });
+             const prior = current?.iosAppBuildCredentialsList?.[0];
+             if (prior?.distributionCertificate?.id === cert.id && prior.provisioningProfile?.developerPortalIdentifier) {
+               const profile = await apple(`profiles/${prior.provisioningProfile.developerPortalIdentifier}`);
+               if (profile.data.attributes.profileState === 'ACTIVE' && new Date(profile.data.attributes.expirationDate).getTime() > Date.now() + 7 * 86400000) {
+                 console.log(`Provisioning profile actif conservé pour ${bundleIdentifier}.`);
+                 continue;
+               }
+             }
+             const profile = (await apple('profiles', 'POST', {
+               type: 'profiles',
+               attributes: { name: `KEEP EAS ${i ? 'Share' : 'App'} ${Date.now()}`, profileType: 'IOS_APP_STORE' },
+               relationships: {
+                 bundleId: { data: { type: 'bundleIds', id: bundles[i].id } },
+                 certificates: { data: [{ type: 'certificates', id: portalCert.id }] },
+               },
+             })).data;
+             const content = profile.attributes.profileContent;
+             const plist = parse(content);
+             check(plist.TeamIdentifier?.[0] === teamId && plist.Entitlements?.['application-identifier'] === `${teamId}.${bundleIdentifier}`, 'Profile team / bundle mismatch');
+             check(!plist.Entitlements?.['get-task-allow'] && !plist.ProvisionedDevices && !plist.ProvisionsAllDevices, 'Not an App Store profile');
+             phase = `persist profile ${bundleIdentifier}`;
+             const identifier = await ios.createOrGetExistingAppleAppIdentifierAsync(graphqlClient, app, appleTeam);
+             const stored = await ios.createProvisioningProfileAsync(graphqlClient, app, identifier, { appleProvisioningProfile: content });
+             await assignBuildCredentialsAsync(ctx, app, 'APP_STORE', cert, stored, appleTeam);
+             console.log(`Signature App Store configurée dans EAS pour ${bundleIdentifier}.`);
+           }
+           console.log('Bootstrap de signature EAS terminé.');
+          }
+          main().catch((error) => {
+           console.error(`Bootstrap signature interrompu pendant: ${phase}`);
+           console.error(error instanceof SigningError ? error.message : 'Opération EAS/Apple échouée; détails privés masqués.');
+           process.exitCode = 1;
+          }).finally(() => {
+           if (temporaryDirectory) fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+          });
+          NODE
+
       - name: Build iOS EAS
         if: steps.gate.outputs.build_ready == 'true'
-        env:
-          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -165,12 +375,16 @@ jobs:
             echo
             echo "- Profil : ${{ steps.gate.outputs.profile || 'production' }}"
             echo "- Build EAS armé : ${{ steps.gate.outputs.build_ready || 'false' }}"
+            echo "- Bootstrap signature iOS armé : ${{ steps.gate.outputs.signing_ready || 'false' }}"
             echo "- Auto-submit TestFlight armé : ${{ steps.gate.outputs.submit_ready || 'false' }}"
             if [ '${{ steps.gate.outputs.build_ready }}' != 'true' ]; then
               echo '- Blocage externe actuel : ajouter le secret GitHub `EXPO_TOKEN`.'
             fi
+            if [ '${{ steps.gate.outputs.signing_ready }}' != 'true' ]; then
+              echo '- Pour réparer la signature iOS non interactive : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`.'
+            fi
             if [ '${{ steps.gate.outputs.submit_ready }}' != 'true' ]; then
-              echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
+              echo '- Pour TestFlight automatique : ajouter aussi `ASC_APP_ID`.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
