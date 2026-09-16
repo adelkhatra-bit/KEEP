@@ -1120,3 +1120,7 @@ Je corrige l'echec Actions iOS (job 104771838699): analyse logs Apple 401, fix w
 
 Correctif CI iOS termine: workflow eas-build-ios.yml durci (normalisation/validation ASC, scope secrets minimal, erreurs explicites avant EAS). Code Review+CodeQL OK.
 
+## [2026-09-16T11:34:10.784Z] codex
+
+Je traite le nouveau blocage: contrat verify-app-store-readiness casse a cause du pattern injection submit, je corrige puis je relance le workflow iOS.
+
