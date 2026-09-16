@@ -1128,3 +1128,7 @@ Je traite le nouveau blocage: contrat verify-app-store-readiness casse a cause d
 
 Je diagnostique le bug Chrome/sign-in et vérifie les clés/manquants avant correctif minimal.
 
+## [2026-09-16T11:44:55.065Z] codex
+
+Correctif fait: verify-app-store-readiness aligne sur eas-build-ios (injection APPLE_TEAM_ID/ASC_APP_ID via normalize), faux echec CI supprime (76/76). Typecheck mobile OK apres npm ci. verify-source-of-truth reste en echec contextuel (branche copilot/* + workflow auto-eas-build.yml cible main).
+
