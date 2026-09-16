@@ -1,5 +1,6 @@
 /** Auth Loki réelle (Supabase Auth). Le pseudo reste public ; l'e-mail devient l'identifiant privé vérifié. */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { invokeEdgeFunction } from './edgeFunctionClient';
 
 export interface KeepAuthSession {
   userId: string;
@@ -36,27 +37,10 @@ export interface AuthService {
 
 const KEEP_PUBLIC_URL = 'https://adelkhatra-bit.github.io/KEEP/';
 
-// Audit 08/09/2026 (Adel a reçu "Connexion Loki indisponible pour le
-// moment" sur un simple "mot de passe oublié" -- la vraie cause était une
-// clé Brevo invalide côté serveur, mais ce message générique masquait tout)
-// : `supabase-js` transforme toute réponse non-2xx de `functions.invoke()`
-// en `FunctionsHttpError`, avec `data:null` -- le corps JSON précis que
-// `keep-auth-email` renvoie déjà (invalid_email, username_taken,
-// email_delivery_unavailable, etc.) n'était donc JAMAIS lu dès que l'edge
-// function répondait autre chose que 200, et retombait systématiquement sur
-// le générique 'server_error'. On relit le corps de la réponse HTTP réelle
-// (`error.context`) avant d'abandonner.
 async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
-  const { data, error } = await client.functions.invoke('keep-auth-email', { body });
-  if (!error) return (data as any) ?? { ok: false, error: 'server_error' };
-  const context = (error as any)?.context;
-  if (context && typeof context.json === 'function') {
-    try {
-      const parsed = await context.json();
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch { /* corps non-JSON ou déjà consommé : repli sur server_error ci-dessous */ }
-  }
-  return { ok: false, error: 'server_error' };
+  const result = await invokeEdgeFunction(client, 'keep-auth-email', body, { retries: 2 });
+  if (result.data && typeof result.data === 'object') return result.data as any;
+  return { ok: false, error: result.status === 0 ? 'network_error' : 'server_error' };
 }
 
 function normalizeUsername(username: string) {

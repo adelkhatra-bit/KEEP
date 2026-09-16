@@ -95,11 +95,11 @@ function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, 
 // essai quelques centaines de ms plus tard aurait souvent suffi. On ne
 // retente que sur une panne reseau/serveur transitoire (429/5xx) -- jamais
 // sur un rejet definitif de Brevo (ex: adresse invalide, cle rejetee).
-async function sendBrevo(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+async function sendBrevo(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true; provider: "brevo" } | { ok: false; provider: "brevo"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
-  if (!apiKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
+  if (!apiKey || !senderEmail) return { ok: false, provider: "brevo", error: "email_delivery_unavailable", detail: "BREVO_API_KEY or BREVO_SENDER_EMAIL missing" };
 
   const payloadBody = JSON.stringify({
     sender: { email: senderEmail, name: senderName },
@@ -126,13 +126,13 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
       lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
       continue;
     }
-    if (response.ok) return { ok: true };
+    if (response.ok) return { ok: true, provider: "brevo" };
     lastStatus = response.status;
     lastPayload = await response.json().catch(() => null);
     if (response.status !== 429 && response.status < 500) break;
   }
   console.error("[keep-auth-email] Brevo send failed", lastStatus, lastPayload);
-  return { ok: false, error: "email_delivery_unavailable", detail: String(lastPayload?.message || lastStatus) };
+  return { ok: false, provider: "brevo", error: "email_delivery_unavailable", detail: String(lastPayload?.message || lastStatus) };
 }
 
 // Adel (08/09/2026) : "trouve une autre solution ... une autre plate-forme
@@ -141,12 +141,12 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
 // identite expediteur (BREVO_SENDER_EMAIL/NAME, reutilisee volontairement --
 // c'est "Loki", pas "Brevo" ou "Mailjet", qui doit apparaitre pour
 // l'utilisateur, quel que soit le tuyau technique derriere).
-async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" } | { ok: false; provider: "mailjet"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
-  if (!apiKey || !secretKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
+  if (!apiKey || !secretKey || !senderEmail) return { ok: false, provider: "mailjet", error: "email_delivery_unavailable", detail: "MAILJET_API_KEY, MAILJET_SECRET_KEY or BREVO_SENDER_EMAIL missing" };
 
   const payloadBody = JSON.stringify({
     Messages: [{
@@ -174,24 +174,37 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
       lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
       continue;
     }
-    if (response.ok) return { ok: true };
+    if (response.ok) return { ok: true, provider: "mailjet" };
     lastStatus = response.status;
     lastPayload = await response.json().catch(() => null);
     if (response.status !== 429 && response.status < 500) break;
   }
   console.error("[keep-auth-email] Mailjet send failed", lastStatus, lastPayload);
-  return { ok: false, error: "email_delivery_unavailable", detail: String(lastPayload?.ErrorMessage || lastStatus) };
+  return { ok: false, provider: "mailjet", error: "email_delivery_unavailable", detail: String(lastPayload?.ErrorMessage || lastStatus) };
 }
 
-// Point d'entree unique : Mailjet en priorite s'il est configure (c'est ce
-// qu'Adel a demande de tester en ce moment), Brevo en repli automatique
-// sinon -- aucun code appelant n'a besoin de savoir lequel des deux est
-// actif.
-async function sendTransactionalEmail(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
-  const mjKey = await integrationSecret("MAILJET_API_KEY");
-  const mjSecret = await integrationSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) return sendMailjet(to, subject, html, text);
-  return sendBrevo(to, subject, html, text, tag);
+// Brevo reste le provider principal ; si l'envoi echoue (ou manque de
+// configuration), Mailjet prend automatiquement le relai si present.
+async function sendTransactionalEmail(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true; provider: "brevo" | "mailjet" } | { ok: false; error: string; detail?: string }> {
+  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const brevoReady = Boolean(await integrationSecret("BREVO_API_KEY")) && Boolean(senderEmail);
+  const mailjetReady = Boolean(await integrationSecret("MAILJET_API_KEY")) && Boolean(await integrationSecret("MAILJET_SECRET_KEY")) && Boolean(senderEmail);
+  const failures: string[] = [];
+
+  if (brevoReady) {
+    const brevo = await sendBrevo(to, subject, html, text, tag);
+    if (brevo.ok) return brevo;
+    failures.push(`${brevo.provider}:${brevo.detail || brevo.error}`);
+  }
+
+  if (mailjetReady) {
+    const mailjet = await sendMailjet(to, subject, html, text);
+    if (mailjet.ok) return mailjet;
+    failures.push(`${mailjet.provider}:${mailjet.detail || mailjet.error}`);
+  }
+
+  if (!brevoReady && !mailjetReady) failures.push("no_provider_configured");
+  return { ok: false, error: "email_delivery_unavailable", detail: failures.join(" | ") || "unknown_delivery_failure" };
 }
 
 async function handleSignup(body: any) {

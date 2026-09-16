@@ -13,11 +13,11 @@ async function integrationSecret(key: string): Promise<string> {
 
 function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
-async function sendBrevo(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
+async function sendBrevo(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "brevo" } | { ok: false; provider: "brevo"; error: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
-  if (!apiKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
+  if (!apiKey || !senderEmail) return { ok: false, provider: "brevo", error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
     sender: { email: senderEmail, name: senderName },
@@ -37,7 +37,7 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
         headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
         body: payloadBody,
       });
-      if (response.ok) return { ok: true };
+      if (response.ok) return { ok: true, provider: "brevo" };
       lastStatus = response.status;
       if (response.status !== 429 && response.status < 500) break;
     } catch (e) {
@@ -45,15 +45,15 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
       continue;
     }
   }
-  return { ok: false, error: `brevo_${lastStatus}` };
+  return { ok: false, provider: "brevo", error: `brevo_${lastStatus}` };
 }
 
-async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
+async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" } | { ok: false; provider: "mailjet"; error: string }> {
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
-  if (!apiKey || !secretKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
+  if (!apiKey || !secretKey || !senderEmail) return { ok: false, provider: "mailjet", error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
     Messages: [{
@@ -74,7 +74,7 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
         headers: { "Content-Type": "application/json", Authorization: `Basic ${btoa(`${apiKey}:${secretKey}`)}` },
         body: payloadBody,
       });
-      if (response.ok) return { ok: true };
+      if (response.ok) return { ok: true, provider: "mailjet" };
       lastStatus = response.status;
       if (response.status !== 429 && response.status < 500) break;
     } catch (e) {
@@ -82,14 +82,28 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
       continue;
     }
   }
-  return { ok: false, error: `mailjet_${lastStatus}` };
+  return { ok: false, provider: "mailjet", error: `mailjet_${lastStatus}` };
 }
 
-async function sendTransactionalEmail(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const mjKey = await integrationSecret("MAILJET_API_KEY");
-  const mjSecret = await integrationSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) return sendMailjet(to, subject, html, text);
-  return sendBrevo(to, subject, html, text);
+async function sendTransactionalEmail(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "brevo" | "mailjet" } | { ok: false; error: string }> {
+  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const brevoReady = Boolean(await integrationSecret("BREVO_API_KEY")) && Boolean(senderEmail);
+  const mailjetReady = Boolean(await integrationSecret("MAILJET_API_KEY")) && Boolean(await integrationSecret("MAILJET_SECRET_KEY")) && Boolean(senderEmail);
+  const failures: string[] = [];
+
+  if (brevoReady) {
+    const brevo = await sendBrevo(to, subject, html, text);
+    if (brevo.ok) return brevo;
+    failures.push(`${brevo.provider}:${brevo.error}`);
+  }
+
+  if (mailjetReady) {
+    const mailjet = await sendMailjet(to, subject, html, text);
+    if (mailjet.ok) return mailjet;
+    failures.push(`${mailjet.provider}:${mailjet.error}`);
+  }
+
+  return { ok: false, error: failures.join("|") || "email_delivery_unavailable" };
 }
 
 // Adel (12/09/2026) : Rejouer les emails en queue (pending ou retry)

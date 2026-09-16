@@ -39,6 +39,7 @@ function errorText(code: string) {
   if (code === 'invalid_credentials') return 'Identifiant Loki, e-mail ou mot de passe incorrect.';
   if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki indisponible pour le moment. Réessaie plus tard.';
   if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
+  if (code === 'network_error' || code === 'timeout' || code === 'supabase_unavailable') return 'Connexion Loki indisponible. Vérifie le réseau puis réessaie.';
   return 'Connexion Loki indisponible pour le moment. Réessaie dans un instant.';
 }
 

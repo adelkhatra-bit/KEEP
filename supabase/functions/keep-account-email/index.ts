@@ -29,6 +29,8 @@ async function integrationSecret(key: string): Promise<string> {
   return String(Deno.env.get(key) ?? "").trim();
 }
 
+function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
 async function digest(value: string) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -100,28 +102,109 @@ function verificationEmailHtml(code: string, username: string) {
 </html>`;
 }
 
-async function sendBrevoCode(to: string, code: string, username: string) {
+async function sendBrevoCode(to: string, code: string, username: string): Promise<{ ok: true; provider: "brevo"; messageId: string } | { ok: false; provider: "brevo"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
   const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
-  if (!apiKey || !senderEmail) return { ok: false as const, error: "email_provider_unconfigured" };
+  if (!apiKey || !senderEmail) return { ok: false as const, provider: "brevo", error: "email_provider_unconfigured", detail: "BREVO_API_KEY or BREVO_SENDER_EMAIL missing" };
 
   const subject = "Ton code de vérification Loki";
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
-    body: JSON.stringify({
-      sender: { email: senderEmail, name: senderName },
-      to: [{ email: to }],
-      subject,
-      htmlContent: verificationEmailHtml(code, username),
-      textContent: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
-      tags: ["keep", "account", "email-verification"],
-    }),
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) return { ok: false as const, error: "email_send_failed", detail: String(payload?.message || response.status) };
-  return { ok: true as const, messageId: String(payload?.messageId || "") };
+  let lastStatus = 0;
+  let lastPayload: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await wait(300 * attempt);
+    let response: Response;
+    try {
+      response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
+        body: JSON.stringify({
+          sender: { email: senderEmail, name: senderName },
+          to: [{ email: to }],
+          subject,
+          htmlContent: verificationEmailHtml(code, username),
+          textContent: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
+          tags: ["keep", "account", "email-verification"],
+        }),
+      });
+    } catch (networkError) {
+      lastStatus = 0;
+      lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
+      continue;
+    }
+    lastStatus = response.status;
+    lastPayload = await response.json().catch(() => null);
+    if (response.ok) return { ok: true as const, provider: "brevo", messageId: String(lastPayload?.messageId || "") };
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  console.error("[keep-account-email] Brevo send failed", lastStatus, lastPayload);
+  return { ok: false as const, provider: "brevo", error: "email_send_failed", detail: String(lastPayload?.message || lastStatus) };
+}
+
+async function sendMailjetCode(to: string, code: string, username: string): Promise<{ ok: true; provider: "mailjet" } | { ok: false; provider: "mailjet"; error: string; detail?: string }> {
+  const apiKey = await integrationSecret("MAILJET_API_KEY");
+  const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
+  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  if (!apiKey || !secretKey || !senderEmail) return { ok: false as const, provider: "mailjet", error: "email_provider_unconfigured", detail: "MAILJET_API_KEY, MAILJET_SECRET_KEY or BREVO_SENDER_EMAIL missing" };
+
+  let lastStatus = 0;
+  let lastPayload: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await wait(300 * attempt);
+    let response: Response;
+    try {
+      response = await fetch("https://api.mailjet.com/v3.1/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Basic ${btoa(`${apiKey}:${secretKey}`)}` },
+        body: JSON.stringify({
+          Messages: [{
+            From: { Email: senderEmail, Name: senderName },
+            To: [{ Email: to }],
+            Subject: "Ton code de vérification Loki",
+            HTMLPart: verificationEmailHtml(code, username),
+            TextPart: `${username ? `@${username}, ` : ""}ton code de vérification Loki est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
+          }],
+        }),
+      });
+    } catch (networkError) {
+      lastStatus = 0;
+      lastPayload = { message: networkError instanceof Error ? networkError.message : String(networkError) };
+      continue;
+    }
+    lastStatus = response.status;
+    lastPayload = await response.json().catch(() => null);
+    if (response.ok) return { ok: true as const, provider: "mailjet" };
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  console.error("[keep-account-email] Mailjet send failed", lastStatus, lastPayload);
+  return { ok: false as const, provider: "mailjet", error: "email_send_failed", detail: String(lastPayload?.ErrorMessage || lastPayload?.message || lastStatus) };
+}
+
+async function sendVerificationCode(to: string, code: string, username: string): Promise<{ ok: true; provider: "brevo" | "mailjet" } | { ok: false; error: string; detail?: string }> {
+  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const brevoReady = Boolean(await integrationSecret("BREVO_API_KEY")) && Boolean(senderEmail);
+  const mailjetReady = Boolean(await integrationSecret("MAILJET_API_KEY")) && Boolean(await integrationSecret("MAILJET_SECRET_KEY")) && Boolean(senderEmail);
+  const failures: string[] = [];
+
+  if (brevoReady) {
+    const brevo = await sendBrevoCode(to, code, username);
+    if (brevo.ok) return brevo;
+    failures.push(`${brevo.provider}:${brevo.detail || brevo.error}`);
+  }
+
+  if (mailjetReady) {
+    const mailjet = await sendMailjetCode(to, code, username);
+    if (mailjet.ok) return mailjet;
+    failures.push(`${mailjet.provider}:${mailjet.detail || mailjet.error}`);
+  }
+
+  if (!brevoReady && !mailjetReady) {
+    failures.push("no_provider_configured");
+    return { ok: false, error: "email_provider_unconfigured", detail: failures.join(" | ") };
+  }
+
+  return { ok: false, error: "email_send_failed", detail: failures.join(" | ") || "unknown_delivery_failure" };
 }
 
 async function requestCode(user: any, body: any) {
@@ -143,10 +226,10 @@ async function requestCode(user: any, body: any) {
   const { error: saveError } = await admin.from("account_email_verifications").upsert({ profile_id: user.id, email, code_hash: codeHash, attempts: 0, requested_at: now.toISOString(), expires_at: expires.toISOString(), verified_at: null }, { onConflict: "profile_id" });
   if (saveError) return json({ ok: false, error: "server_error" }, 500);
 
-  const sent = await sendBrevoCode(email, code, String(profile?.username ?? ""));
+  const sent = await sendVerificationCode(email, code, String(profile?.username ?? ""));
   if (!sent.ok) {
     await admin.from("account_email_verifications").delete().eq("profile_id", user.id);
-    return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 503);
+    return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 500);
   }
   return json({ ok: true, email_hint: maskEmail(email), expires_in_seconds: 600 });
 }

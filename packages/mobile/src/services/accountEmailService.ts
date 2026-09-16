@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
+import { invokeEdgeFunction } from './edgeFunctionClient';
 
 export type AccountEmailStatus = {
   email: string | null;
@@ -18,6 +19,7 @@ function mapError(code: string) {
   if (code === 'rate_limited') return 'Un code vient déjà d’être envoyé. Attends quelques instants.';
   if (code === 'email_provider_unconfigured') return `L’envoi e-mail ${APP_NAME} n’est pas encore configuré dans le Super Admin.`;
   if (code === 'email_send_failed') return `${APP_NAME} n’a pas pu envoyer l’e-mail. Réessaie plus tard.`;
+  if (code === 'network_error' || code === 'timeout') return `Connexion ${APP_NAME} indisponible. Vérifie le réseau puis réessaie.`;
   if (code === 'invalid_code') return 'Ce code est incorrect.';
   if (code === 'code_expired') return 'Ce code a expiré. Demande un nouveau code.';
   if (code === 'too_many_attempts') return 'Trop d’essais. Demande un nouveau code.';
@@ -28,9 +30,11 @@ function mapError(code: string) {
 
 async function invoke(body: Record<string, unknown>) {
   const client = requireSupabase();
-  const { data, error } = await client.functions.invoke('keep-account-email', { body });
-  if (error) throw new Error(error.message || 'server_error');
-  if (!data?.ok) throw new Error(mapError(String(data?.error || 'server_error')));
+  const { data, status } = await invokeEdgeFunction(client, 'keep-account-email', body, { requiresAuth: true, retries: 2 });
+  if (!data?.ok) {
+    const code = String(data?.error || (status === 0 ? 'network_error' : 'server_error'));
+    throw new Error(mapError(code));
+  }
   return data;
 }
 
