@@ -18,13 +18,15 @@ on:
     paths:
       - 'packages/mobile/app.json'
       - 'packages/mobile/eas.json'
+      - '.github/workflows/auto-eas-build.yml'
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     name: Build iOS ${{ inputs.profile || 'production' }}
     steps:
       - name: 📥 Checkout code
@@ -45,30 +47,106 @@ jobs:
           echo "✅ Expo credentials configured"
           echo "EXPO_TOKEN is set: ${{ secrets.EXPO_TOKEN != '' }}"
 
+      - name: Install workspace dependencies
+        run: npm ci
+
       - name: 📥 Install EAS CLI
-        run: npm install -g eas-cli@latest
+        run: npm install -g eas-cli@24.6.0
 
       - name: ✅ Validate Expo authentication
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas whoami
 
+      - name: Configure Apple credentials in runner only
+        env:
+          BUILD_PROFILE: ${{ inputs.profile || 'production' }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        working-directory: packages/mobile
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const names = ['ASC_API_KEY_P8_BASE64', 'ASC_KEY_ID', 'ASC_ISSUER_ID', 'APPLE_TEAM_ID', 'ASC_APP_ID'];
+          const missing = names.filter(name => !process.env[name]?.trim());
+          if (missing.length) {
+            if (process.env.BUILD_PROFILE === 'production') {
+              console.error('Missing GitHub secrets: ' + missing.join(', '));
+              process.exit(1);
+            }
+            console.log('Non-production build: using existing EAS signing credentials.');
+            process.exit(0);
+          }
+          const keyPath = path.join(process.env.RUNNER_TEMP, 'loki-asc-api-key.p8');
+          const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+          try {
+            const parsed = crypto.createPrivateKey(key);
+            if (parsed.asymmetricKeyType !== 'ec' || parsed.asymmetricKeyDetails?.namedCurve !== 'prime256v1') throw new Error();
+          } catch {
+            console.error('ASC_API_KEY_P8_BASE64 must encode a valid Apple P-256 private key.');
+            process.exit(1);
+          }
+          fs.writeFileSync(keyPath, key, { mode: 0o600 });
+          const value = name => process.env[name].trim();
+          for (const name of names.slice(1)) {
+            if (/[\r\n]/.test(value(name))) throw new Error('Invalid multiline identifier: ' + name);
+          }
+          fs.appendFileSync(process.env.GITHUB_ENV, [
+            'EXPO_ASC_API_KEY_PATH=' + keyPath,
+            'EXPO_ASC_KEY_ID=' + value('ASC_KEY_ID'),
+            'EXPO_ASC_ISSUER_ID=' + value('ASC_ISSUER_ID'),
+            'EXPO_APPLE_TEAM_ID=' + value('APPLE_TEAM_ID'),
+            ''
+          ].join('\n'));
+          if (process.env.BUILD_PROFILE === 'production') {
+            const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+            eas.submit ||= {};
+            eas.submit.production ||= {};
+            eas.submit.production.ios = {
+              ...eas.submit.production.ios,
+              ascAppId: value('ASC_APP_ID'),
+              appleTeamId: value('APPLE_TEAM_ID'),
+              ascApiKeyPath: keyPath,
+              ascApiKeyId: value('ASC_KEY_ID'),
+              ascApiKeyIssuerId: value('ASC_ISSUER_ID')
+            };
+            fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2) + '\n');
+          }
+          console.log('Apple credentials configured without printing private key.');
+          NODE
+
       - name: 🏗️ Build iOS (${{ inputs.profile || 'production' }})
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         working-directory: packages/mobile
         run: |
-          echo "🔨 Starting EAS build for profile: ${{ inputs.profile || 'production' }}"
-          eas build \
-            --platform ios \
-            --profile ${{ inputs.profile || 'production' }} \
-            --non-interactive \
-            --wait
+          set -euo pipefail
+          profile="${{ inputs.profile || 'production' }}"
+          args=(build --platform ios --profile "$profile" --non-interactive --wait)
+          if [ "$profile" = "production" ]; then
+            args+=(--auto-submit-with-profile production)
+          fi
+          eas "${args[@]}"
+
+      - name: Remove temporary Apple key
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          fs.rmSync(path.join(process.env.RUNNER_TEMP, 'loki-asc-api-key.p8'), { force: true });
+          NODE
 
       - name: 📊 Build Summary
         if: always()
         run: |
-          echo "✅ Build process completed"
+          echo "Workflow status: ${{ job.status }}"
+          echo "A successful build does not by itself confirm availability in TestFlight."
           echo "Platform: iOS"
           echo "Profile: ${{ inputs.profile || 'production' }}"
           echo "Repository: adelkhatra-bit/KEEP"
