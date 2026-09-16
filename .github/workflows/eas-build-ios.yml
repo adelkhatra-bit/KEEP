@@ -123,7 +123,7 @@ jobs:
           const fs = require('node:fs');
           const keyPath = `${process.env.RUNNER_TEMP}/asc-api-key.p8`;
           const normalize = (name) => (process.env[name] || '').trim();
-          const missing = ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'APPLE_TEAM_ID', 'ASC_APP_ID'].filter((name) => !normalize(name));
+          const missing = ['ASC_KEY_ID', 'ASC_ISSUER_ID'].filter((name) => !normalize(name));
           if (missing.length) {
             console.error(`Secrets ASC incomplets: ${missing.join(', ')}`);
             process.exit(1);
@@ -175,6 +175,11 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const normalize = (name) => (process.env[name] || '').trim();
+          const missing = ['APPLE_TEAM_ID', 'ASC_APP_ID'].filter((name) => !normalize(name));
+          if (missing.length) {
+            console.error(`Secrets soumission manquants: ${missing.join(', ')}`);
+            process.exit(1);
+          }
           const file = 'eas.json';
           const eas = JSON.parse(fs.readFileSync(file, 'utf8'));
           eas.submit ||= {};
