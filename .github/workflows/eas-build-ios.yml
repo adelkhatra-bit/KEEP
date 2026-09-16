@@ -111,18 +111,47 @@ jobs:
         if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
         env:
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
-          chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
-          echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
+          node - <<'NODE'
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const keyPath = `${process.env.RUNNER_TEMP}/asc-api-key.p8`;
+          const normalize = (name) => (process.env[name] || '').trim();
+          const missing = ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'APPLE_TEAM_ID', 'ASC_APP_ID'].filter((name) => !normalize(name));
+          if (missing.length) {
+            console.error(`Secrets ASC incomplets: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          const decoded = Buffer.from(normalize('ASC_API_KEY_P8_BASE64'), 'base64');
+          try {
+            const parsed = crypto.createPrivateKey({ key: decoded, format: 'pem' });
+            if (parsed.asymmetricKeyType !== 'ec' || parsed.asymmetricKeyDetails?.namedCurve !== 'prime256v1') {
+              throw new Error('Invalid Apple key type');
+            }
+          } catch {
+            console.error('ASC_API_KEY_P8_BASE64 doit contenir une clé Apple ES256 valide.');
+            process.exit(1);
+          }
+          fs.writeFileSync(keyPath, decoded, { mode: 0o600 });
+          fs.appendFileSync(process.env.GITHUB_ENV, [
+            `EXPO_ASC_API_KEY_PATH=${keyPath}`,
+            `EXPO_ASC_KEY_ID=${normalize('ASC_KEY_ID')}`,
+            `EXPO_ASC_ISSUER_ID=${normalize('ASC_ISSUER_ID')}`,
+            `EXPO_APPLE_TEAM_ID=${normalize('APPLE_TEAM_ID')}`,
+            `ASC_APP_ID=${normalize('ASC_APP_ID')}`,
+            `APPLE_TEAM_ID=${normalize('APPLE_TEAM_ID')}`,
+            ''
+          ].join('\n'));
+          NODE
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -139,10 +168,6 @@ jobs:
 
       - name: Build iOS EAS
         if: steps.gate.outputs.build_ready == 'true'
-        env:
-          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         shell: bash
         run: |
           set -euo pipefail
