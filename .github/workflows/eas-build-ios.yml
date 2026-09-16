@@ -217,8 +217,12 @@ jobs:
             phase = 'Apple app';
             const app = await apple(`apps/${ascAppId}`);
             check(app?.data?.attributes?.bundleId === mainBundleId, 'ASC app id does not match bundle id');
-            const mainBundleData = app?.data?.relationships?.bundleId?.data;
-            check(mainBundleData?.id, 'Unable to resolve main bundle identifier from ASC app');
+            let mainBundleData = app?.data?.relationships?.bundleId?.data;
+            if (!mainBundleData?.id) {
+              const mainBundleResult = await apple(`bundleIds?filter[identifier]=${encodeURIComponent(mainBundleId)}&limit=2`);
+              check((mainBundleResult?.data || []).length === 1, 'Unable to resolve a single main bundle identifier');
+              mainBundleData = mainBundleResult.data[0];
+            }
             const bundles = [
               { type: 'bundleIds', id: mainBundleData.id, attributes: { identifier: mainBundleId } },
             ];
