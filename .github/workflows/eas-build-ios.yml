@@ -108,22 +108,26 @@ jobs:
           BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
           MAILJET_API_KEY: ${{ secrets.MAILJET_API_KEY }}
           MAILJET_SECRET_KEY: ${{ secrets.MAILJET_SECRET_KEY }}
+          MAILJET_SENDER_EMAIL: ${{ secrets.MAILJET_SENDER_EMAIL }}
+          MAILJET_SENDER_NAME: ${{ secrets.MAILJET_SENDER_NAME }}
         shell: bash
         run: |
           set -euo pipefail
           core_ready=true
-          for name in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY BREVO_SENDER_EMAIL; do
+          for name in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
             if [ -z "${!name:-}" ]; then
               core_ready=false
               echo "::warning::$name absent côté GitHub Actions runner."
             fi
           done
 
+          sender_email="${BREVO_SENDER_EMAIL:-${MAILJET_SENDER_EMAIL:-}}"
+          sender_name="${BREVO_SENDER_NAME:-${MAILJET_SENDER_NAME:-}}"
           email_provider=none
-          if [ -n "${BREVO_API_KEY:-}" ] && [ -n "${BREVO_SENDER_EMAIL:-}" ]; then
+          if [ -n "${BREVO_API_KEY:-}" ] && [ -n "${sender_email:-}" ]; then
             email_provider=brevo
           fi
-          if [ -n "${MAILJET_API_KEY:-}" ] && [ -n "${MAILJET_SECRET_KEY:-}" ] && [ -n "${BREVO_SENDER_EMAIL:-}" ]; then
+          if [ -n "${MAILJET_API_KEY:-}" ] && [ -n "${MAILJET_SECRET_KEY:-}" ] && [ -n "${sender_email:-}" ]; then
             if [ "$email_provider" = "none" ]; then
               email_provider=mailjet
             else
@@ -132,9 +136,9 @@ jobs:
           fi
 
           if [ "$email_provider" = "none" ]; then
-            echo "::warning::Aucun provider e-mail complet détecté côté GitHub Actions (BREVO_API_KEY + BREVO_SENDER_EMAIL, ou MAILJET_API_KEY + MAILJET_SECRET_KEY + BREVO_SENDER_EMAIL)."
+            echo "::warning::Aucun provider e-mail complet détecté côté GitHub Actions (BREVO_API_KEY + sender email, ou MAILJET_API_KEY + MAILJET_SECRET_KEY + sender email)."
           fi
-          if [ -z "${BREVO_SMTP_LOGIN:-}" ] || [ -z "${BREVO_SMTP_KEY:-}" ] || [ -z "${BREVO_SENDER_NAME:-}" ]; then
+          if [ -z "${BREVO_SMTP_LOGIN:-}" ] || [ -z "${BREVO_SMTP_KEY:-}" ] || [ -z "${sender_name:-}" ]; then
             echo "::warning::Secrets SMTP/identité Brevo incomplets (BREVO_SMTP_LOGIN, BREVO_SMTP_KEY, BREVO_SENDER_NAME) ; le fallback HTTP reste prioritaire."
           fi
 
@@ -221,7 +225,7 @@ jobs:
               echo '- Pour TestFlight automatique : ajouter `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`.'
             fi
             if [ '${{ steps.email_gate.outputs.email_provider }}' = 'none' ]; then
-              echo '- Pour l’auth e-mail Loki : configurer soit `BREVO_API_KEY` + `BREVO_SENDER_EMAIL`, soit `MAILJET_API_KEY` + `MAILJET_SECRET_KEY` + `BREVO_SENDER_EMAIL`.'
+              echo '- Pour l’auth e-mail Loki : configurer soit `BREVO_API_KEY` + un sender email, soit `MAILJET_API_KEY` + `MAILJET_SECRET_KEY` + un sender email.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

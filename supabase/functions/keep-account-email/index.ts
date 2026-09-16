@@ -31,6 +31,12 @@ async function integrationSecret(key: string): Promise<string> {
 
 function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
+async function senderIdentity() {
+  const email = (await integrationSecret("BREVO_SENDER_EMAIL")) || (await integrationSecret("MAILJET_SENDER_EMAIL"));
+  const name = (await integrationSecret("BREVO_SENDER_NAME")) || (await integrationSecret("MAILJET_SENDER_NAME")) || "Loki";
+  return { email, name };
+}
+
 async function digest(value: string) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -104,8 +110,7 @@ function verificationEmailHtml(code: string, username: string) {
 
 async function sendBrevoCode(to: string, code: string, username: string): Promise<{ ok: true; provider: "brevo"; messageId: string } | { ok: false; provider: "brevo"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const { email: senderEmail, name: senderName } = await senderIdentity();
   if (!apiKey || !senderEmail) return { ok: false as const, provider: "brevo", error: "email_provider_unconfigured", detail: "BREVO_API_KEY or BREVO_SENDER_EMAIL missing" };
 
   const subject = "Ton code de vérification Loki";
@@ -144,8 +149,7 @@ async function sendBrevoCode(to: string, code: string, username: string): Promis
 async function sendMailjetCode(to: string, code: string, username: string): Promise<{ ok: true; provider: "mailjet" } | { ok: false; provider: "mailjet"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const { email: senderEmail, name: senderName } = await senderIdentity();
   if (!apiKey || !secretKey || !senderEmail) return { ok: false as const, provider: "mailjet", error: "email_provider_unconfigured", detail: "MAILJET_API_KEY, MAILJET_SECRET_KEY or BREVO_SENDER_EMAIL missing" };
 
   let lastStatus = 0;
@@ -182,7 +186,7 @@ async function sendMailjetCode(to: string, code: string, username: string): Prom
 }
 
 async function sendVerificationCode(to: string, code: string, username: string): Promise<{ ok: true; provider: "brevo" | "mailjet" } | { ok: false; error: string; detail?: string }> {
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const { email: senderEmail } = await senderIdentity();
   const brevoReady = Boolean(await integrationSecret("BREVO_API_KEY")) && Boolean(senderEmail);
   const mailjetReady = Boolean(await integrationSecret("MAILJET_API_KEY")) && Boolean(await integrationSecret("MAILJET_SECRET_KEY")) && Boolean(senderEmail);
   const failures: string[] = [];

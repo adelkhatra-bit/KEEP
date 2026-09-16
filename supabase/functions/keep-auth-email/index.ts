@@ -40,6 +40,12 @@ async function integrationSecret(key: string): Promise<string> {
   return String(Deno.env.get(key) ?? "").trim();
 }
 
+async function senderIdentity() {
+  const email = (await integrationSecret("BREVO_SENDER_EMAIL")) || (await integrationSecret("MAILJET_SENDER_EMAIL"));
+  const name = (await integrationSecret("BREVO_SENDER_NAME")) || (await integrationSecret("MAILJET_SENDER_NAME")) || "Loki";
+  return { email, name };
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
 }
@@ -97,8 +103,7 @@ function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, 
 // sur un rejet definitif de Brevo (ex: adresse invalide, cle rejetee).
 async function sendBrevo(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true; provider: "brevo" } | { ok: false; provider: "brevo"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const { email: senderEmail, name: senderName } = await senderIdentity();
   if (!apiKey || !senderEmail) return { ok: false, provider: "brevo", error: "email_delivery_unavailable", detail: "BREVO_API_KEY or BREVO_SENDER_EMAIL missing" };
 
   const payloadBody = JSON.stringify({
@@ -144,8 +149,7 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
 async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" } | { ok: false; provider: "mailjet"; error: string; detail?: string }> {
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const { email: senderEmail, name: senderName } = await senderIdentity();
   if (!apiKey || !secretKey || !senderEmail) return { ok: false, provider: "mailjet", error: "email_delivery_unavailable", detail: "MAILJET_API_KEY, MAILJET_SECRET_KEY or BREVO_SENDER_EMAIL missing" };
 
   const payloadBody = JSON.stringify({
@@ -186,7 +190,7 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
 // Brevo reste le provider principal ; si l'envoi echoue (ou manque de
 // configuration), Mailjet prend automatiquement le relai si present.
 async function sendTransactionalEmail(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true; provider: "brevo" | "mailjet" } | { ok: false; error: string; detail?: string }> {
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const { email: senderEmail } = await senderIdentity();
   const brevoReady = Boolean(await integrationSecret("BREVO_API_KEY")) && Boolean(senderEmail);
   const mailjetReady = Boolean(await integrationSecret("MAILJET_API_KEY")) && Boolean(await integrationSecret("MAILJET_SECRET_KEY")) && Boolean(senderEmail);
   const failures: string[] = [];

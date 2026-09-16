@@ -13,10 +13,15 @@ async function integrationSecret(key: string): Promise<string> {
 
 function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
+async function senderIdentity() {
+  const email = (await integrationSecret("BREVO_SENDER_EMAIL")) || (await integrationSecret("MAILJET_SENDER_EMAIL"));
+  const name = (await integrationSecret("BREVO_SENDER_NAME")) || (await integrationSecret("MAILJET_SENDER_NAME")) || "Loki";
+  return { email, name };
+}
+
 async function sendBrevo(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "brevo" } | { ok: false; provider: "brevo"; error: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const { email: senderEmail, name: senderName } = await senderIdentity();
   if (!apiKey || !senderEmail) return { ok: false, provider: "brevo", error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
@@ -51,8 +56,7 @@ async function sendBrevo(to: string, subject: string, html: string, text: string
 async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" } | { ok: false; provider: "mailjet"; error: string }> {
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const { email: senderEmail, name: senderName } = await senderIdentity();
   if (!apiKey || !secretKey || !senderEmail) return { ok: false, provider: "mailjet", error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
@@ -86,7 +90,7 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
 }
 
 async function sendTransactionalEmail(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "brevo" | "mailjet" } | { ok: false; error: string }> {
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
+  const { email: senderEmail } = await senderIdentity();
   const brevoReady = Boolean(await integrationSecret("BREVO_API_KEY")) && Boolean(senderEmail);
   const mailjetReady = Boolean(await integrationSecret("MAILJET_API_KEY")) && Boolean(await integrationSecret("MAILJET_SECRET_KEY")) && Boolean(senderEmail);
   const failures: string[] = [];
