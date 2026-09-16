@@ -141,7 +141,9 @@ jobs:
           const padding = (4 - (normalizedBase64.length % 4)) % 4;
           const canonicalBase64 = `${normalizedBase64}${'='.repeat(padding)}`;
           const decoded = Buffer.from(canonicalBase64, 'base64');
-          if (!decoded.length) {
+          const decodedCanonical = decoded.toString('base64').replace(/=+$/g, '');
+          const inputCanonical = normalizedBase64.replace(/=+$/g, '');
+          if (!decoded.length || decodedCanonical !== inputCanonical) {
             console.error('ASC_API_KEY_P8_BASE64 invalide (décodage impossible).');
             process.exit(1);
           }
