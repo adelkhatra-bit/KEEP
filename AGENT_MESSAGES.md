@@ -1116,3 +1116,7 @@ Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/prof
 
 Je commence le fix auth e-mail Loki indisponible : audit keep-auth-email / keep-account-email / authService / workflow secrets + validation ciblée.
 
+## [2026-09-16T17:01:55.120Z] codex
+
+Fix auth e-mail termine : helper mobile fetch direct /functions/v1 avec parse JSON + retry, fallback Brevo->Mailjet sur keep-auth-email / keep-account-email / keep-email-retry-queue, audit secrets dans eas-build-ios, tests cibles PASS, typecheck mobile PASS, export web + Chromium headless OK. verify-source-of-truth reste FAIL pour cause structurelle preexistante (branche copilot/* + auto-eas-build.yml cible main).
+
