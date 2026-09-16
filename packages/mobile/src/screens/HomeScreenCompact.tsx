@@ -358,7 +358,13 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}>
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
-      <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={s.main}
+        contentContainerStyle={s.mainContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        alwaysBounceVertical={false}
+      >
         {/* Adel (02/09/2026) : "tu as désactivé le micro sur l'iPhone" --
             trouvé en audit : cette pastille ne reflétait jamais le vrai état
             du micro, juste "une session tourne" (recognizing/pas). Le
