@@ -1124,3 +1124,7 @@ Correctif CI iOS termine: workflow eas-build-ios.yml durci (normalisation/valida
 
 Je traite le nouveau blocage: contrat verify-app-store-readiness casse a cause du pattern injection submit, je corrige puis je relance le workflow iOS.
 
+## [2026-09-16T11:41:44.007Z] codex
+
+Je diagnostique le bug Chrome/sign-in et vérifie les clés/manquants avant correctif minimal.
+
