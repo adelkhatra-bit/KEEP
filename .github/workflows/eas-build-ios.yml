@@ -128,7 +128,21 @@ jobs:
             console.error(`Secrets ASC incomplets: ${missing.join(', ')}`);
             process.exit(1);
           }
-          const decoded = Buffer.from(normalize('ASC_API_KEY_P8_BASE64'), 'base64');
+          const encodedKey = normalize('ASC_API_KEY_P8_BASE64');
+          if (!encodedKey) {
+            console.error('ASC_API_KEY_P8_BASE64 manquant.');
+            process.exit(1);
+          }
+          const normalizedBase64 = encodedKey.replace(/\s+/g, '');
+          if (!/^[A-Za-z0-9+/=]+$/.test(normalizedBase64) || normalizedBase64.length % 4 !== 0) {
+            console.error('ASC_API_KEY_P8_BASE64 doit être une chaîne base64 valide.');
+            process.exit(1);
+          }
+          const decoded = Buffer.from(normalizedBase64, 'base64');
+          if (!decoded.length || decoded.toString('base64') !== normalizedBase64) {
+            console.error('ASC_API_KEY_P8_BASE64 invalide (décodage impossible).');
+            process.exit(1);
+          }
           try {
             const parsed = crypto.createPrivateKey({ key: decoded, format: 'pem' });
             if (parsed.asymmetricKeyType !== 'ec' || parsed.asymmetricKeyDetails?.namedCurve !== 'prime256v1') {
