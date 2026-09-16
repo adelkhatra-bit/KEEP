@@ -259,7 +259,7 @@ jobs:
               const parsed = new crypto.X509Certificate(fs.readFileSync(certFile));
               check(parsed.subject.split('\n').some(line => line === 'OU='+teamId), 'Certificate team mismatch');
               run(['x509','-inform','DER','-in',certFile,'-out',pemFile]);
-              run(['pkcs12','-export','-inkey',keyFile,'-in',pemFile,'-out',p12File,'-passout','env:LOKI_P12_PASSWORD']);
+              run(['pkcs12','-export','-legacy','-certpbe','PBE-SHA1-3DES','-keypbe','PBE-SHA1-3DES','-macalg','sha1','-inkey',keyFile,'-in',pemFile,'-out',p12File,'-passout','env:LOKI_P12_PASSWORD']);
               phase = 'persist distribution certificate in EAS';
               cert = await ios.createDistributionCertificateAsync(graphqlClient,base.account,{
                 certId:portalCert.id,certP12:fs.readFileSync(p12File).toString('base64'),certPassword:password,teamId
