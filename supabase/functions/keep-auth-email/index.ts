@@ -22,6 +22,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const KEEP_PUBLIC_URL = "https://adelkhatra-bit.github.io/KEEP/";
+const RECOVERY_RATE_LIMIT_MS = 60_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -278,6 +279,19 @@ async function handleRecovery(body: any) {
   const email = normalizeEmail(body?.email);
   if (!validEmail(email)) return json({ ok: false, error: "invalid_email" }, 400);
 
+  const { data: recentRecovery } = await admin
+    .from("email_queue")
+    .select("created_at")
+    .eq("recipient_email", email)
+    .eq("email_type", "recovery")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (recentRecovery?.created_at) {
+    const elapsed = Date.now() - new Date(recentRecovery.created_at).getTime();
+    if (elapsed < RECOVERY_RATE_LIMIT_MS) return json({ ok: true });
+  }
+
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email,
@@ -310,6 +324,19 @@ async function handleRecovery(body: any) {
     textContent,
     "password-recovery",
   );
+  if (sent.ok) {
+    await admin.from("email_queue").insert({
+      recipient_email: email,
+      subject: "Réinitialise ton mot de passe Loki",
+      html_content: htmlContent,
+      text_content: textContent,
+      email_type: "recovery",
+      user_id: data.user?.id || null,
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      metadata: { action_link: data.properties.action_link },
+    }).catch(() => {});
+  }
 
   // Adel (12/09/2026) : "il ne faut pas bloquer les utilisateurs" sur la
   // recuperation de mot de passe -- si Brevo/Mailjet est en panne, on queued

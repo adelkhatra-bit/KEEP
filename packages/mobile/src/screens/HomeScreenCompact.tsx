@@ -583,7 +583,7 @@ const s = StyleSheet.create({
   errorBannerText: { color: C.pink, fontSize: 11, textAlign: 'center' },
   micFixHintInBanner: { color: C.muted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 4 },
   micFixHint: { color: C.muted, fontSize: 11, lineHeight: 15, textAlign: 'center', maxWidth: 300, marginTop: 6, marginBottom: 4 },
-  sectionTitle: { color: C.text, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 9, marginBottom: 6 },
+  sectionTitle: { color: C.text, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 18, marginBottom: 8 },
   queueNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7, gap: 8 },
   queueNavBtn: { minHeight: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   queueNavBtnText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },

@@ -116,6 +116,10 @@ type FreeCatalogData = {
   appleTrackId: string | null;
   album: string | null;
 };
+const FREE_CATALOG_CACHE_MS = 24 * 60 * 60 * 1000;
+const AUDD_TIMEOUT_MS = 7000;
+const ITUNES_TIMEOUT_MS = 4000;
+const freeCatalogCache = new Map<string, { at: number; data: FreeCatalogData }>();
 
 /**
  * Enrichissement gratuit uniquement en métadonnées via le catalogue public
@@ -124,10 +128,14 @@ type FreeCatalogData = {
  */
 async function findFreeCatalogData(title: string, artist: string): Promise<FreeCatalogData> {
   const empty: FreeCatalogData = { artworkUrl: null, previewUrl: null, appleMusicUrl: null, appleTrackId: null, album: null };
+  const cacheKey = `${normalizeText(artist)}|${normalizeText(title)}`;
+  const cached = freeCatalogCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < FREE_CATALOG_CACHE_MS) return cached.data;
   try {
     const term = encodeURIComponent(`${artist} ${title}`);
     const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8&country=FR`, {
       headers: { "User-Agent": "KEEP/1.0" },
+      signal: AbortSignal.timeout(ITUNES_TIMEOUT_MS),
     });
     if (!response.ok) return empty;
     const body = await response.json().catch(() => null);
@@ -151,13 +159,15 @@ async function findFreeCatalogData(title: string, artist: string): Promise<FreeC
     const appleMusicUrl = String(best?.trackViewUrl || "").trim();
     const appleTrackId = best?.trackId == null ? "" : String(best.trackId);
     const album = String(best?.collectionName || "").trim();
-    return {
+    const data = {
       artworkUrl: artwork ? upscaleArtwork(artwork) : null,
       previewUrl: previewUrl || null,
       appleMusicUrl: appleMusicUrl || null,
       appleTrackId: appleTrackId || null,
       album: album || null,
     };
+    freeCatalogCache.set(cacheKey, { at: Date.now(), data });
+    return data;
   } catch {
     return empty;
   }
@@ -241,7 +251,11 @@ async function recognize(req: Request) {
   form.append("file", audio, audio.name || "keep-sample.wav");
   form.append("return", "apple_music,spotify");
 
-  const response = await fetch("https://api.audd.io/", { method: "POST", body: form });
+  const response = await fetch("https://api.audd.io/", {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(AUDD_TIMEOUT_MS),
+  });
   const body = await response.json().catch(() => null);
   const providerMessage = String(body?.error?.error_message || body?.error?.message || body?.message || `AudD HTTP ${response.status}`);
 

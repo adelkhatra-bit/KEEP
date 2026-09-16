@@ -1,0 +1,12 @@
+# Configuration locale minimale Supabase CLI pour KEEP.
+# Aucun secret ici : uniquement l’identifiant projet et les URLs canoniques.
+
+project_id = "rrhqsqzcplvmwxizqnla"
+
+[auth]
+site_url = "https://adelkhatra-bit.github.io/KEEP/"
+additional_redirect_urls = [
+  "https://adelkhatra-bit.github.io/KEEP",
+  "https://adelkhatra-bit.github.io/KEEP/",
+  "keep://",
+]

@@ -163,7 +163,7 @@ export default function SourceProfileQuickView({
 }
 
 const s = StyleSheet.create({
-  backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
+  backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'center',alignItems:'center',padding:14},
   card:{width:'100%',maxWidth:440,borderRadius:24,borderWidth:1,borderColor:'#40354E',backgroundColor:'#151020',padding:18,paddingBottom:20,alignItems:'center'},
   handle:{width:42,height:4,borderRadius:2,backgroundColor:'#51445F',marginBottom:16},
   avatar:{width:70,height:70,borderRadius:35,backgroundColor:colors.backgroundCard},
