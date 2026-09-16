@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, PanResponder, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeepNotification, loadNotificationPreferences, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
@@ -38,6 +39,7 @@ function isBattleRematch(notification: KeepNotification): boolean {
 }
 
 export default function GlobalNotificationBanner() {
+  const insets = useSafeAreaInsets();
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -228,7 +230,7 @@ export default function GlobalNotificationBanner() {
 
   if (battleRematch && rematchArenaId) {
     return (
-      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { top: Math.max(insets.top + 10, Platform.OS === 'ios' ? 54 : 18), opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
         <View style={styles.banner}>
           <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           <View style={styles.artworkFallback}><Text style={styles.note}>🔁</Text></View>
@@ -252,7 +254,7 @@ export default function GlobalNotificationBanner() {
 
   if (battleChallenge && challengeId) {
     return (
-      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { top: Math.max(insets.top + 10, Platform.OS === 'ios' ? 54 : 18), opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
         <View style={styles.banner}>
           <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           {artworkUrl ? (
@@ -283,7 +285,7 @@ export default function GlobalNotificationBanner() {
       pointerEvents="box-none"
       style={[
         styles.wrap,
-        { opacity, transform: [{ translateY }] },
+        { top: Math.max(insets.top + 10, Platform.OS === 'ios' ? 54 : 18), opacity, transform: [{ translateY }] },
       ]}
       {...panResponder.panHandlers}
     >
@@ -318,10 +320,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 10000,
     elevation: 30,
-    top: Platform.OS === 'ios' ? 54 : 18,
     left: 12,
     right: 12,
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
   banner: {
     width: '100%',

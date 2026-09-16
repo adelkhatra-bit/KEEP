@@ -4,6 +4,7 @@ import { NavigationContainer, getStateFromPath } from '@react-navigation/native'
 import { navigationRef } from './navigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import HomeScreenCompact from '../screens/HomeScreenCompact';
 import DiscoverScreen from '../screens/DiscoverScreen';
@@ -95,6 +96,7 @@ const TAB = {
 };
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       initialRouteName="Listen"
@@ -105,9 +107,9 @@ function MainTabs() {
           backgroundColor: TAB.bg,
           borderTopColor: TAB.border,
           borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 8,
-          paddingTop: 7,
+          height: 60 + (Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : 8),
+          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : 8,
+          paddingTop: Platform.OS === 'ios' ? 8 : 7,
           display: 'flex',
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
