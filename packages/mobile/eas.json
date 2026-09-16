@@ -24,6 +24,7 @@
       "channel": "production",
       "autoIncrement": true,
       "distribution": "store",
+      "credentialsSource": "remote",
       "ios": {
         "resourceClass": "m-medium",
         "image": "sdk-54",
