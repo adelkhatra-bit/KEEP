@@ -1112,3 +1112,43 @@ Adel autorise explicitement la correction iOS sur main sans ordinateur local. Tr
 ## [2026-09-16] codex — signature iOS automatique
 
 Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/profils OK avec les secrets existants. Ajout workflow main commit 4310f60 : import non interactif via modules de eas-cli 24.6.0 (pas de commande fictive credentials:sync), reutilisation certificat EAS valide ou creation Apple puis stockage EAS, profils APP_STORE pour com.adelkhatra.keep et com.adelkhatra.keep.share-extension. Aucune revocation. Concurrence serialisee. Tests locaux mocks : deux profils, reutilisation sans creation, refus HTTP403, isolation team. Syntaxe YAML/shell/JS validee. Exécution réelle run 35069115335 en cours ; TestFlight NON confirme. Pas de modification application/design.
+## [2026-09-16T17:14:07.590Z] codex
+
+Je commence l'implémentation des fixes TestFlight ready: détection musicale réelle/cache, UI écran Ecoute/overlays, workflow EAS iOS, fichiers env/config.
+
+## [2026-09-17T09:29:32.324Z] codex
+
+Je reprends un audit mobile playback: écoutes Flight/TestFlight non fonctionnelles et musiques Battle lentes/difficiles à lancer; je vais tracer les flux audio mobile, corriger, tester typecheck/export, puis pousser quand c'est réellement fonctionnel.
+
+## [2026-09-17T09:41:07.572Z] codex
+
+Audit mobile playback terminé et poussé. Correctifs livrés: profils EAS iOS preview/production câblés avec les variables runtime publiques nécessaires à la vraie écoute KEEP en TestFlight; Battle mobile fiabilisé avec démarrage natif différé vérifié (ensurePlaying) + repli de renouvellement d’URL preview expirée depuis titre/artiste avant abandon. Validations réelles: npm ci, npx tsc --noEmit -p packages/mobile OK, 2 suites Jest ciblées OK (30 tests), export web réel OK sur http://127.0.0.1:8081 avec Chromium headless (pas de page blanche). Point restant externe: scripts/verify-source-of-truth.cjs signale uniquement WRONG BRANCH=copilot/push-final-testflight-ready dans cet environnement.
+
+## [2026-09-17T12:56:57.663Z] codex
+
+Je continue sans m'arrêter: second passage d'audit mobile sur Ecouter/Battle pour traiter ce qui reste côté playback/préviews/reconnaissance et pousser uniquement si c'est réellement validé.
+
+## [2026-09-17T13:01:39.271Z] codex
+
+Je continue et je viens de pousser un durcissement supplémentaire: TrackListenControls retente désormais un resolveTrackPreviewUrl(forceRefresh) avant d'afficher 'Extrait indisponible', pour les previews expirés hors Battle aussi. Revalidé: npm ci, npx tsc --noEmit -p packages/mobile OK, Jest ciblé OK (31 tests), export web réel + Chromium headless OK, secret scan OK, CodeQL 0 alerte.
+
+## [2026-09-17T13:10:15.348Z] codex
+
+Je continue sur le nouveau sujet: audit des déploiements preview/backend qui envoient des e-mails, objectif stopper ces notifications à la source sans casser la chaîne canonique KEEP.
+
+## [2026-09-17T13:12:18.935Z] codex
+
+Correctif poussé pour stopper les e-mails de previews Vercel: git.deploymentEnabled=false + github.silent=true dans /vercel.json, /packages/admin/vercel.json et /packages/backend/vercel.json. Validation: JSON parse OK sur les 3 fichiers, git diff --check OK, secret scan OK. Cela coupe les déploiements Git auto keep-preview/keep-backend/keep-admin depuis le repo et évite la voie parallèle non canonique.
+
+## [2026-09-17T13:22:42.617Z] codex
+
+Je continue sur le blocage TestFlight étape 3: je vais corriger l’automatisation iOS pour éviter l’arrêt non interactif Apple/EAS et pousser seulement après validation réelle.
+
+## [2026-09-17T13:29:53.538Z] codex
+
+Je reprends l’audit écoute TestFlight + Battle solo : comparer runtime web vs iOS/TestFlight, traquer le délai piste 2 en Battle, corriger la logique mobile/store sans toucher au design.
+
+## [2026-09-17T13:38:42.966Z] codex
+
+Audit écoute TestFlight + Battle solo terminé: cause confirmée = la preview native partait parfois avant la libération réelle du micro (web OK, iPhone/TestFlight KO), donc pauseListening attend maintenant cancelAudioCapture avant expo-av. Bonus: préchauffage de la preview du round solo suivant pour réduire le délai entre manches. Validé: npm ci, tsc mobile OK, 31 tests OK, export web OK, Chromium headless OK, secret scan OK, CodeQL 0 alerte.
+

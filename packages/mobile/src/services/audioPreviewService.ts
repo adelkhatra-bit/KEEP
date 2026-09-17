@@ -393,7 +393,7 @@ export async function scheduleTrackPreviewSegment(
     activeStartTimer = setTimeout(() => {
       activeStartTimer = null;
       if (activeSound !== createdSound) return;
-      void createdSound.playAsync().then(() => {
+      void ensurePlaying(createdSound).then(() => {
         if (activeSound !== createdSound) return;
         onStateChange?.(true);
         activeTimer = setTimeout(() => {

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeepVisibility } from '../types';
 import { useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -62,6 +63,7 @@ function formatElapsed(startedAt: string | null) {
 
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
@@ -358,7 +360,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}>
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
-      <ScrollView style={s.main} contentContainerStyle={s.mainContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={s.main}
+        contentContainerStyle={[s.mainContent, { paddingBottom: 8 + Math.max(insets.bottom, 8) }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Adel (02/09/2026) : "tu as désactivé le micro sur l'iPhone" --
             trouvé en audit : cette pastille ne reflétait jamais le vrai état
             du micro, juste "une session tourne" (recognizing/pas). Le
@@ -385,83 +391,85 @@ export default function HomeScreenCompact({ navigation }: any) {
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{/microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
-        <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
+        <View style={[s.resultsSection, { marginTop: Platform.OS === 'ios' ? 18 + Math.min(insets.top, 12) : 14 }]}>
+          <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
 
-        {tracks.length > 1 ? (
-          <View style={s.queueNav}>
-            <TouchableOpacity style={[s.queueNavBtn, !canGoNewer && s.disabled]} onPress={goNewer} disabled={!canGoNewer} accessibilityLabel="Morceau plus récent">
-              <Text style={s.queueNavBtnText}>‹ Plus récent</Text>
-            </TouchableOpacity>
-            <Text style={s.queueNavCount}>{currentIndex + 1} / {tracks.length}</Text>
-            <TouchableOpacity style={[s.queueNavBtn, !canGoOlder && s.disabled]} onPress={goOlder} disabled={!canGoOlder} accessibilityLabel="Morceau plus ancien">
-              <Text style={s.queueNavBtnText}>Plus ancien ›</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {current ? (
-          <SwipeDeck
-            resetKey={current.id}
-            enabled={Boolean(pending && !keepBusy)}
-            onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
-            onSwipeRight={openKeepChooser}
-            leftLabel="PASSER"
-            rightLabel="GARDER"
-            hint="Swipe facultatif : ← passer · garder → · les boutons restent disponibles"
-          >
-            <View style={s.trackCard}>
-              <View style={s.trackHead}>
-                {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
-                <View style={s.trackText}>
-                  <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
-                  <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>
-                  <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
-                </View>
-              </View>
-              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} />
-              {alreadySaved ? (
-                <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
-              ) : current.status === 'kept' ? (
-                <View style={s.keptState}>
-                  <Text style={s.keptStateText}>✓ Gardé</Text>
-                  <TouchableOpacity
-                    style={[s.privacyPill, currentVisibility === 'PUBLIC' ? s.privacyPublic : s.privacyPrivate]}
-                    onPress={() => { void toggleCurrentVisibility(); }}
-                    disabled={privacyBusy}
-                  >
-                    <Text style={currentVisibility === 'PUBLIC' ? s.privacyPublicText : s.privacyPrivateText}>
-                      {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : current.status === 'passed' ? (
-                <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
-              ) : (
-                <>
-                  {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
-                  <View style={s.actions}>
-                    <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                    <TouchableOpacity style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
-                  </View>
-                </>
-              )}
+          {tracks.length > 1 ? (
+            <View style={s.queueNav}>
+              <TouchableOpacity style={[s.queueNavBtn, !canGoNewer && s.disabled]} onPress={goNewer} disabled={!canGoNewer} accessibilityLabel="Morceau plus récent">
+                <Text style={s.queueNavBtnText}>‹ Plus récent</Text>
+              </TouchableOpacity>
+              <Text style={s.queueNavCount}>{currentIndex + 1} / {tracks.length}</Text>
+              <TouchableOpacity style={[s.queueNavBtn, !canGoOlder && s.disabled]} onPress={goOlder} disabled={!canGoOlder} accessibilityLabel="Morceau plus ancien">
+                <Text style={s.queueNavBtnText}>Plus ancien ›</Text>
+              </TouchableOpacity>
             </View>
-          </SwipeDeck>
-        ) : (
-          <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
-        )}
+          ) : null}
 
-        <TouchableOpacity style={s.manualSearchLink} onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }} accessibilityLabel="Chercher un morceau par son titre">
-          <Text style={s.manualSearchLinkText}>Tu connais le titre ? Cherche-le toi-même</Text>
-        </TouchableOpacity>
+          {current ? (
+            <SwipeDeck
+              resetKey={current.id}
+              enabled={Boolean(pending && !keepBusy)}
+              onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
+              onSwipeRight={openKeepChooser}
+              leftLabel="PASSER"
+              rightLabel="GARDER"
+              hint="Swipe facultatif : ← passer · garder → · les boutons restent disponibles"
+            >
+              <View style={s.trackCard}>
+                <View style={s.trackHead}>
+                  {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                  <View style={s.trackText}>
+                    <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
+                    <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>
+                    <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
+                  </View>
+                </View>
+                <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} />
+                {alreadySaved ? (
+                  <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
+                ) : current.status === 'kept' ? (
+                  <View style={s.keptState}>
+                    <Text style={s.keptStateText}>✓ Gardé</Text>
+                    <TouchableOpacity
+                      style={[s.privacyPill, currentVisibility === 'PUBLIC' ? s.privacyPublic : s.privacyPrivate]}
+                      onPress={() => { void toggleCurrentVisibility(); }}
+                      disabled={privacyBusy}
+                    >
+                      <Text style={currentVisibility === 'PUBLIC' ? s.privacyPublicText : s.privacyPrivateText}>
+                        {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : current.status === 'passed' ? (
+                  <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
+                ) : (
+                  <>
+                    {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
+                    <View style={s.actions}>
+                      <TouchableOpacity style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
+                      <TouchableOpacity style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            </SwipeDeck>
+          ) : (
+            <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
+          )}
+
+          <TouchableOpacity style={s.manualSearchLink} onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }} accessibilityLabel="Chercher un morceau par son titre">
+            <Text style={s.manualSearchLinkText}>Tu connais le titre ? Cherche-le toi-même</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
-      <View style={s.footerActions}>
+      <View style={[s.footerActions, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TouchableOpacity style={s.secondary} onPress={finishSession}><Text style={s.secondaryText}>{t('session.endNow')}</Text></TouchableOpacity>
       </View>
 
       <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => setKeepChoiceOpen(false)}>
-        <View style={s.modalOverlay}><View style={s.keepChoiceCard}>
+        <View style={[s.modalOverlay, { paddingTop: 24 + insets.top, paddingBottom: 24 + Math.max(insets.bottom, 24) }]}><View style={s.keepChoiceCard}>
           <Text style={s.modalTitle}>Garder ce morceau</Text>
           <Text style={s.modalBody}>Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard dans Mes Sessions.</Text>
           {playlists.length > 1 ? (
@@ -488,7 +496,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       </Modal>
 
       <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
-        <View style={s.modalOverlay}><View style={s.modalCard}>
+        <View style={[s.modalOverlay, { paddingTop: 24 + insets.top, paddingBottom: 24 + Math.max(insets.bottom, 24) }]}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
           <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, Loki ne peut pas lire ces pages-là.</Text>
           <TextInput
@@ -513,7 +521,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       </Modal>
 
       <Modal visible={showEndPrompt} transparent animationType="fade">
-        <View style={s.modalOverlay}><View style={s.modalCard}>
+        <View style={[s.modalOverlay, { paddingTop: 24 + insets.top, paddingBottom: 24 + Math.max(insets.bottom, 24) }]}><View style={s.modalCard}>
           <Text style={s.modalTitle}>{t('session.endPromptTitle')}</Text>
           <Text style={s.modalBody}>{t('session.endPromptBody')}</Text>
           <View style={s.modalActions}>
@@ -564,6 +572,7 @@ const s = StyleSheet.create({
   signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
   main: { flex: 1 },
   mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
+  resultsSection: { width: '100%' },
   liveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green, marginRight: 6 },
   liveDotError: { backgroundColor: C.pink },

@@ -162,7 +162,7 @@ interface SessionStore {
   // (elle reprend automatiquement à la fin de l'extrait) sans jamais
   // toucher à sessionId/tracks/startedAt.
   micPaused: boolean;
-  pauseListening: () => void;
+  pauseListening: () => Promise<void>;
   resumeListening: () => void;
   startSession: () => void;
   requestEndSession: (title?: string) => string | null;
@@ -342,10 +342,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lng: undefined,
   micPaused: false,
 
-  pauseListening: () => {
+  pauseListening: async () => {
     if (!get().isActive || get().micPaused) return;
-    void cancelAudioCapture();
     set({ micPaused: true, recognizing: false, micLevel: 0 });
+    await cancelAudioCapture().catch(() => {});
   },
 
   resumeListening: () => {

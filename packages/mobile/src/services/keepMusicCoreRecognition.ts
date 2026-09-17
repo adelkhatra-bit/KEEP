@@ -426,6 +426,8 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
     if (primary.ok && primary.payload?.recognition) {
       recognitionBackoffUntil = 0;
+      fallbackUnavailableUntil = 0;
+      armStickyMatch();
       return primary.payload.recognition as RecognitionResult;
     }
 
@@ -436,6 +438,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       const keyless = await keylessSourceRecognition(accessToken);
       if (keyless) {
         recognitionBackoffUntil = 0;
+        armStickyMatch();
         return keyless;
       }
       if (primaryRateLimited) recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
@@ -451,12 +454,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     if (fallback.ok && fallback.payload?.recognition) {
       fallbackUnavailableUntil = 0;
       recognitionBackoffUntil = 0;
+      armStickyMatch();
       return fallback.payload.recognition as RecognitionResult;
     }
 
     const keyless = await keylessSourceRecognition(accessToken);
     if (keyless) {
       recognitionBackoffUntil = 0;
+      armStickyMatch();
       return keyless;
     }
 
