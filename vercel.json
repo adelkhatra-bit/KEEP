@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": false
+  },
+  "github": {
+    "silent": true
+  },
   "framework": null,
   "installCommand": "npm ci --include=dev",
   "buildCommand": "cd packages/mobile && npx expo export --platform web && node scripts/fix-web-export.cjs dist",

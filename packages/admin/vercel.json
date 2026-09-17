@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": false
+  },
+  "github": {
+    "silent": true
+  },
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next"

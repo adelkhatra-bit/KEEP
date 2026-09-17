@@ -1132,3 +1132,7 @@ Je continue sans m'arrêter: second passage d'audit mobile sur Ecouter/Battle po
 
 Je continue et je viens de pousser un durcissement supplémentaire: TrackListenControls retente désormais un resolveTrackPreviewUrl(forceRefresh) avant d'afficher 'Extrait indisponible', pour les previews expirés hors Battle aussi. Revalidé: npm ci, npx tsc --noEmit -p packages/mobile OK, Jest ciblé OK (31 tests), export web réel + Chromium headless OK, secret scan OK, CodeQL 0 alerte.
 
+## [2026-09-17T13:10:15.348Z] codex
+
+Je continue sur le nouveau sujet: audit des déploiements preview/backend qui envoient des e-mails, objectif stopper ces notifications à la source sans casser la chaîne canonique KEEP.
+
