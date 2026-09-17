@@ -1124,3 +1124,7 @@ Je reprends un audit mobile playback: écoutes Flight/TestFlight non fonctionnel
 
 Audit mobile playback terminé et poussé. Correctifs livrés: profils EAS iOS preview/production câblés avec les variables runtime publiques nécessaires à la vraie écoute KEEP en TestFlight; Battle mobile fiabilisé avec démarrage natif différé vérifié (ensurePlaying) + repli de renouvellement d’URL preview expirée depuis titre/artiste avant abandon. Validations réelles: npm ci, npx tsc --noEmit -p packages/mobile OK, 2 suites Jest ciblées OK (30 tests), export web réel OK sur http://127.0.0.1:8081 avec Chromium headless (pas de page blanche). Point restant externe: scripts/verify-source-of-truth.cjs signale uniquement WRONG BRANCH=copilot/push-final-testflight-ready dans cet environnement.
 
+## [2026-09-17T12:56:57.663Z] codex
+
+Je continue sans m'arrêter: second passage d'audit mobile sur Ecouter/Battle pour traiter ce qui reste côté playback/préviews/reconnaissance et pousser uniquement si c'est réellement validé.
+
