@@ -35,6 +35,7 @@ describe('Loki Samsung mobile reliability', () => {
     expect(listenControls).toContain('const retryWithFreshPreview = async (failedUrl: string, positionMillis: number): Promise<boolean> => {');
     expect(listenControls).toContain('resolveTrackPreviewUrl({');
     expect(listenControls).toContain('}, { forceRefresh: true });');
+    expect(listenControls).toContain('if (session.isActive) await session.pauseListening().catch(() => {});');
     expect(listenControls).toContain('const recovered = await retryWithFreshPreview(attemptedUrl, positionMillis).catch(() => false);');
     expect(listenControls).toContain("if (!recovered) {\n        setResolvedPreviewUrl(null);");
   });

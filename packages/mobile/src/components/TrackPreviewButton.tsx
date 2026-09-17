@@ -139,6 +139,10 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     setBusy(true);
     const attemptedUrl = resolvedPreviewUrl;
     try {
+      if (!playing) {
+        const session = useSessionStore.getState();
+        if (session.isActive) await session.pauseListening().catch(() => {});
+      }
       await toggleTrackPreview(trackKey, attemptedUrl, setPlayingAndResume);
     } catch {
       setPlayingAndResume(false);
@@ -199,8 +203,6 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     // l'utilisateur revient dans l'app, donc ce chemin continue d'exiger
     // une confirmation et arrête vraiment la session.
     if (resolvedPreviewUrl) {
-      const session = useSessionStore.getState();
-      if (session.isActive) session.pauseListening();
       void playOrStopPreview();
       return;
     }

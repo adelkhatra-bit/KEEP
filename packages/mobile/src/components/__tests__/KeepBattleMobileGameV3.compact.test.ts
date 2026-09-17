@@ -136,10 +136,16 @@ describe('Loki Battle mobile style selector', () => {
 
   it('refreshes expired Battle preview URLs before giving up on playback', () => {
     expect(source).toContain("import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';");
+    expect(source).toContain('const prefetchedSoloPreviewUrlsRef = React.useRef<Map<string, string>>(new Map());');
+    expect(source).toContain("void resolveTrackPreviewUrl({");
+    expect(source).toContain("previewUrl: nextRound.previewUrl,");
+    expect(source).toContain("}, { forceRefresh: true }).then((fresh) => {");
+    expect(source).toContain("let candidateUrl = (prefetchedKey && prefetchedSoloPreviewUrlsRef.current.get(prefetchedKey)) || url;");
     expect(source).toContain('const refreshCandidate = async () => {');
     expect(source).toContain("return resolveTrackPreviewUrl({ id: `${key}:preview`, title, artist, previewUrl: candidateUrl, providerIds: {} }, { forceRefresh: true });");
     expect(source).toContain('if (refreshed && refreshed !== candidateUrl) {');
     expect(source).toContain('candidateUrl = refreshed;');
+    expect(source).toContain("if (prefetchedKey) prefetchedSoloPreviewUrlsRef.current.set(prefetchedKey, refreshed);");
   });
 
   it('uses a TikTok-style pressure gauge for 1v1 and a real-name standings list for groups', () => {

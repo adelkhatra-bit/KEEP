@@ -370,6 +370,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // l'effet de timeout de lire la VRAIE valeur courante au lieu de sa propre
   // fermeture obsolète.
   const soloStartedAtRef = React.useRef(0);
+  const prefetchedSoloPreviewUrlsRef = React.useRef<Map<string, string>>(new Map());
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
   // Adel (01/09/2026) : "je veux pas que ça se fasse par défaut ... je veux
@@ -670,14 +671,40 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }).catch(() => {});
   }, [enabled, initialArenaId, arena]);
 
+  React.useEffect(() => {
+    prefetchedSoloPreviewUrlsRef.current.clear();
+  }, [solo?.rounds?.[0]?.trackId, solo?.rounds?.length]);
+
+  React.useEffect(() => {
+    const nextRound = solo?.rounds[soloIndex + 1];
+    const title = String(nextRound?.title || '').trim();
+    const artist = String(nextRound?.artist || '').trim();
+    if (!nextRound || !title || !artist) return;
+    const cacheKey = `${nextRound.trackId}:${title}:${artist}`;
+    if (prefetchedSoloPreviewUrlsRef.current.has(cacheKey)) return;
+    let live = true;
+    void resolveTrackPreviewUrl({
+      id: `${cacheKey}:preview`,
+      title,
+      artist,
+      previewUrl: nextRound.previewUrl,
+      providerIds: {},
+    }, { forceRefresh: true }).then((fresh) => {
+      if (!live || !fresh) return;
+      prefetchedSoloPreviewUrlsRef.current.set(cacheKey, fresh);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [solo?.themeCode, soloIndex, solo?.rounds]);
+
   const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
     if (!url) return false;
-    let candidateUrl = url;
     const parts = key.split(':');
     const scope = parts[0] || '';
     const roundIndex = Number(parts[parts.length - 1]);
     const soloRound = scope.startsWith('solo') && solo?.rounds[roundIndex] ? solo.rounds[roundIndex] : null;
     const arenaRound = scope.startsWith('arena') ? arena?.round : null;
+    const prefetchedKey = soloRound ? `${soloRound.trackId}:${String(soloRound.title || '').trim()}:${String(soloRound.artist || '').trim()}` : '';
+    let candidateUrl = (prefetchedKey && prefetchedSoloPreviewUrlsRef.current.get(prefetchedKey)) || url;
     const refreshCandidate = async () => {
       const title = String(soloRound?.title || arenaRound?.title || '').trim();
       const artist = String(soloRound?.artist || arenaRound?.artist || '').trim();
@@ -692,6 +719,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const refreshed = await refreshCandidate().catch(() => null);
         if (refreshed && refreshed !== candidateUrl) {
           candidateUrl = refreshed;
+          if (prefetchedKey) prefetchedSoloPreviewUrlsRef.current.set(prefetchedKey, refreshed);
           continue;
         }
         await wait(220 + attempt * 180);

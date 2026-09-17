@@ -114,6 +114,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     setPreviewBusy(true);
     const attemptedUrl = resolvedPreviewUrl;
     try {
+      const session = useSessionStore.getState();
+      if (session.isActive) await session.pauseListening().catch(() => {});
       await playTrackPreviewSegment(previewKey, attemptedUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
     } catch {
       const recovered = await retryWithFreshPreview(attemptedUrl, positionMillis).catch(() => false);
@@ -128,8 +130,6 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   const playSnippet = (positionMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
-    const session = useSessionStore.getState();
-    if (session.isActive) session.pauseListening();
     void playSnippetNow(positionMillis);
   };
 
