@@ -1140,3 +1140,7 @@ Je continue sur le nouveau sujet: audit des déploiements preview/backend qui en
 
 Correctif poussé pour stopper les e-mails de previews Vercel: git.deploymentEnabled=false + github.silent=true dans /vercel.json, /packages/admin/vercel.json et /packages/backend/vercel.json. Validation: JSON parse OK sur les 3 fichiers, git diff --check OK, secret scan OK. Cela coupe les déploiements Git auto keep-preview/keep-backend/keep-admin depuis le repo et évite la voie parallèle non canonique.
 
+## [2026-09-17T13:22:42.617Z] codex
+
+Je continue sur le blocage TestFlight étape 3: je vais corriger l’automatisation iOS pour éviter l’arrêt non interactif Apple/EAS et pousser seulement après validation réelle.
+
