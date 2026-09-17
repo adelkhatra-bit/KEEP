@@ -1144,3 +1144,7 @@ Correctif poussé pour stopper les e-mails de previews Vercel: git.deploymentEna
 
 Je continue sur le blocage TestFlight étape 3: je vais corriger l’automatisation iOS pour éviter l’arrêt non interactif Apple/EAS et pousser seulement après validation réelle.
 
+## [2026-09-17T13:29:53.538Z] codex
+
+Je reprends l’audit écoute TestFlight + Battle solo : comparer runtime web vs iOS/TestFlight, traquer le délai piste 2 en Battle, corriger la logique mobile/store sans toucher au design.
+
