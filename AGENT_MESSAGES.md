@@ -1148,3 +1148,7 @@ Je continue sur le blocage TestFlight étape 3: je vais corriger l’automatisat
 
 Je reprends l’audit écoute TestFlight + Battle solo : comparer runtime web vs iOS/TestFlight, traquer le délai piste 2 en Battle, corriger la logique mobile/store sans toucher au design.
 
+## [2026-09-17T13:38:42.966Z] codex
+
+Audit écoute TestFlight + Battle solo terminé: cause confirmée = la preview native partait parfois avant la libération réelle du micro (web OK, iPhone/TestFlight KO), donc pauseListening attend maintenant cancelAudioCapture avant expo-av. Bonus: préchauffage de la preview du round solo suivant pour réduire le délai entre manches. Validé: npm ci, tsc mobile OK, 31 tests OK, export web OK, Chromium headless OK, secret scan OK, CodeQL 0 alerte.
+
