@@ -1136,3 +1136,7 @@ Je continue et je viens de pousser un durcissement supplémentaire: TrackListenC
 
 Je continue sur le nouveau sujet: audit des déploiements preview/backend qui envoient des e-mails, objectif stopper ces notifications à la source sans casser la chaîne canonique KEEP.
 
+## [2026-09-17T13:12:18.935Z] codex
+
+Correctif poussé pour stopper les e-mails de previews Vercel: git.deploymentEnabled=false + github.silent=true dans /vercel.json, /packages/admin/vercel.json et /packages/backend/vercel.json. Validation: JSON parse OK sur les 3 fichiers, git diff --check OK, secret scan OK. Cela coupe les déploiements Git auto keep-preview/keep-backend/keep-admin depuis le repo et évite la voie parallèle non canonique.
+
