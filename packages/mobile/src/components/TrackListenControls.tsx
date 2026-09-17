@@ -94,13 +94,33 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     if (session.micPaused) session.resumeListening();
   };
 
+  const retryWithFreshPreview = async (failedUrl: string, positionMillis: number): Promise<boolean> => {
+    const fresh = await resolveTrackPreviewUrl({
+      ...track,
+      previewUrl: failedUrl,
+    }, { forceRefresh: true });
+    if (!fresh || fresh === failedUrl) return false;
+    setResolvedPreviewUrl(fresh);
+    try {
+      await playTrackPreviewSegment(previewKey, fresh, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const playSnippetNow = async (positionMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
     setPreviewBusy(true);
+    const attemptedUrl = resolvedPreviewUrl;
     try {
-      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
+      await playTrackPreviewSegment(previewKey, attemptedUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
     } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+      const recovered = await retryWithFreshPreview(attemptedUrl, positionMillis).catch(() => false);
+      if (!recovered) {
+        setResolvedPreviewUrl(null);
+        Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+      }
     } finally {
       setPreviewBusy(false);
     }

@@ -7,6 +7,7 @@ describe('Loki Samsung mobile reliability', () => {
   const discover = fs.readFileSync(path.resolve(__dirname, '..', 'DiscoverScreen.tsx'), 'utf8');
   const mic = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'micCapture.ts'), 'utf8');
   const session = fs.readFileSync(path.resolve(__dirname, '..', '..', 'store', 'useSessionStore.ts'), 'utf8');
+  const listenControls = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'TrackListenControls.tsx'), 'utf8');
 
   it('pins React Native Web to the dynamic Android viewport', () => {
     expect(index).toContain('height:100dvh');
@@ -28,5 +29,13 @@ describe('Loki Samsung mobile reliability', () => {
     expect(mic).toContain('prepareAudioCaptureFromUserGesture');
     expect(mic).toContain("if (ctx.state === 'suspended') void ctx.resume()");
     expect(session).toContain('prepareAudioCaptureFromUserGesture();');
+  });
+
+  it('refreshes an expired listen preview before declaring it unavailable', () => {
+    expect(listenControls).toContain('const retryWithFreshPreview = async (failedUrl: string, positionMillis: number): Promise<boolean> => {');
+    expect(listenControls).toContain('resolveTrackPreviewUrl({');
+    expect(listenControls).toContain('}, { forceRefresh: true });');
+    expect(listenControls).toContain('const recovered = await retryWithFreshPreview(attemptedUrl, positionMillis).catch(() => false);');
+    expect(listenControls).toContain("if (!recovered) {\n        setResolvedPreviewUrl(null);");
   });
 });
