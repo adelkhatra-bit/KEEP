@@ -1128,3 +1128,7 @@ Audit mobile playback terminé et poussé. Correctifs livrés: profils EAS iOS p
 
 Je continue sans m'arrêter: second passage d'audit mobile sur Ecouter/Battle pour traiter ce qui reste côté playback/préviews/reconnaissance et pousser uniquement si c'est réellement validé.
 
+## [2026-09-17T13:01:39.271Z] codex
+
+Je continue et je viens de pousser un durcissement supplémentaire: TrackListenControls retente désormais un resolveTrackPreviewUrl(forceRefresh) avant d'afficher 'Extrait indisponible', pour les previews expirés hors Battle aussi. Revalidé: npm ci, npx tsc --noEmit -p packages/mobile OK, Jest ciblé OK (31 tests), export web réel + Chromium headless OK, secret scan OK, CodeQL 0 alerte.
+
