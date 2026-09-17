@@ -1116,3 +1116,7 @@ Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/prof
 
 Je commence l'implémentation des fixes TestFlight ready: détection musicale réelle/cache, UI écran Ecoute/overlays, workflow EAS iOS, fichiers env/config.
 
+## [2026-09-17T09:29:32.324Z] codex
+
+Je reprends un audit mobile playback: écoutes Flight/TestFlight non fonctionnelles et musiques Battle lentes/difficiles à lancer; je vais tracer les flux audio mobile, corriger, tester typecheck/export, puis pousser quand c'est réellement fonctionnel.
+
