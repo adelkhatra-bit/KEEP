@@ -1,0 +1,28 @@
+# Supabase Local Development Config
+# Utilise ce fichier pour configurer les services Supabase localement
+
+[api]
+port = 54321
+schemas = ["public", "graphql_public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[realtime]
+port = 54323
+max_bytes_per_second = 0
+
+[vector]
+port = 54324
+
+[auth]
+site_url = "http://localhost:3000"
+api_external_url = "http://localhost:54321"
+
+[storage]
+bucket_path = "storage"
+
+[edge_runtime]
+policy_mode = "imply"
