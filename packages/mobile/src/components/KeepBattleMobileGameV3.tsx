@@ -16,6 +16,7 @@ import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 
 const ROUND_MS = 10000;
 const KEEP_BATTLE_SHARE = 'https://adelkhatra-bit.github.io/KEEP/share-profile/';
@@ -671,16 +672,33 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
     if (!url) return false;
+    let candidateUrl = url;
+    const parts = key.split(':');
+    const scope = parts[0] || '';
+    const roundIndex = Number(parts[parts.length - 1]);
+    const soloRound = scope.startsWith('solo') && solo?.rounds[roundIndex] ? solo.rounds[roundIndex] : null;
+    const arenaRound = scope.startsWith('arena') ? arena?.round : null;
+    const refreshCandidate = async () => {
+      const title = String(soloRound?.title || arenaRound?.title || '').trim();
+      const artist = String(soloRound?.artist || arenaRound?.artist || '').trim();
+      if (!title || !artist) return null;
+      return resolveTrackPreviewUrl({ id: `${key}:preview`, title, artist, previewUrl: candidateUrl, providerIds: {} }, { forceRefresh: true });
+    };
     for (let attempt = 0; attempt < 4; attempt += 1) {
       try {
-        await playTrackPreviewSegment(`${key}:${attempt}`, url, 0, duration);
+        await playTrackPreviewSegment(`${key}:${attempt}`, candidateUrl, 0, duration);
         return true;
       } catch {
+        const refreshed = await refreshCandidate().catch(() => null);
+        if (refreshed && refreshed !== candidateUrl) {
+          candidateUrl = refreshed;
+          continue;
+        }
         await wait(220 + attempt * 180);
       }
     }
     return false;
-  }, []);
+  }, [arena?.round, solo?.rounds]);
 
   const shareInvite = React.useCallback(async () => {
     await Share.share({ message: `Viens me défier sur Loki Battle ⚡\n10 secondes · 4 choix · gagne des Free\n${KEEP_BATTLE_SHARE}` });

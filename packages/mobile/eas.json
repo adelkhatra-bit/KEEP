@@ -15,6 +15,13 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_KEEP_REAL_RECOGNITION": "true",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://rrhqsqzcplvmwxizqnla.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru",
+        "EXPO_PUBLIC_WEB_URL": "https://adelkhatra-bit.github.io/KEEP",
+        "EXPO_PUBLIC_AUTH_REDIRECT_URL": "https://adelkhatra-bit.github.io/KEEP/"
+      },
       "ios": {
         "resourceClass": "m-medium",
         "simulator": false
@@ -24,6 +31,13 @@
       "channel": "production",
       "autoIncrement": true,
       "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_KEEP_REAL_RECOGNITION": "true",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://rrhqsqzcplvmwxizqnla.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru",
+        "EXPO_PUBLIC_WEB_URL": "https://adelkhatra-bit.github.io/KEEP",
+        "EXPO_PUBLIC_AUTH_REDIRECT_URL": "https://adelkhatra-bit.github.io/KEEP/"
+      },
       "ios": {
         "resourceClass": "m-medium",
         "image": "sdk-54",
