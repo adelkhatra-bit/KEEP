@@ -152,6 +152,7 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     // Adel (18/09/2026, CRITICAL BUG) : les candidats étaient les BONNES
     // RÉPONSES d'autres manches, créant ainsi 2+ bonnes réponses par manche.
     // Solution: utiliser les CHOICES (mauvaises réponses) d'autres manches.
+    // IMPORTANT: s'assurer que correctAnswer est TOUJOURS incluse dans les 4 réponses.
     const candidates = rounds
       .filter((item) => item.artist !== round.artist)
       .flatMap((item) => item.choices);
@@ -159,7 +160,11 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
       if (unique.length >= 4) break;
       if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
     }
-    round.choices = unique.length < 4 ? unique : unique.slice(0, 4);
+    // S'assurer que correctAnswer est dans unique (obligatoire pour le composant)
+    if (!unique.some((value) => value.toLocaleLowerCase() === round.correctAnswer.toLocaleLowerCase())) {
+      unique.unshift(round.correctAnswer);
+    }
+    round.choices = unique.slice(0, 4);
   });
   return {
     mode: 'SOLO_TRAINING',
