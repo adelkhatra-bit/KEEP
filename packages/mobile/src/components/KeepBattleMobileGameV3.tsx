@@ -1562,6 +1562,26 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // BATTLE" doivent maintenant amener au même endroit que ‹, l'accueil
   // INTERNE de Battle, jamais plus loin.
   const backToArenaHome = React.useCallback(() => {
+    if (arena?.status === 'ACTIVE') {
+      const stakeLoss = stakeForRounds(arena.roundCount);
+      Alert.alert(
+        'Êtes-vous sûr de sortir ?',
+        `Si tu quittes maintenant, tu vas perdre ${stakeLoss} Free (forfait du Battle).`,
+        [
+          { text: 'Non, continuer', style: 'cancel' },
+          {
+            text: 'Oui, je quitte',
+            style: 'destructive',
+            onPress: () => {
+              void stopTrackPreview();
+              if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
+              setArena(null);
+            },
+          },
+        ],
+      );
+      return;
+    }
     void stopTrackPreview();
     if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
     setArena(null);
