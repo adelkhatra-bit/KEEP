@@ -28,6 +28,21 @@ const initial = (name: string) => (name || 'K').replace(/^@/, '').slice(0, 1).to
 // serveur, seule source de vérité réelle : ceci ne sert qu'à l'aperçu
 // instantané avant validation).
 const stakeForRounds = (n: number) => Math.max(1, Math.ceil((3 * Math.max(1, n)) / 8));
+
+// Adel (18/09/2026) : Calcul des Free gagnés en SOLO selon le nombre de bonnes réponses
+// Formule: free_earned = floor(correct_answers / total * max_reward_for_pack_size)
+// Max rewards: 8→3, 15→6, 20→8, 30→12
+const maxRewardForRounds = (n: number): number => {
+  if (n <= 8) return 3;
+  if (n <= 15) return 6;
+  if (n <= 20) return 8;
+  return 12;
+};
+const freeEarnedForSoloScore = (correctAnswers: number, totalRounds: number): number => {
+  if (totalRounds <= 0) return 0;
+  const maxReward = maxRewardForRounds(totalRounds);
+  return Math.floor((correctAnswers / totalRounds) * maxReward);
+};
 // Le serveur embarque désormais le montant exact requis dans le message
 // d'erreur ("...REQUIRED:12") sans casser les anciens .includes() : on
 // l'utilise pour un message précis, avec repli sur le calcul local.
@@ -355,6 +370,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
   const [soloBefore, setSoloBefore] = React.useState<number | null>(null);
   const [soloAfter, setSoloAfter] = React.useState<number | null>(null);
+  const [soloFreeEarned, setSoloFreeEarned] = React.useState(0);
   // Adel (02/09/2026) : "la première musique ça fonctionne, la deuxième ça
   // bloque, pas de son, et ça répond automatiquement tout seul" -- BUG RÉEL
   // confirmé en direct (instrumentation HTMLMediaElement.pause/play) : à
@@ -933,7 +949,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         loadMyKeepBattleCreditStatus().then((status) => {
           if ('remainingFree' in status) {
             const freeAfter = Number(status.remainingFree ?? 0);
+            const freeEarned = freeEarnedForSoloScore(soloScore, solo.rounds.length);
             setSoloAfter(freeAfter);
+            setSoloFreeEarned(freeEarned);
             // Enregistrer l'historique SOLO avec before/earned/after
             if (soloBefore !== null && supabase) {
               void supabase.rpc('keep_battle_solo_record_completion', {
@@ -941,7 +959,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 p_round_count: solo.rounds.length,
                 p_correct_answers: soloScore,
                 p_free_before: soloBefore,
-                p_free_earned: soloScore,
+                p_free_earned: freeEarned,
                 p_free_after: freeAfter
               });
             }
@@ -1128,7 +1146,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
-      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
+      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloFreeEarned(0); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
       // Adel (02/09/2026) : "lorsque j'appuie sur Battle seul ou Battle à
       // plusieurs, automatiquement ça m'active mon profil" -- entrer en
       // Battle (solo ou en ligne) montre déjà l'intention de jouer.
@@ -1719,7 +1737,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.finishTitle}>{perfect ? `PARFAIT · ${solo.rounds.length}/${solo.rounds.length}` : `${soloScore}/${solo.rounds.length}`}</Text>
             <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
-            <Text style={s.finishReward}>🎁 Tu as gagné {soloScore} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloScore} → ${soloAfter})` : ''}</Text>
+            <Text style={s.finishReward}>🎁 Tu as gagné {soloFreeEarned} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloFreeEarned} → ${soloAfter})` : ''}</Text>
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
           <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
