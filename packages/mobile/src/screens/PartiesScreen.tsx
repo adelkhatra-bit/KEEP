@@ -1048,12 +1048,41 @@ export default function PartiesScreen({ navigation, route }: any) {
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.matchesPlayed ?? statsEntry.matchesPlayed}</Text><Text style={styles.statsBigLabel}>Matchs</Text></View>
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.totalCorrect ?? statsEntry.totalCorrect}</Text><Text style={styles.statsBigLabel}>Bonnes rép.</Text></View>
                   </View>
-                  {statsData ? <View style={styles.statsSmallRow}>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>Free gagné</Text></View>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>Free perdu</Text></View>
-                  </View> : null}
+                  {statsData ? <>
+                    <View style={styles.statsSmallRow}>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>Free gagné</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>Free perdu</Text></View>
+                    </View>
+                    <Text style={styles.statsSectionTitle}>DÉTAIL FREE</Text>
+                    <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:'#24192E'}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.creditHistoryLabel}>💰 Bilan Battle</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Gagné vs Perdu</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={{color: '#7CF2B9', fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
+                        <Text style={{fontSize: 10, color: '#8F879D', marginTop: 2}}>{expandedMatchId === `user-free-${statsEntry?.profileId}` ? '▼' : '▶'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {expandedMatchId === `user-free-${statsEntry?.profileId}` ? (
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#17121D', marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Free gagné</Text>
+                          <Text style={{color: '#7CF2B9', fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Free perdu</Text>
+                          <Text style={{color: '#FFB3C3', fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#312348', paddingTop: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Bilan net</Text>
+                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{statsData.freeWon - statsData.freeLost >= 0 ? '+' : ''}{statsData.freeWon - statsData.freeLost}</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </> : null}
                   {(statsData?.avgResponseMs ?? statsEntry.avgResponseMs) != null ? (
                     <Text style={styles.statsAvg}>⚡ {(((statsData?.avgResponseMs ?? statsEntry.avgResponseMs) as number) / 1000).toFixed(1)}s de temps de réponse moyen</Text>
                   ) : null}
