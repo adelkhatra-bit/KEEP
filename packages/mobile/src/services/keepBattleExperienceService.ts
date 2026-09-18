@@ -133,17 +133,25 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     };
   }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
-  // Le serveur historique renvoie trois choix. Pour conserver la même source
-  // musicale et garantir quatre réponses sans inventer d'artiste, on complète
-  // chaque manche avec un artiste d'une autre manche du pack, déjà validé par
-  // le catalogue et distinct des choix présents.
+  // Adel (18/09/2026) : "il faut au moins quatre réponses ... aucun doublon ...
+  // une seule bonne réponse" -- le serveur historique renvoie 3 choix. Pour
+  // conserver la même source musicale et garantir EXACTEMENT 4 réponses sans
+  // doublons ni inventer d'artiste, on complète chaque manche avec un artiste
+  // d'une autre manche du pack, déjà validé par le catalogue et distinct des
+  // choix présents. Tous les candidats doivent passer par primaryArtistLabel
+  // pour éviter que simplifyArtistCredit crée des doublons masqués.
+  const primaryArtistLabel = (full: string) => {
+    const first = full.split(/\s*(?:,|&|\/|\+|\bfeat\.?\b|\bft\.?\b|\bx\b|\bet\b|\band\b|\bvs\.?\b)\s*/i)[0]?.trim() || full;
+    return first.length > 28 ? `${first.slice(0, 26).trim()}…` : first;
+  };
   rounds.forEach((round: KeepBattleSoloRound) => {
     const unique = Array.from(new Set(round.choices.filter(Boolean)));
-    for (const candidate of rounds.map((item: KeepBattleSoloRound) => item.artist)) {
+    const candidates = rounds.map((item: KeepBattleSoloRound) => primaryArtistLabel(item.artist));
+    for (const candidate of candidates) {
       if (unique.length >= 4) break;
       if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
     }
-    round.choices = unique.slice(0, 4);
+    round.choices = unique.length < 4 ? unique : unique.slice(0, 4);
   });
   return {
     mode: 'SOLO_TRAINING',
