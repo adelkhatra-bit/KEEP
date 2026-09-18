@@ -308,6 +308,37 @@ export default function OffersScreen({ navigation, route }: any) {
     return () => { cancelled = true; };
   }, []);
 
+  // Adel (18/09/2026, sync) : "vérifie qu'il est bien branché au même endroit
+  // que le profil c'est très important" -- rafraîchir les compteurs growth
+  // (followers, qualifiedShares, bonusFreeCredits) quand on revient à l'écran
+  // pour rester en sync avec ProfilePublicScreen.
+  useEffect(() => {
+    if (!user || isLocalGuest || isDemoMode || !navigation) return undefined;
+    const refreshOnFocus = async () => {
+      try {
+        const [liveGrowth, liveFreeStatus, liveBreakdown] = await Promise.all([
+          getGrowthRewardStatus().catch(() => null),
+          loadMyKeepBattleCreditStatus().catch(() => null),
+          loadFreeCreditBreakdown().catch(() => null),
+        ]);
+        setGrowth(liveGrowth);
+        setBreakdown(liveBreakdown);
+        if (liveFreeStatus && 'remainingFree' in liveFreeStatus) {
+          setFreeBalance(Number(liveFreeStatus.remainingFree ?? 0));
+          setFreeUnlimited(false);
+        } else if (liveFreeStatus) {
+          const quota = liveFreeStatus as any;
+          setFreeBalance(quota.remaining == null ? null : Number(quota.remaining));
+          setFreeUnlimited(Boolean(quota.unlimited));
+        }
+      } catch {
+        // Silencieux en cas d'erreur, les données restent en place.
+      }
+    };
+    const unsubscribe = navigation.addListener?.('focus', refreshOnFocus);
+    return () => unsubscribe?.();
+  }, [user?.id, isLocalGuest, isDemoMode, navigation]);
+
   const freeBalanceLabel = freeUnlimited ? '∞' : freeBalance == null ? '—' : String(Math.max(0, freeBalance));
   // Adel (07/09/2026) : "il faut mettre le nombre de Free qui sera crédité
   // chaque mois avec chaque certif" -- à côté du badge de certification sur
