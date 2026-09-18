@@ -931,7 +931,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         void reportSoloBattleResult(soloScore, solo.rounds.length).catch(() => {});
         // Charger le Free après la partie pour afficher avant/gagné/après
         loadMyKeepBattleCreditStatus().then((status) => {
-          if ('remainingFree' in status) setSoloAfter(Number(status.remainingFree ?? 0));
+          if ('remainingFree' in status) {
+            const freeAfter = Number(status.remainingFree ?? 0);
+            setSoloAfter(freeAfter);
+            // Enregistrer l'historique SOLO avec before/earned/after
+            if (soloBefore !== null) {
+              supabase.rpc('keep_battle_solo_record_completion', {
+                p_theme_code: solo.themeCode,
+                p_round_count: solo.rounds.length,
+                p_correct_answers: soloScore,
+                p_free_before: soloBefore,
+                p_free_earned: soloScore,
+                p_free_after: freeAfter
+              }).catch(() => {});
+            }
+          }
         }).catch(() => {});
         setSoloFinished(true); celebrate();
       }, 520);
