@@ -149,7 +149,12 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   // choix présents.
   rounds.forEach((round: KeepBattleSoloRound) => {
     const unique = Array.from(new Set(round.choices.filter(Boolean)));
-    const candidates = rounds.map((item: KeepBattleSoloRound) => primaryArtistLabel(item.artist));
+    // Adel (18/09/2026, CRITICAL BUG) : les candidats étaient les BONNES
+    // RÉPONSES d'autres manches, créant ainsi 2+ bonnes réponses par manche.
+    // Solution: utiliser les CHOICES (mauvaises réponses) d'autres manches.
+    const candidates = rounds
+      .filter((item) => item.artist !== round.artist)
+      .flatMap((item) => item.choices);
     for (const candidate of candidates) {
       if (unique.length >= 4) break;
       if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
