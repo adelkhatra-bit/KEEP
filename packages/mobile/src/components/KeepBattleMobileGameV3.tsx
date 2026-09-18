@@ -353,6 +353,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloScore, setSoloScore] = React.useState(0);
   const [soloFinished, setSoloFinished] = React.useState(false);
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
+  const [soloBefore, setSoloBefore] = React.useState<number | null>(null);
+  const [soloAfter, setSoloAfter] = React.useState<number | null>(null);
   // Adel (02/09/2026) : "la première musique ça fonctionne, la deuxième ça
   // bloque, pas de son, et ça répond automatiquement tout seul" -- BUG RÉEL
   // confirmé en direct (instrumentation HTMLMediaElement.pause/play) : à
@@ -823,6 +825,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let alive = true;
     answeredRoundRef.current = -1;
     soloStartedAtRef.current = 0; setSoloStartedAt(0); setAudioReady(false);
+    // Charger le Free avant la partie SOLO (première manche uniquement)
+    if (soloIndex === 0 && soloBefore === null) {
+      loadMyKeepBattleCreditStatus().then((status) => {
+        if (alive && 'remainingFree' in status) setSoloBefore(Number(status.remainingFree ?? 0));
+      }).catch(() => {});
+    }
     const start = async () => {
       while (alive) {
         const ok = await playVerified(`solo:${round.trackId}:${soloIndex}`, round.previewUrl, ROUND_MS + 800);
@@ -921,6 +929,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // -- seul moment où un score solo complet est connu ; alimente le
         // palier serveur utilisé pour bloquer un défi trop déséquilibré.
         void reportSoloBattleResult(soloScore, solo.rounds.length).catch(() => {});
+        // Charger le Free après la partie pour afficher avant/gagné/après
+        loadMyKeepBattleCreditStatus().then((status) => {
+          if ('remainingFree' in status) setSoloAfter(Number(status.remainingFree ?? 0));
+        }).catch(() => {});
         setSoloFinished(true); celebrate();
       }, 520);
       return () => clearTimeout(id);
@@ -1688,7 +1700,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.finishTitle}>{perfect ? `PARFAIT · ${solo.rounds.length}/${solo.rounds.length}` : `${soloScore}/${solo.rounds.length}`}</Text>
             <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
-            <Text style={s.finishReward}>🎁 Tu as gagné {soloScore} Free</Text>
+            <Text style={s.finishReward}>🎁 Tu as gagné {soloScore} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloScore} → ${soloAfter})` : ''}</Text>
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
           <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
