@@ -12,6 +12,7 @@ import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
 import { FreeCreditBreakdown, getDownloadCreditStatus, loadFreeCreditBreakdown } from '../services/creditService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
+import { KeepBattleSoloHistoryModal } from '../components/KeepBattleSoloHistoryModal';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -175,6 +176,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const [battleExpanded, setBattleExpanded] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
+  const [soloHistoryVisible, setSoloHistoryVisible] = useState(false);
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
   // Adel (04/09/2026) : "il faut qu'on branche le paiement" -- premier vrai
   // achat StoreKit de bout en bout (KeepIAP -> keep-iap-verify -> activation
@@ -473,6 +475,16 @@ export default function OffersScreen({ navigation, route }: any) {
                 </> : null}
               </View> : null}
 
+              <TouchableOpacity
+                style={s.soloHistoryButton}
+                onPress={() => setSoloHistoryVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Voir l'historique de mes matchs SOLO"
+              >
+                <Text style={s.soloHistoryButtonText}>📊 Historique SOLO</Text>
+                <Text style={s.soloHistoryButtonChevron}>›</Text>
+              </TouchableOpacity>
+
               <View style={s.rechargeBox}>
                 <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
                 <Text style={s.rechargeTitle}>Pas besoin de payer pour continuer.</Text>
@@ -662,6 +674,8 @@ export default function OffersScreen({ navigation, route }: any) {
           <Text style={s.allPlansText}>Voir toutes les formules</Text>
         </TouchableOpacity> : null}
       </ScrollView>
+
+      <KeepBattleSoloHistoryModal visible={soloHistoryVisible} onClose={() => setSoloHistoryVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -721,6 +735,9 @@ const s = StyleSheet.create({
   breakdownLabel: { flex: 1, color: '#E9E3F0', fontSize: 11, fontWeight: '700' },
   breakdownValue: { color: '#7FF2B7', fontSize: 12, fontWeight: '900' },
   breakdownValueNegative: { color: '#FFB3C3' },
+  soloHistoryButton: { marginTop: 10, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#E5F266', backgroundColor: '#1A1C0F', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  soloHistoryButtonText: { color: '#E5F266', fontSize: 13, fontWeight: '900' },
+  soloHistoryButtonChevron: { color: '#E5F266', fontSize: 20, fontWeight: '900' },
   rechargeBox: { marginTop: 13, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
   rechargeEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   rechargeTitle: { color: '#FFFFFF', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 3 },
