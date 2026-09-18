@@ -174,6 +174,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const [error, setError] = useState('');
   const [freeExpanded, setFreeExpanded] = useState(false);
   const [battleExpanded, setBattleExpanded] = useState(false);
+  const [showFreeDetails, setShowFreeDetails] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [soloHistoryVisible, setSoloHistoryVisible] = useState(false);
@@ -414,118 +415,6 @@ export default function OffersScreen({ navigation, route }: any) {
             </View> : null}
           </View>
 
-          <View style={s.creditCard}>
-            <View style={s.creditTop}>
-              <View><Text style={s.sectionTitle}>Tes Free disponibles</Text><Text style={s.creditBig}>{freeBalanceLabel}</Text></View>
-              <View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View>
-            </View>
-
-            <TouchableOpacity
-              style={s.disclosureButton}
-              onPress={() => setFreeExpanded((value) => !value)}
-              accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur les Free"
-              accessibilityState={{ expanded: freeExpanded }}
-            >
-              <Text style={s.disclosureText}>{freeExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{freeExpanded ? '⌃' : '⌄'}</Text>
-            </TouchableOpacity>
-
-            {freeExpanded ? <>
-              <Text style={s.creditText}>Ce nombre est ton solde réellement disponible. Au démarrage : {funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. Les Free utilisés sont déduits ; les récompenses communauté et Battle s’ajoutent automatiquement.</Text>
-              <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = {rules.freeCostPerKeep} Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
-              {growth ? <View style={s.growthGrid}>
-                <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
-                <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
-                <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>Free gagnés</Text></View>
-              </View> : null}
-              {/* Adel (15/09/2026) : "n'oubliez pas de rajouter dans les
-                  offres les dernières options qu'on a mis que tout soit à
-                  jour ... bien expliquer les avantages" -- Audience Pro et
-                  la vente de playlists sont réels, débloqués par les
-                  abonnés (pas par une formule payante), jamais montrés ici
-                  avant. */}
-              {growth ? <Text style={s.creditText}>
-                {growth.audienceProUnlocked
-                  ? `🏆 Audience Pro débloquée (${growth.followers} abonnés) : Free en bonus + profils Découverte/essais Vibes Auto en plus, et tu peux vendre tes playlists dès que tu passes le seuil dédié.`
-                  : growth.nextFollowerGoal
-                  ? `Prochain palier communauté : ${growth.followers}/${growth.nextFollowerGoal} abonnés -- Free en bonus, profils Découverte, essais Vibes Auto, et à terme le badge Audience Pro et la vente de playlists.`
-                  : null}
-              </Text> : null}
-
-              {breakdown ? <View style={s.breakdownBox}>
-                <Text style={s.breakdownTitle}>D’OÙ VIENT TON SOLDE ({breakdown.remaining} Free)</Text>
-                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Invité (avant inscription)</Text><Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text></View>
-                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus d’inscription</Text><Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text></View>
-                {breakdown.followerBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.followerCount} abonnés (palier {breakdown.followerCount >= breakdown.followerTier5 ? breakdown.followerTier5 : breakdown.followerTier3})</Text><Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text></View> : null}
-                {breakdown.referralBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.referralCount} filleul(s) parrainé(s)</Text><Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text></View> : null}
-                {breakdown.monthlyBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus mensuel</Text><Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text></View> : null}
-                {breakdown.adminGrant !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Crédit accordé par l’équipe</Text><Text style={s.breakdownValue}>{breakdown.adminGrant > 0 ? '+' : ''}{breakdown.adminGrant}</Text></View> : null}
-                {breakdown.battleAdjustment !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Résultat net des Battle</Text><Text style={s.breakdownValue}>{breakdown.battleAdjustment > 0 ? '+' : ''}{breakdown.battleAdjustment}</Text></View> : null}
-                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Free déjà utilisés (GARDER)</Text><Text style={s.breakdownValue}>−{breakdown.used}</Text></View>
-                {breakdown.lockedArena > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Mise verrouillée (Battle en cours)</Text><Text style={s.breakdownValue}>−{breakdown.lockedArena}</Text></View> : null}
-                {breakdown.recentBattles.length ? <>
-                  <Text style={s.breakdownSubtitle}>DERNIERS BATTLE</Text>
-                  {breakdown.recentBattles.slice(0, 6).map((event, i) => (
-                    <View key={i} style={s.breakdownRow}>
-                      <Text style={s.breakdownLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'}{event.themeCode ? ` · ${event.themeCode}` : ''} · {new Date(event.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</Text>
-                      <Text style={[s.breakdownValue, event.amount < 0 && s.breakdownValueNegative]}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
-                    </View>
-                  ))}
-                </> : null}
-              </View> : null}
-
-              <TouchableOpacity
-                style={s.soloHistoryButton}
-                onPress={() => setSoloHistoryVisible(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Voir l'historique de mes matchs SOLO"
-              >
-                <Text style={s.soloHistoryButtonText}>📊 Historique SOLO</Text>
-                <Text style={s.soloHistoryButtonChevron}>›</Text>
-              </TouchableOpacity>
-
-              <View style={s.rechargeBox}>
-                <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
-                <Text style={s.rechargeTitle}>Pas besoin de payer pour continuer.</Text>
-                <Text style={s.rechargeIntro}>Partage Loki et fais grandir ta communauté : certaines actions te redonnent réellement des Free.</Text>
-
-                <View style={s.rechargeItem}>
-                  <Text style={s.rechargeIcon}>↗</Text>
-                  <View style={s.rechargeCopy}>
-                    <Text style={s.rechargeItemTitle}>Partage Loki</Text>
-                    <Text style={s.rechargeItemText}>{s2} partages qualifiés → +{sr.tier2Credits} Free · {s3} partages → +{sr.tier3Credits} Free.</Text>
-                    <Text style={s.rechargeHint}>Limite actuelle : {rules.shareDailyCap} partages comptabilisés par jour.</Text>
-                  </View>
-                </View>
-
-                <View style={s.rechargeItem}>
-                  <Text style={s.rechargeIcon}>＋</Text>
-                  <View style={s.rechargeCopy}>
-                    <Text style={s.rechargeItemTitle}>Fais grandir tes abonnés</Text>
-                    <Text style={s.rechargeItemText}>{f3} abonnés → +{fr.tier3Credits} Free · {f5} abonnés → +{fr.tier5Credits} Free.</Text>
-                    <Text style={s.rechargeHint}>Les autres paliers peuvent aussi donner des Découvertes ou des essais Vibes.</Text>
-                  </View>
-                </View>
-
-                <View style={s.startBonus}>
-                  <Text style={s.startBonusTitle}>BONUS DE DÉPART</Text>
-                  <Text style={s.startBonusText}>{funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. C’est un bonus de démarrage, pas une recharge répétable.</Text>
-                </View>
-              </View>
-
-              <View style={s.otherRewards}>
-                <Text style={s.otherRewardsTitle}>BONUS GRATUITS EN PLUS DE TON OFFRE</Text>
-                <Text style={s.otherRewardsIntro}>Tu les gagnes en faisant vivre ta communauté musicale et en partageant Loki.</Text>
-                <Text style={s.otherRewardsLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
-                <Text style={s.otherRewardsLine}>{f2} abonnés → +{fr.tier2Sort} essai Vibes</Text>
-                <Text style={s.otherRewardsLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes</Text>
-                <Text style={s.otherRewardsLine}>{s1} partages → +{sr.tier1Discovery} Découvertes</Text>
-                <Text style={s.otherRewardsLine}>{s3} partages → +{sr.tier3Sort} essai Vibes en plus des Free</Text>
-                <Text style={s.vibesDefinition}>Vibes = Loki range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
-              </View>
-            </> : null}
-          </View>
 
           <View style={s.battleCard}>
             <View style={s.battleHeader}>
@@ -534,6 +423,102 @@ export default function OffersScreen({ navigation, route }: any) {
                 <Text style={s.battleTitle}>⚡ Affronte. Gagne des Free.</Text>
               </View>
             </View>
+
+            {/* Tes Free disponibles display */}
+            {freeBalance != null && (
+              <View style={s.freeBalanceRow}>
+                <Text style={s.freeBalanceLabel}>Tes Free disponibles</Text>
+                <Text style={s.freeBalanceValue}>{freeBalanceLabel}</Text>
+              </View>
+            )}
+
+            {/* Toggle button for Free details */}
+            {breakdown && (
+              <TouchableOpacity
+                style={s.freeDetailsToggle}
+                onPress={() => setShowFreeDetails((value) => !value)}
+                accessibilityRole="button"
+                accessibilityLabel="Voir d’où viennent tes Free"
+                accessibilityState={{ expanded: showFreeDetails }}
+              >
+                <Text style={s.freeDetailsToggleText}>D’OÙ VIENT TON SOLDE</Text>
+                <Text style={s.freeDetailsToggleChevron}>{showFreeDetails ? ‘⌃’ : ‘⌄’}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Free breakdown box */}
+            {showFreeDetails && breakdown && (
+              <View style={s.breakdownBox}>
+                <Text style={s.breakdownTitle}>DÉCOMPOSITION DE TON SOLDE</Text>
+                <View style={s.breakdownRow}>
+                  <Text style={s.breakdownLabel}>Solde actuel</Text>
+                  <Text style={s.breakdownValue}>{breakdown.remaining ?? 0}</Text>
+                </View>
+                {breakdown.guestLimit > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Accès invité</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text>
+                  </View>
+                )}
+                {breakdown.signupBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Bonus création compte</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text>
+                  </View>
+                )}
+                {breakdown.followerBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Bonus abonnés</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text>
+                  </View>
+                )}
+                {breakdown.referralBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Bonus parrainage</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text>
+                  </View>
+                )}
+                {breakdown.monthlyBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Bonus mensuel</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text>
+                  </View>
+                )}
+                {breakdown.adminGrant > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Cadeau admin</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.adminGrant}</Text>
+                  </View>
+                )}
+                <Text style={s.breakdownSubtitle}>VICTOIRES BATTLES</Text>
+                <View style={s.breakdownRow}>
+                  <Text style={s.breakdownLabel}>Gains nets</Text>
+                  <Text style={[s.breakdownValue, breakdown.battleAdjustment < 0 && s.breakdownValueNegative]}>
+                    {breakdown.battleAdjustment >= 0 ? ‘+’ : ‘’}{breakdown.battleAdjustment}
+                  </Text>
+                </View>
+                {breakdown.lockedArena > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>Verrouillé (Battles en cours)</Text>
+                    <Text style={s.breakdownValue}>-{breakdown.lockedArena}</Text>
+                  </View>
+                )}
+                {breakdown.recentBattles && Array.isArray(breakdown.recentBattles) && breakdown.recentBattles.length > 0 && (
+                  <View style={s.recentBattlesBox}>
+                    <Text style={s.recentBattlesTitle}>HISTORIQUE RÉCENT</Text>
+                    {breakdown.recentBattles.slice(0, 5).map((battle: any, idx: number) => (
+                      <View key={`${battle.createdAt}-${idx}`} style={s.recentBattleRow}>
+                        <Text style={s.recentBattleLabel}>{battle.themeCode ? `🎵 ${battle.themeCode}` : ‘⚡ Battle’}</Text>
+                        <Text style={[s.recentBattleAmount, battle.amount >= 0 ? s.recentBattleGain : s.recentBattleLoss]}>
+                          {battle.amount >= 0 ? ‘+’ : ‘’}{battle.amount}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setBattleExpanded((value) => !value)}
@@ -541,8 +526,8 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur les Loki Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{battleExpanded ? '⌃' : '⌄'}</Text>
+              <Text style={s.disclosureText}>{battleExpanded ? ‘Réduire’ : ‘En savoir plus’}</Text>
+              <Text style={s.disclosureChevron}>{battleExpanded ? ‘⌃’ : ‘⌄’}</Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
                 offres de bien expliquer les règles pour les Battle" -- le
@@ -766,9 +751,22 @@ const s = StyleSheet.create({
   battleHeaderCopy: { flex: 1 },
   battleEyebrow: { color: '#FFF4C2', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   battleTitle: { color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 4 },
+  freeBalanceRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#5B4A19' },
+  freeBalanceLabel: { color: '#FFF4C2', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  freeBalanceValue: { color: '#E5F266', fontSize: 18, fontWeight: '900' },
+  freeDetailsToggle: { minHeight: 40, marginTop: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#D6AA36', backgroundColor: '#1A1710', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  freeDetailsToggleText: { color: '#FFF4C2', fontSize: 11, fontWeight: '900', letterSpacing: 0.6 },
+  freeDetailsToggleChevron: { color: '#D6AA36', fontSize: 18, fontWeight: '900' },
   battleDetails: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#5B4A19' },
   battleDetailText: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, fontWeight: '800' },
   battleDetailHint: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 5 },
+  recentBattlesBox: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#3D2860' },
+  recentBattlesTitle: { color: '#E5F266', fontSize: 9, fontWeight: '900', letterSpacing: 0.6, marginBottom: 6 },
+  recentBattleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 20, marginBottom: 4 },
+  recentBattleLabel: { flex: 1, color: '#F8F6FC', fontSize: 10, fontWeight: '800' },
+  recentBattleAmount: { fontSize: 11, fontWeight: '900' },
+  recentBattleGain: { color: '#7FF2B7' },
+  recentBattleLoss: { color: '#FFB3C3' },
   paidSectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },
