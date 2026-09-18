@@ -164,9 +164,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // KeepBattleMobileGameV3 une fois qu'on y est).
   const [incomingBattle, setIncomingBattle] = useState<KeepBattleIncomingChallenge[]>([]);
   const [incomingResponding, setIncomingResponding] = useState<string | null>(null);
-  // Adel (18/09/2026) : "Si besoin mets un ? Qui comprenne exactement" --
-  // système d'aide pour expliquer le classement et son fonctionnement
-  const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   useEffect(() => {
     // Adel (03/09/2026) : "il doit être en soirée, il doit être dans Battle,
     // il est de partout pour pas le louper" -- ce bandeau doit vivre sur
@@ -1000,12 +998,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           {!leaderboardLoading && leaderboard.length ? (
             <View style={styles.leaderboardPanel}>
               <View style={styles.leaderboardHeader}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
-                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Aide : comprendre le classement" style={styles.helpButton} onPress={() => setHelpModalOpen(true)}>
-                    <Text style={styles.helpButtonText}>?</Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
                   <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
                 </TouchableOpacity>
@@ -1112,15 +1105,40 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🔒 Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
                 <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
                 {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => {
+                  const matchId = `match-${event.createdAt}-${index}`;
+                  const isExpanded = expandedMatchId === matchId;
                   const battleTypeLabel = event.battleType === 'SOLO' ? '🎯 SOLO' : event.battleType === 'ARENA' ? '⚡ Arena' : '⚔️ Duel';
                   const themeLabel = event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : '';
                   const timeStr = new Date(event.createdAt).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                  return <View key={`${event.createdAt}-${index}`} style={styles.creditHistoryRow}>
-                    <View style={{flex: 1}}>
-                      <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
-                      <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
-                    </View>
-                    <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount} Free</Text>
+                  return <View key={matchId}>
+                    <TouchableOpacity style={[styles.creditHistoryRow, isExpanded && {backgroundColor:'#24192E'}]} onPress={() => setExpandedMatchId(isExpanded ? null : matchId)}>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
+                        <Text style={{fontSize: 10, color: '#8F879D', marginTop: 2}}>{isExpanded ? '▼' : '▶'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {isExpanded ? (
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#17121D', marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Type</Text>
+                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{battleTypeLabel.replace('🎯 ', '').replace('⚡ ', '').replace('⚔️ ', '')}</Text>
+                        </View>
+                        {event.themeCode ? (
+                          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                            <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Style</Text>
+                            <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{themeLabels[event.themeCode] || event.themeCode}</Text>
+                          </View>
+                        ) : null}
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#312348', paddingTop: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Détail Free</Text>
+                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700', textAlign: 'right'}}>{event.amount > 0 ? 'Gagné' : 'Perdu'} {Math.abs(event.amount)} Free</Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>;
                 }) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
               </> : <Text style={styles.statsThemeEmpty}>Historique indisponible. Réessaie dans un instant.</Text>}
@@ -1331,42 +1349,6 @@ export default function PartiesScreen({ navigation, route }: any) {
       </View></View>
     </Modal>
 
-    {/* Adel (18/09/2026) : "Si besoin mets un ? Qui comprenne exactement" --
-        système d'aide pour expliquer le classement Loki Battle, les Free
-        credits, et comment les gagner/perdre. */}
-    <Modal visible={helpModalOpen} transparent animationType="fade" onRequestClose={() => setHelpModalOpen(false)}>
-      <View style={styles.statsBackdrop}><View style={[styles.statsCard, { maxHeight: '85%' }]}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setHelpModalOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
-        <Text style={styles.statsUsername}>COMPRENDRE LE CLASSEMENT</Text>
-        <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 12 }}>
-          <Text style={styles.helpSectionTitle}>🏆 LE CLASSEMENT GLOBAL</Text>
-          <Text style={styles.helpText}>Le classement affiche les 20 meilleurs joueurs Loki Battle triés par nombre de victoires. Clique sur un joueur pour voir ses stats complètes.</Text>
-
-          <Text style={styles.helpSectionTitle}>🎯 LES STATS D'UN JOUEUR</Text>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>👑 <Text style={{ fontWeight: '900' }}>Expert / Confirmé / Débutant</Text> = niveau de compétence en solo (basé sur tes victoires)</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>🎯 <Text style={{ fontWeight: '900' }}>Incollable en [Style]</Text> = son genre musical dominant où il a le plus de victoires</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>● <Text style={{ fontWeight: '900' }}>En ligne</Text> = il joue en solo maintenant, dans quel style</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>✓ = bonnes réponses</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>⚡ = temps de réponse moyen</Text></View>
-
-          <Text style={styles.helpSectionTitle}>🎁 LES FREE CREDITS</Text>
-          <Text style={styles.helpText}>Chaque joueur a des FREE CREDITS pour jouer. Tu les vois en haut à droite du lanceur Battle.</Text>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>✓ <Text style={{ fontWeight: '900' }}>Tu GAGNES</Text> des Free si tu remportes une manche Arena ou un match Solo</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>✕ <Text style={{ fontWeight: '900' }}>Tu PERDS</Text> des Free si tu termines dernier en Arena</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>🎯 <Text style={{ fontWeight: '900' }}>Solo</Text> = tu joues seul(e), tes Free gagnés/perdus ne changent que si tu fais Top 3</Text></View>
-
-          <Text style={styles.helpSectionTitle}>🎼 LES STYLES MUSICAUX</Text>
-          <Text style={styles.helpText}>Chaque match Arena se joue dans un style (Rap FR, Électro, Indie…). Ton meilleur style s'affiche avec le badge 🎯.</Text>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>Le style augmente automatiquement quand tu gagnes des matches dans ce genre</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>Tes contacts verront aussi ton style musical quand tu te connectes</Text></View>
-
-          <Text style={styles.helpSectionTitle}>💡 ASTUCES</Text>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>Rejoins des Arena avec des joueurs de ton niveau pour avoir plus de chances de gagner</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>Entraîne-toi en Solo pour remonter de tier (Débutant → Confirmé → Expert)</Text></View>
-          <View style={styles.helpBullet}><Text style={styles.helpBulletText}>Clique sur ton pseudo pour voir TES stats et ton historique de Free</Text></View>
-        </ScrollView>
-      </View></View>
-    </Modal>
   </SafeAreaView>;
 }
 
@@ -1379,5 +1361,5 @@ wheelSectionLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:.6
 imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',marginBottom:9,alignItems:'center',justifyContent:'center',overflow:'hidden'},imagePickerPreview:{width:'100%',height:120},imagePickerText:{color:'#B79CFF',fontSize:12,fontWeight:'800',paddingVertical:12,paddingHorizontal:12,textAlign:'center'},
 checkinRow:{flexDirection:'row',gap:8,marginBottom:4},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},checkinButtonText:{color:'#17130B',fontSize:12,fontWeight:'900'},checkinHint:{color:'#8F879D',fontSize:10,lineHeight:14,fontWeight:'700',marginBottom:10},
 participantTicket:{color:'#8F879D',fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:'#38D990',borderColor:'#38D990'},participantCheckinBtnText:{color:'#F8F6FC',fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:'#0B1F16'},
-ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},ticketEventName:{color:'#FFF',fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:'#B79CFF',fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:'#FFF'},ticketQrImage:{width:200,height:200},ticketUsername:{color:'#FFD166',fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:'#8F879D',fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:42,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:'#F8F6FC',fontSize:10,fontWeight:'900',textAlign:'center'},helpButton:{width:30,height:30,borderRadius:15,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},helpButtonText:{color:'#17130B',fontSize:14,fontWeight:'900'},helpSectionTitle:{color:'#E5F266',fontSize:13,fontWeight:'900',letterSpacing:.8,marginTop:12,marginBottom:6},helpText:{color:'#FFF',fontSize:12,fontWeight:'700',lineHeight:17,marginBottom:10},helpBullet:{flexDirection:'row',alignItems:'flex-start',gap:8,marginBottom:6},helpBulletText:{flex:1,color:'#FFF',fontSize:12,fontWeight:'700',lineHeight:17}
+ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},ticketEventName:{color:'#FFF',fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:'#B79CFF',fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:'#FFF'},ticketQrImage:{width:200,height:200},ticketUsername:{color:'#FFD166',fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:'#8F879D',fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:42,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:'#F8F6FC',fontSize:10,fontWeight:'900',textAlign:'center'}
 });
