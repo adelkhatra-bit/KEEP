@@ -1960,34 +1960,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       {arena.status === 'ACTIVE' && round ? <><Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}><View style={s.visual}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : null}</View> : null}</View>
       <View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{round.answered ? 'RÉPONSE ENREGISTRÉE' : ready ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View>
       {first && second && players.length === 2 ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(first.username)}><Text style={s.duelName}>{first.username}</Text><Text style={s.duelPoints}>{teamAScore} pts</Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}>{teamBScore} pts</Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
-      {/* Adel (04/09/2026) : "tu les mets juste en dessous entre qui chante
-          et la jaquette" -- au-delà de 2 joueurs, le mini-classement se
-          place maintenant entre la jaquette/l'égaliseur et la question,
-          plus au-dessus de tout l'écran. Toujours un nom sous l'autre
-          (haut en bas), jamais en grille -- seule sa position a changé. */}
-      {/* Adel (05/09/2026) : "si par exemple demain on est 10, comment t'as
-          prévu, est-ce qu'on va être obligé de Swiper" -- pendant une
-          manche chronométrée, afficher les 10 joueurs forcerait un scroll
-          pour voir la question/les réponses. Le direct se limite aux 5
-          premiers + ma propre ligne si je suis classé plus bas (jamais
-          invisible à mes propres yeux) ; le classement complet reste
-          disponible sur l'écran d'attente et de fin de match, pas sous
-          pression du chrono. */}
-      {players.length > 2 ? <View style={s.groupStandings}><Text style={s.groupStandingsTitle}>{players.length} JOUEURS · {arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text>{(() => {
-        const top = players.slice(0, 5);
-        const meId = arena.me?.profileId;
-        const meVisible = !meId || top.some((p) => p.profileId === meId);
-        const mePlayer = meId ? players.find((p) => p.profileId === meId) : null;
-        const visible = meVisible || !mePlayer ? top : [...top, mePlayer];
-        const hidden = players.length - visible.length;
-        return <>
-          {visible.map((player) => {
-            const rank = players.findIndex((p) => p.profileId === player.profileId);
-            return <TouchableOpacity key={player.profileId} style={[s.groupStandingRow, rank === 0 && s.groupStandingRowLead]} onPress={() => onOpenProfile(player.username)}><Text style={s.groupStandingRank}>{rank === 0 ? '👑' : `#${rank + 1}`}</Text><Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text><Text style={s.groupStandingScore}>{Number(player?.score || 0)} pts</Text></TouchableOpacity>;
-          })}
-          {hidden > 0 ? <Text style={s.groupStandingsMore}>+{hidden} autre{hidden > 1 ? 's' : ''}</Text> : null}
-        </>;
-      })()}</View> : null}
       <Text style={s.question}>Qui chante ?</Text>
       {/* Adel (02/09/2026) : "on a pas le même principe pour la mauvaise
           réponse qu'on ne la voit pas en rouge et en vert" -- en arène,
@@ -2008,7 +1980,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       {/* Adel (05/09/2026) : quatre réponses alignées en solo et en ligne.
           Le serveur complète chaque manche avec un quatrième artiste réel ;
           les quatre boutons conservent la grille 2 × 2 existante. */}
-      <View style={s.answers}>{(() => { const seen = new Set<string>(); return (round.choices || []).slice(0, 4).filter((choice) => { if (seen.has(choice)) return false; seen.add(choice); return true; }); })().map((choice, i) => <TouchableOpacity key={choice} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, Boolean(round.myAnswer) && choice === round.artist && s.answerCorrect, round.myAnswer?.selectedAnswer === choice && choice !== round.artist && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={s.answerText}>{primaryArtistLabel(choice)}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>)}</View></Animated.View></> : null}
+      <View style={s.answers}>{(() => { const seen = new Set<string>(); return (round.choices || []).slice(0, 4).filter((choice) => { if (seen.has(choice)) return false; seen.add(choice); return true; }); })().map((choice, i) => <TouchableOpacity key={choice} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, Boolean(round.myAnswer) && choice === round.artist && s.answerCorrect, round.myAnswer?.selectedAnswer === choice && choice !== round.artist && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={s.answerText}>{primaryArtistLabel(choice)}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>)}</View>
+      {players.length > 2 ? <View style={s.groupStandings}><Text style={s.groupStandingsTitle}>{players.length} JOUEURS · {arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text>{(() => { const top = players.slice(0, 5); const meId = arena.me?.profileId; const meVisible = !meId || top.some((p) => p.profileId === meId); const mePlayer = meId ? players.find((p) => p.profileId === meId) : null; const visible = meVisible || !mePlayer ? top : [...top, mePlayer]; const hidden = players.length - visible.length; return <>{visible.map((player) => { const rank = players.findIndex((p) => p.profileId === player.profileId); return <TouchableOpacity key={player.profileId} style={[s.groupStandingRow, rank === 0 && s.groupStandingRowLead]} onPress={() => onOpenProfile(player.username)}><Text style={s.groupStandingRank}>{rank === 0 ? '👑' : `#${rank + 1}`}</Text><Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text><Text style={s.groupStandingScore}>{Number(player?.score || 0)} pts</Text></TouchableOpacity>; })}{hidden > 0 ? <Text style={s.groupStandingsMore}>+{hidden} autre{hidden > 1 ? 's' : ''}</Text> : null}</> })()}</View> : null}</Animated.View></> : null}
       </ScrollView>
     </View>;
   }
