@@ -157,21 +157,12 @@ export type FreeCreditBattleEvent = { result: string; amount: number; createdAt:
 
 export type FreeCreditBreakdown = {
   remaining: number;
-  guestLimit: number;
-  signupBonus: number;
-  followerCount: number;
-  followerBonus: number;
-  followerTier3: number;
-  followerTier5: number;
   referralBonus: number;
   referralCount: number;
-  monthlyBonus: number;
-  adminGrant: number;
   battleAdjustment: number;
   battleWon: number;
   battleLost: number;
-  totalEarned: number;
-  totalSpent: number;
+  planBonus: number;
   used: number;
   lockedArena: number;
   recentBattles: FreeCreditBattleEvent[];
@@ -192,21 +183,12 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
   const row = data as any;
   return {
     remaining: Number(row.remaining || 0),
-    guestLimit: Number(row.guestLimit || 0),
-    signupBonus: Number(row.signupBonus || 0),
-    followerCount: Number(row.followerCount || 0),
-    followerBonus: Number(row.followerBonus || 0),
-    followerTier3: Number(row.followerTier3 || 0),
-    followerTier5: Number(row.followerTier5 || 0),
     referralBonus: Number(row.referralBonus || 0),
     referralCount: Number(row.referralCount || 0),
-    monthlyBonus: Number(row.monthlyBonus || 0),
-    adminGrant: Number(row.adminGrant || 0),
     battleAdjustment: Number(row.battleAdjustment || 0),
     battleWon: Number(row.battleWon || 0),
     battleLost: Number(row.battleLost || 0),
-    totalEarned: Number(row.totalEarned || 0),
-    totalSpent: Number(row.totalSpent || 0),
+    planBonus: Number(row.planBonus || 0),
     used: Number(row.used || 0),
     lockedArena: Number(row.lockedArena || 0),
     recentBattles: Array.isArray(row.recentBattles) ? row.recentBattles.map((x: any) => ({

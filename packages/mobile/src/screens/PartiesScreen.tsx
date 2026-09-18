@@ -1091,17 +1091,12 @@ export default function PartiesScreen({ navigation, route }: any) {
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
               </View>
               {myFreeBreakdown ? <>
-                <Text style={styles.statsSectionTitle}>HISTORIQUE ET SOLDE DES FREE</Text>
-                <Text style={styles.creditHistoryNextCredit}>📅 Prochain versement mensuel dans {(() => { const now = new Date(); const nextFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1); return Math.max(1, Math.ceil((nextFirst.getTime() - now.getTime()) / 86400000)); })()} jour(s) (le 1er du mois)</Text>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Total gagné</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.totalEarned}</Text></View>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Total dépensé / perdu</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.totalSpent}</Text></View>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Base invité + inscription</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.guestLimit + myFreeBreakdown.signupBonus}</Text></View>
-                {myFreeBreakdown.followerBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Bonus abonnés</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
-                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Parrainages ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
-                {myFreeBreakdown.monthlyBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Bonus mensuels</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
-                {myFreeBreakdown.adminGrant ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Ajustements Super Admin</Text><Text style={myFreeBreakdown.adminGrant > 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{myFreeBreakdown.adminGrant > 0 ? '+' : ''}{myFreeBreakdown.adminGrant}</Text></View> : null}
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Battle gagnés</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Battle perdus</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View>
+                <Text style={styles.statsSectionTitle}>COMMENT RECHARGER VOS FREE</Text>
+                <Text style={styles.creditHistoryNextCredit}>✨ Les 3 sources autorisées de Free :</Text>
+                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>1️⃣ Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
+                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>2️⃣ Victoires Loki Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
+                {myFreeBreakdown.battleLost > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>   (Défaites)</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View> : null}
+                {myFreeBreakdown.planBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>3️⃣ Formule payante</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.planBonus}/mois</Text></View> : null}
                 <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
                 {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
                 <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
