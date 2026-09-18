@@ -40,6 +40,8 @@ declare
   monthly_bonus integer;
   admin_grant integer;
   battle_adjustment integer;
+  battle_won integer;
+  battle_lost integer;
   used integer;
   locked_arena integer;
   remaining integer;
@@ -62,10 +64,18 @@ begin
   monthly_bonus := public.keep_monthly_free_bonus_for_profile(uid);
   admin_grant := public.keep_admin_credit_grant_total_for_profile(uid);
 
-  -- Calculate battle_adjustment from all battle credit sources: regular battles, ARENA, and SOLO
-  battle_adjustment := coalesce((select sum(amount)::integer from public.keep_battle_credit_events where profile_id=uid),0) +
-                      coalesce((select sum(amount)::integer from public.keep_battle_arena_credit_events where profile_id=uid),0) +
-                      coalesce((select sum(amount)::integer from public.keep_battle_solo_credit_events where profile_id=uid),0);
+  -- Calculate battle_adjustment and separate won/lost from all battle credit sources
+  select coalesce(sum(amount) filter (where amount > 0), 0)::integer,
+         coalesce(abs(sum(amount) filter (where amount < 0)), 0)::integer,
+         coalesce(sum(amount), 0)::integer
+  into battle_won, battle_lost, battle_adjustment
+  from (
+    select amount from public.keep_battle_credit_events where profile_id = uid
+    union all
+    select amount from public.keep_battle_arena_credit_events where profile_id = uid
+    union all
+    select amount from public.keep_battle_solo_credit_events where profile_id = uid
+  ) e;
 
   used := greatest(coalesce((select consumed_count from public.download_credit_usage where profile_id=uid),0), public.keep_chargeable_keep_count(uid));
   locked_arena := coalesce((select sum(amount) from public.keep_battle_arena_credit_holds where profile_id=uid and status='LOCKED'),0);
@@ -94,6 +104,8 @@ begin
     'monthlyBonus',monthly_bonus,
     'adminGrant',admin_grant,
     'battleAdjustment',battle_adjustment,
+    'battleWon',battle_won,
+    'battleLost',battle_lost,
     'used',used,
     'lockedArena',locked_arena,
     'recentBattles',recent_battles
