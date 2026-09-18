@@ -449,34 +449,58 @@ export default function OffersScreen({ navigation, route }: any) {
             {/* Free breakdown box */}
             {showFreeDetails && breakdown && (
               <View style={s.breakdownBox}>
-                <Text style={s.breakdownTitle}>COMMENT RECHARGER VOS FREE</Text>
+                <Text style={s.breakdownTitle}>SOURCES DES FREE</Text>
                 <View style={s.breakdownRow}>
                   <Text style={s.breakdownLabel}>Solde actuel</Text>
                   <Text style={s.breakdownValue}>{breakdown.remaining ?? 0}</Text>
                 </View>
+                {breakdown.guestLimit > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>🎁 Essai invité</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text>
+                  </View>
+                )}
+                {breakdown.signupBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>🆕 Bonus inscription</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text>
+                  </View>
+                )}
                 {breakdown.referralBonus > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>1️⃣ Partage du profil</Text>
+                    <Text style={s.breakdownLabel}>👥 Partage du profil ({breakdown.referralCount})</Text>
                     <Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text>
+                  </View>
+                )}
+                {breakdown.followerBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>⭐ Followers bonus</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text>
+                  </View>
+                )}
+                {breakdown.monthlyBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>📅 Bonus mensuel</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text>
                   </View>
                 )}
                 {breakdown.battleAdjustment !== 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>2️⃣ Victoires Loki Battle</Text>
+                    <Text style={s.breakdownLabel}>⚔️ Loki Battle</Text>
                     <Text style={[s.breakdownValue, breakdown.battleAdjustment < 0 && s.breakdownValueNegative]}>
                       {breakdown.battleAdjustment >= 0 ? '+' : ''}{breakdown.battleAdjustment}
                     </Text>
                   </View>
                 )}
-                {breakdown.planBonus > 0 && (
+                {breakdown.adminGrant > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>3️⃣ Formule payante</Text>
-                    <Text style={s.breakdownValue}>+{breakdown.planBonus}/mois</Text>
+                    <Text style={s.breakdownLabel}>🛡️ Admin grant</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.adminGrant}</Text>
                   </View>
                 )}
                 {breakdown.lockedArena > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>Verrouille (Battles en cours)</Text>
+                    <Text style={s.breakdownLabel}>🔒 Mises Battles en cours</Text>
                     <Text style={s.breakdownValue}>-{breakdown.lockedArena}</Text>
                   </View>
                 )}

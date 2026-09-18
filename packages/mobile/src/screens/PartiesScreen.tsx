@@ -1091,14 +1091,17 @@ export default function PartiesScreen({ navigation, route }: any) {
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
               </View>
               {myFreeBreakdown ? <>
-                <Text style={styles.statsSectionTitle}>COMMENT RECHARGER VOS FREE</Text>
-                <Text style={styles.creditHistoryNextCredit}>✨ Les 3 sources autorisées de Free :</Text>
-                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>1️⃣ Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
-                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>2️⃣ Victoires Loki Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
+                <Text style={styles.statsSectionTitle}>SOURCES DES FREE</Text>
+                {myFreeBreakdown.guestLimit > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🎁 Essai invité</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.guestLimit}</Text></View> : null}
+                {myFreeBreakdown.signupBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🆕 Bonus inscription</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.signupBonus}</Text></View> : null}
+                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>👥 Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
+                {myFreeBreakdown.followerBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⭐ Followers bonus</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
+                {myFreeBreakdown.monthlyBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>📅 Bonus mensuel</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
+                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⚔️ Victoires Loki Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
                 {myFreeBreakdown.battleLost > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>   (Défaites)</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View> : null}
-                {myFreeBreakdown.planBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>3️⃣ Formule payante</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.planBonus}/mois</Text></View> : null}
+                {myFreeBreakdown.adminGrant > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🛡️ Admin grant</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.adminGrant}</Text></View> : null}
                 <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
-                {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
+                {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🔒 Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
                 <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
                 {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => {
                   const battleTypeLabel = event.battleType === 'SOLO' ? '🎯 SOLO' : event.battleType === 'ARENA' ? '⚡ Arena' : '⚔️ Duel';
