@@ -438,37 +438,37 @@ export default function OffersScreen({ navigation, route }: any) {
                 style={s.freeDetailsToggle}
                 onPress={() => setShowFreeDetails((value) => !value)}
                 accessibilityRole="button"
-                accessibilityLabel="Voir d’où viennent tes Free"
+                accessibilityLabel="Details du solde"
                 accessibilityState={{ expanded: showFreeDetails }}
               >
-                <Text style={s.freeDetailsToggleText}>D’OÙ VIENT TON SOLDE</Text>
-                <Text style={s.freeDetailsToggleChevron}>{showFreeDetails ? ‘⌃’ : ‘⌄’}</Text>
+                <Text style={s.freeDetailsToggleText}>SOURCES DU SOLDE</Text>
+                <Text style={s.freeDetailsToggleChevron}>{showFreeDetails ? ‘v’ : ‘>’}</Text>
               </TouchableOpacity>
             )}
 
             {/* Free breakdown box */}
             {showFreeDetails && breakdown && (
               <View style={s.breakdownBox}>
-                <Text style={s.breakdownTitle}>DÉCOMPOSITION DE TON SOLDE</Text>
+                <Text style={s.breakdownTitle}>SOURCES DE TON SOLDE</Text>
                 <View style={s.breakdownRow}>
                   <Text style={s.breakdownLabel}>Solde actuel</Text>
                   <Text style={s.breakdownValue}>{breakdown.remaining ?? 0}</Text>
                 </View>
                 {breakdown.guestLimit > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>Accès invité</Text>
+                    <Text style={s.breakdownLabel}>Acces invite</Text>
                     <Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text>
                   </View>
                 )}
                 {breakdown.signupBonus > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>Bonus création compte</Text>
+                    <Text style={s.breakdownLabel}>Bonus inscription</Text>
                     <Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text>
                   </View>
                 )}
                 {breakdown.followerBonus > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>Bonus abonnés</Text>
+                    <Text style={s.breakdownLabel}>Bonus abonnes</Text>
                     <Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text>
                   </View>
                 )}
@@ -499,16 +499,16 @@ export default function OffersScreen({ navigation, route }: any) {
                 </View>
                 {breakdown.lockedArena > 0 && (
                   <View style={s.breakdownRow}>
-                    <Text style={s.breakdownLabel}>Verrouillé (Battles en cours)</Text>
+                    <Text style={s.breakdownLabel}>Verrouille (Battles en cours)</Text>
                     <Text style={s.breakdownValue}>-{breakdown.lockedArena}</Text>
                   </View>
                 )}
                 {breakdown.recentBattles && Array.isArray(breakdown.recentBattles) && breakdown.recentBattles.length > 0 && (
                   <View style={s.recentBattlesBox}>
-                    <Text style={s.recentBattlesTitle}>HISTORIQUE RÉCENT</Text>
+                    <Text style={s.recentBattlesTitle}>HISTORIQUE RECENT</Text>
                     {breakdown.recentBattles.slice(0, 5).map((battle: any, idx: number) => (
                       <View key={`${battle.createdAt}-${idx}`} style={s.recentBattleRow}>
-                        <Text style={s.recentBattleLabel}>{battle.themeCode ? `🎵 ${battle.themeCode}` : ‘⚡ Battle’}</Text>
+                        <Text style={s.recentBattleLabel}>{battle.themeCode ? `[${battle.themeCode}]` : ‘[Battle]’}</Text>
                         <Text style={[s.recentBattleAmount, battle.amount >= 0 ? s.recentBattleGain : s.recentBattleLoss]}>
                           {battle.amount >= 0 ? ‘+’ : ‘’}{battle.amount}
                         </Text>
@@ -526,8 +526,8 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur les Loki Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? ‘Réduire’ : ‘En savoir plus’}</Text>
-              <Text style={s.disclosureChevron}>{battleExpanded ? ‘⌃’ : ‘⌄’}</Text>
+              <Text style={s.disclosureText}>{battleExpanded ? ‘Reduire’ : ‘En savoir plus’}</Text>
+              <Text style={s.disclosureChevron}>{battleExpanded ? ‘v’ : ‘>’}</Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
                 offres de bien expliquer les règles pour les Battle" -- le
