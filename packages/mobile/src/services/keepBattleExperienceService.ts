@@ -154,8 +154,8 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     // Solution: utiliser les CHOICES (mauvaises réponses) d'autres manches.
     // IMPORTANT: s'assurer que correctAnswer est TOUJOURS incluse dans les 4 réponses.
     const candidates = rounds
-      .filter((item) => item.artist !== round.artist)
-      .flatMap((item) => item.choices);
+      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist)
+      .flatMap((item: KeepBattleSoloRound) => item.choices);
     for (const candidate of candidates) {
       if (unique.length >= 4) break;
       if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
