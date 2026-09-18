@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import UsernameAccountForm from './UsernameAccountForm';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
@@ -33,7 +33,10 @@ export default function AccountGateModal() {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
-      <View style={s.backdrop}>
+      <KeyboardAvoidingView
+        style={s.backdrop}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         {celebrate ? (
           <Animated.View style={[s.celebrateCard, { transform: [{ scale: pop }], opacity: pop }]}>
             <Text style={s.celebrateIcon}>🎉</Text>
@@ -47,13 +50,13 @@ export default function AccountGateModal() {
             <TouchableOpacity style={s.cancel} onPress={close}><Text style={s.cancelText}>Plus tard</Text></TouchableOpacity>
           </View>
         )}
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(4, 3, 8, 0.78)', justifyContent: 'flex-end', alignItems: 'center', padding: spacing.md },
+  backdrop: { flex: 1, backgroundColor: 'rgba(4, 3, 8, 0.78)', justifyContent: 'center', alignItems: 'center', padding: spacing.md },
   sheet: { width: '100%', maxWidth: 520, maxHeight: '92%', backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: 18, paddingBottom: 24 },
   handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 16 },
   cancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
