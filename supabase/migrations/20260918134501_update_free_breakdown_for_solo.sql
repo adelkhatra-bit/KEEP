@@ -81,14 +81,14 @@ begin
   locked_arena := coalesce((select sum(amount) from public.keep_battle_arena_credit_holds where profile_id=uid and status='LOCKED'),0);
   remaining := public.keep_theoretical_free_credit_remaining_for_profile(uid);
 
-  select coalesce(jsonb_agg(jsonb_build_object('result',x.result,'amount',x.amount,'createdAt',x.created_at,'themeCode',x.theme_code) order by x.created_at desc),'[]'::jsonb)
+  select coalesce(jsonb_agg(jsonb_build_object('result',x.result,'amount',x.amount,'createdAt',x.created_at,'themeCode',x.theme_code,'battleType',x.battle_type) order by x.created_at desc),'[]'::jsonb)
   into recent_battles
   from (
-    (select e.result,e.amount,e.created_at,a.theme_code from public.keep_battle_arena_credit_events e join public.keep_battle_arenas a on a.id=e.arena_id where e.profile_id=uid order by e.created_at desc limit 15)
+    (select e.result,e.amount,e.created_at,a.theme_code,'ARENA'::text as battle_type from public.keep_battle_arena_credit_events e join public.keep_battle_arenas a on a.id=e.arena_id where e.profile_id=uid order by e.created_at desc limit 15)
     union all
-    (select e.result,e.amount,e.created_at,null::text as theme_code from public.keep_battle_credit_events e where e.profile_id=uid order by e.created_at desc limit 15)
+    (select e.result,e.amount,e.created_at,null::text as theme_code,'DUEL'::text as battle_type from public.keep_battle_credit_events e where e.profile_id=uid order by e.created_at desc limit 15)
     union all
-    (select e.result,e.amount,e.created_at,h.theme_code from public.keep_battle_solo_credit_events e join public.keep_battle_solo_history h on h.id=e.history_id where e.profile_id=uid order by e.created_at desc limit 15)
+    (select e.result,e.amount,e.created_at,h.theme_code,'SOLO'::text as battle_type from public.keep_battle_solo_credit_events e join public.keep_battle_solo_history h on h.id=e.history_id where e.profile_id=uid order by e.created_at desc limit 15)
   ) x
   order by x.created_at desc
   limit 15;
