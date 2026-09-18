@@ -1,5 +1,6 @@
 -- Track and credit users for SOLO battle wins/losses
--- Uses same keep_battle_credit_events pattern as regular battles but linked to SOLO history
+-- Uses keep_battle_solo_credit_events linked to SOLO history
+-- Rewards scale with SOLO pack size: 8→3 Free max, 15→6, 20→8, 30→12
 
 create table if not exists public.keep_battle_solo_credit_events (
   id uuid primary key default gen_random_uuid(),
@@ -17,10 +18,27 @@ create index if not exists idx_keep_battle_solo_credit_events_profile_created
 alter table public.keep_battle_solo_credit_events enable row level security;
 revoke all on public.keep_battle_solo_credit_events from anon, authenticated;
 
+-- Helper: max Free reward for SOLO pack size
+-- 8 questions → 3 Free max
+-- 15 questions → 6 Free max
+-- 20 questions → 8 Free max
+-- 30 questions → 12 Free max
+create or replace function public.keep_battle_solo_max_reward_for_round_count(p_round_count integer)
+returns integer
+language sql
+immutable
+as $$
+  select case
+    when p_round_count is null or p_round_count <= 0 then 0
+    when p_round_count <= 8 then 3
+    when p_round_count <= 15 then 6
+    when p_round_count <= 20 then 8
+    else 12
+  end;
+$$;
+
 -- Update keep_battle_solo_report_result() to credit users based on score
--- Calculate Free earned using SOLO-specific formula:
--- SOLO Free = floor(correct_answers / total_questions * 12)
--- Examples: 0/20→0, 5/20→3, 10/20→6, 15/20→9, 20/20→12
+-- Formula: Free earned = floor(correct_answers / total * max_reward_for_pack_size)
 create or replace function public.keep_battle_solo_report_result(p_correct integer, p_total integer)
  returns void
  language plpgsql
@@ -32,6 +50,7 @@ declare
   total integer;
   correct integer;
   free_earned integer;
+  max_reward integer;
   history_record record;
 begin
   if uid is null then raise exception 'AUTH_REQUIRED'; end if;
@@ -48,8 +67,9 @@ begin
     solo_total = keep_battle_skill_stats.solo_total + total,
     updated_at = now();
 
-  -- Calculate Free earned using SOLO formula: floor(correct/total * 12)
-  free_earned := floor(correct::numeric / total * 12)::integer;
+  -- Get max reward for this pack size, then calculate earned based on correctness
+  max_reward := public.keep_battle_solo_max_reward_for_round_count(total);
+  free_earned := floor(correct::numeric / total * max_reward)::integer;
 
   -- Find the most recent uncredited SOLO match for this user
   select h.id into history_record.id from public.keep_battle_solo_history h
@@ -108,7 +128,7 @@ begin
   monthly_bonus := public.keep_monthly_free_bonus_for_profile(uid);
   admin_grant := public.keep_admin_credit_grant_total_for_profile(uid);
 
-  -- Calculate battle_adjustment from all battle credit sources: regular battles, ARENA, and now SOLO
+  -- Calculate battle_adjustment from all battle credit sources: regular battles, ARENA, and SOLO
   battle_adjustment := coalesce((select sum(amount)::integer from public.keep_battle_credit_events where profile_id=uid),0) +
                       coalesce((select sum(amount)::integer from public.keep_battle_arena_credit_events where profile_id=uid),0) +
                       coalesce((select sum(amount)::integer from public.keep_battle_solo_credit_events where profile_id=uid),0);
