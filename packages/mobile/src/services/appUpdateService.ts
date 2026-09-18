@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
  * ligne, sans jamais deviner.
  */
 export function getCurrentBuildSha(): string {
-  return String(process.env.EXPO_PUBLIC_BUILD_SHA || '').trim();
+  return String(process.env.EXPO_PUBLIC_BUILD_ID || '').trim();
 }
 
 export async function fetchLatestBuildSha(): Promise<string | null> {
