@@ -1105,7 +1105,18 @@ export default function PartiesScreen({ navigation, route }: any) {
                 <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
                 {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
                 <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
-                {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => <View key={`${event.createdAt}-${index}`} style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'}{event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : ''} · {new Date(event.createdAt).toLocaleDateString('fr-FR')}</Text><Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text></View>) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
+                {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => {
+                  const battleTypeLabel = event.battleType === 'SOLO' ? '🎯 SOLO' : event.battleType === 'ARENA' ? '⚡ Arena' : '⚔️ Duel';
+                  const themeLabel = event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : '';
+                  const timeStr = new Date(event.createdAt).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                  return <View key={`${event.createdAt}-${index}`} style={styles.creditHistoryRow}>
+                    <View style={{flex: 1}}>
+                      <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
+                      <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
+                    </View>
+                    <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount} Free</Text>
+                  </View>;
+                }) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
               </> : <Text style={styles.statsThemeEmpty}>Historique indisponible. Réessaie dans un instant.</Text>}
             </>;
           })()}

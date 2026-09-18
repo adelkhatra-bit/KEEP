@@ -153,7 +153,7 @@ export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
   return normalize(row);
 }
 
-export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null };
+export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null; battleType?: string };
 
 export type FreeCreditBreakdown = {
   remaining: number;
@@ -214,6 +214,7 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
       amount: Number(x.amount || 0),
       createdAt: String(x.createdAt || ''),
       themeCode: x.themeCode ? String(x.themeCode) : null,
+      battleType: x.battleType ? String(x.battleType) : undefined,
     })) : [],
   };
 }
