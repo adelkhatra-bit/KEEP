@@ -956,11 +956,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // keep_battle_solo_report_result cherche une ligne dans
         // keep_battle_solo_history qui n'existe que si keep_battle_solo_record_completion
         // a déjà été appelé. Solution: enregistrer l'historique AVANT de créditer.
+        // (19/09/2026) AUDIT: Ne jamais avaler les erreurs - elles doivent être visibles.
         (async () => {
           const freeEarned = freeEarnedForSoloScore(soloScore, solo.rounds.length);
           if (soloBefore !== null && supabase) {
             // Étape 1: enregistrer d'abord la ligne d'historique (le RPC de crédit la cherchera)
-            await supabase.rpc('keep_battle_solo_record_completion', {
+            const recordErr = await supabase.rpc('keep_battle_solo_record_completion', {
               p_theme_code: solo.themeCode,
               p_round_count: solo.rounds.length,
               p_correct_answers: soloScore,
@@ -968,10 +969,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               p_free_earned: freeEarned,
               p_free_after: soloBefore + freeEarned // valeur estimée avant vérification
             });
+            if (recordErr?.error) console.error('[SOLO] record_completion failed:', recordErr.error);
           }
           // Étape 2: appeler le RPC qui crédite via keep_battle_solo_credit_events
           // (le RPC trouve maintenant la ligne historique)
-          await reportSoloBattleResult(soloScore, solo.rounds.length);
+          const reportErr = await reportSoloBattleResult(soloScore, solo.rounds.length).catch((e) => ({ error: e }));
+          if ('error' in reportErr && reportErr.error) console.error('[SOLO] report_result failed:', reportErr.error);
           // Étape 3: charger le solde APRÈS que le crédit soit appliqué
           const status = await loadMyKeepBattleCreditStatus();
           if ('remainingFree' in status) {
@@ -979,7 +982,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             setSoloAfter(freeAfter);
             setSoloFreeEarned(freeEarned);
           }
-        })().catch(() => {});
+        })().catch((e) => {
+          console.error('[SOLO] Unexpected error in SOLO credit flow:', e);
+        });
         setSoloFinished(true); celebrate();
       }, 520);
       return () => clearTimeout(id);
