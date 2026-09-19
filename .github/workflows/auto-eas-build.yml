@@ -34,7 +34,12 @@ env:
 
 jobs:
   build-ios:
-    runs-on: ubuntu-latest
+    # Adel (19/09/2026) : "comment font les gens ... que ça coute le moins
+    # cher possible" -- le depot KEEP est PUBLIC, donc GitHub offre des
+    # runners macOS gratuits et illimites (normalement payants sur prive).
+    # Compiler ici en local (eas build --local) evite entierement la file
+    # d'attente/le quota du plan gratuit EAS Cloud Build.
+    runs-on: macos-latest
     timeout-minutes: 120
     name: Build iOS ${{ inputs.profile || 'production' }}
     steps:
@@ -310,18 +315,32 @@ jobs:
           module.exports = { main };
           NODE
 
-      - name: 🏗️ Build iOS (${{ inputs.profile || 'production' }})
+      - name: 🏗️ Build iOS local (${{ inputs.profile || 'production' }})
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         working-directory: packages/mobile
         run: |
           set -euo pipefail
           profile="${{ inputs.profile || 'production' }}"
-          args=(build --platform ios --profile "$profile" --non-interactive --wait)
-          if [ "$profile" = "production" ]; then
-            args+=(--auto-submit-with-profile production)
-          fi
-          eas "${args[@]}"
+          eas build --local --platform ios --profile "$profile" --non-interactive --output "$RUNNER_TEMP/loki.ipa"
+
+      - name: 📤 Soumettre a TestFlight
+        if: ${{ (inputs.profile || 'production') == 'production' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        working-directory: packages/mobile
+        run: |
+          set -euo pipefail
+          eas submit --platform ios --path "$RUNNER_TEMP/loki.ipa" --non-interactive
+
+      - name: 📦 Artefact .ipa (toujours conserve)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loki-ios-${{ inputs.profile || 'production' }}
+          path: ${{ runner.temp }}/loki.ipa
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Remove temporary Apple key
         if: always()
