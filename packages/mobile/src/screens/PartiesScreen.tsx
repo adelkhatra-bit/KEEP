@@ -1054,7 +1054,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                       <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
                     ) : null}
                   </View>
-                  <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's\' : ''}</Text>
+                  <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
                   <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}</Text>
                   <Text style={styles.leaderboardChevron}>›</Text>
                 </TouchableOpacity>
@@ -1121,7 +1121,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                   {statsData?.topThemes?.length ? statsData.topThemes.map((t) => (
                     <View key={t.themeCode} style={styles.statsThemeRow}>
                       <Text style={styles.statsThemeLabel}>🎯 {themeLabels[t.themeCode] || t.themeCode}</Text>
-                      <Text style={styles.statsThemeValue}>{t.wins} victoire{t.wins > 1 ? 's\' : ''} · {t.matches} match{t.matches > 1 ? 's\' : ''}</Text>
+                      <Text style={styles.statsThemeValue}>{t.wins} victoire{t.wins > 1 ? 's' : ''} · {t.matches} match{t.matches > 1 ? 's' : ''}</Text>
                     </View>
                   )) : <Text style={styles.statsThemeEmpty}>Pas encore assez de matchs pour dégager un style dominant.</Text>}
                   <View style={styles.statsActionsRow}>
@@ -1398,7 +1398,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <Text style={styles.reviewPromptMeta}>{reviewTarget ? new Date(reviewTarget.startsAt).toLocaleDateString('fr-FR') : ''}</Text>
         <View style={styles.reviewStars}>
           {[1, 2, 3, 4, 5].map((n) => (
-            <TouchableOpacity key={n} onPress={() => setReviewStars(n)} accessibilityLabel={`${n} étoile${n > 1 ? 's\' : ''}`}>
+            <TouchableOpacity key={n} onPress={() => setReviewStars(n)} accessibilityLabel={`${n} étoile${n > 1 ? 's' : ''}`}>
               <Text style={styles.reviewStar}>{n <= reviewStars ? '★' : '☆'}</Text>
             </TouchableOpacity>
           ))}

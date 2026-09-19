@@ -780,13 +780,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <Text style={styles.sectionTitle}>Parcourir la collection</Text>
             {genreOptions.length > 0 ? (
               <TouchableOpacity style={styles.prefsSummaryButton} onPress={() => setStyleModalOpen(true)}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR STYLE</Text><Text style={styles.prefsSummaryValue}>{genreOptions.length} style{genreOptions.length > 1 ? 's\' : ''} disponible{genreOptions.length > 1 ? 's\' : ''}</Text></View>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR STYLE</Text><Text style={styles.prefsSummaryValue}>{genreOptions.length} style{genreOptions.length > 1 ? 's' : ''} disponible{genreOptions.length > 1 ? 's' : ''}</Text></View>
                 <Text style={styles.prefsSummaryChevron}>›</Text>
               </TouchableOpacity>
             ) : null}
             {artistGroups.length > 1 ? (
               <TouchableOpacity style={styles.prefsSummaryButton} onPress={() => setArtistModalOpen(true)}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR ARTISTE</Text><Text style={styles.prefsSummaryValue}>{artistGroups.length} artiste{artistGroups.length > 1 ? 's\' : ''}</Text></View>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR ARTISTE</Text><Text style={styles.prefsSummaryValue}>{artistGroups.length} artiste{artistGroups.length > 1 ? 's' : ''}</Text></View>
                 <Text style={styles.prefsSummaryChevron}>›</Text>
               </TouchableOpacity>
             ) : null}
@@ -851,7 +851,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
               const trackLikeCount = likeCounts[track.trackId] || 0;
               return <View key={track.id} style={styles.musicRow}>
-                {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>K</Text></View>}
+                {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
                 <View style={styles.trackInfo}>
                   <View style={styles.trackTitleRow}>
                     <View style={styles.trackTitleBlock}><Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text></View>
