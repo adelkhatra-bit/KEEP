@@ -617,7 +617,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         <View style={styles.hero}>
           <View style={styles.identity}>
-            {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>K</Text></View>}
+            {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{(profile.username || 'K').replace(/^@/, '').slice(0, 1).toUpperCase()}</Text></View>}
             <View style={styles.identityText}>
               <View style={styles.usernameLine}><Text style={styles.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
               <View style={styles.profileMetaRow}>
@@ -648,15 +648,20 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {!isLocalGuest && !isDemoMode && communityMode === 'followers' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
-        <View style={styles.socialHub}>
-          <Text style={styles.socialTitle}>Ses réseaux</Text>
-          <View style={styles.socialRow}>
-            {SOCIALS.map((item) => {
-              const configured = Boolean(profile.socialLinks.find((link) => link.platform === item.platform && link.url.trim()));
-              return <TouchableOpacity key={item.platform} style={[styles.socialButton, configured && styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={configured ? SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF' : '#5C5468'} /></TouchableOpacity>;
-            })}
-          </View>
-        </View>
+        {(() => {
+          const configuredSocials = SOCIALS.filter((item) => profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim()));
+          if (!configuredSocials.length) return null;
+          return (
+            <View style={styles.socialHub}>
+              <Text style={styles.socialTitle}>Ses réseaux</Text>
+              <View style={styles.socialRow}>
+                {configuredSocials.map((item) => (
+                  <TouchableOpacity key={item.platform} style={[styles.socialButton, styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF'} /></TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Adel (02/09/2026) : "on me montrera pas le lien du site, on
             mettra un bouton" -- jamais l'URL affichée, juste le libellé
