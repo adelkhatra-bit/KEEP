@@ -23,7 +23,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase, loadPlaylistSaleOfferDetails, PlaylistOfferDetails } from '../services/playlistSaleService';
+import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
 
 type PublicKeepTrack = {
   id: string;
@@ -328,29 +328,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setSwipeOpen(true);
   };
 
-  // Adel (16-17/09/2026) : "l\'idéal c'est que l'utilisateur se fait payer
+  // Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
   // directement ... KEEP encaisse rien" -- Acheter ouvre le lien de
   // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
   // notée pour que le vendeur sache qui débloquer une fois vraiment payé.
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
-  const [previewOffer, setPreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
-  const [previewDetails, setPreviewDetails] = useState<PlaylistOfferDetails | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  const openMarketplacePreview = async (offer: PublicPlaylistSaleOffer) => {
-    setPreviewOffer(offer);
-    setPreviewLoading(true);
-    try {
-      const details = await loadPlaylistSaleOfferDetails(offer.playlistId);
-      setPreviewDetails(details);
-    } catch (e) {
-      console.error('[MARKETPLACE_PREVIEW] Error loading details:', e);
-      setPreviewDetails({ playlistId: offer.playlistId, trackCount: 0, topArtists: [], genres: [], duration: 0 });
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
     if (purchaseBusyId) return;
     setPurchaseBusyId(offer.playlistId);
@@ -362,7 +344,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
-      else Alert.alert('Erreur', 'Impossible de lancer l\'achat pour le moment.');
+      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
     } finally {
       setPurchaseBusyId(null);
     }
@@ -371,7 +353,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const shareThisProfile = async () => {
     if (!profile) return;
     try { await shareProfile(profile.username); }
-    catch { Alert.alert('Partage', 'Impossible d\'ouvrir le partage pour le moment.'); }
+    catch { Alert.alert('Partage', 'Impossible d’ouvrir le partage pour le moment.'); }
   };
 
   const openSocial = async (platform: SocialPlatform) => {
@@ -387,7 +369,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     let url = link.url.trim();
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     try { await Linking.openURL(url); }
-    catch { Alert.alert('Lien indisponible', 'Impossible d\'ouvrir ce réseau social pour le moment.'); }
+    catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce réseau social pour le moment.'); }
   };
 
   const toggleFollow = async () => {
@@ -448,7 +430,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       }
       setReprisers((rows) => rows.map((r) => r.profileId === repriser.profileId ? { ...r, isFollowing: !r.isFollowing } : r));
     } catch {
-      Alert.alert('Abonnement', 'Impossible de mettre à jour l\'abonnement pour le moment.');
+      Alert.alert('Abonnement', 'Impossible de mettre à jour l’abonnement pour le moment.');
     } finally {
       setRepriseFollowBusyId(null);
     }
@@ -478,7 +460,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         await blockUser(profile.id);
         setIsBlocked(true);
         setIsFollowing(false);
-        Alert.alert('Bloqué', `${profile.username} ne pourra plus interagir avec ton profil, et son contenu ne s'affichera plus pour toi.`);
+        Alert.alert('Bloqué', `${profile.username} ne pourra plus interagir avec ton profil, et son contenu ne s’affichera plus pour toi.`);
       }
     } catch {
       Alert.alert('Action impossible', 'Réessaie dans un instant.');
@@ -493,7 +475,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setModerationBusy(true);
     try {
       await reportUser(profile.id, reason, undefined, { source: 'public_profile' });
-      Alert.alert('Signalement envoyé', 'Merci, notre équipe va l\'examiner.');
+      Alert.alert('Signalement envoyé', 'Merci, notre équipe va l’examiner.');
     } catch {
       Alert.alert('Envoi impossible', 'Réessaie dans un instant.');
     } finally {
@@ -603,7 +585,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
         ]);
       } else {
-        Alert.alert('Loki', e?.message || 'Impossible d\'ajouter ce morceau pour le moment.');
+        Alert.alert('Loki', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
       }
     } finally {
       setKeepPromptTrack(null);
@@ -666,14 +648,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {!isLocalGuest && !isDemoMode && communityMode === 'followers' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
-        <View style={styles.visitorKeepCounters}>
-          <ProfileCounterRow kind="keeps" items={[
-            { value: directKeepCount, label: 'Morceaux' },
-            { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-          ]} />
-          {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
-        </View>
-
         {(() => {
           const configuredSocials = SOCIALS.filter((item) => profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim()));
           if (!configuredSocials.length) return null;
@@ -698,7 +672,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           const openWebsite = async () => {
             let url = websiteLink.url.trim();
             if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-            try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d\'ouvrir ce site pour le moment.'); }
+            try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce site pour le moment.'); }
           };
           return <TouchableOpacity style={styles.websiteButton} onPress={() => void openWebsite()} accessibilityLabel={websiteLink.label || 'Site web'}><Text style={styles.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text></TouchableOpacity>;
         })()}
@@ -726,9 +700,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 ) : (
                   <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
                 );
-              })}
-              {profile.favoriteGenres.length > 6 && <TouchableOpacity style={styles.chip} onPress={() => setStyleModalOpen(true)}><Text style={[styles.chipText, { fontWeight: '600' }]}>VOIR TOUS {profile.favoriteGenres.length}</Text></TouchableOpacity>}
-              </View>
+              })}</View>
             </View>
           ) : null}
           {profile.favoriteArtists.length > 0 ? (
@@ -741,9 +713,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 ) : (
                   <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
                 );
-              })}
-              {profile.favoriteArtists.length > 6 && <TouchableOpacity style={styles.chip} onPress={() => setArtistModalOpen(true)}><Text style={[styles.chipText, { fontWeight: '600' }]}>VOIR TOUS {profile.favoriteArtists.length}</Text></TouchableOpacity>}
-              </View>
+              })}</View>
             </View>
           ) : null}
           {profile.favoriteGenres.length === 0 && profile.favoriteArtists.length === 0 ? <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text> : null}
@@ -761,7 +731,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <Text style={styles.sectionTitle}>🎧 Musique à vendre</Text>
             <View style={styles.browseChipsRow}>
               {saleOffers.map((offer) => (
-                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} disabled={purchaseBusyId === offer.playlistId} onPress={() => void openMarketplacePreview(offer)}>
+                <TouchableOpacity key={offer.playlistId} style={styles.browseChip} disabled={purchaseBusyId === offer.playlistId} onPress={() => void buyPlaylistOffer(offer)}>
                   <Text style={styles.browseChipText} numberOfLines={1}>{purchaseBusyId === offer.playlistId ? '…' : `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
                 </TouchableOpacity>
               ))}
@@ -823,6 +793,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </View></View>
         </Modal>
 
+        <View style={styles.visitorKeepCounters}>
+          <ProfileCounterRow kind="keeps" items={[
+            { value: directKeepCount, label: 'Morceaux' },
+            { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+          ]} />
+          {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
+        </View>
+
         <View style={styles.publicMusicSection}>
           <TouchableOpacity style={styles.musicSectionHeader} onPress={() => setMusicListExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={musicListExpanded ? 'Réduire les morceaux publics' : 'Voir les morceaux publics un par un'}>
             <Text style={styles.sectionTitle}>Morceaux publics</Text>
@@ -838,7 +816,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               const directDiscovery = !track.sourceUserId && !track.sourceProfileId;
               const discoveryUsername = track.sourceUsername || (directDiscovery ? profile.username : '');
               const discoveryImpact = discoveryImpacts[track.trackId];
-              // Adel (09/09/2026) : "c\'est pas du tout le meme design que
+              // Adel (09/09/2026) : "c'est pas du tout le meme design que
               // sur le profil, reamenage utilise le meme design sauf que tu
               // rajoutes le coeur en plus" -- meme structure compacte que le
               // propre profil (bouton(s) en ligne a cote du titre), avec le
@@ -893,7 +871,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                             <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
                           </TouchableOpacity>
                         );
-                      })() : <Text style={styles.discoveryOriginProtected}>découvreur d'origine protégé</Text>}
+                      })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                     </View>
                   </View>
                 </View>
@@ -907,46 +885,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         visible={swipeOpen}
         tracks={browseSwipeTracks}
         title={browseFilter ? `${profile.username} · ${browseFilter.label}` : `La collection de ${profile.username}`}
-        subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n'est créé."
+        subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         requiresAccount={!viewer || isLocalGuest || isDemoMode}
         onClose={() => { setSwipeOpen(false); setBrowseFilter(null); }}
         onKeep={addCanonicalToMyKeep}
       />
-
-      <Modal visible={!!previewOffer} transparent animationType="fade" onRequestClose={() => setPreviewOffer(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.shareSheet, { paddingVertical: spacing.md }]}>
-            {previewLoading ? (
-              <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}><ActivityIndicator size="large" color={colors.primary} /></View>
-            ) : previewDetails ? (
-              <ScrollView scrollEnabled showsVerticalScrollIndicator={false}>
-                <Text style={styles.shareTitle}>{previewOffer?.playlistName}</Text>
-                <Text style={styles.shareSubtitle}>{previewOffer?.priceCents ? (previewOffer.priceCents / 100).toFixed(2) : '0'}€ · {previewDetails.trackCount} morceau{previewDetails.trackCount > 1 ? 'x' : ''}</Text>
-                {previewDetails.duration > 0 && <Text style={[styles.shareSubtitle, { marginTop: spacing.xs }]}>{Math.floor(previewDetails.duration / 60)}h{String(previewDetails.duration % 60).padStart(2, '0')}</Text>}
-                {previewDetails.genres.length > 0 && (
-                  <View style={{ marginTop: spacing.md }}>
-                    <Text style={styles.muted}>Styles</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.xs, gap: spacing.xs }}>
-                      {previewDetails.genres.map((g) => <View key={g} style={{ backgroundColor: colors.surface, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.md }}><Text style={styles.shareSubtitle}>{g}</Text></View>)}
-                    </View>
-                  </View>
-                )}
-                {previewDetails.topArtists.length > 0 && (
-                  <View style={{ marginTop: spacing.md }}>
-                    <Text style={styles.muted}>Artistes</Text>
-                    <Text style={[styles.shareSubtitle, { marginTop: spacing.xs }]}>{previewDetails.topArtists.slice(0, 3).join(' · ')}{previewDetails.topArtists.length > 3 ? '…' : ''}</Text>
-                  </View>
-                )}
-                <TouchableOpacity style={[styles.shareButton, { marginTop: spacing.lg }]} disabled={purchaseBusyId === previewOffer?.playlistId} onPress={() => { setPreviewOffer(null); void buyPlaylistOffer(previewOffer!); }}>
-                  <Text style={styles.shareButtonText}>{purchaseBusyId === previewOffer?.playlistId ? '…' : 'J\'ACHÈTE'}</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            ) : null}
-            <TouchableOpacity style={styles.cancelShare} onPress={() => setPreviewOffer(null)}><Text style={styles.cancelShareText}>Annuler</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Adel (09/09/2026) : "meme design que le profil normal" -- meme
           liste "qui a repris" que sur son propre profil (pastille de
@@ -972,7 +916,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     </TouchableOpacity>
                   </View>
                 );
-              }) : <Text style={styles.muted}>Personne n'a encore repris ses morceaux.</Text>}
+              }) : <Text style={styles.muted}>Personne n’a encore repris ses morceaux.</Text>}
             </ScrollView>
             <TouchableOpacity style={styles.cancelShare} onPress={() => setRepriseListOpen(false)}><Text style={styles.cancelShareText}>Fermer</Text></TouchableOpacity>
           </View>

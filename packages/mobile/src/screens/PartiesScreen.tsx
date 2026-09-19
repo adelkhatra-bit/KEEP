@@ -12,7 +12,6 @@ import SwipeDeck from '../components/SwipeDeck';
 import KeepBattleArenaPanel from '../components/KeepBattleArenaPanel';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
-import { loadOwnProfileSnapshot, OwnProfileSnapshot } from '../services/publicProfileStateService';
 import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomingChallenge } from '../services/keepBattleLiveService';
 import { supabase } from '../services/supabaseClient';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
@@ -22,7 +21,6 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { searchAddress, reverseGeocodeAddress, getCurrentKeepLocation, KeepLocationPermissionError, AddressSuggestion } from '../services/locationService';
 import WheelPicker from '../components/WheelPicker';
-import ProfileCounterRow from '../components/ProfileCounterRow';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -147,13 +145,6 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
-  const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
-  useEffect(() => {
-    let live = true;
-    if (!user || isLocalGuest || isDemoMode) { setOwnSnapshot(null); return undefined; }
-    loadOwnProfileSnapshot().then((snapshot) => { if (live) setOwnSnapshot(snapshot); }).catch(() => { if (live) setOwnSnapshot(null); });
-    return () => { live = false; };
-  }, [user, isLocalGuest, isDemoMode]);
   const [leaderboard, setLeaderboard] = useState<KeepBattleGlobalLeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [myRankingOpen, setMyRankingOpen] = useState(false);
@@ -240,7 +231,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   };
   const openMyRanking = () => {
     if (!user || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l'historique de tes Free.', [
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
       ]);
@@ -248,21 +239,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     }
     setMyRankingOpen(true);
     setMyRankingLoading(true);
-    loadFreeCreditBreakdown()
-      .then((v) => {
-        if (v) {
-          console.log('[RANKING] Breakdown loaded:', v);
-          setMyFreeBreakdown(v);
-        } else {
-          console.warn('[RANKING] Breakdown is null');
-          setMyFreeBreakdown(null);
-        }
-      })
-      .catch((err) => {
-        console.error('[RANKING] Error loading breakdown:', err);
-        setMyFreeBreakdown(null);
-      })
-      .finally(() => setMyRankingLoading(false));
+    loadFreeCreditBreakdown().then(setMyFreeBreakdown).catch(() => setMyFreeBreakdown(null)).finally(() => setMyRankingLoading(false));
   };
   // Adel (07/09/2026) : "la certif doit être présentée partout, même sur les
   // Battles" -- calculée en direct pour chaque joueur du classement (jamais
@@ -365,7 +342,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [myTicket, setMyTicket] = useState<EventTicket | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketLoading, setTicketLoading] = useState(false);
-  // Adel (08/09/2026) : "l\'organisateur ... pourra le scanner ... tout ceux
+  // Adel (08/09/2026) : "l'organisateur ... pourra le scanner ... tout ceux
   // qui ont participe et tout ceux qui ne sont pas venus" -- saisie du code
   // (dicte ou copie depuis l'ecran du participant) en repli sans nouvelle
   // dependance camera ; le tap-to-toggle sur chaque ligne reste disponible
@@ -407,7 +384,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       else if (here.city) { setVenueName(here.city); setVenueCoords({ lat: here.lat, lng: here.lng }); setVenueSuggestions([]); if (here.countryCode) setCountryCode(here.countryCode); }
       else Alert.alert('Position', 'Adresse précise indisponible pour le moment.');
     } catch (e) {
-      Alert.alert('Position', e instanceof KeepLocationPermissionError ? 'Autorise l'accès à ta position pour remplir l'adresse automatiquement.' : 'Impossible de récupérer ta position pour le moment.');
+      Alert.alert('Position', e instanceof KeepLocationPermissionError ? 'Autorise l’accès à ta position pour remplir l’adresse automatiquement.' : 'Impossible de récupérer ta position pour le moment.');
     } finally {
       setLocatingVenue(false);
     }
@@ -514,7 +491,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       if (currentEvent?.id === reviewTarget.eventId) setCurrentEventReviewSummary(await loadEventReviewSummary(reviewTarget.eventId).catch(() => currentEventReviewSummary));
       Alert.alert('Merci !', 'Ton avis a été enregistré.');
     } catch {
-      Alert.alert('Avis', 'Impossible d'enregistrer ton avis pour le moment.');
+      Alert.alert('Avis', 'Impossible d’enregistrer ton avis pour le moment.');
     } finally {
       setReviewBusy(false);
     }
@@ -535,13 +512,13 @@ export default function PartiesScreen({ navigation, route }: any) {
     setBusyId(event.id);
     try {
       const request = await requestEventTicketPurchase(event.id);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L'organisateur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
+      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de lien de paiement personnel.`); return; }
       await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l'organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l\'organisateur'} confirme.`);
+      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('CANNOT_BUY_OWN_TICKET')) Alert.alert('Impossible', 'Tu ne peux pas acheter un billet pour ta propre soirée.');
-      else Alert.alert('Erreur', 'Impossible de lancer l'achat pour le moment.');
+      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
     } finally {
       setBusyId('');
     }
@@ -568,7 +545,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         nextEvent();
       }
     }
-    catch { Alert.alert('Soirée', 'Impossible d'enregistrer ta réponse pour le moment.'); }
+    catch { Alert.alert('Soirée', 'Impossible d’enregistrer ta réponse pour le moment.'); }
     finally { setBusyId(''); }
   };
 
@@ -593,7 +570,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       return;
     }
     if (liveFollowers < liveMinimum) {
-      Alert.alert('500 abonnés requis', `La création d'événements s'ouvre à partir de ${liveMinimum} abonnés. Tu en as actuellement ${liveFollowers}.`);
+      Alert.alert('500 abonnés requis', `La création d’événements s’ouvre à partir de ${liveMinimum} abonnés. Tu en as actuellement ${liveFollowers}.`);
       return;
     }
     if (!access.allowed && !access.unlimited) {
@@ -670,7 +647,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       const url = await pickAndUploadEventImage(user.id);
       if (url) setEventImageUrls((current) => [...current, url].slice(0, 3));
     } catch {
-      Alert.alert('Photo', 'Impossible d'ajouter cette photo pour le moment.');
+      Alert.alert('Photo', 'Impossible d’ajouter cette photo pour le moment.');
     } finally {
       setImageUploadBusy(false);
     }
@@ -679,7 +656,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const removeEventImage = (url: string) => setEventImageUrls((current) => current.filter((u) => u !== url));
 
   const deleteEvent = (event: CreatorEvent) => {
-    // Adel (08/09/2026) : "s\'il les efface, il faut que dans le systeme
+    // Adel (08/09/2026) : "s'il les efface, il faut que dans le systeme
     // comptabilise comme debit" -- suppression definitive de la visibilite,
     // mais compte toujours dans le quota mensuel (soft delete cote serveur).
     Alert.alert(
@@ -776,7 +753,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // toute facon impossible une fois approuve (verrouille cote serveur).
   const publish = async () => {
     const iso = parseDate();
-    if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l'événement.');
+    if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
     setCreateBusy(true);
     try {
@@ -786,23 +763,23 @@ export default function PartiesScreen({ navigation, route }: any) {
         await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
         resetEventForm();
         await reload();
-        Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l'approbation.');
+        Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
         await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
         resetEventForm();
         await reload();
-        Alert.alert('Envoyé pour validation', 'Le Super Admin doit approuver la photo et le texte avant qu'il soit visible. Tu seras notifié dès que c'est fait.');
+        Alert.alert('Envoyé pour validation', 'Le Super Admin doit approuver la photo et le texte avant qu’il soit visible. Tu seras notifié dès que c’est fait.');
       }
     } catch (e: any) {
       const code = String(e?.message || '');
       if (code.includes('EVENT_FOLLOWERS_REQUIRED')) {
         const [, current, minimum] = code.split(':');
-        Alert.alert('Audience requise', `La création d'événements demande au moins ${Number(minimum || 500)} abonnés. Tu en as actuellement ${Number(current || 0)}.`);
+        Alert.alert('Audience requise', `La création d’événements demande au moins ${Number(minimum || 500)} abonnés. Tu en as actuellement ${Number(current || 0)}.`);
       } else if (code.includes('VENUE_PRO_EVENT_LIMIT')) navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
       else if (code.includes('CREATOR_PRO_REQUIRED')) navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'CREATE_EVENT' });
-      else if (code.includes('event_locked_after_approval')) Alert.alert('Événement approuvé', 'Il a déjà été validé par le Super Admin et diffusé : il n'est plus modifiable.');
-      else Alert.alert('Événement', code || 'Impossible d'enregistrer l'événement pour le moment.');
+      else if (code.includes('event_locked_after_approval')) Alert.alert('Événement approuvé', 'Il a déjà été validé par le Super Admin et diffusé : il n’est plus modifiable.');
+      else Alert.alert('Événement', code || 'Impossible d’enregistrer l’événement pour le moment.');
     } finally { setCreateBusy(false); }
   };
 
@@ -828,7 +805,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
           onRequireAccount={() => Alert.alert(
             'Compte Loki requis',
-            'Le mode invité permet d'écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
             [
               { text: 'Plus tard', style: 'cancel' },
               { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
@@ -917,7 +894,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               haut (comme une pochette), tout le texte (nom, date, avis,
               description, liens) vit dans un bloc en dessous, à fond plein :
               ça peut grandir sans jamais recouvrir la photo. */}
-          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J'Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l'invitation · les boutons fonctionnent aussi'}>
+          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J’Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l’invitation · les boutons fonctionnent aussi'}>
             <View style={styles.card}>
               {currentEvent.imageUrl ? <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardBanner} resizeMode="cover" /> : null}
               <View style={styles.cardBody}>
@@ -953,7 +930,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                   </View>
                 ) : null}
                 {currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}
-                {/* Adel (08/09/2026) : "c\'est vraiment pas beau, il y a deux
+                {/* Adel (08/09/2026) : "c'est vraiment pas beau, il y a deux
                     textes ... trouve une solution avec un petit bouton ...
                     en savoir plus, comme ça ils auront toutes les
                     informations" -- meme logique que le popup des
@@ -962,9 +939,9 @@ export default function PartiesScreen({ navigation, route }: any) {
                     intégral + YouTube, puis on répond juste après. */}
                 {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
                 {(currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
-                {currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l'organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
+                {currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
                 {isOwnEvent
-                  ? <View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>👁 Aperçu — ceci n'est pas une réponse</Text></View>
+                  ? <View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>👁 Aperçu — ceci n’est pas une réponse</Text></View>
                   : <View style={[styles.currentAnswer, currentRsvp==='GOING'&&styles.currentAnswerGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerNotGoing]}><Text style={[styles.currentAnswerText, currentRsvp==='GOING'&&styles.currentAnswerTextGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerTextNotGoing]}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View>}
               </View>
             </View>
@@ -1000,14 +977,6 @@ export default function PartiesScreen({ navigation, route }: any) {
         </> : null}
       </> : (
         <>
-          {user && !isLocalGuest && !isDemoMode && ownSnapshot ? (
-            <View style={styles.userCountersSection}>
-              <ProfileCounterRow kind="keeps" items={[
-                { value: ownSnapshot.totalKeeps ?? 0, label: 'Morceaux' },
-                { value: user.followingCount, label: 'Abonnements' },
-              ]} />
-            </View>
-          ) : null}
           {/* Adel (02/09/2026) : "le bouton salon musical au-dessus du
               classement global, jouer en jaune au lieu de violet, le contour
               du bouton battle en jaune" -- le lanceur passe avant le
@@ -1208,8 +1177,8 @@ export default function PartiesScreen({ navigation, route }: any) {
       </View></View>
     </Modal>
 
-    <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l'événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l'événement" placeholderTextColor={colors.textMuted}/>
+    <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
           haut" -- juste sous le nom, avant la date. "il puisse ajouter
           plusieurs photos ... 2 ou 3" -- galerie de vignettes + bouton
@@ -1229,7 +1198,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ) : null}
       </View>
-      {!eventImageUrls.length ? <Text style={styles.photoGalleryHint}>Affiche + le style musical · jusqu'à 3 photos</Text> : null}
+      {!eventImageUrls.length ? <Text style={styles.photoGalleryHint}>Affiche + le style musical · jusqu’à 3 photos</Text> : null}
       {/* Adel (08/09/2026) : "mets un systeme de roulette pour la date et
           l'heure ... je veux pouvoir selectionner une heure et 45 minutes,
           2h14, etc." -- trois roulettes (date / heure / minute), aucune
@@ -1293,7 +1262,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       </TouchableOpacity>
       {organizerPhone.trim() ? <TouchableOpacity style={styles.rsvpToggleRow} onPress={() => setShowOrganizerPhone((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: showOrganizerPhone }}>
         <View style={[styles.rsvpToggleBox, showOrganizerPhone && styles.rsvpToggleBoxOn]}>{showOrganizerPhone ? <Text style={styles.rsvpToggleCheck}>✓</Text> : null}</View>
-        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>Afficher mon numéro sur l'évènement ?</Text><Text style={styles.rsvpToggleHint}>Visible par tous, avec un bouton pour t'appeler directement. Décoché : ton numéro reste privé.</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>Afficher mon numéro sur l’évènement ?</Text><Text style={styles.rsvpToggleHint}>Visible par tous, avec un bouton pour t’appeler directement. Décoché : ton numéro reste privé.</Text></View>
       </TouchableOpacity> : null}
       {/* Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
           notification ou avec deux boutons ... l'utilisateur puisse cocher
@@ -1324,7 +1293,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TextInput style={[styles.input, styles.checkinInput]} value={checkinCode} onChangeText={setCheckinCode} placeholder="Code du billet" placeholderTextColor={colors.textMuted} autoCapitalize="characters"/>
           <TouchableOpacity style={styles.checkinButton} disabled={checkinBusy || !checkinCode.trim()} onPress={() => void submitCheckinCode()}>{checkinBusy ? <ActivityIndicator color="#111"/> : <Text style={styles.checkinButtonText}>Valider</Text>}</TouchableOpacity>
         </View>
-        <Text style={styles.checkinHint}>Le code est celui affiché sous le QR du participant (bouton « 🎟 Mon billet » de son côté) — utile s'il ne peut pas te montrer son écran. Sinon, touche directement « Présent ? » à côté de son nom, sans code.</Text>
+        <Text style={styles.checkinHint}>Le code est celui affiché sous le QR du participant (bouton « 🎟 Mon billet » de son côté) — utile s’il ne peut pas te montrer son écran. Sinon, touche directement « Présent ? » à côté de son nom, sans code.</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
           {participantsLoading ? <ActivityIndicator color={colors.primaryLight}/> : participants.length ? participants.map((p) => (
             <View key={p.profileId} style={styles.participantRow}>
@@ -1337,7 +1306,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {checkinTogglingId===p.profileId ? <ActivityIndicator color="#111"/> : <Text style={[styles.participantCheckinBtnText, p.checkedInAt && styles.participantCheckinBtnTextOn]}>{p.checkedInAt ? '✓' : 'Présent ?'}</Text>}
               </TouchableOpacity> : null}
             </View>
-          )) : <Text style={styles.meta}>Personne n'a encore répondu.</Text>}
+          )) : <Text style={styles.meta}>Personne n’a encore répondu.</Text>}
         </ScrollView>
       </View></View>
     </Modal>
@@ -1381,13 +1350,13 @@ export default function PartiesScreen({ navigation, route }: any) {
             <View style={styles.ticketQrFrame}><Image source={{ uri: qrImageUrl(`LOKI-TICKET:${myTicket.eventId}:${myTicket.ticketCode}`) }} style={styles.ticketQrImage}/></View>
             <Text style={styles.ticketUsername}>{myTicket.username}</Text>
             <Text style={styles.ticketCode}>{myTicket.ticketCode}</Text>
-            <Text style={styles.ticketHint}>{myTicket.checkedInAt ? '✅ Déjà scanné à l'entrée' : 'Présente ce QR code à l'entrée.'}</Text>
+            <Text style={styles.ticketHint}>{myTicket.checkedInAt ? '✅ Déjà scanné à l’entrée' : 'Présente ce QR code à l’entrée.'}</Text>
           </> : <Text style={styles.ticketHint}>Ton billet arrive dans un instant.</Text>}
           <View style={styles.ticketCalendarRow}>
             <TouchableOpacity style={styles.ticketCalendarButton} onPress={() => { void Linking.openURL(buildGoogleCalendarUrl(myTicket)); }}><Text style={styles.ticketCalendarButtonText}>📅 Google Agenda</Text></TouchableOpacity>
             <TouchableOpacity style={styles.ticketCalendarButton} onPress={downloadTicketIcs}><Text style={styles.ticketCalendarButtonText}>⤓ .ics (Apple/Outlook)</Text></TouchableOpacity>
           </View>
-        </> : <Text style={styles.meta}>Billet indisponible (l'évènement est déjà loin derrière nous).</Text>}
+        </> : <Text style={styles.meta}>Billet indisponible (l’évènement est déjà loin derrière nous).</Text>}
       </View></View>
     </Modal>
 
@@ -1413,7 +1382,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
-container:{flex:1,backgroundColor:'#090610'},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},partiesTabBtnOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},partiesTabText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:'#FFF'},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:'#40334B',backgroundColor:'#151020',gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#8B5CF6',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},leaderboardTitle:{color:'#E5F266',fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:'#1B1422'},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:'#FFF',fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderboardWins:{color:'#E5F266',fontSize:11,fontWeight:'900'},leaderboardStats:{color:'#B79CFF',fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:'#E5F266',fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:'#6EE8A7',fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:'#8F879D',fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},userCountersSection:{marginBottom:spacing.md,paddingHorizontal:12},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:'#151020',borderWidth:1,borderColor:'#E5F266',flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:'#2A1A14',borderWidth:1,borderColor:'#D6AA36',alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:'#D6AA36',fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#31C981',alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:'#7CF2B9',fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:'#E5F266',fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',overflow:'hidden'},cardBanner:{width:'100%',height:190,backgroundColor:'#0F0B15'},cardBody:{padding:20},badgeRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:2},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)'},badgeText:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,209,102,.14)',borderWidth:1,borderColor:'#FFD166'},pendingBadgeText:{color:'#FFD166',fontSize:10,fontWeight:'900'},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,95,131,.14)',borderWidth:1,borderColor:'#FF5F83'},rejectedBadgeText:{color:'#FF5F83',fontSize:10,fontWeight:'900'},moderationNote:{color:'#FFB3C3',fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900',marginTop:10},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#FFFFFF',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:'#FFD166',fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:'#B79CFF',fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:'#8B5CF6'},rsvpToggleCheck:{color:'#FFF',fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:'#8F879D',fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},eventPriceChipText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:'#FFD166'},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#241D0F'},reviewPromptTitle:{color:'#FFD166',fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:'#FFD166',fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:'#B79CFF',fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:'#0F0B15',marginRight:8},detailDescription:{color:'#F8F6FC',fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:'#0F0B15'},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:'#FF5F83',alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:'#2A0510',fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:'#B79CFF',fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'#0F2A1D',borderWidth:1,borderColor:'#38D990',flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:'#7CF2B9',fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:'#FFFFFF',fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990'},currentAnswerTextGoing:{color:'#7CF2B9'},currentAnswerNotGoing:{backgroundColor:'#3A1116',borderWidth:1,borderColor:'#FF5F83'},currentAnswerTextNotGoing:{color:'#FF9FB3'},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:50,borderRadius:25,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:'#FF5F83',backgroundColor:'#2A121A'},rsvpButtonNoText:{color:'#FF5F83',fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:'#E5F266',backgroundColor:'#E5F266'},rsvpButtonYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:40,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:'#FF6C8C'},secondaryDangerText:{color:'#FF6C8C'},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:'#241D30'},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:'#F8F6FC',fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:'#B79CFF',fontSize:11,fontWeight:'900'},participantStatusGoing:{color:'#38D990'},participantStatusNotGoing:{color:'#FF6C8C'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:'#0F0B15',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:'#241B30'},venueSuggestionPrimary:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:'#8F879D',fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},
+container:{flex:1,backgroundColor:'#090610'},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},partiesTabBtnOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},partiesTabText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:'#FFF'},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:'#40334B',backgroundColor:'#151020',gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#8B5CF6',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},leaderboardTitle:{color:'#E5F266',fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:'#1B1422'},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:'#FFF',fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderboardWins:{color:'#E5F266',fontSize:11,fontWeight:'900'},leaderboardStats:{color:'#B79CFF',fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:'#E5F266',fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:'#6EE8A7',fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:'#8F879D',fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:'#151020',borderWidth:1,borderColor:'#E5F266',flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:'#2A1A14',borderWidth:1,borderColor:'#D6AA36',alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:'#D6AA36',fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#31C981',alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:'#7CF2B9',fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:'#E5F266',fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',overflow:'hidden'},cardBanner:{width:'100%',height:190,backgroundColor:'#0F0B15'},cardBody:{padding:20},badgeRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:2},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)'},badgeText:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,209,102,.14)',borderWidth:1,borderColor:'#FFD166'},pendingBadgeText:{color:'#FFD166',fontSize:10,fontWeight:'900'},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,95,131,.14)',borderWidth:1,borderColor:'#FF5F83'},rejectedBadgeText:{color:'#FF5F83',fontSize:10,fontWeight:'900'},moderationNote:{color:'#FFB3C3',fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900',marginTop:10},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#FFFFFF',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:'#FFD166',fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:'#B79CFF',fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:'#8B5CF6'},rsvpToggleCheck:{color:'#FFF',fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:'#8F879D',fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},eventPriceChipText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:'#FFD166'},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#241D0F'},reviewPromptTitle:{color:'#FFD166',fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:'#FFD166',fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:'#B79CFF',fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:'#0F0B15',marginRight:8},detailDescription:{color:'#F8F6FC',fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:'#0F0B15'},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:'#FF5F83',alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:'#2A0510',fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:'#B79CFF',fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'#0F2A1D',borderWidth:1,borderColor:'#38D990',flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:'#7CF2B9',fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:'#FFFFFF',fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990'},currentAnswerTextGoing:{color:'#7CF2B9'},currentAnswerNotGoing:{backgroundColor:'#3A1116',borderWidth:1,borderColor:'#FF5F83'},currentAnswerTextNotGoing:{color:'#FF9FB3'},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:50,borderRadius:25,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:'#FF5F83',backgroundColor:'#2A121A'},rsvpButtonNoText:{color:'#FF5F83',fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:'#E5F266',backgroundColor:'#E5F266'},rsvpButtonYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:40,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:'#FF6C8C'},secondaryDangerText:{color:'#FF6C8C'},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:'#241D30'},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:'#F8F6FC',fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:'#B79CFF',fontSize:11,fontWeight:'900'},participantStatusGoing:{color:'#38D990'},participantStatusNotGoing:{color:'#FF6C8C'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:'#0F0B15',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:'#241B30'},venueSuggestionPrimary:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:'#8F879D',fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},
 statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},myRankingCard:{width:'100%',maxWidth:400,maxHeight:'82%',borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},creditHistoryRow:{minHeight:38,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,paddingHorizontal:10,borderRadius:12,backgroundColor:'#1B1422',marginBottom:5},creditHistoryLabel:{flex:1,color:'#FFF',fontSize:11,lineHeight:15,fontWeight:'800'},creditHistoryGain:{color:'#7FF2B7',fontSize:12,fontWeight:'900'},creditHistoryLoss:{color:'#FFB3C3',fontSize:12,fontWeight:'900'},creditHistoryNextCredit:{color:'#B79CFF',fontSize:11,lineHeight:15,fontWeight:'700',marginBottom:8},statsClose:{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:17,backgroundColor:'#1F1830',alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:'#FFF',fontSize:20,lineHeight:22,fontWeight:'700'},statsUsernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:14,paddingRight:40},statsUsername:{color:'#FFF',fontSize:20,fontWeight:'900'},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:'#1B1422'},statsBigValue:{color:'#E5F266',fontSize:22,fontWeight:'900'},statsBigLabel:{color:'#B79CFF',fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsSmallRow:{flexDirection:'row',gap:5,marginTop:6},statsSmallItem:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:'#17121D'},statsSmallValue:{color:'#FFF',fontSize:11,fontWeight:'900'},statsSmallLabel:{color:'#8F879D',fontSize:9,fontWeight:'800',marginTop:1,textAlign:'center'},statsAvg:{color:'#FFF',fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:'#E5F266',fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#1B1422',marginBottom:6},statsThemeLabel:{color:'#FFF',fontSize:12,fontWeight:'900'},statsThemeValue:{color:'#B79CFF',fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:'#B79CFF',fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:'#8B5CF6',borderWidth:1.5,borderColor:'#4E8DFF',alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900'},
 incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:'#E5F266',backgroundColor:'#1B1222'},incomingText:{color:'#F3EDF7',fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:'#FFF',fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:'#8A7795',backgroundColor:'#211829',alignItems:'center',justifyContent:'center'},incomingNoText:{color:'#FFF',fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},incomingYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
 ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:'#151020',borderWidth:1.5,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},ticketButtonText:{color:'#FFD166',fontSize:13,fontWeight:'900'},
