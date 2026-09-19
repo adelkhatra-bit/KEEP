@@ -296,14 +296,20 @@ async function findExistingTrack(title: string, artist: string, isrc: string): P
     const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,provider_ids").eq("isrc", isrc).maybeSingle();
     if (data?.id) return data;
   }
+  const normalizedSearchTitle = normalizeText(title);
+  const normalizedSearchArtist = normalizeText(artist);
   const { data: matches, error } = await admin
     .from("tracks")
-    .select("id,isrc,album,artwork_url,provider_ids")
+    .select("id,isrc,album,artwork_url,provider_ids,title,artist")
     .ilike("title", title)
-    .ilike("artist", artist)
-    .limit(1);
+    .limit(20);
   if (error) throw error;
-  return matches?.[0] ?? null;
+  for (const track of matches ?? []) {
+    if (normalizeText(track.title) === normalizedSearchTitle && normalizeText(track.artist) === normalizedSearchArtist) {
+      return track;
+    }
+  }
+  return null;
 }
 
 async function findOrCreateTrack(track: TrackInput): Promise<string> {
