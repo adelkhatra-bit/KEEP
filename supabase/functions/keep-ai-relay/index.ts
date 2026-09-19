@@ -1,30 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// Adel (20/09/2026) : "monte un petit service securise cote equipe avec une
-// API simple. Envoyer une instruction et recuperer ton dernier etat." --
-// relais HTTP entre le connecteur ChatGPT (Custom GPT Action) et Claude
-// Code. Voir AI/AI_bridge.md pour la doc complete et le mode d'emploi du
-// connecteur, AI/AI_INSTRUCTIONS.md (miroir lisible des instructions) et
-// AI/AI_REPORT.md (miroir lisible des rapports).
-//
-// Authentification : en-tete x-relay-key, comparee cote serveur a la valeur
-// stockee dans integration_secrets (cle AI_RELAY_API_KEY), lue via le meme
-// vault que Stripe/Brevo/Paddle. Cette cle n'est JAMAIS generee, lue ou
-// saisie par une IA -- seul Adel la cree et la colle dans Super Admin puis
-// dans la config du connecteur ChatGPT.
-//
-// Asymetrie volontaire des deux sens :
-// - ChatGPT -> Claude (instructions) passe par cette fonction (ecrit dans
-//   ai_relay_messages avec la service role key, jamais exposee) : c'est le
-//   sens qui peut declencher une action, donc il reste cle-a-cle strict.
-// - Claude -> ChatGPT (etat/rapport) n'a besoin d'aucun secret : le depot
-//   est public, donc "op=state" relit simplement AI/AI_REPORT.md tel que
-//   Claude vient de le committer/pousser (workflow git normal, deja utilise
-//   pour AI_bridge.md toute la session). Claude Code n'a donc jamais besoin
-//   de connaitre AI_RELAY_API_KEY.
+// Adel (20/09/2026) : relais ChatGPT <-> Claude Code. Voir AI/AI_bridge.md.
+// Garde-fou strict : accès limité à ce projet Supabase, aucune commande
+// shell (ce fichier ne fait jamais que lire/écrire ai_relay_messages ou
+// lire un fichier public GitHub), clé uniquement dans integration_secrets
+// (jamais dans Git). Anti-doublon + limites de taille/fréquence : voir
+// service_ai_relay_post (migration 20260920130000).
 
+const DEPLOY_SHA = "dec58bfb89761e3f0656dc809f3565aa54fe7920";
 const REPORT_RAW_URL = "https://raw.githubusercontent.com/adelkhatra-bit/KEEP/reconcile/claude-main-20260825/AI/AI_REPORT.md";
+const MAX_TEXT_LENGTH = 4000;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -54,21 +40,33 @@ function timingSafeEqual(a: string, b: string): boolean {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
 
+  const url = new URL(req.url);
+  const opParam = url.searchParams.get("op");
+
+  // Essai sans modification, sans clé : confirme que le relais est en
+  // ligne (aucune lecture/écriture de données, aucun secret impliqué).
+  if (req.method === "GET" && opParam === "ping") {
+    return json(200, { ok: true, service: "keep-ai-relay", sha: DEPLOY_SHA });
+  }
+
   try {
     const expectedKey = await integrationSecret("AI_RELAY_API_KEY");
-    if (!expectedKey) return json(503, { error: "relay_not_configured", message: "AI_RELAY_API_KEY n'est pas encore configurée dans Super Admin." });
+    if (!expectedKey) return json(503, { error: "relay_not_configured" });
 
     const providedKey = (req.headers.get("x-relay-key") ?? "").trim();
-    if (!providedKey || !timingSafeEqual(providedKey, expectedKey)) return json(401, { error: "unauthorized" });
+    if (!providedKey || !timingSafeEqual(providedKey, expectedKey)) {
+      console.log(`[keep-ai-relay] rejected: unauthorized (${req.method} op=${opParam ?? ""})`);
+      return json(401, { error: "unauthorized" });
+    }
 
-    const url = new URL(req.url);
-    const op = (url.searchParams.get("op") ?? (await req.json().catch(() => ({})))?.op ?? "").toString();
+    const op = (opParam ?? (await req.json().catch(() => ({})))?.op ?? "").toString();
 
     if (req.method === "GET" && (op === "state" || !op)) {
       const [{ data: instructions }, reportText] = await Promise.all([
         admin.rpc("service_ai_relay_list", { p_channel: "instruction", p_limit: 10 }),
         fetch(`${REPORT_RAW_URL}?ts=${Date.now()}`).then((r) => (r.ok ? r.text() : "")).catch(() => ""),
       ]);
+      console.log("[keep-ai-relay] state read ok");
       return json(200, {
         ok: true,
         latestReport: reportText || null,
@@ -82,6 +80,10 @@ Deno.serve(async (req) => {
       const action = String(body?.op ?? op ?? "instruct");
       const text = String(body?.text ?? "").trim();
       if (!text) return json(400, { error: "text_required" });
+      if (text.length > MAX_TEXT_LENGTH) {
+        console.log(`[keep-ai-relay] rejected: body_too_long (${text.length} chars)`);
+        return json(413, { error: "body_too_long", limit: MAX_TEXT_LENGTH });
+      }
 
       if (action === "instruct") {
         const { data, error } = await admin.rpc("service_ai_relay_post", {
@@ -89,7 +91,14 @@ Deno.serve(async (req) => {
           p_author: "chatgpt",
           p_body: text,
         });
-        if (error) throw error;
+        if (error) {
+          if (error.message?.includes("rate_limited")) {
+            console.log("[keep-ai-relay] rejected: rate_limited");
+            return json(429, { error: "rate_limited" });
+          }
+          throw error;
+        }
+        console.log(`[keep-ai-relay] instruction accepted id=${data} length=${text.length}`);
         return json(200, { ok: true, id: data });
       }
 

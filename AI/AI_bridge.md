@@ -36,6 +36,20 @@ une IA) :**
 - `AI/chatgpt-actions-openapi.yaml` : schéma prêt à coller tel quel dans les
   Actions d'un Custom GPT.
 
+**Garde-fou strict appliqué (20/09/2026, avant activation) :**
+- Accès limité à ce projet Supabase, aucune commande shell exposée (le
+  relais ne fait jamais que lire/écrire `ai_relay_messages` ou lire un
+  fichier public GitHub).
+- Anti-doublon : texte identique déposé <5 min → renvoie l'id existant au
+  lieu de dupliquer.
+- Limite de taille : 4000 caractères/instruction (`413` sinon).
+- Limite de fréquence : 30 messages/heure par (canal, auteur) (`429`
+  sinon).
+- Journalisation : chaque acceptation/rejet est loggé côté fonction
+  (Supabase → Logs).
+- Endpoint `GET ?op=ping` (sans clé, sans écriture) pour vérifier que le
+  relais répond, sans jamais rien modifier — testé : `{"ok":true,"sha":"dec58bf..."}`.
+
 **Reste à faire côté Adel pour activer le flux (rien de plus côté code) :**
 
 1. Super Admin → Intégrations → catégorie « automation » → générer une clé
