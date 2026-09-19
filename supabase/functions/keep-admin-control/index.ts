@@ -62,6 +62,11 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   PADDLE_CLIENT_TOKEN: { category: "payments", label: "Paddle Client-side Token (checkout web)" },
   PADDLE_API_KEY: { category: "payments", label: "Paddle API Key (serveur)", secret: true },
   PADDLE_WEBHOOK_SECRET: { category: "payments", label: "Paddle Webhook Secret", secret: true },
+  // Adel (20/09/2026) : relais ChatGPT -> Claude Code (voir AI/AI_bridge.md).
+  // Clé partagée que SEUL Adel génère et colle ici (jamais Claude) ; elle
+  // authentifie les appels entrants du connecteur ChatGPT vers la fonction
+  // keep-ai-relay et n'a aucune portée sur un service tiers payant.
+  AI_RELAY_API_KEY: { category: "automation", label: "Relais IA — clé du connecteur ChatGPT (keep-ai-relay)", secret: true },
 };
 
 const ADMIN_TEAM_ROLES = ["ADMIN", "SUPPORT", "FINANCE", "MARKETING", "MODERATOR", "TECH"] as const;

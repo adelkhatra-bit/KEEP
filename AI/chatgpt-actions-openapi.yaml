@@ -1,0 +1,99 @@
+openapi: 3.1.0
+info:
+  title: KEEP — Relais Claude Code
+  description: >
+    Relais entre ChatGPT et Claude Code sur le projet KEEP. Une seule
+    action : envoyer une instruction à Claude Code, ou récupérer son
+    dernier état/rapport. Aucun autre effet de bord. Voir AI/AI_bridge.md
+    dans le dépôt adelkhatra-bit/KEEP pour le contexte complet.
+  version: 1.0.0
+servers:
+  - url: https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1
+paths:
+  /keep-ai-relay:
+    get:
+      operationId: getClaudeState
+      summary: Récupère le dernier état/rapport de Claude Code et l'historique des instructions déjà envoyées.
+      parameters:
+        - name: op
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [state]
+      responses:
+        "200":
+          description: État courant de Claude Code.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  latestReport:
+                    type: string
+                    nullable: true
+                    description: Contenu actuel de AI/AI_REPORT.md.
+                  reportSource:
+                    type: string
+                  recentInstructions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        author:
+                          type: string
+                        body:
+                          type: string
+                        created_at:
+                          type: string
+        "401":
+          description: Clé absente ou invalide.
+        "503":
+          description: Relais pas encore configuré côté Adel (clé non posée dans Super Admin).
+    post:
+      operationId: sendInstructionToClaude
+      summary: Envoie une instruction à Claude Code. Claude la relit à sa prochaine reprise de session et consigne son traitement dans AI/AI_INSTRUCTIONS.md.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [op, text]
+              properties:
+                op:
+                  type: string
+                  enum: [instruct]
+                text:
+                  type: string
+                  description: Instruction en clair, en français, destinée à Claude Code.
+      responses:
+        "200":
+          description: Instruction enregistrée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  id:
+                    type: string
+        "400":
+          description: Texte manquant.
+        "401":
+          description: Clé absente ou invalide.
+        "503":
+          description: Relais pas encore configuré côté Adel.
+components:
+  securitySchemes:
+    relayKey:
+      type: apiKey
+      in: header
+      name: x-relay-key
+security:
+  - relayKey: []
