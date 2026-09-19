@@ -55,4 +55,10 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   PADDLE_CLIENT_TOKEN: { label: 'Paddle — Client-side Tokens', url: 'https://vendors.paddle.com/authentication' },
   PADDLE_API_KEY: { label: 'Paddle — clés API', url: 'https://vendors.paddle.com/authentication' },
   PADDLE_WEBHOOK_SECRET: { label: 'Paddle — webhooks', url: 'https://vendors.paddle.com/notifications' },
+  // Adel (20/09/2026) : relais ChatGPT <-> Claude Code (AI/AI_bridge.md).
+  // La clé se génère en un clic dans ce formulaire (bouton "Générer" juste
+  // à côté) ; ce lien n'ouvre que la seconde étape, qui n'a pas d'API et
+  // doit rester manuelle : coller le même schéma + la même clé dans un
+  // Custom GPT.
+  AI_RELAY_API_KEY: { label: 'ChatGPT — créer un Custom GPT (Actions)', url: 'https://chatgpt.com/gpts/editor' },
 };

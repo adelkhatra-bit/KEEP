@@ -6,6 +6,18 @@ import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
+// Adel (20/09/2026) : "automatise tout ce que tu peux ... ne me demande pas
+// de manipuler des API ou du code" -- pour une clé interne KEEP (pas un
+// identifiant d'un fournisseur tiers), génère une valeur aléatoire
+// directement dans le navigateur d'Adel au clic : ni Claude ni aucun
+// serveur ne la voit avant qu'il clique "Enregistrer".
+const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY']);
+function generateRandomKey(bytes = 32): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 type IntegrationRow = {
   key: string;
   category: string;
@@ -343,6 +355,16 @@ export default function Integrations() {
                       </button>
                     )}
                   </div>
+                  {GENERATABLE_KEYS.has(row.key) && (
+                    <button
+                      type="button"
+                      onClick={() => setValues((prev) => ({ ...prev, [row.key]: generateRandomKey() }))}
+                      title="Génère une valeur aléatoire dans ce navigateur -- rien n'est envoyé avant de cliquer Enregistrer"
+                      style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      🎲 Générer
+                    </button>
+                  )}
                   <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
                     {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
                   </button>
