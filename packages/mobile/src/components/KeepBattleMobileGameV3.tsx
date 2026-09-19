@@ -944,27 +944,34 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // Adel (02/09/2026) : "un petit joueur devra monter sa note en solo"
         // -- seul moment où un score solo complet est connu ; alimente le
         // palier serveur utilisé pour bloquer un défi trop déséquilibré.
-        void reportSoloBattleResult(soloScore, solo.rounds.length).catch(() => {});
-        // Charger le Free après la partie pour afficher avant/gagné/après
-        loadMyKeepBattleCreditStatus().then((status) => {
+        // (19/09/2026) BUG CRITIQUE : l'ordre des appels RPC était inversé.
+        // keep_battle_solo_report_result cherche une ligne dans
+        // keep_battle_solo_history qui n'existe que si keep_battle_solo_record_completion
+        // a déjà été appelé. Solution: enregistrer l'historique AVANT de créditer.
+        (async () => {
+          const freeEarned = freeEarnedForSoloScore(soloScore, solo.rounds.length);
+          if (soloBefore !== null && supabase) {
+            // Étape 1: enregistrer d'abord la ligne d'historique (le RPC de crédit la cherchera)
+            await supabase.rpc('keep_battle_solo_record_completion', {
+              p_theme_code: solo.themeCode,
+              p_round_count: solo.rounds.length,
+              p_correct_answers: soloScore,
+              p_free_before: soloBefore,
+              p_free_earned: freeEarned,
+              p_free_after: soloBefore + freeEarned // valeur estimée avant vérification
+            });
+          }
+          // Étape 2: appeler le RPC qui crédite via keep_battle_solo_credit_events
+          // (le RPC trouve maintenant la ligne historique)
+          await reportSoloBattleResult(soloScore, solo.rounds.length);
+          // Étape 3: charger le solde APRÈS que le crédit soit appliqué
+          const status = await loadMyKeepBattleCreditStatus();
           if ('remainingFree' in status) {
             const freeAfter = Number(status.remainingFree ?? 0);
-            const freeEarned = freeEarnedForSoloScore(soloScore, solo.rounds.length);
             setSoloAfter(freeAfter);
             setSoloFreeEarned(freeEarned);
-            // Enregistrer l'historique SOLO avec before/earned/after
-            if (soloBefore !== null && supabase) {
-              void supabase.rpc('keep_battle_solo_record_completion', {
-                p_theme_code: solo.themeCode,
-                p_round_count: solo.rounds.length,
-                p_correct_answers: soloScore,
-                p_free_before: soloBefore,
-                p_free_earned: freeEarned,
-                p_free_after: freeAfter
-              });
-            }
           }
-        }).catch(() => {});
+        })().catch(() => {});
         setSoloFinished(true); celebrate();
       }, 520);
       return () => clearTimeout(id);
