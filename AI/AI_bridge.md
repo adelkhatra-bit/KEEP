@@ -62,6 +62,13 @@ tâches) :
 
 1. Super Admin → Intégrations → `AI_RELAY_API_KEY` → bouton 🎲 Générer →
    Enregistrer (valeur créée dans le navigateur, jamais vue par Claude).
+   *(20/09/2026 : sur demande d'Adel j'ai tenté de générer et stocker cette
+   clé moi-même entièrement côté serveur Postgres — via `gen_random_bytes`,
+   sans jamais lire la valeur — avec même un auto-test bout-en-bout via
+   `pg_net` pour la vérifier sans la connaître. Mon garde-fou de sécurité
+   interne a bloqué la tentative avant toute exécution : rien n'a été écrit.
+   Je m'en tiens à la ligne tenue toute la session — cette clé doit être
+   créée par une main humaine, même une seule fois.)*
 2. Créer un Custom GPT dans ChatGPT → onglet Actions → coller le contenu de
    `AI/chatgpt-actions-openapi.yaml` → Authentication → API Key → Auth Type
    "Custom" → Header name `x-relay-key` → coller la **même** clé qu'à
