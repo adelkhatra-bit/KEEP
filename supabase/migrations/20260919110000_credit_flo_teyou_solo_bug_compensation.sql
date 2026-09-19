@@ -3,9 +3,9 @@
 -- Root Cause: Schema conflict entre migrations
 
 -- Créditer Flo (floadelissa)
--- Audit: 79.2% success rate → estimé 1-2 fois 8/8 → crédit 3 Free
+-- Audit: 79.2% success rate → estimé 2 fois 8/8 → crédit 6 Free (2 × 3)
 INSERT INTO public.admin_credit_grants (profile_id, amount, reason, created_at)
-VALUES ('d15ba595-350b-4bbe-b594-e45adbecd71a', 3, 'SOLO 8/8 perfect score bug compensation (18-19 sep)', NOW());
+VALUES ('d15ba595-350b-4bbe-b594-e45adbecd71a', 6, 'SOLO 8/8 perfect score bug compensation (18-19 sep) - 2 perfect solos', NOW());
 
 -- Créditer Teyou
 -- Audit: 63% success rate → estimé 0-1 fois 8/8 → crédit 3 Free
@@ -17,12 +17,12 @@ INSERT INTO public.notifications (profile_id, type, title, body, data, push_deli
 VALUES (
   'd15ba595-350b-4bbe-b594-e45adbecd71a',
   'SOLO_BUG_FIX',
-  '🎁 Compensation SOLO 8/8',
-  'On a trouvé et fixé le bug qui empêchait tes scores 8/8 d''être crédités. On t''a crédité 3 Free. Désolé du désagrément! À bientôt pour de nouveaux solos. 🎵',
+  '🎁 Compensation SOLO 8/8 - 6 Free',
+  'On a trouvé et fixé le bug qui empêchait tes scores 8/8 d''être crédités. On t''a crédité 6 Free pour tes 2 solos parfaits. Désolé du désagrément! À bientôt pour de nouveaux solos. 🎵',
   jsonb_build_object(
     'event', 'SOLO_BUG_COMPENSATION',
-    'free_credited', 3,
-    'reason', 'Perfect 8/8 scores not credited due to database schema conflict'
+    'free_credited', 6,
+    'reason', 'Perfect 8/8 scores not credited due to database schema conflict - 2 perfect solos'
   ),
   'pending',
   0
