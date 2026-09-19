@@ -113,6 +113,27 @@ export type PlaylistPurchaseRequest = {
   payoutLink: string;
 };
 
+export type PlaylistOfferDetails = {
+  playlistId: string;
+  trackCount: number;
+  topArtists: string[];
+  genres: string[];
+  duration: number;
+};
+
+export async function loadPlaylistSaleOfferDetails(playlistId: string): Promise<PlaylistOfferDetails> {
+  const { data, error } = await client().rpc('keep_playlist_sale_offer_details', { p_playlist_id: playlistId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_OFFER_DETAILS_FAILED'));
+  const row = data as any;
+  return {
+    playlistId: String(row?.playlistId ?? playlistId),
+    trackCount: Number(row?.trackCount ?? 0),
+    topArtists: Array.isArray(row?.topArtists) ? row.topArtists.map(String).slice(0, 5) : [],
+    genres: Array.isArray(row?.genres) ? row.genres.map(String).slice(0, 3) : [],
+    duration: Number(row?.duration ?? 0),
+  };
+}
+
 export async function requestPlaylistPurchase(offerId: string): Promise<PlaylistPurchaseRequest> {
   const { data, error } = await client().rpc('keep_playlist_sale_request_purchase', { p_offer_id: offerId });
   if (error) throw new Error(String(error.message || 'PLAYLIST_PURCHASE_REQUEST_FAILED'));
