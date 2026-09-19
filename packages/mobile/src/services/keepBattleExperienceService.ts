@@ -153,10 +153,17 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     // RÉPONSES d'autres manches, créant ainsi 2+ bonnes réponses par manche.
     // Solution: utiliser les CHOICES (mauvaises réponses) d'autres manches.
     // IMPORTANT: s'assurer que correctAnswer est TOUJOURS incluse dans les 4 réponses.
-    const candidates = rounds
-      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist)
+    // Adel (19/09/2026) : les choix incorrects doivent rester dans le même genre
+    // musical (même themeCode) pour que le jeu soit cohérent et pas trop facile.
+    // Priorité 1: même themeCode ; Priorité 2: autres themeCode si pas assez.
+    const sameThemeCandidates = rounds
+      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist && item.themeCode === round.themeCode)
       .flatMap((item: KeepBattleSoloRound) => item.choices);
-    for (const candidate of candidates) {
+    const otherThemeCandidates = rounds
+      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist && item.themeCode !== round.themeCode)
+      .flatMap((item: KeepBattleSoloRound) => item.choices);
+    const allCandidates = [...sameThemeCandidates, ...otherThemeCandidates];
+    for (const candidate of allCandidates) {
       if (unique.length >= 4) break;
       if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
     }
