@@ -328,7 +328,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setSwipeOpen(true);
   };
 
-  // Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
+  // Adel (16-17/09/2026) : "l\'idéal c'est que l'utilisateur se fait payer
   // directement ... KEEP encaisse rien" -- Acheter ouvre le lien de
   // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
   // notée pour que le vendeur sache qui débloquer une fois vraiment payé.
@@ -362,7 +362,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
-      else Alert.alert('Erreur', 'Impossible de lancer l'achat pour le moment.');
+      else Alert.alert('Erreur', 'Impossible de lancer l\'achat pour le moment.');
     } finally {
       setPurchaseBusyId(null);
     }
@@ -371,7 +371,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const shareThisProfile = async () => {
     if (!profile) return;
     try { await shareProfile(profile.username); }
-    catch { Alert.alert('Partage', 'Impossible d'ouvrir le partage pour le moment.'); }
+    catch { Alert.alert('Partage', 'Impossible d\'ouvrir le partage pour le moment.'); }
   };
 
   const openSocial = async (platform: SocialPlatform) => {
@@ -387,7 +387,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     let url = link.url.trim();
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     try { await Linking.openURL(url); }
-    catch { Alert.alert('Lien indisponible', 'Impossible d'ouvrir ce réseau social pour le moment.'); }
+    catch { Alert.alert('Lien indisponible', 'Impossible d\'ouvrir ce réseau social pour le moment.'); }
   };
 
   const toggleFollow = async () => {
@@ -448,7 +448,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       }
       setReprisers((rows) => rows.map((r) => r.profileId === repriser.profileId ? { ...r, isFollowing: !r.isFollowing } : r));
     } catch {
-      Alert.alert('Abonnement', 'Impossible de mettre à jour l'abonnement pour le moment.');
+      Alert.alert('Abonnement', 'Impossible de mettre à jour l\'abonnement pour le moment.');
     } finally {
       setRepriseFollowBusyId(null);
     }
@@ -493,7 +493,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setModerationBusy(true);
     try {
       await reportUser(profile.id, reason, undefined, { source: 'public_profile' });
-      Alert.alert('Signalement envoyé', 'Merci, notre équipe va l'examiner.');
+      Alert.alert('Signalement envoyé', 'Merci, notre équipe va l\'examiner.');
     } catch {
       Alert.alert('Envoi impossible', 'Réessaie dans un instant.');
     } finally {
@@ -603,7 +603,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
         ]);
       } else {
-        Alert.alert('Loki', e?.message || 'Impossible d'ajouter ce morceau pour le moment.');
+        Alert.alert('Loki', e?.message || 'Impossible d\'ajouter ce morceau pour le moment.');
       }
     } finally {
       setKeepPromptTrack(null);
@@ -698,7 +698,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           const openWebsite = async () => {
             let url = websiteLink.url.trim();
             if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-            try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d'ouvrir ce site pour le moment.'); }
+            try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d\'ouvrir ce site pour le moment.'); }
           };
           return <TouchableOpacity style={styles.websiteButton} onPress={() => void openWebsite()} accessibilityLabel={websiteLink.label || 'Site web'}><Text style={styles.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text></TouchableOpacity>;
         })()}
@@ -780,13 +780,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <Text style={styles.sectionTitle}>Parcourir la collection</Text>
             {genreOptions.length > 0 ? (
               <TouchableOpacity style={styles.prefsSummaryButton} onPress={() => setStyleModalOpen(true)}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR STYLE</Text><Text style={styles.prefsSummaryValue}>{genreOptions.length} style{genreOptions.length > 1 ? 's' : ''} disponible{genreOptions.length > 1 ? 's' : ''}</Text></View>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR STYLE</Text><Text style={styles.prefsSummaryValue}>{genreOptions.length} style{genreOptions.length > 1 ? 's\' : ''} disponible{genreOptions.length > 1 ? 's\' : ''}</Text></View>
                 <Text style={styles.prefsSummaryChevron}>›</Text>
               </TouchableOpacity>
             ) : null}
             {artistGroups.length > 1 ? (
               <TouchableOpacity style={styles.prefsSummaryButton} onPress={() => setArtistModalOpen(true)}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR ARTISTE</Text><Text style={styles.prefsSummaryValue}>{artistGroups.length} artiste{artistGroups.length > 1 ? 's' : ''}</Text></View>
+                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR ARTISTE</Text><Text style={styles.prefsSummaryValue}>{artistGroups.length} artiste{artistGroups.length > 1 ? 's\' : ''}</Text></View>
                 <Text style={styles.prefsSummaryChevron}>›</Text>
               </TouchableOpacity>
             ) : null}
@@ -838,7 +838,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               const directDiscovery = !track.sourceUserId && !track.sourceProfileId;
               const discoveryUsername = track.sourceUsername || (directDiscovery ? profile.username : '');
               const discoveryImpact = discoveryImpacts[track.trackId];
-              // Adel (09/09/2026) : "c'est pas du tout le meme design que
+              // Adel (09/09/2026) : "c\'est pas du tout le meme design que
               // sur le profil, reamenage utilise le meme design sauf que tu
               // rajoutes le coeur en plus" -- meme structure compacte que le
               // propre profil (bouton(s) en ligne a cote du titre), avec le
