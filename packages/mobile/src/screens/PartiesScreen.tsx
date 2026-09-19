@@ -231,9 +231,9 @@ export default function PartiesScreen({ navigation, route }: any) {
   };
   const openMyRanking = () => {
     if (!user || isLocalGuest || isDemoMode) {
-      Alert.alert(‘Compte Loki requis’, ‘Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.’, [
-        { text: ‘Plus tard’, style: ‘cancel’ },
-        { text: ‘Créer / se connecter’, onPress: () => useAccountGateStore.getState().requestAccount(‘create’) },
+      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l'historique de tes Free.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
       ]);
       return;
     }
@@ -242,15 +242,15 @@ export default function PartiesScreen({ navigation, route }: any) {
     loadFreeCreditBreakdown()
       .then((v) => {
         if (v) {
-          console.log(‘[RANKING] Breakdown loaded:’, v);
+          console.log('[RANKING] Breakdown loaded:', v);
           setMyFreeBreakdown(v);
         } else {
-          console.warn(‘[RANKING] Breakdown is null’);
+          console.warn('[RANKING] Breakdown is null');
           setMyFreeBreakdown(null);
         }
       })
       .catch((err) => {
-        console.error(‘[RANKING] Error loading breakdown:’, err);
+        console.error('[RANKING] Error loading breakdown:', err);
         setMyFreeBreakdown(null);
       })
       .finally(() => setMyRankingLoading(false));
@@ -398,7 +398,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       else if (here.city) { setVenueName(here.city); setVenueCoords({ lat: here.lat, lng: here.lng }); setVenueSuggestions([]); if (here.countryCode) setCountryCode(here.countryCode); }
       else Alert.alert('Position', 'Adresse précise indisponible pour le moment.');
     } catch (e) {
-      Alert.alert('Position', e instanceof KeepLocationPermissionError ? 'Autorise l’accès à ta position pour remplir l’adresse automatiquement.' : 'Impossible de récupérer ta position pour le moment.');
+      Alert.alert('Position', e instanceof KeepLocationPermissionError ? 'Autorise l'accès à ta position pour remplir l'adresse automatiquement.' : 'Impossible de récupérer ta position pour le moment.');
     } finally {
       setLocatingVenue(false);
     }
@@ -505,7 +505,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       if (currentEvent?.id === reviewTarget.eventId) setCurrentEventReviewSummary(await loadEventReviewSummary(reviewTarget.eventId).catch(() => currentEventReviewSummary));
       Alert.alert('Merci !', 'Ton avis a été enregistré.');
     } catch {
-      Alert.alert('Avis', 'Impossible d’enregistrer ton avis pour le moment.');
+      Alert.alert('Avis', 'Impossible d'enregistrer ton avis pour le moment.');
     } finally {
       setReviewBusy(false);
     }
@@ -526,13 +526,13 @@ export default function PartiesScreen({ navigation, route }: any) {
     setBusyId(event.id);
     try {
       const request = await requestEventTicketPurchase(event.id);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de lien de paiement personnel.`); return; }
+      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L'organisateur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
       await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
+      Alert.alert('Paie directement sur le lien de l'organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l'organisateur'} confirme.`);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('CANNOT_BUY_OWN_TICKET')) Alert.alert('Impossible', 'Tu ne peux pas acheter un billet pour ta propre soirée.');
-      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
+      else Alert.alert('Erreur', 'Impossible de lancer l'achat pour le moment.');
     } finally {
       setBusyId('');
     }
@@ -559,7 +559,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         nextEvent();
       }
     }
-    catch { Alert.alert('Soirée', 'Impossible d’enregistrer ta réponse pour le moment.'); }
+    catch { Alert.alert('Soirée', 'Impossible d'enregistrer ta réponse pour le moment.'); }
     finally { setBusyId(''); }
   };
 
@@ -584,7 +584,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       return;
     }
     if (liveFollowers < liveMinimum) {
-      Alert.alert('500 abonnés requis', `La création d’événements s’ouvre à partir de ${liveMinimum} abonnés. Tu en as actuellement ${liveFollowers}.`);
+      Alert.alert('500 abonnés requis', `La création d'événements s'ouvre à partir de ${liveMinimum} abonnés. Tu en as actuellement ${liveFollowers}.`);
       return;
     }
     if (!access.allowed && !access.unlimited) {
@@ -661,7 +661,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       const url = await pickAndUploadEventImage(user.id);
       if (url) setEventImageUrls((current) => [...current, url].slice(0, 3));
     } catch {
-      Alert.alert('Photo', 'Impossible d’ajouter cette photo pour le moment.');
+      Alert.alert('Photo', 'Impossible d'ajouter cette photo pour le moment.');
     } finally {
       setImageUploadBusy(false);
     }
@@ -767,7 +767,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // toute facon impossible une fois approuve (verrouille cote serveur).
   const publish = async () => {
     const iso = parseDate();
-    if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
+    if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l'événement.');
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
     setCreateBusy(true);
     try {
@@ -777,23 +777,23 @@ export default function PartiesScreen({ navigation, route }: any) {
         await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
         resetEventForm();
         await reload();
-        Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
+        Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l'approbation.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
         await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
         resetEventForm();
         await reload();
-        Alert.alert('Envoyé pour validation', 'Le Super Admin doit approuver la photo et le texte avant qu’il soit visible. Tu seras notifié dès que c’est fait.');
+        Alert.alert('Envoyé pour validation', 'Le Super Admin doit approuver la photo et le texte avant qu'il soit visible. Tu seras notifié dès que c'est fait.');
       }
     } catch (e: any) {
       const code = String(e?.message || '');
       if (code.includes('EVENT_FOLLOWERS_REQUIRED')) {
         const [, current, minimum] = code.split(':');
-        Alert.alert('Audience requise', `La création d’événements demande au moins ${Number(minimum || 500)} abonnés. Tu en as actuellement ${Number(current || 0)}.`);
+        Alert.alert('Audience requise', `La création d'événements demande au moins ${Number(minimum || 500)} abonnés. Tu en as actuellement ${Number(current || 0)}.`);
       } else if (code.includes('VENUE_PRO_EVENT_LIMIT')) navigation.navigate('Offers', { focusPlan: 'VENUE_PRO', sourceFeature: 'CREATE_EVENT' });
       else if (code.includes('CREATOR_PRO_REQUIRED')) navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO', sourceFeature: 'CREATE_EVENT' });
-      else if (code.includes('event_locked_after_approval')) Alert.alert('Événement approuvé', 'Il a déjà été validé par le Super Admin et diffusé : il n’est plus modifiable.');
-      else Alert.alert('Événement', code || 'Impossible d’enregistrer l’événement pour le moment.');
+      else if (code.includes('event_locked_after_approval')) Alert.alert('Événement approuvé', 'Il a déjà été validé par le Super Admin et diffusé : il n'est plus modifiable.');
+      else Alert.alert('Événement', code || 'Impossible d'enregistrer l'événement pour le moment.');
     } finally { setCreateBusy(false); }
   };
 
@@ -819,7 +819,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
           onRequireAccount={() => Alert.alert(
             'Compte Loki requis',
-            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            'Le mode invité permet d'écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
             [
               { text: 'Plus tard', style: 'cancel' },
               { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
@@ -908,7 +908,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               haut (comme une pochette), tout le texte (nom, date, avis,
               description, liens) vit dans un bloc en dessous, à fond plein :
               ça peut grandir sans jamais recouvrir la photo. */}
-          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J’Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l’invitation · les boutons fonctionnent aussi'}>
+          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J'Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l'invitation · les boutons fonctionnent aussi'}>
             <View style={styles.card}>
               {currentEvent.imageUrl ? <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardBanner} resizeMode="cover" /> : null}
               <View style={styles.cardBody}>
@@ -953,9 +953,9 @@ export default function PartiesScreen({ navigation, route }: any) {
                     intégral + YouTube, puis on répond juste après. */}
                 {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
                 {(currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
-                {currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
+                {currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l'organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
                 {isOwnEvent
-                  ? <View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>👁 Aperçu — ceci n’est pas une réponse</Text></View>
+                  ? <View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>👁 Aperçu — ceci n'est pas une réponse</Text></View>
                   : <View style={[styles.currentAnswer, currentRsvp==='GOING'&&styles.currentAnswerGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerNotGoing]}><Text style={[styles.currentAnswerText, currentRsvp==='GOING'&&styles.currentAnswerTextGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerTextNotGoing]}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View>}
               </View>
             </View>
@@ -1191,8 +1191,8 @@ export default function PartiesScreen({ navigation, route }: any) {
       </View></View>
     </Modal>
 
-    <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
+    <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l'événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l'événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
           haut" -- juste sous le nom, avant la date. "il puisse ajouter
           plusieurs photos ... 2 ou 3" -- galerie de vignettes + bouton
@@ -1212,7 +1212,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ) : null}
       </View>
-      {!eventImageUrls.length ? <Text style={styles.photoGalleryHint}>Affiche + le style musical · jusqu’à 3 photos</Text> : null}
+      {!eventImageUrls.length ? <Text style={styles.photoGalleryHint}>Affiche + le style musical · jusqu'à 3 photos</Text> : null}
       {/* Adel (08/09/2026) : "mets un systeme de roulette pour la date et
           l'heure ... je veux pouvoir selectionner une heure et 45 minutes,
           2h14, etc." -- trois roulettes (date / heure / minute), aucune
@@ -1276,7 +1276,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       </TouchableOpacity>
       {organizerPhone.trim() ? <TouchableOpacity style={styles.rsvpToggleRow} onPress={() => setShowOrganizerPhone((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: showOrganizerPhone }}>
         <View style={[styles.rsvpToggleBox, showOrganizerPhone && styles.rsvpToggleBoxOn]}>{showOrganizerPhone ? <Text style={styles.rsvpToggleCheck}>✓</Text> : null}</View>
-        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>Afficher mon numéro sur l’évènement ?</Text><Text style={styles.rsvpToggleHint}>Visible par tous, avec un bouton pour t’appeler directement. Décoché : ton numéro reste privé.</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>Afficher mon numéro sur l'évènement ?</Text><Text style={styles.rsvpToggleHint}>Visible par tous, avec un bouton pour t'appeler directement. Décoché : ton numéro reste privé.</Text></View>
       </TouchableOpacity> : null}
       {/* Adel (08/09/2026) : "est-ce que je peux la faire uniquement en
           notification ou avec deux boutons ... l'utilisateur puisse cocher
@@ -1307,7 +1307,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TextInput style={[styles.input, styles.checkinInput]} value={checkinCode} onChangeText={setCheckinCode} placeholder="Code du billet" placeholderTextColor={colors.textMuted} autoCapitalize="characters"/>
           <TouchableOpacity style={styles.checkinButton} disabled={checkinBusy || !checkinCode.trim()} onPress={() => void submitCheckinCode()}>{checkinBusy ? <ActivityIndicator color="#111"/> : <Text style={styles.checkinButtonText}>Valider</Text>}</TouchableOpacity>
         </View>
-        <Text style={styles.checkinHint}>Le code est celui affiché sous le QR du participant (bouton « 🎟 Mon billet » de son côté) — utile s’il ne peut pas te montrer son écran. Sinon, touche directement « Présent ? » à côté de son nom, sans code.</Text>
+        <Text style={styles.checkinHint}>Le code est celui affiché sous le QR du participant (bouton « 🎟 Mon billet » de son côté) — utile s'il ne peut pas te montrer son écran. Sinon, touche directement « Présent ? » à côté de son nom, sans code.</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
           {participantsLoading ? <ActivityIndicator color={colors.primaryLight}/> : participants.length ? participants.map((p) => (
             <View key={p.profileId} style={styles.participantRow}>
@@ -1320,7 +1320,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {checkinTogglingId===p.profileId ? <ActivityIndicator color="#111"/> : <Text style={[styles.participantCheckinBtnText, p.checkedInAt && styles.participantCheckinBtnTextOn]}>{p.checkedInAt ? '✓' : 'Présent ?'}</Text>}
               </TouchableOpacity> : null}
             </View>
-          )) : <Text style={styles.meta}>Personne n’a encore répondu.</Text>}
+          )) : <Text style={styles.meta}>Personne n'a encore répondu.</Text>}
         </ScrollView>
       </View></View>
     </Modal>
@@ -1364,13 +1364,13 @@ export default function PartiesScreen({ navigation, route }: any) {
             <View style={styles.ticketQrFrame}><Image source={{ uri: qrImageUrl(`LOKI-TICKET:${myTicket.eventId}:${myTicket.ticketCode}`) }} style={styles.ticketQrImage}/></View>
             <Text style={styles.ticketUsername}>{myTicket.username}</Text>
             <Text style={styles.ticketCode}>{myTicket.ticketCode}</Text>
-            <Text style={styles.ticketHint}>{myTicket.checkedInAt ? '✅ Déjà scanné à l’entrée' : 'Présente ce QR code à l’entrée.'}</Text>
+            <Text style={styles.ticketHint}>{myTicket.checkedInAt ? '✅ Déjà scanné à l'entrée' : 'Présente ce QR code à l'entrée.'}</Text>
           </> : <Text style={styles.ticketHint}>Ton billet arrive dans un instant.</Text>}
           <View style={styles.ticketCalendarRow}>
             <TouchableOpacity style={styles.ticketCalendarButton} onPress={() => { void Linking.openURL(buildGoogleCalendarUrl(myTicket)); }}><Text style={styles.ticketCalendarButtonText}>📅 Google Agenda</Text></TouchableOpacity>
             <TouchableOpacity style={styles.ticketCalendarButton} onPress={downloadTicketIcs}><Text style={styles.ticketCalendarButtonText}>⤓ .ics (Apple/Outlook)</Text></TouchableOpacity>
           </View>
-        </> : <Text style={styles.meta}>Billet indisponible (l’évènement est déjà loin derrière nous).</Text>}
+        </> : <Text style={styles.meta}>Billet indisponible (l'évènement est déjà loin derrière nous).</Text>}
       </View></View>
     </Modal>
 
