@@ -40,8 +40,11 @@ const maxRewardForRounds = (n: number): number => {
 };
 const freeEarnedForSoloScore = (correctAnswers: number, totalRounds: number): number => {
   if (totalRounds <= 0) return 0;
+  // Adel (19/09/2026) : seul un score parfait (8/8) donne droit à des Free.
+  // Toute autre score ne crédite rien, même 7/8.
+  if (correctAnswers < totalRounds) return 0;
   const maxReward = maxRewardForRounds(totalRounds);
-  return Math.floor((correctAnswers / totalRounds) * maxReward);
+  return maxReward;
 };
 // Le serveur embarque désormais le montant exact requis dans le message
 // d'erreur ("...REQUIRED:12") sans casser les anciens .includes() : on
