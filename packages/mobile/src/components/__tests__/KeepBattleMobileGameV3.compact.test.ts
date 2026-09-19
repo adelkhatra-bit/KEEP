@@ -204,8 +204,8 @@ describe('Loki Battle mobile style selector', () => {
   });
 
   it('renders four equal answer choices in solo and online Battle', () => {
-    expect(source).toContain('round.choices.slice(0, 4)');
-    expect(source).toContain('(round.choices || []).slice(0, 4)');
+    expect(source).toContain('Array.from(dedupMap.values()).slice(0, 4)');
+    expect(source).toContain('(round.choices || []).forEach((choice)');
     expect(source).toContain('10 secondes réelles d’écoute · 4 choix · aucun swipe');
     expect(source).not.toContain('i === 2 && s.answerFull');
     expect(source).toContain("borderColor: '#4E8DFF'");
