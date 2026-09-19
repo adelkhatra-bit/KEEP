@@ -231,15 +231,29 @@ export default function PartiesScreen({ navigation, route }: any) {
   };
   const openMyRanking = () => {
     if (!user || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.', [
-        { text: 'Plus tard', style: 'cancel' },
-        { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+      Alert.alert(‘Compte Loki requis’, ‘Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.’, [
+        { text: ‘Plus tard’, style: ‘cancel’ },
+        { text: ‘Créer / se connecter’, onPress: () => useAccountGateStore.getState().requestAccount(‘create’) },
       ]);
       return;
     }
     setMyRankingOpen(true);
     setMyRankingLoading(true);
-    loadFreeCreditBreakdown().then(setMyFreeBreakdown).catch(() => setMyFreeBreakdown(null)).finally(() => setMyRankingLoading(false));
+    loadFreeCreditBreakdown()
+      .then((v) => {
+        if (v) {
+          console.log(‘[RANKING] Breakdown loaded:’, v);
+          setMyFreeBreakdown(v);
+        } else {
+          console.warn(‘[RANKING] Breakdown is null’);
+          setMyFreeBreakdown(null);
+        }
+      })
+      .catch((err) => {
+        console.error(‘[RANKING] Error loading breakdown:’, err);
+        setMyFreeBreakdown(null);
+      })
+      .finally(() => setMyRankingLoading(false));
   };
   // Adel (07/09/2026) : "la certif doit être présentée partout, même sur les
   // Battles" -- calculée en direct pour chaque joueur du classement (jamais

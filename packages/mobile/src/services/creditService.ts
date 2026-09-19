@@ -184,9 +184,23 @@ export type FreeCreditBreakdown = {
  * comme "36" devienne vérifiable au lieu d'une boîte noire.
  */
 export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | null> {
-  if (!supabase) return null;
+  if (!supabase) {
+    console.error('[FREE_CREDIT_BREAKDOWN] Supabase not initialized');
+    return null;
+  }
   const { data, error } = await supabase.rpc('keep_free_credit_breakdown');
-  if (error || !data) return null;
+  if (error) {
+    console.error('[FREE_CREDIT_BREAKDOWN] RPC Error:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+    return null;
+  }
+  if (!data) {
+    console.error('[FREE_CREDIT_BREAKDOWN] No data returned from RPC');
+    return null;
+  }
   const row = data as any;
   return {
     remaining: Number(row.remaining || 0),
