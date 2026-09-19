@@ -112,9 +112,9 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   const save = async () => {
     if (accountRequired) return requireAccount();
-    const cleanUsername = username.trim().replace(/^@+/, ‘’).replace(/\s+/g, ‘’);
-    if (cleanUsername.length < 3) { setError(‘Le pseudo doit contenir au moins 3 caractères.’); return; }
-    setError(‘’); setSaving(true); setSaveSuccess(false);
+    const cleanUsername = username.trim().replace(/^@+/, '').replace(/\s+/g, '');
+    if (cleanUsername.length < 3) { setError('Le pseudo doit contenir au moins 3 caractères.'); return; }
+    setError(''); setSaving(true); setSaveSuccess(false);
     try {
       const nextUser = buildUser();
       setUser(nextUser);
@@ -123,20 +123,20 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       } else if (supabase && !isDemoMode) {
         await createProfileService(supabase).saveOwnProfile(nextUser);
         if (locationEdited) {
-          const { error: locationError } = await supabase.from(‘profiles’).update({
+          const { error: locationError } = await supabase.from('profiles').update({
             city: nextUser.city ?? null,
             country_code: nextUser.countryCode ?? null,
             approx_lat: pendingCoords?.lat ?? null,
             approx_lng: pendingCoords?.lng ?? null,
             location_opt_in: nextUser.locationOptIn,
-          }).eq(‘id’, user.id);
+          }).eq('id', user.id);
           if (locationError) throw locationError;
         }
       }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (e: any) {
-      setError(e?.message || ‘Impossible de sauvegarder le profil.’);
+      setError(e?.message || 'Impossible de sauvegarder le profil.');
     } finally { setSaving(false); }
   };
 
@@ -179,8 +179,8 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       setLocationEdited(true);
       setLocationOptIn(true);
       setLocationStatus(resolved.city || resolved.countryCode
-        ? 'Position trouvée · ville et pays préremplis. Tu peux les modifier avant d’enregistrer.'
-        : 'Position trouvée · choisis ou saisis la ville et le pays avant d’enregistrer.');
+        ? "Position trouvée · ville et pays préremplis. Tu peux les modifier avant d'enregistrer."
+        : "Position trouvée · choisis ou saisis la ville et le pays avant d'enregistrer.");
     } catch (e) {
       if (e instanceof KeepLocationPermissionError) {
         Alert.alert('Localisation', 'Autorise la localisation pour préremplir automatiquement la ville et le pays. Tu peux aussi les saisir manuellement.');
@@ -236,7 +236,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki">
         <Text style={s.accountGateTitle}>Créer mon compte Loki</Text>
-        <Text style={s.accountGateText}>Tu peux préparer tout ton profil maintenant. L’inscription débloque ensuite la synchronisation, le partage public et le suivi.</Text>
+        <Text style={s.accountGateText}>Tu peux préparer tout ton profil maintenant. L'inscription débloque ensuite la synchronisation, le partage public et le suivi.</Text>
       </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki">
         <Text style={s.accountGateTitle}>🔒 Créer mon compte Loki</Text>
         <Text style={s.accountGateText}>Débloque photo, profil, localisation, réseaux et partage. Tout est facultatif.</Text>
@@ -261,13 +261,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>{Platform.OS === 'web' ? 'Valider cette ville' : 'Rechercher et préremplir'}</Text>}</TouchableOpacity>
         <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} />
         {locationStatus ? <Text style={[s.hint,{color:'#74F3B6'}]}>{locationStatus}</Text> : null}
-        <Text style={s.hint}>Confidentialité : Loki n’affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d’environ 1 km sont conservés pour la découverte locale.</Text>
+        <Text style={s.hint}>Confidentialité : Loki n'affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d'environ 1 km sont conservés pour la découverte locale.</Text>
         <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
       <Section title="Informations privées" subtitle="Facultatif · jamais affichées publiquement.">
         <Selector label="Date de naissance" value={birthDate || 'Choisir une date'} onPress={() => { if (accountRequired) return requireAccount(); setDateDraft({ year: parsed.year, month: parsed.month, day: parsed.day }); setDateOpen(true); }} />
-        <Text style={s.hint}>Utilisée seulement si tu veux activer les filtres d’âge et événements 18+.</Text>
+        <Text style={s.hint}>Utilisée seulement si tu veux activer les filtres d'âge et événements 18+.</Text>
         <Text style={[s.label,{marginTop:18}]}>Genre</Text>
         <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive]} onPress={()=>accountRequired ? requireAccount() : setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
       </Section>
@@ -282,7 +282,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         <View style={s.supportCard}>
           <Text style={s.supportLabel}>N° membre / support</Text>
           <Text style={s.supportNumber}>{isLocalGuest || isDemoMode ? 'Créé après inscription' : keepSupportNumber}</Text>
-          <Text style={s.hint}>À communiquer au support Loki en cas de problème. Ce numéro n’est pas affiché sur ton profil public.</Text>
+          <Text style={s.hint}>À communiquer au support Loki en cas de problème. Ce numéro n'est pas affiché sur ton profil public.</Text>
         </View>
       </Section>
 

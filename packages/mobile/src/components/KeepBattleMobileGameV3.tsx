@@ -974,7 +974,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           // Étape 2: appeler le RPC qui crédite via keep_battle_solo_credit_events
           // (le RPC trouve maintenant la ligne historique)
           const reportErr = await reportSoloBattleResult(soloScore, solo.rounds.length).catch((e) => ({ error: e }));
-          if ('error' in reportErr && reportErr.error) console.error('[SOLO] report_result failed:', reportErr.error);
+          if (reportErr && 'error' in reportErr && reportErr.error) console.error('[SOLO] report_result failed:', reportErr.error);
           // Étape 3: charger le solde APRÈS que le crédit soit appliqué
           const status = await loadMyKeepBattleCreditStatus();
           if ('remainingFree' in status) {
