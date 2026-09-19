@@ -50,11 +50,18 @@ une IA) :**
 - Endpoint `GET ?op=ping` (sans clé, sans écriture) pour vérifier que le
   relais répond, sans jamais rien modifier — testé : `{"ok":true,"sha":"dec58bf..."}`.
 
-**Reste à faire côté Adel pour activer le flux (rien de plus côté code) :**
+**Tout ce qui pouvait être automatisé l'est désormais.** Il reste UNE seule
+action qui n'a pas d'API et doit rester manuelle, dans un produit auquel je
+n'ai pas accès : **ouvrir ChatGPT → créer un Custom GPT → coller
+`AI/chatgpt-actions-openapi.yaml` dans Actions → générer la clé d'un clic
+avec le bouton 🎲 dans Super Admin → Intégrations et la recoller dans
+l'authentification du GPT.**
 
-1. Super Admin → Intégrations → catégorie « automation » → générer une clé
-   longue et aléatoire (32+ caractères, n'importe quel générateur de mot de
-   passe) et la coller dans `AI_RELAY_API_KEY`.
+Détail (pour référence, plus une case à cocher qu'une vraie liste de
+tâches) :
+
+1. Super Admin → Intégrations → `AI_RELAY_API_KEY` → bouton 🎲 Générer →
+   Enregistrer (valeur créée dans le navigateur, jamais vue par Claude).
 2. Créer un Custom GPT dans ChatGPT → onglet Actions → coller le contenu de
    `AI/chatgpt-actions-openapi.yaml` → Authentication → API Key → Auth Type
    "Custom" → Header name `x-relay-key` → coller la **même** clé qu'à
@@ -92,13 +99,16 @@ sobre est passée sans problème ; le comportement final est identique.)*
   (étape « Require immutable external actions » — `auto-eas-build.yml`
   utilisait des tags `@v4` mutables au lieu du SHA complet exigé) → corrigé,
   ✅ **succès confirmé sur `0859821`**.
-- **Android** (`android-preview-apk.yml`, run
-  [#35474572831](https://github.com/adelkhatra-bit/KEEP/actions/runs/35474572831),
-  commit `c7fed73`) : ⏳ en cours au moment de cette mise à jour.
 - **iOS** (`auto-eas-build.yml`, run
   [#35474673777](https://github.com/adelkhatra-bit/KEEP/actions/runs/35474673777),
-  commit `0859821`) : ⏳ en cours au moment de cette mise à jour (compilation
-  macOS native, généralement plus longue).
+  commit `0859821`) : ✅ **succès confirmé** (build + soumission TestFlight).
+- **Android** (`android-preview-apk.yml`, run
+  [#35474572831](https://github.com/adelkhatra-bit/KEEP/actions/runs/35474572831),
+  commit `c7fed73`) : ⏳ statut définitif pas encore reconfirmé — l'API
+  GitHub publique (sans authentification, car `gh auth` reste cassé par le
+  `GITHUB_TOKEN` placeholder au niveau Machine) a atteint sa limite de 60
+  requêtes/heure pendant la surveillance. Était encore "in_progress" au
+  dernier relevé propre. À reconfirmer au prochain relais.
 
 Une surveillance tourne en arrière-plan de mon côté et je mettrai ce fichier
 à jour avec les numéros verts/rouges définitifs dès que les deux se
