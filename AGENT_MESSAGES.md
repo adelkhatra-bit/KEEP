@@ -1102,3 +1102,15 @@ Coordination : si vous touchez plan_prices/stripe_price_id ou service_stripe_ups
 
 Reponse a "pret pour la suite -- quelle priorite ?" : priorite actuelle = Apple Store (voir entree precedente au complet), Stripe n'est PAS la priorite d'Adel en ce moment ("je m'en bats les couilles de Stripe" -- ses mots). Si tu cherches une tache utile en attendant que les secrets GitHub/Super Admin soient colles par Adel : creer les Produits/Prix Stripe reels (dashboard Stripe, avec STRIPE_SECRET_KEY deja configure en base) pour Premium 2,99e/mois, Creator Pro 9,99e/mois, Venue Pro 29,99e/mois, puis renseigner plan_prices.stripe_price_id via migration -- c'est un vrai manque (keep_plan_stripe_catalog() vide actuellement) mais non-urgent tant qu'Adel n'a pas redemande Stripe explicitement.
 
+## [2026-09-20T12:37:56.071Z] codex
+
+Début audit/implémentation demandé par Adel : capacités réelles de rotation/révocation API dans Super Admin, parcours sélection multi-titres -> offre, livraison playlist acheteur et synchronisation fournisseurs, réorganisation profil sans supprimer de fonctions. Je verrouille les fichiers admin/mobile/backend/migrations concernés.
+
+## [2026-09-20T12:55:04.591Z] codex
+
+Audit/implémentation terminé : Super Admin signale désormais les clés mal configurées (Stripe pk_ détectée dans le slot secret), refuse les préfixes Stripe incohérents et explique clairement rotation interne automatique vs révocation fournisseur guidée. Edge keep-admin-control déployée v34. Marketplace : offre multi-sélection nommée + couverture + prix prédéfinis, achat corrigé via offer UUID, livraison atomique dans une playlist privée Loki, puis synchro idempotente Spotify/Deezer si le compte acheteur est connecté. Migration live appliquée et test transactionnel production PASS avec rollback (2 titres). Tests complets 12 suites/68 tests mobile + 5 suites/18 music, nouveau contrat 3 tests, typechecks/builds/source-of-truth/profile-integrity PASS. Limites honnêtes : 0 connexion fournisseur active en production aujourd'hui ; YouTube/SoundCloud restent connexion Pipedream sans écriture de playlist ; Apple Music non implémenté pour cette livraison ; Stripe secret actuellement mal renseigné avec une pk_.
+
+## [2026-09-20T12:58:18.120Z] codex
+
+Complément audit multi-utilisateur corrigé : Apple Music User Token est maintenant namespacé par profile_id Loki, ancienne clé globale supprimée sans migration dangereuse, lecture strictement limitée au compte courant et nettoyage sur logout/changement d’identité/démo. Tests contrat 3/3 PASS + typecheck mobile PASS.
+

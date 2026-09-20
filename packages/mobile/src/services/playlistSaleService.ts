@@ -21,10 +21,13 @@ export type PlaylistSaleAccess = {
 export const SALE_PRESET_PRICES_CENTS = [50, 100, 200, 300, 500, 1000] as const;
 
 export type PlaylistSaleOffer = {
+  offerId?: string;
   playlistId: string;
   playlistName: string;
   priceCents: number;
   currencyCode: string;
+  coverUrl?: string | null;
+  trackCount?: number;
   isActive: boolean;
   updatedAt: string;
 };
@@ -70,7 +73,15 @@ export async function clearPlaylistSalePrice(playlistId: string): Promise<void> 
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_CLEAR_PRICE_FAILED'));
 }
 
-export type PublicPlaylistSaleOffer = { playlistId: string; playlistName: string; priceCents: number; currencyCode: string };
+export type PublicPlaylistSaleOffer = {
+  offerId: string;
+  playlistId: string;
+  playlistName: string;
+  priceCents: number;
+  currencyCode: string;
+  coverUrl: string | null;
+  trackCount: number;
+};
 
 // Adel (14/09/2026) : "sur le profil utilisateur, fait pareil quand on va
 // visiter un autre utilisateur" -- lecture publique des offres ACTIVES d'un
@@ -81,11 +92,14 @@ export async function loadPlaylistSaleOffersForProfile(profileId: string): Promi
   const { data, error } = await supabase.rpc('keep_playlist_sale_offers_for_profile', { p_profile_id: profileId });
   if (error) throw error;
   return (Array.isArray(data) ? data : []).map((row: any) => ({
+    offerId: String(row.offer_id ?? row.offerId ?? ''),
     playlistId: String(row.playlist_id ?? row.playlistId ?? ''),
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
     priceCents: Number(row.price_cents ?? row.priceCents ?? 0),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
-  })).filter((row) => row.playlistId);
+    coverUrl: row.cover_url ?? row.coverUrl ?? null,
+    trackCount: Number(row.track_count ?? row.trackCount ?? 0),
+  })).filter((row) => row.offerId && row.playlistId);
 }
 
 // Adel (15/09/2026) : "je ne vends pas de la musique, je vends ma
@@ -148,9 +162,27 @@ export async function requestPlaylistPurchase(offerId: string): Promise<Playlist
   };
 }
 
-export async function markPlaylistSalePaid(paymentId: string): Promise<void> {
-  const { error } = await client().rpc('keep_playlist_sale_mark_paid', { p_payment_id: paymentId });
+export type PlaylistDeliveryResult = {
+  paymentId: string;
+  buyerId: string;
+  playlistId: string;
+  playlistName: string;
+  trackCount: number;
+  deliveredAt: string;
+};
+
+export async function markPlaylistSalePaid(paymentId: string): Promise<PlaylistDeliveryResult> {
+  const { data, error } = await client().rpc('keep_playlist_sale_mark_paid_and_deliver', { p_payment_id: paymentId });
   if (error) throw new Error(String(error.message || 'PLAYLIST_MARK_PAID_FAILED'));
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? paymentId),
+    buyerId: String(row?.buyerId ?? ''),
+    playlistId: String(row?.playlistId ?? ''),
+    playlistName: String(row?.playlistName ?? ''),
+    trackCount: Number(row?.trackCount ?? 0),
+    deliveredAt: String(row?.deliveredAt ?? new Date().toISOString()),
+  };
 }
 
 export type PlaylistSaleTransaction = {
@@ -200,20 +232,24 @@ export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction
 // autre choix), distincte d'une playlist nommée entière. Même
 // infrastructure de masquage/paiement, juste une autre façon de désigner
 // ce qui est vendu.
-export async function setPlaylistSalePriceForSelection(trackIds: string[], name: string, priceCents: number, currencyCode = 'EUR'): Promise<PlaylistSaleOffer> {
-  const { data, error } = await client().rpc('keep_playlist_sale_set_price_for_selection', {
+export async function setPlaylistSalePriceForSelection(trackIds: string[], name: string, priceCents: number, currencyCode = 'EUR', coverUrl?: string | null): Promise<PlaylistSaleOffer> {
+  const { data, error } = await client().rpc('keep_playlist_sale_set_price_for_selection_v2', {
     p_track_ids: trackIds,
     p_name: name,
     p_price_cents: Math.round(priceCents),
     p_currency_code: currencyCode,
+    p_cover_url: coverUrl ?? null,
   });
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_SELECTION_FAILED'));
   const row = data as any;
   return {
+    offerId: String(row?.offerId ?? row?.id ?? ''),
     playlistId: String(row?.playlistId ?? ''),
     playlistName: String(row?.playlistName ?? name),
     priceCents: Number(row?.priceCents ?? priceCents),
     currencyCode: String(row?.currencyCode ?? currencyCode),
+    coverUrl: row?.coverUrl ?? coverUrl ?? null,
+    trackCount: Number(row?.trackCount ?? trackIds.length),
     isActive: true,
     updatedAt: new Date().toISOString(),
   };
@@ -224,10 +260,13 @@ export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_offers');
   if (error) throw error;
   return (Array.isArray(data) ? data : []).map((row: any) => ({
+    offerId: String(row.offer_id ?? row.offerId ?? ''),
     playlistId: String(row.playlist_id ?? row.playlistId ?? ''),
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
     priceCents: Number(row.price_cents ?? row.priceCents ?? 0),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
+    coverUrl: row.cover_url ?? row.coverUrl ?? null,
+    trackCount: Number(row.track_count ?? row.trackCount ?? 0),
     isActive: Boolean(row.is_active ?? row.isActive),
     updatedAt: String(row.updated_at ?? row.updatedAt ?? ''),
   })).filter((row) => row.playlistId);

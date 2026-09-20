@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
-import { colors, typography, spacing, radius } from '../theme';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, Image } from 'react-native';
+import { colors, radius } from '../theme';
 import { requestPlaylistPurchase } from '../services/playlistSaleService';
 
 interface PlaylistSaleOffer {
@@ -10,6 +10,8 @@ interface PlaylistSaleOffer {
   price_cents: number;
   currency_code: string;
   is_active: boolean;
+  cover_url?: string | null;
+  track_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -67,11 +69,12 @@ export default function PlaylistSaleCard({
   return (
     <View style={s.card}>
       <View style={s.header}>
+        {offer.cover_url ? <Image source={{ uri: offer.cover_url }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverIcon}>♫</Text></View>}
         <View style={s.titleBlock}>
           <Text style={s.title} numberOfLines={1}>
             💿 {offer.playlist_name}
           </Text>
-          <Text style={s.hint}>Playlist à vendre</Text>
+          <Text style={s.hint}>{offer.track_count ? `${offer.track_count} titre${offer.track_count > 1 ? 's' : ''}` : 'Playlist à vendre'} · livraison Loki</Text>
         </View>
         <View style={s.priceBlock}>
           <Text style={s.price}>
@@ -115,6 +118,9 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  cover: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#21182F' },
+  coverFallback: { alignItems: 'center', justifyContent: 'center' },
+  coverIcon: { color: '#38D990', fontSize: 20, fontWeight: '900' },
   titleBlock: {
     flex: 1,
     minWidth: 0,

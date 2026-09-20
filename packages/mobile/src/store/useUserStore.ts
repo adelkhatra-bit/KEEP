@@ -77,6 +77,13 @@ function clearLocalMusicIdentity() {
   musicEngine.resetLocalLibrary();
 }
 
+function clearAppleMusicIdentity(profileId?: string | null) {
+  if (!profileId) return;
+  void import('../services/appleMusicAuth')
+    .then(({ clearSavedMusicUserToken }) => clearSavedMusicUserToken(profileId))
+    .catch(() => {});
+}
+
 interface UserStore {
   user: User | null;
   isDemoMode: boolean;
@@ -104,17 +111,28 @@ export const useUserStore = create<UserStore>((set, get) => ({
   isDemoMode: false,
   isAnonymous: false,
   isLocalGuest: false,
-  setUser: (user) => set((s) => ({ user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest })),
+  setUser: (user) => set((s) => {
+    if (s.user?.id && s.user.id !== user.id) {
+      clearAppleMusicIdentity(s.user.id);
+      clearLocalMusicIdentity();
+    }
+    return { user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest };
+  }),
   enterDemoMode: () => {
+    clearAppleMusicIdentity(get().user?.id);
     clearLocalMusicIdentity();
     set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false });
   },
   enterGuestMode: (guestId) => {
     const state = get();
-    if (!state.isLocalGuest || state.user?.id !== guestId) clearLocalMusicIdentity();
+    if (!state.isLocalGuest || state.user?.id !== guestId) {
+      clearAppleMusicIdentity(state.user?.id);
+      clearLocalMusicIdentity();
+    }
     set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true });
   },
   logout: () => {
+    clearAppleMusicIdentity(get().user?.id);
     clearLocalMusicIdentity();
     set({ user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false });
   },
@@ -132,7 +150,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
     // conformément au parcours d'inscription Loki.
     const switchingRealAccount = Boolean(nextRealId && currentRealId && currentRealId !== nextRealId);
     const leavingDemoForReal = Boolean(nextRealId && state.isDemoMode);
-    if (switchingRealAccount || leavingDemoForReal) clearLocalMusicIdentity();
+    if (switchingRealAccount || leavingDemoForReal) {
+      clearAppleMusicIdentity(state.user?.id);
+      clearLocalMusicIdentity();
+    }
 
     set((s) => {
       if (s.isDemoMode && !session) return s;

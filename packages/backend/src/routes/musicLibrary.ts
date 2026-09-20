@@ -14,6 +14,7 @@ import {
   setImportedMusicVisibility,
   syncFavoritesForAllConnectedProfiles,
   syncKeepPlaylistToConnectedProvider,
+  syncMarketplacePurchaseToConnectedProviders,
 } from '../lib/connectedMusicLibrary';
 
 const router = Router();
@@ -155,6 +156,19 @@ async function syncHandler(req: KeepAuthedRequest, res: Response) {
   }
 }
 
+async function marketplaceDeliverySyncHandler(req: KeepAuthedRequest, res: Response) {
+  const paymentId = String(req.params.paymentId || '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(paymentId)) return void res.status(400).json({ error: 'invalid_payment_id' });
+  try {
+    const result = await syncMarketplacePurchaseToConnectedProviders({ paymentId, actorId: req.keepUserId! });
+    res.json(result);
+  } catch (error: any) {
+    const message = String(error?.message || 'marketplace_delivery_sync_failed');
+    const status = /refusé/i.test(message) ? 403 : /introuvable/i.test(message) ? 404 : 502;
+    res.status(status).json({ error: 'marketplace_delivery_sync_failed', message });
+  }
+}
+
 async function pendingSessionImportsHandler(req: KeepAuthedRequest, res: Response) {
   try {
     const data = await listPendingSessionImports(req.keepUserId!);
@@ -191,6 +205,7 @@ if (verifier) {
   router.get('/library/pending-session-imports', guard, pendingSessionImportsHandler);
   router.patch('/library/imported/:itemId/visibility', guard, visibilityHandler);
   router.post('/library/sync', guard, syncHandler);
+  router.post('/library/marketplace-delivery/:paymentId/sync', guard, marketplaceDeliverySyncHandler);
 } else {
   // sync-favorites-worker reste joignable (route déjà enregistrée plus haut,
   // avant ce bloc) même quand la vérification JWT utilisateur n'est pas
