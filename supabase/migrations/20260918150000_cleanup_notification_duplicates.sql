@@ -94,5 +94,5 @@ create trigger trg_keep_notify_follow_change
 after insert or delete on public.follows
 for each row execute function public.keep_notify_follow_change();
 
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_014XdCPchT6vDAK2W89g4vaM
+-- Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+-- Claude-Session: https://claude.ai/code/session_014XdCPchT6vDAK2W89g4vaM

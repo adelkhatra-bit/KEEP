@@ -108,5 +108,5 @@ begin
 end;
 $function$;
 
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_014XdCPchT6vDAK2W89g4vaM
+-- Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+-- Claude-Session: https://claude.ai/code/session_014XdCPchT6vDAK2W89g4vaM
