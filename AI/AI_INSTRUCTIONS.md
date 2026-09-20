@@ -28,3 +28,17 @@ Ne bloque plus sur `keep-full.bundle`. Vérification faite côté GitHub : aucun
 ### 2026-09-20 14:30 CEST — reçu
 
 AUDIT CONNECTEURS OBLIGATOIRE. Vérifie les connecteurs réellement disponibles dans TA session Claude Code, sans lire, afficher ni copier aucun secret/token. Utilise la commande native Claude Code de diagnostic MCP disponible dans ta version (commence par `claude mcp --help` si nécessaire, puis la commande de liste/statut correspondante). Pour chaque connecteur configuré, note uniquement : nom, présent/absent, authentifié/non authentifié, test lecture seule PASS/FAIL et erreur éventuelle sans secret. Teste en lecture seule les services pertinents pour KEEP : GitHub, Supabase, Vercel, Gmail/e-mail si disponible, Google Drive, Figma, Lovable, Higgsfield, Apple Music/catalogue, Remote Desktop Commander, Sentry, Notion et tout autre MCP réellement configuré. Ne crée aucun nouveau compte et ne modifie aucune donnée pour cet audit. Compare aussi avec `config/keep-capabilities.json`. Publie le résultat dans `AI/AI_REPORT.md` et un résumé dans `AGENT_MESSAGES.md`. Important : l'absence de `.mcp.json` dans le dépôt signifie que les OAuth/MCP locaux doivent être vérifiés depuis ta session réelle, pas supposés depuis GitHub.
+
+
+### 2026-09-20 14:35 CEST — reçu
+
+IMPORTANT — AUDIT MULTI-UTILISATEUR, PAS COMPTE UNIQUE. KEEP doit être conçu pour tous les utilisateurs : chaque compte KEEP doit pouvoir connecter ses propres plateformes (Spotify, Deezer, Apple Music, YouTube Music, SoundCloud, etc.) avec ses propres autorisations, sans partage de jetons, de bibliothèques ou d'identité entre utilisateurs. Vérifie les parcours de connexion, statut, import, synchro, déconnexion, refresh token et changement de compte sur un même appareil.
+
+Constat déjà vérifié côté ChatGPT :
+- `music_provider_connections` est correctement séparée par `profile_id + provider`, RLS activée et aucun doublon.
+- Pipedream utilise bien `externalUserId: profileId`, donc architecture multi-utilisateur correcte pour ses comptes.
+- Spotify direct utilise un state signé lié à l'utilisateur KEEP.
+- POINT À CORRIGER/AUDITER : `packages/mobile/src/services/appleMusicAuth.ts` utilise une seule clé globale `keep.appleMusic.musicUserToken` et `clearSavedMusicUserToken` n'est appelé nulle part. Il faut garantir qu'un utilisateur B sur le même appareil ne puisse jamais réutiliser le Music User Token de l'utilisateur A. Prévoir clé namespacée par compte KEEP et nettoyage au logout/changement de compte, puis tests.
+- Ne jamais considérer les clés Super Admin Spotify/Deezer/Pipedream/Apple comme des comptes utilisateurs : ce sont les identifiants d'application serveur. Les comptes fournisseurs appartiennent à chaque utilisateur final.
+- Vérifie que les écrans de connexions musicales affichent l'état du compte courant uniquement et que toute importation/synchronisation requiert l'identité KEEP authentifiée correspondante.
+- Ajoute à `AI/AI_REPORT.md` une section "MULTI-UTILISATEUR" avec PASS/FAIL par fournisseur et les corrections nécessaires.
