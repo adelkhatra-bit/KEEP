@@ -10,21 +10,41 @@ info:
 servers:
   - url: https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1
 paths:
+  /keep-ai-relay?op=ping:
+    get:
+      operationId: pingRelay
+      summary: Vérifie juste que le relais répond (aucune donnée, aucune authentification).
+      security: []
+      responses:
+        "200":
+          description: Accusé de vie.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  service:
+                    type: string
+                  sha:
+                    type: string
   /keep-ai-relay:
     get:
       operationId: getClaudeState
       summary: Récupère le dernier état/rapport de Claude Code et l'historique des instructions déjà envoyées.
+      security:
+        - relayKey: []
       parameters:
         - name: op
           in: query
           required: true
           schema:
             type: string
-            enum: [state, ping]
-            description: "'ping' teste juste que le relais répond (aucune authentification requise, aucune donnée) ; 'state' récupère l'état réel (authentifié)."
+            enum: [state]
       responses:
         "200":
-          description: État courant de Claude Code, ou accusé de vie minimal si op=ping ({"ok":true,"service":"keep-ai-relay","sha":"..."}).
+          description: État courant de Claude Code.
           content:
             application/json:
               schema:
@@ -58,6 +78,8 @@ paths:
     post:
       operationId: sendInstructionToClaude
       summary: Envoie une instruction à Claude Code. Claude la relit à sa prochaine reprise de session et consigne son traitement dans AI/AI_INSTRUCTIONS.md.
+      security:
+        - relayKey: []
       requestBody:
         required: true
         content:
