@@ -16,7 +16,6 @@ Chaque entrée : date, texte reçu (tel quel), statut (`reçu` / `en cours` /
 
 ## Historique
 
-_Aucune instruction reçue via le relais pour l'instant — le connecteur
-ChatGPT n'est pas encore configuré côté Adel (clé `AI_RELAY_API_KEY` à poser
-dans Super Admin). Voir `AI_bridge.md` pour l'état exact de la mise en
-place._
+### 2026-09-20 02:45 CEST — reçu
+
+Configure l'API, connecte le volet déjà prêt à ChatGPT, utilise le schéma OpenAPI et la clé déjà générée dans le super admin. Fais toutes les étapes possibles toi-même et ne me demande qu'une autorisation si c'est indispensable. Puis teste en aller-retour ChatGPT, l'API, Claude, code ChatGPT. Laisse-le exécuter.
