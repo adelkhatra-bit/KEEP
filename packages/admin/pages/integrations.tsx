@@ -11,7 +11,7 @@ type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CON
 // identifiant d'un fournisseur tiers), génère une valeur aléatoire
 // directement dans le navigateur d'Adel au clic : ni Claude ni aucun
 // serveur ne la voit avant qu'il clique "Enregistrer".
-const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY']);
+const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY']); // redeploy-force 2026-09-20
 function generateRandomKey(bytes = 32): string {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
