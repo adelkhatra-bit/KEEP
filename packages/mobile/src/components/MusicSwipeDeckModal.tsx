@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
+import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { checkOwnKeepLibrary, filterSocialSwipeAgainstOwnKeep } from '../services/connectedMusicLibrary';
 import { colors } from '../theme/colors';
@@ -78,6 +78,7 @@ export default function MusicSwipeDeckModal({
   // avec un vrai bouton pour relancer via un tap direct (jamais bloqué).
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const actionInFlight = useRef(false);
+  const playbackGeneration = useRef(0);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
@@ -175,6 +176,8 @@ export default function MusicSwipeDeckModal({
 
   useEffect(() => {
     let alive = true;
+    const generation = ++playbackGeneration.current;
+    const playbackKey = current ? `swipe-${current.id}-${index}` : null;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setAutoplayBlocked(false);
@@ -193,14 +196,17 @@ export default function MusicSwipeDeckModal({
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
         await stopTrackPreview();
-        if (!alive || !previewUrl) return;
+        if (!alive || playbackGeneration.current !== generation || !previewUrl || !playbackKey) return;
         try {
+          // Un double passage d'effet (StrictMode/re-render) ne doit jamais
+          // transformer l'autoplay en "toggle off" sur la carte courante.
+          if (isTrackPreviewActive(playbackKey)) return;
           await toggleTrackPreview(
-            `swipe-${current.id}-${index}`,
+            playbackKey,
             previewUrl,
             () => {},
             () => {
-              if (!alive || actionInFlight.current) return;
+              if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
               // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
               // une décision. Le morceau reste affiché jusqu'à PASSER ou GARDER.
               if (!loop) return;
@@ -222,7 +228,8 @@ export default function MusicSwipeDeckModal({
 
     return () => {
       alive = false;
-      void stopTrackPreview(`swipe-${current.id}-${index}`);
+      if (playbackGeneration.current === generation) playbackGeneration.current += 1;
+      if (playbackKey) void stopTrackPreview(playbackKey);
     };
   }, [visible, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
 
@@ -243,6 +250,7 @@ export default function MusicSwipeDeckModal({
   };
 
   const advance = async () => {
+    playbackGeneration.current += 1;
     await stopTrackPreview();
     advanceIndex();
   };

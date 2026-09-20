@@ -1122,3 +1122,11 @@ Audit/implémentation terminé : Super Admin signale désormais les clés mal co
 
 Complément audit multi-utilisateur corrigé : Apple Music User Token est maintenant namespacé par profile_id Loki, ancienne clé globale supprimée sans migration dangereuse, lecture strictement limitée au compte courant et nettoyage sur logout/changement d’identité/démo. Tests contrat 3/3 PASS + typecheck mobile PASS.
 
+## [2026-09-20T23:52:42.581Z] codex
+
+Début audit ciblé Loki Swipe : autoplay à l’arrivée d’une carte, arrêt audio au swipe, fallback si OS/navigateur bloque. Aucun autre module touché.
+
+## [2026-09-20T23:58:20.919Z] codex
+
+Correction Loki Swipe terminée : audio web déverrouillé pendant le tap d’ouverture de Ma collection publique, autoplay protégé contre les doubles effets, génération par carte pour invalider les callbacks anciens, pause immédiate avant avance, fallback ÉCOUTER L’EXTRAIT conservé. Typecheck PASS, source-of-truth PASS, export web PASS, mobile 15 suites/77 tests PASS (dont nouveau contrat 3/3).
+

@@ -19,6 +19,7 @@ import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRe
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
@@ -580,6 +581,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
       Alert.alert('Loki Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
       return;
     }
+    // Ce tap est le dernier geste utilisateur synchrone avant la résolution
+    // asynchrone de l'extrait. Il déverrouille l'élément audio web partagé afin
+    // que la première carte puisse réellement démarrer seule sur Safari/iOS.
+    unlockWebAudioForGesture();
     setProfileSwipeOpen(true);
   };
 
