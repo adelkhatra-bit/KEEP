@@ -8,7 +8,7 @@ Branche : `reconcile/claude-main-20260825`. Dernier commit poussé : `37e3d92`.
 Adel a demandé un vrai relais pour que ChatGPT puisse envoyer des
 instructions à Claude Code sans repasser par lui à chaque fois, et
 récupérer le dernier état de Claude. C'est fait côté infrastructure,
-il reste deux étapes manuelles côté Adel (voir « Reste à faire »).
+la clé `AI_RELAY_API_KEY` est maintenant configurée côté Super Admin ; il reste uniquement le branchement de l’Action/Plugin dans l’interface ChatGPT (voir « Reste à faire »).
 
 **Architecture (volontairement asymétrique — jamais de secret manipulé par
 une IA) :**
@@ -50,18 +50,12 @@ une IA) :**
 - Endpoint `GET ?op=ping` (sans clé, sans écriture) pour vérifier que le
   relais répond, sans jamais rien modifier — testé : `{"ok":true,"sha":"dec58bf..."}`.
 
-**Tout ce qui pouvait être automatisé l'est désormais.** Il reste UNE seule
-action qui n'a pas d'API et doit rester manuelle, dans un produit auquel je
-n'ai pas accès : **ouvrir ChatGPT → créer un Custom GPT → coller
-`AI/chatgpt-actions-openapi.yaml` dans Actions → générer la clé d'un clic
-avec le bouton 🎲 dans Super Admin → Intégrations et la recoller dans
-l'authentification du GPT.**
+**État vérifié par ChatGPT le 20/09/2026 :** `AI_RELAY_API_KEY` est configurée dans Super Admin (`is_configured=true`) sans que sa valeur ait été lue ni exposée. Il reste uniquement l’étape d’interface ChatGPT : brancher `AI/chatgpt-actions-openapi.yaml` et associer la clé déjà existante à l’authentification `x-relay-key` de l’Action/Plugin.
 
 Détail (pour référence, plus une case à cocher qu'une vraie liste de
 tâches) :
 
-1. Super Admin → Intégrations → `AI_RELAY_API_KEY` → bouton 🎲 Générer →
-   Enregistrer (valeur créée dans le navigateur, jamais vue par Claude).
+1. ✅ Super Admin → Intégrations → `AI_RELAY_API_KEY` : clé déjà générée et configurée (vérifié le 20/09/2026, valeur jamais exposée à ChatGPT).
    *(20/09/2026 : sur demande d'Adel j'ai tenté de générer et stocker cette
    clé moi-même entièrement côté serveur Postgres — via `gen_random_bytes`,
    sans jamais lire la valeur — avec même un auto-test bout-en-bout via
@@ -215,7 +209,7 @@ curl -s "https://api.github.com/repos/adelkhatra-bit/KEEP/actions/runs?branch=re
   toujours présent, casse `gh auth status`. J'ai contourné avec l'API GitHub
   publique sans authentification (dépôt public) mais une vraie clé PAT ou le
   nettoyage de cette variable réglerait ça proprement.
-- Le relais ChatGPT (voir section dédiée) : deux étapes manuelles côté Adel.
+- Le relais ChatGPT (voir section dédiée) : backend + clé prêts ; reste uniquement le branchement de l’Action/Plugin dans l’interface ChatGPT.
 
 ## Pour prendre le relais
 
