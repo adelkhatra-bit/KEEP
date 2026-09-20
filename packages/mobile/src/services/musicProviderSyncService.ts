@@ -182,3 +182,26 @@ export async function syncKeepPlaylist(args: {
   });
   return readJson(response);
 }
+
+export type MarketplaceProviderDelivery = {
+  provider: 'spotify' | 'deezer';
+  status: 'COMPLETE' | 'ERROR';
+  providerPlaylistId?: string;
+  added?: number;
+  failed?: number;
+  error?: string;
+};
+
+export async function syncMarketplaceDelivery(paymentId: string): Promise<{
+  paymentId: string;
+  keepPlaylistId: string;
+  connectedProviders: number;
+  results: MarketplaceProviderDelivery[];
+}> {
+  const response = await fetch(`${baseUrl()}/api/music/library/marketplace-delivery/${encodeURIComponent(paymentId)}/sync`, {
+    method: 'POST',
+    headers: await headers(),
+    body: '{}',
+  });
+  return readJson(response);
+}

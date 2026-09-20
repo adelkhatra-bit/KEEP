@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
 import { Alert as KeepAlert } from '../utils/keepAlert';
+import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 
-type PriceEditState = { playlistId: string; priceText: string } | null;
+const PRICE_PRESETS = [50, 100, 200, 300, 500, 1000] as const;
+
+type PriceEditState = { playlistId: string; playlistName: string; priceCents: number } | null;
 
 export default function PlaylistSalePanel({ navigation }: any) {
   const user = useUserStore((s) => s.user);
@@ -64,8 +67,15 @@ export default function PlaylistSalePanel({ navigation }: any) {
           onPress: async () => {
             setBusy(true);
             try {
-              await markPlaylistSalePaid(transaction.id);
+              const delivered = await markPlaylistSalePaid(transaction.id);
+              const providerSync = await syncMarketplaceDelivery(transaction.id).catch(() => null);
               await loadData();
+              if (!providerSync?.connectedProviders) {
+                KeepAlert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
+              } else {
+                const complete = providerSync.results.filter((row) => row.status === 'COMPLETE').map((row) => row.provider).join(', ');
+                KeepAlert.alert('Playlist livrée', `Livraison Loki terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
+              }
             } catch (e: any) {
               KeepAlert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
             } finally {
@@ -88,10 +98,9 @@ export default function PlaylistSalePanel({ navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation]);
 
-  const handleSetPrice = async (playlistId: string, playlistName: string, priceText: string) => {
-    const priceCents = Math.round(parseFloat(priceText) * 100);
-    if (!priceText || isNaN(priceCents) || priceCents <= 0) {
-      KeepAlert.alert('Prix invalide', 'Entrez un prix positif.');
+  const handleSetPrice = async (playlistId: string, playlistName: string, priceCents: number) => {
+    if (!PRICE_PRESETS.includes(priceCents as (typeof PRICE_PRESETS)[number])) {
+      KeepAlert.alert('Prix invalide', 'Choisis un des prix proposés.');
       return;
     }
     setBusy(true);
@@ -231,7 +240,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                         <TouchableOpacity
                           style={s.editBtn}
                           disabled={busy}
-                          onPress={() => setEditing({ playlistId: item.playlistId, priceText: (item.priceCents / 100).toFixed(2) })}
+                          onPress={() => setEditing({ playlistId: item.playlistId, playlistName: item.playlistName, priceCents: item.priceCents })}
                         >
                           <Text style={s.editBtnText}>✎ Modifier</Text>
                         </TouchableOpacity>
@@ -323,17 +332,23 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <TouchableOpacity style={s.modalOverlay} onPress={() => setEditing(null)} />
           <View style={s.modalContent}>
             <Text style={s.modalTitle}>Modifier le prix</Text>
-            <Text style={s.modalSubtitle}>{editing.playlistId}</Text>
-            <View style={s.modalInput}>
-              <Text style={s.modalCurrency}>€</Text>
-              <TextInput
-                style={s.modalTextInput}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                value={editing.priceText}
-                onChangeText={(text) => setEditing({ ...editing, priceText: text })}
-                editable={!busy}
-              />
+            <Text style={s.modalSubtitle}>{editing.playlistName}</Text>
+            <View style={s.pricePresetGrid}>
+              {PRICE_PRESETS.map((priceCents) => {
+                const selected = editing.priceCents === priceCents;
+                return (
+                  <TouchableOpacity
+                    key={priceCents}
+                    style={[s.pricePreset, selected && s.pricePresetSelected]}
+                    disabled={busy}
+                    onPress={() => setEditing({ ...editing, priceCents })}
+                  >
+                    <Text style={[s.pricePresetText, selected && s.pricePresetTextSelected]}>
+                      {(priceCents / 100).toFixed(2)} €
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             <View style={s.modalActions}>
               <TouchableOpacity
@@ -346,7 +361,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
               <TouchableOpacity
                 style={s.modalSaveBtn}
                 disabled={busy}
-                onPress={() => void handleSetPrice(editing.playlistId, editing.playlistId, editing.priceText)}
+                onPress={() => void handleSetPrice(editing.playlistId, editing.playlistName, editing.priceCents)}
               >
                 {busy ? <ActivityIndicator color="#FFF" /> : <Text style={s.modalSaveBtnText}>Valider</Text>}
               </TouchableOpacity>
@@ -411,9 +426,11 @@ const s = StyleSheet.create({
   modalContent: { backgroundColor: colors.backgroundCard, borderRadius: radius.xl, padding: spacing.lg, width: '85%', borderWidth: 1, borderColor: colors.border },
   modalTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'center' },
   modalSubtitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: spacing.sm },
-  modalInput: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
-  modalCurrency: { color: colors.textMuted, fontSize: 14, fontWeight: '900' },
-  modalTextInput: { flex: 1, paddingVertical: spacing.md, color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  pricePresetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
+  pricePreset: { width: '31%', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  pricePresetSelected: { backgroundColor: colors.success, borderColor: colors.success },
+  pricePresetText: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
+  pricePresetTextSelected: { color: '#0A140F' },
   modalActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
   modalCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
   modalCancelBtnText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },

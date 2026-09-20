@@ -87,6 +87,16 @@ function hint(value: string) {
   return `${clean.slice(0, 3)}••••••${clean.slice(-4)}`;
 }
 
+function integrationConfigurationIssue(key: string, valueHint: string | null): string | null {
+  if (key === "STRIPE_SECRET_KEY" && valueHint?.startsWith("pk_")) {
+    return "Une clé publique Stripe (pk_) est enregistrée dans le champ secret. Remplace-la par la clé serveur sk_.";
+  }
+  if (key === "STRIPE_PUBLISHABLE_KEY" && valueHint?.startsWith("sk_")) {
+    return "Une clé secrète Stripe (sk_) est enregistrée dans le champ public. Remplace-la par la clé pk_.";
+  }
+  return null;
+}
+
 function existingEdgeSecret(key: string): string | null {
   const value = Deno.env.get(key);
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -540,6 +550,7 @@ Deno.serve(async (req) => {
             hint: row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
             updatedAt: row?.updated_at ?? null,
             source: vaultConfigured ? "VAULT" : edgeConfigured ? "EDGE_SECRET" : null,
+            configurationIssue: integrationConfigurationIssue(key, row?.value_hint ?? null),
           };
         }),
       });
@@ -552,6 +563,12 @@ Deno.serve(async (req) => {
       const meta = CATALOG[key];
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
+      if (key === "STRIPE_SECRET_KEY" && !/^sk_(test_|live_)/.test(value)) {
+        return json(400, { error: "invalid_stripe_secret_key", message: "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY." });
+      }
+      if (key === "STRIPE_PUBLISHABLE_KEY" && !/^pk_(test_|live_)/.test(value)) {
+        return json(400, { error: "invalid_stripe_publishable_key", message: "Stripe Publishable Key doit commencer par pk_test_ ou pk_live_." });
+      }
       const providerValidation = key === "AUDD_API_KEY" ? await validateAuddToken(value) : null;
       if (providerValidation && !providerValidation.valid) {
         await resetIntegrationRuntimeStatus(key, false);

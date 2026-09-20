@@ -29,6 +29,7 @@ type IntegrationRow = {
   runtimeStatus?: IntegrationStatus;
   lastCheckedAt?: string | null;
   lastError?: string | null;
+  configurationIssue?: string | null;
 };
 
 type RuntimeStatusRow = {
@@ -52,6 +53,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   music: 'Musique',
   recognition: 'Reconnaissance',
   payments: 'Paiements',
+  automation: 'Automatisation & relais',
 };
 
 const AUDD_DASHBOARD = 'https://dashboard.audd.io/';
@@ -199,6 +201,18 @@ export default function Integrations() {
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Renouvellement intelligent des clés</h3>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
+          Les clés internes Loki peuvent être générées ici. Pour une clé Spotify, Apple, Google, Brevo, Stripe ou autre fournisseur, le bouton ouvre directement sa page officielle de création/révocation : ces plateformes interdisent qu’une ancienne clé crée silencieusement sa remplaçante. Après remplacement, Loki conserve la nouvelle valeur dans le Vault et les tests disponibles s’exécutent avant activation.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(98,196,111,.14)', color: '#62c46f' }}>Automatique : clés internes Loki</span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(240,180,41,.12)', color: '#f0b429' }}>Guidé : clés fournisseurs</span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(224,82,82,.12)', color: '#e05252' }}>Révocation distante jamais simulée</span>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — santé réelle</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
           Loki fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
@@ -312,6 +326,7 @@ export default function Integrations() {
                     {row.configured ? `● Configuré ${row.hint ? `(${row.hint})` : ''}` : '○ Non configuré'}
                   </div>
                 </div>
+                {row.configurationIssue && <div style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ff9aa8', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}><strong>Configuration incorrecte :</strong> {row.configurationIssue}</div>}
                 {row.category === 'recognition' && (
                   <div style={{ color: STATUS_COLORS[row.runtimeStatus ?? 'UNKNOWN'], fontSize: 12, marginBottom: 8 }}>
                     ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
@@ -331,7 +346,7 @@ export default function Integrations() {
                     rel="noreferrer"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
                   >
-                    🔗 Ouvrir {INTEGRATION_PROVIDER_LINKS[row.key].label}
+                    🔗 {row.configured ? 'Régénérer / révoquer chez' : 'Créer chez'} {INTEGRATION_PROVIDER_LINKS[row.key].label}
                   </a>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -7,7 +7,6 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
-import { supabase } from '../services/supabaseClient';
 import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
@@ -24,7 +23,7 @@ import {
 } from '../services/smartAlbumService';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import { colors } from '../theme/colors';
-import { spacing, radius, typography } from '../theme/spacing';
+import { radius, typography } from '../theme/spacing';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
@@ -104,11 +103,13 @@ export default function MyMusicScreen({ navigation }: any) {
   // comme "album", ou un seul morceau), même popup, prix en chips fixes.
   const [sellTarget, setSellTarget] = useState<
     | { kind: 'playlist'; playlist: ProviderPlaylist }
-    | { kind: 'selection'; key: string; name: string; trackIds: string[] }
+    | { kind: 'selection'; key: string; name: string; trackIds: string[]; coverUrl?: string | null }
     | null
   >(null);
   const [sellPriceCents, setSellPriceCents] = useState<number | null>(null);
   const [sellBusy, setSellBusy] = useState(false);
+  const [saleSelectionMode, setSaleSelectionMode] = useState(false);
+  const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
 
   const localKeptEntries = useMemo(() => {
     const all = sessions.flatMap((session) => session.tracks
@@ -372,6 +373,31 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const closeSellModal = () => { setSellTarget(null); setSellPriceCents(null); };
 
+  const toggleSaleTrack = (trackId: string) => {
+    setSelectedSaleTrackIds((current) => {
+      const next = new Set(current);
+      if (next.has(trackId)) next.delete(trackId); else next.add(trackId);
+      return next;
+    });
+  };
+
+  const cancelSaleSelection = () => {
+    setSaleSelectionMode(false);
+    setSelectedSaleTrackIds(new Set());
+  };
+
+  const createSaleSelection = () => {
+    const tracks = localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id));
+    if (!tracks.length) return Alert.alert('Sélection', 'Choisis au moins un morceau.');
+    openSellModal({
+      kind: 'selection',
+      key: `selection:${Date.now()}`,
+      name: tracks.length === 1 ? tracks[0].title : `Ma sélection · ${tracks.length} titres`,
+      trackIds: tracks.map((track) => track.id),
+      coverUrl: tracks.find((track) => Boolean(track.artworkUrl))?.artworkUrl ?? null,
+    });
+  };
+
   const openSellModal = (target: typeof sellTarget) => {
     if (!saleAccess?.unlocked) {
       Alert.alert('💶 Vendre', `Réservé à partir de ${saleAccess?.threshold ?? 100} abonnés. Tu en as ${saleAccess?.followers ?? 0} pour l'instant.`);
@@ -394,8 +420,9 @@ export default function MyMusicScreen({ navigation }: any) {
     try {
       const offer = sellTarget.kind === 'playlist'
         ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents)
-        : await setPlaylistSalePriceForSelection(sellTarget.trackIds, sellTarget.name, sellPriceCents);
+        : await setPlaylistSalePriceForSelection(sellTarget.trackIds, sellTarget.name, sellPriceCents, 'EUR', sellTarget.coverUrl);
       setMyOffers((prev) => ({ ...prev, [stableKey]: offer }));
+      if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) cancelSaleSelection();
       closeSellModal();
     } catch (e: any) {
       const message = String(e?.message || e || '');
@@ -526,6 +553,13 @@ export default function MyMusicScreen({ navigation }: any) {
     const deleteBusy = trackDeleteBusy === key;
     const busy = visibilityBusy || deleteBusy;
     return <View key={key} style={styles.trackRow}>
+      {saleSelectionMode && localEntry ? <TouchableOpacity
+        style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn]}
+        onPress={() => toggleSaleTrack(track.id)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selectedSaleTrackIds.has(track.id) }}
+        accessibilityLabel={`Sélectionner ${track.title}`}
+      ><Text style={styles.selectionCheckText}>{selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
       <View style={styles.trackBody}>
         <View style={styles.trackInfo}>
@@ -561,7 +595,7 @@ export default function MyMusicScreen({ navigation }: any) {
               playlist ou un album entier. */}
           {localEntry ? <TouchableOpacity
             style={styles.sellTrackButton}
-            onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id] })}
+            onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
             accessibilityLabel={`Vendre ${track.title}`}
           >
             <Text style={styles.sellTrackText}>{myOffers[`track:${track.id}`] ? `💶 ${(myOffers[`track:${track.id}`].priceCents / 100).toFixed(2)}€` : '💶 VENDRE'}</Text>
@@ -606,7 +640,7 @@ export default function MyMusicScreen({ navigation }: any) {
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
           {!isAllKeepView ? (
             <TouchableOpacity style={styles.sellMini} onPress={() => {
-              if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id) });
+              if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null });
               else openSellModal({ kind: 'playlist', playlist: item });
             }}>
               <Text style={styles.sellMiniText}>{myOffers[item.id] ? `💶 ${(myOffers[item.id].priceCents / 100).toFixed(2)}€` : saleAccess?.unlocked ? (isGroupView ? '💶 VENDRE CET ALBUM' : '💶 VENDRE') : '🔒 VENDRE'}</Text>
@@ -690,6 +724,13 @@ export default function MyMusicScreen({ navigation }: any) {
           contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
+          ListHeaderComponent={localKeptTracks.length ? <View style={styles.selectionToolbar}>
+            {!saleSelectionMode ? <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity> : <>
+              <View style={styles.selectionToolbarCopy}><Text style={styles.selectionToolbarTitle}>{selectedSaleTrackIds.size} morceau{selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text><Text style={styles.selectionToolbarHint}>Appuie sur les ronds, puis crée ta playlist.</Text></View>
+              <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>ANNULER</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
+            </>}
+          </View> : null}
           ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
         />
       ) : (
@@ -726,6 +767,15 @@ export default function MyMusicScreen({ navigation }: any) {
         <View style={styles.modalBackdrop}><View style={styles.editCard}>
           <Text style={styles.editTitle}>Vendre {sellTarget?.kind === 'playlist' ? sellTarget.playlist.name : sellTarget?.name}</Text>
           <Text style={styles.editHint}>L'acheteur paiera directement sur ton lien de paiement personnel (Réglages &gt; Type de profil &amp; outils créateur). KEEP ne touche jamais cet argent.</Text>
+          {sellTarget?.kind === 'selection' ? <TextInput
+            style={styles.input}
+            value={sellTarget.name}
+            maxLength={100}
+            onChangeText={(name) => setSellTarget((current) => current?.kind === 'selection' ? { ...current, name } : current)}
+            placeholder="Nom de la playlist"
+            placeholderTextColor={colors.textMuted}
+            accessibilityLabel="Nom de la playlist à vendre"
+          /> : null}
           <View style={styles.priceChipsRow}>
             {SALE_PRESET_PRICES_CENTS.map((cents) => (
               <TouchableOpacity key={cents} style={[styles.priceChip, sellPriceCents === cents && styles.priceChipOn]} onPress={() => setSellPriceCents(cents)}>
@@ -751,6 +801,7 @@ const styles = StyleSheet.create({
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
+  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:72,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:6},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackBody:{flex:1,minWidth:0,gap:6},trackInfo:{minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},trackActionSlot:{flex:1,minWidth:0},visibilityTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},sellMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellMiniText:{color:'#FFD166',fontSize:8,fontWeight:'900'},sellTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellTrackText:{color:'#FFD166',fontSize:7,fontWeight:'900'},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:38,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},

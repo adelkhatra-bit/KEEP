@@ -1110,3 +1110,15 @@ Nouveau pont Telegram -> terminal local (scripts/telegram-terminal-bot.cjs + STA
 
 Pont Telegram MIS EN SERVICE : token valide fourni par Adel (bot @LokiKeepBot, id 8601977763), configuré dans .env.telegram-bot.local (ignoré par git, vérifié), pont démarré en détaché (PID node 57776, logs .telegram-bot.out/.telegram-bot.err à la racine). Pairage en cours côté téléphone (code à 6 chiffres affiché uniquement dans le log local, jamais ici). Une fois lié, le chat aura accès à la liste blanche stricte (git status/log/diff, ls, npm test, typechecks, verrou/journal agents) -- selftest 16/16. Pour arrêter le pont : tuer le process node scripts/telegram-terminal-bot.cjs ; pour relancer manuellement : START_TELEGRAM_TERMINAL.bat (le code de pairage se régénère à chaque démarrage).
 
+## [2026-09-20T12:37:56.071Z] codex
+
+Début audit/implémentation demandé par Adel : capacités réelles de rotation/révocation API dans Super Admin, parcours sélection multi-titres -> offre, livraison playlist acheteur et synchronisation fournisseurs, réorganisation profil sans supprimer de fonctions. Je verrouille les fichiers admin/mobile/backend/migrations concernés.
+
+## [2026-09-20T12:55:04.591Z] codex
+
+Audit/implémentation terminé : Super Admin signale désormais les clés mal configurées (Stripe pk_ détectée dans le slot secret), refuse les préfixes Stripe incohérents et explique clairement rotation interne automatique vs révocation fournisseur guidée. Edge keep-admin-control déployée v34. Marketplace : offre multi-sélection nommée + couverture + prix prédéfinis, achat corrigé via offer UUID, livraison atomique dans une playlist privée Loki, puis synchro idempotente Spotify/Deezer si le compte acheteur est connecté. Migration live appliquée et test transactionnel production PASS avec rollback (2 titres). Tests complets 12 suites/68 tests mobile + 5 suites/18 music, nouveau contrat 3 tests, typechecks/builds/source-of-truth/profile-integrity PASS. Limites honnêtes : 0 connexion fournisseur active en production aujourd'hui ; YouTube/SoundCloud restent connexion Pipedream sans écriture de playlist ; Apple Music non implémenté pour cette livraison ; Stripe secret actuellement mal renseigné avec une pk_.
+
+## [2026-09-20T12:58:18.120Z] codex
+
+Complément audit multi-utilisateur corrigé : Apple Music User Token est maintenant namespacé par profile_id Loki, ancienne clé globale supprimée sans migration dangereuse, lecture strictement limitée au compte courant et nettoyage sur logout/changement d’identité/démo. Tests contrat 3/3 PASS + typecheck mobile PASS.
+

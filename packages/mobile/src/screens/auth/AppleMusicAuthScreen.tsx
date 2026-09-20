@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { buildAppleMusicAuthHtml, parseAppleMusicAuthMessage } from '../../services/appleMusicAuthHtml';
 import { saveMusicUserToken } from '../../services/appleMusicAuth';
+import { useUserStore } from '../../store/useUserStore';
 import { colors, spacing } from '../../theme';
 
 /**
@@ -26,13 +27,15 @@ interface Props {
 
 export default function AppleMusicAuthScreen({ developerToken, onSuccess, onError }: Props) {
   const [loading, setLoading] = useState(true);
+  const profileId = useUserStore((state) => state.user?.id);
 
   const handleMessage = useCallback(
     async (event: WebViewMessageEvent) => {
       try {
         const message = parseAppleMusicAuthMessage(event.nativeEvent.data);
         if (message.type === 'success' && message.musicUserToken) {
-          await saveMusicUserToken(message.musicUserToken);
+          if (!profileId) throw new Error('Connecte-toi à Loki avant Apple Music.');
+          await saveMusicUserToken(profileId, message.musicUserToken);
           onSuccess(message.musicUserToken);
         } else {
           onError(message.message ?? 'Autorisation Apple Music refusée.');
@@ -41,7 +44,7 @@ export default function AppleMusicAuthScreen({ developerToken, onSuccess, onErro
         onError((err as Error).message);
       }
     },
-    [onSuccess, onError]
+    [onSuccess, onError, profileId]
   );
 
   return (
