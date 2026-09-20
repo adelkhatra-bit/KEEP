@@ -8,7 +8,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // (jamais dans Git). Anti-doublon + limites de taille/fréquence : voir
 // service_ai_relay_post (migration 20260920130000).
 
-const DEPLOY_SHA = "d5aff60";
+// Adel (20/09/2026) : "arrête de le mettre en dur, injecte-le automatiquement
+// au déploiement" -- plus de valeur tapée à la main (un commit ne peut de
+// toute façon pas contenir son propre hash). Injecté par
+// .github/workflows/deploy-keep-ai-relay.yml via `supabase secrets set
+// GIT_SHA=${{ github.sha }}` juste avant chaque déploiement CI.
+const DEPLOY_SHA = Deno.env.get("GIT_SHA") ?? "unset";
 const REPORT_RAW_URL = "https://raw.githubusercontent.com/adelkhatra-bit/KEEP/reconcile/claude-main-20260825/AI/AI_REPORT.md";
 const MAX_TEXT_LENGTH = 4000;
 
