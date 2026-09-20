@@ -20,10 +20,11 @@ paths:
           required: true
           schema:
             type: string
-            enum: [state]
+            enum: [state, ping]
+            description: "'ping' teste juste que le relais répond (aucune authentification requise, aucune donnée) ; 'state' récupère l'état réel (authentifié)."
       responses:
         "200":
-          description: État courant de Claude Code.
+          description: État courant de Claude Code, ou accusé de vie minimal si op=ping ({"ok":true,"service":"keep-ai-relay","sha":"..."}).
           content:
             application/json:
               schema:
