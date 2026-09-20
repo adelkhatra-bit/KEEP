@@ -8,7 +8,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // (jamais dans Git). Anti-doublon + limites de taille/fréquence : voir
 // service_ai_relay_post (migration 20260920130000).
 
-const DEPLOY_SHA = "dec58bfb89761e3f0656dc809f3565aa54fe7920";
+const DEPLOY_SHA = "d5aff60";
 const REPORT_RAW_URL = "https://raw.githubusercontent.com/adelkhatra-bit/KEEP/reconcile/claude-main-20260825/AI/AI_REPORT.md";
 const MAX_TEXT_LENGTH = 4000;
 
