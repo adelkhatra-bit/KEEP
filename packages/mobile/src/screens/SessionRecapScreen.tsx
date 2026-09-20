@@ -20,12 +20,14 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const {
     keepTrackInSession,
     passTrackInSession,
+    restoreTrackInSession,
     keepAllPendingInSession,
     renameSession,
     deleteSession,
     setTrackVisibilityInSession,
     refreshCreditLocks,
   } = useSessionHistoryStore();
+  const [showPassed, setShowPassed] = useState(false);
   const { playlists } = usePlaylistStore();
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const [processing, setProcessing] = useState(false);
@@ -82,6 +84,19 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       if (statusDiff) return statusDiff;
       return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
     });
+  }, [session]);
+
+  // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite -- ça
+  // doit rester ré-écoutable et ré-ajoutable tant que je n'ai pas donné ma
+  // décision finale". sortedTracks (ci-dessus) reste inchangé -- un passé ne
+  // doit pas réapparaître mélangé dans la liste principale comme avant le
+  // fix du 02/09 -- mais une section dédiée, repliée par défaut, donne une
+  // vraie porte de sortie au lieu d'une suppression définitive.
+  const passedTracks = useMemo(() => {
+    if (!session) return [];
+    return session.tracks
+      .filter((entry) => entry.status === 'passed')
+      .sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
   }, [session]);
 
   const openSwipe = () => {
@@ -283,6 +298,25 @@ export default function SessionRecapScreen({ route, navigation }: any) {
             onUnlock={() => { void openUnlock(); }}
           />
         )}
+        ListFooterComponent={passedTracks.length > 0 ? (
+          <View style={styles.passedSection}>
+            <TouchableOpacity
+              style={styles.passedHeader}
+              onPress={() => setShowPassed((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={`${showPassed ? 'Masquer' : 'Afficher'} les ${passedTracks.length} morceaux passés`}
+            >
+              <Text style={styles.passedHeaderText}>{showPassed ? '▾' : '▸'} PASSÉS · {passedTracks.length}</Text>
+            </TouchableOpacity>
+            {showPassed ? passedTracks.map((entry) => (
+              <TrackRow
+                key={entry.id}
+                entry={entry}
+                onRestore={(entryId) => restoreTrackInSession(sessionId, entryId)}
+              />
+            )) : null}
+          </View>
+        ) : null}
       />
 
       <View style={styles.sessionActionsRow}>
@@ -361,6 +395,9 @@ const styles = StyleSheet.create({
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
   visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
+  passedHeader: { paddingVertical: 8 },
+  passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
   compactAction: { flex: 1, minHeight: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },

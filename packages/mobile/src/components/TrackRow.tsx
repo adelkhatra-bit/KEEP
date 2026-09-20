@@ -20,12 +20,13 @@ interface Props {
   entry: SessionTrackEntry;
   onKeep?: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => void;
   onPass?: (entryId: string) => void;
+  onRestore?: (entryId: string) => void;
   onVisibilityChange?: (entryId: string, visibility: KeepVisibility) => void;
   onUnlock?: () => void;
   playlists?: ProviderPlaylist[];
 }
 
-export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, onUnlock, playlists }: Props) {
+export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilityChange, onUnlock, playlists }: Props) {
   const { t } = useTranslation();
   const { track, status } = entry;
   const topPlaylistName = entry.recommendations[0]?.playlistName;
@@ -88,6 +89,12 @@ export default function TrackRow({ entry, onKeep, onPass, onVisibilityChange, on
             {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8}><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
             {onKeep && <TouchableOpacity style={[styles.keepBtn, entry.creditLocked && styles.unlockBtn]} onPress={handleKeepPress} hitSlop={8} accessibilityLabel="Garder ce morceau"><Text style={[styles.keepBtnText, entry.creditLocked && styles.unlockBtnText]}>{entry.creditLocked ? '🔒' : '♡'}</Text></TouchableOpacity>}
           </View>
+        ) : status === 'passed' && onRestore ? (
+          // Adel (20/09/2026) : "ça doit rester ré-écoutable et ré-ajoutable
+          // tant que je n'ai pas donné ma décision finale" -- un morceau
+          // passé garde une vraie sortie de secours au lieu de disparaître
+          // pour de bon.
+          <TouchableOpacity style={styles.restoreBtn} onPress={() => onRestore(entry.id)} hitSlop={8} accessibilityLabel="Remettre ce morceau en attente"><Text style={styles.restoreBtnText}>↺ Remettre</Text></TouchableOpacity>
         ) : (
           <View style={styles.statusBadge}>
             {status === 'kept' && <Text style={styles.keptText}>✓ {topPlaylistName ?? t('listen.keep')}</Text>}
@@ -158,6 +165,8 @@ const styles = StyleSheet.create({
   keepBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
   keepBtnText: { color: colors.black, fontWeight: '900', fontSize: 17 },
   unlockBtn: { backgroundColor: '#2B2038', borderWidth: 1, borderColor: colors.primaryLight },
+  restoreBtn: { paddingHorizontal: 12, height: 34, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  restoreBtnText: { color: colors.primaryLight, fontWeight: '800', fontSize: 11 },
   unlockBtnText: { color: colors.primaryLight, fontSize: 13 },
   statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5, paddingTop: 8 },
   keptText: { color: colors.keep, fontSize: 12, fontWeight: '700' },
