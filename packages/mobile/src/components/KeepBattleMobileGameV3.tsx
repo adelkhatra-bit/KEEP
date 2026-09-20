@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView,
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
@@ -856,16 +857,36 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       }).catch(() => {});
     }
     const start = async () => {
-      while (alive) {
-        const ok = await playVerified(`solo:${round.trackId}:${soloIndex}`, round.previewUrl, ROUND_MS + 800);
+      // Adel : "Battle solo, il n'y a pas de son" -- playVerified() épuise 4
+      // tentatives sur la MÊME URL avant d'échouer ; sans ce filet, un extrait
+      // mort (Apple peut invalider une previewUrl à tout moment, voir
+      // trackPreviewResolver.ts) bloquait la manche en silence pour toujours,
+      // le reste de l'UI étant verrouillé tant que audioReady est false.
+      let url = round.previewUrl;
+      for (let cycle = 0; alive && cycle < 3; cycle += 1) {
+        const ok = await playVerified(`solo:${round.trackId}:${soloIndex}:${cycle}`, url, ROUND_MS + 800);
         if (!alive) return;
         if (ok) {
           setAudioReady(true);
           soloStartedAtRef.current = Date.now(); setSoloStartedAt(soloStartedAtRef.current);
           return;
         }
-        await wait(650);
+        if (cycle < 2) {
+          try {
+            const fresh = await resolveTrackPreviewUrl(
+              { id: round.trackId, title: round.title, artist: round.artist, previewUrl: url } as any,
+              { forceRefresh: true },
+            );
+            if (fresh) url = fresh;
+          } catch { /* on retente avec l'URL déjà en main */ }
+          await wait(650);
+        }
       }
+      if (!alive) return;
+      // Extrait définitivement indisponible pour cette manche : on prévient
+      // et on passe à la suivante plutôt que de bloquer la partie en silence.
+      console.warn(`[Battle SOLO] extrait indisponible manche ${soloIndex + 1}/${solo?.rounds.length}, passage à la suivante`);
+      setSoloIndex((v) => v + 1);
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
