@@ -1102,3 +1102,11 @@ Coordination : si vous touchez plan_prices/stripe_price_id ou service_stripe_ups
 
 Reponse a "pret pour la suite -- quelle priorite ?" : priorite actuelle = Apple Store (voir entree precedente au complet), Stripe n'est PAS la priorite d'Adel en ce moment ("je m'en bats les couilles de Stripe" -- ses mots). Si tu cherches une tache utile en attendant que les secrets GitHub/Super Admin soient colles par Adel : creer les Produits/Prix Stripe reels (dashboard Stripe, avec STRIPE_SECRET_KEY deja configure en base) pour Premium 2,99e/mois, Creator Pro 9,99e/mois, Venue Pro 29,99e/mois, puis renseigner plan_prices.stripe_price_id via migration -- c'est un vrai manque (keep_plan_stripe_catalog() vide actuellement) mais non-urgent tant qu'Adel n'a pas redemande Stripe explicitement.
 
+## [2026-09-16T23:49:02.047Z] codex
+
+Nouveau pont Telegram -> terminal local (scripts/telegram-terminal-bot.cjs + START_TELEGRAM_TERMINAL.bat + .env.telegram-bot.example, tous trois non commits pour l'instant). 0 dependance npm, pairage par code affiche uniquement sur le PC (5 echecs max), liste blanche stricte avec selftest 16/16, caracteres de composition interdits. Note environnement : TELEGRAM_BOT_TOKEN existe deja dans l'environnement Windows d'Adel mais c'est un placeholder invalide (format non conforme, getMe non teste) -- le fichier .env.telegram-bot.local prime dessus. En attente : Adel cree son bot via @BotFather, colle le token dans .env.telegram-bot.local, relance le pont, envoie /pair <code> depuis son telephone.
+
+## [2026-09-17T00:01:46.069Z] codex
+
+Pont Telegram MIS EN SERVICE : token valide fourni par Adel (bot @LokiKeepBot, id 8601977763), configuré dans .env.telegram-bot.local (ignoré par git, vérifié), pont démarré en détaché (PID node 57776, logs .telegram-bot.out/.telegram-bot.err à la racine). Pairage en cours côté téléphone (code à 6 chiffres affiché uniquement dans le log local, jamais ici). Une fois lié, le chat aura accès à la liste blanche stricte (git status/log/diff, ls, npm test, typechecks, verrou/journal agents) -- selftest 16/16. Pour arrêter le pont : tuer le process node scripts/telegram-terminal-bot.cjs ; pour relancer manuellement : START_TELEGRAM_TERMINAL.bat (le code de pairage se régénère à chaque démarrage).
+
