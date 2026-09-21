@@ -23,3 +23,16 @@ CHATGPT_RUNTIME_STATUS.json
 # Verrou de coordination local entre agents (Claude Code / Codex) -- état machine-spécifique
 .agent-lock.json
 .claude/settings.json
+
+# B1 (22/09/2026) : ce repo est un monorepo npm workspaces (package.json
+# racine + package-lock.json committé), JAMAIS pnpm. Un pnpm-lock.yaml /
+# pnpm-workspace.yaml qui traine (même non commité) fait que `eas build`
+# lancé depuis ce dossier local détecte "pnpm workspace" et installe avec
+# pnpm --frozen-lockfile -- pnpm ne crée pas le même node_modules à plat que
+# npm workspaces, donc Metro ne résout plus @keep/music au bundle et le
+# build iOS échoue systématiquement. Cause racine confirmée des builds iOS
+# #65 à #75 (17/09/2026) via les logs EAS bruts. Ne jamais lancer
+# `pnpm install` dans ce repo.
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.pnpm-store/
