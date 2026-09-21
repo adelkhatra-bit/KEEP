@@ -427,20 +427,41 @@ export default function MyMusicScreen({ navigation }: any) {
   // offerId, maintenant connu grâce à keep_playlist_sale_my_offered_track_ids)
   // puis on rouvre le popup prix normal, pré-rempli à l'ancien prix pour
   // que confirmer recrée la même offre au même tarif si rien ne change.
+  // (21/09/2026, Adel) : "le vendeur ne peut jamais perdre ses morceaux ...
+  // réversibilité totale avec retour à l'état d'origine" -- déjà garanti par
+  // construction : le masquage public (keep_playlist_sale_masked_track_ids)
+  // ne fait que FILTRER les morceaux des offres actives à l'affichage,
+  // jamais toucher keep_decisions.visibility -- retirer l'offre suffit donc
+  // à retrouver exactement l'état d'avant-vente, sans rien à restaurer.
+  // Seul un vrai NOUVEL état ("garder masqué volontairement") nécessite une
+  // action explicite, ajoutée ici en réutilisant persistOwnTrackVisibility
+  // (déjà utilisé plus haut sur cet écran pour PUBLIC/PRIVÉ), sans nouvelle
+  // RPC ni nouveau système.
   const editExistingTrackOffer = (track: CanonicalTrack) => {
     const offered = myOfferedTrackIds[track.id];
     if (!offered) return;
     Alert.alert(
       'Modifier cette offre',
-      `« ${track.title} » est en vente à ${(offered.priceCents / 100).toFixed(2)}€. Retirer l'offre ou changer le prix ?`,
+      `« ${track.title} » est en vente à ${(offered.priceCents / 100).toFixed(2)}€. Que veux-tu faire ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Retirer de la vente',
-          style: 'destructive',
+          text: 'Retirer de la vente (état d’origine)',
           onPress: async () => {
             try {
               await clearPlaylistSalePrice(offered.playlistId);
+              setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
+            } catch {
+              Alert.alert('Vendre', 'Impossible de retirer cette offre pour le moment.');
+            }
+          },
+        },
+        {
+          text: 'Retirer et garder masqué',
+          onPress: async () => {
+            try {
+              await clearPlaylistSalePrice(offered.playlistId);
+              await persistOwnTrackVisibility(track, 'PRIVATE');
               setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
             } catch {
               Alert.alert('Vendre', 'Impossible de retirer cette offre pour le moment.');
