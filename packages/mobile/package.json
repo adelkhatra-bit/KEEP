@@ -13,7 +13,8 @@
     "test": "node scripts/verify-profile-hierarchy.cjs && node scripts/verify-production-resilience.cjs && jest",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
-    "install:all": "npm install && npm run type-check"
+    "install:all": "npm install && npm run type-check",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -47,6 +48,7 @@
     "keep-iap": "file:./modules/keep-iap",
     "keep-shazam": "file:./modules/keep-shazam",
     "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-i18next": "^14.1.2",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
