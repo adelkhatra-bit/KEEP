@@ -23,6 +23,7 @@ import {
   SmartAlbumRecord,
 } from '../services/smartAlbumService';
 import TrackPreviewButton from '../components/TrackPreviewButton';
+import LockedFeatureCard from '../components/LockedFeatureCard';
 import { colors } from '../theme/colors';
 import { radius, typography } from '../theme/spacing';
 
@@ -690,14 +691,44 @@ export default function MyMusicScreen({ navigation }: any) {
           </TouchableOpacity> : null}
           {/* Adel (16-17/09/2026) : "un bouton 'Vendre cette musique'" --
               vendre UN morceau précis, même popup de prix que pour une
-              playlist ou un album entier. */}
-          {marketplaceEnabled && localEntry ? <TouchableOpacity
-            style={[styles.sellTrackButton, offered && styles.sellTrackButtonOffered]}
-            onPress={() => offered ? editExistingTrackOffer(track) : openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
-            accessibilityLabel={offered ? `Modifier l'offre de ${track.title}, en vente à ${(offered.priceCents / 100).toFixed(2)} euros` : `Vendre ${track.title}`}
-          >
-            <Text style={[styles.sellTrackText, offered && styles.sellTrackTextOffered]}>{offered ? `🏷️ En vente · ${(offered.priceCents / 100).toFixed(2)}€` : '💶 VENDRE'}</Text>
-          </TouchableOpacity> : null}
+              playlist ou un album entier.
+              (21/09/2026) Principe produit : "on n'efface jamais une
+              fonctionnalité parce que le palier n'est pas atteint -- on la
+              montre toujours, verrouillée." Une offre déjà créée reste
+              directement gérable (le seuil était forcément atteint au
+              moment de la mise en vente) ; seule l'ENTRÉE "VENDRE" pour un
+              morceau pas encore mis en vente passe par le verrou visible. */}
+          {marketplaceEnabled && localEntry ? (
+            offered ? (
+              <TouchableOpacity
+                style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}
+                onPress={() => editExistingTrackOffer(track)}
+                accessibilityLabel={`Modifier l'offre de ${track.title}, en vente à ${(offered.priceCents / 100).toFixed(2)} euros`}
+              >
+                <Text style={[styles.sellTrackText, styles.sellTrackTextOffered]}>{`🏷️ En vente · ${(offered.priceCents / 100).toFixed(2)}€`}</Text>
+              </TouchableOpacity>
+            ) : (
+              <LockedFeatureCard
+                unlocked={Boolean(saleAccess?.unlocked)}
+                title="Vendre des morceaux"
+                requirementLabel="abonnés"
+                current={saleAccess?.followers ?? 0}
+                required={saleAccess?.threshold ?? 100}
+                benefit="Vends tes découvertes, reçois les paiements directement sur ton lien perso, et suis tes ventes dans ton historique."
+                actionLabel="Voir mon profil"
+                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
+                lockedTeaser={<View style={styles.sellTrackButton}><Text style={styles.sellTrackText}>🔒 VENDRE</Text></View>}
+              >
+                <TouchableOpacity
+                  style={styles.sellTrackButton}
+                  onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
+                  accessibilityLabel={`Vendre ${track.title}`}
+                >
+                  <Text style={styles.sellTrackText}>💶 VENDRE</Text>
+                </TouchableOpacity>
+              </LockedFeatureCard>
+            )
+          ) : null}
         </View>
       </View>
     </View>;
@@ -737,12 +768,30 @@ export default function MyMusicScreen({ navigation }: any) {
           }}><Text style={styles.serviceMiniText}>♫ SERVICES</Text></TouchableOpacity>
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
           {marketplaceEnabled && !isAllKeepView ? (
-            <TouchableOpacity style={styles.sellMini} onPress={() => {
-              if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null });
-              else openSellModal({ kind: 'playlist', playlist: item });
-            }}>
-              <Text style={styles.sellMiniText}>{myOffers[item.id] ? `💶 ${(myOffers[item.id].priceCents / 100).toFixed(2)}€` : saleAccess?.unlocked ? (isGroupView ? '💶 VENDRE CET ALBUM' : '💶 VENDRE') : '🔒 VENDRE'}</Text>
-            </TouchableOpacity>
+            myOffers[item.id] ? (
+              <TouchableOpacity style={styles.sellMini} onPress={() => (isGroupView ? openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null }) : openSellModal({ kind: 'playlist', playlist: item }))}>
+                <Text style={styles.sellMiniText}>{`💶 ${(myOffers[item.id].priceCents / 100).toFixed(2)}€`}</Text>
+              </TouchableOpacity>
+            ) : (
+              <LockedFeatureCard
+                unlocked={Boolean(saleAccess?.unlocked)}
+                title={isGroupView ? 'Vendre cet album' : 'Vendre cette playlist'}
+                requirementLabel="abonnés"
+                current={saleAccess?.followers ?? 0}
+                required={saleAccess?.threshold ?? 100}
+                benefit="Vends tes découvertes, reçois les paiements directement sur ton lien perso, et suis tes ventes dans ton historique."
+                actionLabel="Voir mon profil"
+                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
+                lockedTeaser={<View style={styles.sellMini}><Text style={styles.sellMiniText}>🔒 VENDRE</Text></View>}
+              >
+                <TouchableOpacity style={styles.sellMini} onPress={() => {
+                  if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null });
+                  else openSellModal({ kind: 'playlist', playlist: item });
+                }}>
+                  <Text style={styles.sellMiniText}>{isGroupView ? '💶 VENDRE CET ALBUM' : '💶 VENDRE'}</Text>
+                </TouchableOpacity>
+              </LockedFeatureCard>
+            )
           ) : null}
         </View> : null}
       </View> : null}
@@ -823,7 +872,21 @@ export default function MyMusicScreen({ navigation }: any) {
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
           ListHeaderComponent={marketplaceEnabled && localKeptTracks.length ? <View style={styles.selectionToolbar}>
-            {!saleSelectionMode ? <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity> : <>
+            {!saleSelectionMode ? (
+              <LockedFeatureCard
+                unlocked={Boolean(saleAccess?.unlocked)}
+                title="Créer une playlist à vendre"
+                requirementLabel="abonnés"
+                current={saleAccess?.followers ?? 0}
+                required={saleAccess?.threshold ?? 100}
+                benefit="Sélectionne plusieurs morceaux et vends-les groupés comme une découverte musicale, à ton prix."
+                actionLabel="Voir mon profil"
+                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
+                lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE PLAYLIST À VENDRE</Text></View>}
+              >
+                <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity>
+              </LockedFeatureCard>
+            ) : <>
               <View style={styles.selectionToolbarCopy}><Text style={styles.selectionToolbarTitle}>{selectedSaleTrackIds.size} morceau{selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text><Text style={styles.selectionToolbarHint}>Appuie sur les ronds, puis crée ta playlist.</Text></View>
               <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>ANNULER</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
