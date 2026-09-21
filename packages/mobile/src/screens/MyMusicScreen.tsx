@@ -734,6 +734,10 @@ export default function MyMusicScreen({ navigation }: any) {
     const busy = visibilityBusy || deleteBusy;
     const offered = myOfferedTrackIds[track.id];
     const expanded = expandedTrackKeys.has(key);
+    // Adel (21/09/2026) : un morceau reçu d'un autre profil (pas sa propre
+    // découverte) ne peut jamais être mis en vente -- cadenas visible dans
+    // la sélection au lieu d'un blocage silencieux, sans toucher au design.
+    const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);
     // Adel (21/09/2026, maquette interactive validée :
     // https://claude.ai/artifact/9X4dx8oMmCJ3hkRGndc7BW) : grille à
     // colonnes fixes, seule source de vérité TrackActionRow. La sélection
@@ -744,13 +748,15 @@ export default function MyMusicScreen({ navigation }: any) {
     return (
       <View key={key} style={styles.trackRowOuter}>
         {saleSelectionMode && localEntry ? <TouchableOpacity
-          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled]}
-          onPress={() => toggleSaleTrack(track.id)}
+          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, (offered || notOwnDiscovery) && styles.selectionCheckDisabled]}
+          onPress={() => notOwnDiscovery
+            ? Alert.alert('Pas à vendre', `"${track.title}" ne t'appartient pas, elle appartient à un autre utilisateur : tu ne peux pas la vendre.`)
+            : toggleSaleTrack(track.id)}
           disabled={Boolean(offered)}
           accessibilityRole="checkbox"
-          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered) }}
-          accessibilityLabel={offered ? `${track.title} déjà en vente, modifie l'offre existante pour la changer` : `Sélectionner ${track.title}`}
-        ><Text style={styles.selectionCheckText}>{selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
+          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered || notOwnDiscovery) }}
+          accessibilityLabel={notOwnDiscovery ? `${track.title} pas à vendre, appartient à un autre utilisateur` : offered ? `${track.title} déjà en vente, modifie l'offre existante pour la changer` : `Sélectionner ${track.title}`}
+        ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
         <View style={styles.trackRowGrid}>
           <TrackActionRow
             coverUrl={track.artworkUrl}

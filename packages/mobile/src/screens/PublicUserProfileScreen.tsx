@@ -955,10 +955,22 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             -- une seule liste désormais (playlist entière, album ou un
             seul morceau, tout passe par la même offre côté serveur) au
             lieu de deux sections parallèles qui se recoupaient. */}
-        {marketplaceEnabled && saleOffers.length > 0 ? (
+        {marketplaceEnabled ? (
           <View style={styles.browseSection}>
             <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
             <Text style={styles.marketplaceHint}>Des sélections curatées prêtes à rejoindre ta bibliothèque Loki puis tes services connectés.</Text>
+            {saleOffers.length === 0 ? (
+              // Adel (21/09/2026) : "même s'il n'a pas de musique à la vente, il
+              // faut que le système soit fonctionnel et visible" -- jamais de
+              // section entièrement cachée, un état vide explicite à la place.
+              <TouchableOpacity
+                style={styles.marketplaceEmpty}
+                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
+                accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
+              >
+                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
+              </TouchableOpacity>
+            ) : (
             <View style={styles.marketplaceList}>
               {saleOffers.map((offer) => (
                 <View key={offer.offerId} style={styles.marketplaceCard}>
@@ -976,6 +988,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ))}
             </View>
+            )}
           </View>
         ) : null}
 
@@ -1127,7 +1140,7 @@ const styles = StyleSheet.create({
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
-  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
   unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2},
