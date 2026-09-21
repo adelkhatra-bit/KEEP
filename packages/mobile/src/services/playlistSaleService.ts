@@ -399,3 +399,41 @@ export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
     updatedAt: String(row.updated_at ?? row.updatedAt ?? ''),
   })).filter((row) => row.playlistId);
 }
+
+// Adel (21/09/2026, Partie 4) : "je dois pouvoir ajouter d'autres morceaux
+// à cette offre sans devoir tout supprimer et recommencer ... retirer un
+// morceau de cette offre sans casser l'offre entière." L'offre garde son
+// identité (offerId), son prix et son historique -- seule sa composition
+// change.
+export type PlaylistSaleAddTracksResult = { offerId: string; addedCount: number; trackCount: number };
+export type PlaylistSaleRemoveTrackResult = { offerId: string; trackCount: number; offerClosed: boolean };
+
+export async function addTracksToOffer(offerId: string, trackIds: string[]): Promise<PlaylistSaleAddTracksResult> {
+  const { data, error } = await client().rpc('keep_playlist_sale_add_tracks', { p_offer_id: offerId, p_track_ids: trackIds });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_ADD_TRACKS_FAILED'));
+  const row = data as any;
+  return {
+    offerId: String(row?.offerId ?? offerId),
+    addedCount: Number(row?.addedCount ?? 0),
+    trackCount: Number(row?.trackCount ?? 0),
+  };
+}
+
+export async function removeTrackFromOffer(offerId: string, trackId: string): Promise<PlaylistSaleRemoveTrackResult> {
+  const { data, error } = await client().rpc('keep_playlist_sale_remove_track', { p_offer_id: offerId, p_track_id: trackId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_REMOVE_TRACK_FAILED'));
+  const row = data as any;
+  return {
+    offerId: String(row?.offerId ?? offerId),
+    trackCount: Number(row?.trackCount ?? 0),
+    offerClosed: Boolean(row?.offerClosed),
+  };
+}
+
+// (21/09/2026) Corrige un bug latent : "Changer le prix" recréait toute
+// l'offre avec un seul morceau (voir migration 20260921260000) -- cette
+// fonction met à jour le prix sans toucher à la composition.
+export async function updateOfferPrice(offerId: string, priceCents: number): Promise<void> {
+  const { error } = await client().rpc('keep_playlist_sale_update_price', { p_offer_id: offerId, p_price_cents: Math.round(priceCents) });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_UPDATE_PRICE_FAILED'));
+}

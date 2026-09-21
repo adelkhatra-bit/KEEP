@@ -11,7 +11,7 @@ import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
-import { choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection } from '../services/playlistSaleService';
+import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, removeTrackFromOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import {
@@ -454,6 +454,49 @@ export default function MyMusicScreen({ navigation }: any) {
     });
   };
 
+  // (21/09/2026, Partie 4) : "je dois pouvoir ajouter d'autres morceaux à
+  // cette offre existante sans devoir tout supprimer et recommencer" --
+  // réutilise la sélection multiple déjà construite (cases à cocher) au
+  // lieu d'un nouveau sélecteur, avec un choix d'offre si plusieurs
+  // existent (dérivé de myOfferedTrackIds, déjà chargé -- aucun appel
+  // réseau de plus).
+  const existingOffersForAdd = useMemo(() => {
+    const byOfferId = new Map<string, { offerId: string; playlistName: string; priceCents: number }>();
+    Object.values(myOfferedTrackIds).forEach((entry) => {
+      if (!byOfferId.has(entry.offerId)) byOfferId.set(entry.offerId, { offerId: entry.offerId, playlistName: entry.playlistName, priceCents: entry.priceCents });
+    });
+    return Array.from(byOfferId.values());
+  }, [myOfferedTrackIds]);
+
+  const addSelectionToExistingOffer = () => {
+    const trackIds = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
+    if (!trackIds.length) return Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà en vente.');
+
+    const runAdd = async (offerId: string) => {
+      try {
+        const result = await addTracksToOffer(offerId, trackIds);
+        Alert.alert('Ajouté', `${result.addedCount} morceau${result.addedCount > 1 ? 'x' : ''} ajouté${result.addedCount > 1 ? 's' : ''} à l’offre (${result.trackCount} au total).`);
+        cancelSaleSelection();
+        await refreshSaleState();
+      } catch {
+        Alert.alert('Vendre', 'Impossible d’ajouter ces morceaux à l’offre pour le moment.');
+      }
+    };
+
+    if (existingOffersForAdd.length === 1) { void runAdd(existingOffersForAdd[0].offerId); return; }
+    Alert.alert(
+      'Ajouter à quelle offre ?',
+      undefined,
+      [
+        ...existingOffersForAdd.map((offer) => ({
+          text: `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}€`,
+          onPress: () => void runAdd(offer.offerId),
+        })),
+        { text: 'Annuler', style: 'cancel' as const },
+      ],
+    );
+  };
+
   // (21/09/2026) BUG RÉEL corrigé (Adel, profil adel4a) : "modifier l'offre"
   // d'un morceau déjà en vente. Il n'existe pas de RPC "mettre à jour le
   // prix d'une offre existante" -- on retire l'ancienne (par son vrai
@@ -470,6 +513,13 @@ export default function MyMusicScreen({ navigation }: any) {
   // action explicite, ajoutée ici en réutilisant persistOwnTrackVisibility
   // (déjà utilisé plus haut sur cet écran pour PUBLIC/PRIVÉ), sans nouvelle
   // RPC ni nouveau système.
+  // (21/09/2026, Partie 4) BUG RÉEL corrigé : les 3 actions retiraient
+  // TOUTE l'offre (clearPlaylistSalePrice sur tout le playlist_id) même
+  // pour retirer/repricer UN SEUL morceau -- invisible tant qu'une offre
+  // n'avait qu'un morceau (le seul cas réel observé jusqu'ici), mais
+  // aurait détruit les autres morceaux d'une offre à plusieurs titres.
+  // removeTrackFromOffer/updateOfferPrice touchent l'offre EXISTANTE par
+  // son offerId réel, sans jamais recréer ni perdre les autres morceaux.
   const editExistingTrackOffer = (track: CanonicalTrack) => {
     const offered = myOfferedTrackIds[track.id];
     if (!offered) return;
@@ -482,10 +532,10 @@ export default function MyMusicScreen({ navigation }: any) {
           text: 'Retirer de la vente (état d’origine)',
           onPress: async () => {
             try {
-              await clearPlaylistSalePrice(offered.playlistId);
+              await removeTrackFromOffer(offered.offerId, track.id);
               setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
             } catch {
-              Alert.alert('Vendre', 'Impossible de retirer cette offre pour le moment.');
+              Alert.alert('Vendre', 'Impossible de retirer ce morceau de l’offre pour le moment.');
             }
           },
         },
@@ -493,26 +543,35 @@ export default function MyMusicScreen({ navigation }: any) {
           text: 'Retirer et garder masqué',
           onPress: async () => {
             try {
-              await clearPlaylistSalePrice(offered.playlistId);
+              await removeTrackFromOffer(offered.offerId, track.id);
               await persistOwnTrackVisibility(track, 'PRIVATE');
               setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
             } catch {
-              Alert.alert('Vendre', 'Impossible de retirer cette offre pour le moment.');
+              Alert.alert('Vendre', 'Impossible de retirer ce morceau de l’offre pour le moment.');
             }
           },
         },
         {
           text: 'Changer le prix',
-          onPress: async () => {
-            try {
-              await clearPlaylistSalePrice(offered.playlistId);
-              setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
-            } catch {
-              Alert.alert('Vendre', 'Impossible de retirer l’ancienne offre pour le moment.');
-              return;
-            }
-            openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl });
-            setSellPriceCents(offered.priceCents);
+          onPress: () => {
+            Alert.alert(
+              'Nouveau prix',
+              `Prix actuel : ${(offered.priceCents / 100).toFixed(2)}€`,
+              [
+                ...SALE_PRESET_PRICES_CENTS.map((cents) => ({
+                  text: `${(cents / 100).toFixed(2)}€`,
+                  onPress: async () => {
+                    try {
+                      await updateOfferPrice(offered.offerId, cents);
+                      setMyOfferedTrackIds((prev) => ({ ...prev, [track.id]: { ...offered, priceCents: cents } }));
+                    } catch {
+                      Alert.alert('Vendre', 'Impossible de changer le prix pour le moment.');
+                    }
+                  },
+                })),
+                { text: 'Annuler', style: 'cancel' },
+              ],
+            );
           },
         },
       ],
@@ -908,31 +967,25 @@ export default function MyMusicScreen({ navigation }: any) {
           data={localKeptTracks}
           renderItem={({ item }) => renderTrack(item)}
           keyExtractor={(item) => trackIdentity(item)}
-          contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={marketplaceEnabled && localKeptTracks.length ? <View style={styles.selectionToolbar}>
-            {!saleSelectionMode ? (
-              <LockedFeatureCard
-                unlocked={Boolean(saleAccess?.unlocked)}
-                title="Créer une playlist à vendre"
-                requirementLabel="abonnés"
-                current={saleAccess?.followers ?? 0}
-                required={saleAccess?.threshold ?? 100}
-                benefit="Sélectionne plusieurs morceaux et vends-les groupés comme une découverte musicale, à ton prix."
-                actionLabel="Voir mon profil"
-                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE PLAYLIST À VENDRE</Text></View>}
-              >
-                <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity>
-              </LockedFeatureCard>
-            ) : <>
-              <View style={styles.selectionToolbarCopy}><Text style={styles.selectionToolbarTitle}>{selectedSaleTrackIds.size} morceau{selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text><Text style={styles.selectionToolbarHint}>Appuie sur les ronds, puis crée ta playlist.</Text></View>
-              <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>ANNULER</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
-            </>}
+          ListHeaderComponent={marketplaceEnabled && localKeptTracks.length && !saleSelectionMode ? <View style={styles.selectionToolbar}>
+            <LockedFeatureCard
+              unlocked={Boolean(saleAccess?.unlocked)}
+              title="Créer une playlist à vendre"
+              requirementLabel="abonnés"
+              current={saleAccess?.followers ?? 0}
+              required={saleAccess?.threshold ?? 100}
+              benefit="Sélectionne plusieurs morceaux et vends-les groupés comme une découverte musicale, à ton prix."
+              actionLabel="Voir mon profil"
+              onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
+              lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE PLAYLIST À VENDRE</Text></View>}
+            >
+              <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity>
+            </LockedFeatureCard>
           </View> : null}
           ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+          contentContainerStyle={[styles.list, saleSelectionMode && styles.listWithStickyFooter]}
         />
       ) : (
         <FlatList
@@ -945,6 +998,23 @@ export default function MyMusicScreen({ navigation }: any) {
           ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
         />
       )}
+
+      {/* Adel (21/09/2026) : "ce bouton descend au fur et à mesure pour ne
+          pas avoir à remonter jusqu'en haut pour valider" -- barre de
+          confirmation collée en bas de l'écran pendant la sélection,
+          au lieu de rester en haut de la liste (ListHeaderComponent). */}
+      {activeTab === 'MUSIQUES' && saleSelectionMode ? (
+        <View style={styles.stickySelectionFooter}>
+          <View style={styles.selectionToolbarCopy}><Text style={styles.selectionToolbarTitle}>{selectedSaleTrackIds.size} morceau{selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text><Text style={styles.selectionToolbarHint}>Appuie sur les ronds, puis crée ta playlist.</Text></View>
+          <View style={styles.stickySelectionActions}>
+            <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>ANNULER</Text></TouchableOpacity>
+            {existingOffersForAdd.length ? (
+              <TouchableOpacity style={styles.selectionAddButton} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}><Text style={styles.selectionAddText}>＋ OFFRE EXISTANTE</Text></TouchableOpacity>
+            ) : null}
+            <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
 
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
@@ -1050,7 +1120,12 @@ const styles = StyleSheet.create({
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
-  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
+  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
+  // (21/09/2026) : "ce bouton descend au fur et à mesure" -- barre de
+  // confirmation collée en bas de l'écran pendant la sélection multiple.
+  listWithStickyFooter:{paddingBottom:96},
+  stickySelectionFooter:{position:'absolute',left:12,right:12,bottom:12,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',gap:8,shadowColor:'#000',shadowOpacity:0.3,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:6},
+  stickySelectionActions:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},
   // Adel (21/09/2026) : hauteur fixe (56, plus compacte que les cartes de
