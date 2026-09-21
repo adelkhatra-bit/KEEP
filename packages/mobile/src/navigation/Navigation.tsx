@@ -20,6 +20,7 @@ import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
+import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -49,6 +50,7 @@ const linking = {
       Notifications: 'notifications',
       Offers: 'offers',
       PlaylistSale: 'playlist-sale',
+      PlaylistSaleHistory: 'playlist-sale-history',
       AppleMusicConnect: 'apple-music-connect',
     },
   },
@@ -149,6 +151,7 @@ export default function Navigation() {
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="Offers" component={OffersScreen} />
         <RootStack.Screen name="PlaylistSale" component={PlaylistSalePanel} />
+        <RootStack.Screen name="PlaylistSaleHistory" component={PlaylistSaleHistoryScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />

@@ -171,8 +171,11 @@ export type PlaylistDeliveryResult = {
   deliveredAt: string;
 };
 
-export async function markPlaylistSalePaid(paymentId: string): Promise<PlaylistDeliveryResult> {
-  const { data, error } = await client().rpc('keep_playlist_sale_mark_paid_and_deliver', { p_payment_id: paymentId });
+// Adel (21/09/2026, mission 3/3, base compta) : référence de paiement
+// optionnelle (ex. identifiant de transaction PayPal collé par le vendeur)
+// -- utile pour l'historique même sans intégration PayPal réelle.
+export async function markPlaylistSalePaid(paymentId: string, paymentReference?: string): Promise<PlaylistDeliveryResult> {
+  const { data, error } = await client().rpc('keep_playlist_sale_mark_paid_and_deliver', { p_payment_id: paymentId, p_payment_reference: paymentReference ?? null });
   if (error) throw new Error(String(error.message || 'PLAYLIST_MARK_PAID_FAILED'));
   const row = data as any;
   return {
@@ -207,6 +210,46 @@ export async function loadMyPlaylistSales(): Promise<PlaylistSaleTransaction[]> 
     currencyCode: String(row.currency_code ?? 'EUR'),
     status: row.status,
     createdAt: String(row.created_at ?? ''),
+  })).filter((row) => row.id);
+}
+
+// Adel (21/09/2026, mission 3/3) : "Écran historique des ventes : liste
+// transactions pour le vendeur (base compta : seller_id, buyer_id,
+// playlist_id, amount, currency, status, dates, paypal_tx_id)." Champs
+// déjà présents en base (voir migration 20260921220000) -- juste exposés
+// ici, aucune nouvelle table.
+export type PlaylistSaleHistoryEntry = {
+  id: string;
+  buyerId: string;
+  buyerUsername: string;
+  playlistId: string;
+  playlistName: string;
+  amountCents: number;
+  currencyCode: string;
+  status: 'PENDING' | 'COMPLETED';
+  provider: string;
+  paymentReference: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+};
+
+export async function loadMySalesHistory(): Promise<PlaylistSaleHistoryEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_my_sales');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.id ?? ''),
+    buyerId: String(row.buyer_id ?? ''),
+    buyerUsername: String(row.buyer_username ?? ''),
+    playlistId: String(row.playlist_id ?? ''),
+    playlistName: String(row.playlist_name ?? ''),
+    amountCents: Number(row.amount_cents ?? 0),
+    currencyCode: String(row.currency_code ?? 'EUR'),
+    status: row.status,
+    provider: String(row.provider ?? ''),
+    paymentReference: row.provider_payment_id ?? null,
+    createdAt: String(row.created_at ?? ''),
+    deliveredAt: row.delivered_at ?? null,
   })).filter((row) => row.id);
 }
 

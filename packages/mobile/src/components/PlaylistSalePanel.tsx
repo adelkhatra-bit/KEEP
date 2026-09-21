@@ -185,7 +185,11 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <Text style={s.title}>💰 Vendre mes playlists</Text>
           <Text style={s.subtitle}>Fixe tes prix, gagne avec ta sélection</Text>
         </View>
-        <View style={s.headerSpacer} />
+        {/* Adel (21/09/2026, mission 3/3) : "Écran historique des ventes"
+            -- lecture seule, séparé de ce panneau de gestion. */}
+        <TouchableOpacity style={s.historyLink} onPress={() => navigation.navigate('PlaylistSaleHistory')} accessibilityLabel="Voir l'historique complet des ventes">
+          <Text style={s.historyLinkText}>Historique</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -409,6 +413,8 @@ const s = StyleSheet.create({
   title: { ...typography.h3, color: colors.textPrimary },
   subtitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '800', marginTop: 2 },
   headerSpacer: { width: 42 },
+  historyLink: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  historyLinkText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   centerView: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 200 },
   errorBox: { borderRadius: radius.lg, backgroundColor: '#5C2C3C', borderWidth: 1, borderColor: '#E74C8C', padding: spacing.lg, alignItems: 'center' },
