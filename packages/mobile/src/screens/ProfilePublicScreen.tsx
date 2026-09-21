@@ -35,7 +35,6 @@ import ProfileCounterRow from '../components/ProfileCounterRow';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import PresenceDot from '../components/PresenceDot';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
-import PlaylistSaleCard from '../components/PlaylistSaleCard';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
@@ -1030,14 +1029,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
       <View key={`profile-tab-${activeTab}`}>{tabContent()}</View>
 
-      {marketplaceEnabled && playlistSaleOffers.length > 0 && playlistSaleOffers.map((offer) => (
-        <PlaylistSaleCard
-          key={offer.id}
-          offer={offer}
-          isAuthenticated={!accountRequired && !!user}
-          onAuthRequired={() => openAccount('create')}
-        />
-      ))}
+      {/* (21/09/2026) Adel a signalé un bouton "ACHETER" vert sur le
+          profil -- c'était CE bloc : il s'affichait sur son PROPRE profil
+          (playlistSaleOffers = ses propres offres, seller_id = user.id) et
+          ne pouvait jamais aboutir (le serveur refuse CANNOT_BUY_OWN_PLAYLIST).
+          Un vendeur ne doit jamais voir un CTA d'achat sur sa propre offre ;
+          la gestion (modifier/retirer) vit déjà dans le menu "Vendre mes
+          playlists" (PlaylistSalePanel). Remplacé par un simple statut. */}
+      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
+        <View style={s.ownOffersStatus}>
+          <Text style={s.ownOffersStatusText}>
+            🏷️ {playlistSaleOffers.length} découverte{playlistSaleOffers.length > 1 ? 's' : ''} musicale{playlistSaleOffers.length > 1 ? 's' : ''} en vente
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes découvertes en vente">
+            <Text style={s.ownOffersManageLink}>Gérer</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={s.communitySection}>
         {/* Adel (09/09/2026) : "abonnement on devrait le descendre a la
@@ -1341,6 +1349,7 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   communitySection:{marginHorizontal:18,gap:2},
   collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
+  ownOffersStatus:{marginHorizontal:18,marginTop:10,minHeight:44,paddingHorizontal:14,borderRadius:12,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},ownOffersStatusText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',flex:1},ownOffersManageLink:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
   tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepRowPrivate:{opacity:0.55},privateLock:{fontSize:13,marginRight:2},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},trackShareText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:colors.textPrimary,fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},originUserText:{color:colors.success,fontSize:12,fontWeight:'900'},originProtected:{color:colors.success,fontSize:12,fontWeight:'800'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',gap:7,paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistShareButtonSecondary:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},playlistShareTextSecondary:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
