@@ -14,6 +14,7 @@ import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
+import TrackActionRow from '../components/TrackActionRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
@@ -857,72 +858,76 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
                 const trackLikeCount = likeCounts[track.trackId] || 0;
                 const trackExpanded = expandedTrackKeys.has(track.id);
-                // Adel (21/09/2026, maquette "Cartes Loki — nouveau design"
-                // validée) : Jouer/Aimer/Partager/Garder redeviennent des
-                // carrés 40×40 TOUJOURS visibles dans la rangée fixe --
-                // liker ou partager ne doit jamais exiger de déplier une
-                // carte. Le chevron ne garde plus que le badge 1er KEEP et
-                // l'attribution "Découvert par", jamais une action rapide.
-                return <View key={track.id} style={styles.trackCard}>
-                  <View style={styles.musicRow}>
-                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
-                    <View style={styles.trackInfo}>
-                      <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
-                      <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
-                    </View>
-                    <View style={styles.actionSquares}>
-                      <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />
-                      {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
-                          le coeur en vert, entoure-le pour qu'on le voit bien"
-                          -- incite a etre le premier a liker. */}
-                      <TouchableOpacity style={[styles.squareLike, liked && styles.squareLikeActive, !liked && trackLikeCount === 0 && styles.squareLikeEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}>
-                        <Text style={[styles.squareLikeHeart, liked && styles.squareLikeHeartActive]}>{liked ? '♥' : '♡'}</Text>
-                        <Text style={styles.squareLikeCount}>{trackLikeCount}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.squareShare} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)} accessibilityLabel="Partager ce morceau">
-                        <Text style={styles.squareShareIcon}>↗</Text>
-                      </TouchableOpacity>
-                      {viewer?.id !== profile.id ? (
-                        <TouchableOpacity style={[styles.squareKeep, alreadyKept && styles.squareKeepActive]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding} accessibilityLabel={alreadyKept ? 'Déjà dans ton Loki' : 'Garder ce morceau'}>
-                          <Text style={[styles.squareKeepIcon, alreadyKept && styles.squareKeepIconActive]}>{adding ? '…' : alreadyKept ? '✓' : '+'}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    <TouchableOpacity style={styles.expandToggle} onPress={() => toggleTrackExpanded(track.id)} accessibilityLabel={trackExpanded ? 'Masquer les détails' : 'Voir les détails : découverte'} accessibilityRole="button">
-                      <Text style={styles.expandToggleText}>{trackExpanded ? '⌃' : '⌄'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {trackExpanded ? (
-                    <View style={styles.expandedPanel}>
-                      {isFirstKeep ? (
-                        <View style={styles.firstKeepBlock}>
-                          <View style={styles.firstKeepRow}><View style={styles.firstKeepBadge}><Text style={styles.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={styles.firstKeepCount}>{discoveryImpact!.recoveryCount + 1} KEEPs</Text></View>
-                          <Text style={styles.firstKeepLine}>@{profile.username} a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : ''}</Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.discoveryOriginRow}>
-                        <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                        {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
-                          const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
-                          // Adel (08/09/2026) : "si abonne on met vert, si pas
-                          // abonne on met rouge ... incite a cliquer dessus" --
-                          // le contour porte ce signal, le fond reste la couleur
-                          // de certification.
-                          const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
-                          return (
-                            <TouchableOpacity
-                              style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
-                              onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
-                              accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
-                            >
-                              <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
-                            </TouchableOpacity>
-                          );
-                        })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
+                // Adel (21/09/2026, maquette interactive validée :
+                // https://claude.ai/artifact/9X4dx8oMmCJ3hkRGndc7BW) : grille
+                // à colonnes fixes, seule source de vérité TrackActionRow.
+                // 4 carrés (Play/Like/État/Partager) -- Like et Garder sont
+                // deux actions indépendantes, jamais fusionnées. Le chevron
+                // ne garde plus que le badge 1er KEEP et l'attribution.
+                return (
+                  <TrackActionRow
+                    key={track.id}
+                    coverUrl={track.artworkUrl}
+                    coverFallbackText={(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}
+                    title={track.title}
+                    artist={track.artist}
+                    playSlot={<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />}
+                    actions={[
+                      {
+                        key: 'like',
+                        icon: liked ? '♥' : '♡',
+                        counter: trackLikeCount,
+                        tone: liked ? 'pink' : undefined,
+                        onPress: () => void toggleLike(track.trackId),
+                        accessibilityLabel: liked ? 'Retirer le like' : 'Liker ce morceau',
+                      },
+                      ...(viewer?.id !== profile.id ? [{
+                        key: 'keep',
+                        icon: adding ? '…' : alreadyKept ? '✓' : '+',
+                        tone: alreadyKept ? ('success' as const) : undefined,
+                        onPress: () => (alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)),
+                        accessibilityLabel: alreadyKept ? 'Déjà dans ton Loki' : 'Garder ce morceau',
+                        disabled: adding,
+                      }] : []),
+                      {
+                        key: 'share',
+                        icon: '↗',
+                        onPress: () => void shareProfileTrack(profile.username, track.title, track.artist),
+                        accessibilityLabel: 'Partager ce morceau',
+                      },
+                    ]}
+                    expandable={isFirstKeep || Boolean(discoveryUsername)}
+                    expanded={trackExpanded}
+                    onToggleExpand={() => toggleTrackExpanded(track.id)}
+                  >
+                    {isFirstKeep ? (
+                      <View style={styles.firstKeepBlock}>
+                        <View style={styles.firstKeepRow}><View style={styles.firstKeepBadge}><Text style={styles.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={styles.firstKeepCount}>{discoveryImpact!.recoveryCount + 1} KEEPs</Text></View>
+                        <Text style={styles.firstKeepLine}>@{profile.username} a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : ''}</Text>
                       </View>
+                    ) : null}
+                    <View style={styles.discoveryOriginRow}>
+                      <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
+                      {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
+                        const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
+                        // Adel (08/09/2026) : "si abonne on met vert, si pas
+                        // abonne on met rouge ... incite a cliquer dessus" --
+                        // le contour porte ce signal, le fond reste la couleur
+                        // de certification.
+                        const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
+                        return (
+                          <TouchableOpacity
+                            style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
+                            onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
+                            accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
+                          >
+                            <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
+                          </TouchableOpacity>
+                        );
+                      })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                     </View>
-                  ) : null}
-                </View>;
+                  </TrackActionRow>
+                );
               })}</View>
             ) : null}
           </View>
@@ -1130,21 +1135,13 @@ const styles = StyleSheet.create({
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},
   publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},
-  // Adel (21/09/2026) : hauteur fixe (64) explicite -- plus jamais de
-  // variation selon le contenu. Le panneau dépliable (expandedPanel) vit
-  // HORS de cette rangée, dans trackCard.
-  trackCard:{borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  // Adel (21/09/2026, maquette interactive validée) : la grille de la liste
+  // de morceaux (hauteur fixe, carrés, chevron, panneau) vit désormais dans
+  // TrackActionRow.tsx (source de vérité unique). musicRow/musicCover/
+  // trackInfo/trackTitle/trackArtist restent utilisés par l'onglet
+  // Artistes (ligne "groupe par artiste"), inchangé.
   musicRow:{flexDirection:'row',alignItems:'center',height:64,paddingHorizontal:9,gap:8},musicCover:{width:48,height:48,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},
-  expandToggle:{width:32,height:44,alignItems:'center',justifyContent:'center'},expandToggleText:{color:colors.textMuted,fontSize:16,fontWeight:'900'},
-  expandedPanel:{paddingHorizontal:9,paddingBottom:10,paddingTop:2,gap:6,borderTopWidth:1,borderTopColor:colors.border},
   discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
-  // Maquette validée "Cartes Loki — nouveau design" (21/09/2026) : carrés
-  // d'action 40×40 uniformes (Jouer/Aimer/Partager/Garder), toujours
-  // visibles dans la rangée fixe -- jamais cachés derrière le chevron.
-  actionSquares:{flexDirection:'row',alignItems:'center',gap:6},
-  squareLike:{width:40,height:40,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},squareLikeActive:{borderColor:'#FF5F83'},squareLikeEmpty:{borderColor:'#38D990',borderWidth:2},squareLikeHeart:{color:colors.textSecondary,fontSize:14},squareLikeHeartActive:{color:'#FF5F83'},squareLikeCount:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:1},
-  squareShare:{width:40,height:40,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},squareShareIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
-  squareKeep:{width:40,height:40,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},squareKeepActive:{backgroundColor:`${colors.success}22`,borderColor:colors.success},squareKeepIcon:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},squareKeepIconActive:{color:colors.success},
   muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},

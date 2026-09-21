@@ -57,37 +57,41 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
   });
 
   describe('PublicUserProfileScreen.tsx (profil visité)', () => {
-    it('the main row has an explicit fixed height, not derived from content', () => {
-      expect(visited).toContain("musicRow:{flexDirection:'row',alignItems:'center',height:64,paddingHorizontal:9,gap:8}");
+    // (21/09/2026, révision) : la grille (hauteur fixe, troncature, carrés,
+    // chevron, panneau replié par défaut) a été extraite dans
+    // TrackActionRow.tsx -- déjà couverte par TrackActionRow.test.ts. Ce
+    // qui reste à vérifier ici : la délégation, les 4 carrés (Play/Like/
+    // État/Partager, Like et Garder INDÉPENDANTS), et que seuls le badge
+    // 1er KEEP + l'attribution restent dans le panneau.
+    it('delegates the row layout to TrackActionRow instead of a local implementation', () => {
+      expect(visited).toContain("import TrackActionRow from '../components/TrackActionRow';");
+      expect(visited).toContain('<TrackActionRow');
+      expect(visited).toContain('playSlot={<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />}');
     });
 
-    it('title and artist are single-line, truncated with an ellipsis, never wrapping', () => {
-      expect(visited).toContain('<Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>');
-      expect(visited).toContain('<Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>');
+    it('supplies 4 independent actions -- like and keep never share a square (a track can be liked without being kept, and vice versa)', () => {
+      const rowIdx = visited.indexOf('<TrackActionRow');
+      const closeIdx = visited.indexOf('</TrackActionRow>');
+      const block = visited.slice(rowIdx, closeIdx);
+      expect(block).toContain("key: 'like',");
+      expect(block).toContain("key: 'keep',");
+      expect(block).toContain("key: 'share',");
+      expect(block).toContain("onPress: () => void toggleLike(track.trackId),");
+      expect(block).toContain('onPress: () => (alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)),');
     });
 
-    it('only the 1er KEEP badge and "Découvert par" attribution stay in the collapsible panel -- never in the fixed row (revised 21/09/2026, maquette "Cartes Loki — nouveau design" validée : Like/Partager ne doivent plus jamais exiger un déplié)', () => {
-      const rowBlock = visited.slice(visited.indexOf('<View style={styles.musicRow}>'), visited.indexOf('{trackExpanded ? ('));
-      expect(rowBlock).not.toContain('firstKeepBadge');
-      expect(rowBlock).not.toContain('Découvert par');
-      const panelBlock = visited.slice(visited.indexOf('{trackExpanded ? ('), visited.indexOf('{trackExpanded ? (') + 2000);
-      expect(panelBlock).toContain('firstKeepBadge');
-      expect(panelBlock).toContain('Découvert par');
-      expect(panelBlock).not.toContain('squareLike');
-      expect(panelBlock).not.toContain('squareShare');
+    it('only the 1er KEEP badge and "Découvert par" attribution are passed as TrackActionRow children (the panel) -- Like/Partager/Garder are actions, never panel content', () => {
+      const rowIdx = visited.indexOf('<TrackActionRow');
+      const closeIdx = visited.indexOf('</TrackActionRow>');
+      expect(rowIdx).toBeGreaterThan(-1);
+      const childrenBlock = visited.slice(rowIdx, closeIdx);
+      expect(childrenBlock).toContain('firstKeepBadge');
+      expect(childrenBlock).toContain('Découvert par');
     });
 
-    it('the panel is collapsed by default and toggled by a chevron, not shown automatically', () => {
+    it('the panel only opens when there is something to show, collapsed by default', () => {
       expect(visited).toContain('const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());');
-      expect(visited).toContain("<Text style={styles.expandToggleText}>{trackExpanded ? '⌃' : '⌄'}</Text>");
-    });
-
-    it('play, like, share and keep are always-visible 40×40 squares in the fixed row, never behind the chevron', () => {
-      const rowBlock = visited.slice(visited.indexOf('<View style={styles.musicRow}>'), visited.indexOf('{trackExpanded ? ('));
-      expect(rowBlock).toContain('<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />');
-      expect(rowBlock).toContain('styles.squareLike');
-      expect(rowBlock).toContain('styles.squareShare');
-      expect(rowBlock).toContain('styles.squareKeep');
+      expect(visited).toContain('expandable={isFirstKeep || Boolean(discoveryUsername)}');
     });
   });
 
