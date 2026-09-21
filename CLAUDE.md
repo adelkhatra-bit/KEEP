@@ -116,6 +116,28 @@ Exécuter/laisser passer au minimum :
 
 Si un test échoue, ne pas annoncer PASS.
 
+## JEV (TypeSafe AI) — décisions binaires/simples à bas coût
+
+Un juge auxiliaire (plugin `typesafe@jev`, marketplace `gecm0/jev-judge-mcp`,
+installé au niveau du compte Claude Code) répond par jugement typé
+(oui/non, score, sélection) au lieu de générer du texte -- très bon marché
+par rapport à un tour de raisonnement complet. Il **envoie les données
+fournies à `api.typesafe.ai`** (service tiers) : jamais de secret/clé, et
+réfléchir avant d'y passer du code propriétaire sensible.
+
+- **Utiliser** (outil `judge` du MCP) : validations binaires courtes,
+  classification, score de confiance, choix entre options déjà énumérées,
+  garde-fous avant une action (ex. "cette réponse contredit-elle un fait
+  déjà établi dans la conversation ?"). Toujours un jugement TYPÉ sur du
+  texte/JSON déjà en main -- jamais une génération.
+- **Ne jamais utiliser** pour : lire un fichier, écrire/modifier du code,
+  générer du texte explicatif, une réponse destinée à Adel. JEV ne fait
+  aucune de ces choses.
+- **Repli obligatoire** : si l'outil `judge` n'apparaît pas dans les outils
+  disponibles de la session (le plugin peut demander un redémarrage de
+  session pour s'enregistrer), continuer normalement sans lui -- ne jamais
+  bloquer une tâche en attendant JEV.
+
 ## Coordination IA
 
 Avant modification, lire :
