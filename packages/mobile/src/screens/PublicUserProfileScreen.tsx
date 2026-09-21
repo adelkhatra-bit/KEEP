@@ -17,7 +17,6 @@ import TrackPreviewButton from '../components/TrackPreviewButton';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
-import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { persistEnrichedGenres } from '../services/smartAlbumService';
@@ -47,8 +46,18 @@ type PublicKeepTrack = {
   sourceUsername?: string;
   sourceCertificationTier?: ProfileCertificationTier;
   sourceIsFollowing?: boolean;
+  keptAt?: string;
 };
 type SocialPlatform = SocialLink['platform'];
+// (21/09/2026) refonte collection -- pas d'onglet "Vibes" ici : contrairement
+// au propre profil, les playlists/albums intelligents d'un tiers ne sont
+// jamais interrogeables pour un visiteur (ils dépendent de la session
+// provider du PROFIL VISITÉ, pas de la nôtre). Seuls Musiques et Artistes ont
+// une vraie source de données publique.
+type ProfileTab = 'TRACKS' | 'ARTISTS';
+const TABS: { key: ProfileTab; label: string }[] = [
+  { key: 'TRACKS', label: 'Musiques' }, { key: 'ARTISTS', label: 'Artistes' },
+];
 
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
   { platform: 'instagram', label: 'Instagram' },
@@ -198,6 +207,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           sourceUsername: entry.sourceUsername,
           sourceCertificationTier: entry.sourceCertificationTier,
           sourceIsFollowing: entry.sourceIsFollowing,
+          keptAt: entry.keptAt,
         } as PublicKeepTrack));
 
         if (cancelled) return;
@@ -304,7 +314,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // compact + dérouleur), plus un mur de puces qui grossit avec la taille
   // de la collection.
   const [styleModalOpen, setStyleModalOpen] = useState(false);
-  const [artistModalOpen, setArtistModalOpen] = useState(false);
+  // (21/09/2026) refonte collection -- "PAR ARTISTE" (bouton + modale)
+  // retiré : l'onglet Artistes ci-dessous ouvre exactement la même liste,
+  // avec la même action (Swipe filtré). Ne pas garder les deux, même
+  // fonction, pour ne pas dupliquer.
+  const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
   const genreOptions = useMemo(() => {
     const counts = new Map<string, number>();
     for (const track of swipeTracks) for (const genre of track.genres ?? []) {
@@ -331,6 +345,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       ? swipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === browseFilter.value))
       : swipeTracks.filter((track) => canonicalArtistIdentity(track) === browseFilter.value);
   }, [swipeTracks, browseFilter]);
+  // (21/09/2026) refonte "1er KEEP" -- même calcul que ProfilePublicScreen,
+  // à partir de discoveryImpacts (déjà chargé, réel) et keptAt (déjà
+  // renvoyé par loadPublicProfileKeeps, juste jamais mappé jusqu'ici).
+  const daysAgo = (iso?: string | null) => { if (!iso) return null; return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)); };
   const openBrowseSwipe = (filter: { type: 'genre' | 'artist'; value: string; label: string } | null) => {
     // Adel (20/09/2026) : BUG RÉEL -- l'autoplay du Swipe ne démarrait
     // jamais tout seul sur le web, forçant "ÉCOUTER L'EXTRAIT" à chaque
@@ -655,45 +673,37 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
           </View>
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-          {/* Adel (09/09/2026) : "meme design que le profil normal ...
-              abonnement descend a la place de reprise et reprise remonte" --
-              memes pastilles/style musical au clic, meme ordre que le
-              propre profil. */}
+        </View>
+
+        {/* DESIGN_SYSTEM v3 (21/09/2026) : ordre validé par Adel -- identité,
+            puis compteurs regroupés en UN SEUL bloc (avant : Abonnés/Reprises
+            dans hero, Morceaux/Abonnements plus bas séparés par Réseaux/DNA/
+            Boutique entre les deux), puis "Ma collection". */}
+        <View style={styles.unifiedCounters}>
           <ProfileCounterRow kind="connections" items={[
             { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
             { value: socialKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
           ]} />
           {!isLocalGuest && !isDemoMode && communityMode === 'followers' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
+          <ProfileCounterRow kind="keeps" items={[
+            { value: directKeepCount, label: 'Morceaux' },
+            { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+          ]} />
+          {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
-        {(() => {
-          const configuredSocials = SOCIALS.filter((item) => profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim()));
-          if (!configuredSocials.length) return null;
-          return (
-            <View style={styles.socialHub}>
-              <Text style={styles.socialTitle}>Ses réseaux</Text>
-              <View style={styles.socialRow}>
-                {configuredSocials.map((item) => (
-                  <TouchableOpacity key={item.platform} style={[styles.socialButton, styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF'} /></TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          );
-        })()}
-
-        {/* Adel (02/09/2026) : "on me montrera pas le lien du site, on
-            mettra un bouton" -- jamais l'URL affichée, juste le libellé
-            choisi par le propriétaire du profil. */}
-        {(() => {
-          const websiteLink = profile.socialLinks.find((link) => link.platform === 'website' && link.url.trim());
-          if (!websiteLink) return null;
-          const openWebsite = async () => {
-            let url = websiteLink.url.trim();
-            if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-            try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce site pour le moment.'); }
-          };
-          return <TouchableOpacity style={styles.websiteButton} onPress={() => void openWebsite()} accessibilityLabel={websiteLink.label || 'Site web'}><Text style={styles.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text></TouchableOpacity>;
-        })()}
+        <View style={styles.collectionHeader}>
+          <Text style={styles.collectionTitle}>Ma collection</Text>
+          <Text style={styles.collectionCount}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''}</Text>
+        </View>
+        <View style={styles.tabsRow}>
+          <View style={styles.tabs}>{TABS.map((tab) => <TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Collection ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.indicator} /> : null}</TouchableOpacity>)}</View>
+          {activeTab === 'TRACKS' && genreOptions.length > 0 ? (
+            <TouchableOpacity style={styles.filterButton} onPress={() => setStyleModalOpen(true)} accessibilityLabel={`Filtrer par style, ${genreOptions.length} disponibles`}>
+              <Text style={styles.filterButtonText}>Filtrer</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
         <View style={styles.dna}>
           <View style={styles.dnaHeader}><View><Text style={styles.dnaEyebrow}>Loki DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View><Text style={styles.publicCount}>{tracks.length}</Text></View>
@@ -702,8 +712,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               "R&B/Soul, Hip-hop/Rap, Miguel, The Gap Band" sans distinction).
               Deux rangées étiquetées séparément ; une puce qui correspond à
               un style/artiste réel de la collection ouvre directement le
-              Swipe filtré (le même système que "Parcourir la collection"
-              juste en dessous), au lieu de rester une simple étiquette
+              Swipe filtré, au lieu de rester une simple étiquette
               décorative. Le résumé "Albums : <titres bruts concaténés>"
               retiré : peu lisible et déjà couvert par la sélection Artiste
               (un album, ici, c'est quasi toujours un seul morceau -- audit
@@ -737,7 +746,131 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {profile.favoriteGenres.length === 0 && profile.favoriteArtists.length === 0 ? <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text> : null}
         </View>
 
-        {tracks.length > 0 && viewer?.id !== profile.id ? <TouchableOpacity style={styles.swipeLaunch} onPress={() => openBrowseSwipe(null)}><Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text><Text style={styles.swipeLaunchText}>Lecture automatique des extraits · Loki te signale les morceaux déjà présents dans tes musiques.</Text></TouchableOpacity> : null}
+        <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
+          <View style={styles.modalBackdrop}><View style={styles.editCard}>
+            <Text style={styles.editTitle}>Parcourir par style</Text>
+            <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
+              {genreOptions.map(({ genre, count }) => (
+                <TouchableOpacity key={genre} style={styles.pickerRow} onPress={() => { setStyleModalOpen(false); openBrowseSwipe({ type: 'genre', value: genre, label: genre }); }}>
+                  <Text style={styles.pickerRowText}>{genre}</Text>
+                  <Text style={styles.pickerRowCount}>{count}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setStyleModalOpen(false)}><Text style={styles.cancelText}>Fermer</Text></TouchableOpacity>
+          </View></View>
+        </Modal>
+
+        {activeTab === 'TRACKS' ? (
+          <View style={styles.publicMusicSection}>
+            <TouchableOpacity style={styles.musicSectionHeader} onPress={() => setMusicListExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={musicListExpanded ? 'Réduire les morceaux publics' : 'Voir les morceaux publics un par un'}>
+              <Text style={styles.sectionTitle}>Morceaux publics</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={styles.publicCount}>{tracks.length}</Text><Text style={styles.chevron}>{musicListExpanded ? '⌃' : '⌄'}</Text></View>
+            </TouchableOpacity>
+            {!musicListExpanded && tracks.length > 0 ? <Text style={styles.mutedSmall}>Voir chaque morceau un par un (garder, partager, aimer) — le Swipe et les puces au-dessus suffisent pour découvrir toute la collection.</Text> : null}
+            {musicListExpanded && tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : null}
+            {musicListExpanded && tracks.length > 0 ? (
+              <View style={styles.musicList}>{tracks.map((track) => {
+                const liked = likedTrackIds.has(track.trackId);
+                const adding = addingTrackIds.has(track.trackId);
+                const alreadyKept = alreadyInMyKeep(track.trackId);
+                const directDiscovery = !track.sourceUserId && !track.sourceProfileId;
+                const discoveryUsername = track.sourceUsername || (directDiscovery ? profile.username : '');
+                const discoveryImpact = discoveryImpacts[track.trackId];
+                // DESIGN_SYSTEM v3 (21/09/2026) : "1er KEEP" -- même format
+                // que ProfilePublicScreen.tsx, mêmes données réelles
+                // (discoveryImpacts, keptAt). Un morceau où ce profil visité
+                // est bien l'origine (directDiscovery) ET qui a un impact
+                // réel (recoveryCount > 0) affiche le badge + la ligne +
+                // le compteur ; sinon rien n'est affiché (jamais de chiffre
+                // inventé). Remplace l'ancien DiscoveryImpactLabel.
+                const isFirstKeep = directDiscovery && !!discoveryImpact && discoveryImpact.recoveryCount > 0;
+                // Adel (09/09/2026) : "c'est pas du tout le meme design que
+                // sur le profil, reamenage utilise le meme design sauf que tu
+                // rajoutes le coeur en plus" -- meme structure compacte que le
+                // propre profil (bouton(s) en ligne a cote du titre), avec le
+                // coeur en plus et un bouton Garder en ligne (au lieu de la
+                // pile Jouer/Garder pleine largeur).
+                // Adel (09/09/2026, second passage) : "descends [Decouvert par]
+                // aligne a Partager et aux petits coeurs ... laisse-le du cote
+                // ou y a marque Jouer et Garder" -- Decouvert par descend dans
+                // la ligne Partager/coeur, aligne a droite (meme cote que
+                // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
+                const trackLikeCount = likeCounts[track.trackId] || 0;
+                return <View key={track.id} style={styles.musicRow}>
+                  {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
+                  <View style={styles.trackInfo}>
+                    <View style={styles.trackTitleRow}>
+                      <View style={styles.trackTitleBlock}><Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text></View>
+                      <View style={styles.trackRightColumn}>
+                        <View style={styles.trackInlineActions}>
+                          <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
+                          {viewer?.id !== profile.id ? (
+                            <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding}>
+                              <Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]} numberOfLines={1}>{adding ? '…' : alreadyKept ? '✓ Gardé' : '+ Garder'}</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                    {isFirstKeep ? (
+                      <View style={styles.firstKeepBlock}>
+                        <View style={styles.firstKeepRow}><View style={styles.firstKeepBadge}><Text style={styles.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={styles.firstKeepCount}>{discoveryImpact!.recoveryCount + 1} KEEPs</Text></View>
+                        <Text style={styles.firstKeepLine}>@{profile.username} a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : ''}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.trackActions}>
+                      <View style={styles.trackActionsLeft}>
+                        <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
+                        {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
+                            le coeur en vert, entoure-le pour qu'on le voit bien"
+                            -- incite a etre le premier a liker. */}
+                        <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive, !liked && trackLikeCount === 0 && styles.likeButtonEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{trackLikeCount}</Text></TouchableOpacity>
+                      </View>
+                      <View style={styles.discoveryOriginRow}>
+                        <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
+                        {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
+                          const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
+                          // Adel (08/09/2026) : "si abonne on met vert, si pas
+                          // abonne on met rouge ... incite a cliquer dessus" --
+                          // le contour porte ce signal, le fond reste la couleur
+                          // de certification.
+                          const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
+                          return (
+                            <TouchableOpacity
+                              style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
+                              onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
+                              accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
+                            >
+                              <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
+                            </TouchableOpacity>
+                          );
+                        })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
+                      </View>
+                    </View>
+                  </View>
+                </View>;
+              })}</View>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.publicMusicSection}>
+            {/* (21/09/2026) : onglet Artistes -- remplace le bouton "PAR
+                ARTISTE" + sa modale (même liste artistGroups, même action
+                Swipe filtré, pour ne pas dupliquer la fonction). */}
+            {artistGroups.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun artiste public sur ce profil.</Text></View> : (
+              <View style={styles.musicList}>{artistGroups.map((group) => {
+                const groupTracks = swipeTracks.filter((t) => canonicalArtistIdentity(t) === group.key);
+                const artworkUrl = groupTracks.find((t) => t.artworkUrl)?.artworkUrl;
+                return <TouchableOpacity key={group.key} style={styles.musicRow} onPress={() => openBrowseSwipe({ type: 'artist', value: group.key, label: group.name })} accessibilityLabel={`Découvrir ${group.name} en Swipe`}>
+                  {artworkUrl ? <Image source={{ uri: artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>♪</Text></View>}
+                  <View style={styles.trackInfo}><Text style={styles.trackTitle} numberOfLines={1}>{group.name}</Text><Text style={styles.trackArtist}>{group.trackCount} morceau{group.trackCount > 1 ? 'x' : ''}</Text></View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>;
+              })}</View>
+            )}
+          </View>
+        )}
 
         {/* Adel (16-17/09/2026) : "on ne vend pas la playlist, ils vendent
             suivant une liste de musique qui pourra avoir sur son profil"
@@ -766,146 +899,34 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </View>
         ) : null}
 
-        {/* Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style,
-            après par artiste ... une autre brique" -- nouveau bloc séparé de
-            la liste "Morceaux publics" plus bas (qui ne change pas). Filtre
-            gratuit et instantané (aucune génération à payer, contrairement
-            aux Vibes du propre profil) : chaque style/artiste ouvre un Swipe
-            limité à sa propre sélection au lieu de toute la collection. */}
-        {tracks.length > 0 && viewer?.id !== profile.id && (genreOptions.length > 0 || artistGroups.length > 1) ? (
-          <View style={styles.browseSection}>
-            <Text style={styles.sectionTitle}>Parcourir la collection</Text>
-            {genreOptions.length > 0 ? (
-              <TouchableOpacity style={styles.prefsSummaryButton} onPress={() => setStyleModalOpen(true)}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR STYLE</Text><Text style={styles.prefsSummaryValue}>{genreOptions.length} style{genreOptions.length > 1 ? 's' : ''} disponible{genreOptions.length > 1 ? 's' : ''}</Text></View>
-                <Text style={styles.prefsSummaryChevron}>›</Text>
-              </TouchableOpacity>
-            ) : null}
-            {artistGroups.length > 1 ? (
-              <TouchableOpacity style={styles.prefsSummaryButton} onPress={() => setArtistModalOpen(true)}>
-                <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.prefsSummaryLabel}>PAR ARTISTE</Text><Text style={styles.prefsSummaryValue}>{artistGroups.length} artiste{artistGroups.length > 1 ? 's' : ''}</Text></View>
-                <Text style={styles.prefsSummaryChevron}>›</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        ) : null}
+        {(() => {
+          const configuredSocials = SOCIALS.filter((item) => profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim()));
+          if (!configuredSocials.length) return null;
+          return (
+            <View style={styles.socialHub}>
+              <Text style={styles.socialTitle}>Ses réseaux</Text>
+              <View style={styles.socialRow}>
+                {configuredSocials.map((item) => (
+                  <TouchableOpacity key={item.platform} style={[styles.socialButton, styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF'} /></TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
 
-        <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
-          <View style={styles.modalBackdrop}><View style={styles.editCard}>
-            <Text style={styles.editTitle}>Parcourir par style</Text>
-            <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
-              {genreOptions.map(({ genre, count }) => (
-                <TouchableOpacity key={genre} style={styles.pickerRow} onPress={() => { setStyleModalOpen(false); openBrowseSwipe({ type: 'genre', value: genre, label: genre }); }}>
-                  <Text style={styles.pickerRowText}>{genre}</Text>
-                  <Text style={styles.pickerRowCount}>{count}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setStyleModalOpen(false)}><Text style={styles.cancelText}>Fermer</Text></TouchableOpacity>
-          </View></View>
-        </Modal>
-
-        <Modal visible={artistModalOpen} transparent animationType="fade" onRequestClose={() => setArtistModalOpen(false)}>
-          <View style={styles.modalBackdrop}><View style={styles.editCard}>
-            <Text style={styles.editTitle}>Parcourir par artiste</Text>
-            <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
-              {artistGroups.map((group) => (
-                <TouchableOpacity key={group.key} style={styles.pickerRow} onPress={() => { setArtistModalOpen(false); openBrowseSwipe({ type: 'artist', value: group.key, label: group.name }); }}>
-                  <Text style={styles.pickerRowText} numberOfLines={1}>{group.name}</Text>
-                  <Text style={styles.pickerRowCount}>{group.trackCount}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setArtistModalOpen(false)}><Text style={styles.cancelText}>Fermer</Text></TouchableOpacity>
-          </View></View>
-        </Modal>
-
-        <View style={styles.visitorKeepCounters}>
-          <ProfileCounterRow kind="keeps" items={[
-            { value: directKeepCount, label: 'Morceaux' },
-            { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-          ]} />
-          {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
-        </View>
-
-        <View style={styles.publicMusicSection}>
-          <TouchableOpacity style={styles.musicSectionHeader} onPress={() => setMusicListExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={musicListExpanded ? 'Réduire les morceaux publics' : 'Voir les morceaux publics un par un'}>
-            <Text style={styles.sectionTitle}>Morceaux publics</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={styles.publicCount}>{tracks.length}</Text><Text style={styles.chevron}>{musicListExpanded ? '⌃' : '⌄'}</Text></View>
-          </TouchableOpacity>
-          {!musicListExpanded && tracks.length > 0 ? <Text style={styles.mutedSmall}>Voir chaque morceau un par un (garder, partager, aimer) — le Swipe et les puces au-dessus suffisent pour découvrir toute la collection.</Text> : null}
-          {musicListExpanded && tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : null}
-          {musicListExpanded && tracks.length > 0 ? (
-            <View style={styles.musicList}>{tracks.map((track) => {
-              const liked = likedTrackIds.has(track.trackId);
-              const adding = addingTrackIds.has(track.trackId);
-              const alreadyKept = alreadyInMyKeep(track.trackId);
-              const directDiscovery = !track.sourceUserId && !track.sourceProfileId;
-              const discoveryUsername = track.sourceUsername || (directDiscovery ? profile.username : '');
-              const discoveryImpact = discoveryImpacts[track.trackId];
-              // Adel (09/09/2026) : "c'est pas du tout le meme design que
-              // sur le profil, reamenage utilise le meme design sauf que tu
-              // rajoutes le coeur en plus" -- meme structure compacte que le
-              // propre profil (bouton(s) en ligne a cote du titre), avec le
-              // coeur en plus et un bouton Garder en ligne (au lieu de la
-              // pile Jouer/Garder pleine largeur).
-              // Adel (09/09/2026, second passage) : "descends [Decouvert par]
-              // aligne a Partager et aux petits coeurs ... laisse-le du cote
-              // ou y a marque Jouer et Garder" -- Decouvert par descend dans
-              // la ligne Partager/coeur, aligne a droite (meme cote que
-              // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
-              const trackLikeCount = likeCounts[track.trackId] || 0;
-              return <View key={track.id} style={styles.musicRow}>
-                {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
-                <View style={styles.trackInfo}>
-                  <View style={styles.trackTitleRow}>
-                    <View style={styles.trackTitleBlock}><Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text></View>
-                    <View style={styles.trackRightColumn}>
-                      <View style={styles.trackInlineActions}>
-                        <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
-                        {viewer?.id !== profile.id ? (
-                          <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding}>
-                            <Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]} numberOfLines={1}>{adding ? '…' : alreadyKept ? '✓ Gardé' : '+ Garder'}</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    </View>
-                  </View>
-                  <DiscoveryImpactLabel impact={discoveryImpact} />
-                  <View style={styles.trackActions}>
-                    <View style={styles.trackActionsLeft}>
-                      <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
-                      {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
-                          le coeur en vert, entoure-le pour qu'on le voit bien"
-                          -- incite a etre le premier a liker. */}
-                      <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive, !liked && trackLikeCount === 0 && styles.likeButtonEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{trackLikeCount}</Text></TouchableOpacity>
-                    </View>
-                    <View style={styles.discoveryOriginRow}>
-                      <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                      {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
-                        const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
-                        // Adel (08/09/2026) : "si abonne on met vert, si pas
-                        // abonne on met rouge ... incite a cliquer dessus" --
-                        // le contour porte ce signal, le fond reste la couleur
-                        // de certification.
-                        const followBorder = track.sourceIsFollowing === false ? '#FF6C8C' : track.sourceIsFollowing === true ? '#38D990' : null;
-                        return (
-                          <TouchableOpacity
-                            style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
-                            onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
-                            accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
-                          >
-                            <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
-                          </TouchableOpacity>
-                        );
-                      })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
-                    </View>
-                  </View>
-                </View>
-              </View>;
-            })}</View>
-          ) : null}
-        </View>
+        {/* Adel (02/09/2026) : "on me montrera pas le lien du site, on
+            mettra un bouton" -- jamais l'URL affichée, juste le libellé
+            choisi par le propriétaire du profil. */}
+        {(() => {
+          const websiteLink = profile.socialLinks.find((link) => link.platform === 'website' && link.url.trim());
+          if (!websiteLink) return null;
+          const openWebsite = async () => {
+            let url = websiteLink.url.trim();
+            if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+            try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce site pour le moment.'); }
+          };
+          return <TouchableOpacity style={styles.websiteButton} onPress={() => void openWebsite()} accessibilityLabel={websiteLink.label || 'Site web'}><Text style={styles.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text></TouchableOpacity>;
+        })()}
       </ScrollView>
 
       <MusicSwipeDeckModal
@@ -1008,20 +1029,24 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{color:colors.textPrimary,fontSize:38,lineHeight:42},topSpacer:{flex:1},shareTopButton:{width:36,height:36,borderRadius:18,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:68,height:68,borderRadius:34,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
-  followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#3A1822',borderWidth:1.5,borderColor:'#FF5F83',alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:'#173529',borderColor:'#38D990'},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},followButtonTextActive:{color:'#FFFFFF'},swipePreview:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#4E8DFF',alignItems:'center',justifyContent:'center'},swipePreviewText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
+  container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
+  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
+  followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},followButtonTextActive:{color:colors.textPrimary},swipePreview:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},swipePreviewText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
 
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
-  socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
+  socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
-  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:'#1C4E3E',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#38D990',fontSize:12,fontWeight:'900'},
+  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
-  visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:64,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:11,lineHeight:15,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  sectionTitle:{...typography.h3,color:colors.textPrimary},
+  unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2},
+  collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
+  tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+  firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},
+  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
-  prefsSummaryButton:{flexDirection:'row',alignItems:'center',marginTop:10,minHeight:52,padding:12,borderRadius:radius.lg,backgroundColor:'#1A1225',borderWidth:1,borderColor:'#3F3154'},prefsSummaryLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},prefsSummaryValue:{color:colors.textPrimary,fontSize:13,fontWeight:'800',marginTop:2},prefsSummaryChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},
   pickerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:44,paddingHorizontal:10,borderBottomWidth:1,borderBottomColor:'#2B2238'},pickerRowText:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:14,fontWeight:'700'},pickerRowCount:{color:colors.textMuted,fontSize:12,fontWeight:'800',marginLeft:8},
   shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},
   sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},
