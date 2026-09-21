@@ -232,6 +232,16 @@ export default function PlaylistSalePanel({ navigation }: any) {
               )}
             </View>
 
+            {/* Adel (21/09/2026, décision 2) : encart permanent -- le
+                fonctionnement reste manuel tant que l'API de paiement
+                réelle n'est pas intégrée. Le vendeur doit comprendre AVANT
+                de confirmer une vente que c'est lui, et lui seul, qui
+                certifie avoir reçu l'argent. */}
+            <View style={s.manualNotice}>
+              <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
+              <Text style={s.manualNoticeText}>Loki n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
+            </View>
+
             {/* Offres Actives */}
             {offers.length > 0 && (
               <View style={s.offersSection}>
@@ -421,6 +431,9 @@ const s = StyleSheet.create({
   accessLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 },
   accessSeparator: { width: 1, height: 30, backgroundColor: colors.border },
   accessHint: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: spacing.md, textAlign: 'center', lineHeight: 16 },
+  manualNotice: { marginTop: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.border, padding: spacing.md },
+  manualNoticeTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
   offersSection: { marginTop: spacing.lg },
   sectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.md },
   offerCard: { borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md },

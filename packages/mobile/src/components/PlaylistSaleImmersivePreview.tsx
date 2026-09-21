@@ -91,6 +91,15 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           <PlaylistSalePreview playlistId={offer.playlistId} trackCount={offer.trackCount} />
 
+          {/* Adel (21/09/2026, décision 2) : "documente clairement dans l'UI
+              que le vendeur doit confirmer réception, et prévois un encart
+              avertissement acheteur" -- fonctionnement manuel tant que
+              l'API PayPal réelle n'est pas intégrée. Encart permanent, pas
+              seulement l'Alert transitoire après ouverture du lien. */}
+          <View style={s.manualNotice}>
+            <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki). Loki ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
+          </View>
+
           <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
             <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
             <Text style={s.waiverText}>Je reconnais que l'accès à cette découverte musicale est fourni immédiatement après paiement et je renonce expressément à mon droit de rétractation de 14 jours.</Text>
@@ -123,7 +132,9 @@ const s = StyleSheet.create({
   bar: { width: 8, borderRadius: 4, backgroundColor: colors.primary },
   marketing: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 20 },
   explainer: { color: colors.textMuted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 4, minHeight: 32 },
-  waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 16, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  manualNotice: { marginTop: 14, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
+  waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxMark: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
