@@ -274,6 +274,41 @@ export async function loadPlaylistSaleOfferPreviewTracks(playlistId: string): Pr
     .filter((row) => row.trackId && row.previewUrl);
 }
 
+// (21/09/2026) BUG RÉEL corrigé (Adel, profil adel4a) : un morceau déjà
+// inclus dans une offre "sélection multiple" devenait invisible pour le
+// client après rechargement -- l'ancienne clé (éphémère, générée côté écran)
+// n'était jamais retrouvable depuis les données serveur. Cette fonction
+// donne le mapping réel morceau -> offre active, pour badge "En vente" et
+// pour exclure proprement ces morceaux d'une nouvelle sélection.
+export type PlaylistOfferedTrack = {
+  trackId: string;
+  offerId: string;
+  playlistId: string;
+  playlistName: string;
+  priceCents: number;
+  currencyCode: string;
+};
+
+export async function loadMyOfferedTrackIds(): Promise<Record<string, PlaylistOfferedTrack>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase.rpc('keep_playlist_sale_my_offered_track_ids');
+  if (error) throw error;
+  const map: Record<string, PlaylistOfferedTrack> = {};
+  for (const row of Array.isArray(data) ? data : []) {
+    const trackId = String((row as any).track_id ?? (row as any).trackId ?? '');
+    if (!trackId) continue;
+    map[trackId] = {
+      trackId,
+      offerId: String((row as any).offer_id ?? (row as any).offerId ?? ''),
+      playlistId: String((row as any).playlist_id ?? (row as any).playlistId ?? ''),
+      playlistName: String((row as any).playlist_name ?? (row as any).playlistName ?? ''),
+      priceCents: Number((row as any).price_cents ?? (row as any).priceCents ?? 0),
+      currencyCode: String((row as any).currency_code ?? (row as any).currencyCode ?? 'EUR'),
+    };
+  }
+  return map;
+}
+
 export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_offers');

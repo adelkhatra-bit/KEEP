@@ -11,7 +11,7 @@ import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
-import { clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyPlaylistSaleOffers, PlaylistSaleAccess, PlaylistSaleOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection } from '../services/playlistSaleService';
+import { clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection } from '../services/playlistSaleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import {
@@ -97,6 +97,7 @@ export default function MyMusicScreen({ navigation }: any) {
   // possible tant que Stripe Connect n'est pas branche cote serveur.
   const [saleAccess, setSaleAccess] = useState<PlaylistSaleAccess | null>(null);
   const [myOffers, setMyOffers] = useState<Record<string, PlaylistSaleOffer>>({});
+  const [myOfferedTrackIds, setMyOfferedTrackIds] = useState<Record<string, PlaylistOfferedTrack>>({});
   // Adel (20/09/2026) : marketplace playlists (VENDRE) mise en "coming
   // soon" -- paiement par lien externe, non conforme Apple IAP pour du
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
@@ -157,15 +158,26 @@ export default function MyMusicScreen({ navigation }: any) {
     if (!marketplaceEnabled || !userId || isLocalGuest || isDemoMode) {
       setSaleAccess(null);
       setMyOffers({});
+      setMyOfferedTrackIds({});
       return;
     }
     try {
-      const [access, offers] = await Promise.all([getPlaylistSaleAccess(), loadMyPlaylistSaleOffers()]);
+      const [access, offers, offeredTracks] = await Promise.all([getPlaylistSaleAccess(), loadMyPlaylistSaleOffers(), loadMyOfferedTrackIds()]);
       setSaleAccess(access);
       setMyOffers(Object.fromEntries(offers.filter((o) => o.isActive).map((o) => [o.playlistId, o])));
+      // (21/09/2026) BUG RÉEL corrigé (Adel, profil adel4a) : myOffers seul
+      // ne permet jamais de retrouver "ce morceau précis est-il déjà en
+      // vente" après un rechargement -- ni pour une vente individuelle ni
+      // pour une sélection multiple (les deux passent par
+      // setPlaylistSalePriceForSelection, dont le vrai playlist_id serveur
+      // est toujours 'keep-selection:<uuid>', jamais 'track:<id>' ni la clé
+      // éphémère utilisée un instant côté écran). Ce nouveau mapping,
+      // indexé par track_id réel, comble ce trou.
+      setMyOfferedTrackIds(offeredTracks);
     } catch {
       setSaleAccess(null);
       setMyOffers({});
+      setMyOfferedTrackIds({});
     }
   };
 
@@ -381,6 +393,10 @@ export default function MyMusicScreen({ navigation }: any) {
   const closeSellModal = () => { setSellTarget(null); setSellPriceCents(null); };
 
   const toggleSaleTrack = (trackId: string) => {
+    // (21/09/2026) : un morceau déjà dans une offre active ne peut pas être
+    // rebundlé silencieusement dans une nouvelle sélection -- il faut
+    // d'abord modifier/retirer l'offre existante (bouton "🏷️ En vente").
+    if (myOfferedTrackIds[trackId]) return;
     setSelectedSaleTrackIds((current) => {
       const next = new Set(current);
       if (next.has(trackId)) next.delete(trackId); else next.add(trackId);
@@ -403,6 +419,50 @@ export default function MyMusicScreen({ navigation }: any) {
       trackIds: tracks.map((track) => track.id),
       coverUrl: tracks.find((track) => Boolean(track.artworkUrl))?.artworkUrl ?? null,
     });
+  };
+
+  // (21/09/2026) BUG RÉEL corrigé (Adel, profil adel4a) : "modifier l'offre"
+  // d'un morceau déjà en vente. Il n'existe pas de RPC "mettre à jour le
+  // prix d'une offre existante" -- on retire l'ancienne (par son vrai
+  // offerId, maintenant connu grâce à keep_playlist_sale_my_offered_track_ids)
+  // puis on rouvre le popup prix normal, pré-rempli à l'ancien prix pour
+  // que confirmer recrée la même offre au même tarif si rien ne change.
+  const editExistingTrackOffer = (track: CanonicalTrack) => {
+    const offered = myOfferedTrackIds[track.id];
+    if (!offered) return;
+    Alert.alert(
+      'Modifier cette offre',
+      `« ${track.title} » est en vente à ${(offered.priceCents / 100).toFixed(2)}€. Retirer l'offre ou changer le prix ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Retirer de la vente',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearPlaylistSalePrice(offered.playlistId);
+              setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
+            } catch {
+              Alert.alert('Vendre', 'Impossible de retirer cette offre pour le moment.');
+            }
+          },
+        },
+        {
+          text: 'Changer le prix',
+          onPress: async () => {
+            try {
+              await clearPlaylistSalePrice(offered.playlistId);
+              setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
+            } catch {
+              Alert.alert('Vendre', 'Impossible de retirer l’ancienne offre pour le moment.');
+              return;
+            }
+            openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl });
+            setSellPriceCents(offered.priceCents);
+          },
+        },
+      ],
+    );
   };
 
   const openSellModal = (target: typeof sellTarget) => {
@@ -559,13 +619,15 @@ export default function MyMusicScreen({ navigation }: any) {
     const visibilityBusy = trackVisibilityBusy === key;
     const deleteBusy = trackDeleteBusy === key;
     const busy = visibilityBusy || deleteBusy;
+    const offered = myOfferedTrackIds[track.id];
     return <View key={key} style={styles.trackRow}>
       {saleSelectionMode && localEntry ? <TouchableOpacity
-        style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn]}
+        style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled]}
         onPress={() => toggleSaleTrack(track.id)}
+        disabled={Boolean(offered)}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: selectedSaleTrackIds.has(track.id) }}
-        accessibilityLabel={`Sélectionner ${track.title}`}
+        accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered) }}
+        accessibilityLabel={offered ? `${track.title} déjà en vente, modifie l'offre existante pour la changer` : `Sélectionner ${track.title}`}
       ><Text style={styles.selectionCheckText}>{selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
       {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
       <View style={styles.trackBody}>
@@ -601,11 +663,11 @@ export default function MyMusicScreen({ navigation }: any) {
               vendre UN morceau précis, même popup de prix que pour une
               playlist ou un album entier. */}
           {marketplaceEnabled && localEntry ? <TouchableOpacity
-            style={styles.sellTrackButton}
-            onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
-            accessibilityLabel={`Vendre ${track.title}`}
+            style={[styles.sellTrackButton, offered && styles.sellTrackButtonOffered]}
+            onPress={() => offered ? editExistingTrackOffer(track) : openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
+            accessibilityLabel={offered ? `Modifier l'offre de ${track.title}, en vente à ${(offered.priceCents / 100).toFixed(2)} euros` : `Vendre ${track.title}`}
           >
-            <Text style={styles.sellTrackText}>{myOffers[`track:${track.id}`] ? `💶 ${(myOffers[`track:${track.id}`].priceCents / 100).toFixed(2)}€` : '💶 VENDRE'}</Text>
+            <Text style={[styles.sellTrackText, offered && styles.sellTrackTextOffered]}>{offered ? `🏷️ En vente · ${(offered.priceCents / 100).toFixed(2)}€` : '💶 VENDRE'}</Text>
           </TouchableOpacity> : null}
         </View>
       </View>
@@ -808,9 +870,9 @@ const styles = StyleSheet.create({
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
-  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
+  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
-  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:72,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:6},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackBody:{flex:1,minWidth:0,gap:6},trackInfo:{minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},trackActionSlot:{flex:1,minWidth:0},visibilityTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},sellMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellMiniText:{color:'#FFD166',fontSize:8,fontWeight:'900'},sellTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellTrackText:{color:'#FFD166',fontSize:7,fontWeight:'900'},
+  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:72,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:6},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackBody:{flex:1,minWidth:0,gap:6},trackInfo:{minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},trackActionSlot:{flex:1,minWidth:0},visibilityTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},sellMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellMiniText:{color:'#FFD166',fontSize:8,fontWeight:'900'},sellTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellTrackButtonOffered:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},sellTrackText:{color:'#FFD166',fontSize:7,fontWeight:'900'},sellTrackTextOffered:{color:colors.primaryLight},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:38,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:42,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:34,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:38,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:'#FFD166'},
 });
