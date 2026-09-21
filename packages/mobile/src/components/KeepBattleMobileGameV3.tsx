@@ -17,6 +17,7 @@ import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
+import { colors } from '../theme/colors';
 
 const ROUND_MS = 10000;
 const KEEP_BATTLE_SHARE = 'https://adelkhatra-bit.github.io/KEEP/share-profile/';
@@ -525,6 +526,22 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // (WAITING, pas encore pleine), les appuis suivants ajoutent la personne
   // dans CETTE MÊME arène au lieu d'en recréer une nouvelle.
   const [buildingArenaId, setBuildingArenaId] = React.useState<string | null>(null);
+  // (21/09/2026) : la sélection multiple "Démarrer la Battle" appelle
+  // `challenge()` plusieurs fois d'affilée pour le même salon en cours de
+  // construction. `challenge()` lisait jusqu'ici `buildingArenaId` depuis
+  // la fermeture React (figée au rendu), correct tant que chaque appui
+  // venait d'un tap utilisateur séparé (un re-rendu entre deux), mais faux
+  // en boucle programmatique : la 2e invite ne verrait pas encore l'arène
+  // créée par la 1re et en recréerait une nouvelle -- exactement le bug
+  // "un match par joueur" que ce système existant corrigeait déjà pour le
+  // cas d'un tap à la fois. Une ref lue/écrite en même temps que le state
+  // reste à jour de façon synchrone, y compris entre deux `await` sans
+  // re-rendu entre les deux.
+  const buildingArenaIdRef = React.useRef<string | null>(null);
+  const setBuildingArena = React.useCallback((id: string | null) => {
+    buildingArenaIdRef.current = id;
+    setBuildingArenaId(id);
+  }, []);
   // Adel (02/09/2026) : "que l'utilisateur sache qu'il y a une invite qui
   // est partie" -- le bouton BATTLE ne montrait "ENVOI…" que pendant la
   // requête elle-même (quelques centaines de ms), puis redevenait un simple
@@ -1300,7 +1317,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     unlockWebAudioForGesture();
     setChallengeBusyId(player.profileId);
     try {
-      let arenaId = buildingArenaId;
+      let arenaId = buildingArenaIdRef.current;
       if (!arenaId) {
         // Adel (04/09/2026) : "si j'ai sélectionné cinq [styles] ... il faut
         // qu'il me mette un peu de tout, un mix de tout" -- même mécanisme
@@ -1322,7 +1339,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const realThemes = (freshPrefs?.themeCodes || myPreferredThemes).filter((c) => c !== 'MIX');
         const created = await createKeepBattleArena(themeCode, roundCount, realThemes.length > 1 ? realThemes : undefined);
         arenaId = created.id;
-        setBuildingArenaId(arenaId);
+        setBuildingArena(arenaId);
       }
       await sendBattleArenaChallenge(arenaId, player.profileId);
     } catch (e: any) {
@@ -1345,6 +1362,62 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       void refreshSocial();
     } finally {
       setChallengeBusyId(null);
+    }
+  };
+
+  // Adel (21/09/2026) : refonte "Joueurs disponibles" -- sélection multiple
+  // avec case à cocher + barre fixe "Démarrer la Battle" au lieu de taper
+  // BATTLE joueur par joueur. Un joueur en crédit insuffisant, déjà invité
+  // (sent) ou en cooldown de refus (blocked) n'est jamais sélectionnable :
+  // mêmes règles d'éligibilité que le bouton BATTLE individuel qu'elle
+  // remplace, jamais une seconde logique parallèle.
+  const [selectedBattlePlayerIds, setSelectedBattlePlayerIds] = React.useState<Set<string>>(new Set());
+  const [startingGroupBattle, setStartingGroupBattle] = React.useState(false);
+  const isPlayerSelectable = React.useCallback((player: KeepBattleLivePlayer) => {
+    if (insufficientForOpponent(player)) return false;
+    if (outgoingPendingTargetIds.has(player.profileId)) return false;
+    if ((inviteBlockedUntil[player.profileId] || 0) - now > 0) return false;
+    return true;
+  }, [insufficientForOpponent, outgoingPendingTargetIds, inviteBlockedUntil, now]);
+  const toggleBattlePlayerSelection = (player: KeepBattleLivePlayer) => {
+    if (!isPlayerSelectable(player)) return;
+    setSelectedBattlePlayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(player.profileId)) next.delete(player.profileId); else next.add(player.profileId);
+      return next;
+    });
+  };
+  // Un changement de NOMBRE DE MORCEAUX (donc de mise Free requise, cf.
+  // insufficientForOpponent) ou la disparition d'un joueur de la liste peut
+  // rendre une sélection existante invalide -- jamais garder un joueur
+  // sélectionné qui n'est plus réellement éligible.
+  React.useEffect(() => {
+    setSelectedBattlePlayerIds((prev) => {
+      if (!prev.size) return prev;
+      const stillValid = new Set(Array.from(prev).filter((id) => {
+        const player = livePlayers.find((p) => p.profileId === id);
+        return player ? isPlayerSelectable(player) : false;
+      }));
+      return stillValid.size === prev.size ? prev : stillValid;
+    });
+  }, [livePlayers, isPlayerSelectable]);
+  const startSelectedBattle = async () => {
+    if (startingGroupBattle || challengeBusyId) return;
+    const targets = livePlayers.filter((p) => selectedBattlePlayerIds.has(p.profileId));
+    if (targets.length < 2) return;
+    setStartingGroupBattle(true);
+    try {
+      for (const player of targets) {
+        await challenge(player);
+      }
+      setSelectedBattlePlayerIds(new Set());
+      const finalArenaId = buildingArenaIdRef.current;
+      if (finalArenaId) {
+        const loaded = await loadKeepBattleArena(finalArenaId).catch(() => null);
+        if (loaded) setArena(loaded);
+      }
+    } finally {
+      setStartingGroupBattle(false);
     }
   };
 
@@ -1706,7 +1779,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     void stopTrackPreview();
     if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
     setArena(null);
-    setBuildingArenaId(null);
+    setBuildingArena(null);
   }, [arena?.id]);
 
   // Adel (04/09/2026) : "je sais pas pourquoi le Battle ça me revient à chaque
@@ -1742,7 +1815,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setArena(null);
     setBrowseOnline(false);
     setSolo(null);
-    setBuildingArenaId(null);
+    setBuildingArena(null);
   }, [arena?.id]);
 
   const answerArena = async (choice: string) => {
@@ -2137,6 +2210,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   if (browseOnline) {
     const browseChallengeRemaining = incoming[0] ? Math.max(0, Math.ceil((new Date(incoming[0].expiresAt).getTime() - now) / 1000)) : 0;
+    // (21/09/2026) refonte sélection multiple : compteur et bouton de la
+    // barre fixe -- au moins 2 joueurs sélectionnés ET soi-même avec assez
+    // de Free pour le nombre de morceaux choisi (même règle que le message
+    // d'avertissement déjà affiché sous le sélecteur de morceaux).
+    const eligiblePlayerCount = livePlayers.filter(isPlayerSelectable).length;
+    const canStartSelectedBattle = selectedBattlePlayerIds.size >= 2 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
     return <View style={s.root}>
       {renderPlayerStatsModal()}
       <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
@@ -2153,7 +2232,63 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           côté serveur (jamais branché à aucun écran) : liste les matchs
           WAITING/ACTIVE que n'importe qui peut suivre en spectateur. */}
       {openSalons.length ? <View style={s.liveMatches}><Text style={s.section}>MATCHS EN DIRECT</Text>{openSalons.map((salon) => <TouchableOpacity key={salon.id} style={s.liveMatchRow} onPress={() => { void startSpectating(salon); }}><PresenceDot online /><View style={{ flex: 1 }}><Text style={s.liveMatchTheme}>⚡ {salon.themeLabel} · {salon.players}/{salon.maxPlayers} joueurs</Text><Text style={s.liveMatchHost}>{salon.hostUsername}{salon.queue > 0 ? ` · ${salon.queue} en file` : ''}</Text></View><Text style={s.liveMatchWatch}>REGARDER ›</Text></TouchableOpacity>)}</View> : null}
-      {busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <View style={s.browseList}>{livePlayers.map((p) => { const rank = leaderboardRank[p.profileId]; const rankBadge = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank ? `#${rank}` : null; const preferredLabel = p.preferredThemeCodes.length === 1 && p.preferredThemeCodes[0] === 'MIX' ? 'Mix' : p.preferredThemeCodes.map((c) => themeLabel(c)).join(', '); const short = insufficientForOpponent(p); return <View key={p.profileId} style={s.browsePlayer}><TouchableOpacity onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={48} /><View style={s.browseAvatarDot}><PresenceDot online /></View></TouchableOpacity><View style={{ flex: 1 }}><TouchableOpacity onPress={() => openPlayerStats(p)} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>{/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de taper BATTLE. */}<Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text></View>{(() => { const sent = outgoingPendingTargetIds.has(p.profileId); const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now; const blocked = blockedMs > 0; return <TouchableOpacity disabled={Boolean(challengeBusyId) || sent || blocked} style={[s.browseBattle, challengeBusyId === p.profileId && s.battleButtonSending, sent && s.battleButtonSent, (blocked || short) && s.battleButtonBlocked, challengeBusyId && challengeBusyId !== p.profileId && s.actionDisabled]} onPress={() => { void challenge(p); }}><Text style={[s.browseBattleText, sent && s.battleButtonSentText, (blocked || short) && s.battleButtonBlockedText]}>{challengeBusyId === p.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : sent ? 'ENVOYÉ ✓' : short ? '🎁 Insuffisant' : `BATTLE · ${themeLabel(themeCode)} · ${roundCount}`}</Text></TouchableOpacity>; })()}</View>; })}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}</View>;
+      <ScrollView style={s.browseScroll} contentContainerStyle={s.browseScrollContent} showsVerticalScrollIndicator={false}>
+      {busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <View style={s.browseList}>{livePlayers.map((p) => {
+        const rank = leaderboardRank[p.profileId];
+        const rankBadge = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank ? `#${rank}` : null;
+        const preferredLabel = p.preferredThemeCodes.length === 1 && p.preferredThemeCodes[0] === 'MIX' ? 'Mix' : p.preferredThemeCodes.map((c) => themeLabel(c)).join(', ');
+        const short = insufficientForOpponent(p);
+        const sent = outgoingPendingTargetIds.has(p.profileId);
+        const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now;
+        const blocked = blockedMs > 0;
+        const sending = challengeBusyId === p.profileId;
+        const selectable = isPlayerSelectable(p);
+        const selected = selectedBattlePlayerIds.has(p.profileId);
+        // (21/09/2026) : le bouton BATTLE par joueur devient un badge de
+        // statut en lecture seule -- l'action de lancement passe par la
+        // case à cocher + la barre fixe "Démarrer la Battle" ci-dessous.
+        const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? 'En attente' : short ? 'Crédits insuffisants' : 'Prêt';
+        return <View key={p.profileId} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
+          <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected, disabled: !selectable }}
+            accessibilityLabel={`Sélectionner ${p.username} pour la Battle${short ? ', crédits insuffisants' : ''}`}
+            disabled={!selectable}
+            hitSlop={8}
+            style={[s.battleCheckbox, selected && s.battleCheckboxOn, !selectable && s.battleCheckboxDisabled]}
+            onPress={() => toggleBattlePlayerSelection(p)}
+          >
+            {selected ? <Text style={s.battleCheckboxMark}>✓</Text> : null}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={48} /><View style={s.browseAvatarDot}><PresenceDot online /></View></TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity onPress={() => openPlayerStats(p)} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>
+            {/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de cocher la case. */}
+            <Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text>
+          </View>
+          <View style={[s.battleStatusBadge, (short || blocked) && s.battleStatusBadgeMuted]}><Text style={[s.battleStatusBadgeText, (short || blocked) && s.battleStatusBadgeTextMuted]}>{statusLabel}</Text></View>
+        </View>;
+      })}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}
+      </ScrollView>
+      {/* Adel (21/09/2026) : barre fixe "Démarrer la Battle" -- remplace le
+          tap BATTLE joueur par joueur par une sélection groupée explicite.
+          Réutilise le même `challenge()` (donc la même arène partagée, cf.
+          buildingArenaIdRef) que l'ancien flux un-par-un : aucune nouvelle
+          logique métier, uniquement l'UI de déclenchement qui change. */}
+      <View style={s.battleSelectionFooter}>
+        <Text style={s.battleSelectionCount}>{selectedBattlePlayerIds.size}/{eligiblePlayerCount} joueur{eligiblePlayerCount > 1 ? 's' : ''} sélectionné{selectedBattlePlayerIds.size > 1 ? 's' : ''}</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Démarrer la Battle avec les joueurs sélectionnés"
+          accessibilityState={{ disabled: !canStartSelectedBattle }}
+          disabled={!canStartSelectedBattle}
+          style={[s.battleStartButton, !canStartSelectedBattle && s.battleStartButtonDisabled]}
+          onPress={() => { void startSelectedBattle(); }}
+        >
+          <Text style={[s.battleStartButtonText, !canStartSelectedBattle && s.battleStartButtonTextDisabled]}>{startingGroupBattle ? 'DÉMARRAGE…' : 'Démarrer la Battle'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>;
   }
 
   // Adel (02/09/2026) : "il faut la rajouter qu'on soit pas obligé de
@@ -2224,6 +2359,26 @@ const s = StyleSheet.create({
   // hauteur sans toucher au Design de la barre d'onglets elle-même.
   soloScroll: { flexGrow: 1, paddingBottom: 48 },
   live: { marginTop: 14, padding: 7, borderRadius: 16, backgroundColor: '#100D14' }, liveHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 }, dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#6EE8A7' }, liveTitle: { color: '#FFF', fontSize: 12, fontWeight: '900' }, liveList: { gap: 6, paddingTop: 7 }, liveRowCompact: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 40, paddingHorizontal: 7, borderRadius: 14, backgroundColor: '#18131F' }, liveRowLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }, liveRowName: { flex: 1, color: '#FFF', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' }, avatarFallback: { backgroundColor: '#2B2235', alignItems: 'center', justifyContent: 'center' }, avatarLetter: { color: '#FFF', fontSize: 16, fontWeight: '900' }, username: { color: '#FFF', fontSize: 11, fontWeight: '800', marginTop: 3, maxWidth: 70 }, battleButton: { minHeight: 26, paddingHorizontal: 7, borderRadius: 13, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 4 }, battleButtonText: { color: '#17130B', fontSize: 11, fontWeight: '900' }, battleButtonSending: { backgroundColor: '#8A7E4A', opacity: .85 }, battleButtonSent: { backgroundColor: '#1B1422', borderWidth: 1, borderColor: '#6EE8A7' }, battleButtonSentText: { color: '#6EE8A7' }, battleButtonBlocked: { backgroundColor: '#1B1422', borderWidth: 1, borderColor: '#FF5F83' }, battleButtonBlockedText: { color: '#FF5F83' }, invite: { marginTop: 10, minHeight: 142, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 24, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' }, inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }, inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }, inviteLabel: { color: '#E5F266', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 4 }, inviteName: { color: '#FFF', fontSize: 17, lineHeight: 22, fontWeight: '900' }, inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22, fontWeight: '800' }, inviteConnecting: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', textAlign: 'center', marginBottom: 8, letterSpacing: .5 }, no: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 16, fontWeight: '900' }, yes: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 16, fontWeight: '900' }, actionDisabled: { opacity: .62 }, versus: { position: 'absolute', zIndex: 20, left: 16, right: 16, top: 120, padding: 18, borderRadius: 24, backgroundColor: '#22152D', borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center' }, versusText: { color: '#E5F266', fontSize: 25, fontWeight: '900' }, versusNames: { color: '#FFF', fontSize: 12, fontWeight: '900', marginTop: 5 }, duel: { marginBottom: 6 }, duelNames: { flexDirection: 'row', alignItems: 'center' }, duelName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, duelScore: { color: '#E5F266', fontSize: 15, fontWeight: '900' }, duelCenter: { minWidth: 46, alignItems: 'center', justifyContent: 'center' }, duelTimer: { color: '#FFF', fontSize: 11, fontWeight: '900', marginTop: 2 }, duelPoints: { color: '#FFF', fontSize: 13, fontWeight: '900', marginTop: 3 }, teamMembers: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 }, teamChip: { paddingHorizontal: 6, minHeight: 22, borderRadius: 11, backgroundColor: '#1D1625', alignItems: 'center', justifyContent: 'center' }, teamChipText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, power: { height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: '#2A2032', flexDirection: 'row', position: 'relative', marginTop: 7 }, powerLeft: { height: '100%', backgroundColor: '#8B5CF6' }, powerRight: { flex: 1, height: '100%', backgroundColor: '#E14E78' }, powerMiddle: { position: 'absolute', zIndex: 3, left: '50%', width: 2, height: '100%', backgroundColor: '#FFF' }, waiting: { padding: 14, borderRadius: 21, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A', alignItems: 'center' }, trophy: { fontSize: 34 }, winner: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 3 }, waitText: { color: '#FFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 6 }, browseText: { color: '#FFF', fontSize: 11, lineHeight: 16, marginBottom: 10 }, browseList: { gap: 7 }, browsePlayer: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 17, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#151020', padding: 9 }, browseNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 }, browseName: { color: '#FFF', fontSize: 13, fontWeight: '900', textDecorationLine: 'underline' }, browseChevron: { color: '#8F879D', fontSize: 16, fontWeight: '900' }, browseAvatarDot: { position: 'absolute', right: -1, bottom: -1 }, browseRankBadge: { color: '#E5F266', fontSize: 12, fontWeight: '900' }, browseMeta: { color: '#6EE8A7', fontSize: 11, fontWeight: '800', marginTop: 2 }, browseMetaShort: { color: '#FF5F83' }, browseBattle: { minHeight: 34, borderRadius: 17, backgroundColor: '#E5F266', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }, browseBattleText: { color: '#17130B', fontSize: 11, fontWeight: '900' }, shareButton: { minHeight: 40, borderRadius: 20, backgroundColor: '#8B5CF6', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10 }, shareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
+  // (21/09/2026) refonte "Joueurs disponibles" -- sélection multiple + barre
+  // fixe. Design System KEEP : violet = action principale, gris = secondaire
+  // ou désactivé, jamais de couleur seule pour un statut (texte toujours présent).
+  browseScroll: { flex: 1 }, browseScrollContent: { paddingBottom: 12 },
+  browsePlayerSelected: { borderColor: colors.primary, borderWidth: 2, backgroundColor: `${colors.primary}1A` },
+  browsePlayerIneligible: { opacity: 0.5 },
+  battleCheckbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  battleCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  battleCheckboxDisabled: { opacity: 0.4 },
+  battleCheckboxMark: { color: '#FFF', fontSize: 14, fontWeight: '900' },
+  battleStatusBadge: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  battleStatusBadgeText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  battleStatusBadgeMuted: { opacity: 0.75 },
+  battleStatusBadgeTextMuted: { color: colors.textMuted },
+  battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 22, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
+  battleSelectionCount: { color: colors.textPrimary, fontSize: 13, fontWeight: '800', flexShrink: 1 },
+  battleStartButton: { minHeight: 48, minWidth: 44, paddingHorizontal: 20, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  battleStartButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  battleStartButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  battleStartButtonTextDisabled: { color: colors.textMuted },
   arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 48 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D' },

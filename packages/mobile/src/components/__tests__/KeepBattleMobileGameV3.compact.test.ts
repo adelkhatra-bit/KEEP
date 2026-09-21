@@ -100,7 +100,10 @@ describe('Loki Battle mobile style selector', () => {
   it('makes the match style explicit before the challenge is accepted', () => {
     expect(source).toContain('MES STYLES ACCEPTÉS');
     expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
-    expect(source).toContain('`BATTLE · ${themeLabel(themeCode)} · ${roundCount}`');
+    // (21/09/2026) : le libellé "BATTLE · style · N" par joueur a été retiré
+    // -- ce n'est plus un bouton d'action mais un badge de statut en lecture
+    // seule (voir describe "multi-select redesign" plus bas), le style/N
+    // choisis restent visibles au-dessus dans le sélecteur NOMBRE DE MORCEAUX.
     // Adel (04/09/2026) : "j'ai juste à envoyer une invite comme ça je
     // puisse en envoyer plusieurs" -- BATTLE depuis "Joueurs disponibles"
     // crée/rejoint désormais un salon de groupe (arène) au lieu d'un défi
@@ -324,5 +327,79 @@ describe('Loki Battle persistent group invitations', () => {
     expect(battle).toContain('arenaInviteButton: { minWidth: 94, minHeight: 52');
     expect(battle).toContain('arenaInviteRow: { minHeight: 62');
     expect(battle).toContain('INVITER UN AMI PAR LIEN');
+  });
+});
+
+describe('Loki Battle "Joueurs disponibles" multi-select redesign (Adel, 21/09/2026 : case à cocher + barre fixe "Démarrer la Battle")', () => {
+  const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+
+  it('replaces the per-player BATTLE button with a read-only status badge (Prêt / En attente / Crédits insuffisants / Bloqué)', () => {
+    expect(battle).not.toContain('`BATTLE · ${themeLabel(themeCode)} · ${roundCount}`');
+    expect(battle).toContain("const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? 'En attente' : short ? 'Crédits insuffisants' : 'Prêt';");
+    expect(battle).toContain('battleStatusBadge');
+  });
+
+  it('adds an accessible per-player checkbox, disabled and never selectable when ineligible', () => {
+    expect(battle).toContain('accessibilityRole="checkbox"');
+    expect(battle).toContain('const isPlayerSelectable = React.useCallback((player: KeepBattleLivePlayer) => {');
+    expect(battle).toContain('if (insufficientForOpponent(player)) return false;');
+    expect(battle).toContain('if (outgoingPendingTargetIds.has(player.profileId)) return false;');
+    expect(battle).toContain('const toggleBattlePlayerSelection = (player: KeepBattleLivePlayer) => {');
+    expect(battle).toContain('if (!isPlayerSelectable(player)) return;');
+    expect(battle).toContain('browsePlayerIneligible');
+    expect(battle).toContain('battleCheckboxDisabled');
+  });
+
+  it('highlights a selected player with the KEEP violet primary color, never color alone (status text always present)', () => {
+    expect(battle).toContain("import { colors } from '../theme/colors';");
+    expect(battle).toContain('browsePlayerSelected: { borderColor: colors.primary, borderWidth: 2');
+    expect(battle).toContain('battleCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primary }');
+  });
+
+  it('prunes the selection when a player becomes ineligible after a round-count/theme filter change', () => {
+    expect(battle).toContain('React.useEffect(() => {\n    setSelectedBattlePlayerIds((prev) => {');
+    expect(battle).toContain('const stillValid = new Set(Array.from(prev).filter((id) => {');
+    expect(battle).toContain('return player ? isPlayerSelectable(player) : false;');
+    expect(battle).toContain('}, [livePlayers, isPlayerSelectable]);');
+  });
+
+  it('adds a sticky footer with a live "X/Y joueurs sélectionnés" counter and a gated "Démarrer la Battle" button', () => {
+    expect(battle).toContain('battleSelectionFooter');
+    expect(battle).toContain('{selectedBattlePlayerIds.size}/{eligiblePlayerCount} joueur{eligiblePlayerCount > 1');
+    expect(battle).toContain("sélectionné{selectedBattlePlayerIds.size > 1 ? 's' : ''}");
+    expect(battle).toContain('Démarrer la Battle');
+    expect(battle).toContain('const canStartSelectedBattle = selectedBattlePlayerIds.size >= 2 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;');
+    expect(battle).toContain('battleStartButtonDisabled');
+  });
+
+  it('sends every selected player into the SAME shared arena instead of creating one arena per player', () => {
+    // BUG évité : challenge() lisait buildingArenaId depuis la fermeture React
+    // (figée au rendu) -- correct pour un tap utilisateur à la fois (un
+    // re-rendu entre deux appuis), faux pour startSelectedBattle() qui
+    // l'appelle plusieurs fois d'affilée SANS re-rendu entre les appels. Une
+    // ref toujours à jour empêche de recréer une arène par joueur sélectionné.
+    expect(battle).toContain('const buildingArenaIdRef = React.useRef<string | null>(null);');
+    expect(battle).toContain('const setBuildingArena = React.useCallback((id: string | null) => {');
+    expect(battle).toContain('buildingArenaIdRef.current = id;');
+    expect(battle).toContain('let arenaId = buildingArenaIdRef.current;');
+    expect(battle).toContain('for (const player of targets) {\n        await challenge(player);\n      }');
+    expect(battle).toContain('const finalArenaId = buildingArenaIdRef.current;');
+    expect(battle).not.toContain('let arenaId = buildingArenaId;');
+  });
+
+  it('requires at least 2 selected players before starting a group Battle', () => {
+    expect(battle).toContain('if (targets.length < 2) return;');
+  });
+
+  it('scrolls the player list independently from the fixed header/filters and the fixed footer', () => {
+    expect(battle).toContain('<ScrollView style={s.browseScroll} contentContainerStyle={s.browseScrollContent} showsVerticalScrollIndicator={false}>');
+  });
+
+  it('reuses the existing challenge()/arena service calls unchanged -- no new backend function introduced', () => {
+    expect(battle).toContain('const created = await createKeepBattleArena(themeCode, roundCount, realThemes.length > 1 ? realThemes : undefined);');
+    expect(battle).toContain('await sendBattleArenaChallenge(arenaId, player.profileId);');
+    const startSelectedBattleBody = battle.slice(battle.indexOf('const startSelectedBattle = async () => {'), battle.indexOf('const startSelectedBattle = async () => {') + 700);
+    expect(startSelectedBattleBody).not.toContain('createKeepBattleArena');
+    expect(startSelectedBattleBody).not.toContain('sendBattleArenaChallenge');
   });
 });
