@@ -309,6 +309,37 @@ export async function loadMyOfferedTrackIds(): Promise<Record<string, PlaylistOf
   return map;
 }
 
+// Adel (21/09/2026) : "Popup Public/Masqué post-achat : après paiement,
+// choix immédiat 'Rendre publique' / 'Garder masquée'." Le paiement est
+// confirmé manuellement par le vendeur (pas de webhook synchrone) -- ce
+// choix apparaît donc la prochaine fois que l'app de l'acheteur regarde
+// ses achats, pas au moment exact du paiement.
+export type PendingVisibilityChoice = {
+  paymentId: string;
+  playlistId: string;
+  sellerUsername: string;
+  trackCount: number;
+};
+
+export async function loadPendingVisibilityChoice(): Promise<PendingVisibilityChoice | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('keep_playlist_sale_pending_visibility_choice');
+  if (error) throw error;
+  const row = data as any;
+  if (!row?.paymentId) return null;
+  return {
+    paymentId: String(row.paymentId),
+    playlistId: String(row.playlistId ?? ''),
+    sellerUsername: String(row.sellerUsername ?? ''),
+    trackCount: Number(row.trackCount ?? 0),
+  };
+}
+
+export async function choosePurchaseVisibility(paymentId: string, isPublic: boolean): Promise<void> {
+  const { error } = await client().rpc('keep_playlist_sale_choose_delivered_visibility', { p_payment_id: paymentId, p_public: isPublic });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_VISIBILITY_CHOICE_FAILED'));
+}
+
 export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_offers');

@@ -11,7 +11,7 @@ import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
-import { clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection } from '../services/playlistSaleService';
+import { choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection } from '../services/playlistSaleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import {
@@ -98,6 +98,12 @@ export default function MyMusicScreen({ navigation }: any) {
   const [saleAccess, setSaleAccess] = useState<PlaylistSaleAccess | null>(null);
   const [myOffers, setMyOffers] = useState<Record<string, PlaylistSaleOffer>>({});
   const [myOfferedTrackIds, setMyOfferedTrackIds] = useState<Record<string, PlaylistOfferedTrack>>({});
+  // Adel (21/09/2026, mission 2/3) : popup "Rendre publique / Garder
+  // masquée" à la première ouverture de l'app après qu'un achat a été
+  // livré (le vendeur confirme manuellement, donc pas de webhook -- voir
+  // playlistSaleService.ts). Une seule fois par achat (visibility_choice_made).
+  const [pendingVisibilityChoice, setPendingVisibilityChoice] = useState<PendingVisibilityChoice | null>(null);
+  const [visibilityChoiceBusy, setVisibilityChoiceBusy] = useState(false);
   // Adel (20/09/2026) : marketplace playlists (VENDRE) mise en "coming
   // soon" -- paiement par lien externe, non conforme Apple IAP pour du
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
@@ -159,10 +165,12 @@ export default function MyMusicScreen({ navigation }: any) {
       setSaleAccess(null);
       setMyOffers({});
       setMyOfferedTrackIds({});
+      setPendingVisibilityChoice(null);
       return;
     }
     try {
-      const [access, offers, offeredTracks] = await Promise.all([getPlaylistSaleAccess(), loadMyPlaylistSaleOffers(), loadMyOfferedTrackIds()]);
+      const [access, offers, offeredTracks, pendingChoice] = await Promise.all([getPlaylistSaleAccess(), loadMyPlaylistSaleOffers(), loadMyOfferedTrackIds(), loadPendingVisibilityChoice()]);
+      setPendingVisibilityChoice(pendingChoice);
       setSaleAccess(access);
       setMyOffers(Object.fromEntries(offers.filter((o) => o.isActive).map((o) => [o.playlistId, o])));
       // (21/09/2026) BUG RÉEL corrigé (Adel, profil adel4a) : myOffers seul
@@ -878,6 +886,54 @@ export default function MyMusicScreen({ navigation }: any) {
             <TouchableOpacity style={styles.cancelButton} onPress={() => void removeSellPrice()} disabled={sellBusy}><Text style={[styles.cancelText, { color: colors.danger }]}>Retirer de la vente</Text></TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.cancelButton} onPress={closeSellModal}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
+        </View></View>
+      </Modal>
+
+      {/* Adel (21/09/2026, mission 2/3) : "après paiement, choix immédiat
+          Rendre publique / Garder masquée" -- affiché la première fois que
+          cet écran se recharge après une livraison marketplace (voir
+          keep_playlist_sale_pending_visibility_choice, une seule fois par
+          achat). Les morceaux restent PRIVATE par défaut tant que ce choix
+          n'est pas fait -- comportement déjà en place, inchangé. */}
+      <Modal visible={!!pendingVisibilityChoice} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={styles.modalBackdrop}><View style={styles.editCard}>
+          <Text style={styles.editTitle}>🎉 Découverte débloquée</Text>
+          <Text style={styles.editHint}>
+            {pendingVisibilityChoice ? `${pendingVisibilityChoice.trackCount} titre${pendingVisibilityChoice.trackCount > 1 ? 's' : ''} de la sélection de ${pendingVisibilityChoice.sellerUsername ? `@${pendingVisibilityChoice.sellerUsername}` : 'ce vendeur'} ${pendingVisibilityChoice.trackCount > 1 ? 'ont rejoint' : 'a rejoint'} ton Loki, avec le badge « 🥇 1er KEEP ». Veux-tu rendre cette playlist publique sur ton profil, ou la garder masquée pour toi ?` : ''}
+          </Text>
+          <TouchableOpacity
+            style={styles.saveButton}
+            disabled={visibilityChoiceBusy}
+            onPress={async () => {
+              if (!pendingVisibilityChoice) return;
+              setVisibilityChoiceBusy(true);
+              try {
+                await choosePurchaseVisibility(pendingVisibilityChoice.paymentId, true);
+                setPendingVisibilityChoice(null);
+                await refreshLibrary();
+              } catch { Alert.alert('Erreur', 'Impossible d’enregistrer ce choix pour le moment.'); }
+              finally { setVisibilityChoiceBusy(false); }
+            }}
+          >
+            {visibilityChoiceBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>RENDRE PUBLIQUE</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            disabled={visibilityChoiceBusy}
+            onPress={async () => {
+              if (!pendingVisibilityChoice) return;
+              setVisibilityChoiceBusy(true);
+              try {
+                await choosePurchaseVisibility(pendingVisibilityChoice.paymentId, false);
+                setPendingVisibilityChoice(null);
+                await refreshLibrary();
+              } catch { Alert.alert('Erreur', 'Impossible d’enregistrer ce choix pour le moment.'); }
+              finally { setVisibilityChoiceBusy(false); }
+            }}
+          >
+            <Text style={styles.cancelText}>Garder masquée</Text>
+          </TouchableOpacity>
+          <Text style={styles.editHint}>Modifiable à tout moment plus tard, morceau par morceau, dans « Mes musiques ».</Text>
         </View></View>
       </Modal>
     </SafeAreaView>
