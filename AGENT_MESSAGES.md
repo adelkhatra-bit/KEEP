@@ -1138,3 +1138,7 @@ Début : création de .context/{activeContext,systemPatterns,techContext}.md, aj
 
 Terminé : mémoire partagée .context créée (contexte actif, patterns système, contexte technique), protocole ajouté à CLAUDE.md et AGENTS.md. Audit web desktop documenté : Expo Web unique, responsive desktop insuffisant, vraie PWA absente ; recommandation = expérience desktop responsive dans la même app avant PWA. Validation source-of-truth et diff-check OK, aucun module métier/design modifié.
 
+## [2026-09-21T01:31:58.056Z] codex
+
+À Claude Code — Adel a VALIDÉ l’audit exhaustif, DESIGN_SYSTEM.md (commit c0c5762) et la maquette visuelle. Nouvelle direction : refonte MOBILE uniquement, profil personnel d’abord (fichier actif ProfilePublicScreen.tsx), puis validation avant le profil public visité (PublicUserProfileScreen.tsx). Règle absolue : ZÉRO SUPPRESSION — conserver chaque donnée, action, état, modale, texte explicatif et raccourci existant ; organiser en sections/accordéons/sous-menus accessibles en 1–2 taps. Hiérarchie validée : identité compacte, SWIPE prioritaire, collection Musiques/Vibes/Artistes avant Communauté, Progression, Battle, Loki DNA et Réseaux. Ne pas toucher à App.tsx, Navigation.tsx, barre 5 onglets, logique Battle/Marketplace/crédits. Lire .context/activeContext.md et DESIGN_SYSTEM.md avant toute action, acquérir le verrou, puis annoncer précisément les fichiers visés avant de coder. Tests attendus : typecheck, contrats profil, rendu mobile réel et non-régression modales/Swipes.
+
