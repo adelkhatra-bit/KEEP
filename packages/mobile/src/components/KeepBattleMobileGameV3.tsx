@@ -375,6 +375,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloBefore, setSoloBefore] = React.useState<number | null>(null);
   const [soloAfter, setSoloAfter] = React.useState<number | null>(null);
   const [soloFreeEarned, setSoloFreeEarned] = React.useState(0);
+  // Adel (20/09/2026) : BUG RÉEL rapporté ("41 → +3 → 41", le message
+  // affichait un gain jamais réellement crédité). soloAfter est déjà
+  // rechargé depuis le serveur (pas une estimation), mais rien ne
+  // vérifiait que le solde avait VRAIMENT bougé du montant attendu avant
+  // d'afficher "Tu as gagné" -- si record_completion/report_result
+  // échouaient silencieusement (RLS, réseau...), le message mentait quand
+  // même sur la foi du seul calcul local. Score parfait + crédit non
+  // confirmé par le delta réel -> ce nouvel état pilote un message honnête
+  // au lieu d'un faux "gagné".
+  const [soloCreditPending, setSoloCreditPending] = React.useState(false);
   // Adel (02/09/2026) : "la première musique ça fonctionne, la deuxième ça
   // bloque, pas de son, et ça répond automatiquement tout seul" -- BUG RÉEL
   // confirmé en direct (instrumentation HTMLMediaElement.pause/play) : à
@@ -1001,7 +1011,19 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           if ('remainingFree' in status) {
             const freeAfter = Number(status.remainingFree ?? 0);
             setSoloAfter(freeAfter);
-            setSoloFreeEarned(freeEarned);
+            // (20/09/2026) BUG RÉEL : n'annoncer "Tu as gagné" que si le
+            // solde a RÉELLEMENT augmenté du montant attendu -- sinon le
+            // message affichait un gain fantôme (ex: 41 → +3 → 41) quand
+            // record_completion/report_result échouaient silencieusement
+            // avant ce correctif. Le solde peut légitimement bouger pour
+            // d'autres raisons pendant la partie (>=  au lieu de ===).
+            const actuallyCredited = soloBefore !== null ? Math.max(0, freeAfter - soloBefore) : 0;
+            const confirmed = freeEarned > 0 && actuallyCredited >= freeEarned;
+            setSoloFreeEarned(confirmed ? freeEarned : 0);
+            setSoloCreditPending(freeEarned > 0 && !confirmed);
+            if (freeEarned > 0 && !confirmed) {
+              console.error('[SOLO] credit mismatch: attendu', freeEarned, 'delta réel', actuallyCredited, 'before', soloBefore, 'after', freeAfter);
+            }
           }
         })().catch((e) => {
           console.error('[SOLO] Unexpected error in SOLO credit flow:', e);
@@ -1196,7 +1218,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
-      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloFreeEarned(0); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
+      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloFreeEarned(0); setSoloCreditPending(false); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
       // Adel (02/09/2026) : "lorsque j'appuie sur Battle seul ou Battle à
       // plusieurs, automatiquement ça m'active mon profil" -- entrer en
       // Battle (solo ou en ligne) montre déjà l'intention de jouer.
@@ -1789,6 +1811,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
             {soloFreeEarned > 0 ? (
               <Text style={s.finishReward}>🎁 Tu as gagné {soloFreeEarned} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloFreeEarned} → ${soloAfter})` : ''}</Text>
+            ) : soloCreditPending ? (
+              <Text style={s.finishReward}>Score parfait ! Ton crédit Free est en cours de confirmation -- vérifie ton solde dans un instant.</Text>
             ) : (
               <Text style={s.finishReward}>Rejoue pour gagner jusqu'à {maxRewardForRounds(solo.rounds.length)} Free</Text>
             )}
