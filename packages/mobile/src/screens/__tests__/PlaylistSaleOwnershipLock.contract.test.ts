@@ -20,14 +20,15 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
   const myMusic = readNormalized(__dirname, '..', 'MyMusicScreen.tsx');
   const publicProfile = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('MyMusicScreen locks the sale checkbox for a track that came from another profile (sourceProfileId set = not self-discovered)', () => {
+  it('MyMusicScreen locks the sale checkbox for a track that came from another profile (sourceProfileId set = not self-discovered), styled red (Adel, 21/09/2026 : "il faut que le cadenas soit rouge")', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
-    expect(myMusic).toContain("(offered || notOwnDiscovery) && styles.selectionCheckDisabled");
+    expect(myMusic).toContain('notOwnDiscovery && styles.selectionCheckLocked');
+    expect(myMusic).toContain("selectionCheckLocked:{opacity:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,0.12)'}");
     expect(myMusic).toContain("{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}");
   });
 
-  it('tapping the locked checkbox tells the user the track belongs to someone else, not a silent no-op', () => {
-    expect(myMusic).toContain("? Alert.alert('Pas à vendre', `\"${track.title}\" ne t'appartient pas, elle appartient à un autre utilisateur : tu ne peux pas la vendre.`)");
+  it('tapping the locked checkbox tells the user the track belongs to someone else and explains why, not a silent no-op', () => {
+    expect(myMusic).toContain("? Alert.alert('Pas à vendre', `\"${track.title}\" ne peut pas être vendue : elle vient d'un autre utilisateur. Il doit l'avoir gardée depuis sa propre écoute pour pouvoir la vendre.`)");
   });
 
   it('the lock never fully disables the checkbox (only "offered" does) so the explanatory tap still fires', () => {
@@ -44,5 +45,22 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
     expect(publicProfile).toContain('{saleOffers.length === 0 ? (');
     expect(publicProfile).toContain("onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}");
     expect(publicProfile).toContain('<Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>');
+  });
+
+  /**
+   * Adel (21/09/2026) : "1000 abonnés assignés via Super Admin, la fonction
+   * reste verrouillée -- comment ça se fait que je suis encore bloqué ?"
+   *
+   * BUG RÉEL trouvé et corrigé : l'effet qui charge saleAccess/refreshLibrary
+   * s'abonnait à l'événement 'focus' avec une fermeture figée au montage, où
+   * marketplaceEnabled valait encore `false` (le flag async n'avait pas fini
+   * de charger). Ce même abonnement périmé était ensuite rappelé à chaque
+   * focus d'écran sans jamais relire la valeur à jour de marketplaceEnabled
+   * -- saleAccess restait donc bloqué à null indéfiniment, même une fois le
+   * flag/bypass Super Admin activé côté serveur.
+   */
+  it('the sale-access effect re-subscribes (and re-fetches) whenever marketplaceEnabled flips, instead of running once with a stale closure forever', () => {
+    expect(myMusic).toContain('}, [navigation, refresh, syncUnsyncedKeeps, userId, isLocalGuest, isDemoMode, marketplaceEnabled]);');
+    expect(myMusic).not.toContain('}, [navigation, refresh, syncUnsyncedKeeps, userId, isLocalGuest, isDemoMode]);');
   });
 });
