@@ -695,7 +695,10 @@ export default function MyMusicScreen({ navigation }: any) {
           <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
           <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
         </View>
-        <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact small />
+        {/* Maquette validée "Cartes Loki — nouveau design" (21/09/2026) :
+            même carré 40×40 que sur les écrans de profil, pour une grille
+            d'action cohérente partout où ce type de liste existe. */}
+        <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} square />
         {localEntry ? (
           <TouchableOpacity style={styles.expandToggle} onPress={() => toggleTrackExpanded(key)} accessibilityLabel={expanded ? 'Masquer les actions' : 'Voir les actions : visibilité, vendre, supprimer'} accessibilityRole="button">
             <Text style={styles.expandToggleText}>{expanded ? '⌃' : '⌄'}</Text>

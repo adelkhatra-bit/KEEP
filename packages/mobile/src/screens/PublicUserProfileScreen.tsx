@@ -857,15 +857,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
                 const trackLikeCount = likeCounts[track.trackId] || 0;
                 const trackExpanded = expandedTrackKeys.has(track.id);
-                // Adel (21/09/2026) : "hauteur fixe et uniforme pour toutes
-                // les cartes ... aucun badge ne doit modifier la hauteur."
-                // Rangée principale : pochette + titre/artiste tronqués +
-                // lecture -- j'ai gardé "+ Garder" visible aussi (pas dans
-                // la liste "essentiel" de la demande, mais c'est l'action
-                // principale de cet écran de découverte ; la cacher par
-                // défaut casserait le parcours central du produit). Like,
-                // Partager, "Découvert par" et le badge 1er KEEP passent
-                // dans le panneau dépliable, jamais dans cette rangée.
+                // Adel (21/09/2026, maquette "Cartes Loki — nouveau design"
+                // validée) : Jouer/Aimer/Partager/Garder redeviennent des
+                // carrés 40×40 TOUJOURS visibles dans la rangée fixe --
+                // liker ou partager ne doit jamais exiger de déplier une
+                // carte. Le chevron ne garde plus que le badge 1er KEEP et
+                // l'attribution "Découvert par", jamais une action rapide.
                 return <View key={track.id} style={styles.trackCard}>
                   <View style={styles.musicRow}>
                     {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
@@ -873,13 +870,25 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
                       <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
                     </View>
-                    <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
-                    {viewer?.id !== profile.id ? (
-                      <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding}>
-                        <Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]} numberOfLines={1}>{adding ? '…' : alreadyKept ? '✓' : '+ Garder'}</Text>
+                    <View style={styles.actionSquares}>
+                      <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />
+                      {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
+                          le coeur en vert, entoure-le pour qu'on le voit bien"
+                          -- incite a etre le premier a liker. */}
+                      <TouchableOpacity style={[styles.squareLike, liked && styles.squareLikeActive, !liked && trackLikeCount === 0 && styles.squareLikeEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}>
+                        <Text style={[styles.squareLikeHeart, liked && styles.squareLikeHeartActive]}>{liked ? '♥' : '♡'}</Text>
+                        <Text style={styles.squareLikeCount}>{trackLikeCount}</Text>
                       </TouchableOpacity>
-                    ) : null}
-                    <TouchableOpacity style={styles.expandToggle} onPress={() => toggleTrackExpanded(track.id)} accessibilityLabel={trackExpanded ? 'Masquer les détails' : "Voir les détails : j'aime, découverte et partage"} accessibilityRole="button">
+                      <TouchableOpacity style={styles.squareShare} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)} accessibilityLabel="Partager ce morceau">
+                        <Text style={styles.squareShareIcon}>↗</Text>
+                      </TouchableOpacity>
+                      {viewer?.id !== profile.id ? (
+                        <TouchableOpacity style={[styles.squareKeep, alreadyKept && styles.squareKeepActive]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding} accessibilityLabel={alreadyKept ? 'Déjà dans ton Loki' : 'Garder ce morceau'}>
+                          <Text style={[styles.squareKeepIcon, alreadyKept && styles.squareKeepIconActive]}>{adding ? '…' : alreadyKept ? '✓' : '+'}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    <TouchableOpacity style={styles.expandToggle} onPress={() => toggleTrackExpanded(track.id)} accessibilityLabel={trackExpanded ? 'Masquer les détails' : 'Voir les détails : découverte'} accessibilityRole="button">
                       <Text style={styles.expandToggleText}>{trackExpanded ? '⌃' : '⌄'}</Text>
                     </TouchableOpacity>
                   </View>
@@ -891,34 +900,25 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                           <Text style={styles.firstKeepLine}>@{profile.username} a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : ''}</Text>
                         </View>
                       ) : null}
-                      <View style={styles.trackActions}>
-                        <View style={styles.trackActionsLeft}>
-                          <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
-                          {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
-                              le coeur en vert, entoure-le pour qu'on le voit bien"
-                              -- incite a etre le premier a liker. */}
-                          <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive, !liked && trackLikeCount === 0 && styles.likeButtonEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{trackLikeCount}</Text></TouchableOpacity>
-                        </View>
-                        <View style={styles.discoveryOriginRow}>
-                          <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                          {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
-                            const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
-                            // Adel (08/09/2026) : "si abonne on met vert, si pas
-                            // abonne on met rouge ... incite a cliquer dessus" --
-                            // le contour porte ce signal, le fond reste la couleur
-                            // de certification.
-                            const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
-                            return (
-                              <TouchableOpacity
-                                style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
-                                onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
-                                accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
-                              >
-                                <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
-                              </TouchableOpacity>
-                            );
-                          })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
-                        </View>
+                      <View style={styles.discoveryOriginRow}>
+                        <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
+                        {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
+                          const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
+                          // Adel (08/09/2026) : "si abonne on met vert, si pas
+                          // abonne on met rouge ... incite a cliquer dessus" --
+                          // le contour porte ce signal, le fond reste la couleur
+                          // de certification.
+                          const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
+                          return (
+                            <TouchableOpacity
+                              style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
+                              onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
+                              accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
+                            >
+                              <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
+                            </TouchableOpacity>
+                          );
+                        })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                       </View>
                     </View>
                   ) : null}
@@ -1116,7 +1116,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
-  followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},followButtonTextActive:{color:colors.textPrimary},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},
+  followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},followButtonTextActive:{color:colors.textPrimary},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},
 
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
@@ -1137,7 +1137,15 @@ const styles = StyleSheet.create({
   musicRow:{flexDirection:'row',alignItems:'center',height:64,paddingHorizontal:9,gap:8},musicCover:{width:48,height:48,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},
   expandToggle:{width:32,height:44,alignItems:'center',justifyContent:'center'},expandToggleText:{color:colors.textMuted,fontSize:16,fontWeight:'900'},
   expandedPanel:{paddingHorizontal:9,paddingBottom:10,paddingTop:2,gap:6,borderTopWidth:1,borderTopColor:colors.border},
-  discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},keepButtonInline:{minHeight:44,minWidth:44,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
+  // Maquette validée "Cartes Loki — nouveau design" (21/09/2026) : carrés
+  // d'action 40×40 uniformes (Jouer/Aimer/Partager/Garder), toujours
+  // visibles dans la rangée fixe -- jamais cachés derrière le chevron.
+  actionSquares:{flexDirection:'row',alignItems:'center',gap:6},
+  squareLike:{width:40,height:40,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},squareLikeActive:{borderColor:'#FF5F83'},squareLikeEmpty:{borderColor:'#38D990',borderWidth:2},squareLikeHeart:{color:colors.textSecondary,fontSize:14},squareLikeHeartActive:{color:'#FF5F83'},squareLikeCount:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:1},
+  squareShare:{width:40,height:40,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},squareShareIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
+  squareKeep:{width:40,height:40,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},squareKeepActive:{backgroundColor:`${colors.success}22`,borderColor:colors.success},squareKeepIcon:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},squareKeepIconActive:{color:colors.success},
+  muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
   pickerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:44,paddingHorizontal:10,borderBottomWidth:1,borderBottomColor:'#2B2238'},pickerRowText:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:14,fontWeight:'700'},pickerRowCount:{color:colors.textMuted,fontSize:12,fontWeight:'800',marginLeft:8},

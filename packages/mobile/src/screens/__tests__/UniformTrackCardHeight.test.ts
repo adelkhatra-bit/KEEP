@@ -42,6 +42,12 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(own).toContain('const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());');
       expect(own).toContain("<Text style={s.expandToggleText}>{expanded ? '⌃' : '⌄'}</Text>");
     });
+
+    it('play and share are always-visible 40×40 squares in the fixed row (revised 21/09/2026, maquette "Cartes Loki — nouveau design" validée)', () => {
+      const rowBlock = own.slice(own.indexOf('<View style={[s.keepRow'), own.indexOf('{expanded ? ('));
+      expect(rowBlock).toContain('<TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} square />');
+      expect(rowBlock).toContain('s.squareShare');
+    });
   });
 
   describe('PublicUserProfileScreen.tsx (profil visité)', () => {
@@ -54,17 +60,15 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(visited).toContain('<Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>');
     });
 
-    it('like, share, "Découvert par" and the 1er KEEP badge never render inside the fixed-height row -- only inside the collapsible panel', () => {
+    it('only the 1er KEEP badge and "Découvert par" attribution stay in the collapsible panel -- never in the fixed row (revised 21/09/2026, maquette "Cartes Loki — nouveau design" validée : Like/Partager ne doivent plus jamais exiger un déplié)', () => {
       const rowBlock = visited.slice(visited.indexOf('<View style={styles.musicRow}>'), visited.indexOf('{trackExpanded ? ('));
       expect(rowBlock).not.toContain('firstKeepBadge');
       expect(rowBlock).not.toContain('Découvert par');
-      expect(rowBlock).not.toContain('likeButton');
-      expect(rowBlock).not.toContain('shareButton');
-      const panelBlock = visited.slice(visited.indexOf('{trackExpanded ? ('), visited.indexOf('{trackExpanded ? (') + 3200);
+      const panelBlock = visited.slice(visited.indexOf('{trackExpanded ? ('), visited.indexOf('{trackExpanded ? (') + 2000);
       expect(panelBlock).toContain('firstKeepBadge');
       expect(panelBlock).toContain('Découvert par');
-      expect(panelBlock).toContain('likeButton');
-      expect(panelBlock).toContain('shareButton');
+      expect(panelBlock).not.toContain('squareLike');
+      expect(panelBlock).not.toContain('squareShare');
     });
 
     it('the panel is collapsed by default and toggled by a chevron, not shown automatically', () => {
@@ -72,10 +76,12 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(visited).toContain("<Text style={styles.expandToggleText}>{trackExpanded ? '⌃' : '⌄'}</Text>");
     });
 
-    it('the play button and the primary "+ Garder" action stay in the fixed row -- a deliberate UX call, not part of the mission\'s literal minimal list, kept because it is this screen\'s core conversion action', () => {
+    it('play, like, share and keep are always-visible 40×40 squares in the fixed row, never behind the chevron', () => {
       const rowBlock = visited.slice(visited.indexOf('<View style={styles.musicRow}>'), visited.indexOf('{trackExpanded ? ('));
-      expect(rowBlock).toContain('<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />');
-      expect(rowBlock).toContain('styles.keepButtonInline');
+      expect(rowBlock).toContain('<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />');
+      expect(rowBlock).toContain('styles.squareLike');
+      expect(rowBlock).toContain('styles.squareShare');
+      expect(rowBlock).toContain('styles.squareKeep');
     });
   });
 

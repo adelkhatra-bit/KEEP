@@ -21,6 +21,10 @@ type Props = {
   // (jamais appliquee a `compact` seul, qui reste utilise ailleurs en plein
   // largeur avec une cible tactile de 44).
   small?: boolean;
+  // Adel (21/09/2026, maquette validée "Cartes Loki — nouveau design") :
+  // carré d'action 40×40, icône seule (▶/■), même famille que les carrés
+  // Aimer/Partager/Garder -- jamais combiné avec compact/fullWidth/small.
+  square?: boolean;
 };
 
 type TrackAudioMetadata = {
@@ -61,7 +65,7 @@ async function loadTrackAudioMetadata(trackKey: string): Promise<TrackAudioMetad
   };
 }
 
-export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false, small = false }: Props) {
+export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false, small = false, square = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
@@ -221,11 +225,27 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   };
 
   if (resolving) {
+    if (square) return <TouchableOpacity style={styles.squareDisabled} disabled accessibilityLabel="Recherche audio en cours"><Text style={styles.squareText}>…</Text></TouchableOpacity>;
     return <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Recherche audio…</Text>;
   }
 
   if (!resolvedPreviewUrl && !resolvedFallbackUrl) {
+    if (square) return <TouchableOpacity style={styles.squareDisabled} disabled accessibilityLabel="Audio indisponible"><Text style={styles.squareText}>♪</Text></TouchableOpacity>;
     return compact ? <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
+  }
+
+  if (square) {
+    return (
+      <TouchableOpacity
+        style={styles.square}
+        onPress={toggle}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
+      >
+        <Text style={styles.squareText}>{busy ? '…' : playing ? '■' : '▶'}</Text>
+      </TouchableOpacity>
+    );
   }
 
   return (
@@ -268,4 +288,9 @@ const styles = StyleSheet.create({
   smallText: { fontSize: 12, color: '#E5F266' },
   unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
+  // Maquette validée "Cartes Loki — nouveau design" (21/09/2026) : carré
+  // d'action 40×40, même famille que les carrés Aimer/Partager/Garder.
+  square: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  squareDisabled: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: 0.6 },
+  squareText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
 });
