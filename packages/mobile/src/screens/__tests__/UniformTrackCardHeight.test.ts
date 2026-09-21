@@ -20,33 +20,39 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
   const myMusic = readNormalized(__dirname, '..', 'MyMusicScreen.tsx');
 
   describe('ProfilePublicScreen.tsx (propre profil)', () => {
-    it('the main row has an explicit fixed height, not derived from content', () => {
-      expect(own).toContain("keepRow:{flexDirection:'row',alignItems:'center',height:64,paddingHorizontal:8,gap:8}");
+    // (21/09/2026, révision) : la grille (hauteur fixe, troncature, carrés,
+    // chevron, panneau replié par défaut) a été extraite dans
+    // TrackActionRow.tsx -- déjà couverte par TrackActionRow.test.ts. Ce
+    // qui reste à vérifier ici : la délégation, et que seul un carré
+    // (Partager) est fourni en plus de Play (pas de "Garder" sur son
+    // propre profil -- déjà à soi par définition).
+    it('delegates the row layout to TrackActionRow instead of a local implementation', () => {
+      expect(own).toContain("import TrackActionRow from '../components/TrackActionRow';");
+      expect(own).toContain('<TrackActionRow');
+      expect(own).toContain('playSlot={<TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} square />}');
     });
 
-    it('title and artist are single-line, truncated with an ellipsis, never wrapping', () => {
-      expect(own).toContain('<Text style={s.keepTitle} numberOfLines={1}>{track.title}</Text>');
-      expect(own).toContain('<Text style={s.keepArtist} numberOfLines={1}>{track.artist}</Text>');
+    it('only a Partager square is supplied (no Garder square on one\'s own profile), and it never fills the square background (tone colors only recolor the icon)', () => {
+      const rowIdx = own.indexOf('<TrackActionRow');
+      const closeIdx = own.indexOf('</TrackActionRow>');
+      const block = own.slice(rowIdx, closeIdx);
+      expect(block).toContain("icon: '↗',");
+      expect(block).toContain("accessibilityLabel: 'Partager ce morceau',");
     });
 
-    it('the 1er KEEP badge and "Découvert par" attribution never render inside the fixed-height row -- only inside the collapsible panel', () => {
-      const rowBlock = own.slice(own.indexOf('<View style={[s.keepRow'), own.indexOf('{expanded ? ('));
-      expect(rowBlock).not.toContain('firstKeepBadge');
-      expect(rowBlock).not.toContain('Découvert par');
-      const panelBlock = own.slice(own.indexOf('{expanded ? ('), own.indexOf('{expanded ? (') + 2500);
-      expect(panelBlock).toContain('firstKeepBadge');
-      expect(panelBlock).toContain('Découvert par');
+    it('the 1er KEEP badge and "Découvert par" attribution are passed as TrackActionRow children (the panel), never rendered outside it', () => {
+      const rowIdx = own.indexOf('<TrackActionRow');
+      const closeIdx = own.indexOf('</TrackActionRow>');
+      expect(rowIdx).toBeGreaterThan(-1);
+      const childrenBlock = own.slice(rowIdx, closeIdx);
+      expect(childrenBlock).toContain('firstKeepBadge');
+      expect(childrenBlock).toContain('Découvert par');
     });
 
-    it('the panel is collapsed by default (a Set of expanded keys, empty on mount) and toggled by a chevron, not shown automatically', () => {
+    it('the panel only opens when there is something to show (a real 1er KEEP impact or a known origin), collapsed by default', () => {
       expect(own).toContain('const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());');
-      expect(own).toContain("<Text style={s.expandToggleText}>{expanded ? '⌃' : '⌄'}</Text>");
-    });
-
-    it('play and share are always-visible 40×40 squares in the fixed row (revised 21/09/2026, maquette "Cartes Loki — nouveau design" validée)', () => {
-      const rowBlock = own.slice(own.indexOf('<View style={[s.keepRow'), own.indexOf('{expanded ? ('));
-      expect(rowBlock).toContain('<TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} square />');
-      expect(rowBlock).toContain('s.squareShare');
+      expect(own).toContain('expandable={hasDetails}');
+      expect(own).toContain('const hasDetails = isFirstKeep || !!originKind;');
     });
   });
 
