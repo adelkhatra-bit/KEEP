@@ -86,31 +86,44 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
   });
 
   describe('MyMusicScreen.tsx (bibliothèque personnelle -- "et partout où ce type de liste existe")', () => {
-    it('the main row has an explicit fixed height, not derived from content', () => {
-      expect(myMusic).toContain("trackRow:{height:56,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:6}");
+    // (21/09/2026, révision) : la grille elle-même (hauteur fixe, troncature,
+    // carrés, chevron, panneau replié par défaut) a été extraite dans
+    // TrackActionRow.tsx, seule source de vérité -- déjà couverte par
+    // TrackActionRow.test.ts. Ce qui reste à vérifier ici : que
+    // MyMusicScreen délègue bien à ce composant plutôt que de garder sa
+    // propre implémentation, et que "Donné par"/Public-Privé/Supprimer/
+    // Vendre sont bien passés en `children` (donc dans le panneau), jamais
+    // en dehors.
+    it('delegates the row layout to TrackActionRow instead of a local implementation', () => {
+      expect(myMusic).toContain("import TrackActionRow from '../components/TrackActionRow';");
+      expect(myMusic).toContain('<TrackActionRow');
+      expect(myMusic).toContain('playSlot={<TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} square />}');
     });
 
-    it('title and artist are single-line, truncated with an ellipsis, never wrapping', () => {
-      expect(myMusic).toContain('<Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>');
-      expect(myMusic).toContain('<Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>');
+    it('the multi-select checkbox stays outside the grid (a mode interaction, not a track action) while Play stays inside it', () => {
+      const outerIdx = myMusic.indexOf('<View key={key} style={styles.trackRowOuter}>');
+      const rowIdx = myMusic.indexOf('<TrackActionRow', outerIdx);
+      expect(outerIdx).toBeGreaterThan(-1);
+      const checkboxBlock = myMusic.slice(outerIdx, rowIdx);
+      expect(checkboxBlock).toContain('selectionCheck');
     });
 
-    it('"Donné par", Public/Privé, Supprimer and Vendre never render inside the fixed-height row -- only inside the collapsible panel (the multi-select checkbox and the play button stay, they are direct interactions, not meta-info)', () => {
-      const rowBlock = myMusic.slice(myMusic.indexOf('<View style={styles.trackRow}>'), myMusic.indexOf('{expanded && localEntry ? ('));
-      expect(rowBlock).not.toContain('trackSourceRow');
-      expect(rowBlock).not.toContain('visibilityTrackButton');
-      expect(rowBlock).not.toContain('deleteTrackButton');
-      expect(rowBlock).not.toContain('sellTrackButton');
-      const panelBlock = myMusic.slice(myMusic.indexOf('{expanded && localEntry ? ('), myMusic.indexOf('{expanded && localEntry ? (') + 3500);
-      expect(panelBlock).toContain('trackSourceRow');
-      expect(panelBlock).toContain('visibilityTrackButton');
-      expect(panelBlock).toContain('deleteTrackButton');
-      expect(panelBlock).toContain('sellTrackButton');
+    it('"Donné par", Public/Privé, Supprimer and Vendre are passed as TrackActionRow children (the panel), never rendered outside it', () => {
+      const rowIdx = myMusic.indexOf('<TrackActionRow');
+      const closeIdx = myMusic.indexOf('</TrackActionRow>');
+      expect(rowIdx).toBeGreaterThan(-1);
+      expect(closeIdx).toBeGreaterThan(rowIdx);
+      const childrenBlock = myMusic.slice(rowIdx, closeIdx);
+      expect(childrenBlock).toContain('trackSourceRow');
+      expect(childrenBlock).toContain('visibilityTrackButton');
+      expect(childrenBlock).toContain('deleteTrackButton');
+      expect(childrenBlock).toContain('sellTrackButton');
     });
 
-    it('the panel is collapsed by default and toggled by a chevron, not shown automatically', () => {
+    it('expandable is only true when there is a real local entry, and toggled through the same expandedTrackKeys state as before', () => {
       expect(myMusic).toContain('const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());');
-      expect(myMusic).toContain("<Text style={styles.expandToggleText}>{expanded ? '⌃' : '⌄'}</Text>");
+      expect(myMusic).toContain('expandable={Boolean(localEntry)}');
+      expect(myMusic).toContain('onToggleExpand={() => toggleTrackExpanded(key)}');
     });
   });
 });
