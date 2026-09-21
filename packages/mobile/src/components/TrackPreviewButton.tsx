@@ -237,13 +237,13 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   if (square) {
     return (
       <TouchableOpacity
-        style={styles.square}
+        style={[styles.square, playing && styles.squarePlaying]}
         onPress={toggle}
         disabled={busy}
         accessibilityRole="button"
         accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
       >
-        <Text style={styles.squareText}>{busy ? '…' : playing ? '■' : '▶'}</Text>
+        <Text style={[styles.squareText, playing && styles.squareTextPlaying]}>{busy ? '…' : playing ? '■' : '▶'}</Text>
       </TouchableOpacity>
     );
   }
@@ -288,9 +288,14 @@ const styles = StyleSheet.create({
   smallText: { fontSize: 12, color: '#E5F266' },
   unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
-  // Maquette validée "Cartes Loki — nouveau design" (21/09/2026) : carré
-  // d'action 40×40, même famille que les carrés Aimer/Partager/Garder.
-  square: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  squareDisabled: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', opacity: 0.6 },
-  squareText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  // Maquette interactive validée "TrackRow" (21/09/2026,
+  // https://claude.ai/artifact/9X4dx8oMmCJ3hkRGndc7BW) : fond uniforme
+  // #1A1A2E pour tous les carrés d'action -- gris au repos, vert menthe
+  // pendant la lecture, jamais de remplissage violet (contrairement à la
+  // première maquette, corrigée depuis).
+  square: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: '#8B87A0', backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
+  squarePlaying: { borderColor: colors.success },
+  squareDisabled: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center', opacity: 0.6 },
+  squareText: { color: '#8B87A0', fontSize: 15, fontWeight: '900' },
+  squareTextPlaying: { color: colors.success },
 });

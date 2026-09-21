@@ -14,12 +14,15 @@ describe('TrackPreviewButton — variante "square" (Adel, 21/09/2026, maquette "
 
   it('renders a 40×40 icon-only square (no "Jouer"/"Stop" text) reusing the exact same play/stop logic, not a duplicate audio path', () => {
     expect(source).toContain('square: { width: 40, height: 40, borderRadius: 10');
-    expect(source).toContain("<Text style={styles.squareText}>{busy ? '…' : playing ? '■' : '▶'}</Text>");
+    expect(source).toContain("<Text style={[styles.squareText, playing && styles.squareTextPlaying]}>{busy ? '…' : playing ? '■' : '▶'}</Text>");
     expect(source).toContain('onPress={toggle}');
   });
 
-  it('the square variant fills violet (primary action), matching the mockup spec', () => {
-    expect(source).toContain('backgroundColor: colors.primary, alignItems: \'center\', justifyContent: \'center\' },\n  squareDisabled:');
+  it('matches the validated interactive mockup (https://claude.ai/artifact/9X4dx8oMmCJ3hkRGndc7BW) : dark uniform background #1A1A2E, gray border at rest, mint green while playing -- never a violet fill', () => {
+    expect(source).toContain("backgroundColor: '#1A1A2E'");
+    expect(source).toContain("borderColor: '#8B87A0'");
+    expect(source).toContain('squarePlaying: { borderColor: colors.success }');
+    expect(source).not.toContain('backgroundColor: colors.primary,');
   });
 
   it('keeps a stable 40×40 footprint even while resolving or when audio is unavailable, so the action row never resizes', () => {
