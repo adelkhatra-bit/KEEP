@@ -121,7 +121,19 @@ export default function MyMusicScreen({ navigation }: any) {
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
   // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
-  useEffect(() => { let live = true; isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); return () => { live = false; }; }, []);
+  // (21/09/2026) BUG RÉEL corrigé (Adel : "1000 abonnés assignés via Super
+  // Admin, la fonction reste verrouillée") : ce check ne tournait qu'une
+  // fois au montage (deps vides) -- un changement fait dans Super Admin
+  // pendant que l'écran était déjà monté (flag, bypass de test) n'était
+  // jamais relu sans tuer et rouvrir l'app en entier. Recalculé aussi à
+  // chaque focus de l'écran, comme refreshLibrary juste en dessous.
+  useEffect(() => {
+    let live = true;
+    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    check();
+    const unsubscribe = navigation?.addListener?.('focus', check);
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation]);
   // Adel (16-17/09/2026) : "l'utilisateur va pouvoir sélectionner les
   // musiques qu'il va vendre ou les albums complets ... assure-toi que les
   // montants sont pré-écrits" -- vendre une playlist nommée entière OU une

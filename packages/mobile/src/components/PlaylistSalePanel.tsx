@@ -30,7 +30,17 @@ export default function PlaylistSalePanel({ navigation }: any) {
   // au cas où le point d'entrée menu serait contourné -- le flag Super
   // Admin 'playlist_marketplace' reste la seule source de vérité.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState<boolean | null>(null);
-  useEffect(() => { let live = true; isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); return () => { live = false; }; }, []);
+  // (21/09/2026) BUG RÉEL corrigé : ce check ne tournait qu'au montage --
+  // un changement de flag/bypass fait dans Super Admin pendant que l'écran
+  // était déjà ouvert n'était jamais relu sans relancer l'app. Recalculé
+  // aussi à chaque focus.
+  useEffect(() => {
+    let live = true;
+    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    check();
+    const unsubscribe = navigation?.addListener?.('focus', check);
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation]);
 
   const loadData = async () => {
     if (!user || isLocalGuest || isDemoMode) {
