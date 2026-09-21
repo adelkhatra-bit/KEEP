@@ -4,18 +4,26 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : aperçu immersif + renonciation obligatoire au droit de rétractation)', () => {
+describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux + renonciation obligatoire au droit de rétractation)', () => {
   const source = readNormalized(__dirname, '..', 'PlaylistSaleImmersivePreview.tsx');
   const profile = readNormalized(__dirname, '..', '..', 'screens', 'PublicUserProfileScreen.tsx');
 
-  it('reuses the existing masked 15s preview component instead of reinventing the audio/masking logic', () => {
-    expect(source).toContain("import PlaylistSalePreview from './PlaylistSalePreview';");
-    expect(source).toContain('<PlaylistSalePreview playlistId={offer.playlistId} trackCount={offer.trackCount} />');
-    expect(source).not.toContain('loadPlaylistSaleOfferPreviewTracks');
+  it('loads the masked 15s previews directly and swipes through them (mission 21/09/2026 : "swipe immersif avec extraits 15s")', () => {
+    expect(source).toContain("import SwipeDeck from './SwipeDeck';");
+    expect(source).toContain("import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';");
+    expect(source).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
+    expect(source).toContain('<SwipeDeck');
+    expect(source).toContain('onSwipeLeft={() => playTrackAt(trackIndex - 1)}');
+    expect(source).toContain('onSwipeRight={() => playTrackAt(trackIndex + 1)}');
+  });
+
+  it('auto-advances to the next masked track when a 15s extract ends, instead of stopping', () => {
+    expect(source).toContain('() => { clearCountdown(); playTrackAt(safeIdx + 1); }');
   });
 
   it('never renders track-level title/artist/artwork before purchase', () => {
     expect(source).not.toMatch(/track\.(title|artist|artworkUrl)/);
+    expect(source).not.toContain('coverUrl');
   });
 
   it('rotates marketing and explainer copy automatically', () => {
@@ -39,6 +47,15 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : aperçu immersif + re
 
   it('states the no-refund policy explicitly next to the purchase action', () => {
     expect(source).toContain('aucun remboursement possible');
+  });
+
+  it('discloses the manual/external payment mechanism before purchase (Adel, décision 21/09/2026)', () => {
+    expect(source).toContain('Loki ne voit ni ne garantit ce paiement');
+  });
+
+  it('uses the exact persistent purchase wording from the mission spec, never green', () => {
+    expect(source).toContain('Acheter et ajouter à mon Loki');
+    expect(source).not.toMatch(/buyButton:.*success/);
   });
 
   it('is wired into the public profile boutique instead of buying directly on card tap', () => {
