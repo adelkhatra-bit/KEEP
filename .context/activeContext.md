@@ -10,7 +10,8 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Audit exhaustif des profils mobile personnel (`ProfilePublicScreen.tsx`) et public visité (`PublicUserProfileScreen.tsx`) validé.
 - Design system écrit dans `DESIGN_SYSTEM.md` et direction visuelle mobile validée par Adel.
 - Spécification visuelle commune des deux profils mobile formalisée dans `docs/PROFILE_MOBILE_REDESIGN.md` pour éviter toute divergence entre agents.
-- Prochaine étape autorisée : préparer la refonte du profil personnel mobile en premier, sans suppression de fonctionnalité et sans toucher à `App.tsx` ni `Navigation.tsx`.
+- Refonte du profil personnel mobile (`ProfilePublicScreen.tsx`) faite par Claude Code (21/09, commit `9495eab`) : hiérarchie de couleurs v3, badge 1er KEEP + compteur KEEPs réels, morceaux privés visibles grisés+cadenas, titre "Ma collection", bouton Filtrer, SWIPE plein-largeur/PARTAGER secondaire, cibles tactiles 44×44, Battle & présence avec victoires/rang/partie en cours réels. En attente de validation visuelle par Adel avant de passer à `PublicUserProfileScreen.tsx`.
+- Limites signalées, pas corrigées sans validation : sections secondaires pas encore de vrais accordéons avec chevron ; barre 5 onglets absente sur le profil public visité (nécessiterait `Navigation.tsx`) ; aucune capture d'écran réelle produite (pas de simulateur/navigateur dans cette session).
 
 ## État du projet
 
