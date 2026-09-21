@@ -9,6 +9,7 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Mémoire partagée `.context/` mise en place pour Claude Code, Codex, Cursor et les autres agents ayant accès au dépôt.
 - Audit exhaustif des profils mobile personnel (`ProfilePublicScreen.tsx`) et public visité (`PublicUserProfileScreen.tsx`) validé.
 - Design system écrit dans `DESIGN_SYSTEM.md` et direction visuelle mobile validée par Adel.
+- Spécification visuelle commune des deux profils mobile formalisée dans `docs/PROFILE_MOBILE_REDESIGN.md` pour éviter toute divergence entre agents.
 - Prochaine étape autorisée : préparer la refonte du profil personnel mobile en premier, sans suppression de fonctionnalité et sans toucher à `App.tsx` ni `Navigation.tsx`.
 
 ## État du projet
@@ -33,6 +34,7 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Hiérarchie validée : identité compacte, SWIPE prioritaire, collection avant les sections Communauté, Progression, Battle, Loki DNA et Réseaux.
 - Chaque ligne de musique doit conserver le pseudo du découvreur/utilisateur, son statut de suivi/certification et l'accès à son profil : c'est le principe social d'origine de KEEP.
 - La cloche Notifications et son compteur restent visibles dans la barre supérieure du profil, hors du menu hamburger.
+- La barre inférieure globale reste visible et inchangée sur les profils avec ses cinq onglets `Écouter`, `Découvertes`, `Playlists`, `Soirées`, `Profil` ; le contenu doit réserver sa hauteur et la safe area.
 - Couleurs critiques immuables : violet KEEP `#7C5CFC`, GARDER/succès `#2DE1C2`, PASSER/danger `#FF5C72`.
 - Écouter, reconnaître et PASSER coûtent `0 Free`.
 - GARDER un titre découvert via Écouter coûte actuellement `3 Free` ; cette valeur vient de la configuration serveur. Une copie sociale depuis le profil d'un autre membre coûte `0 Free`.

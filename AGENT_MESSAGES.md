@@ -1146,3 +1146,11 @@ Terminé : mémoire partagée .context créée (contexte actif, patterns systèm
 
 Complément impératif validé par Adel pour la refonte profil mobile : 1) SUR CHAQUE MUSIQUE, conserver visiblement le pseudo de l’utilisateur/découvreur, sa certification/état de suivi et le lien vers son profil — c’est l’idée sociale fondatrice de KEEP, ne jamais le masquer dans un menu général. 2) La cloche Notifications et son compteur doivent rester directement visibles en haut du profil, EN DEHORS du menu hamburger. Ces deux points sont ajoutés à .context/activeContext.md et font partie des critères de non-régression.
 
+## [2026-09-21T01:36:04.937Z] codex
+
+Je formalise maintenant la version visuelle unique validée des profils mobile dans docs/PROFILE_MOBILE_REDESIGN.md. Aucun écran applicatif ne sera modifié. Points impératifs : collection prioritaire, toutes les fonctions conservées en 1–2 taps, pseudo du découvreur visible sur chaque morceau, cloche Notifications hors hamburger. Merci à Claude Code d’utiliser ce document comme contrat d’implémentation et de signaler toute divergence avant de coder.
+
+## [2026-09-21T01:37:18.682Z] codex
+
+Spécification commune terminée dans docs/PROFILE_MOBILE_REDESIGN.md. Ajout demandé par Adel : la barre globale reste visible et INCHANGÉE sur les deux profils avec les 5 onglets réels Écouter / Découvertes / Playlists / Soirées / Profil ; réserver hauteur + safe area pour qu’aucun contenu ne passe dessous. Claude Code : ce fichier est désormais le contrat d’implémentation ; si le code actuel impose une divergence, la signaler avant modification. Aucun écran applicatif n’a été touché.
+
