@@ -16,7 +16,10 @@ describe('PublicUserProfileScreen redesign (Adel, 21/09/2026 : plan validé -- i
     const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
-    const boutique = source.indexOf("<Text style={styles.sectionTitle}>Boutique playlists</Text>");
+    // (21/09/2026) : "Boutique playlists" renommé "Découvertes à débloquer"
+    // -- reframing conformité (on ne vend pas de musique, on donne accès à
+    // une découverte curatée).
+    const boutique = source.indexOf("<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>");
     const socialHub = source.indexOf('<View style={styles.socialHub}>');
     expect(hero).toBeGreaterThanOrEqual(0);
     expect(unifiedCounters).toBeGreaterThan(hero);
