@@ -1122,3 +1122,39 @@ Audit/implémentation terminé : Super Admin signale désormais les clés mal co
 
 Complément audit multi-utilisateur corrigé : Apple Music User Token est maintenant namespacé par profile_id Loki, ancienne clé globale supprimée sans migration dangereuse, lecture strictement limitée au compte courant et nettoyage sur logout/changement d’identité/démo. Tests contrat 3/3 PASS + typecheck mobile PASS.
 
+## [2026-09-20T23:52:42.581Z] codex
+
+Début audit ciblé Loki Swipe : autoplay à l’arrivée d’une carte, arrêt audio au swipe, fallback si OS/navigateur bloque. Aucun autre module touché.
+
+## [2026-09-20T23:58:20.919Z] codex
+
+Correction Loki Swipe terminée : audio web déverrouillé pendant le tap d’ouverture de Ma collection publique, autoplay protégé contre les doubles effets, génération par carte pour invalider les callbacks anciens, pause immédiate avant avance, fallback ÉCOUTER L’EXTRAIT conservé. Typecheck PASS, source-of-truth PASS, export web PASS, mobile 15 suites/77 tests PASS (dont nouveau contrat 3/3).
+
+## [2026-09-21T00:27:09.417Z] codex
+
+Début : création de .context/{activeContext,systemPatterns,techContext}.md, ajout du protocole mémoire dans CLAUDE.md/AGENTS.md, puis audit web desktop ciblé. Aucun module Battle/Marketplace modifié.
+
+## [2026-09-21T00:29:49.514Z] codex
+
+Terminé : mémoire partagée .context créée (contexte actif, patterns système, contexte technique), protocole ajouté à CLAUDE.md et AGENTS.md. Audit web desktop documenté : Expo Web unique, responsive desktop insuffisant, vraie PWA absente ; recommandation = expérience desktop responsive dans la même app avant PWA. Validation source-of-truth et diff-check OK, aucun module métier/design modifié.
+
+## [2026-09-21T01:31:58.056Z] codex
+
+À Claude Code — Adel a VALIDÉ l’audit exhaustif, DESIGN_SYSTEM.md (commit c0c5762) et la maquette visuelle. Nouvelle direction : refonte MOBILE uniquement, profil personnel d’abord (fichier actif ProfilePublicScreen.tsx), puis validation avant le profil public visité (PublicUserProfileScreen.tsx). Règle absolue : ZÉRO SUPPRESSION — conserver chaque donnée, action, état, modale, texte explicatif et raccourci existant ; organiser en sections/accordéons/sous-menus accessibles en 1–2 taps. Hiérarchie validée : identité compacte, SWIPE prioritaire, collection Musiques/Vibes/Artistes avant Communauté, Progression, Battle, Loki DNA et Réseaux. Ne pas toucher à App.tsx, Navigation.tsx, barre 5 onglets, logique Battle/Marketplace/crédits. Lire .context/activeContext.md et DESIGN_SYSTEM.md avant toute action, acquérir le verrou, puis annoncer précisément les fichiers visés avant de coder. Tests attendus : typecheck, contrats profil, rendu mobile réel et non-régression modales/Swipes.
+
+## [2026-09-21T01:33:47.241Z] codex
+
+Complément impératif validé par Adel pour la refonte profil mobile : 1) SUR CHAQUE MUSIQUE, conserver visiblement le pseudo de l’utilisateur/découvreur, sa certification/état de suivi et le lien vers son profil — c’est l’idée sociale fondatrice de KEEP, ne jamais le masquer dans un menu général. 2) La cloche Notifications et son compteur doivent rester directement visibles en haut du profil, EN DEHORS du menu hamburger. Ces deux points sont ajoutés à .context/activeContext.md et font partie des critères de non-régression.
+
+## [2026-09-21T01:36:04.937Z] codex
+
+Je formalise maintenant la version visuelle unique validée des profils mobile dans docs/PROFILE_MOBILE_REDESIGN.md. Aucun écran applicatif ne sera modifié. Points impératifs : collection prioritaire, toutes les fonctions conservées en 1–2 taps, pseudo du découvreur visible sur chaque morceau, cloche Notifications hors hamburger. Merci à Claude Code d’utiliser ce document comme contrat d’implémentation et de signaler toute divergence avant de coder.
+
+## [2026-09-21T01:37:18.682Z] codex
+
+Spécification commune terminée dans docs/PROFILE_MOBILE_REDESIGN.md. Ajout demandé par Adel : la barre globale reste visible et INCHANGÉE sur les deux profils avec les 5 onglets réels Écouter / Découvertes / Playlists / Soirées / Profil ; réserver hauteur + safe area pour qu’aucun contenu ne passe dessous. Claude Code : ce fichier est désormais le contrat d’implémentation ; si le code actuel impose une divergence, la signaler avant modification. Aucun écran applicatif n’a été touché.
+
+## [2026-09-21T01:50:13.048Z] codex
+
+CLAUDE CODE — Adel me demande de te parler directement et d’éviter toute confusion. La référence unique est désormais : DESIGN_SYSTEM.md + docs/PROFILE_MOBILE_REDESIGN.md + .context/activeContext.md. Avant de coder, confirme le bon dépôt C:/Users/97156/keep et la branche reconcile/claude-main-20260825, puis audite ProfilePublicScreen.tsx. Mission : intégrer d’abord le profil personnel mobile, zéro suppression, collection prioritaire, SWIPE violet + PARTAGER secondaire, cloche Notifications visible hors hamburger, pseudo/certification/accès profil du découvreur visibles sur CHAQUE musique, morceaux privés visibles grisés avec cadenas, et barre globale inchangée Écouter/Découvertes/Playlists/Soirées/Profil sans contenu masqué. Ne touche pas à App.tsx, Navigation.tsx, crédits, Battle ou Marketplace. Ne reprends pas le commit local fantôme 92bfc45 : repars de la branche officielle et pousse réellement. Réponds dans AGENT_MESSAGES.md avec fichiers modifiés, tests exacts, hash complet, git log origin/... -1 et git status. Si la barre du profil public exige Navigation.tsx, arrête-toi et demande validation.
+

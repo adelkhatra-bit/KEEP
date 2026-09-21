@@ -7,6 +7,14 @@ toute tâche, jamais de doublon, jamais PASS sans preuve réelle). Ce fichier
 source unique et ajoute uniquement ce qui est spécifique à un agent qui travaille
 dans ce dossier EN PARALLÈLE de Claude Code.
 
+## 🧠 MÉMOIRE PARTAGÉE
+
+- Avant toute action, consulte le dossier `.context/` pour connaître l'état actuel du projet.
+- Lis en priorité `.context/activeContext.md` pour savoir où on en est.
+- À la fin de chaque session importante, mets à jour `.context/activeContext.md` avec ce qui a été fait et ce qui reste à faire.
+
+La mémoire `.context/` transmet l'état de travail entre agents ; elle ne remplace ni le code, ni le schéma Supabase réel, ni les règles de `CLAUDE.md` et `AGENTS.md`.
+
 ## Une seule version, un seul dossier
 
 Ce dépôt (`C:\Users\97156\keep`) est la SEULE copie de travail. Il n'y a pas de

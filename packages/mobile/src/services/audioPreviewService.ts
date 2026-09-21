@@ -14,6 +14,7 @@ let operation = Promise.resolve();
 let webAudio: any = null;
 let webAudioKey: string | null = null;
 let webAudioListener: ((playing: boolean) => void) | null = null;
+const SILENT_UNLOCK_SOURCE = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 
 function canUseWebAudio(): boolean {
   return typeof (globalThis as any)?.Audio === 'function' && typeof (globalThis as any)?.document !== 'undefined';
@@ -408,8 +409,25 @@ export async function scheduleTrackPreviewSegment(
 }
 
 export async function stopTrackPreview(key?: string): Promise<void> {
+  // La coupure doit être perceptible dès le geste de swipe. Si une lecture est
+  // encore en train d'attendre `canplay`, attendre son tour dans `serialize`
+  // peut laisser l'ancien extrait repartir brièvement sur la carte suivante.
+  // On invalide donc la lecture web et on la met en pause immédiatement ; la
+  // file sérialisée conserve ensuite la responsabilité du nettoyage complet.
+  const matchesCurrent = !key || activeKey === key || webAudioKey === key;
+  if (!matchesCurrent) return;
+  clearActiveTimer();
+  if (!key || webAudioKey === key) {
+    const listener = webAudioListener;
+    webAudioListener = null;
+    webAudioKey = null;
+    try { webAudio?.pause(); } catch {}
+    listener?.(false);
+  }
+  if ((!key || activeKey === key) && activeSound) {
+    void activeSound.stopAsync().catch(() => {});
+  }
   return serialize(async () => {
-    if (key && activeKey !== key && webAudioKey !== key) return;
     await unloadActive();
   });
 }
@@ -440,9 +458,24 @@ export function unlockWebAudioForGesture(): void {
   const element = getWebAudio();
   if (!element) return;
   try {
+    // Un élément <audio> neuf n'a aucune source : `play()` rejetait donc la
+    // promesse et ne déverrouillait rien. Une très courte piste silencieuse
+    // permet d'acquérir l'autorisation pendant le tap qui ouvre Loki Swipe ;
+    // le même élément est ensuite réutilisé pour les extraits réels.
+    if (!element.src) {
+      element.src = SILENT_UNLOCK_SOURCE;
+      try { element.load(); } catch {}
+    }
+    const unlockSource = element.src;
     const playPromise = element.play();
     if (playPromise && typeof playPromise.then === 'function') {
-      playPromise.then(() => { try { element.pause(); } catch {} }).catch(() => {});
+      playPromise.then(() => {
+        // Ne jamais mettre en pause un vrai extrait qui aurait remplacé la
+        // piste silencieuse pendant la résolution de cette promesse.
+        if (!webAudioKey && element.src === unlockSource) {
+          try { element.pause(); } catch {}
+        }
+      }).catch(() => {});
     } else {
       try { element.pause(); } catch {}
     }

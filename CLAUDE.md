@@ -6,6 +6,14 @@ Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne cré
 
 Adel est francophone. Toute réponse, tout message, toute mise à jour à destination d'Adel doit être écrite **en français**, sans exception, y compris les messages courts, les confirmations et les résumés de fin de tâche. Ne jamais basculer en anglais au milieu d'une conversation.
 
+## 🧠 MÉMOIRE PARTAGÉE
+
+- Avant toute action, consulte le dossier `.context/` pour connaître l'état actuel du projet.
+- Lis en priorité `.context/activeContext.md` pour savoir où on en est.
+- À la fin de chaque session importante, mets à jour `.context/activeContext.md` avec ce qui a été fait et ce qui reste à faire.
+
+Cette mémoire facilite la continuité entre agents. Le code, le schéma Supabase réel, `CLAUDE.md` et `AGENTS.md` restent les sources de vérité en cas d'écart.
+
 ## Projet officiel
 
 - Repository unique : `adelkhatra-bit/KEEP`
