@@ -42,6 +42,14 @@ export type TrackActionRowProps = {
   artist: string;
   dimmed?: boolean;
   lockIcon?: boolean;
+  /**
+   * Adel (21/09/2026) : "le morceau en vente doit rester visible dans la
+   * liste, avec un badge EN VENTE ... il ne doit pas être caché." Pastille
+   * courte sur la ligne du titre (jamais une 3e ligne -- la hauteur de la
+   * rangée reste fixe), pour un statut qui ne doit pas exiger de déplier
+   * le panneau pour être vu.
+   */
+  badge?: { label: string; onPress?: () => void };
   /** Rendu tel quel (typiquement <TrackPreviewButton square />) -- ce composant ne réimplémente jamais la logique audio. */
   playSlot: React.ReactNode;
   actions: TrackActionRowAction[];
@@ -65,6 +73,7 @@ export default function TrackActionRow({
   artist,
   dimmed = false,
   lockIcon = false,
+  badge,
   playSlot,
   actions,
   expandable = false,
@@ -77,7 +86,14 @@ export default function TrackActionRow({
       <View style={[styles.row, dimmed && styles.rowDimmed]}>
         {coverUrl ? <Image source={{ uri: coverUrl }} style={styles.cover} /> : <View style={[styles.cover, styles.coverFallback]}><Text style={styles.coverFallbackText}>{coverFallbackText}</Text></View>}
         <View style={styles.info}>
-          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={1}>{title}</Text>
+            {badge ? (
+              <TouchableOpacity style={styles.badge} onPress={badge.onPress} disabled={!badge.onPress} accessibilityLabel={badge.label}>
+                <Text style={styles.badgeText}>{badge.label}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <Text style={styles.artist} numberOfLines={1}>{artist}</Text>
         </View>
         {lockIcon ? <Text style={styles.lock} accessibilityLabel="Morceau privé">🔒</Text> : null}
@@ -121,8 +137,11 @@ const styles = StyleSheet.create({
   coverFallback: { alignItems: 'center', justifyContent: 'center' },
   coverFallbackText: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
   info: { flex: 1, minWidth: 0 },
-  title: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { flexShrink: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
   artist: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  badge: { flexShrink: 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: `${colors.success}22`, borderWidth: 1, borderColor: colors.success },
+  badgeText: { color: colors.success, fontSize: 9, fontWeight: '900' },
   lock: { fontSize: 13 },
   square: { width: SQUARE, height: SQUARE, flexShrink: 0, borderRadius: 10, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
   squareIcon: { color: '#8B87A0', fontSize: 15, fontWeight: '900' },

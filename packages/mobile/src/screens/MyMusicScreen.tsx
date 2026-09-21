@@ -697,6 +697,7 @@ export default function MyMusicScreen({ navigation }: any) {
             coverUrl={track.artworkUrl}
             title={track.title}
             artist={track.artist}
+            badge={offered ? { label: `🏷️ ${(offered.priceCents / 100).toFixed(2)}€`, onPress: () => editExistingTrackOffer(track) } : undefined}
             playSlot={<TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} square />}
             actions={[]}
             expandable={Boolean(localEntry)}
