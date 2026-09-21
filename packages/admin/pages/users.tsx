@@ -100,6 +100,15 @@ export default function Users() {
   // d'abonnés (follows) ; ce champ force une valeur de test pour CE compte
   // uniquement, sans toucher aux vrais abonnés ni aux réglages globaux.
   const [followerOverride, setFollowerOverride] = useState('');
+  // Adel (21/09/2026) : "J'ai donné 1000 abonnés à adel4A ... les fonctions
+  // ont disparu au lieu de se débloquer" -- le flag global playlist_marketplace
+  // coupe la fonction pour TOUT LE MONDE dès qu'il est désactivé (ex. décision
+  // produit liée au risque Apple IAP), quel que soit le nombre d'abonnés,
+  // réel ou de test. Ce bypass PAR COMPTE permet à un compte de test de
+  // continuer à voir une fonctionnalité même quand son flag global est
+  // désactivé pour tout le monde -- sans jamais avoir à le rallumer
+  // globalement juste pour tester.
+  const [marketplaceTestBypass, setMarketplaceTestBypass] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
@@ -151,14 +160,30 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load'); setFollowerOverride('');
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load'); setFollowerOverride(''); setMarketplaceTestBypass(null);
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
       setRequirements(Array.isArray(result.data?.requirements) ? result.data.requirements : []);
       const override = (result.data as UserSnapshot)?.profile?.follower_count_override;
       setFollowerOverride(override == null ? '' : String(override));
+      if (supabase) {
+        const { data: bypassRows } = await supabase.from('feature_flag_test_accounts').select('flag_key').eq('profile_id', u.id).eq('flag_key', 'playlist_marketplace');
+        setMarketplaceTestBypass((bypassRows?.length ?? 0) > 0);
+      }
     } catch (e: any) { setError(e?.message ?? 'Impossible de charger ce profil.'); }
+    finally { setBusy(null); }
+  };
+
+  const toggleMarketplaceTestBypass = async (enabled: boolean) => {
+    if (!selected || !supabase) return;
+    setBusy('marketplaceBypass'); setError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_set_feature_flag_test_bypass', { p_profile_id: selected.id, p_flag_key: 'playlist_marketplace', p_enabled: enabled });
+      if (rpcError) throw rpcError;
+      setMarketplaceTestBypass(enabled);
+      setMessage(enabled ? `Accès test marketplace activé pour @${selected.username} (fonctionne même si le flag global est désactivé).` : `Accès test marketplace retiré pour @${selected.username}.`);
+    } catch (e: any) { setError(e?.message ?? 'Impossible de modifier cet accès de test.'); }
     finally { setBusy(null); }
   };
 
@@ -438,6 +463,20 @@ export default function Users() {
               {snapshot.profile.follower_count_override != null && <button onClick={()=>void saveFollowerOverride(null)} disabled={busy!==null} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 16px',fontWeight:700,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>Revenir au réel</button>}
             </div>
             {snapshot.profile.follower_count_override != null && <div style={{color:'#ffb454',fontSize:11,marginTop:8,fontWeight:700}}>⚠ Actif : ce compte est actuellement vu avec {snapshot.profile.follower_count_override} abonnés (valeur de test).</div>}
+          </div>
+
+          {/* Adel (21/09/2026) : bug réel -- forcer les abonnés ne suffit
+              pas si le flag global playlist_marketplace est désactivé (il
+              coupe la fonction pour tout le monde). Ce bypass débloque UN
+              compte de test indépendamment du flag global. */}
+          <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
+            <h3 style={{margin:'0 0 6px'}}>Test : accès marketplace même flag désactivé</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Quand le flag global « playlist_marketplace » est désactivé (ex. le temps d’une validation Apple), plus personne ne voit VENDRE ni la sélection multiple -- y compris les comptes de test avec des abonnés forcés ci-dessus. Ce réglage rend la fonction visible pour CE compte uniquement, sans jamais réactiver le flag pour tout le monde.</div>
+            <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
+              <button onClick={()=>void toggleMarketplaceTestBypass(true)} disabled={busy!==null || marketplaceTestBypass===true} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:(busy!==null||marketplaceTestBypass===true)?0.6:1}}>{busy==='marketplaceBypass'?'…':'Activer pour ce compte'}</button>
+              <button onClick={()=>void toggleMarketplaceTestBypass(false)} disabled={busy!==null || marketplaceTestBypass!==true} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 16px',fontWeight:700,cursor:busy!==null?'wait':'pointer',opacity:(busy!==null||marketplaceTestBypass!==true)?0.6:1}}>Retirer</button>
+            </div>
+            {marketplaceTestBypass === true && <div style={{color:'#68f2b1',fontSize:11,marginTop:8,fontWeight:700}}>✓ Actif : @{selected?.username} voit la marketplace même si le flag global est désactivé.</div>}
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
