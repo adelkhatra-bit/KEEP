@@ -106,11 +106,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [followerCount, setFollowerCount] = useState(0);
   const [swipeOpen, setSwipeOpen] = useState(false);
   // Adel (14/09/2026) : "j'ai une liste complete ... je trouve que ce n'est
-  // pas utile et ca bouffe toute la place" -- repliee par defaut maintenant
-  // que le Swipe (bouton principal + puces style/artiste) couvre deja la
-  // decouverte de la collection ; gardee (jamais supprimee) pour garder/
-  // partager/aimer un morceau precis sans passer par le Swipe.
-  const [musicListExpanded, setMusicListExpanded] = useState(false);
+  // pas utile et ca bouffe toute la place" -- avait ete repliee par defaut.
+  // Adel (21/09/2026) : "c'est une aberration pour une plateforme musicale
+  // ... ne cache jamais le contenu derriere un accordeon ferme" -- decision
+  // inversee explicitement, toujours visible desormais (voir plus bas).
   const [isBlocked, setIsBlocked] = useState(false);
   const [moderationMenuOpen, setModerationMenuOpen] = useState(false);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
@@ -321,9 +320,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
   // (21/09/2026, Adel) : "le bloc Loki DNA prend trop de place sur le profil
   // visité, ça noie le reste" -- replié par défaut avec un résumé condensé
-  // sur une ligne, cohérent avec le pattern déjà utilisé sur ce même écran
-  // pour "Morceaux publics" (musicListExpanded). Le profil PERSONNEL garde
-  // le bloc complet, non touché ici -- demande explicite d'Adel.
+  // sur une ligne. Le profil PERSONNEL garde le bloc complet, non touché
+  // ici -- demande explicite d'Adel. (Contrairement à "Morceaux publics",
+  // jamais replié -- ce sont deux décisions distinctes, la musique doit
+  // rester visible immédiatement.)
   const [dnaExpanded, setDnaExpanded] = useState(false);
   const genreOptions = useMemo(() => {
     const counts = new Map<string, number>();
@@ -789,13 +789,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {activeTab === 'TRACKS' ? (
           <View style={styles.publicMusicSection}>
-            <TouchableOpacity style={styles.musicSectionHeader} onPress={() => setMusicListExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={musicListExpanded ? 'Réduire les morceaux publics' : 'Voir les morceaux publics un par un'}>
+            {/* (21/09/2026, Adel) : "c'est une aberration pour une
+                plateforme musicale" -- la liste était repliée par défaut
+                derrière un chevron. Toujours visible immédiatement
+                maintenant, plus d'accordéon fermé sur cette section. */}
+            <View style={styles.musicSectionHeader}>
               <Text style={styles.sectionTitle}>Morceaux publics</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={styles.publicCount}>{tracks.length}</Text><Text style={styles.chevron}>{musicListExpanded ? '⌃' : '⌄'}</Text></View>
-            </TouchableOpacity>
-            {!musicListExpanded && tracks.length > 0 ? <Text style={styles.mutedSmall}>Voir chaque morceau un par un (garder, partager, aimer) — le Swipe et les puces au-dessus suffisent pour découvrir toute la collection.</Text> : null}
-            {musicListExpanded && tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : null}
-            {musicListExpanded && tracks.length > 0 ? (
+              <Text style={styles.publicCount}>{tracks.length}</Text>
+            </View>
+            {tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : null}
+            {tracks.length > 0 ? (
               <View style={styles.musicList}>{tracks.map((track) => {
                 const liked = likedTrackIds.has(track.trackId);
                 const adding = addingTrackIds.has(track.trackId);
