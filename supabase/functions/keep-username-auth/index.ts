@@ -21,6 +21,14 @@ const validUsername = (value: string) => value.length >= 1 && value.length <= 30
 const validEmail = (value: string) => value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const validPassword = (value: string) => value.length >= 6 && value.length <= 128;
 const syntheticEmail = (userId: string) => `${userId.toLowerCase()}@keep.local`;
+// Un pseudo Loki valide peut contenir `_` et `.` (cf. validUsername). Or `_`
+// et `%` sont des jokers LIKE : passer le pseudo brut à `.ilike()` traite
+// donc "adel_4a" comme "adel<n'importe quel caractère>4a", ce qui peut
+// remonter PLUSIEURS profils (-> faux `username_conflict`) ou le mauvais
+// compte. On échappe ces métacaractères pour obtenir une correspondance
+// exacte insensible à la casse. `\` reste le caractère d'échappement LIKE
+// par défaut de Postgres.
+const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 function looksLikeDuplicateEmail(error: unknown) {
   const message = String((error as any)?.message ?? error ?? "").toLowerCase();
@@ -54,7 +62,7 @@ async function findAuthUserByEmail(email: string) {
 }
 
 async function profileByUsername(username: string) {
-  const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", username).limit(2);
+  const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2);
   if (error) throw error;
   return data ?? [];
 }
