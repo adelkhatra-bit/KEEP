@@ -105,6 +105,17 @@ export default function MyMusicScreen({ navigation }: any) {
   // playlistSaleService.ts). Une seule fois par achat (visibility_choice_made).
   const [pendingVisibilityChoice, setPendingVisibilityChoice] = useState<PendingVisibilityChoice | null>(null);
   const [visibilityChoiceBusy, setVisibilityChoiceBusy] = useState(false);
+  // Adel (21/09/2026) : "Hauteur fixe et uniforme pour toutes les cartes ...
+  // le reste des informations passe dans un menu dépliable." Public/Privé,
+  // Supprimer, Vendre et "Donné par" ne changent plus la hauteur de la
+  // rangée -- ils vivent dans ce panneau, replié par défaut. Seule la
+  // lecture reste visible en permanence (mandat explicite de la mission).
+  const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());
+  const toggleTrackExpanded = (key: string) => setExpandedTrackKeys((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
   // Adel (20/09/2026) : marketplace playlists (VENDRE) mise en "coming
   // soon" -- paiement par lien externe, non conforme Apple IAP pour du
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
@@ -650,87 +661,103 @@ export default function MyMusicScreen({ navigation }: any) {
     const deleteBusy = trackDeleteBusy === key;
     const busy = visibilityBusy || deleteBusy;
     const offered = myOfferedTrackIds[track.id];
-    return <View key={key} style={styles.trackRow}>
-      {saleSelectionMode && localEntry ? <TouchableOpacity
-        style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled]}
-        onPress={() => toggleSaleTrack(track.id)}
-        disabled={Boolean(offered)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered) }}
-        accessibilityLabel={offered ? `${track.title} déjà en vente, modifie l'offre existante pour la changer` : `Sélectionner ${track.title}`}
-      ><Text style={styles.selectionCheckText}>{selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
-      {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
-      <View style={styles.trackBody}>
+    const expanded = expandedTrackKeys.has(key);
+    // Adel (21/09/2026) : "hauteur fixe et uniforme pour toutes les
+    // cartes ... aucun badge ne doit modifier la hauteur." La sélection
+    // multiple (case à cocher) et la lecture restent dans la rangée fixe
+    // -- ce sont des interactions immédiates, pas de la méta-info. Public/
+    // Privé, Supprimer, Vendre et "Donné par" passent dans le panneau
+    // dépliable, jamais dans la rangée.
+    return <View key={key} style={styles.trackCard}>
+      <View style={styles.trackRow}>
+        {saleSelectionMode && localEntry ? <TouchableOpacity
+          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled]}
+          onPress={() => toggleSaleTrack(track.id)}
+          disabled={Boolean(offered)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered) }}
+          accessibilityLabel={offered ? `${track.title} déjà en vente, modifie l'offre existante pour la changer` : `Sélectionner ${track.title}`}
+        ><Text style={styles.selectionCheckText}>{selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
+        {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.trackCover} /> : <View style={[styles.trackCover, styles.playlistCoverFallback]}><Text style={styles.trackFallback}>♪</Text></View>}
         <View style={styles.trackInfo}>
           <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
-          <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text>
+          <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
+        </View>
+        <TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact small />
+        {localEntry ? (
+          <TouchableOpacity style={styles.expandToggle} onPress={() => toggleTrackExpanded(key)} accessibilityLabel={expanded ? 'Masquer les actions' : 'Voir les actions : visibilité, vendre, supprimer'} accessibilityRole="button">
+            <Text style={styles.expandToggleText}>{expanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      {expanded && localEntry ? (
+        <View style={styles.expandedPanel}>
           {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
             <Text style={styles.trackSourceLabel}>Donné par</Text>
             <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de ${localEntry.sourceUsername}`}>
               <Text style={styles.trackSourceLink}>{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
             </TouchableOpacity>
           </View> : null}
-        </View>
-        <View style={styles.trackActions}>
-          <View style={styles.trackActionSlot}><TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} compact fullWidth /></View>
-          {localEntry ? <TouchableOpacity
-            style={[styles.visibilityTrackButton, publicTrack ? styles.visibilityTrackPublic : styles.visibilityTrackPrivate]}
-            onPress={() => void toggleTrackVisibility(track)}
-            disabled={busy}
-            accessibilityLabel={publicTrack ? 'Musique publique, appuyer pour la passer en privé' : 'Musique privée, appuyer pour la passer en public'}
-          >
-            {visibilityBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.visibilityTrackText}>{publicTrack ? 'PUBLIC' : 'PRIVÉ'}</Text>}
-          </TouchableOpacity> : null}
-          {localEntry ? <TouchableOpacity
-            style={styles.deleteTrackButton}
-            onPress={() => confirmRemoveTrack(track)}
-            disabled={busy}
-            accessibilityLabel="Supprimer ce morceau de Loki"
-          >
-            {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
-          </TouchableOpacity> : null}
-          {/* Adel (16-17/09/2026) : "un bouton 'Vendre cette musique'" --
-              vendre UN morceau précis, même popup de prix que pour une
-              playlist ou un album entier.
-              (21/09/2026) Principe produit : "on n'efface jamais une
-              fonctionnalité parce que le palier n'est pas atteint -- on la
-              montre toujours, verrouillée." Une offre déjà créée reste
-              directement gérable (le seuil était forcément atteint au
-              moment de la mise en vente) ; seule l'ENTRÉE "VENDRE" pour un
-              morceau pas encore mis en vente passe par le verrou visible. */}
-          {marketplaceEnabled && localEntry ? (
-            offered ? (
-              <TouchableOpacity
-                style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}
-                onPress={() => editExistingTrackOffer(track)}
-                accessibilityLabel={`Modifier l'offre de ${track.title}, en vente à ${(offered.priceCents / 100).toFixed(2)} euros`}
-              >
-                <Text style={[styles.sellTrackText, styles.sellTrackTextOffered]}>{`🏷️ En vente · ${(offered.priceCents / 100).toFixed(2)}€`}</Text>
-              </TouchableOpacity>
-            ) : (
-              <LockedFeatureCard
-                unlocked={Boolean(saleAccess?.unlocked)}
-                title="Vendre des morceaux"
-                requirementLabel="abonnés"
-                current={saleAccess?.followers ?? 0}
-                required={saleAccess?.threshold ?? 100}
-                benefit="Vends tes découvertes, reçois les paiements directement sur ton lien perso, et suis tes ventes dans ton historique."
-                actionLabel="Voir mon profil"
-                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                lockedTeaser={<View style={styles.sellTrackButton}><Text style={styles.sellTrackText}>🔒 VENDRE</Text></View>}
-              >
+          <View style={styles.trackActions}>
+            <TouchableOpacity
+              style={[styles.visibilityTrackButton, publicTrack ? styles.visibilityTrackPublic : styles.visibilityTrackPrivate]}
+              onPress={() => void toggleTrackVisibility(track)}
+              disabled={busy}
+              accessibilityLabel={publicTrack ? 'Musique publique, appuyer pour la passer en privé' : 'Musique privée, appuyer pour la passer en public'}
+            >
+              {visibilityBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.visibilityTrackText}>{publicTrack ? 'PUBLIC' : 'PRIVÉ'}</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteTrackButton}
+              onPress={() => confirmRemoveTrack(track)}
+              disabled={busy}
+              accessibilityLabel="Supprimer ce morceau de Loki"
+            >
+              {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
+            </TouchableOpacity>
+            {/* Adel (16-17/09/2026) : "un bouton 'Vendre cette musique'" --
+                vendre UN morceau précis, même popup de prix que pour une
+                playlist ou un album entier.
+                (21/09/2026) Principe produit : "on n'efface jamais une
+                fonctionnalité parce que le palier n'est pas atteint -- on la
+                montre toujours, verrouillée." Une offre déjà créée reste
+                directement gérable (le seuil était forcément atteint au
+                moment de la mise en vente) ; seule l'ENTRÉE "VENDRE" pour un
+                morceau pas encore mis en vente passe par le verrou visible. */}
+            {marketplaceEnabled ? (
+              offered ? (
                 <TouchableOpacity
-                  style={styles.sellTrackButton}
-                  onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
-                  accessibilityLabel={`Vendre ${track.title}`}
+                  style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}
+                  onPress={() => editExistingTrackOffer(track)}
+                  accessibilityLabel={`Modifier l'offre de ${track.title}, en vente à ${(offered.priceCents / 100).toFixed(2)} euros`}
                 >
-                  <Text style={styles.sellTrackText}>💶 VENDRE</Text>
+                  <Text style={[styles.sellTrackText, styles.sellTrackTextOffered]}>{`🏷️ En vente · ${(offered.priceCents / 100).toFixed(2)}€`}</Text>
                 </TouchableOpacity>
-              </LockedFeatureCard>
-            )
-          ) : null}
+              ) : (
+                <LockedFeatureCard
+                  unlocked={Boolean(saleAccess?.unlocked)}
+                  title="Vendre des morceaux"
+                  requirementLabel="abonnés"
+                  current={saleAccess?.followers ?? 0}
+                  required={saleAccess?.threshold ?? 100}
+                  benefit="Vends tes découvertes, reçois les paiements directement sur ton lien perso, et suis tes ventes dans ton historique."
+                  actionLabel="Voir mon profil"
+                  onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
+                  lockedTeaser={<View style={styles.sellTrackButton}><Text style={styles.sellTrackText}>🔒 VENDRE</Text></View>}
+                >
+                  <TouchableOpacity
+                    style={styles.sellTrackButton}
+                    onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
+                    accessibilityLabel={`Vendre ${track.title}`}
+                  >
+                    <Text style={styles.sellTrackText}>💶 VENDRE</Text>
+                  </TouchableOpacity>
+                </LockedFeatureCard>
+              )
+            ) : null}
+          </View>
         </View>
-      </View>
+      ) : null}
     </View>;
   };
 
@@ -1012,7 +1039,16 @@ const styles = StyleSheet.create({
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
   selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
-  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},trackRow:{minHeight:72,flexDirection:'row',alignItems:'center',gap:8,paddingVertical:6},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackBody:{flex:1,minWidth:0,gap:6},trackInfo:{minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},trackActionSlot:{flex:1,minWidth:0},visibilityTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},sellMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellMiniText:{color:'#FFD166',fontSize:8,fontWeight:'900'},sellTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellTrackButtonOffered:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},sellTrackText:{color:'#FFD166',fontSize:7,fontWeight:'900'},sellTrackTextOffered:{color:colors.primaryLight},
+  tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},
+  // Adel (21/09/2026) : hauteur fixe (56, plus compacte que les cartes de
+  // profil car cette liste est déjà nichée dans un panneau déplié) --
+  // plus jamais de variation selon le contenu. Le panneau dépliable
+  // (expandedPanel) vit HORS de cette rangée, dans trackCard.
+  trackCard:{borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  trackRow:{height:56,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:6},trackCover:{width:40,height:40,borderRadius:8,backgroundColor:colors.backgroundCard},trackFallback:{color:colors.primaryLight,fontSize:16},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'800'},trackArtist:{color:colors.textSecondary,fontSize:9,marginTop:2},
+  expandToggle:{width:28,height:44,alignItems:'center',justifyContent:'center'},expandToggleText:{color:colors.textMuted,fontSize:14,fontWeight:'900'},
+  expandedPanel:{paddingHorizontal:6,paddingBottom:8,paddingTop:2,gap:6,borderTopWidth:1,borderTopColor:colors.border},
+  trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},visibilityTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},sellMini:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellMiniText:{color:'#FFD166',fontSize:8,fontWeight:'900'},sellTrackButton:{flex:1,minHeight:28,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellTrackButtonOffered:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},sellTrackText:{color:'#FFD166',fontSize:7,fontWeight:'900'},sellTrackTextOffered:{color:colors.primaryLight},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:38,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:42,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:34,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:38,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:'#FFD166'},
 });

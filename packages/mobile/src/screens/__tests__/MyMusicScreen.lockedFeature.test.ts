@@ -33,7 +33,7 @@ describe('MyMusicScreen — principe produit (Adel, 21/09/2026) : "on ne cache j
   });
 
   it('an already-existing offer is never re-locked by this change -- managing a live sale stays a direct action', () => {
-    expect(source).toContain('offered ? (\n              <TouchableOpacity\n                style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}\n                onPress={() => editExistingTrackOffer(track)}');
+    expect(source).toContain('offered ? (\n                <TouchableOpacity\n                  style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}\n                  onPress={() => editExistingTrackOffer(track)}');
   });
 
   it('the popup benefit text explains what unlocking gives, per the mission spec', () => {

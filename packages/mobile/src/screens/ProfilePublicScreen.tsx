@@ -131,6 +131,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // simple reste dans le pop-up, les actions complexes restent en plein
   // écran).
   const [expandedMenuItem, setExpandedMenuItem] = useState<string | null>(null);
+  // Adel (21/09/2026) : "Hauteur fixe et uniforme pour toutes les cartes ...
+  // le reste des informations passe dans un menu dépliable." Le badge 1er
+  // KEEP, la ligne d'attribution et Partager ne changent plus jamais la
+  // hauteur de la carte -- ils vivent dans ce panneau, replié par défaut.
+  const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());
+  const toggleTrackExpanded = (key: string) => setExpandedTrackKeys((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -744,38 +754,50 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const followBorder = sourceIsFollowing === false ? colors.danger : sourceIsFollowing === true ? colors.success : undefined;
     const impact = originKind === 'SELF' ? discoveryImpacts[track.id] : null;
     const isFirstKeep = !!impact && impact.recoveryCount > 0;
+    const expanded = expandedTrackKeys.has(key);
+    const hasDetails = isFirstKeep || !!originKind;
     return (
-    <View key={key} style={[s.keepRow, isPrivate && s.keepRowPrivate]}>
-      {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.keepCover} /> : <View style={[s.keepCover, s.coverFallback]}><Text style={s.keepCoverK}>K</Text></View>}
-      <View style={s.keepInfo}>
-        <View style={s.keepTitleRow}>
-          <View style={s.keepTitleBlock}><Text style={s.keepTitle} numberOfLines={1}>{track.title}</Text><Text style={s.keepArtist} numberOfLines={1}>{track.artist}</Text></View>
-          {isPrivate ? <Text style={s.privateLock} accessibilityLabel="Morceau privé">🔒</Text> : null}
-          <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact small />
+    <View key={key} style={s.trackCard}>
+      {/* Adel (21/09/2026) : "hauteur fixe et uniforme pour toutes les
+          cartes, quoi qu'il arrive ... aucun badge ne doit modifier la
+          hauteur." Titre/artiste tronqués en 1 ligne, rien de variable
+          dans cette rangée -- le badge 1er KEEP, l'attribution et Partager
+          vivent dans le panneau dépliable ci-dessous, jamais ici. */}
+      <View style={[s.keepRow, isPrivate && s.keepRowPrivate]}>
+        {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.keepCover} /> : <View style={[s.keepCover, s.coverFallback]}><Text style={s.keepCoverK}>K</Text></View>}
+        <View style={s.keepInfo}>
+          <Text style={s.keepTitle} numberOfLines={1}>{track.title}</Text>
+          <Text style={s.keepArtist} numberOfLines={1}>{track.artist}</Text>
         </View>
-        {isFirstKeep ? (
-          <View style={s.firstKeepBlock}>
-            <View style={s.firstKeepRow}><View style={s.firstKeepBadge}><Text style={s.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={s.firstKeepCount}>{impact!.recoveryCount + 1} KEEPs</Text></View>
-            <Text style={s.firstKeepLine}>@{user.username} a été le premier à KEEP ce son{daysAgo(detectedAt) != null ? ` · il y a ${daysAgo(detectedAt)}j` : ''}</Text>
-          </View>
+        {isPrivate ? <Text style={s.privateLock} accessibilityLabel="Morceau privé">🔒</Text> : null}
+        <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact small />
+        {hasDetails ? (
+          <TouchableOpacity style={s.expandToggle} onPress={() => toggleTrackExpanded(key)} accessibilityLabel={expanded ? 'Masquer les détails' : 'Voir les détails : découverte et partage'} accessibilityRole="button">
+            <Text style={s.expandToggleText}>{expanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
         ) : null}
-        {/* Adel (08/09/2026) : "mets-le en dessous du bouton [Jouer] ...
-            bien aligné de haut en bas, respecte les espaces" -- le pseudo du
-            découvreur rejoint Partager sur la même ligne (au lieu d'une
-            ligne à lui tout seul au-dessus), aligné à droite sous le bouton
-            Jouer, mêmes marges que les autres lignes de la carte. */}
-        <View style={s.trackMetaRow}>
-          <TouchableOpacity style={s.trackShare} onPress={() => void shareProfileTrack(user.username, track.title, track.artist)}><Text style={s.trackShareText}>↗ Partager</Text></TouchableOpacity>
-          {originKind ? <View style={s.discoveryOriginRow}>
-            <Text style={s.originLabel}>Découvert par</Text>
-            {originKind === 'SELF' ? <View style={[s.originUserLink, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[s.originUserText, { color: certificationColors.ring }]}>{user.username}</Text></View> : sourceUsername ? (
-              <TouchableOpacity style={[s.originUserLink, sourceColors ? { backgroundColor: `${sourceColors.colors[sourceColors.colors.length - 1]}33`, borderColor: sourceColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil du découvreur ${sourceUsername}${sourceIsFollowing === false ? ', non suivi' : ''}`}>
-                <Text style={[s.originUserText, sourceColors ? { color: sourceColors.ring } : null]}>{sourceUsername}</Text>
-              </TouchableOpacity>
-            ) : <Text style={s.originProtected}>découvreur d’origine protégé</Text>}
-          </View> : null}
-        </View>
       </View>
+      {expanded ? (
+        <View style={s.expandedPanel}>
+          {isFirstKeep ? (
+            <View style={s.firstKeepBlock}>
+              <View style={s.firstKeepRow}><View style={s.firstKeepBadge}><Text style={s.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={s.firstKeepCount}>{impact!.recoveryCount + 1} KEEPs</Text></View>
+              <Text style={s.firstKeepLine}>@{user.username} a été le premier à KEEP ce son{daysAgo(detectedAt) != null ? ` · il y a ${daysAgo(detectedAt)}j` : ''}</Text>
+            </View>
+          ) : null}
+          <View style={s.trackMetaRow}>
+            <TouchableOpacity style={s.trackShare} onPress={() => void shareProfileTrack(user.username, track.title, track.artist)}><Text style={s.trackShareText}>↗ Partager</Text></TouchableOpacity>
+            {originKind ? <View style={s.discoveryOriginRow}>
+              <Text style={s.originLabel}>Découvert par</Text>
+              {originKind === 'SELF' ? <View style={[s.originUserLink, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[s.originUserText, { color: certificationColors.ring }]}>{user.username}</Text></View> : sourceUsername ? (
+                <TouchableOpacity style={[s.originUserLink, sourceColors ? { backgroundColor: `${sourceColors.colors[sourceColors.colors.length - 1]}33`, borderColor: sourceColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]} onPress={() => openSourceProfile(sourceUsername)} accessibilityLabel={`Ouvrir le profil du découvreur ${sourceUsername}${sourceIsFollowing === false ? ', non suivi' : ''}`}>
+                  <Text style={[s.originUserText, sourceColors ? { color: sourceColors.ring } : null]}>{sourceUsername}</Text>
+                </TouchableOpacity>
+              ) : <Text style={s.originProtected}>découvreur d’origine protégé</Text>}
+            </View> : null}
+          </View>
+        </View>
+      ) : null}
     </View>
     );
   };
@@ -1351,7 +1373,15 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   ownOffersStatus:{marginHorizontal:18,marginTop:10,minHeight:44,paddingHorizontal:14,borderRadius:12,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},ownOffersStatusText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',flex:1},ownOffersManageLink:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
   tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
-  keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepRowPrivate:{opacity:0.55},privateLock:{fontSize:13,marginRight:2},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},trackShareText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:colors.textPrimary,fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},originUserText:{color:colors.success,fontSize:12,fontWeight:'900'},originProtected:{color:colors.success,fontSize:12,fontWeight:'800'},
+  keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},
+  // Adel (21/09/2026) : hauteur fixe (64) explicite sur la rangée
+  // principale -- plus jamais de variation selon le contenu. Le panneau
+  // dépliable (expandedPanel) vit HORS de cette rangée, dans trackCard.
+  trackCard:{borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  keepRow:{flexDirection:'row',alignItems:'center',height:64,paddingHorizontal:8,gap:8},keepRowPrivate:{opacity:0.55},privateLock:{fontSize:13},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},
+  expandToggle:{width:32,height:44,alignItems:'center',justifyContent:'center'},expandToggleText:{color:colors.textMuted,fontSize:16,fontWeight:'900'},
+  expandedPanel:{paddingHorizontal:8,paddingBottom:10,paddingTop:2,gap:6,borderTopWidth:1,borderTopColor:colors.border},
+  firstKeepBlock:{gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},trackShareText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:colors.textPrimary,fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},originUserText:{color:colors.success,fontSize:12,fontWeight:'900'},originProtected:{color:colors.success,fontSize:12,fontWeight:'800'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',gap:7,paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistShareButtonSecondary:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},playlistShareTextSecondary:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'center',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:colors.backgroundElevated,borderRadius:26,borderWidth:1,borderColor:colors.border,padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:colors.border,alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},freeEmptyCallout:{marginTop:14,padding:12,borderRadius:14,backgroundColor:`${colors.danger}1F`,borderWidth:1,borderColor:colors.danger},freeEmptyCalloutTitle:{color:colors.danger,fontSize:13,fontWeight:'900',marginBottom:6},freeEmptyCalloutText:{color:colors.textPrimary,fontSize:12,lineHeight:17,marginTop:3},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},linkPreviewText:{color:colors.primaryLight,fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:colors.primary,borderColor:colors.primary},kindChoiceText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},repriseSheet:{maxHeight:'82%'},repriseScroll:{width:'100%',marginTop:12,maxHeight:420},repriseRow:{flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9,borderBottomWidth:1,borderBottomColor:colors.border},repriseAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard},repriseInfo:{flex:1,minWidth:0},repriseNameRow:{flexDirection:'row',alignItems:'center',gap:6},repriseUsername:{color:'#FFF',fontSize:14,fontWeight:'900',flexShrink:1},repriseGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:4},repriseGenreChip:{paddingHorizontal:7,paddingVertical:2,borderRadius:9,borderWidth:1},repriseGenreText:{fontSize:9,fontWeight:'800'},repriseFollowButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},repriseFollowButtonOn:{backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},repriseFollowButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},repriseFollowButtonTextOn:{color:colors.success},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
   qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:12,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:12,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:13,lineHeight:18,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:11,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:13,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},

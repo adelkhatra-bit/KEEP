@@ -94,6 +94,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
   const [addingTrackIds, setAddingTrackIds] = useState<Set<string>>(new Set());
+  // Adel (21/09/2026) : "Hauteur fixe et uniforme pour toutes les cartes ...
+  // le reste des informations passe dans un menu dépliable." Le like, le
+  // badge 1er KEEP, l'attribution et Partager ne changent plus jamais la
+  // hauteur de la carte -- ils vivent dans ce panneau, replié par défaut.
+  const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());
+  const toggleTrackExpanded = (key: string) => setExpandedTrackKeys((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
   // Adel (09/09/2026) : "j'ai appuye sur garder ... normalement il y aurait
   // du y avoir un popup, souhaitez-vous la mettre en prive ou en public,
   // et il m'a pas demande" -- meme choix que dans SWIPER/TrackRow, jamais
@@ -826,58 +836,72 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 // la ligne Partager/coeur, aligne a droite (meme cote que
                 // Jouer/Garder au-dessus), Partager+coeur groupes a gauche.
                 const trackLikeCount = likeCounts[track.trackId] || 0;
-                return <View key={track.id} style={styles.musicRow}>
-                  {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
-                  <View style={styles.trackInfo}>
-                    <View style={styles.trackTitleRow}>
-                      <View style={styles.trackTitleBlock}><Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.trackArtist} numberOfLines={1}>{track.artist}{track.album ? ` · ${track.album}` : ''}</Text></View>
-                      <View style={styles.trackRightColumn}>
-                        <View style={styles.trackInlineActions}>
-                          <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
-                          {viewer?.id !== profile.id ? (
-                            <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding}>
-                              <Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]} numberOfLines={1}>{adding ? '…' : alreadyKept ? '✓ Gardé' : '+ Garder'}</Text>
-                            </TouchableOpacity>
-                          ) : null}
+                const trackExpanded = expandedTrackKeys.has(track.id);
+                // Adel (21/09/2026) : "hauteur fixe et uniforme pour toutes
+                // les cartes ... aucun badge ne doit modifier la hauteur."
+                // Rangée principale : pochette + titre/artiste tronqués +
+                // lecture -- j'ai gardé "+ Garder" visible aussi (pas dans
+                // la liste "essentiel" de la demande, mais c'est l'action
+                // principale de cet écran de découverte ; la cacher par
+                // défaut casserait le parcours central du produit). Like,
+                // Partager, "Découvert par" et le badge 1er KEEP passent
+                // dans le panneau dépliable, jamais dans cette rangée.
+                return <View key={track.id} style={styles.trackCard}>
+                  <View style={styles.musicRow}>
+                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>{(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}</Text></View>}
+                    <View style={styles.trackInfo}>
+                      <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
+                      <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
+                    </View>
+                    <TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} compact small />
+                    {viewer?.id !== profile.id ? (
+                      <TouchableOpacity style={[styles.keepButtonInline, alreadyKept && styles.alreadyKeepButton]} onPress={() => alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)} disabled={adding}>
+                        <Text style={[styles.keepButtonText, alreadyKept && styles.alreadyKeepButtonText]} numberOfLines={1}>{adding ? '…' : alreadyKept ? '✓' : '+ Garder'}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity style={styles.expandToggle} onPress={() => toggleTrackExpanded(track.id)} accessibilityLabel={trackExpanded ? 'Masquer les détails' : "Voir les détails : j'aime, découverte et partage"} accessibilityRole="button">
+                      <Text style={styles.expandToggleText}>{trackExpanded ? '⌃' : '⌄'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {trackExpanded ? (
+                    <View style={styles.expandedPanel}>
+                      {isFirstKeep ? (
+                        <View style={styles.firstKeepBlock}>
+                          <View style={styles.firstKeepRow}><View style={styles.firstKeepBadge}><Text style={styles.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={styles.firstKeepCount}>{discoveryImpact!.recoveryCount + 1} KEEPs</Text></View>
+                          <Text style={styles.firstKeepLine}>@{profile.username} a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : ''}</Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.trackActions}>
+                        <View style={styles.trackActionsLeft}>
+                          <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
+                          {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
+                              le coeur en vert, entoure-le pour qu'on le voit bien"
+                              -- incite a etre le premier a liker. */}
+                          <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive, !liked && trackLikeCount === 0 && styles.likeButtonEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{trackLikeCount}</Text></TouchableOpacity>
+                        </View>
+                        <View style={styles.discoveryOriginRow}>
+                          <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
+                          {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
+                            const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
+                            // Adel (08/09/2026) : "si abonne on met vert, si pas
+                            // abonne on met rouge ... incite a cliquer dessus" --
+                            // le contour porte ce signal, le fond reste la couleur
+                            // de certification.
+                            const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
+                            return (
+                              <TouchableOpacity
+                                style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
+                                onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
+                                accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
+                              >
+                                <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
+                              </TouchableOpacity>
+                            );
+                          })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
                         </View>
                       </View>
                     </View>
-                    {isFirstKeep ? (
-                      <View style={styles.firstKeepBlock}>
-                        <View style={styles.firstKeepRow}><View style={styles.firstKeepBadge}><Text style={styles.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={styles.firstKeepCount}>{discoveryImpact!.recoveryCount + 1} KEEPs</Text></View>
-                        <Text style={styles.firstKeepLine}>@{profile.username} a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : ''}</Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.trackActions}>
-                      <View style={styles.trackActionsLeft}>
-                        <TouchableOpacity style={styles.shareButton} onPress={() => void shareProfileTrack(profile.username, track.title, track.artist)}><Text style={styles.shareButtonText}>↗ Partager</Text></TouchableOpacity>
-                        {/* Adel (09/09/2026) : "quand il y a pas de j'aime, mets
-                            le coeur en vert, entoure-le pour qu'on le voit bien"
-                            -- incite a etre le premier a liker. */}
-                        <TouchableOpacity style={[styles.likeButton, liked && styles.likeButtonActive, !liked && trackLikeCount === 0 && styles.likeButtonEmpty]} onPress={() => void toggleLike(track.trackId)} accessibilityLabel={liked ? 'Retirer le like' : 'Liker ce morceau'}><Text style={[styles.likeHeart, liked && styles.likeHeartActive]}>{liked ? '♥' : '♡'}</Text><Text style={styles.likeCount}>{trackLikeCount}</Text></TouchableOpacity>
-                      </View>
-                      <View style={styles.discoveryOriginRow}>
-                        <Text style={styles.discoveryOriginLabel}>Découvert par</Text>
-                        {discoveryUsername ? discoveryUsername === profile.username ? <View style={[styles.discoveryOriginPill, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.discoveryOriginUser, { color: certificationColors.ring }]}>{discoveryUsername}</Text></View> : (() => {
-                          const tierColors = track.sourceCertificationTier ? (CERTIFICATION_META[track.sourceCertificationTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
-                          // Adel (08/09/2026) : "si abonne on met vert, si pas
-                          // abonne on met rouge ... incite a cliquer dessus" --
-                          // le contour porte ce signal, le fond reste la couleur
-                          // de certification.
-                          const followBorder = track.sourceIsFollowing === false ? colors.danger : track.sourceIsFollowing === true ? colors.success : null;
-                          return (
-                            <TouchableOpacity
-                              style={[styles.discoveryOriginPill, tierColors ? { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring } : null, followBorder ? { borderColor: followBorder, borderWidth: 2 } : null]}
-                              onPress={() => navigation.navigate('PublicProfile', { username: discoveryUsername })}
-                              accessibilityLabel={`Ouvrir le profil du découvreur ${discoveryUsername}${track.sourceIsFollowing === false ? ', non suivi' : ''}`}
-                            >
-                              <Text style={[styles.discoveryOriginUser, tierColors ? { color: tierColors.ring } : null]}>{discoveryUsername}</Text>
-                            </TouchableOpacity>
-                          );
-                        })() : <Text style={styles.discoveryOriginProtected}>découvreur d’origine protégé</Text>}
-                      </View>
-                    </View>
-                  </View>
+                  ) : null}
                 </View>;
               })}</View>
             ) : null}
@@ -1085,7 +1109,15 @@ const styles = StyleSheet.create({
   collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},
-  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
+  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},
+  // Adel (21/09/2026) : hauteur fixe (64) explicite -- plus jamais de
+  // variation selon le contenu. Le panneau dépliable (expandedPanel) vit
+  // HORS de cette rangée, dans trackCard.
+  trackCard:{borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  musicRow:{flexDirection:'row',alignItems:'center',height:64,paddingHorizontal:9,gap:8},musicCover:{width:48,height:48,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},
+  expandToggle:{width:32,height:44,alignItems:'center',justifyContent:'center'},expandToggleText:{color:colors.textMuted,fontSize:16,fontWeight:'900'},
+  expandedPanel:{paddingHorizontal:9,paddingBottom:10,paddingTop:2,gap:6,borderTopWidth:1,borderTopColor:colors.border},
+  discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},keepButtonInline:{minHeight:44,minWidth:44,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
   editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
   pickerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:44,paddingHorizontal:10,borderBottomWidth:1,borderBottomColor:'#2B2238'},pickerRowText:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:14,fontWeight:'700'},pickerRowCount:{color:colors.textMuted,fontSize:12,fontWeight:'800',marginLeft:8},
