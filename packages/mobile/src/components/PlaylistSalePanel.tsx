@@ -6,6 +6,7 @@ import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
 import { Alert as KeepAlert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 
 const PRICE_PRESETS = [50, 100, 200, 300, 500, 1000] as const;
 
@@ -23,6 +24,13 @@ export default function PlaylistSalePanel({ navigation }: any) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
   const [error, setError] = useState('');
+  // Adel (20/09/2026) : marketplace playlists en "coming soon" -- paiement
+  // par lien externe, non conforme Apple IAP pour du contenu numérique
+  // déverrouillé dans l'app. Garde-fou d'accès direct (deep-link/route),
+  // au cas où le point d'entrée menu serait contourné -- le flag Super
+  // Admin 'playlist_marketplace' reste la seule source de vérité.
+  const [marketplaceEnabled, setMarketplaceEnabled] = useState<boolean | null>(null);
+  useEffect(() => { let live = true; isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); return () => { live = false; }; }, []);
 
   const loadData = async () => {
     if (!user || isLocalGuest || isDemoMode) {
@@ -136,6 +144,16 @@ export default function PlaylistSalePanel({ navigation }: any) {
       },
     ]);
   };
+
+  if (marketplaceEnabled === false) {
+    return (
+      <SafeAreaView style={s.container}>
+        <View style={s.empty}>
+          <Text style={s.emptyText}>Bientôt disponible.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!user) {
     return (

@@ -8,6 +8,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import { shareSession } from '../services/sharingService';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import TrackRow from '../components/TrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { colors } from '../theme/colors';
@@ -102,6 +103,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const openSwipe = () => {
     const pending = pendingSwipeTracks.slice();
     if (!pending.length) return;
+    // Adel (20/09/2026) : même correctif que Battle -- débloquer l'élément
+    // <audio> partagé PENDANT ce tap pour que la première lecture
+    // programmatique du Swipe (arrivant après resolveTrackPreviewUrl, donc
+    // hors du geste) ne soit pas refusée par le navigateur.
+    unlockWebAudioForGesture();
     // Snapshot volontaire : le parent met à jour le statut après chaque choix.
     // Garder la liste stable évite le double saut qui obligeait à fermer puis
     // rouvrir le Swipe après PASSER/GARDER.

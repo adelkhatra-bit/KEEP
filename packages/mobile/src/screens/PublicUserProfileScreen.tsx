@@ -24,6 +24,9 @@ import { persistEnrichedGenres } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { isFeatureEnabled } from '../services/featureFlagService';
+import PlaylistSalePreview from '../components/PlaylistSalePreview';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 
 type PublicKeepTrack = {
   id: string;
@@ -117,12 +120,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  // Adel (20/09/2026) : marketplace playlists (ACHETER) en "coming soon" --
+  // paiement par lien externe, non conforme Apple IAP pour du contenu
+  // numérique déverrouillé dans l'app. Code intact, juste masqué tant que
+  // le flag Super Admin 'playlist_marketplace' reste désactivé.
+  const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  useEffect(() => { let live = true; isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); return () => { live = false; }; }, []);
   useEffect(() => {
-    if (!profile?.id) { setSaleOffers([]); return undefined; }
+    if (!marketplaceEnabled || !profile?.id) { setSaleOffers([]); return undefined; }
     let live = true;
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
     return () => { live = false; };
-  }, [profile?.id]);
+  }, [marketplaceEnabled, profile?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,6 +332,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       : swipeTracks.filter((track) => canonicalArtistIdentity(track) === browseFilter.value);
   }, [swipeTracks, browseFilter]);
   const openBrowseSwipe = (filter: { type: 'genre' | 'artist'; value: string; label: string } | null) => {
+    // Adel (20/09/2026) : BUG RÉEL -- l'autoplay du Swipe ne démarrait
+    // jamais tout seul sur le web, forçant "ÉCOUTER L'EXTRAIT" à chaque
+    // morceau. Même correctif que Battle : .play() doit être appelé de
+    // façon SYNCHRONE depuis ce vrai geste (tap) pour débloquer l'élément
+    // <audio> partagé, sinon la première lecture programmatique lancée par
+    // MusicSwipeDeckModal (après resolveTrackPreviewUrl) arrive trop tard
+    // et le navigateur la refuse.
+    unlockWebAudioForGesture();
     setBrowseFilter(filter);
     setSwipeOpen(true);
   };
@@ -727,20 +744,23 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             -- une seule liste désormais (playlist entière, album ou un
             seul morceau, tout passe par la même offre côté serveur) au
             lieu de deux sections parallèles qui se recoupaient. */}
-        {saleOffers.length > 0 ? (
+        {marketplaceEnabled && saleOffers.length > 0 ? (
           <View style={styles.browseSection}>
             <Text style={styles.sectionTitle}>Boutique playlists</Text>
             <Text style={styles.marketplaceHint}>Des sélections prêtes à rejoindre ta bibliothèque Loki puis tes services connectés.</Text>
             <View style={styles.marketplaceList}>
               {saleOffers.map((offer) => (
-                <TouchableOpacity key={offer.offerId} style={styles.marketplaceCard} disabled={purchaseBusyId === offer.offerId} onPress={() => void buyPlaylistOffer(offer)} accessibilityLabel={`Acheter ${offer.playlistName}`}>
-                  {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.marketplaceCover} /> : <View style={[styles.marketplaceCover, styles.marketplaceCoverFallback]}><Text style={styles.marketplaceCoverIcon}>♫</Text></View>}
-                  <View style={styles.marketplaceCopy}>
-                    <Text style={styles.marketplaceTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                    <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · livraison automatique dans Loki</Text>
-                  </View>
-                  <View style={styles.marketplacePriceButton}><Text style={styles.marketplacePriceText}>{purchaseBusyId === offer.offerId ? '…' : `${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
-                </TouchableOpacity>
+                <View key={offer.offerId} style={styles.marketplaceCard}>
+                  <TouchableOpacity style={styles.marketplaceCardTop} disabled={purchaseBusyId === offer.offerId} onPress={() => void buyPlaylistOffer(offer)} accessibilityLabel={`Acheter ${offer.playlistName}`}>
+                    {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.marketplaceCover} /> : <View style={[styles.marketplaceCover, styles.marketplaceCoverFallback]}><Text style={styles.marketplaceCoverIcon}>♫</Text></View>}
+                    <View style={styles.marketplaceCopy}>
+                      <Text style={styles.marketplaceTitle} numberOfLines={1}>{offer.playlistName}</Text>
+                      <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · livraison automatique dans Loki</Text>
+                    </View>
+                    <View style={styles.marketplacePriceButton}><Text style={styles.marketplacePriceText}>{purchaseBusyId === offer.offerId ? '…' : `${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
+                  </TouchableOpacity>
+                  <PlaylistSalePreview playlistId={offer.playlistId} trackCount={offer.trackCount} />
+                </View>
               ))}
             </View>
           </View>
@@ -996,7 +1016,7 @@ const styles = StyleSheet.create({
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',opacity:.82},socialButtonConfigured:{backgroundColor:'#5B3F8C',borderColor:'#A884FA',opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
-  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceCard:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10,padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:'#1C4E3E',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#38D990',fontSize:12,fontWeight:'900'},
+  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:'#1C4E3E',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#38D990',fontSize:12,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   visitorKeepCounters:{marginHorizontal:18},sectionTitle:{...typography.h3,color:colors.textPrimary},swipeLaunch:{marginHorizontal:18,marginTop:10,minHeight:64,borderRadius:16,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:14,paddingVertical:10},swipeLaunchTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},swipeLaunchText:{color:'#E5DBF2',fontSize:11,lineHeight:15,textAlign:'center',marginTop:3},publicMusicSection:{paddingHorizontal:18,marginTop:16},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},musicRow:{flexDirection:'row',alignItems:'center',padding:9,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},musicCover:{width:52,height:52,borderRadius:10,backgroundColor:colors.backgroundCard},musicCoverFallback:{alignItems:'center',justifyContent:'center'},musicFallback:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},trackInfo:{flex:1,minWidth:0,marginLeft:10},trackTitleRow:{flexDirection:'row',alignItems:'flex-start',gap:6},trackTitleBlock:{flex:1,minWidth:0,paddingTop:4},trackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},trackArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackRightColumn:{alignItems:'flex-end',gap:4},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap',justifyContent:'flex-end'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},trackInlineActions:{flexDirection:'row',alignItems:'center',gap:6},keepButtonInline:{minHeight:29,paddingHorizontal:10,borderRadius:15,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},trackActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:7},trackActionsLeft:{flexDirection:'row',alignItems:'center',gap:7},keepButtonText:{color:'#0E0A14',fontSize:12,fontWeight:'900'},alreadyKeepButton:{backgroundColor:'#201A28',borderWidth:1,borderColor:'#4B4257'},alreadyKeepButtonText:{color:'#FFFFFF'},shareButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',alignItems:'center',justifyContent:'center'},shareButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},likeButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'#1A1225',borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},likeButtonActive:{borderColor:'#FF5F83',backgroundColor:'rgba(255,95,131,.10)'},likeButtonEmpty:{borderColor:'#38D990',borderWidth:2},likeHeart:{color:colors.textSecondary,fontSize:14},likeHeartActive:{color:'#FF5F83'},likeCount:{color:colors.textSecondary,fontSize:11,fontWeight:'800'},muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},

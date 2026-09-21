@@ -255,6 +255,25 @@ export async function setPlaylistSalePriceForSelection(trackIds: string[], name:
   };
 }
 
+// Adel/BACKLOG.md priorité 1 : "Pré-écoute de 15 secondes masquée" -- ne
+// renvoie JAMAIS titre/artiste/jaquette par morceau (voir migration
+// keep_playlist_sale_offer_preview_tracks), contrairement à
+// loadPlaylistSaleOfferDetails qui reste un agrégat public. trackId n'est
+// qu'un uuid technique, inutilisable pour identifier la chanson.
+export type PlaylistSalePreviewTrack = {
+  trackId: string;
+  previewUrl: string;
+};
+
+export async function loadPlaylistSaleOfferPreviewTracks(playlistId: string): Promise<PlaylistSalePreviewTrack[]> {
+  if (!supabase || !playlistId) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_offer_preview_tracks', { p_playlist_id: playlistId });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map((row: any) => ({ trackId: String(row.track_id ?? row.trackId ?? ''), previewUrl: String(row.preview_url ?? row.previewUrl ?? '') }))
+    .filter((row) => row.trackId && row.previewUrl);
+}
+
 export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_offers');

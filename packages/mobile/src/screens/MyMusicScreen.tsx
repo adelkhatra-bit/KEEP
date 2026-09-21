@@ -12,6 +12,7 @@ import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
 import { clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyPlaylistSaleOffers, PlaylistSaleAccess, PlaylistSaleOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection } from '../services/playlistSaleService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import {
   isSmartAlbumUiId,
@@ -96,6 +97,12 @@ export default function MyMusicScreen({ navigation }: any) {
   // possible tant que Stripe Connect n'est pas branche cote serveur.
   const [saleAccess, setSaleAccess] = useState<PlaylistSaleAccess | null>(null);
   const [myOffers, setMyOffers] = useState<Record<string, PlaylistSaleOffer>>({});
+  // Adel (20/09/2026) : marketplace playlists (VENDRE) mise en "coming
+  // soon" -- paiement par lien externe, non conforme Apple IAP pour du
+  // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
+  // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
+  const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  useEffect(() => { let live = true; isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); return () => { live = false; }; }, []);
   // Adel (16-17/09/2026) : "l'utilisateur va pouvoir sélectionner les
   // musiques qu'il va vendre ou les albums complets ... assure-toi que les
   // montants sont pré-écrits" -- vendre une playlist nommée entière OU une
@@ -147,7 +154,7 @@ export default function MyMusicScreen({ navigation }: any) {
   };
 
   const refreshSaleState = async () => {
-    if (!userId || isLocalGuest || isDemoMode) {
+    if (!marketplaceEnabled || !userId || isLocalGuest || isDemoMode) {
       setSaleAccess(null);
       setMyOffers({});
       return;
@@ -593,7 +600,7 @@ export default function MyMusicScreen({ navigation }: any) {
           {/* Adel (16-17/09/2026) : "un bouton 'Vendre cette musique'" --
               vendre UN morceau précis, même popup de prix que pour une
               playlist ou un album entier. */}
-          {localEntry ? <TouchableOpacity
+          {marketplaceEnabled && localEntry ? <TouchableOpacity
             style={styles.sellTrackButton}
             onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
             accessibilityLabel={`Vendre ${track.title}`}
@@ -638,7 +645,7 @@ export default function MyMusicScreen({ navigation }: any) {
             }
           }}><Text style={styles.serviceMiniText}>♫ SERVICES</Text></TouchableOpacity>
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
-          {!isAllKeepView ? (
+          {marketplaceEnabled && !isAllKeepView ? (
             <TouchableOpacity style={styles.sellMini} onPress={() => {
               if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null });
               else openSellModal({ kind: 'playlist', playlist: item });
@@ -724,7 +731,7 @@ export default function MyMusicScreen({ navigation }: any) {
           contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={localKeptTracks.length ? <View style={styles.selectionToolbar}>
+          ListHeaderComponent={marketplaceEnabled && localKeptTracks.length ? <View style={styles.selectionToolbar}>
             {!saleSelectionMode ? <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity> : <>
               <View style={styles.selectionToolbarCopy}><Text style={styles.selectionToolbarTitle}>{selectedSaleTrackIds.size} morceau{selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text><Text style={styles.selectionToolbarHint}>Appuie sur les ronds, puis crée ta playlist.</Text></View>
               <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>ANNULER</Text></TouchableOpacity>
