@@ -31,6 +31,8 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Refonte profil : mobile uniquement pour cette phase.
 - Zéro suppression : chaque donnée, action, état, modale et raccourci existant doit rester accessible, au maximum en 1–2 taps.
 - Hiérarchie validée : identité compacte, SWIPE prioritaire, collection avant les sections Communauté, Progression, Battle, Loki DNA et Réseaux.
+- Chaque ligne de musique doit conserver le pseudo du découvreur/utilisateur, son statut de suivi/certification et l'accès à son profil : c'est le principe social d'origine de KEEP.
+- La cloche Notifications et son compteur restent visibles dans la barre supérieure du profil, hors du menu hamburger.
 - Couleurs critiques immuables : violet KEEP `#7C5CFC`, GARDER/succès `#2DE1C2`, PASSER/danger `#FF5C72`.
 - Écouter, reconnaître et PASSER coûtent `0 Free`.
 - GARDER un titre découvert via Écouter coûte actuellement `3 Free` ; cette valeur vient de la configuration serveur. Une copie sociale depuis le profil d'un autre membre coûte `0 Free`.
