@@ -1,0 +1,69 @@
+name: KEEP — OTA Production Update
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/**'
+      - 'packages/mobile/App.tsx'
+      - 'packages/mobile/index.js'
+      - 'packages/mobile/assets/**'
+      - 'packages/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/eas-update-production.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: loki-ota-production-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish production OTA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        working-directory: packages/mobile
+        run: eas whoami
+
+      - name: Publish latest JS to production
+        working-directory: packages/mobile
+        env:
+          CI: '1'
+        run: |
+          set -euo pipefail
+          eas update --channel production --non-interactive --message "GitHub ${GITHUB_SHA}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Loki Music OTA production'
+            echo
+            echo "- Commit: ${GITHUB_SHA}"
+            echo '- Channel: production'
+            echo '- This updates JS/assets only. Native module or entitlement changes still require a new TestFlight build.'
+          } >> "$GITHUB_STEP_SUMMARY"
