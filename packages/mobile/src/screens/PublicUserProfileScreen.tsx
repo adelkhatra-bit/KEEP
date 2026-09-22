@@ -475,6 +475,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
+      else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${profile?.username || 'Ce vendeur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
+      else if (message.includes('SELLER_PAYOUT_LINK_INSECURE')) Alert.alert('Paiement temporairement indisponible', 'Le vendeur doit enregistrer un lien de paiement sécurisé avant de pouvoir vendre cette sélection.');
       else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
     } finally {
       setPurchaseBusyId(null);
