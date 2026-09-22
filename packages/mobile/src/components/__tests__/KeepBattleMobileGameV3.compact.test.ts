@@ -368,7 +368,7 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).toContain('{selectedBattlePlayerIds.size}/{eligiblePlayerCount} joueur{eligiblePlayerCount > 1');
     expect(battle).toContain("sélectionné{selectedBattlePlayerIds.size > 1 ? 's' : ''}");
     expect(battle).toContain('Démarrer la Battle');
-    expect(battle).toContain('const canStartSelectedBattle = selectedBattlePlayerIds.size >= 2 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;');
+    expect(battle).toContain('const canStartSelectedBattle = selectedBattlePlayerIds.size >= 1 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;');
     expect(battle).toContain('battleStartButtonDisabled');
   });
 
@@ -387,8 +387,9 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).not.toContain('let arenaId = buildingArenaId;');
   });
 
-  it('requires at least 2 selected players before starting a group Battle', () => {
-    expect(battle).toContain('if (targets.length < 2) return;');
+  it('allows a classic 1v1 Battle with one selected opponent, while still supporting group selection', () => {
+    expect(battle).toContain('if (targets.length < 1) return;');
+    expect(battle).toContain('selectedBattlePlayerIds.size >= 1');
   });
 
   it('scrolls the player list independently from the fixed header/filters and the fixed footer', () => {
