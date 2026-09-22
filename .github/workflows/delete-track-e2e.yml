@@ -99,7 +99,7 @@ jobs:
             const start = page.getByLabel('Démarrer une écoute').last();
             if (await start.isVisible().catch(() => false)) await start.click();
 
-            const keep = exact('GARDER');
+            const keep = page.getByLabel('Garder ce morceau').last();
             await keep.waitFor({ state: 'visible', timeout: 15000 });
             const detectedCard = keep.locator('xpath=../..');
             const detectedText = (await detectedCard.innerText()).trim();
