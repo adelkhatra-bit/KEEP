@@ -1354,3 +1354,20 @@ Commit de réparation build poussé sur `reconcile/claude-main-20260825` (hash d
 - `keep-preview` n'est PAS un projet Vercel applicatif : c'est une fonction edge Supabase (pont 308). Le rouge = **projet Vercel dont la Production Branch pointe sur `main` (stale, build cassé pré-`4f56cbd`)**.
 - Réparation : Vercel → Settings → Git → **Production Branch = `reconcile/claude-main-20260825`** → Redeploy (vert prouvé en local). + étapes exactes pour changer le défaut GitHub.
 - Livrable : `docs/ops/P5_branche_defaut_et_keep_preview.md`.
+
+
+
+### 🟠 PRIORITÉ 5 — Changement branche par défaut — Commit de suivi
+
+Action manuelle côté Adel :
+- GitHub Settings → Branches → Default branch = reconcile/claude-main-20260825
+- Vercel → Settings → Git → Production Branch = reconcile/claude-main-20260825 → Redeploy
+
+Côté agent (vérification à faire après redeploy Vercel) :
+- Build keep-preview sur reconcile/ : exit 0 prouvé en local (expo export --platform web + fix-web-export.cjs).
+- Dès que Adel confirme le redeploy, lancer :
+  curl -I https://adelkhatra-bit.github.io/KEEP/ → HTTP 200
+  curl -I https://<supabase_url>/functions/v1/keep-preview → HTTP 308
+  et vérifier les logs de build Vercel.
+
+⛔ Attente confirmation d'Adel pour la vérification post-Vercel.
