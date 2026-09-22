@@ -21,13 +21,16 @@ on:
     branches:
       - reconcile/claude-main-20260825
     paths:
-      - 'packages/mobile/app.json'
-      - 'packages/mobile/eas.json'
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/verify-app-store-readiness.cjs'
       - '.github/workflows/auto-eas-build.yml'
 
 concurrency:
-  group: loki-ios-signing
-  cancel-in-progress: false
+  group: loki-ios-signing-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '22'
