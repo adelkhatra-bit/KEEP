@@ -80,7 +80,14 @@
           "locationWhenInUsePermission": "Avec votre accord, Loki Music utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/keep-money.wav"
+          ]
+        }
+      ],
       "expo-localization",
       "expo-secure-store"
     ],
