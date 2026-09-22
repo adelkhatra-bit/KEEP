@@ -85,7 +85,7 @@ async function getUserSnapshot(profileId: string) {
     admin.from("social_links").select("platform,url,visibility").eq("profile_id", profileId),
     admin.from("user_profile_requirements").select("requirements,updated_at").eq("profile_id", profileId).maybeSingle(),
     admin.auth.admin.getUserById(profileId),
-    admin.from("keep_decisions").select("id,decision,visibility,context,source_user_id", { count: "exact" }).eq("profile_id", profileId),
+    admin.from("keep_decisions").select("id,decision,visibility,context,source_user_id,source_type", { count: "exact" }).eq("profile_id", profileId),
     admin.from("playlists").select("id", { count: "exact", head: true }).eq("owner_id", profileId),
     admin.from("download_credit_usage").select("consumed_count").eq("profile_id", profileId).maybeSingle(),
     admin.from("music_usage_counters").select("recognized_count,last_recognized_at").eq("profile_id", profileId).maybeSingle(),
@@ -94,8 +94,14 @@ async function getUserSnapshot(profileId: string) {
   const authUser = authResult.data.user ?? null;
   const decisions = keepResult.data ?? [];
   const realEmail = authUser?.email && !authUser.email.endsWith("@keep.local") ? authUser.email : null;
-  const socialKeeps = decisions.filter((row: any) => row.decision === "KEPT" && (row.context?.creditPolicy === "SOCIAL_ZERO_CREDIT" || row.source_user_id)).length;
-  const ownKeeps = decisions.filter((row: any) => row.decision === "KEPT" && row.context?.creditPolicy !== "SOCIAL_ZERO_CREDIT" && !row.source_user_id).length;
+  const isSocialKeep = (row: any) => row?.decision === "KEPT" && (
+    row?.context?.creditPolicy === "SOCIAL_ZERO_CREDIT"
+    || Boolean(row?.source_user_id)
+    || row?.source_type === "profile"
+    || Boolean(typeof row?.context?.sourceProfileId === "string" && row.context.sourceProfileId.trim())
+  );
+  const socialKeeps = decisions.filter(isSocialKeep).length;
+  const ownKeeps = decisions.filter((row: any) => row.decision === "KEPT" && !isSocialKeep(row)).length;
   return {
     profile,
     privateInfo: privateInfo ?? null,
