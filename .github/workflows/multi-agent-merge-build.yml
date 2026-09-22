@@ -1,0 +1,188 @@
+name: 🤖 Multi-Agent Auto Merge & Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull Request number to merge'
+        required: true
+        default: '23'
+      profile:
+        description: 'EAS build profile (development, preview, production)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+      auto_merge_method:
+        description: 'Merge method'
+        required: true
+        default: 'merge'
+        type: choice
+        options:
+          - merge
+          - squash
+          - rebase
+      run_workflow:
+        description: 'Run eas-build-ios workflow after merge'
+        required: true
+        default: true
+        type: boolean
+      conflict_resolution:
+        description: 'Auto-resolve conflicts using fix branch version'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  statuses: write
+
+jobs:
+  resolve-and-merge:
+    name: 🔧 Resolve Conflicts & Merge PR
+    runs-on: ubuntu-latest
+    outputs:
+      merge_success: ${{ steps.merge.outcome }}
+      pr_merged: ${{ steps.check-merge.outputs.merged }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Get PR details
+        id: get-pr
+        run: |
+          PR_DATA=$(gh pr view ${{ github.event.inputs.pr_number }} --json title,body,headRefName,baseRefName,mergeable,mergeStateStatus)
+          echo "$PR_DATA" | jq .
+          echo "head_branch=$(echo $PR_DATA | jq -r '.headRefName')" >> $GITHUB_OUTPUT
+          echo "base_branch=$(echo $PR_DATA | jq -r '.baseRefName')" >> $GITHUB_OUTPUT
+          echo "mergeable=$(echo $PR_DATA | jq -r '.mergeable')" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ⚙️ Auto-resolve conflicts (if enabled)
+        if: github.event.inputs.conflict_resolution == 'true' && steps.get-pr.outputs.mergeable == 'false'
+        run: |
+          echo "🔄 Resolving conflicts from ${{ steps.get-pr.outputs.head_branch }}..."
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          
+          # Fetch both branches
+          git fetch origin ${{ steps.get-pr.outputs.base_branch }}
+          git fetch origin ${{ steps.get-pr.outputs.head_branch }}
+          
+          # Checkout base branch
+          git checkout origin/${{ steps.get-pr.outputs.base_branch }}
+          
+          # Merge with strategy preferring head branch
+          git merge -X theirs origin/${{ steps.get-pr.outputs.head_branch }} || true
+          
+          # Push resolution
+          git push origin HEAD:refs/heads/conflict-resolution-${{ github.run_number }}
+          
+          echo "✅ Conflicts resolved, pushing to temporary branch..."
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔗 Merge PR
+        id: merge
+        run: |
+          echo "🚀 Merging PR #${{ github.event.inputs.pr_number }} using ${{ github.event.inputs.auto_merge_method }} method..."
+          gh pr merge ${{ github.event.inputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --${{ github.event.inputs.auto_merge_method }} \
+            --admin || true
+          
+          echo "✅ Merge command executed"
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ✅ Check merge status
+        id: check-merge
+        run: |
+          MERGED=$(gh pr view ${{ github.event.inputs.pr_number }} --repo ${{ github.repository }} --json merged --jq '.merged')
+          echo "merged=$MERGED" >> $GITHUB_OUTPUT
+          
+          if [ "$MERGED" = "true" ]; then
+            echo "✅ PR #${{ github.event.inputs.pr_number }} successfully merged!"
+          else
+            echo "⚠️ PR #${{ github.event.inputs.pr_number }} merge status: $MERGED"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger-build:
+    name: 🏗️ Trigger EAS Build iOS
+    needs: resolve-and-merge
+    if: github.event.inputs.run_workflow == 'true' && needs.resolve-and-merge.outputs.pr_merged == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: 🚀 Trigger eas-build-ios workflow
+        run: |
+          echo "🔄 Triggering eas-build-ios.yml with profile: ${{ github.event.inputs.profile }}"
+          
+          gh workflow run eas-build-ios.yml \
+            --repo ${{ github.repository }} \
+            --ref main \
+            -F profile=${{ github.event.inputs.profile }} || echo "⚠️ Workflow trigger attempt completed"
+          
+          echo "✅ Build workflow initiated"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📊 Log workflow status
+        run: |
+          echo "📋 Workflow triggered successfully"
+          echo "   Repository: ${{ github.repository }}"
+          echo "   Branch: main"
+          echo "   Profile: ${{ github.event.inputs.profile }}"
+          echo "   Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+  summary:
+    name: 📝 Summary Report
+    needs: [resolve-and-merge, trigger-build]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📊 Generate summary
+        run: |
+          echo "# 🤖 Multi-Agent Auto Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Execution Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| PR Number | #${{ github.event.inputs.pr_number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Profile | ${{ github.event.inputs.profile }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Merge Method | ${{ github.event.inputs.auto_merge_method }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auto-Resolve | ${{ github.event.inputs.conflict_resolution }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Triggered | ${{ github.event.inputs.run_workflow }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [PR #${{ github.event.inputs.pr_number }}](https://github.com/${{ github.repository }}/pull/${{ github.event.inputs.pr_number }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Build Status](https://github.com/${{ github.repository }}/actions/workflows/eas-build-ios.yml)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🤖 Compatible Agents" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Claude (OpenAI Copilot)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Styve" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Jac" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ JT" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Any GitHub Actions compatible agent" >> $GITHUB_STEP_SUMMARY

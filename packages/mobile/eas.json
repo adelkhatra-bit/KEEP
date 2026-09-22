@@ -23,16 +23,11 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://rrhqsqzcplvmwxizqnla.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru",
-        "EXPO_PUBLIC_API_URL": "https://keep-backend-mu.vercel.app",
-        "EXPO_PUBLIC_DEMO_MODE": "false",
-        "EXPO_PUBLIC_ENVIRONMENT": "production"
-      },
+      "distribution": "store",
       "ios": {
         "resourceClass": "m-medium",
-        "image": "sdk-54"
+        "image": "sdk-54",
+        "buildConfiguration": "Release"
       }
     }
   },
