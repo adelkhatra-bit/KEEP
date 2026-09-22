@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, Easing, Modal, Text, TouchableOpacity, Vie
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
-import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
+import { playAntiShazamPreviewSegment, stopAntiShazamPreview } from '../services/audioPreviewService';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -34,7 +34,6 @@ const EXPLAINER_LINES = [
 ];
 
 const ROTATE_MS = 4200;
-const PREVIEW_DURATION_MS = 15000;
 
 interface Props {
   offer: PublicPlaylistSaleOffer;
@@ -70,17 +69,19 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     if (!available || available.length === 0) return;
     const safeIdx = ((idx % available.length) + available.length) % available.length;
     setTrackIndex(safeIdx);
-    setSecondsLeft(Math.round(PREVIEW_DURATION_MS / 1000));
     clearCountdown();
-    countdownRef.current = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
-    void playTrackPreviewSegment(
+    // Anti-Shazam (Adel, 22/09/2026) : la durée de l'extrait n'est plus fixe
+    // (5-8s aléatoires, décidés côté service) -- le compte à rebours démarre
+    // seulement une fois la durée réelle connue.
+    void playAntiShazamPreviewSegment(
       previewKeyRef.current,
       available[safeIdx].previewUrl,
-      0,
-      PREVIEW_DURATION_MS,
       (isPlaying) => setPlaying(isPlaying),
       () => { clearCountdown(); playTrackAt(safeIdx + 1); },
-    );
+    ).then((durationMs) => {
+      setSecondsLeft(Math.round(durationMs / 1000));
+      countdownRef.current = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    }).catch(() => {});
   }
 
   // Reset + chargement des extraits à chaque ouverture -- jamais de case
@@ -88,7 +89,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   useEffect(() => {
     if (!visible) {
       clearCountdown();
-      void stopTrackPreview(previewKeyRef.current);
+      void stopAntiShazamPreview(previewKeyRef.current);
       return undefined;
     }
     setWaiverAccepted(false);
@@ -110,7 +111,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       clearInterval(marketingTimer);
       clearInterval(explainerTimer);
       clearCountdown();
-      void stopTrackPreview(previewKeyRef.current);
+      void stopAntiShazamPreview(previewKeyRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, offer.playlistId]);
@@ -133,7 +134,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   function togglePlayPause() {
     if (playing) {
       clearCountdown();
-      void stopTrackPreview(previewKeyRef.current);
+      void stopAntiShazamPreview(previewKeyRef.current);
       setPlaying(false);
       return;
     }

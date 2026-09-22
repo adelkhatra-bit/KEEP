@@ -1,4 +1,5 @@
 import { Audio, AVPlaybackStatus, InterruptionModeIOS } from 'expo-av';
+import * as Speech from 'expo-speech';
 import { isNativeRecordingModeActive } from './micCapture';
 
 let activeSound: Audio.Sound | null = null;
@@ -540,6 +541,139 @@ export async function stopTrackPreview(key?: string): Promise<void> {
   return serialize(async () => {
     await unloadActive();
   });
+}
+
+// Anti-Shazam (Adel, 22/09/2026, spec validée + voix off expo-speech) :
+// previews de playlists en vente (PlaylistSaleImmersivePreview.tsx) --
+// extrait court (5-8s) à un point de départ aléatoire, léger pitch-shift, et
+// une ligne vocale Loki Music par-dessus, tirée au hasard et jamais mise en
+// cache. 100% client, aucune dépendance serveur. Fonction VOLONTAIREMENT
+// séparée de playTrackPreviewSegment (utilisée par Battle solo/arène et
+// Loki Swipe) : zéro risque de régresser ces usages en touchant ce fichier.
+const ANTI_SHAZAM_VOICE_LINES = [
+  'Découvre cette playlist sur Loki Music.',
+  'Une sélection gardée pour toi.',
+  'Écoute avant d’acheter.',
+  'La musique garde sa mémoire.',
+  'Loki Music — ton univers musical.',
+];
+
+function speakAntiShazamLine() {
+  try {
+    const line = ANTI_SHAZAM_VOICE_LINES[Math.floor(Math.random() * ANTI_SHAZAM_VOICE_LINES.length)];
+    Speech.speak(line, { language: 'fr-FR', volume: 0.25, pitch: 1, rate: 1 });
+  } catch {}
+}
+
+/**
+ * Joue un extrait anti-Shazam (offset aléatoire + pitch-shift + voix off) et
+ * résout avec la durée réelle (ms) de l'extrait choisi, pour que l'appelant
+ * puisse afficher un compte à rebours correct (la durée n'est plus fixe).
+ */
+export async function playAntiShazamPreviewSegment(
+  key: string,
+  previewUrl: string,
+  onStateChange?: (playing: boolean) => void,
+  onEnded?: () => void,
+): Promise<number> {
+  return serialize(async () => {
+    try { Speech.stop(); } catch {}
+    const extractDurationMs = 5000 + Math.random() * 3000;
+
+    if (canUseWebAudio()) {
+      // Repli web : offset aléatoire fixe (20-50s, la durée réelle du fichier
+      // n'est pas connue avant chargement) -- playWebSegment clampe déjà si
+      // le fichier est plus court. Pitch-shift best-effort via playbackRate
+      // sur l'élément <audio> partagé : non garanti identique sur tous les
+      // navigateurs (certains "corrigent" la hauteur automatiquement), mais
+      // reste un déphasage réel utile, jamais une régression si ça échoue.
+      const offsetMs = 20000 + Math.random() * 30000;
+      const rateShift = 1 + (0.03 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1);
+      await playWebSegment(key, previewUrl, offsetMs, extractDurationMs, onStateChange, onEnded);
+      try {
+        const element = getWebAudio();
+        if (element) {
+          element.playbackRate = rateShift;
+          (element as any).preservesPitch = false;
+          (element as any).mozPreservesPitch = false;
+          (element as any).webkitPreservesPitch = false;
+        }
+      } catch {}
+      speakAntiShazamLine();
+      return extractDurationMs;
+    }
+
+    await unloadActive();
+    await configurePreviewAudio();
+    const createdSound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
+
+    let durationMillis = 0;
+    try {
+      const status = await createdSound.getStatusAsync();
+      if (status.isLoaded && typeof status.durationMillis === 'number') durationMillis = status.durationMillis;
+    } catch {}
+
+    let offsetMs: number;
+    if (durationMillis > 1500) {
+      const low = durationMillis * 0.15;
+      const high = Math.max(low, Math.min(durationMillis * 0.7, durationMillis - extractDurationMs));
+      offsetMs = low + Math.random() * Math.max(0, high - low);
+    } else {
+      // Durée inconnue (métadonnée absente) -- repli sur une fenêtre fixe.
+      offsetMs = 20000 + Math.random() * 30000;
+    }
+    const rateShift = 1 + (0.03 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1);
+
+    try { await createdSound.setPositionAsync(Math.max(0, Math.round(offsetMs))); } catch {}
+    try { await createdSound.setRateAsync(rateShift, false); } catch {}
+
+    createdSound.setOnPlaybackStatusUpdate((status) => {
+      if (!status.isLoaded) return;
+      if (activeSound === createdSound) activeStateListener?.(status.isPlaying);
+    });
+
+    activeSound = createdSound;
+    activeKey = key;
+    activeStateListener = onStateChange ?? null;
+
+    try {
+      await ensurePlaying(createdSound);
+    } catch {
+      // Repli honnête : le seek/pitch-shift a fait échouer la lecture (fichier
+      // trop court, décodeur capricieux...) -- une lecture simple, sans
+      // traitement, vaut mieux qu'une manche silencieuse.
+      try { await createdSound.setPositionAsync(0); } catch {}
+      try { await createdSound.setRateAsync(1, false); } catch {}
+      await ensurePlaying(createdSound);
+    }
+    onStateChange?.(true);
+    speakAntiShazamLine();
+
+    activeTimer = setTimeout(() => {
+      if (activeSound !== createdSound) return;
+      void serialize(async () => { await unloadActive(); });
+      onEnded?.();
+    }, Math.max(1000, Math.round(extractDurationMs)));
+
+    return extractDurationMs;
+  });
+}
+
+/** Coupe l'extrait anti-Shazam en cours ET la voix off associée (voir playAntiShazamPreviewSegment). */
+export async function stopAntiShazamPreview(key?: string): Promise<void> {
+  try { Speech.stop(); } catch {}
+  if (canUseWebAudio()) {
+    try {
+      const element = getWebAudio();
+      if (element) {
+        element.playbackRate = 1;
+        (element as any).preservesPitch = true;
+        (element as any).mozPreservesPitch = true;
+        (element as any).webkitPreservesPitch = true;
+      }
+    } catch {}
+  }
+  await stopTrackPreview(key);
 }
 
 export function isTrackPreviewActive(key: string): boolean {
