@@ -43,13 +43,13 @@ describe('PublicUserProfileScreen redesign (Adel, 21/09/2026 : plan validé -- i
     expect(source.match(/Parcourir par style/g)?.length).toBe(1);
   });
 
-  it('migrates the discovery-impact display to the "1er KEEP" format, using real data only (discoveryImpacts + keptAt)', () => {
+  it('migrates the discovery-impact display to the "1er Gardé" format, using real data only (discoveryImpacts + keptAt)', () => {
     expect(source).not.toContain("import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';");
     expect(source).not.toContain('<DiscoveryImpactLabel');
     expect(source).toContain('const isFirstKeep = directDiscovery && !!discoveryImpact && discoveryImpact.recoveryCount > 0;');
-    expect(source).toContain('<Text style={styles.firstKeepBadgeText}>🥇 1er KEEP</Text>');
-    expect(source).toContain('{discoveryImpact!.recoveryCount + 1} KEEPs');
-    expect(source).toContain('a été le premier à KEEP ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : \'\'}');
+    expect(source).toContain('<Text style={styles.firstKeepBadgeText}>🥇 1er Gardé</Text>');
+    expect(source).toContain('{discoveryImpact!.recoveryCount + 1} gardés');
+    expect(source).toContain('a été le premier à garder ce son{daysAgo(track.keptAt) != null ? ` · il y a ${daysAgo(track.keptAt)}j` : \'\'}');
     // La donnée keptAt existe déjà côté service (loadPublicProfileKeeps), simplement mappée ici.
     expect(source).toContain('keptAt: entry.keptAt,');
   });

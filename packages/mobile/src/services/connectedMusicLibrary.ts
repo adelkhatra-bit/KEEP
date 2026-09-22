@@ -51,7 +51,7 @@ function keepMatchFromDecision(row: any): LibraryMatch {
     match: {
       provider: String(playlist.provider || 'KEEP'),
       playlistId: String(playlist.providerPlaylistId || 'keep-profile'),
-      playlistName: String(playlist.name || 'Mes KEEP'),
+      playlistName: String(playlist.name || 'Mes Gardés'),
       decisionId: row?.id ? String(row.id) : undefined,
       trackId: row?.track_id ? String(row.track_id) : undefined,
       visibility: row?.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE',

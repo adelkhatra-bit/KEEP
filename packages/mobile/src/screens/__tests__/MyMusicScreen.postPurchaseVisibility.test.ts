@@ -24,8 +24,8 @@ describe('MyMusicScreen — popup Public/Masqué post-achat (Adel, 21/09/2026, m
     expect(source).toContain('<Modal visible={!!pendingVisibilityChoice} transparent animationType="fade" onRequestClose={() => {}}>');
   });
 
-  it('mentions the "1er KEEP" attribution badge so the buyer understands what they are choosing about', () => {
-    expect(source).toContain('🥇 1er KEEP');
+  it('mentions the "1er Gardé" attribution badge so the buyer understands what they are choosing about', () => {
+    expect(source).toContain('🥇 1er Gardé');
   });
 
   it('offers exactly the two choices from the mission spec, "Rendre publique" using the violet primary action style (never green)', () => {

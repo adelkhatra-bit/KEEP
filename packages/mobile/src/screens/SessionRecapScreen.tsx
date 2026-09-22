@@ -57,7 +57,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     if (!keptNow || useSessionHistoryStore.getState().sessions.length > 1) return;
     setFirstShareOffered(true);
     Alert.alert(
-      '🎉 Ton premier Keep !',
+      '🎉 Ton premier Gardé !',
       'Montre à tes amis ce que tu viens de découvrir, avant même de créer ton compte.',
       [
         { text: 'Plus tard', style: 'cancel' },

@@ -794,8 +794,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
       >
         {isFirstKeep ? (
           <View style={s.firstKeepBlock}>
-            <View style={s.firstKeepRow}><View style={s.firstKeepBadge}><Text style={s.firstKeepBadgeText}>🥇 1er KEEP</Text></View><Text style={s.firstKeepCount}>{impact!.recoveryCount + 1} KEEPs</Text></View>
-            <Text style={s.firstKeepLine}>@{user.username} a été le premier à KEEP ce son{daysAgo(detectedAt) != null ? ` · il y a ${daysAgo(detectedAt)}j` : ''}</Text>
+            <View style={s.firstKeepRow}><View style={s.firstKeepBadge}><Text style={s.firstKeepBadgeText}>🥇 1er Gardé</Text></View><Text style={s.firstKeepCount}>{impact!.recoveryCount + 1} gardés</Text></View>
+            <Text style={s.firstKeepLine}>@{user.username} a été le premier à garder ce son{daysAgo(detectedAt) != null ? ` · il y a ${daysAgo(detectedAt)}j` : ''}</Text>
           </View>
         ) : null}
         <View style={s.trackMetaRow}>

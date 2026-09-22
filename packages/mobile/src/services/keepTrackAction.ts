@@ -54,7 +54,7 @@ export async function commitKeep(
     if (existing?.exists && existing.match) {
       return {
         targetPlaylistId: existing.match.playlistId || 'keep-profile',
-        playlistName: existing.match.playlistName || 'Mes KEEP',
+        playlistName: existing.match.playlistName || 'Mes Gardés',
         downloaded: false,
         visibility: existing.match.visibility ?? visibility,
         keepDecisionId: existing.match.decisionId,
@@ -78,7 +78,7 @@ export async function commitKeep(
   if (!target && requestedId) {
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
-      requestedRecommendation?.playlistName?.trim() || 'Mes KEEP',
+      requestedRecommendation?.playlistName?.trim() || 'Mes Gardés',
       'Morceaux rangés par Loki Music. Le nom et la visibilité peuvent être modifiés depuis Mes musiques.'
     ));
   }
@@ -88,7 +88,7 @@ export async function commitKeep(
   if (!target) {
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
-      'Mes KEEP',
+      'Mes Gardés',
       'Morceaux gardés avec Loki Music.'
     ));
   }
