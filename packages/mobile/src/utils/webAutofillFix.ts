@@ -31,6 +31,12 @@ export function ensureAuthAutofillStyleInjected(): void {
       caret-color: #F5F5F7 !important;
       transition: background-color 9999s ease-in-out 0s !important;
     }
+    /* Firefox (audit Adel, 22/09/2026) : ne reconnait pas -webkit-autofill,
+       seulement la pseudo-classe standard non prefixee. */
+    input:autofill {
+      box-shadow: 0 0 0 1000px #1A1A2E inset !important;
+      caret-color: #F5F5F7 !important;
+    }
   `;
   doc.head.appendChild(style);
 }

@@ -96,8 +96,13 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState('');
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
+  // Maquette validée (22/09/2026) : les hints longs sous Pseudo/E-mail
+  // deviennent des tooltips ⓘ au tap au lieu d'un paragraphe toujours
+  // visible -- le texte n'est pas supprimé, seulement replié par défaut.
+  const [openTip, setOpenTip] = useState<'username' | 'email' | null>(null);
   const strength = useMemo(() => passwordStrength(password), [password]);
   const strengthLabel = strength <= 1 ? 'Faible' : strength === 2 ? 'Correct' : strength === 3 ? 'Bon' : 'Très bon';
+  const strengthGood = strength >= 3;
 
   // Corrige le fond jaune du remplissage automatique sur le web (thème sombre).
   useEffect(() => { ensureAuthAutofillStyleInjected(); }, []);
@@ -263,6 +268,17 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         : 'Connecte-toi avec ton pseudo Loki Music ou ton e-mail, puis ton mot de passe.'}
     </Text>
 
+    {mode === 'create' ? (
+      <View style={s.labelRow}>
+        <Text style={s.label}>Pseudo Loki Music</Text>
+        <TouchableOpacity
+          style={s.info}
+          onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
+          accessibilityRole="button"
+          accessibilityLabel="Pourquoi ce champ ?"
+        ><Text style={s.infoText}>i</Text></TouchableOpacity>
+      </View>
+    ) : null}
     <TextInput
       style={s.input}
       value={username}
@@ -275,9 +291,18 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       textContentType={mode === 'login' ? 'username' : 'username'}
       maxLength={160}
     />
+    {mode === 'create' && openTip === 'username' ? <Text style={s.tooltip}>Ton pseudo est public et unique.</Text> : null}
 
     {mode === 'create' ? <>
-      <Text style={s.usernameHint}>Ton pseudo est public et unique.</Text>
+      <View style={s.labelRow}>
+        <Text style={s.label}>Adresse e-mail</Text>
+        <TouchableOpacity
+          style={s.info}
+          onPress={() => setOpenTip((v) => (v === 'email' ? null : 'email'))}
+          accessibilityRole="button"
+          accessibilityLabel="Pourquoi ce champ ?"
+        ><Text style={s.infoText}>i</Text></TouchableOpacity>
+      </View>
       <TextInput
         style={s.input}
         value={email}
@@ -290,7 +315,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         autoComplete="email"
         textContentType="emailAddress"
       />
-      <Text style={s.usernameHint}>Ton e-mail reste privé -- il sert uniquement à activer ton compte et à récupérer ton mot de passe.</Text>
+      {openTip === 'email' ? <Text style={s.tooltip}>Ton e-mail reste privé -- il sert uniquement à activer ton compte et à récupérer ton mot de passe.</Text> : null}
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
         <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE Loki Music</Text>
       </TouchableOpacity>
@@ -315,9 +340,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
     {mode === 'create' ? <>
       <View style={s.strengthRow}>
-        {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strength >= 3 ? s.strengthGood : strength === 2 ? s.strengthMedium : s.strengthWeak)]} />)}
+        {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strengthGood ? s.strengthGood : s.strengthWeak)]} />)}
       </View>
-      <Text style={[s.strengthText, strength >= 3 ? s.strengthTextGood : strength === 2 ? s.strengthTextMedium : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
+      <Text style={[s.strengthText, strengthGood ? s.strengthTextGood : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
       <View style={s.passwordRow}>
         <TextInput
           style={s.passwordInput}
@@ -355,5 +380,17 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},strengthWeak:{backgroundColor:'#FFB454'},strengthMedium:{backgroundColor:'#F59E0B'},strengthGood:{backgroundColor:'#22C55E'},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:'#FFB454'},strengthTextMedium:{color:'#F59E0B'},strengthTextGood:{color:'#22C55E'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
+  scroll:{maxHeight:560},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},
+  // Maquette validée (22/09/2026) : champs 44 -> 52px, police 14 -> 16px minimum.
+  input:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},
+  labelRow:{flexDirection:'row',alignItems:'center',gap:6,marginTop:2},
+  label:{color:colors.textSecondary,fontSize:11,fontWeight:'800',textTransform:'uppercase',letterSpacing:.4},
+  info:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  infoText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  tooltip:{color:colors.textSecondary,fontSize:11,lineHeight:15,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,borderRadius:radius.md,padding:9,marginTop:2},
+  passwordRow:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:50,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},eye:{width:48,height:50,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},
+  // Maquette validée (22/09/2026) : 2 tons cohérents avec la marque au lieu
+  // de 3 (ambre pour Faible/Correct, menthe colors.success pour Bon/Très
+  // bon) -- avant : vert générique #22C55E sans rapport avec la palette Loki.
+  strengthWeak:{backgroundColor:colors.warning},strengthGood:{backgroundColor:colors.success},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:colors.warning},strengthTextGood:{color:colors.success},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:13,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
 });
