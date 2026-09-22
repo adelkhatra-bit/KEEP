@@ -357,11 +357,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   startSession: () => {
-    // Doit être appelé dans le geste tactile d'origine pour Samsung Internet /
-    // Chrome Android, sinon WebAudio peut rester suspendu après le clic.
-    prepareAudioCaptureFromUserGesture();
     clearTimers();
+    // Nettoyer l'ancienne capture AVANT de préparer le nouvel AudioContext.
+    // Sur web, l'ancien ordre faisait exactement l'inverse : on débloquait
+    // WebAudio dans le geste utilisateur puis cancelAudioCapture() refermait
+    // immédiatement ce contexte. Le tick suivant recréait un AudioContext
+    // hors geste utilisateur, que Safari/iOS peut laisser suspendu.
     void cancelAudioCapture();
+    // Doit rester dans le geste tactile d'origine pour Samsung Internet /
+    // Chrome Android / Safari iOS.
+    prepareAudioCaptureFromUserGesture();
     void prepareRecognitionNotifications();
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
