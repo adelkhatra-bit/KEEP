@@ -122,7 +122,8 @@ export default function MyMusicScreen({ navigation }: any) {
   const [bulkVisibilityBusy, setBulkVisibilityBusy] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
   const [trackVisibilityBusy, setTrackVisibilityBusy] = useState<string | null>(null);
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
+  const [activeTab, setActiveTab] = useState<LibraryTab>('MUSIQUES');
+  const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   // Adel (14/09/2026) : "chaque utilisateur ... vendre leur playlist ...
   // pour le debloquer il faut un certain nombre d'abonnes" -- construit
   // integralement SAUF le paiement reel (Stripe Connect reserve a Adel,
@@ -195,6 +196,16 @@ export default function MyMusicScreen({ navigation }: any) {
     return Array.from(unique.values()).sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
   }, [sessions]);
 
+  const ownDiscoveryEntries = useMemo(
+    () => localKeptEntries.filter((entry) => !entry.sourceProfileId),
+    [localKeptEntries],
+  );
+  const socialRepriseEntries = useMemo(
+    () => localKeptEntries.filter((entry) => Boolean(entry.sourceProfileId)),
+    [localKeptEntries],
+  );
+  const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
+  const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
   const publicKeepCount = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PUBLIC').length, [localKeptEntries]);
   const privateKeepCount = localKeptEntries.length - publicKeepCount;
@@ -980,6 +991,16 @@ export default function MyMusicScreen({ navigation }: any) {
         </View>
       </View> : null}
 
+      {activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
+        <Text style={styles.originSummaryText}>
+          <Text style={styles.originOwnCount}>{ownDiscoveryEntries.length} découvert{ownDiscoveryEntries.length > 1 ? 's' : ''}</Text>
+          {' · '}
+          <Text style={styles.originSocialCount}>{socialRepriseEntries.length} repris</Text>
+          {' · Total '}
+          <Text style={styles.originTotalCount}>{localKeptEntries.length}</Text>
+        </Text>
+      </View> : null}
+
       {activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
         <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text><Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity> : null}
@@ -1011,27 +1032,50 @@ export default function MyMusicScreen({ navigation }: any) {
 
       {activeTab === 'MUSIQUES' ? (
         <FlatList
-          data={localKeptTracks}
+          data={ownDiscoveryTracks}
           renderItem={({ item }) => renderTrack(item)}
-          keyExtractor={(item) => trackIdentity(item)}
+          keyExtractor={(item) => `own:${trackIdentity(item)}`}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={marketplaceEnabled && localKeptTracks.length && !saleSelectionMode ? <View style={styles.selectionToolbar}>
-            <LockedFeatureCard
-              unlocked={Boolean(saleAccess?.unlocked)}
-              title="Créer une playlist à vendre"
-              requirementLabel="abonnés"
-              current={saleAccess?.followers ?? 0}
-              required={saleAccess?.threshold ?? 100}
-              benefit="Sélectionne plusieurs morceaux et vends-les groupés comme une découverte musicale, à ton prix."
-              actionLabel="Voir mon profil"
-              onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-              lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE PLAYLIST À VENDRE</Text></View>}
+          ListHeaderComponent={<>
+            {marketplaceEnabled && localKeptTracks.length && !saleSelectionMode ? <View style={styles.selectionToolbar}>
+              <LockedFeatureCard
+                unlocked={Boolean(saleAccess?.unlocked)}
+                title="Créer une playlist à vendre"
+                requirementLabel="abonnés"
+                current={saleAccess?.followers ?? 0}
+                required={saleAccess?.threshold ?? 100}
+                benefit="Sélectionne plusieurs morceaux et vends-les groupés comme une découverte musicale, à ton prix."
+                actionLabel="Voir mon profil"
+                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
+                lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE PLAYLIST À VENDRE</Text></View>}
+              >
+                <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity>
+              </LockedFeatureCard>
+            </View> : null}
+            {localKeptEntries.length ? <View style={[styles.originSection, styles.originSectionOwn]}>
+              <View style={styles.originSectionHeader}>
+                <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>🎧</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleOwn]}>Mes découvertes</Text></View>
+                <Text style={[styles.originSectionCount, styles.originSectionCountOwn]}>{ownDiscoveryEntries.length} découvert{ownDiscoveryEntries.length > 1 ? 's' : ''}</Text>
+              </View>
+            </View> : null}
+          </>}
+          ListFooterComponent={socialRepriseEntries.length ? <View style={[styles.originSection, styles.originSectionSocial]}>
+            <TouchableOpacity
+              style={styles.originSectionHeader}
+              onPress={() => setSocialSectionExpanded((value) => !value)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: socialSectionExpanded }}
+              accessibilityLabel="Afficher ou masquer les reprises d'autres utilisateurs"
             >
-              <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity>
-            </LockedFeatureCard>
+              <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>🔒</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleSocial]}>Reprises d'autres utilisateurs</Text></View>
+              <View style={styles.originSectionRight}><Text style={[styles.originSectionCount, styles.originSectionCountSocial]}>{socialRepriseEntries.length} repris</Text><Text style={styles.originSectionChevron}>{socialSectionExpanded ? '⌄' : '›'}</Text></View>
+            </TouchableOpacity>
+            {socialSectionExpanded ? <View style={styles.originSectionBody}>{socialRepriseTracks.map((track) => (
+              <View key={`social:${trackIdentity(track)}`}>{renderTrack(track)}</View>
+            ))}</View> : null}
           </View> : null}
-          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+          ListEmptyComponent={socialRepriseEntries.length ? null : <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
           contentContainerStyle={[styles.list, saleSelectionMode && styles.listWithStickyFooter]}
         />
       ) : (
@@ -1166,6 +1210,9 @@ const styles = StyleSheet.create({
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
+  originSummary:{marginHorizontal:14,marginTop:7,alignItems:'center'},originSummaryText:{color:colors.textMuted,fontSize:11,fontWeight:'800'},originOwnCount:{color:colors.keep},originSocialCount:{color:colors.primaryLight},originTotalCount:{color:colors.textPrimary},
+  originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,0.06)'},originSectionSocial:{borderColor:colors.primary,backgroundColor:'rgba(124,92,252,0.07)',marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
+
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
   selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:40,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:'#B7AECA',fontSize:8,marginTop:2},selectionCancelButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:34,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,0.12)'},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
   // (21/09/2026) : "ce bouton descend au fur et à mesure" -- barre de
