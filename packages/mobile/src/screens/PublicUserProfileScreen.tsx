@@ -27,6 +27,7 @@ import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMy
 import { isFeatureEnabled } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 
 type PublicKeepTrack = {
   id: string;
@@ -460,9 +461,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       // playlist (qui peut être "keep-selection:...").
       const request = await requestPlaylistPurchase(offer.offerId);
       if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce vendeur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
-      await Linking.openURL(request.payoutLink);
+      const checkoutUrl = buildPayoutCheckoutUrl(request.payoutLink, request.amountCents, request.currencyCode);
+      const provider = payoutProviderLabel(request.payoutLink);
+      const amount = (request.amountCents / 100).toFixed(2).replace('.', ',');
+      await Linking.openURL(checkoutUrl);
       setImmersivePreviewOffer(null);
-      Alert.alert('Paie directement sur le lien du vendeur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Loki Music ne touche jamais cet argent -- l'accès se débloquera dès que ${request.sellerUsername || 'le vendeur'} confirme.`);
+      Alert.alert(
+        `${provider} ouvert`,
+        provider === 'PayPal'
+          ? `Le prix total de ${amount} ${request.currencyCode} est prérempli dans PayPal. Il ne reste qu'à valider le paiement. L'accès sera débloqué dès que ${request.sellerUsername || 'le vendeur'} confirme la réception.`
+          : `Paie le prix total de ${amount} ${request.currencyCode} sur le lien qui vient de s'ouvrir. L'accès sera débloqué dès que ${request.sellerUsername || 'le vendeur'} confirme la réception.`,
+      );
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
@@ -1015,7 +1024,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                         <Text style={styles.folderTitle} numberOfLines={1}>{offer.playlistName}</Text>
                         <Text style={styles.folderMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'Déverrouillé' : 'Aperçu masqué avant achat'}</Text>
                       </View>
-                      <View style={[styles.folderPrice, unlocked && styles.folderUnlockedPill]}><Text style={styles.folderPriceText}>{unlocked ? 'SWIPE' : `${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
+                      <View style={[styles.folderPrice, unlocked && styles.folderUnlockedPill]}><Text style={styles.folderPriceText}>{unlocked ? 'SWIPE' : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`} TOTAL`}</Text></View>
                     </TouchableOpacity>
                   );
                 }) : null}
