@@ -4,7 +4,7 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PublicUserProfileScreen Loki DNA compaction (Adel, 21/09/2026 : "le bloc ADN prend trop de place, noie le reste")', () => {
+describe('PublicUserProfileScreen Loki Music DNA compaction (Adel, 21/09/2026 : "le bloc ADN prend trop de place, noie le reste")', () => {
   const visited = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
   const personal = readNormalized(__dirname, '..', 'ProfilePublicScreen.tsx');
 
@@ -23,6 +23,6 @@ describe('PublicUserProfileScreen Loki DNA compaction (Adel, 21/09/2026 : "le bl
 
   it('leaves the personal profile\'s own DNA block untouched (full block, no collapse) -- explicit Adel request', () => {
     expect(personal).not.toContain('dnaExpanded');
-    expect(personal).toContain('<Text style={s.dnaEyebrow}>Loki DNA</Text>');
+    expect(personal).toContain('<Text style={s.dnaEyebrow}>Loki Music DNA</Text>');
   });
 });

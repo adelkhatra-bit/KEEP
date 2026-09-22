@@ -231,7 +231,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   };
   const openMyRanking = () => {
     if (!user || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour retrouver ton classement et l’historique de tes Free.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
       ]);
@@ -497,7 +497,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     }
   };
 
-  const requireAccount = () => Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour répondre aux soirées.', [
+  const requireAccount = () => Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour répondre aux soirées.', [
     { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
   ]);
 
@@ -514,7 +514,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       const request = await requestEventTicketPurchase(event.id);
       if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de lien de paiement personnel.`); return; }
       await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
+      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Loki Music ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('CANNOT_BUY_OWN_TICKET')) Alert.alert('Impossible', 'Tu ne peux pas acheter un billet pour ta propre soirée.');
@@ -804,8 +804,8 @@ export default function PartiesScreen({ navigation, route }: any) {
           initialArenaId={pendingArenaId}
           onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
           onRequireAccount={() => Alert.alert(
-            'Compte Loki requis',
-            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            'Compte Loki Music requis',
+            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Music Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
             [
               { text: 'Plus tard', style: 'cancel' },
               { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
@@ -826,7 +826,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             un évènement, une porte ouverte, etc." -- l'ancien texte parlait
             de swipe/jeu (vocabulaire Battle) ; celui-ci ne nomme plus que
             les évènements eux-mêmes, sans présumer du type. */}
-        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki BATTLE' : 'Soirées'}</Text><Text style={styles.subtitle}>{partiesTab === 'BATTLE' ? 'Classement, solo ou multijoueur.' : 'Soirées, concerts, portes ouvertes… découvre les évènements et réponds en un geste.'}</Text></View>
+        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Soirées'}</Text><Text style={styles.subtitle}>{partiesTab === 'BATTLE' ? 'Classement, solo ou multijoueur.' : 'Soirées, concerts, portes ouvertes… découvre les évènements et réponds en un geste.'}</Text></View>
         {partiesTab === 'SOIREES' ? <TouchableOpacity style={[styles.createButton,!canCreate&&styles.createButtonLocked]} onPress={() => void openCreate()}><Text style={styles.createButtonText}>{createLabel}</Text></TouchableOpacity> : null}
       </View>
 
@@ -981,11 +981,11 @@ export default function PartiesScreen({ navigation, route }: any) {
               classement global, jouer en jaune au lieu de violet, le contour
               du bouton battle en jaune" -- le lanceur passe avant le
               classement, couleurs alignées sur le jaune de marque Battle. */}
-          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Battle">
+          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Music Battle">
             <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
             <View style={styles.battleLauncherCopy}>
               <View style={styles.battleLauncherKickerRow}>
-                <Text style={styles.battleLauncherKicker}>Loki BATTLE</Text>
+                <Text style={styles.battleLauncherKicker}>Loki Music BATTLE</Text>
                 {battleFreeBalance != null ? <View style={[styles.battleLauncherFreeBadge, { backgroundColor: `${myTierColors.colors[myTierColors.colors.length - 1]}33`, borderColor: myTierColors.ring }]}><Text style={[styles.battleLauncherFreeBadgeText, { color: myTierColors.ring }]}>{battleFreeBalance} Free</Text></View> : null}
               </View>
               <Text style={styles.battleLauncherTitle}>Salon musical</Text>
@@ -1127,7 +1127,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>👥 Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
                 {myFreeBreakdown.followerBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⭐ Followers bonus</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
                 {myFreeBreakdown.monthlyBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>📅 Bonus mensuel</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
-                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⚔️ Victoires Loki Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
+                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⚔️ Victoires Loki Music Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
                 {myFreeBreakdown.battleLost > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>   (Défaites)</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View> : null}
                 {myFreeBreakdown.adminGrant > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🛡️ Admin grant</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.adminGrant}</Text></View> : null}
                 <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
@@ -1249,7 +1249,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
-      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki ne touche jamais cet argent.</Text> : null}
+      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text> : null}
 
       {/* Adel (08/09/2026) : "les trucs à cocher tu les mets ensemble en
           dessous, à la fin ... que tu comprends l'idée" -- les trois

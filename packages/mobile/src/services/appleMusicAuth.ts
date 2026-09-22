@@ -26,7 +26,7 @@ const LEGACY_SECURE_STORE_KEY = 'keep.appleMusic.musicUserToken';
 
 export function musicUserTokenStorageKey(profileId: string): string {
   const cleanProfileId = String(profileId || '').trim().replace(/[^A-Za-z0-9._-]/g, '_');
-  if (!cleanProfileId) throw new Error('Apple Music : compte Loki requis');
+  if (!cleanProfileId) throw new Error('Apple Music : compte Loki Music requis');
   return `${LEGACY_SECURE_STORE_KEY}.${cleanProfileId}`;
 }
 

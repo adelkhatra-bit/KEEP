@@ -118,7 +118,7 @@ class MusicEngine {
         const { getSavedMusicUserToken } = await import('./appleMusicAuth');
         const { useUserStore } = await import('../store/useUserStore');
         const profileId = useUserStore.getState().user?.id;
-        if (!profileId) throw new Error('Compte Loki requis pour Apple Music.');
+        if (!profileId) throw new Error('Compte Loki Music requis pour Apple Music.');
         const musicUserToken = await getSavedMusicUserToken(profileId);
         if (!musicUserToken) {
           throw new Error('Apple Music non connecté -- va dans Profil pour lancer la connexion Apple Music.');

@@ -11,7 +11,7 @@ import { CanonicalTrack, ProviderPlaylist, ProviderSession } from '../types';
  */
 export class DemoMusicProvider implements MusicProviderAdapter {
   readonly providerId = 'demo';
-  readonly displayName = 'KEEP Local';
+  readonly displayName = 'Loki Music Local';
 
   private playlists: Map<string, ProviderPlaylist> = new Map();
   private playlistTracks: Map<string, CanonicalTrack[]> = new Map();
@@ -41,7 +41,7 @@ export class DemoMusicProvider implements MusicProviderAdapter {
   }
 
   async getProfile() {
-    return { id: 'demo-user', displayName: 'KEEP Local' };
+    return { id: 'demo-user', displayName: 'Loki Music Local' };
   }
 
   async getPlaylists(): Promise<ProviderPlaylist[]> {

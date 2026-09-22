@@ -5,4 +5,4 @@
  * touche jamais aux noms de route, de fonction, de fichier ou au schéma
  * `keep://` / GitHub Pages `/KEEP` protégés ailleurs dans le projet.
  */
-export const APP_NAME = 'Loki';
+export const APP_NAME = 'Loki Music';

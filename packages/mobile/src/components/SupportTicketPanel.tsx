@@ -27,15 +27,15 @@ const CATEGORIES: Array<{ key: SupportCategory; label: string }> = [
 const STATUS_LABEL: Record<SupportTicket['status'], string> = {
   OPEN: 'Ouvert',
   IN_PROGRESS: 'En cours',
-  WAITING_USER: 'Réponse Loki',
+  WAITING_USER: 'Réponse Loki Music',
   RESOLVED: 'Résolu',
   CLOSED: 'Fermé',
 };
 
 function floodErrorText(e: any): string | null {
   const raw = String(e?.message || '');
-  if (raw.includes('SUPPORT_AWAITING_REPLY')) return 'Ta dernière demande est déjà envoyée -- attends la réponse de Loki avant d’ajouter un nouveau message ici.';
-  if (raw.includes('SUPPORT_TOO_MANY_OPEN_TICKETS')) return 'Tu as déjà 3 demandes en attente de réponse. Attends que Loki réponde à l’une d’elles avant d’en ouvrir une nouvelle.';
+  if (raw.includes('SUPPORT_AWAITING_REPLY')) return 'Ta dernière demande est déjà envoyée -- attends la réponse de Loki Music avant d’ajouter un nouveau message ici.';
+  if (raw.includes('SUPPORT_TOO_MANY_OPEN_TICKETS')) return 'Tu as déjà 3 demandes en attente de réponse. Attends que Loki Music réponde à l’une d’elles avant d’en ouvrir une nouvelle.';
   return null;
 }
 
@@ -87,9 +87,9 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
       setSelectedId(ticket.id);
       await refreshTickets();
       await loadSupportMessages(ticket.id).then(setMessages);
-      Alert.alert('Message envoyé', 'Ta demande est enregistrée dans Loki. La réponse apparaîtra ici.');
+      Alert.alert('Message envoyé', 'Ta demande est enregistrée dans Loki Music. La réponse apparaîtra ici.');
     } catch (e: any) {
-      Alert.alert('Support Loki', floodErrorText(e) || e?.message || 'Impossible d’envoyer la demande pour le moment.');
+      Alert.alert('Support Loki Music', floodErrorText(e) || e?.message || 'Impossible d’envoyer la demande pour le moment.');
     } finally { setBusy(false); }
   };
 
@@ -102,25 +102,25 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
       await refreshMessages();
       await refreshTickets();
     } catch (e: any) {
-      Alert.alert('Support Loki', floodErrorText(e) || e?.message || 'Impossible d’envoyer la réponse.');
+      Alert.alert('Support Loki Music', floodErrorText(e) || e?.message || 'Impossible d’envoyer la réponse.');
     } finally { setBusy(false); }
   };
 
   if (!enabled) {
-    return <View style={s.wrap}><Text style={s.title}>Aide & support Loki</Text><Text style={s.help}>Crée ou connecte ton compte Loki pour écrire directement à l’équipe et conserver l’historique de tes demandes.</Text></View>;
+    return <View style={s.wrap}><Text style={s.title}>Aide & support Loki Music</Text><Text style={s.help}>Crée ou connecte ton compte Loki Music pour écrire directement à l’équipe et conserver l’historique de tes demandes.</Text></View>;
   }
 
   const selected = tickets.find((ticket) => ticket.id === selectedId) ?? null;
 
   return <View style={s.wrap}>
-    <Text style={s.title}>Aide & support Loki</Text>
-    <Text style={s.help}>Signale un problème, une erreur de reconnaissance, un souci de compte ou propose une idée. Loki joint automatiquement le contexte technique utile, jamais ton mot de passe.</Text>
+    <Text style={s.title}>Aide & support Loki Music</Text>
+    <Text style={s.help}>Signale un problème, une erreur de reconnaissance, un souci de compte ou propose une idée. Loki Music joint automatiquement le contexte technique utile, jamais ton mot de passe.</Text>
 
     <Text style={s.label}>Type de demande</Text>
     <View style={s.chips}>{CATEGORIES.map((item) => <TouchableOpacity key={item.key} style={[s.chip, category === item.key && s.chipActive]} onPress={() => setCategory(item.key)}><Text style={[s.chipText, category === item.key && s.chipTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
     <TextInput style={s.input} value={subject} onChangeText={setSubject} placeholder="Objet" placeholderTextColor={colors.textMuted} maxLength={140} />
     <TextInput style={[s.input, s.messageInput]} value={message} onChangeText={setMessage} placeholder="Décris précisément ce qui se passe…" placeholderTextColor={colors.textMuted} multiline maxLength={5000} />
-    <TouchableOpacity style={s.send} onPress={sendNew} disabled={busy}><Text style={s.sendText}>{busy ? 'Envoi…' : 'Envoyer à Loki'}</Text></TouchableOpacity>
+    <TouchableOpacity style={s.send} onPress={sendNew} disabled={busy}><Text style={s.sendText}>{busy ? 'Envoi…' : 'Envoyer à Loki Music'}</Text></TouchableOpacity>
 
     <View style={s.divider} />
     <View style={s.row}><Text style={s.label}>Mes demandes</Text>{loading ? <ActivityIndicator color={colors.primaryLight} size="small"/> : null}</View>
@@ -132,8 +132,8 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
 
     {selected ? <View style={s.thread}>
       <Text style={s.threadTitle}>{selected.subject}</Text>
-      {messages.map((item) => <View key={item.id} style={[s.bubble, item.senderRole === 'ADMIN' ? s.adminBubble : s.userBubble]}><Text style={s.bubbleAuthor}>{item.senderRole === 'ADMIN' ? 'Loki' : 'Moi'}</Text><Text style={s.bubbleText}>{item.body}</Text></View>)}
-      <TextInput style={[s.input, s.replyInput]} value={reply} onChangeText={setReply} placeholder="Répondre à Loki…" placeholderTextColor={colors.textMuted} multiline maxLength={5000}/>
+      {messages.map((item) => <View key={item.id} style={[s.bubble, item.senderRole === 'ADMIN' ? s.adminBubble : s.userBubble]}><Text style={s.bubbleAuthor}>{item.senderRole === 'ADMIN' ? 'Loki Music' : 'Moi'}</Text><Text style={s.bubbleText}>{item.body}</Text></View>)}
+      <TextInput style={[s.input, s.replyInput]} value={reply} onChangeText={setReply} placeholder="Répondre à Loki Music…" placeholderTextColor={colors.textMuted} multiline maxLength={5000}/>
       <TouchableOpacity style={s.replyButton} onPress={sendReply} disabled={busy || !reply.trim()}><Text style={s.replyText}>Répondre</Text></TouchableOpacity>
     </View> : null}
   </View>;

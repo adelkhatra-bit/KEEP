@@ -113,7 +113,7 @@ export default function Operations() {
       setKeylessHealth(!keylessResult.error && keylessResult.data?.ok ? keylessResult.data as KeylessHealth : null);
       setAutoRepair(!autoRepairResult.error ? (autoRepairResult.data ?? []) as AutoRepairRow[] : []);
     } catch (e: any) {
-      setError(e?.message ?? 'Impossible de charger les opérations Loki.');
+      setError(e?.message ?? 'Impossible de charger les opérations Loki Music.');
     } finally {
       setLoading(false);
     }
@@ -141,7 +141,7 @@ export default function Operations() {
         : { text: 'CONFIGURÉ · À CONTRÔLER', tone: '#a78bfa' };
   return (
     <AdminLayout>
-      <div className="page-title">Santé Loki & Support abonnés</div>
+      <div className="page-title">Santé Loki Music & Support abonnés</div>
       <div className="page-subtitle">Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
@@ -150,7 +150,7 @@ export default function Operations() {
       </button>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Réparation automatique Loki</h3>
+        <h3 style={{ marginTop: 0 }}>Réparation automatique Loki Music</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>Le Guardian serveur contrôle chaque minute les états réparables sans risque : invitations Battle expirées et manches bloquées après leur délai. Les clés externes manquantes restent signalées et ne sont jamais inventées.</p>
         <strong style={{ color: autoRepair.length ? '#86efac' : '#f59e0b' }}>{autoRepair.length ? 'ACTIF · contrôle automatique chaque minute' : 'À CONTRÔLER'}</strong>
         {autoRepair[0] ? <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>Dernier passage : {new Date(autoRepair[0].ran_at).toLocaleString()} · défis expirés {autoRepair[0].stale_challenges_expired} · manches finalisées {autoRepair[0].battle_rounds_finalized} · manches avancées {autoRepair[0].battle_rounds_advanced}</div> : null}
@@ -159,13 +159,13 @@ export default function Operations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — ordre réel de secours</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          Loki ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. AudD et ACRCloud restent des moteurs supplémentaires automatiquement utilisés lorsqu’ils sont configurés et validés.
+          Loki Music ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. AudD et ACRCloud restent des moteurs supplémentaires automatiquement utilisés lorsqu’ils sont configurés et validés.
         </p>
         <table>
           <thead><tr><th>Moteur</th><th>État</th><th>Clé requise</th><th>Contrôle</th></tr></thead>
           <tbody>
             <tr>
-              <td><strong>Fallback social Loki</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>TikTok · Instagram · Snapchat · YouTube · Facebook</div></td>
+              <td><strong>Fallback social Loki Music</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>TikTok · Instagram · Snapchat · YouTube · Facebook</div></td>
               <td><strong style={{ color: keylessHealth?.ok ? '#86efac' : '#f59e0b' }}>{keylessHealth?.ok ? 'OPÉRATIONNEL' : 'INJOIGNABLE / À CONTRÔLER'}</strong></td>
               <td>Non</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{keylessHealth?.ok ? `Supabase actif · Apple Search + Deezer public · confiance mini ${Math.round((keylessHealth.minimumConfidence ?? 0.72) * 100)} %` : 'Le health Supabase ne répond pas encore.'}</td>
@@ -192,7 +192,7 @@ export default function Operations() {
               <td><strong>Micro Android arrière-plan</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Foreground Service microphone</div></td>
               <td><strong style={{ color: '#93c5fd' }}>INTÉGRÉ · TEST APPAREIL REQUIS</strong></td>
               <td>Non</td>
-              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>Service natif lié à la session Loki ; il démarre après RECORD_AUDIO et s’arrête avec la session.</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>Service natif lié à la session Loki Music ; il démarre après RECORD_AUDIO et s’arrête avec la session.</td>
             </tr>
           </tbody>
         </table>
@@ -226,7 +226,7 @@ export default function Operations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Notifications push — livraison réelle</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          Loki distingue maintenant la création, l’acceptation par Expo et le reçu final. Un appareil désinscrit est retiré automatiquement quand Expo renvoie <strong>DeviceNotRegistered</strong>.
+          Loki Music distingue maintenant la création, l’acceptation par Expo et le reçu final. Un appareil désinscrit est retiré automatiquement quand Expo renvoie <strong>DeviceNotRegistered</strong>.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginBottom: 16 }}>
           {['TOKENS_REGISTERED', 'CREATED', 'NO_DEVICE', 'SENT', 'DELIVERED', 'FAILED', 'ATTEMPTS_24H'].map((status) => (

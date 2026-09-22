@@ -12,4 +12,4 @@
  * ni les noms de modules natifs (KeepIAP, KeepShazam) -- volontairement
  * distincts de la marque affichee, cf. discussion du 31/08/2026.
  */
-export const APP_NAME = 'Loki';
+export const APP_NAME = 'Loki Music';

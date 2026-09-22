@@ -27,20 +27,20 @@ type Props = {
 };
 
 function errorText(code: string) {
-  if (code === 'invalid_username') return 'Ce pseudo Loki ne peut pas être utilisé.';
+  if (code === 'invalid_username') return 'Ce pseudo Loki Music ne peut pas être utilisé.';
   if (code === 'invalid_password') return 'Choisis un autre mot de passe.';
   if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
-  if (code === 'email_taken') return 'Cette adresse e-mail est déjà utilisée par un autre compte Loki.';
+  if (code === 'email_taken') return 'Cette adresse e-mail est déjà utilisée par un autre compte Loki Music.';
   if (code === 'rate_limited') return 'Trop de demandes rapprochées. Attends un instant puis réessaie.';
   if (code === 'email_link_invalid') return 'Ce lien e-mail est expiré ou invalide. Demande un nouveau lien.';
-  if (code === 'username_taken') return 'Ce pseudo Loki est déjà utilisé. Choisis-en un autre.';
-  if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support Loki doit le régulariser.';
+  if (code === 'username_taken') return 'Ce pseudo Loki Music est déjà utilisé. Choisis-en un autre.';
+  if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support Loki Music doit le régulariser.';
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
-  if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki.';
-  if (code === 'invalid_credentials') return 'Identifiant Loki, e-mail ou mot de passe incorrect.';
-  if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki indisponible pour le moment. Réessaie plus tard.';
+  if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki Music.';
+  if (code === 'invalid_credentials') return 'Identifiant Loki Music, e-mail ou mot de passe incorrect.';
+  if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki Music indisponible pour le moment. Réessaie plus tard.';
   if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
-  return 'Connexion Loki indisponible pour le moment. Réessaie dans un instant.';
+  return 'Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.';
 }
 
 function isValidEmail(value: string) {
@@ -137,7 +137,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     const followed = await applyFollowIntent();
     if (followUsername) {
       Alert.alert(
-        'Compte Loki prêt',
+        'Compte Loki Music prêt',
         followed
           ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
           : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
@@ -147,7 +147,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   };
 
   const submit = async () => {
-    if (!supabase) return setError('Connexion Loki indisponible pour le moment.');
+    if (!supabase) return setError('Connexion Loki Music indisponible pour le moment.');
     const identity = username.trim();
     const normalizedUsername = cleanUsername(identity);
     const loginByEmail = mode === 'login' && identity.includes('@');
@@ -181,7 +181,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       }
       await finishAuthenticatedFlow();
     } catch {
-      setError('Connexion Loki indisponible pour le moment. Réessaie dans un instant.');
+      setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
     } finally {
       setBusy(false);
     }
@@ -203,12 +203,12 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   };
 
   const requestRecoveryLink = async () => {
-    if (!supabase) return setError('Connexion Loki indisponible pour le moment.');
+    if (!supabase) return setError('Connexion Loki Music indisponible pour le moment.');
     const email = username.trim().toLowerCase();
     if (!email.includes('@')) {
       Alert.alert(
         'Récupération du compte',
-        'Entre d’abord ton adresse e-mail de récupération vérifiée dans le champ « Pseudo Loki ou e-mail », puis appuie de nouveau sur « Mot de passe oublié ? ». Pour un ancien compte sans e-mail, le Super Admin Loki peut toujours rétablir l’accès.',
+        'Entre d’abord ton adresse e-mail de récupération vérifiée dans le champ « Pseudo Loki Music ou e-mail », puis appuie de nouveau sur « Mot de passe oublié ? ». Pour un ancien compte sans e-mail, le Super Admin Loki Music peut toujours rétablir l’accès.',
       );
       return;
     }
@@ -222,8 +222,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         return;
       }
       Alert.alert(
-        'Lien Loki envoyé',
-        'Si cette adresse est liée à un compte Loki, ouvre l’e-mail reçu puis touche « CHANGER MON MOT DE PASSE ». Tu pourras choisir un nouveau mot de passe sécurisé.',
+        'Lien Loki Music envoyé',
+        'Si cette adresse est liée à un compte Loki Music, ouvre l’e-mail reçu puis touche « CHANGER MON MOT DE PASSE ». Tu pourras choisir un nouveau mot de passe sécurisé.',
       );
     } catch {
       setError('Impossible d’envoyer le lien de récupération pour le moment. Réessaie dans un instant.');
@@ -237,7 +237,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   if (pendingConfirmationEmail) {
     return <ScrollView style={s.scroll} contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
       <Text style={s.title}>Confirme ton e-mail</Text>
-      <Text style={s.subtitle}>Loki a envoyé un lien de confirmation à {pendingConfirmationEmail}. Ouvre cet e-mail et touche le lien pour activer ton compte, puis reviens te connecter ici.</Text>
+      <Text style={s.subtitle}>Loki Music a envoyé un lien de confirmation à {pendingConfirmationEmail}. Ouvre cet e-mail et touche le lien pour activer ton compte, puis reviens te connecter ici.</Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
       <TouchableOpacity style={s.primary} onPress={resendConfirmation} disabled={busy}>
         {busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>RENVOYER L’E-MAIL</Text>}
@@ -255,19 +255,19 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     nestedScrollEnabled
     showsVerticalScrollIndicator={false}
   >
-    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte Loki' : 'Se connecter à Loki'}</Text>
+    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte Loki Music' : 'Se connecter à Loki Music'}</Text>
     {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
         ? 'Ton pseudo, ton mot de passe et une adresse e-mail vérifiée sont nécessaires pour créer ton compte.'
-        : 'Connecte-toi avec ton pseudo Loki ou ton e-mail, puis ton mot de passe.'}
+        : 'Connecte-toi avec ton pseudo Loki Music ou ton e-mail, puis ton mot de passe.'}
     </Text>
 
     <TextInput
       style={s.input}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder={mode === 'create' ? 'Pseudo Loki' : 'Pseudo Loki ou e-mail'}
+      placeholder={mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
@@ -292,7 +292,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       />
       <Text style={s.usernameHint}>Ton e-mail reste privé -- il sert uniquement à activer ton compte et à récupérer ton mot de passe.</Text>
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
-        <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE Loki</Text>
+        <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE Loki Music</Text>
       </TouchableOpacity>
     </> : null}
 
@@ -336,7 +336,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       </View>
     </> : null}
 
-    {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par Loki : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
+    {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par Loki Music : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
     <TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>
@@ -350,7 +350,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
     </TouchableOpacity>
-    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, Loki charge uniquement la musique de cette identité.</Text>
+    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, Loki Music charge uniquement la musique de cette identité.</Text>
   </ScrollView>;
 }
 

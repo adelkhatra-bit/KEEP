@@ -59,7 +59,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [dateDraft, setDateDraft] = useState({ year: parsed.year, month: parsed.month, day: parsed.day });
 
   if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
-  const keepSupportNumber = `Loki-${user.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+  const keepSupportNumber = `Loki Music-${user.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
 
   const goToTab = (screen: 'Listen' | 'Discover' | 'MyMusic' | 'Parties' | 'Profile') => {
     navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen } }] });
@@ -88,8 +88,8 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
   const handleSessionAction = () => {
     if (!hasRealAccount) return requireAccount();
-    const message = 'Tes données enregistrées dans Loki restent sur ton compte. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.';
-    Alert.alert('Se déconnecter de Loki ?', message, [
+    const message = 'Tes données enregistrées dans Loki Music restent sur ton compte. Tu pourras revenir avec ton identifiant Loki Music et ton mot de passe.';
+    Alert.alert('Se déconnecter de Loki Music ?', message, [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
     ]);
@@ -234,11 +234,11 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     </View>
 
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki">
-        <Text style={s.accountGateTitle}>Créer mon compte Loki</Text>
+      {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki Music">
+        <Text style={s.accountGateTitle}>Créer mon compte Loki Music</Text>
         <Text style={s.accountGateText}>Tu peux préparer tout ton profil maintenant. L'inscription débloque ensuite la synchronisation, le partage public et le suivi.</Text>
-      </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki">
-        <Text style={s.accountGateTitle}>🔒 Créer mon compte Loki</Text>
+      </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki Music">
+        <Text style={s.accountGateTitle}>🔒 Créer mon compte Loki Music</Text>
         <Text style={s.accountGateText}>Débloque photo, profil, localisation, réseaux et partage. Tout est facultatif.</Text>
       </TouchableOpacity> : null}
 
@@ -255,13 +255,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur toi" multiline editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
-      <Section title="Localisation" subtitle="Facultatif · Loki peut préremplir automatiquement la ville et le pays.">
+      <Section title="Localisation" subtitle="Facultatif · Loki Music peut préremplir automatiquement la ville et le pays.">
         <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Utiliser ma position' : '⌖ Utiliser ma position'}</Text>}</TouchableOpacity>
         <Field label="Ville" value={city} onChangeText={handleCityChange} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
         <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>{Platform.OS === 'web' ? 'Valider cette ville' : 'Rechercher et préremplir'}</Text>}</TouchableOpacity>
         <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} />
         {locationStatus ? <Text style={[s.hint,{color:'#74F3B6'}]}>{locationStatus}</Text> : null}
-        <Text style={s.hint}>Confidentialité : Loki n'affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d'environ 1 km sont conservés pour la découverte locale.</Text>
+        <Text style={s.hint}>Confidentialité : Loki Music n'affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d'environ 1 km sont conservés pour la découverte locale.</Text>
         <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
@@ -278,11 +278,11 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
           Reglages avances (section Raccourcis), a l'identique. Retires
           d'ici : Reglages avances reste a un seul appui plus bas, un seul
           endroit pour ces raccourcis desormais. */}
-      <Section title="Loki">
+      <Section title="Loki Music">
         <View style={s.supportCard}>
           <Text style={s.supportLabel}>N° membre / support</Text>
           <Text style={s.supportNumber}>{isLocalGuest || isDemoMode ? 'Créé après inscription' : keepSupportNumber}</Text>
-          <Text style={s.hint}>À communiquer au support Loki en cas de problème. Ce numéro n'est pas affiché sur ton profil public.</Text>
+          <Text style={s.hint}>À communiquer au support Loki Music en cas de problème. Ce numéro n'est pas affiché sur ton profil public.</Text>
         </View>
       </Section>
 
@@ -309,7 +309,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         onPress={handleSessionAction}
         disabled={sessionBusy}
         accessibilityRole="button"
-        accessibilityLabel={hasRealAccount ? 'Se déconnecter de Loki' : 'Se connecter ou créer un compte Loki'}
+        accessibilityLabel={hasRealAccount ? 'Se déconnecter de Loki Music' : 'Se connecter ou créer un compte Loki Music'}
       >
         {sessionBusy ? <ActivityIndicator color={hasRealAccount ? '#FF7A86' : colors.primaryLight}/> : <Text style={hasRealAccount ? s.disconnectText : s.connectText}>{hasRealAccount ? 'SE DÉCONNECTER' : 'SE CONNECTER / CRÉER UN COMPTE'}</Text>}
       </TouchableOpacity>

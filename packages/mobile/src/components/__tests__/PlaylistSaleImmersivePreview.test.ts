@@ -50,11 +50,11 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
   });
 
   it('discloses the manual/external payment mechanism before purchase (Adel, décision 21/09/2026)', () => {
-    expect(source).toContain('Loki ne voit ni ne garantit ce paiement');
+    expect(source).toContain('Loki Music ne voit ni ne garantit ce paiement');
   });
 
   it('uses the exact persistent purchase wording from the mission spec, never green', () => {
-    expect(source).toContain('Acheter et ajouter à mon Loki');
+    expect(source).toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);
   });
 

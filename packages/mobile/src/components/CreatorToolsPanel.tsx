@@ -88,7 +88,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
 
   const changeKind = async (kind: ProfileKind, feature?: 'CREATOR_KIND' | 'VENUE_KIND') => {
     if (feature && !hasFeature(planCode, feature)) return openPaywall(feature);
-    if (isLocalGuest || isDemoMode || !supabase) return void Alert.alert('Compte requis', 'Crée ton compte Loki avant de modifier le type de profil.');
+    if (isLocalGuest || isDemoMode || !supabase) return void Alert.alert('Compte requis', 'Crée ton compte Loki Music avant de modifier le type de profil.');
     if (kind === user.kind) return;
     setBusy(true);
     try {
@@ -179,7 +179,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
         visible (pas caché derrière une formule), comme demandé le 15/09. */}
     <View style={s.paymentTeaser}>
       <Text style={s.paymentTeaserTitle}>🔗 Mon lien de paiement personnel</Text>
-      <Text style={s.paymentTeaserText}>Colle ton lien PayPal.me, Lydia, ou un lien de paiement Stripe personnel. KEEP ne touche jamais cet argent -- l'acheteur paie directement sur ce lien, toi seul confirmes la vente pour débloquer l'accès.</Text>
+      <Text style={s.paymentTeaserText}>Colle ton lien PayPal.me, Lydia, ou un lien de paiement Stripe personnel. Loki Music ne touche jamais cet argent -- l'acheteur paie directement sur ce lien, toi seul confirmes la vente pour débloquer l'accès.</Text>
       <TextInput
         style={s.payoutLinkInput}
         value={payoutLinkInput}

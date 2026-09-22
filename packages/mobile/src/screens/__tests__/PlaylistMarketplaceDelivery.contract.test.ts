@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('Loki playlist marketplace delivery contract', () => {
+describe('Loki Music playlist marketplace delivery contract', () => {
   const publicProfile = fs.readFileSync(path.resolve(__dirname, '..', 'PublicUserProfileScreen.tsx'), 'utf8');
   const myMusic = fs.readFileSync(path.resolve(__dirname, '..', 'MyMusicScreen.tsx'), 'utf8');
   const salePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
@@ -22,7 +22,7 @@ describe('Loki playlist marketplace delivery contract', () => {
     expect(salePanel).toContain('PRICE_PRESETS.map');
   });
 
-  it('delivers to Loki first, then requests connected-provider synchronization', () => {
+  it('delivers to Loki Music first, then requests connected-provider synchronization', () => {
     expect(saleService).toContain("keep_playlist_sale_mark_paid_and_deliver");
     expect(salePanel).toContain('syncMarketplaceDelivery(transaction.id)');
     expect(providerSync).toContain('/library/marketplace-delivery/${encodeURIComponent(paymentId)}/sync');

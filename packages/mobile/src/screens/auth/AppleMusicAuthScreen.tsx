@@ -34,7 +34,7 @@ export default function AppleMusicAuthScreen({ developerToken, onSuccess, onErro
       try {
         const message = parseAppleMusicAuthMessage(event.nativeEvent.data);
         if (message.type === 'success' && message.musicUserToken) {
-          if (!profileId) throw new Error('Connecte-toi à Loki avant Apple Music.');
+          if (!profileId) throw new Error('Connecte-toi à Loki Music avant Apple Music.');
           await saveMusicUserToken(profileId, message.musicUserToken);
           onSuccess(message.musicUserToken);
         } else {

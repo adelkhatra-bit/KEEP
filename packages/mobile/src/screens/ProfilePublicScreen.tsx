@@ -283,7 +283,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshBattlePresence(); });
     return () => { live = false; unsubscribe?.(); };
   }, [accountRequired, battleFeatureEnabled, navigation, user?.id]);
-  const providerId = musicEngine.musicProvider.providerId || 'Loki';
+  const providerId = musicEngine.musicProvider.providerId || 'Loki Music';
 
   useEffect(() => {
     let live = true;
@@ -535,12 +535,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (providerPlaylists.length) result.push(...providerPlaylists);
     if (!result.length && publicKeptTracks.length) {
       const localPreference = preferenceFor(playlistPreferences, providerId, LOCAL_PROFILE_PLAYLIST_ID);
-      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes musiques', description: localPreference?.description || 'Morceaux publics gardés avec Loki', trackCount: publicKeptTracks.length, isKeepManaged: true });
+      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes musiques', description: localPreference?.description || 'Morceaux publics gardés avec Loki Music', trackCount: publicKeptTracks.length, isKeepManaged: true });
     }
     return result;
   }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length, smartAlbums]);
 
-  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil Loki</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil Loki Music</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
   const websiteLink = publicLinks.find((link) => link.platform === 'website' && link.url.trim());
@@ -654,7 +654,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openProfileSwipe = () => {
     if (!publicSwipeTracks.length) {
-      Alert.alert('Loki Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
+      Alert.alert('Loki Music Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
       return;
     }
     // Ce tap est le dernier geste utilisateur synchrone avant la résolution
@@ -729,7 +729,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
       return visibleTracks;
     } catch {
-      Alert.alert('Vibe Loki', 'Impossible de charger les morceaux de cette collection pour le moment.');
+      Alert.alert('Vibe Loki Music', 'Impossible de charger les morceaux de cette collection pour le moment.');
       return [];
     } finally {
       setLoadingPlaylistId(null);
@@ -744,7 +744,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openPlaylistSwipe = async (playlist: ProviderPlaylist) => {
     const tracks = await loadPlaylistTracks(playlist);
-    if (!tracks.length) return Alert.alert('Vibe Loki', 'Cette collection ne contient pas encore de morceau à swiper.');
+    if (!tracks.length) return Alert.alert('Vibe Loki Music', 'Cette collection ne contient pas encore de morceau à swiper.');
     openSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
   };
 
@@ -816,7 +816,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (activeTab === 'TRACKS') {
       if (!publicKeptTracks.length && !privateKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
-        <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
+        <Text style={s.ownerKeepHint}>Loki Music construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
         {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt))}
         {/* Adel (21/09/2026) : "chaque musique est identifiée par un
             utilisateur, c'est l'idée de départ" -- un morceau privé reste
@@ -903,7 +903,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.freeEmptyCallout}>
           <Text style={s.freeEmptyCalloutTitle}>Solde à zéro : comment recharger ?</Text>
           <Text style={s.freeEmptyCalloutText}>1. Partage ton profil : chaque nouvel abonné qu'il t'apporte te rapporte des Free.</Text>
-          <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Battle : gagne des Free en répondant juste.</Text>
+          <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Music Battle : gagne des Free en répondant juste.</Text>
           <Text style={s.freeEmptyCalloutText}>3. Passe à une formule payante : plus de Free offerts chaque mois, sans attendre.</Text>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); void shareProfile(user.username); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
         </View>
@@ -946,7 +946,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'sellPlaylists') return <>
       <Text style={s.shareTitle}>Vendre mes playlists</Text>
-      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
+      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki Music ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES VENTES</Text></TouchableOpacity>
     </>;
 
@@ -1032,7 +1032,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
         </View>
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki Music</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki Music, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         {/* DESIGN_SYSTEM v3 (21/09/2026) : SWIPE devient l'action plein-largeur
             (violet, principale) juste sous l'identité ; PARTAGER redescend en
@@ -1112,7 +1112,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         ) : growthStatus.nextFollowerGoal ? (
           <View style={[s.growthPanel, s.sectionMargin]}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <Text style={[s.growthText, { flex: 1 }]}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki</Text>
+              <Text style={[s.growthText, { flex: 1 }]}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki Music</Text>
               {/* Adel (14/09/2026) : "un point d'interrogation, il met une
                   explication claire. C'est quoi le bonus ?" -- les paliers
                   d'abonnés (25/100/250/500/1000) donnent des bonus
@@ -1120,7 +1120,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   Audience Pro à 1000) ; jamais un seul type de bonus,
                   d'où une explication générale plutôt qu'un chiffre figé
                   qui pourrait se tromper si Adel change les seuils. */}
-              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
+              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki Music', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
                 <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '900', marginLeft: 6 }}>ⓘ</Text>
               </TouchableOpacity>
             </View>
@@ -1152,7 +1152,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
           {battleAvailabilityInfoOpen ? (
-            <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki, sans jouer en solo. Pour lancer un défi : Soirées → Loki BATTLE.</Text>
+            <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki Music, sans jouer en solo. Pour lancer un défi : Soirées → Loki Music BATTLE.</Text>
           ) : null}
           {/* DESIGN_SYSTEM v3 (21/09/2026) : victoires/rang/partie en cours --
               lus depuis Supabase (keep_battle_my_stats, keep_battle_global_
@@ -1166,13 +1166,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {dnaFeatureEnabled && (
         <View style={s.dna}>
-          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
+          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki Music DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
           {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=>{
             const match = trackGenreOptions.find((row) => row.genre === g.genre);
             return match ? (
               <TouchableOpacity key={g.genre} style={s.chip} onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((genre) => genre.trim() === g.genre)) })}><Text style={s.chipText}>{g.genre}</Text></TouchableOpacity>
             ) : <View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>;
-          })}</View> : <Text style={s.muted}>Commence une session Loki pour construire ton ADN musical.</Text>}
+          })}</View> : <Text style={s.muted}>Commence une session Loki Music pour construire ton ADN musical.</Text>}
         </View>
       )}
 
@@ -1250,7 +1250,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
       tracks={selectionSwipe?.tracks ?? []}
-      title={selectionSwipe?.title ?? 'Vibe Loki'}
+      title={selectionSwipe?.title ?? 'Vibe Loki Music'}
       subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"
@@ -1328,12 +1328,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
-          <Text style={s.shareTitle}>Partager mon profil Loki</Text>
-          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
+          <Text style={s.shareTitle}>Partager mon profil Loki Music</Text>
+          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Music DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></TouchableOpacity>
           <TouchableOpacity style={s.shareAction} onPress={shareEmail}><Text style={s.shareActionText}>✉  Partager par e-mail</Text><Text style={s.shareActionHint}>Ton application Mail s’ouvre, tu choisis les destinataires</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR Loki</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR Loki Music</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
@@ -1342,10 +1342,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.qrShell}>
-          <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
+          <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki Music"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
           <ScrollView style={s.qrScroll} contentContainerStyle={s.qrScrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.qrCard}>
-            <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
+            <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki Music</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
             <View style={s.qrIdentityRow}>
               {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>K</Text></View>}
               <View style={s.qrIdentityText}><Text style={s.qrUsername}>{user.username}</Text><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
@@ -1355,7 +1355,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.qrBox}><QRCode value={publicProfileLink} size={164} color="#FFFFFF" backgroundColor="#0E0A14" /></View>
             <Text style={s.qrScan}>SCAN POUR DÉCOUVRIR MON PROFIL</Text>
             <Text style={s.qrTagline}>Tes goûts te ressemblent.</Text>
-            <Text style={s.qrWebsite}>Loki · adelkhatra-bit.github.io/KEEP</Text>
+            <Text style={s.qrWebsite}>Loki Music · adelkhatra-bit.github.io/KEEP</Text>
           </View>
           <Text style={s.screenshotHint}>Ta carte d’identité musicale : photo, bio, ville, styles et QR. Fais une capture ou partage-la pour donner envie de découvrir ton univers.</Text>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON UNIVERS</Text></TouchableOpacity>

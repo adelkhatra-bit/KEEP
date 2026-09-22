@@ -89,10 +89,10 @@ export default function PlaylistSalePanel({ navigation }: any) {
               const providerSync = await syncMarketplaceDelivery(transaction.id).catch(() => null);
               await loadData();
               if (!providerSync?.connectedProviders) {
-                KeepAlert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
+                KeepAlert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki Music de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
               } else {
                 const complete = providerSync.results.filter((row) => row.status === 'COMPLETE').map((row) => row.provider).join(', ');
-                KeepAlert.alert('Playlist livrée', `Livraison Loki terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
+                KeepAlert.alert('Playlist livrée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
               }
             } catch (e: any) {
               KeepAlert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
@@ -169,7 +169,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.empty}>
-          <Text style={s.emptyText}>Crée un compte KEEP pour vendre tes playlists.</Text>
+          <Text style={s.emptyText}>Crée un compte Loki Music pour vendre tes playlists.</Text>
         </View>
       </SafeAreaView>
     );
@@ -253,7 +253,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                 certifie avoir reçu l'argent. */}
             <View style={s.manualNotice}>
               <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
-              <Text style={s.manualNoticeText}>Loki n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
+              <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
             </View>
 
             {/* Offres Actives */}

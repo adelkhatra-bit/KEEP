@@ -127,7 +127,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
 
             <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} onPress={() => { void confirmIndividualKeep('PUBLIC'); }} disabled={keepSubmitting} accessibilityLabel="Visible sur mon profil">
               <Text style={styles.keepChoicePublicTitle}>{keepSubmitting ? 'ENREGISTREMENT…' : 'VISIBLE SUR MON PROFIL'}</Text>
-              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki.</Text>
+              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki Music.</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} onPress={() => { void confirmIndividualKeep('PRIVATE'); }} disabled={keepSubmitting} accessibilityLabel="Garder en privé">

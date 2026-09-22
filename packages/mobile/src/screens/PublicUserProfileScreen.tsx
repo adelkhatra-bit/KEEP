@@ -405,7 +405,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce vendeur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
       await Linking.openURL(request.payoutLink);
       setImmersivePreviewOffer(null);
-      Alert.alert('Paie directement sur le lien du vendeur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- l'accès se débloquera dès que ${request.sellerUsername || 'le vendeur'} confirme.`);
+      Alert.alert('Paie directement sur le lien du vendeur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Loki Music ne touche jamais cet argent -- l'accès se débloquera dès que ${request.sellerUsername || 'le vendeur'} confirme.`);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
@@ -445,7 +445,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // le profil visé déjà transmis (SourceProfileQuickView faisait déjà ça
     // pour l'intention, il manquait juste le "rester sur place").
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', `Crée ou connecte ton compte Loki : tu suivras ${profile?.username || 'ce profil'} automatiquement dès que ton compte sera prêt.`, [
+      Alert.alert('Compte Loki Music requis', `Crée ou connecte ton compte Loki Music : tu suivras ${profile?.username || 'ce profil'} automatiquement dès que ton compte sera prêt.`, [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create', profile?.username) },
       ]);
@@ -477,7 +477,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const toggleRepriserFollow = async (repriser: ProfileRepriser) => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', `Crée ou connecte ton compte Loki : tu suivras ${repriser.username} automatiquement dès que ton compte sera prêt.`, [
+      Alert.alert('Compte Loki Music requis', `Crée ou connecte ton compte Loki Music : tu suivras ${repriser.username} automatiquement dès que ton compte sera prêt.`, [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create', repriser.username) },
       ]);
@@ -503,7 +503,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const requireAccountForModeration = () => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour signaler ou bloquer un profil.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour signaler ou bloquer un profil.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
@@ -550,7 +550,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const toggleLike = async (trackId: string) => {
     if (!supabase || !viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour liker ce morceau.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour liker ce morceau.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return;
@@ -574,13 +574,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const alreadyInMyKeep = (trackId: string) => viewerKeepTrackIds.has(trackId);
 
   const showAlreadyKept = (title: string) => {
-    Alert.alert('Déjà dans ta collection', `« ${title} » est déjà dans tes musiques. Loki ne crée pas de doublon.`);
+    Alert.alert('Déjà dans ta collection', `« ${title} » est déjà dans tes musiques. Loki Music ne crée pas de doublon.`);
   };
 
   const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
     if (!viewer || isLocalGuest || isDemoMode) {
       setSwipeOpen(false);
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return false;
@@ -609,7 +609,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const openKeepPrompt = (track: PublicKeepTrack) => {
     if (!viewer || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return;
@@ -650,7 +650,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           { text: 'Voir Premium', onPress: () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'PUBLIC_PLAYLISTS' }) },
         ]);
       } else {
-        Alert.alert('Loki', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
+        Alert.alert('Loki Music', e?.message || 'Impossible d’ajouter ce morceau pour le moment.');
       }
     } finally {
       setKeepPromptTrack(null);
@@ -746,7 +746,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         <View style={styles.dna}>
           <TouchableOpacity style={styles.dnaHeader} onPress={() => setDnaExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={dnaExpanded ? 'Réduire son ADN musical' : 'Voir son ADN musical'}>
-            <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.dnaEyebrow}>Loki DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View>
+            <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.dnaEyebrow}>Loki Music DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View>
             <Text style={styles.chevron}>{dnaExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {/* Adel (21/09/2026) : "le bloc ADN prend trop de place sur le
@@ -886,7 +886,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                         icon: adding ? '…' : alreadyKept ? '✓' : '+',
                         tone: alreadyKept ? ('success' as const) : undefined,
                         onPress: () => (alreadyKept ? showAlreadyKept(track.title) : openKeepPrompt(track)),
-                        accessibilityLabel: alreadyKept ? 'Déjà dans ton Loki' : 'Garder ce morceau',
+                        accessibilityLabel: alreadyKept ? 'Déjà dans ton Loki Music' : 'Garder ce morceau',
                         disabled: adding,
                       }] : []),
                       {
@@ -958,7 +958,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         {marketplaceEnabled ? (
           <View style={styles.browseSection}>
             <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
-            <Text style={styles.marketplaceHint}>Des sélections curatées prêtes à rejoindre ta bibliothèque Loki puis tes services connectés.</Text>
+            <Text style={styles.marketplaceHint}>Des sélections curatées prêtes à rejoindre ta bibliothèque Loki Music puis tes services connectés.</Text>
             {saleOffers.length === 0 ? (
               // Adel (21/09/2026) : "même s'il n'a pas de musique à la vente, il
               // faut que le système soit fonctionnel et visible" -- jamais de
@@ -978,7 +978,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.marketplaceCover} /> : <View style={[styles.marketplaceCover, styles.marketplaceCoverFallback]}><Text style={styles.marketplaceCoverIcon}>♫</Text></View>}
                     <View style={styles.marketplaceCopy}>
                       <Text style={styles.marketplaceTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                      <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · liaison automatique à ton Loki après accès</Text>
+                      <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · liaison automatique à ton Loki Music après accès</Text>
                     </View>
                     <View style={styles.marketplacePriceButton}><Text style={styles.marketplacePriceText}>{`${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
                   </TouchableOpacity>
@@ -1114,7 +1114,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             {keepPromptTrack ? <Text style={styles.keepPromptTrack} numberOfLines={2}>{keepPromptTrack.title} · {keepPromptTrack.artist}</Text> : null}
             <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} disabled={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false} onPress={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PUBLIC')} accessibilityLabel="Visible sur mon profil">
               <Text style={styles.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
-              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki.</Text>
+              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki Music.</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} disabled={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false} onPress={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PRIVATE')} accessibilityLabel="Garder en privé">
               <Text style={styles.keepChoicePrivateTitle}>GARDER EN PRIVÉ</Text>

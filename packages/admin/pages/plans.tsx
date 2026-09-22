@@ -132,7 +132,7 @@ export default function Plans() {
 
   return <AdminLayout>
     <div className="page-title">Abonnements, Prix & Quotas</div>
-    <div className="page-subtitle">Prix, essais et limites réellement appliqués par Loki.</div>
+    <div className="page-subtitle">Prix, essais et limites réellement appliqués par Loki Music.</div>
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {!error && !loading && <div className="demo-banner">● MODE RÉEL — chaque modification est enregistrée dans Supabase et auditée.</div>}
 

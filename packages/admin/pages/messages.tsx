@@ -66,7 +66,7 @@ export default function Messages() {
   return (
     <AdminLayout>
       <div className="page-title">Messages</div>
-      <div className="page-subtitle">Envoyer une notification Loki à tous les utilisateurs ou à une sélection — apparaît dans l'app et en push, comme n'importe quelle autre notification.</div>
+      <div className="page-subtitle">Envoyer une notification Loki Music à tous les utilisateurs ou à une sélection — apparaît dans l'app et en push, comme n'importe quelle autre notification.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
@@ -107,7 +107,7 @@ export default function Messages() {
         <h3 style={{ marginTop: 0 }}>Message</h3>
         <input
           type="text"
-          placeholder="Titre (ex: Mise à jour Loki)"
+          placeholder="Titre (ex: Mise à jour Loki Music)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={140}

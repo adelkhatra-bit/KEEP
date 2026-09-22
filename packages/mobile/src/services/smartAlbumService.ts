@@ -125,7 +125,7 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   return (playlists ?? []).map((row: any) => ({
     id: String(row.id),
     smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
-    name: String(row.name ?? 'Vibe Loki'),
+    name: String(row.name ?? 'Vibe Loki Music'),
     description: String(row.description ?? ''),
     isPublic: Boolean(row.is_public),
     trackCount: counts.get(String(row.id)) ?? 0,

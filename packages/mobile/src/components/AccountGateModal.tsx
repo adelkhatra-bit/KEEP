@@ -40,7 +40,7 @@ export default function AccountGateModal() {
         {celebrate ? (
           <Animated.View style={[s.celebrateCard, { transform: [{ scale: pop }], opacity: pop }]}>
             <Text style={s.celebrateIcon}>🎉</Text>
-            <Text style={s.celebrateTitle}>Bienvenue sur Loki !</Text>
+            <Text style={s.celebrateTitle}>Bienvenue sur Loki Music !</Text>
             <Text style={s.celebrateText}>{followUsername ? `Tu es connecté(e) et abonné(e) à ${followUsername}.` : 'Ton compte est prêt, tu continues exactement là où tu étais.'}</Text>
           </Animated.View>
         ) : (

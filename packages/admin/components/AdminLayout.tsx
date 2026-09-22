@@ -18,7 +18,7 @@ const NAV: NavItem[] = [
   { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/launch-center', label: 'Lancer Loki', roles: ['SUPER_ADMIN'] },
+  { href: '/launch-center', label: 'Lancer Loki Music', roles: ['SUPER_ADMIN'] },
   { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/marketplace', label: 'Place de marché', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },

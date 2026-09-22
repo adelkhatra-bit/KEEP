@@ -74,8 +74,8 @@ export default function MusicConnectionsScreen({ navigation }: any) {
   // laisse plus jamais l'appel partir pour un invite/demo, popup direct.
   const requireRealAccount = () => {
     Alert.alert(
-      'Compte Loki requis',
-      'Crée ton compte Loki pour connecter un service musical à ton profil.',
+      'Compte Loki Music requis',
+      'Crée ton compte Loki Music pour connecter un service musical à ton profil.',
       [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
@@ -154,13 +154,13 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     try {
       const state = providerConnections[provider];
       if (!state.configured) {
-        showMessage('Connexion fournisseur', `${name} n’est pas encore configuré dans le Super Admin Loki.`);
+        showMessage('Connexion fournisseur', `${name} n’est pas encore configuré dans le Super Admin Loki Music.`);
         return;
       }
       await startProviderConnection(provider);
     } catch (error: any) {
       const message = String(error?.message || 'Connexion impossible.');
-      showMessage('Connexion fournisseur', message.includes('AUTH_REQUIRED') ? 'Connecte d’abord ton compte Loki.' : message);
+      showMessage('Connexion fournisseur', message.includes('AUTH_REQUIRED') ? 'Connecte d’abord ton compte Loki Music.' : message);
     } finally {
       setProviderBusy(null);
     }
@@ -172,7 +172,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     setProviderBusy(provider);
     try {
       const result = await importProviderFavorites(provider);
-      showMessage('Bibliothèque Loki', `${result.imported} favori${result.imported > 1 ? 's' : ''} ${name} synchronisé${result.imported > 1 ? 's' : ''}. Ils restent privés par défaut tant que tu ne choisis pas de les partager.`);
+      showMessage('Bibliothèque Loki Music', `${result.imported} favori${result.imported > 1 ? 's' : ''} ${name} synchronisé${result.imported > 1 ? 's' : ''}. Ils restent privés par défaut tant que tu ne choisis pas de les partager.`);
       await refresh();
     } catch (error: any) {
       showMessage('Import impossible', String(error?.message || 'Impossible d’importer cette bibliothèque.'));
@@ -185,7 +185,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
   const showUpgrade = () => {
     if (selection.plan === 'VENUE_PRO') {
-      Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par Loki.');
+      Alert.alert('Tous tes services sont déjà disponibles', 'Venue Pro permet d’utiliser tous les services musicaux proposés par Loki Music.');
       return;
     }
 
@@ -219,12 +219,12 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           try {
             await startProviderConnection(service);
           } catch (oauthError: any) {
-            showMessage('Service Loki activé', `${name} est bien réservé dans Loki. La connexion du compte fournisseur n’a pas pu démarrer : ${String(oauthError?.message || 'réessaie plus tard')}`);
+            showMessage('Service Loki Music activé', `${name} est bien réservé dans Loki Music. La connexion du compte fournisseur n’a pas pu démarrer : ${String(oauthError?.message || 'réessaie plus tard')}`);
           }
         } else if (state.connected) {
-          showMessage('Service déjà connecté', `${name} est actif et ton compte fournisseur est déjà relié à Loki.`);
+          showMessage('Service déjà connecté', `${name} est actif et ton compte fournisseur est déjà relié à Loki Music.`);
         } else {
-          showMessage('Service Loki activé', `${name} est actif dans Loki. Ajoute ses identifiants dans le Super Admin pour permettre la connexion OAuth et l’import automatique.`);
+          showMessage('Service Loki Music activé', `${name} est actif dans Loki Music. Ajoute ses identifiants dans le Super Admin pour permettre la connexion OAuth et l’import automatique.`);
         }
         return true;
       }
@@ -233,9 +233,9 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       return true;
     } catch (e: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
-        ? 'Connecte ton compte Loki pour choisir tes services musicaux.'
+        ? 'Connecte ton compte Loki Music pour choisir tes services musicaux.'
         : 'Impossible d’activer ce service pour le moment.';
-      Alert.alert('Loki', text);
+      Alert.alert('Loki Music', text);
       return false;
     } finally {
       setActivatingService(null);
@@ -283,7 +283,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     setQueue(null);
     setSelectedService(null);
     setTrackIndex(0);
-    Alert.alert('Loki', 'C’est terminé. Tes Vibes restent rangées dans Loki.');
+    Alert.alert('Loki Music', 'C’est terminé. Tes Vibes restent rangées dans Loki Music.');
   };
 
   const nextTrack = async () => {
@@ -310,7 +310,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           <Text style={styles.back}>‹ Retour</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Services musicaux</Text>
-        <Text style={styles.subtitle}>Loki range ta musique. Choisis ensuite les services que tu utilises vraiment.</Text>
+        <Text style={styles.subtitle}>Loki Music range ta musique. Choisis ensuite les services que tu utilises vraiment.</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -321,7 +321,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
             ); })()}
             <Text style={styles.keylessTitle}>{selectionLoading ? 'Chargement…' : `${selection.used} / ${selection.limit} service${selection.limit > 1 ? 's' : ''} choisi${selection.used > 1 ? 's' : ''}`}</Text>
           </View>
-          <Text style={styles.keylessText}>Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki te laisse utiliser de services en parallèle.</Text>
+          <Text style={styles.keylessText}>Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki Music te laisse utiliser de services en parallèle.</Text>
         </View>
 
         {queue?.tracks.length ? (
@@ -348,7 +348,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.exportHint}>Choisis un de tes services actifs. Loki gardera la file prête pendant que tu passes dans l’autre application.</Text>
+              <Text style={styles.exportHint}>Choisis un de tes services actifs. Loki Music gardera la file prête pendant que tu passes dans l’autre application.</Text>
             )}
           </View>
         ) : null}
@@ -371,7 +371,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           const connected = Boolean(providerState?.connected);
           const providerActionBusy = syncProvider === providerBusy;
           const activeDescription = connected
-            ? (queue?.tracks.length ? `${provider.name} connecté · sélectionne-le comme destination.` : `${provider.name} connecté · touche pour importer ou actualiser tes favoris dans Loki.`)
+            ? (queue?.tracks.length ? `${provider.name} connecté · sélectionne-le comme destination.` : `${provider.name} connecté · touche pour importer ou actualiser tes favoris dans Loki Music.`)
             : syncProvider && providerState?.configured
               ? `${provider.shortDescription} · touche pour connecter ton compte ${provider.name}.`
               : syncProvider
@@ -403,7 +403,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                   {connected ? <View style={styles.connectedBadge}><Text style={styles.connectedBadgeText}>CONNECTÉ</Text></View> : null}
                   {reserved ? <View style={styles.lockBadge}><Text style={styles.lockBadgeText}>🔒 RÉSERVÉ</Text></View> : null}
                 </View>
-                <Text style={styles.description}>{active ? activeDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte Loki.'}</Text>
+                <Text style={styles.description}>{active ? activeDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte Loki Music.'}</Text>
               </View>
               <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill, (activating || providerActionBusy) && styles.activatingPill]}><Text style={styles.openPillText}>{actionLabel}</Text></View>
             </TouchableOpacity>
@@ -411,8 +411,8 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         })}
 
         <View style={styles.ruleCard}>
-          <Text style={styles.ruleTitle}>Loki range pour toi</Text>
-          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans Loki. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki.</Text>
+          <Text style={styles.ruleTitle}>Loki Music range pour toi</Text>
+          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music.</Text>
         </View>
 
         <View style={styles.limitCard}>

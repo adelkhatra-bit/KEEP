@@ -429,7 +429,7 @@ export async function shareSession(sessionId: string, title: string, keptCount: 
 export async function sharePlaylist(playlistId: string, playlistName: string): Promise<void> {
   const state = useUserStore.getState();
   if (!state.user || state.isLocalGuest || state.isDemoMode) {
-    Alert.alert('Compte Loki requis', `Crée ton compte ${APP_NAME} pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.`);
+    Alert.alert('Compte Loki Music requis', `Crée ton compte ${APP_NAME} pour débloquer le partage. Tes musiques restent disponibles en mode gratuit.`);
     return;
   }
 

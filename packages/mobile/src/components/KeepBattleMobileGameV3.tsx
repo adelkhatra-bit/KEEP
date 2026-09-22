@@ -737,11 +737,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, []);
 
   const shareInvite = React.useCallback(async () => {
-    await Share.share({ message: `Viens me défier sur Loki Battle ⚡\n10 secondes · 4 choix · gagne des Free\n${KEEP_BATTLE_SHARE}` });
+    await Share.share({ message: `Viens me défier sur Loki Music Battle ⚡\n10 secondes · 4 choix · gagne des Free\n${KEEP_BATTLE_SHARE}` });
   }, []);
   const shareArenaInvite = React.useCallback(async (state: KeepBattleArenaState) => {
     const link = buildKeepBattleArenaInviteLink(state.arenaCode);
-    await Share.share({ message: `Rejoins notre Loki Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe\n${link}` });
+    await Share.share({ message: `Rejoins notre Loki Music Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe\n${link}` });
   }, []);
 
   const refreshSocial = React.useCallback(async () => {
@@ -800,7 +800,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           handledOutgoingIds.add(feedback.id);
           Alert.alert(
             'Battle refusé',
-            `${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki à un ami.`,
+            `${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki Music à un ami.`,
             [{ text: 'Continuer', style: 'cancel' }, { text: 'Inviter un ami', onPress: () => { void shareInvite(); } }],
           );
         }
@@ -1245,7 +1245,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // joueurs voient quel style musical on joue, best-effort (ne bloque pas
       // le démarrage de la partie si ça échoue).
       void updateSoloPresenceTheme(themeCode).catch(() => {});
-    } catch (e: any) { Alert.alert('Loki Battle', String(e?.message || 'Impossible de démarrer.')); }
+    } catch (e: any) { Alert.alert('Loki Music Battle', String(e?.message || 'Impossible de démarrer.')); }
     finally { setBusy(false); }
   };
 
@@ -1858,7 +1858,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
       return <View style={s.root}>
-        <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
+        <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
         {/* Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
             invitation ... la partie est terminée" -- vrai trou : incoming[0]
             continue d'être sondé même sur cet écran de fin de partie
@@ -1880,7 +1880,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.finishSpark}>✦ ⚡ ✦</Text>
             <ResultIcon icon={perfect ? '👑' : soloScore >= 6 ? '🏆' : soloScore >= 4 ? '🎯' : '💪'} big={perfect} />
             <Text style={s.finishTitle}>{perfect ? `PARFAIT · ${solo.rounds.length}/${solo.rounds.length}` : `${soloScore}/${solo.rounds.length}`}</Text>
-            <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
+            <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki Music BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
             {soloFreeEarned > 0 ? (
               <Text style={s.finishReward}>🎁 Tu as gagné {soloFreeEarned} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloFreeEarned} → ${soloAfter})` : ''}</Text>
@@ -1915,7 +1915,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       </View>;
     }
     return <View style={s.root}>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>{themeLabel(solo.rounds[soloIndex]?.themeCode || solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/{solo.rounds.length}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>{themeLabel(solo.rounds[soloIndex]?.themeCode || solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/{solo.rounds.length}</Text></View>
       {/* Adel (02/09/2026) : "règle une fois pour toute ... je ne vois pas
           l'utilisateur entier" -- sans ScrollView, sur un écran/viewport
           court (barre d'adresse + barre d'onglets fixe du build web), le
@@ -1952,7 +1952,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const specTeamB = spectating.seats.filter((_, index) => index % 2 === 1);
     const canJoin = spectating.status !== 'CLOSED' && spectating.status !== 'EXPIRED';
     return <View style={s.root}>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
       {renderTeamSquares(specTeamA, specTeamB, canJoin ? { onPress: () => { void joinSpectatedMatch(); }, busy: spectateJoinBusy } : undefined)}
       <View style={s.waiting}>
@@ -2002,7 +2002,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // les noms pour qu'on sache qui est qui dans le Battle" -- l'overlay
     // "⚡ BATTLE ⚡" à 3 joueurs et plus n'affichait qu'un compte ("3 JOUEURS"),
     // jamais qui participait réellement. Liste maintenant les vrais pseudos.
-    const versusLabel = players.length > 2 ? players.map((p: any) => `${p.username}`).join(' · ') : `${first ? `${first.username}` : 'Loki'} VS ${second ? `${second.username}` : 'Loki'}`;
+    const versusLabel = players.length > 2 ? players.map((p: any) => `${p.username}`).join(' · ') : `${first ? `${first.username}` : 'Loki Music'} VS ${second ? `${second.username}` : 'Loki Music'}`;
     const palmares = Array.from(winnerHistory.reduce((map, row) => {
       const current = map.get(row.profileId) || { ...row, wins: 0 };
       current.wins += 1;
@@ -2040,7 +2040,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       };
       return <View style={s.root}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
-        <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
+        <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <Text style={s.finishSpark}>✦ 👑 ✦</Text>
@@ -2167,7 +2167,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
           ou "QUITTER LE BATTLE" sur l'écran de fin. Conservée uniquement là. */}
       <Animated.View pointerEvents="none" style={[s.versus, { opacity: versusOpacity, transform: [{ scale: versusScale }] }]}><Text style={s.versusText}>⚡ BATTLE ⚡</Text><Text style={s.versusNames} numberOfLines={2}>{versusLabel}</Text></Animated.View>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(round?.themeCode || arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(round?.themeCode || arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
       {myCreditStatus ? <View style={s.creditBadgeRow}><Text style={s.creditBadgeText}>🎁 {formatCompactNumber(myCreditStatus.remainingFree)} Free restant</Text></View> : null}
       {/* Adel (03/09/2026) : "on voit pas les titres en dessous, on voit pas
           la suite du bas" -- vrai bug : cet écran n'avait AUCUN scroll, donc
@@ -2218,7 +2218,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const canStartSelectedBattle = selectedBattlePlayerIds.size >= 2 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
     return <View style={s.root}>
       {renderPlayerStatsModal()}
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
       {/* Adel (04/09/2026) : "j'ai juste à envoyer une invite comme ça je
           puisse en envoyer plusieurs" -- BUG RÉEL : chaque appui sur BATTLE
           créait son propre match 1 contre 1 séparé, jamais un seul match à
@@ -2303,11 +2303,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
           à intégrer des artistes sur leur profil" -- pourquoi jouer, pas
           seulement comment. */}
-      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Pourquoi jouer à Loki Battle" onPress={() => Alert.alert(
-        'Pourquoi jouer à Loki Battle ?',
+      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Pourquoi jouer à Loki Music Battle" onPress={() => Alert.alert(
+        'Pourquoi jouer à Loki Music Battle ?',
         'JOUER SOLO : entraîne-toi seul sur 8, 15, 20 ou 30 morceaux et gagne des Free selon tes bonnes réponses.\n\nBATTLE EN LIGNE : affronte d’autres joueurs en direct sur le même nombre de morceaux — plus tu choisis un grand nombre de morceaux, plus la mise ET le gain en Free sont importants.\n\nÀ quoi servent les Free ? Ils te permettent d’intégrer plus d’artistes et de morceaux à ton profil, dans ton style musical. Plus ton profil te ressemble, plus tu attires une vraie communauté musicale autour de toi — et une communauté, ça se monétise un jour.',
       )}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
-      <Text style={s.homeIcon}>⚡</Text><Text style={s.homeTitle}>Loki BATTLE</Text><Text style={s.homeSub}>10 secondes réelles d’écoute · 4 choix · aucun swipe</Text></View>{myPlayerStats ? (
+      <Text style={s.homeIcon}>⚡</Text><Text style={s.homeTitle}>Loki Music BATTLE</Text><Text style={s.homeSub}>10 secondes réelles d’écoute · 4 choix · aucun swipe</Text></View>{myPlayerStats ? (
         <View style={s.playerStatsContainer}>
           <View style={s.playerStatsBigRow}>
             <View style={s.playerStatsBigItem}>

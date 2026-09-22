@@ -51,7 +51,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'EVENT_APPROVED') return 'ÉVÉNEMENT APPROUVÉ';
   if (key === 'EVENT_REJECTED') return 'ÉVÉNEMENT REFUSÉ';
   if (key === 'EVENT_FIELD_REJECTED') return 'À CORRIGER';
-  if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki';
+  if (key === 'ADMIN_BROADCAST') return 'MESSAGE Loki Music';
   return key.replace(/_/g, ' ');
 }
 
@@ -427,7 +427,7 @@ export default function NotificationsScreen({ navigation }: any) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Réglages des notifications</Text>
-          <Text style={styles.preferenceHint}>Active ou désactive ce que Loki peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
+          <Text style={styles.preferenceHint}>Active ou désactive ce que Loki Music peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
           {/* Adel (01/09/2026) : "DJ & soirées" contrôlait les invitations
               d'événements -- retiré volontairement, ce n'est plus un choix
               laissé à l'utilisateur (pas de publicité sur Loki à équilibrer). */}
@@ -446,8 +446,8 @@ export default function NotificationsScreen({ navigation }: any) {
           <Preference
             label="Marketing"
             hint={marketingLocked
-              ? "Offres et actualités Loki. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
-              : 'Offres et actualités Loki. Tu peux le désactiver, ta formule te le permet.'}
+              ? "Offres et actualités Loki Music. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
+              : 'Offres et actualités Loki Music. Tu peux le désactiver, ta formule te le permet.'}
             value={marketingLocked ? true : prefs.marketingEnabled}
             onValueChange={(v) => { if (!marketingLocked) updatePrefs({ marketingEnabled: v }); }}
             locked={marketingLocked}

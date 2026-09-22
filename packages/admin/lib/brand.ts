@@ -3,4 +3,4 @@
  * changement de marque. Modifier UNIQUEMENT cette constante ; ne jamais
  * réintroduire "Loki"/"KEEP" en dur ailleurs dans packages/admin.
  */
-export const APP_NAME = 'Loki';
+export const APP_NAME = 'Loki Music';

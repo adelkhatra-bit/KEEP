@@ -176,7 +176,7 @@ export default function OnboardingScreen() {
             >
               {busy ? <ActivityIndicator color={colors.textPrimary} /> : <Text style={styles.accountButtonText}>CONTINUER SANS INSCRIPTION</Text>}
             </TouchableOpacity>
-            <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte Loki plus tard.</Text>
+            <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte Loki Music plus tard.</Text>
             <LegalNotice style={styles.legal} />
           </View>
         </ScrollView>
@@ -187,7 +187,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.logo}>Loki</Text>
+        <Text style={styles.logo}>Loki Music</Text>
         <Text style={styles.tagline}>{t('onboarding.welcomeSubtitle')}</Text>
         <Text style={styles.valueLine}>Partage tes goûts musicaux. Crée ta communauté.</Text>
       </View>

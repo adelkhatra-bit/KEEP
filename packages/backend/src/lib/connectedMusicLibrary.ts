@@ -457,7 +457,7 @@ export async function syncMarketplacePurchaseToConnectedProviders(args: { paymen
   if (paymentError) throw paymentError;
   if (!payment) throw new Error('Paiement marketplace introuvable');
   if (payment.seller_id !== args.actorId && payment.buyer_id !== args.actorId) throw new Error('Accès livraison refusé');
-  if (payment.status !== 'COMPLETED' || !payment.delivered_playlist_id) throw new Error('Playlist pas encore livrée dans Loki');
+  if (payment.status !== 'COMPLETED' || !payment.delivered_playlist_id) throw new Error('Playlist pas encore livrée dans Loki Music');
 
   const [{ data: offer, error: offerError }, { data: connections, error: connectionsError }] = await Promise.all([
     database.from('playlist_sale_offers').select('playlist_name').eq('id', payment.offer_id).maybeSingle(),
@@ -486,8 +486,8 @@ export async function syncMarketplacePurchaseToConnectedProviders(args: { paymen
       const providerPlaylistId = existing?.provider_playlist_id || await createConnectedPlaylist(
         payment.buyer_id,
         provider,
-        String(offer?.playlist_name || 'Playlist Loki'),
-        'Playlist achetée et livrée par Loki',
+        String(offer?.playlist_name || 'Playlist Loki Music'),
+        'Playlist achetée et livrée par Loki Music',
       );
       await database.from('playlist_sale_provider_deliveries').upsert({
         payment_id: payment.id,

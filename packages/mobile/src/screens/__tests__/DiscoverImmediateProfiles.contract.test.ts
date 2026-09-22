@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('Loki Découvertes immediate public profiles', () => {
+describe('Loki Music Découvertes immediate public profiles', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'DiscoverScreen.tsx'), 'utf8');
 
   it('does not require GPS before public profiles can be shown', () => {
@@ -11,7 +11,7 @@ describe('Loki Découvertes immediate public profiles', () => {
   });
 
   it('supports direct username lookup', () => {
-    expect(source).toContain('Rechercher un pseudo Loki');
+    expect(source).toContain('Rechercher un pseudo Loki Music');
     expect(source).toContain("profile.username.toLowerCase().includes(needle)");
     expect(source).toContain("committedQuery.trim().replace(/^@/, '').toLowerCase()");
   });

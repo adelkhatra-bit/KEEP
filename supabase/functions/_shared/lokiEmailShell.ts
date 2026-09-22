@@ -21,7 +21,7 @@ export function lokiEmailShell(title: string, heading: string, bodyHtml: string,
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
           <tr>
             <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki Music</div>
               <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
             </td>
           </tr>
@@ -37,7 +37,7 @@ export function lokiEmailShell(title: string, heading: string, bodyHtml: string,
             </td>
           </tr>
         </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki Music · Ton univers musical, gardé au même endroit.</p>
       </td>
     </tr>
   </table>

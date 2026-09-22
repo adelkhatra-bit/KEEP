@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('Loki push registration has no Render intermediary', () => {
+describe('Loki Music push registration has no Render intermediary', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'pushNotificationService.ts'), 'utf8');
   it('registers the Expo device token directly through authenticated Supabase RPC', () => {
     expect(source).toContain("rpc('keep_push_token_register'");

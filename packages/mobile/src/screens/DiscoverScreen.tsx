@@ -349,7 +349,7 @@ export default function DiscoverScreen({ navigation }: any) {
       if (permission.status !== 'granted') {
         if (!persisted) setSearchPosition(null);
         Alert.alert('Localisation', persisted
-          ? 'Loki utilise ta dernière position enregistrée. Tu peux autoriser le GPS plus tard pour l’actualiser.'
+          ? 'Loki Music utilise ta dernière position enregistrée. Tu peux autoriser le GPS plus tard pour l’actualiser.'
           : 'Le GPS n’est pas autorisé. Les profils publics restent disponibles et tu peux rechercher un pseudo directement.');
         return;
       }
@@ -365,7 +365,7 @@ export default function DiscoverScreen({ navigation }: any) {
     } catch {
       if (!persisted) setSearchPosition(null);
       Alert.alert('Localisation', persisted
-        ? 'Position GPS lente : Loki utilise ta dernière position enregistrée pour cette recherche.'
+        ? 'Position GPS lente : Loki Music utilise ta dernière position enregistrée pour cette recherche.'
         : 'Position GPS indisponible. Les profils publics restent visibles et la recherche par pseudo fonctionne quand même.');
     } finally { setSearchBusy(false); }
   };
@@ -418,7 +418,7 @@ export default function DiscoverScreen({ navigation }: any) {
         </View>
         <View style={styles.usernameSearch}>
           <Text style={styles.usernameSearchIcon}>⌕</Text>
-          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki" placeholderTextColor="#8E849A" autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un utilisateur Loki par pseudo" />
+          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki Music" placeholderTextColor="#8E849A" autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un utilisateur Loki Music par pseudo" />
           {profileQuery ? <TouchableOpacity style={styles.usernameClear} onPress={() => { setProfileQuery(''); setProfileIndex(0); }} accessibilityLabel="Effacer la recherche"><Text style={styles.usernameClearText}>×</Text></TouchableOpacity> : null}
         </View>
         <View style={styles.searchPanel}>
@@ -431,21 +431,21 @@ export default function DiscoverScreen({ navigation }: any) {
           <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} disponible${filteredProfiles.length > 1 ? 's' : ''} · le GPS affine ensuite la proximité`}</Text>
         </View>
         {loadingProfiles || (currentProfile && accessLoading) ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
-          <TouchableOpacity style={styles.lockCard} onPress={openPremium}><Text style={styles.lockIcon}>🔒</Text><Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text><Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant Loki et en faisant grandir tes abonnés.</Text><Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.lockCard} onPress={openPremium}><Text style={styles.lockIcon}>🔒</Text><Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text><Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant Loki Music et en faisant grandir tes abonnés.</Text><Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text></TouchableOpacity>
         ) : !currentProfile ? (
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à ${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun autre profil public disponible pour le moment.'}</Text></View>
         ) : (
           <View style={styles.profileCard}>
             <TouchableOpacity activeOpacity={0.85} onPress={openCurrentProfile} style={styles.profileHero} accessibilityLabel={`Ouvrir le profil de ${currentProfile.username}`}>
               {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.avatar} onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
-              <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki'}</Text></View>
+              <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki Music public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki Music'}</Text></View>
             </TouchableOpacity>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
             <View style={styles.matchRow}>{compareFeatureEnabled ? (
               compareAccess?.allowed === false
                 ? <TouchableOpacity style={styles.matchBlock} onPress={openPremium}><Text style={styles.matchValue}>🔒</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></TouchableOpacity>
                 : <View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View>
-            ) : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
+            ) : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki Music'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
             <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity></View>
           </View>
         )}

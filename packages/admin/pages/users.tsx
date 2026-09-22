@@ -209,7 +209,7 @@ export default function Users() {
     if (!selected) return;
     setBusy('grant'); setError(null);
     try {
-      const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin Loki' });
+      const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin Loki Music' });
       const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
       setMessage(`${plan} offert à @${selected.username} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : ''}.`);
       await load(); await refreshSelected();
@@ -289,7 +289,7 @@ export default function Users() {
       await load();
     } catch (e: any) {
       const code = String(e?.message || '');
-      setError(code === 'invalid_email' ? 'Adresse e-mail invalide.' : code === 'email_taken' ? 'Cette adresse est déjà utilisée par un autre compte Loki.' : e?.message ?? 'Enregistrement impossible.');
+      setError(code === 'invalid_email' ? 'Adresse e-mail invalide.' : code === 'email_taken' ? 'Cette adresse est déjà utilisée par un autre compte Loki Music.' : e?.message ?? 'Enregistrement impossible.');
     } finally { setBusy(null); }
   };
 
@@ -388,7 +388,7 @@ export default function Users() {
 
     <details style={{marginTop:18,display:canRequirements?'block':'none'}}><summary style={{cursor:'pointer',color:'var(--text-muted)'}}>Récupérer un ancien profil de test</summary>
       <div className="card" style={{marginTop:10}}><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        <input value={legacyUsername} onChange={(e)=>setLegacyUsername(e.target.value)} placeholder="Pseudo Loki" style={{flex:'1 1 260px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}/>
+        <input value={legacyUsername} onChange={(e)=>setLegacyUsername(e.target.value)} placeholder="Pseudo Loki Music" style={{flex:'1 1 260px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 14px'}}/>
         <button onClick={()=>void recoverLegacy()} disabled={!legacyUsername.trim()||busy!==null}>Récupérer</button>
       </div>
       {legacyRecovery && <div style={{marginTop:10,fontFamily:'monospace'}}>@{legacyRecovery.username} · mot de passe temporaire : {legacyRecovery.temporaryPassword}</div>}
@@ -398,7 +398,7 @@ export default function Users() {
     {selected && <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
       <div onClick={(e)=>e.stopPropagation()} style={{width:'min(800px,96vw)',maxHeight:'90vh',overflowY:'auto',overflowX:'hidden',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:18,padding:20,boxShadow:'0 20px 80px rgba(0,0,0,.5)'}}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
-          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification Loki : {certificationLabel(selected)}</div></div></div>
+          <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification Loki Music : {certificationLabel(selected)}</div></div></div>
           <button onClick={()=>setSelected(null)}>Fermer</button>
         </div>
 
@@ -489,7 +489,7 @@ export default function Users() {
                 <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,wordBreak:'break-all',flex:1}}>{temporaryPassword}</div>
                 <button onClick={()=>void copyTemporaryPassword(temporaryPassword)} style={{flexShrink:0,background:copied?'#2e7d32':'#3a3450'}}>{copied?'Copié ✓':'Copier'}</button>
               </div>
-              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki ou l’e-mail réel + ce mot de passe.</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki Music ou l’e-mail réel + ce mot de passe.</div>
             </div>}
 
             <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
@@ -521,7 +521,7 @@ export default function Users() {
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>
             <h3 style={{margin:'0 0 4px'}}>À imposer à cet utilisateur</h3>
-            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que Loki devra lui demander de compléter.</div>
+            <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que Loki Music devra lui demander de compléter.</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:7}}>
               {REQUIREMENTS.map(([key,label])=><label key={key} style={{display:'flex',gap:8,alignItems:'center',border:'1px solid var(--border)',borderRadius:9,padding:'9px 10px',cursor:'pointer'}}><input type="checkbox" checked={requirements.includes(key)} onChange={()=>toggleRequirement(key)}/><span>{label}</span></label>)}
             </div>

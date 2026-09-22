@@ -33,7 +33,7 @@ export default function AccountActionsPanel() {
   };
 
   const confirmSignOut = () => {
-    Alert.alert('Se déconnecter ?', 'Ton profil Loki reste enregistré. Tu pourras revenir avec ton identifiant Loki et ton mot de passe.', [
+    Alert.alert('Se déconnecter ?', 'Ton profil Loki Music reste enregistré. Tu pourras revenir avec ton identifiant Loki Music et ton mot de passe.', [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => { void signOutNow(); } },
     ]);
@@ -55,17 +55,17 @@ export default function AccountActionsPanel() {
 
   const confirmDeleteAccount = () => {
     if (isLocalGuest || isDemoMode) {
-      Alert.alert('Aucun compte serveur', 'Cet essai n’a pas encore de compte Loki permanent. Utilise Déconnexion pour effacer l’identité locale de cet appareil.');
+      Alert.alert('Aucun compte serveur', 'Cet essai n’a pas encore de compte Loki Music permanent. Utilise Déconnexion pour effacer l’identité locale de cet appareil.');
       return;
     }
-    Alert.alert('Supprimer définitivement mon compte ?', 'Cette action supprime définitivement ton compte Loki, ton profil, tes musiques gardées, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée.', [
+    Alert.alert('Supprimer définitivement mon compte ?', 'Cette action supprime définitivement ton compte Loki Music, ton profil, tes musiques gardées, playlists, abonnements sociaux, notifications et avatar. Elle ne peut pas être annulée.', [
       { text: 'Annuler', style: 'cancel' },
       { text: 'SUPPRIMER MON COMPTE', style: 'destructive', onPress: () => { void deleteAccountNow(); } },
     ]);
   };
 
   return <View>
-    <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données Loki restent enregistrés.</Text>
+    <Text style={s.help}>Se déconnecter ferme uniquement la session de cet appareil. Le compte et les données Loki Music restent enregistrés.</Text>
     <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount}>
       <Text style={s.signOutText}>{signingOut ? 'Déconnexion…' : 'Se déconnecter'}</Text>
     </TouchableOpacity>

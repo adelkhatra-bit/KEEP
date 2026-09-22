@@ -21,7 +21,7 @@ export default function AppUpdateBanner() {
   return (
     <View style={s.wrap} pointerEvents="box-none">
       <View style={s.card}>
-        <Text style={s.title}>🔄 Nouvelle version de Loki disponible</Text>
+        <Text style={s.title}>🔄 Nouvelle version de Loki Music disponible</Text>
         <Text style={s.body}>Recharge pour profiter des dernières fonctions.</Text>
         <View style={s.actions}>
           <TouchableOpacity accessibilityRole="button" style={s.later} onPress={dismiss}>

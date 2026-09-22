@@ -19,8 +19,8 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   BREVO_API_KEY: { category: "email", label: "Brevo API key", secret: true },
   BREVO_SMTP_KEY: { category: "email", label: "Brevo SMTP key", secret: true },
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
-  BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki" },
-  BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki" },
+  BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki Music" },
+  BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki Music" },
   // Adel (08/09/2026) : "trouve une autre solution ... une autre plate-forme
   // d'e-mail ... gratuite ... 6000 e-mails gratuit" -- Mailjet (200/jour =
   // 6000/mois, sans carte bancaire), en repli/alternative a Brevo. Meme
@@ -325,7 +325,7 @@ function shellHtml(title: string, heading: string, intro: string, buttonLabel: s
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
           <tr>
             <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki Music</div>
               <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
               <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${intro}</p>
             </td>
@@ -343,7 +343,7 @@ function shellHtml(title: string, heading: string, intro: string, buttonLabel: s
             </td>
           </tr>
         </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki Music · Ton univers musical, gardé au même endroit.</p>
       </td>
     </tr>
   </table>
@@ -353,7 +353,7 @@ function shellHtml(title: string, heading: string, intro: string, buttonLabel: s
 
 async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
   const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
+  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
   if (!senderEmail) return { ok: false, status: 409, error: "sender_not_configured" };
 
   const mjKey = await getSecret("MAILJET_API_KEY");
@@ -665,17 +665,17 @@ Deno.serve(async (req) => {
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
       const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
-      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki, partagée par tous les fournisseurs)." });
+      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
+      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki Music, partagée par tous les fournisseurs)." });
 
-      const subject = "Loki — test e-mail réussi";
+      const subject = "Loki Music — test e-mail réussi";
       const html = lokiEmailShell(
         subject,
-        "Ton e-mail Loki est bien connecté",
-        `<p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p>`,
+        "Ton e-mail Loki Music est bien connecté",
+        `<p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">Tes goûts te ressemblent. Partage ton Loki Music DNA, fais grandir ta communauté.</p>`,
         "Ceci est un e-mail de test envoyé depuis le Super Admin -- aucune action requise.",
       );
-      const text = "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.";
+      const text = "Loki Music — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki Music DNA, fais grandir ta communauté.";
 
       // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... 6000 e-mails
       // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
@@ -698,14 +698,14 @@ Deno.serve(async (req) => {
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
       const html = shellHtml(
-        "Confirme ton compte Loki",
+        "Confirme ton compte Loki Music",
         "Confirme ton adresse e-mail",
-        `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki et pouvoir récupérer ton mot de passe si besoin.`,
+        `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki Music et pouvoir récupérer ton mot de passe si besoin.`,
         "Confirmer mon compte",
         "https://adelkhatra-bit.github.io/KEEP/#apercu-design",
         "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
       );
-      const sent = await sendViaConfiguredProvider(email, "Loki — Confirme ton compte (aperçu design)", html, "Aperçu design — confirmation de compte Loki.");
+      const sent = await sendViaConfiguredProvider(email, "Loki Music — Confirme ton compte (aperçu design)", html, "Aperçu design — confirmation de compte Loki Music.");
       if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
       await audit(actor.id, "integration_email.preview_signup", sent.provider, email, { ok: true });
       return json(200, { ok: true, provider: sent.provider, real: false });
@@ -726,14 +726,14 @@ Deno.serve(async (req) => {
         if (!error && data?.properties?.action_link) { link = data.properties.action_link; real = true; }
       } catch { /* pas de compte pour cette adresse -> lien d'apercu */ }
       const html = shellHtml(
-        "Réinitialise ton mot de passe Loki",
+        "Réinitialise ton mot de passe Loki Music",
         "Réinitialise ton mot de passe",
-        "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
+        "Tu as demandé à changer ton mot de passe Loki Music. Ouvre ce lien pour en choisir un nouveau.",
         "Choisir un nouveau mot de passe",
         link,
         "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
       );
-      const sent = await sendViaConfiguredProvider(email, `Loki — Réinitialise ton mot de passe${real ? "" : " (aperçu design)"}`, html, "Réinitialise ton mot de passe Loki.");
+      const sent = await sendViaConfiguredProvider(email, `Loki Music — Réinitialise ton mot de passe${real ? "" : " (aperçu design)"}`, html, "Réinitialise ton mot de passe Loki Music.");
       if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
       await audit(actor.id, "integration_email.preview_recovery", sent.provider, email, { ok: true, real });
       return json(200, { ok: true, provider: sent.provider, real });
@@ -826,7 +826,7 @@ Deno.serve(async (req) => {
       const { data: authData, error: authError } = await admin.auth.admin.getUserById(profile.id);
       if (authError || !authData.user) return json(404, { error: "auth_user_not_found" });
       if (!authData.user.is_anonymous) {
-        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte Loki." });
+        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte Loki Music." });
       }
 
       const temporaryPassword = generateTemporaryPassword();
@@ -869,13 +869,13 @@ Deno.serve(async (req) => {
       const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
       const { data: profile } = await admin.from("profiles").select("id,username").eq("id", user.id).maybeSingle();
-      if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir Loki une première fois avant l’attribution." });
+      if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir Loki Music une première fois avant l’attribution." });
       const { data, error } = await admin.rpc("service_grant_plan", {
         p_profile_id: user.id,
         p_plan_code: planCode,
         p_months: months,
         p_granted_by: actor.id,
-        p_reason: reason || "Offert depuis le Super Admin Loki",
+        p_reason: reason || "Offert depuis le Super Admin Loki Music",
       });
       if (error) throw error;
       await audit(actor.id, "subscription.admin_granted", "profile", user.id, { identity, username: profile.username, planCode, months, reason });

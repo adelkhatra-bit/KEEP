@@ -5,14 +5,14 @@ import { useSessionStore } from '../store/useSessionStore';
 import { cancelAudioCapture } from '../services/micCapture';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from '../services/backgroundListeningService';
 
-const WEB_BACKGROUND_MESSAGE = 'Loki Web est en pause pendant que Safari est en arrière-plan. L’écoute reprend automatiquement à ton retour. Pour TikTok / Instagram / Snapchat, utilise aussi Partager → Loki ou le build natif Loki.';
+const WEB_BACKGROUND_MESSAGE = 'Loki Music Web est en pause pendant que Safari est en arrière-plan. L’écoute reprend automatiquement à ton retour. Pour TikTok / Instagram / Snapchat, utilise aussi Partager → Loki Music ou le build natif Loki Music.';
 
 function notifyWebBackgroundPause() {
   if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
   if (Notification.permission !== 'granted') return;
   try {
-    new Notification('Loki — écoute Web en pause', {
-      body: 'Safari suspend le microphone en arrière-plan. Loki reprendra à ton retour ; Partager → Loki reste disponible.',
+    new Notification('Loki Music — écoute Web en pause', {
+      body: 'Safari suspend le microphone en arrière-plan. Loki Music reprendra à ton retour ; Partager → Loki Music reste disponible.',
       tag: 'keep-web-listening-paused',
       silent: true,
     });

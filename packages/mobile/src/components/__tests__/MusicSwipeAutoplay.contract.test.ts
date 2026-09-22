@@ -4,7 +4,7 @@ import path from 'path';
 
 const read = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('Loki Swipe audio lifecycle', () => {
+describe('Loki Music Swipe audio lifecycle', () => {
   const modal = read(__dirname, '..', 'MusicSwipeDeckModal.tsx');
   const profile = read(__dirname, '..', '..', 'screens', 'ProfilePublicScreen.tsx');
   const audio = read(__dirname, '..', '..', 'services', 'audioPreviewService.ts');

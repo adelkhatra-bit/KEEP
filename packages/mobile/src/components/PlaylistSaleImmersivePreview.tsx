@@ -24,11 +24,11 @@ import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPrev
 const MARKETING_LINES = [
   'Cette découverte est très réclamée en ce moment.',
   'Une sélection musicale rare, à débloquer avant qu’elle ne file.',
-  'D’autres l’ont déjà rejointe dans leur Loki.',
+  'D’autres l’ont déjà rejointe dans leur Loki Music.',
 ];
 
 const EXPLAINER_LINES = [
-  'Après l’achat, cette découverte est liée directement à ton profil Loki.',
+  'Après l’achat, cette découverte est liée directement à ton profil Loki Music.',
   'Tu choisis ensuite de la rendre publique ou de la garder pour toi.',
   'Aucun titre ni artiste n’est jamais dévoilé avant l’achat.',
 ];
@@ -195,7 +195,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               que l'API PayPal réelle n'est pas intégrée. Encart permanent,
               pas seulement l'Alert transitoire après ouverture du lien. */}
           <View style={s.manualNotice}>
-            <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki). Loki ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
+            <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
           </View>
 
           <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
@@ -207,9 +207,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
             disabled={!waiverAccepted || busy}
             onPress={() => onConfirmPurchase(offer)}
-            accessibilityLabel={`Acheter et ajouter à mon Loki, ${(offer.priceCents / 100).toFixed(2)} ${offer.currencyCode}`}
+            accessibilityLabel={`Acheter et ajouter à mon Loki Music, ${(offer.priceCents / 100).toFixed(2)} ${offer.currencyCode}`}
           >
-            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
+            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
           </TouchableOpacity>
           <Text style={s.noRefund}>Accès numérique immédiat : aucun remboursement possible une fois la renonciation validée.</Text>
         </View>

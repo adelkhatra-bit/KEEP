@@ -79,7 +79,7 @@ export async function commitKeep(
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
       requestedRecommendation?.playlistName?.trim() || 'Mes KEEP',
-      'Morceaux rangés par Loki. Le nom et la visibilité peuvent être modifiés depuis Mes musiques.'
+      'Morceaux rangés par Loki Music. Le nom et la visibilité peuvent être modifiés depuis Mes musiques.'
     ));
   }
 
@@ -89,7 +89,7 @@ export async function commitKeep(
     target = await withRetry(() => musicEngine.musicProvider.createPlaylist(
       session,
       'Mes KEEP',
-      'Morceaux gardés avec Loki.'
+      'Morceaux gardés avec Loki Music.'
     ));
   }
 

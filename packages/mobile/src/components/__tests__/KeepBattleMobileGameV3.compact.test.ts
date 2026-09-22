@@ -7,7 +7,7 @@ import path from 'path';
 // soit l'OS/checkout Git qui exécute les tests.
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('Loki Battle mobile style selector', () => {
+describe('Loki Music Battle mobile style selector', () => {
   const source = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const audioSource = readNormalized(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
@@ -292,7 +292,7 @@ describe('Loki Battle mobile style selector', () => {
   });
 });
 
-describe('Loki Battle accept reliability', () => {
+describe('Loki Music Battle accept reliability', () => {
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const live = readNormalized(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
 
@@ -311,7 +311,7 @@ describe('Loki Battle accept reliability', () => {
   });
 });
 
-describe('Loki Battle persistent group invitations', () => {
+describe('Loki Music Battle persistent group invitations', () => {
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const live = readNormalized(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
 
@@ -330,7 +330,7 @@ describe('Loki Battle persistent group invitations', () => {
   });
 });
 
-describe('Loki Battle "Joueurs disponibles" multi-select redesign (Adel, 21/09/2026 : case à cocher + barre fixe "Démarrer la Battle")', () => {
+describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 21/09/2026 : case à cocher + barre fixe "Démarrer la Battle")', () => {
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
 
   it('replaces the per-player BATTLE button with a read-only status badge (Prêt / En attente / Crédits insuffisants / Bloqué)', () => {

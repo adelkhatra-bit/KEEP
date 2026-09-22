@@ -61,7 +61,7 @@ function shellHtml(title: string, heading: string, intro: string, buttonLabel: s
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
           <tr>
             <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
+              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki Music</div>
               <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
               <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${intro}</p>
             </td>
@@ -79,7 +79,7 @@ function shellHtml(title: string, heading: string, intro: string, buttonLabel: s
             </td>
           </tr>
         </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
+        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki Music · Ton univers musical, gardé au même endroit.</p>
       </td>
     </tr>
   </table>
@@ -98,7 +98,7 @@ function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, 
 async function sendBrevo(to: string, subject: string, html: string, text: string, tag: string): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
   if (!apiKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
@@ -145,7 +145,7 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
   if (!apiKey || !secretKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
@@ -223,16 +223,16 @@ async function handleSignup(body: any) {
 
   const sent = await sendTransactionalEmail(
     email,
-    "Confirme ton compte Loki",
+    "Confirme ton compte Loki Music",
     shellHtml(
-      "Confirme ton compte Loki",
+      "Confirme ton compte Loki Music",
       "Confirme ton adresse e-mail",
-      `<strong style="color:#ffffff">@${escapeHtml(username)}</strong>, plus qu’une étape pour activer ton compte Loki et pouvoir récupérer ton mot de passe si besoin.`,
+      `<strong style="color:#ffffff">@${escapeHtml(username)}</strong>, plus qu’une étape pour activer ton compte Loki Music et pouvoir récupérer ton mot de passe si besoin.`,
       "Confirmer mon compte",
       data.properties.action_link,
       "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
     ),
-    `@${username}, confirme ton compte Loki en ouvrant ce lien : ${data.properties.action_link}`,
+    `@${username}, confirme ton compte Loki Music en ouvrant ce lien : ${data.properties.action_link}`,
     "signup-confirmation",
   );
   if (sent.ok) return json({ ok: true, userId: data.user?.id, requiresEmailConfirmation: true });
@@ -294,18 +294,18 @@ async function handleRecovery(body: any) {
   }
 
   const htmlContent = shellHtml(
-    "Réinitialise ton mot de passe Loki",
+    "Réinitialise ton mot de passe Loki Music",
     "Réinitialise ton mot de passe",
-    "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
+    "Tu as demandé à changer ton mot de passe Loki Music. Ouvre ce lien pour en choisir un nouveau.",
     "Choisir un nouveau mot de passe",
     data.properties.action_link,
     "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
   );
-  const textContent = `Réinitialise ton mot de passe Loki en ouvrant ce lien : ${data.properties.action_link}`;
+  const textContent = `Réinitialise ton mot de passe Loki Music en ouvrant ce lien : ${data.properties.action_link}`;
 
   const sent = await sendTransactionalEmail(
     email,
-    "Réinitialise ton mot de passe Loki",
+    "Réinitialise ton mot de passe Loki Music",
     htmlContent,
     textContent,
     "password-recovery",
@@ -318,7 +318,7 @@ async function handleRecovery(body: any) {
   if (!sent.ok) {
     const { error: queueError } = await admin.from("email_queue").insert({
       recipient_email: email,
-      subject: "Réinitialise ton mot de passe Loki",
+      subject: "Réinitialise ton mot de passe Loki Music",
       html_content: htmlContent,
       text_content: textContent,
       email_type: "recovery",

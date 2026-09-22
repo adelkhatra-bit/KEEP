@@ -4,7 +4,7 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('TrackPreviewButton — variante "square" (Adel, 21/09/2026, maquette "Cartes Loki — nouveau design" validée)', () => {
+describe('TrackPreviewButton — variante "square" (Adel, 21/09/2026, maquette "Cartes Loki Music — nouveau design" validée)', () => {
   const source = readNormalized(__dirname, '..', 'TrackPreviewButton.tsx');
 
   it('adds a square prop without changing any existing variant (compact/fullWidth/small untouched)', () => {
