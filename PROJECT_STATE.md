@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T13:26:53.106Z
-- Branche : `HEAD`
-- Dernier commit : `f766644` (f76664440c2ffa14ff4fa40285e5f041eed16f47) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- Date du dernier commit : 2026-09-22T13:25:41+00:00
+- Régénéré le : 2026-09-22T13:38:13.442Z
+- Branche : `reconcile/claude-main-20260825`
+- Dernier commit : `4a29bae` (4a29bae0be65d54d95e9f475acca21ac546bcb94) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
+- Date du dernier commit : 2026-09-22T13:26:18+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,6 +122,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
 - `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
 - `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
 - `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
@@ -131,7 +132,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `2562f5e` (2026-09-22, adelkhatra-bit) — perf(battle): prefetch next round audio during answer pause
 - `23356f3` (2026-09-22, adelkhatra-bit) — fix(audio): minor edge cases -- ended event web + manche sautee visible
 - `a98868f` (2026-09-22, adelkhatra-bit) — fix(audio): resout un conflit reel entre capture micro et lecture de previews
-- `49f60e8` (2026-09-22, adelkhatra-bit) — docs(app-store): notes reviewer + checklist de soumission
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
