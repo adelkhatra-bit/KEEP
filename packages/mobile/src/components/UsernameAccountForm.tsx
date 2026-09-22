@@ -20,6 +20,14 @@ import { radius, spacing } from '../theme/spacing';
 // toujours pseudo OU e-mail -- ne casse pas les anciens comptes pseudo-only.
 export type UsernameAccountMode = 'create' | 'login';
 
+// Champs auth : surface un peu plus claire que le popup, placeholder gris clair,
+// bord violet au focus. L'objectif est qu'un champ vide ressemble immédiatement
+// à une zone éditable sans transformer le thème sombre Loki en formulaire blanc.
+const AUTH_INPUT_BACKGROUND = '#262238';
+const AUTH_INPUT_BACKGROUND_FOCUSED = '#2C2840';
+const AUTH_INPUT_BORDER = '#4A455F';
+const AUTH_INPUT_PLACEHOLDER = '#C1BDC9';
+
 type Props = {
   initialMode?: UsernameAccountMode;
   followUsername?: string;
@@ -100,6 +108,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   // deviennent des tooltips ⓘ au tap au lieu d'un paragraphe toujours
   // visible -- le texte n'est pas supprimé, seulement replié par défaut.
   const [openTip, setOpenTip] = useState<'username' | 'email' | null>(null);
+  const [focusedField, setFocusedField] = useState<'username' | 'email' | 'password' | 'password2' | null>(null);
   const strength = useMemo(() => passwordStrength(password), [password]);
   const strengthLabel = strength <= 1 ? 'Faible' : strength === 2 ? 'Correct' : strength === 3 ? 'Bon' : 'Très bon';
   const strengthGood = strength >= 3;
@@ -278,11 +287,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       ><Text style={s.infoText}>i</Text></TouchableOpacity> : null}
     </View>
     <TextInput
-      style={s.input}
+      style={[s.input, focusedField === 'username' && s.inputFocus]}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
       placeholder={mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}
-      placeholderTextColor={colors.textMutedGrey}
+      placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+      onFocus={() => setFocusedField('username')}
+      onBlur={() => setFocusedField((current) => current === 'username' ? null : current)}
+      selectionColor={colors.primaryLight}
       autoCapitalize="none"
       autoCorrect={false}
       autoComplete={mode === 'login' ? 'email' : 'username'}
@@ -302,11 +314,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         ><Text style={s.infoText}>i</Text></TouchableOpacity>
       </View>
       <TextInput
-        style={s.input}
+        style={[s.input, focusedField === 'email' && s.inputFocus]}
         value={email}
         onChangeText={(value) => { setEmail(value); if (error) setError(''); }}
         placeholder="Adresse e-mail"
-        placeholderTextColor={colors.textMutedGrey}
+        placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+        onFocus={() => setFocusedField('email')}
+        onBlur={() => setFocusedField((current) => current === 'email' ? null : current)}
+        selectionColor={colors.primaryLight}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -322,13 +337,16 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     <View style={s.labelRow}>
       <Text style={s.label}>Mot de passe</Text>
     </View>
-    <View style={s.passwordRow}>
+    <View style={[s.passwordRow, focusedField === 'password' && s.inputFocus]}>
       <TextInput
         style={s.passwordInput}
         value={password}
         onChangeText={(value) => { setPassword(value); setPasswordSuggested(false); if (error) setError(''); }}
         placeholder="Mot de passe"
-        placeholderTextColor={colors.textMutedGrey}
+        placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+        onFocus={() => setFocusedField('password')}
+        onBlur={() => setFocusedField((current) => current === 'password' ? null : current)}
+        selectionColor={colors.primaryLight}
         secureTextEntry={!showPassword}
         autoCapitalize="none"
         autoCorrect={false}
@@ -347,13 +365,16 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       <View style={s.labelRow}>
         <Text style={s.label}>Confirmer le mot de passe</Text>
       </View>
-      <View style={s.passwordRow}>
+      <View style={[s.passwordRow, focusedField === 'password2' && s.inputFocus]}>
         <TextInput
           style={s.passwordInput}
           value={password2}
           onChangeText={(value) => { setPassword2(value); setPasswordSuggested(false); if (error) setError(''); }}
           placeholder="Confirmer le mot de passe"
-          placeholderTextColor={colors.textMutedGrey}
+          placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+          onFocus={() => setFocusedField('password2')}
+          onBlur={() => setFocusedField((current) => current === 'password2' ? null : current)}
+          selectionColor={colors.primaryLight}
           secureTextEntry={!showPassword2}
           autoCapitalize="none"
           autoCorrect={false}
@@ -389,13 +410,14 @@ const s = StyleSheet.create({
   title:{color:colors.textPrimary,fontSize:24,lineHeight:30,fontWeight:'800',textAlign:'center',marginBottom:2},
   subtitle:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginBottom:12,paddingHorizontal:8},
   followHint:{color:colors.primaryLight,fontSize:12,lineHeight:17,fontWeight:'800',textAlign:'center',marginBottom:2},
-  input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
+  input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
+  inputFocus:{borderColor:colors.primaryLight,backgroundColor:AUTH_INPUT_BACKGROUND_FOCUSED},
   labelRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8,marginBottom:1},
   label:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.8},
   info:{width:18,height:18,borderRadius:9,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   infoText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
   tooltip:{color:colors.textSecondary,fontSize:12,lineHeight:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primaryLight,borderRadius:12,paddingHorizontal:12,paddingVertical:10,marginTop:1},
-  passwordRow:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},
+  passwordRow:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,flexDirection:'row',alignItems:'center'},
   passwordInput:{flex:1,height:50,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
   eye:{width:52,height:52,alignItems:'center',justifyContent:'center'},
   eyeText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
