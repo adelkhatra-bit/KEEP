@@ -1,4 +1,5 @@
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { Audio, AVPlaybackStatus, InterruptionModeIOS } from 'expo-av';
+import { isNativeRecordingModeActive } from './micCapture';
 
 let activeSound: Audio.Sound | null = null;
 let activeKey: string | null = null;
@@ -71,11 +72,25 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   return next;
 }
 
+// BUG RÉEL trouvé en audit runtime (Adel, 22/09/2026, "beaucoup de bugs quand
+// il joue en solo avec la musique") : cette fonction forçait toujours
+// allowsRecordingIOS:false sur l'état audio natif GLOBAL de l'app, sans savoir
+// si micCapture.ts avait une capture micro active au même instant (session
+// d'écoute en arrière-plan pendant qu'un extrait Battle/Swipe démarre). Les
+// deux fichiers appellent Audio.setAudioModeAsync sur le MÊME état partagé,
+// chacun dans sa propre file -- sans coordination, celui qui s'exécute en
+// dernier gagne. Résultat possible : le micro se coupe silencieusement sous
+// une capture en cours, sans erreur visible, dès qu'une preview audio démarre.
+// On ne désactive donc plus jamais l'enregistrement si une capture est
+// réellement en cours -- l'extrait joue par-dessus (MixWithOthers, comme
+// micCapture.ts), sans jamais couper le micro.
 async function configurePreviewAudio() {
+  const recordingActive = isNativeRecordingModeActive();
   await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
+    allowsRecordingIOS: recordingActive,
     playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
+    staysActiveInBackground: recordingActive,
+    interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
     shouldDuckAndroid: true,
     playThroughEarpieceAndroid: false,
   });

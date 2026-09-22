@@ -50,6 +50,20 @@ let activeDelayCancel: (() => void) | null = null;
 let nativeRecordingModeDesired = false;
 let nativeAudioModeQueue: Promise<void> = Promise.resolve();
 
+// Audit runtime Adel (22/09/2026, "jeu solo + musique") : audioPreviewService.ts
+// (Battle solo, Swipe, aperçus) appelle Audio.setAudioModeAsync de façon
+// totalement indépendante de la file `nativeAudioModeQueue` ci-dessus, sur le
+// MÊME état audio natif global partagé par toute l'app. Si un extrait démarre
+// pendant qu'une capture micro est active (session d'écoute en cours), son
+// `allowsRecordingIOS:false` peut s'appliquer APRÈS celui de la capture en
+// cours et couper le micro sous elle sans qu'elle le sache -- reconnaissance
+// silencieusement cassée, aucune erreur visible. Ce getter permet à
+// audioPreviewService de ne jamais désactiver l'enregistrement pendant qu'une
+// capture est réellement en cours.
+export function isNativeRecordingModeActive(): boolean {
+  return nativeRecordingModeDesired;
+}
+
 /**
  * expo-av applique le mode audio de façon asynchrone. Sans sérialisation, un
  * ancien ARRÊTER pouvait terminer après un nouveau DÉMARRER et remettre iOS en
