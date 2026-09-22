@@ -240,8 +240,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -E 'KeepShazam|KeepShazamModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
-          grep -E 'KeepIAP|KeepIAPModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
+          # Le build peut être silencieux pour un pod statique déjà résolu :
+          # on vérifie donc les artefacts Xcode réels plutôt qu'un nom présent
+          # par hasard dans stdout. Podfile.lock a déjà validé l'autolinking.
+          find artifacts/ios-simulator-compile/DerivedData -iname '*KeepShazam*' -print | tee /tmp/keep-shazam-build-artifacts.txt
+          find artifacts/ios-simulator-compile/DerivedData -iname '*KeepIAP*' -print | tee /tmp/keep-iap-build-artifacts.txt
+          test -s /tmp/keep-shazam-build-artifacts.txt
+          test -s /tmp/keep-iap-build-artifacts.txt
       - name: Upload native compile log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
