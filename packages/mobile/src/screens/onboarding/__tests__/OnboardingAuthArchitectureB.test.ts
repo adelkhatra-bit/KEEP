@@ -53,18 +53,22 @@ describe('Onboarding -- Architecture B "zéro friction" (Adel, 22/09/2026, maque
 describe('UsernameAccountForm -- champs agrandis, tooltips, force à 2 tons (Adel, 22/09/2026, maquette validée)', () => {
   const form = readNormalized(__dirname, '..', '..', '..', 'components', 'UsernameAccountForm.tsx');
 
-  it('champs 44px -> 52px, police 14px -> 16px minimum', () => {
-    expect(form).toContain('input:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,color:colors.textPrimary,fontSize:16}');
+  it('garde des champs 52px / police 16px et une surface clairement éditable', () => {
+    expect(form).toContain("const AUTH_INPUT_BACKGROUND = '#312C43';");
+    expect(form).toContain("const AUTH_INPUT_BACKGROUND_FOCUSED = '#3A3450';");
+    expect(form).toContain("const AUTH_INPUT_BORDER = '#625B77';");
+    expect(form).toContain('input:{minHeight:52,');
     expect(form).toContain('passwordRow:{minHeight:52,');
-    expect(form).toContain('passwordInput:{flex:1,height:50,paddingHorizontal:14,color:colors.textPrimary,fontSize:16}');
-    expect(form).not.toContain('minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14');
+    expect(form).toContain('fontSize:16');
   });
 
-  it('utilise un gris clair pour les placeholders afin de distinguer le texte indicatif du texte saisi', () => {
-    const placeholders = form.match(/placeholderTextColor=\{colors\.textMutedGrey\}/g) || [];
+  it('utilise un gris clair pour les placeholders et un texte saisi légèrement grisé, jamais noir sur fond sombre', () => {
+    expect(form).toContain("const AUTH_INPUT_PLACEHOLDER = '#BDB8C7';");
+    expect(form).toContain("const AUTH_INPUT_TEXT = '#ECE8F2';");
+    const placeholders = form.match(/placeholderTextColor=\{AUTH_INPUT_PLACEHOLDER\}/g) || [];
     expect(placeholders).toHaveLength(4);
+    expect(form).toContain('color:AUTH_INPUT_TEXT');
     expect(form).not.toContain('placeholderTextColor={colors.textMuted}');
-    expect(form).toContain('color:colors.textPrimary');
   });
 
   it('tooltip ⓘ tap-to-reveal sur pseudo et e-mail, texte conservé (pas supprimé, juste replié)', () => {
