@@ -765,7 +765,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!enabled || arena) return;
     try {
       const [players, inbox, outbox, pendingRematches, salons] = await Promise.all([
-        loadLiveSoloPlayers(20),
+        loadLiveSoloPlayers(20, roundCount),
         loadIncomingBattleChallenges(),
         loadOutgoingBattleChallenges(),
         loadPendingArenaRematches().catch(() => []),
@@ -823,7 +823,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         }
       }
     } catch {}
-  }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite]);
+  }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite, roundCount]);
 
   React.useEffect(() => {
     if (!enabled || arena) return undefined;
@@ -1318,7 +1318,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         setLeaderboardRank(map);
       }).catch(() => {});
       const [players, credit] = await Promise.all([
-        loadLiveSoloPlayers(20),
+        loadLiveSoloPlayers(20, roundCount),
         loadMyKeepBattleCreditStatus().catch(() => null),
       ]);
       if (mountedRef.current) {
@@ -1358,7 +1358,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       notEnoughFreeAlert(`Il te faut au moins ${stakeForRounds(roundCount)} Free pour lancer un Battle de ${roundCount} morceaux`);
       return false;
     }
-    const freshTarget = await loadLiveSoloPlayers(30).then((rows) => rows.find((row) => row.profileId === player.profileId) || null).catch(() => player);
+    const freshTarget = await loadLiveSoloPlayers(30, roundCount).then((rows) => rows.find((row) => row.profileId === player.profileId) || null).catch(() => player);
     if (!freshTarget) {
       Alert.alert('Battle', `${player.username} n’est plus disponible.`);
       void refreshSocial();
@@ -1743,7 +1743,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setArenaInviteOpen(true);
     setBusy(true);
     try {
-      const rows = await loadLiveSoloPlayers(30);
+      const rows = await loadLiveSoloPlayers(30, arena.roundCount);
       const memberIds = new Set(arena.seats.map((seat) => seat.profileId));
       if (mountedRef.current) setLivePlayers(rows.filter((player) => !memberIds.has(player.profileId)));
     } catch {
@@ -1757,7 +1757,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!arena || arena.status !== 'WAITING' || arena.openSeats <= 0 || arenaInviteBusyId) return;
     setArenaInviteBusyId(player.profileId);
     try {
-      const freshTarget = await loadLiveSoloPlayers(30).then((rows) => rows.find((row) => row.profileId === player.profileId) || null);
+      const freshTarget = await loadLiveSoloPlayers(30, arena.roundCount).then((rows) => rows.find((row) => row.profileId === player.profileId) || null);
       if (!freshTarget) throw new Error('BATTLE_PLAYER_NOT_AVAILABLE');
       if (opponentNeedsMoreFree(freshTarget, arena.roundCount)) throw new Error(`BATTLE_TARGET_NO_CREDIT:${stakeForRounds(arena.roundCount)}`);
       player = freshTarget;
@@ -1780,7 +1780,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       else if (message.includes('BATTLE_SKILL_GAP_TOO_LARGE')) Alert.alert('Battle', `L’écart de niveau avec ${player.username} est trop grand. Enchaîne des parties solo pour monter de catégorie.`);
       else if (message.includes('BATTLE_DAILY_INVITE_LIMIT_REACHED')) Alert.alert('Battle', 'Tu as atteint le nombre d’invitations Battle autorisées aujourd’hui. Réessaie demain.');
       else Alert.alert('Battle', `${player.username} n’est plus disponible.`);
-      const rows = await loadLiveSoloPlayers(30).catch(() => []);
+      const rows = await loadLiveSoloPlayers(30, arena.roundCount).catch(() => []);
       const memberIds = new Set(arena.seats.map((seat) => seat.profileId));
       setLivePlayers(rows.filter((candidate) => !memberIds.has(candidate.profileId)));
     } finally {
