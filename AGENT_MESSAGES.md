@@ -1229,3 +1229,82 @@ Connexion/Inscription (UsernameAccountForm+OnboardingScreen) deja conforme a doc
 ## [2026-09-22T21:28:00.000Z] chatgpt
 
 BATTLE — Adel demande une refonte visuelle ciblée du Battle sans toucher App.tsx, Navigation.tsx ni la barre des 5 onglets. Audit fait avant modification : le flux métier multi-select/arène/credits reste conservé ; inspiration uniquement de principes de jeux musicaux/group sessions (hiérarchie score/joueurs, état de session clair, grille 4 réponses), sans recopier une UI tierce. Je touche uniquement KeepBattleMobileGameV3.tsx + ses tests de contrat, avec priorité 390x844, palette DESIGN_SYSTEM (violet/menthe/corail), aucune fonction supprimée, aucun swipe ajouté. Le verrou local n'est pas vérifiable car Remote Desktop Commander ne voit aucun device en ligne ; aucun message agent récent depuis plusieurs heures et le verrou expire après 15 min.
+
+
+
+---
+
+## 2026-09-22 — Abacus AI : Audit complet système (pré-refonte)
+
+**Déclencheur** : demande Adel — audit de tout le système avant refonte.
+
+**Tests :**
+- `tsc --noEmit -p packages/mobile` → ✅ 0 erreur
+- `npx jest --silent` (packages/mobile) → ✅ 255 tests, 41 suites, exit 0
+- `node scripts/verify-source-of-truth.cjs` → ✅ OK
+
+### 🔴 Priorité HAUTE — Design System : tokens incorrects dans composants cœur
+
+**SwipeDeck.tsx** (badges swipe PASSER/GARDER, lignes 88-91) :
+- `#FF5F83` pour PASSER → doit être `colors.pass` = `#FF5C72`
+- `#68F2B1` pour GARDER → doit être `colors.keep` = `#2DE1C2`
+
+**TrackActionRow.tsx** (composant central, lignes 146-147) :
+- `backgroundColor: '#1A1A2E'` → doit être `colors.backgroundCard` = `#1C1930`
+- `color: '#8B87A0'` icônes → aucun token (à créer `colors.iconMuted` ou substituer)
+
+### 🟡 Priorité MOYENNE — Hex durs restants (migration incomplète)
+
+Screens : OffersScreen (76), NotificationsScreen (56), MusicConnectionsScreen (45), PublicUserProfileScreen (24), MyMusicScreen (12), ProfilePublicScreen (6), SessionRecapScreen/SessionHistory/ProfileSettings (3 chacun).
+Components : PlaylistSalePanel (16), MusicServiceActivationModal (22), KeepBattleMobileGameV3 (21), MusicSwipeDeckModal (17), TrackRow (16).
+✅ Propres : HomeScreenCompact, DiscoverScreen, PartiesScreen (migration d7df56a effective).
+
+### 🟡 Git : repo local en retard
+
+Remote HEAD : `31ca3eb3` — fix(battle): filter online players + push token (8 commits après notre session). `git pull` obligatoire avant tout travail.
+
+### 🟡 Workflows / Secrets (actions Adel)
+
+- `eas-build-ios.yml` obsolète (Apple 401) toujours présent → supprimer manuellement.
+- Stripe : clés secrète/publique inversées dans `integration_secrets` → corriger.
+- Apple IAP : 0/6 secrets Supabase → voir `APP_STORE_CHECKLIST.md`.
+
+### ✅ OK
+
+Navigation.tsx, App.tsx, app.json ("Loki Music"), eas.json (production), anti-shazam 54a269d (offset+pitch+TTS dans audioPreviewService.ts), marketplace 3276a24 (fix prix, désactivée iOS intentionnel), branding unifié, identifiants techniques intacts.
+
+**Prochaines étapes :** GO Adel sur maquettes → git pull → corriger SwipeDeck+TrackActionRow → coder 3 refontes → migration hex OffersScreen/NotificationsScreen/MusicConnectionsScreen → actions Adel (eas-build-ios, Stripe, IAP).
+
+
+
+---
+
+## 2026-09-22 — Abacus AI : Déblocage migration + réparation build (tsc)
+
+**Déclencheur** : Adel — « fais un bon nettoyage, fais de la place pour débloquer la migration ».
+
+### Disque
+Aucun problème d'espace : `/home/ubuntu` = 705 Mo utilisés, 3,3 To libres. Nettoyage effectué de mes fichiers de travail (logs de test/build hors repo). Ce n'était pas le blocage.
+
+### Migration (vrai blocage) = repo local en retard
+Local était **137 commits derrière** `origin/reconcile/claude-main-20260825` (0 en avance). Fast-forward propre → local synchronisé sur `31ca3eb`. Le pull inclut aussi 6 migrations Supabase (`supabase/migrations/2026092222*.sql`). `AGENT_MESSAGES.md` : conflit résolu (contenus codex/chatgpt upstream + audit Abacus conservés).
+
+### 🔴 Build cassé sur la branche partagée (réparé)
+Après sync, `tsc --noEmit -p packages/mobile` = **15 erreurs** (introduites par des commits d'autres agents). Corrigées, uniquement par AJOUT (aucune suppression, tokens colors.ts) :
+- `HomeScreenCompact.tsx` : 11 styles utilisés dans le JSX mais jamais définis (idleHero, idleKicker, pulseStage, startIcon, idlePrivacy, livePanel, sectionHeader, sectionCount, sectionCountText, topTitleWrap, topEyebrow) → ajoutés au StyleSheet (tokens C.*/colors.*). ⚠️ Valeurs de layout à faire valider par Adel (design non fourni par le commit d'origine).
+- `KeepBattleMobileGameV3.tsx` : `statsChallengeDisabled` (opacity .5) + `statsChallengeDisabledText` (colors.warning) manquants → ajoutés.
+- `PushRegistrationLifecycle.tsx` : `supabase` possiblement null dans le callback AppState → optional chaining.
+- `keepAlert.ts` : `Alert.alert` appelé avec 4 args (options RN) non supportés → signature élargie (`onDismiss` rattaché, aucun comportement perdu).
+
+**Après fix : `tsc` = 0 erreur.** ✅
+
+### 🟡 Restent ROUGES (pré-existant, PAS causé par ce fix)
+Prouvé : mêmes échecs avec la version HEAD des fichiers (sans mes edits).
+- `jest` : 12 tests / 6 suites — features inachevées d'autres agents :
+  - `payoutLinkService` (détection PayPal.Me), `PublicUserProfileScreen.redesign` (retrait onglet Vibes + réordonnancement), `PlaylistSaleImmersivePreview` + `PlaylistSaleOwnershipLock` (wording/wiring boutique), `BattleNotificationActions.contract`, `KeepBattleMobileGameV3.compact` (marqueurs layout + plancher 11px).
+- `verify-source-of-truth.cjs` : `PROFILE SHARE MARKER MISSING: Mon QR Loki` (PublicUserProfileScreen, non édité ici).
+
+➡️ Ces rouges exigent de finir les features de leurs auteurs (hors scope de ce déblocage + nécessitent le GO d'Adel). À traiter par leurs propriétaires ou sur validation.
+
+### Push
+Commit de réparation build poussé sur `reconcile/claude-main-20260825` (hash dans le rapport). La branche **compile** de nouveau pour tous les agents.

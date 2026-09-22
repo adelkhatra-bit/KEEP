@@ -38,7 +38,7 @@ export default function PushRegistrationLifecycle() {
     // À chaque retour au premier plan, republier le token réel au serveur.
     const appState = AppState.addEventListener('change', (state) => {
       if (state !== 'active' || !alive) return;
-      void supabase.auth.getSession().then(({ data }) => {
+      void supabase?.auth.getSession().then(({ data }) => {
         if (data.session?.user?.id) void register();
       });
     });

@@ -608,6 +608,17 @@ function MiniStat({ value, label }: { value: string; label: string }) {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  idleHero: { width: '100%', alignItems: 'center' },
+  idleKicker: { color: C.purpleLight, fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 6, textAlign: 'center' },
+  pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
+  startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
+  idlePrivacy: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 12, maxWidth: 300 },
+  livePanel: { marginBottom: 8 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9, marginBottom: 6 },
+  sectionCount: { minWidth: 22, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  sectionCountText: { color: C.purpleLight, fontSize: 11, fontWeight: '900' },
+  topTitleWrap: { flexDirection: 'column' },
+  topEyebrow: { color: C.purpleLight, fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: 1 },
   topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   topBarSpacer: { width: 44 },
   round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },

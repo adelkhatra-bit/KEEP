@@ -15,8 +15,19 @@ type AlertButton = { text?: string; onPress?: () => void; style?: AlertButtonSty
  * l'OS impose lui-même (permission micro/GPS, sélecteur de photos, etc.) :
  * une application n'a pas le droit de les recolorer.
  */
-function brandedAlert(title: string, message?: string, buttons?: AlertButton[]) {
-  const list = buttons && buttons.length ? buttons : [{ text: 'OK' } as AlertButton];
+type AlertOptions = { cancelable?: boolean; onDismiss?: () => void };
+
+function brandedAlert(title: string, message?: string, buttons?: AlertButton[], options?: AlertOptions) {
+  // Compat signature React Native Alert.alert(title, message, buttons, options).
+  // La popup Loki est pilotée par boutons (file FIFO branded) : le sheet appelant
+  // fournit déjà un bouton "Annuler" qui résout sa promesse, donc onDismiss reste
+  // une sécurité redondante. On l'accepte pour ne casser aucun site d'appel et,
+  // si aucun bouton d'annulation n'est fourni, on rattache onDismiss à un bouton OK.
+  let list = buttons && buttons.length ? buttons : [{ text: 'OK' } as AlertButton];
+  if (options?.onDismiss && !list.some((b) => b.style === 'cancel')) {
+    const onDismiss = options.onDismiss;
+    list = list.map((b) => (b.text === 'OK' ? { ...b, onPress: () => { b.onPress?.(); onDismiss(); } } : b));
+  }
   useAlertStore.getState().show(title, message, list);
 }
 
