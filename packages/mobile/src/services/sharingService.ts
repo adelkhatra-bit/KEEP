@@ -476,3 +476,16 @@ export async function shareEvent(eventId: string, eventName: string): Promise<vo
 export async function shareBattleResult(resultLabel: string): Promise<void> {
   return presentShare(await attachReferral(buildContextCopy('battle', resultLabel)));
 }
+
+export async function shareBattleInvite(messagePrefix: string, link: string): Promise<void> {
+  const state = useUserStore.getState();
+  let finalLink = link;
+  if (state.user && !state.isLocalGuest && !state.isDemoMode) {
+    const code = await loadMyReferralCode().catch(() => '');
+    if (code) finalLink = appendReferralToLink(finalLink, code);
+  }
+  const result = await Share.share({ title: `Battle ${APP_NAME}`, message: `${messagePrefix.trim()}\n${finalLink}` });
+  if (!result?.action || result.action === Share.sharedAction) {
+    await trackShare('battle_share', `battle_invite_${Platform.OS === 'web' ? 'web' : 'native'}`);
+  }
+}
