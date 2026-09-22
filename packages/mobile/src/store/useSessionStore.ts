@@ -5,7 +5,8 @@ import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
 import { markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
+import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, MicPermissionDeniedError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
+import { Alert } from '../utils/keepAlert';
 import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
@@ -426,6 +427,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         await applyDetectedTrack(set, get, recognition, 'listen');
       } catch (e: any) {
         if (e instanceof MicCaptureCancelledError || !get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
+        if (e instanceof MicPermissionDeniedError) {
+          // Une permission réellement refusée n'est pas un "micro actif avec
+          // erreur". On ferme immédiatement la session de capture, libère les
+          // ressources et revient à l'état inactif. Le popup est celui du
+          // Design System Loki, jamais une Alert native.
+          const message = e.message;
+          get().requestEndSession();
+          set({ recognizing: false, micLevel: 0, error: message });
+          Alert.alert('Microphone bloqué', 'Autorise le microphone dans les réglages de ton appareil ou du site, puis appuie à nouveau sur ÉCOUTER MAINTENANT.');
+          return;
+        }
         set({ recognizing: false, micLevel: 0, error: e?.message ?? 'Erreur de reconnaissance' });
       }
     };
