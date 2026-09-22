@@ -227,14 +227,29 @@ async function playWebSegment(
   if (webAudioKey !== key) return;
   onStateChange?.(true);
 
-  activeTimer = setTimeout(() => {
+  // BUG MINEUR trouvé en audit runtime (Adel, 22/09/2026) : cette fonction ne
+  // se fiait qu'à une minuterie artificielle (durationMillis) pour signaler
+  // "extrait terminé" -- si le fichier réel est plus court (fin naturelle
+  // avant ce délai), l'élément <audio> s'arrête tout seul mais l'app continue
+  // d'afficher "en lecture" jusqu'à l'expiration du minuteur. On écoute
+  // maintenant aussi l'évènement natif `ended`, et on ne déclenche le
+  // nettoyage qu'une seule fois, quel que soit celui des deux qui arrive en
+  // premier.
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    if (activeTimer) { clearTimeout(activeTimer); activeTimer = null; }
+    element.removeEventListener('ended', finish);
     if (webAudioKey !== key || webAudio !== element) return;
     try { element.pause(); } catch {}
     webAudioListener?.(false);
     webAudioListener = null;
     webAudioKey = null;
     onEnded?.();
-  }, Math.max(1000, Math.round(durationMillis)));
+  };
+  element.addEventListener('ended', finish);
+  activeTimer = setTimeout(finish, Math.max(1000, Math.round(durationMillis)));
 }
 
 /**

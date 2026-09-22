@@ -910,9 +910,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         }
       }
       if (!alive) return;
-      // Extrait définitivement indisponible pour cette manche : on prévient
-      // et on passe à la suivante plutôt que de bloquer la partie en silence.
+      // BUG MINEUR trouvé en audit runtime (Adel, 22/09/2026) : cette manche
+      // disparaissait silencieusement (seulement un console.warn, invisible
+      // pour le joueur) -- vu depuis l'app, la manche saute sans explication,
+      // exactement ce qui ressemble à "l'app casse". On prévient maintenant
+      // clairement avant de passer à la suivante.
       console.warn(`[Battle SOLO] extrait indisponible manche ${soloIndex + 1}/${solo?.rounds.length}, passage à la suivante`);
+      Alert.alert('Manche sautée', 'Ce morceau est momentanément indisponible -- passage à la manche suivante.');
       setSoloIndex((v) => v + 1);
     };
     void start();
