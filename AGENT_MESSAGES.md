@@ -1326,3 +1326,31 @@ Commit de réparation build poussé sur `reconcile/claude-main-20260825` (hash d
 2. Code : `packages/admin/lib/integrationLinks.ts` — ajout de l'entrée `STRIPE_PUBLISHABLE_KEY` + libellés explicites (attendu `sk_…` pour la secrète, `pk_…` pour la publiable) pour éviter la ré-inversion. Commit **`21bc55a`** poussé sur `reconcile/claude-main-20260825` (`4f56cbd..21bc55a`).
 
 **⛔ Action requise côté Adel (je ne peux pas l'inventer) :** la vraie clé **`sk_live_…`** n'est stockée nulle part dans le Vault. La coller dans **Super Admin → Intégrations → Stripe → `STRIPE_SECRET_KEY`** (source : https://dashboard.stripe.com/apikeys). Tant que `STRIPE_SECRET_KEY` contient un `pk_…`, le bouton **« Vérifier »** restera rouge. Une fois la `sk_live_` collée → « Vérifier » doit passer au vert.
+
+
+### 🔴 PRIORITÉ 2 — Sécuriser les fonctions SECURITY DEFINER — ✅ audit + SQL de revue livrés (GO requis)
+- Racine : en Postgres, `CREATE FUNCTION` accorde `EXECUTE` à `PUBLIC` par défaut → `anon` peut appeler toute fonction non révoquée (d'où le « 179 »).
+- Audit repo : **239** fonctions `SECURITY DEFINER`, **34** volontairement ouvertes à `anon` (allowlist), **~210** exposées par défaut à durcir.
+- Livrables : `docs/security/P2_AUDIT_secdef_anon.md` + `docs/security/P2_REVOKE_secdef_anon_REVIEW.sql` (bloc dynamique idempotent : REVOKE public/anon hors allowlist, re-grant authenticated/service_role). **Placé hors migrations → ne s'applique pas seul.** Ne casse pas reconnaissance/auth.
+- 3 fonctions de l'allowlist à arbitrer (mutante `keep_guest_device_credit_consume`, `keep_playlist_sale_track_ids` non masqué, `keep_free_credit_breakdown_diagnostic`).
+- Commit **`ca18d7e`**. ⛔ Aucune révocation appliquée — **GO requis**.
+
+### 🔴 PRIORITÉ 3 — Plan sauvegarde `keep_fingerprint_hashes` — ✅ plan chiffré (rien supprimé)
+- Table (~510 852 lignes) : `hash bigint, track_id uuid, time_offset_ms int`, **pas de colonne date**.
+- 3 index : PK composite `(hash,track_id,time_offset_ms)` = essentiel ; **`keep_fingerprint_hashes_hash_idx (hash)` = REDONDANT** (la PK commence par `hash`) → gain sûr **~10–15 Mo** via `DROP INDEX CONCURRENTLY` ; `idx_..._track_id` = utile (cascade + maintenance).
+- VACUUM : ne pas lancer `VACUUM FULL` à l'aveugle (lock) → mesurer bloat d'abord, préférer `pg_repack`.
+- Archivage : impossible par date sans ajout additif d'un `created_at` ; déconseillé (réduit le rappel). Le gain réel = l'index redondant.
+- Requêtes de mesure fournies (je n'ai pas d'accès SQL direct → chiffres = estimations). Livrable : `docs/ops/P3_PLAN_keep_fingerprint_hashes.md`. Commit **`9b0a4a0`**.
+
+### 🟠 PRIORITÉ 4 — Réduire les workflows — ✅ proposition + liste (GO requis)
+- **65** workflows dont **43 jetables** (`-once`/`one-time-`/`one-shot-`) → à supprimer (CI, pas des features).
+- 22 restants : ~12 CI qui se chevauchent → fusionner en 1 `ci.yml` ; garder codeql, eas-update (OTA), native-build (fusion des 5 EAS), web-preview, deploy-keep-ai-relay, email-queue-retry (cron).
+- Pipeline unique proposé : **JS pur → OTA seulement ; natif/version → build**. Cible **65 → ~9** workflows.
+- Livrables : `docs/ci/P4_PROPOSITION_workflows.md` + `docs/ci/p4_jetables.txt`. Commit **`92a7c2b`**. ⛔ Aucune suppression — **GO requis** (je livre ensuite `ci.yml`/`native-build.yml` réels + tests).
+
+### 🟠 PRIORITÉ 5 — Branche défaut + keep-preview — ✅ diagnostic + étapes
+- **Défaut GitHub = `main`** (vérifié API) alors que tout est sur `reconcile/...` → **cause du keep-preview rouge**.
+- keep-preview testé EN DIRECT = **sain partout** : GitHub Pages 200, fonction Supabase 308 (nominal + `?u=`), build Vercel (`expo export --platform web` + `fix-web-export.cjs`) **exit 0** sur HEAD.
+- `keep-preview` n'est PAS un projet Vercel applicatif : c'est une fonction edge Supabase (pont 308). Le rouge = **projet Vercel dont la Production Branch pointe sur `main` (stale, build cassé pré-`4f56cbd`)**.
+- Réparation : Vercel → Settings → Git → **Production Branch = `reconcile/claude-main-20260825`** → Redeploy (vert prouvé en local). + étapes exactes pour changer le défaut GitHub.
+- Livrable : `docs/ops/P5_branche_defaut_et_keep_preview.md`.
