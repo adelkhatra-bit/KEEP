@@ -117,9 +117,7 @@ jobs:
 
             // 2. Ouvrir la bibliothèque KEEP et identifier la piste créée.
             await exact('Playlists').click();
-            const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
-            await allMusic.waitFor({ state: 'visible', timeout: 15000 });
-            await allMusic.click();
+            await page.getByText('Mes découvertes', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
             await page.waitForTimeout(300);
 
             const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
