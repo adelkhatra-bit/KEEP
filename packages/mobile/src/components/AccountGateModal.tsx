@@ -59,7 +59,7 @@ const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(4, 3, 8, 0.78)', justifyContent: 'center', alignItems: 'center', padding: spacing.md },
   sheet: { width: '100%', maxWidth: 520, maxHeight: '92%', backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: 18, paddingBottom: 24 },
   handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 16 },
-  cancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  cancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   cancelText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
   celebrateCard: { width: '100%', maxWidth: 360, alignSelf: 'center', marginBottom: '30%', backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.primary, padding: 26, alignItems: 'center' },
   celebrateIcon: { fontSize: 44 },
