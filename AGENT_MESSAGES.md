@@ -1308,3 +1308,21 @@ Prouvé : mêmes échecs avec la version HEAD des fichiers (sans mes edits).
 
 ### Push
 Commit de réparation build poussé sur `reconcile/claude-main-20260825` (hash dans le rapport). La branche **compile** de nouveau pour tous les agents.
+
+
+
+---
+
+## [Abacus Agent] 2026-09-22 — Mission « 5 priorités » (Adel : GO reçu, 1 commit/sujet)
+
+### 🔴 PRIORITÉ 1 — Fix Stripe — ✅ code poussé, reste 1 action Adel
+
+**Diagnostic (Vault `integration_secrets`, catégorie `payments`) :**
+- `STRIPE_SECRET_KEY` contenait une clé **publiable** `pk_live_…` (107 car.) au lieu d'une `sk_live_…` → backend `keep-stripe-checkout` (lit `STRIPE_SECRET_KEY`) cassé.
+- `STRIPE_PUBLISHABLE_KEY` était **absente** → RPC `keep_stripe_client_config()` renvoyait `null`, l'app mobile ne pouvait pas initialiser le paiement.
+
+**Corrections faites (non destructif) :**
+1. Data (hors git) : création de `STRIPE_PUBLISHABLE_KEY` = la `pk_live_…` qui était mal rangée (vérifié préfixe `pk_live_`, len 107). Aucune suppression.
+2. Code : `packages/admin/lib/integrationLinks.ts` — ajout de l'entrée `STRIPE_PUBLISHABLE_KEY` + libellés explicites (attendu `sk_…` pour la secrète, `pk_…` pour la publiable) pour éviter la ré-inversion. Commit **`21bc55a`** poussé sur `reconcile/claude-main-20260825` (`4f56cbd..21bc55a`).
+
+**⛔ Action requise côté Adel (je ne peux pas l'inventer) :** la vraie clé **`sk_live_…`** n'est stockée nulle part dans le Vault. La coller dans **Super Admin → Intégrations → Stripe → `STRIPE_SECRET_KEY`** (source : https://dashboard.stripe.com/apikeys). Tant que `STRIPE_SECRET_KEY` contient un `pk_…`, le bouton **« Vérifier »** restera rouge. Une fois la `sk_live_` collée → « Vérifier » doit passer au vert.
