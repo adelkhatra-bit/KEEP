@@ -159,7 +159,11 @@ export default function HomeScreenCompact({ navigation }: any) {
       wakeLockRef.current?.release?.().catch(() => {});
       wakeLockRef.current = null;
     };
-    if (!isActive) { release(); return; }
+    if (showMicPrimer) {
+    return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
+  }
+
+  if (!isActive) { release(); return; }
     const acquire = async () => {
       try {
         const lock = await (navigator as any).wakeLock.request('screen');
@@ -366,17 +370,23 @@ export default function HomeScreenCompact({ navigation }: any) {
       <SafeAreaView style={s.container}>
         <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
         <View style={s.idle}>
-          <SessionPulse active size={120} />
-          <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
-          <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
-          {error ? <Text style={s.error}>{error}</Text> : null}
-          {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
-          {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
-          <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>▶️  ÉCOUTER</Text></TouchableOpacity>
-          {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
+          <View style={s.idleHero}>
+            <Text style={s.idleKicker}>RECONNAISSANCE MUSICALE</Text>
+            <View style={s.pulseStage}><SessionPulse active size={132} /></View>
+            <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
+            <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
+            {error ? <Text style={s.error}>{error}</Text> : null}
+            {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
+            {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
+            <TouchableOpacity style={s.start} onPress={startSession} accessibilityRole="button" accessibilityLabel="Démarrer une écoute">
+              <Text style={s.startIcon}>●</Text><Text style={s.startText}>ÉCOUTER MAINTENANT</Text>
+            </TouchableOpacity>
+            <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
+            {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
+          </View>
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
             <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Test : capter le son d\u2019un onglet'}</Text>
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Tester avec le son d’un onglet'}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -390,10 +400,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   const rightOpacity = signalScan.interpolate({ inputRange: [0, 0.22, 0.38, 0.52, 1], outputRange: [0.15, 0.15, 1, 0.15, 0.15] });
   const bottomOpacity = signalScan.interpolate({ inputRange: [0, 0.48, 0.64, 0.77, 1], outputRange: [0.15, 0.15, 1, 0.15, 0.15] });
   const leftOpacity = signalScan.interpolate({ inputRange: [0, 0.72, 0.88, 1], outputRange: [0.15, 0.15, 1, 0.15] });
-
-  if (showMicPrimer) {
-    return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
-  }
 
   return (
     <SafeAreaView style={s.container}>
