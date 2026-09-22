@@ -131,8 +131,8 @@ export default function SessionHistoryScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
-        <Text style={styles.title}>{t('history.title')}</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
+        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>HISTORIQUE</Text><Text style={styles.title}>{t('history.title')}</Text></View>
         <TouchableOpacity
           style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
           onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
@@ -152,36 +152,39 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  backArrow: { color: colors.textPrimary, fontSize: 22 },
-  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
-  planBadge: { minHeight: 30, minWidth: 70, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  planBadgeFree: { backgroundColor: '#10271F', borderColor: '#3BCB8B' },
-  planBadgePaid: { backgroundColor: '#25183B', borderColor: colors.primaryLight },
+  header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
+  headerCopy:{flex:1,minWidth:0},
+  headerEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
+  title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
+  planBadge: { minHeight: 44, minWidth: 82, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  planBadgeFree: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.keep },
+  planBadgePaid: { backgroundColor: 'rgba(124,92,252,0.12)', borderColor: colors.primaryLight },
   planBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: .3 },
-  planBadgeFreeText: { color: '#68F2B1' },
+  planBadgeFreeText: { color: colors.keep },
   planBadgePaidText: { color: colors.primaryLight },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyEmoji: { fontSize: 40, marginBottom: spacing.md },
   emptyText: { color: colors.textSecondary, fontSize: 14, textAlign: 'center' },
-  list: { padding: spacing.xl, gap: spacing.md },
-  card: { backgroundColor: colors.backgroundCard, borderRadius: radius.lg, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xxxl },
+  card: { backgroundColor: colors.backgroundElevated, borderRadius: 20, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   cardNeedsSorting: { borderColor: colors.primaryLight },
-  cardMain: { padding: spacing.lg },
+  cardMain: { minHeight: 82, paddingHorizontal: spacing.md, paddingVertical: spacing.md, justifyContent:'center' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { ...typography.bodyBold, color: colors.textPrimary, flex: 1, marginRight: spacing.sm, textTransform: 'capitalize' },
   cardTime: { color: colors.textMuted, fontSize: 12 },
   cardStats: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
   liveHint: { color: colors.keep, fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
   lockedHint: { color: colors.primaryLight, fontSize: 11, lineHeight: 16, marginTop: 5, fontWeight: '800' },
-  cardFooter: { minHeight: 42, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
-  sortButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRightWidth: 1, borderRightColor: colors.border },
+  cardFooter: { minHeight: 48, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
+  sortButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRightWidth: 1, borderRightColor: colors.border },
   sortText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   // BUG RÉEL (Adel, 01/09/2026, capture à l'appui) : ce bouton n'avait ni
   // fond ni contour -- juste du texte rouge posé dans le pied de carte, donc
   // rien n'indiquait visuellement qu'on pouvait appuyer dessus à côté du
   // bouton SWIPER, lui bien rempli en violet juste à côté.
-  deleteButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,107,134,.08)' },
+  deleteButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,92,114,.10)' },
   deleteButtonFull: { flex: 1 },
   deleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
 });
