@@ -23,10 +23,11 @@ export type UsernameAccountMode = 'create' | 'login';
 // Champs auth : surface un peu plus claire que le popup, placeholder gris clair,
 // bord violet au focus. L'objectif est qu'un champ vide ressemble immédiatement
 // à une zone éditable sans transformer le thème sombre Loki en formulaire blanc.
-const AUTH_INPUT_BACKGROUND = '#262238';
-const AUTH_INPUT_BACKGROUND_FOCUSED = '#2C2840';
-const AUTH_INPUT_BORDER = '#4A455F';
-const AUTH_INPUT_PLACEHOLDER = '#C1BDC9';
+const AUTH_INPUT_BACKGROUND = '#312C43';
+const AUTH_INPUT_BACKGROUND_FOCUSED = '#3A3450';
+const AUTH_INPUT_BORDER = '#625B77';
+const AUTH_INPUT_PLACEHOLDER = '#BDB8C7';
+const AUTH_INPUT_TEXT = '#ECE8F2';
 
 type Props = {
   initialMode?: UsernameAccountMode;
@@ -410,7 +411,7 @@ const s = StyleSheet.create({
   title:{color:colors.textPrimary,fontSize:24,lineHeight:30,fontWeight:'800',textAlign:'center',marginBottom:2},
   subtitle:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginBottom:12,paddingHorizontal:8},
   followHint:{color:colors.primaryLight,fontSize:12,lineHeight:17,fontWeight:'800',textAlign:'center',marginBottom:2},
-  input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
+  input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,paddingHorizontal:16,color:AUTH_INPUT_TEXT,fontSize:16},
   inputFocus:{borderColor:colors.primaryLight,backgroundColor:AUTH_INPUT_BACKGROUND_FOCUSED},
   labelRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8,marginBottom:1},
   label:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.8},
@@ -418,7 +419,7 @@ const s = StyleSheet.create({
   infoText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
   tooltip:{color:colors.textSecondary,fontSize:12,lineHeight:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primaryLight,borderRadius:12,paddingHorizontal:12,paddingVertical:10,marginTop:1},
   passwordRow:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,flexDirection:'row',alignItems:'center'},
-  passwordInput:{flex:1,height:50,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
+  passwordInput:{flex:1,height:50,paddingHorizontal:16,color:AUTH_INPUT_TEXT,fontSize:16},
   eye:{width:52,height:52,alignItems:'center',justifyContent:'center'},
   eyeText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
   suggestButton:{minHeight:44,borderRadius:21,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:12,paddingVertical:7,marginTop:2},
