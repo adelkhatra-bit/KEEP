@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Soirées Loki Music -- maquette</title>
+<style>
+  body{background:#0B0A12;color:#F5F5F7;font-family:-apple-system,sans-serif;padding:20px;max-width:420px;margin:0 auto}
+  h1{font-size:20px;font-weight:900;margin:0 0 12px}
+  .topTabs{display:flex;gap:8px;margin-bottom:14px}
+  .topTab{flex:1;text-align:center;padding:10px 4px;border-radius:12px;background:#1A1A2E;border:1px solid #2A2A3A;font-size:12px;font-weight:800}
+  .topTab.on{background:#7C5CFC;border-color:#7C5CFC}
+
+  .creatorBanner{background:linear-gradient(135deg,rgba(124,92,252,.18),rgba(124,92,252,.04));border:1px solid #7C5CFC;border-radius:14px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#A78BFA;font-weight:700}
+
+  .hero{border-radius:20px;overflow:hidden;position:relative;background:linear-gradient(160deg,#0B0A12 10%,#5B3FE0 100%);padding:20px 16px 16px;margin-bottom:14px}
+  .statusBadge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.35);font-size:10px;font-weight:900;margin-bottom:10px}
+  .liveDot{width:7px;height:7px;border-radius:4px;background:#2DE1C2;animation:pulse 1.1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .modBadge{display:inline-block;padding:4px 9px;border-radius:8px;font-size:10px;font-weight:900;margin-left:6px}
+  .modBadge.pending{background:rgba(255,193,7,.15);color:#FFC107;border:1px solid #FFC107}
+  .modBadge.rejected{background:rgba(255,92,114,.15);color:#FF5C72;border:1px solid #FF5C72}
+  .modBadge.draft{background:rgba(160,160,176,.15);color:#A0A0B0;border:1px solid #A0A0B0}
+  .modBadge.approved{background:rgba(45,225,194,.15);color:#2DE1C2;border:1px solid #2DE1C2}
+  .heroTitle{font-size:22px;font-weight:900;margin-top:4px}
+  .heroMeta{font-size:12px;color:#E2DAEA;margin-top:6px}
+
+  .rsvpRow{display:flex;gap:10px;margin-bottom:16px}
+  .rsvpBtn{flex:1;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+  .rsvpGoing{background:#2DE1C2;color:#0B0A12}
+  .rsvpNotGoing{background:#FF5C72;color:#fff}
+
+  .eventTabs{display:flex;gap:8px;margin-bottom:14px}
+  .eventTab{flex:1;text-align:center;padding:9px 4px;border-radius:10px;background:#1A1A2E;border:1px solid #2A2A3A;font-size:11px;font-weight:800}
+  .eventTab.on{background:#151320;border-color:#7C5CFC;color:#A78BFA}
+
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+  .avatar{width:48px;height:48px;border-radius:24px;background:#1C1930;border:2px solid #2DE1C2;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px}
+  .avatar.maybe{border-color:#FFC107;opacity:.9}
+  .avatar.notgoing{border-color:#2A2A3A;opacity:.45}
+
+  .podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-bottom:14px}
+  .podStep{text-align:center;font-size:11px;font-weight:800}
+  .podBar{border-radius:10px 10px 0 0;background:#1A1A2E;border:1px solid #2A2A3A;display:flex;align-items:end;justify-content:center;font-size:20px;padding-bottom:6px}
+  .rankRow{display:flex;align-items:center;justify-content:space-between;background:#151320;border-radius:10px;padding:8px 12px;margin-top:6px;font-size:12px}
+  .rankRow.mine{background:rgba(124,92,252,.18);border:1px solid #7C5CFC}
+
+  .trackRow{display:flex;align-items:center;gap:10px;background:#151320;border-radius:12px;padding:8px;margin-top:8px}
+  .cover{width:48px;height:48px;border-radius:9px;background:#1C1930;flex-shrink:0}
+  .info{flex:1}
+  .trackTitle{font-size:13px;font-weight:800}
+  .artist{font-size:11px;color:#A0A0B0}
+  .actions{display:flex;gap:6px}
+  .sq{width:32px;height:32px;border-radius:8px;background:#1A1A2E;display:flex;align-items:center;justify-content:center;font-size:13px}
+
+  .fab{margin-top:16px;min-height:48px;border-radius:24px;background:#7C5CFC;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+</style>
+</head>
+<body>
+  <h1>SOIRÉES</h1>
+  <div class="topTabs">
+    <div class="topTab on">SOIRÉES</div>
+    <div class="topTab">⚡ BATTLE</div>
+  </div>
+
+  <div class="creatorBanner">✨ Creator Pro -- crée jusqu'à 2 soirées/mois et débloque le classement complet</div>
+
+  <div class="hero">
+    <span class="statusBadge"><span class="liveDot"></span>EN COURS</span>
+    <span class="modBadge pending">⏳ En attente de validation</span>
+    <div class="heroTitle">Rooftop Session Lyon</div>
+    <div class="heroMeta">📍 Le Sucre, Lyon &nbsp;·&nbsp; 🕒 Ce soir, 22h00</div>
+  </div>
+
+  <div class="rsvpRow">
+    <div class="rsvpBtn rsvpNotGoing">✕ Je passe</div>
+    <div class="rsvpBtn rsvpGoing">✓ J'y vais</div>
+  </div>
+
+  <div class="eventTabs">
+    <div class="eventTab on">LOBBY</div>
+    <div class="eventTab">CLASSEMENT</div>
+    <div class="eventTab">PLAYLIST</div>
+  </div>
+
+  <!-- LOBBY : grille participants -->
+  <div class="grid">
+    <div class="avatar">J</div>
+    <div class="avatar">M</div>
+    <div class="avatar maybe">L</div>
+    <div class="avatar notgoing">K</div>
+    <div class="avatar">A</div>
+  </div>
+
+  <!-- CLASSEMENT (référence, affiché dans la maquette sous le lobby pour montrer le podium) -->
+  <div class="podium">
+    <div class="podStep"><div class="podBar" style="height:50px;width:56px">🥈</div>Maxime<br>320 pts</div>
+    <div class="podStep"><div class="podBar" style="height:70px;width:56px">🥇</div>Julie<br>410 pts</div>
+    <div class="podStep"><div class="podBar" style="height:36px;width:56px">🥉</div>Léa<br>260 pts</div>
+  </div>
+  <div class="rankRow mine"><span>4. Toi</span><span>190 pts</span></div>
+  <div class="rankRow"><span>5. Karim</span><span>150 pts</span></div>
+
+  <!-- PLAYLIST (style TrackActionRow) -->
+  <div class="trackRow">
+    <div class="cover"></div>
+    <div class="info"><div class="trackTitle">Padam Padam</div><div class="artist">Kylie Minogue</div></div>
+    <div class="actions"><div class="sq">▶</div><div class="sq">♡</div></div>
+  </div>
+  <div class="trackRow">
+    <div class="cover"></div>
+    <div class="info"><div class="trackTitle">Titi m'a dit</div><div class="artist">Aya Nakamura</div></div>
+    <div class="actions"><div class="sq">▶</div><div class="sq">♡</div></div>
+  </div>
+
+  <div class="fab">＋ CRÉER UNE SOIRÉE · 2/MOIS</div>
+
+  <p style="color:#8080A0;font-size:11px;margin-top:20px;line-height:1.5">
+    Note maquette : badge d'état affiché uniquement au créateur, avec 4 variantes
+    -- draft (gris), pending (jaune, ⏳ En attente de validation), rejected
+    (corail, ⚠️ À corriger), approved (menthe, discret/masqué une fois publié).
+    Boutons Modifier / Participants / Supprimer (créateur), modal "Voir tous les
+    participants", bouton MON CLASSEMENT, lanceur Loki Music Battle et vente de
+    billets (🎟 Payer XX€ à la place de J'y vais) restent identiques au code
+    actuel -- non redessinés ici.
+  </p>
+</body>
+</html>
