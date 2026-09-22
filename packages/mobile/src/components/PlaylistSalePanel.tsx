@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
-import { Alert as KeepAlert } from '../utils/keepAlert';
+import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 
@@ -77,7 +77,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
   const handleMarkPaid = (transaction: PlaylistSaleTransaction) => {
     Alert.alert(
       'Confirmer la réception du paiement',
-      `Confirme uniquement si tu as bien reçu ${(transaction.amountCents / 100).toFixed(2)} ${transaction.currencyCode} de @${transaction.counterpartUsername} sur ton lien de paiement personnel. Ça débloquera "${transaction.playlistName}" pour lui.`,
+      `Confirme uniquement si tu as bien reçu ${(transaction.amountCents / 100).toFixed(2).replace('.', ',')} ${transaction.currencyCode} de @${transaction.counterpartUsername} sur ton lien de paiement personnel. Ça débloquera "${transaction.playlistName}" pour lui.`,
       [
         { text: 'Annuler', onPress: () => {} },
         {
@@ -89,13 +89,13 @@ export default function PlaylistSalePanel({ navigation }: any) {
               const providerSync = await syncMarketplaceDelivery(transaction.id).catch(() => null);
               await loadData();
               if (!providerSync?.connectedProviders) {
-                KeepAlert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki Music de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
+                Alert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki Music de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
               } else {
                 const complete = providerSync.results.filter((row) => row.status === 'COMPLETE').map((row) => row.provider).join(', ');
-                KeepAlert.alert('Playlist livrée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
+                Alert.alert('Playlist livrée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
               }
             } catch (e: any) {
-              KeepAlert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
+              Alert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
             } finally {
               setBusy(false);
             }
@@ -118,7 +118,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
 
   const handleSetPrice = async (playlistId: string, playlistName: string, priceCents: number) => {
     if (!PRICE_PRESETS.includes(priceCents as (typeof PRICE_PRESETS)[number])) {
-      KeepAlert.alert('Prix invalide', 'Choisis un des prix proposés.');
+      Alert.alert('Prix invalide', 'Choisis un des prix proposés.');
       return;
     }
     setBusy(true);
@@ -126,9 +126,9 @@ export default function PlaylistSalePanel({ navigation }: any) {
       await setPlaylistSalePrice(playlistId, playlistName, priceCents);
       await loadData();
       setEditing(null);
-      KeepAlert.alert('Succès', `Playlist en vente pour ${(priceCents / 100).toFixed(2)}€.`);
+      Alert.alert('Succès', `Playlist en vente pour ${(priceCents / 100).toFixed(2).replace('.', ',')}€.`);
     } catch (e: any) {
-      KeepAlert.alert('Erreur', e?.message || 'Impossible de fixer le prix.');
+      Alert.alert('Erreur', e?.message || 'Impossible de fixer le prix.');
     } finally {
       setBusy(false);
     }
@@ -144,9 +144,9 @@ export default function PlaylistSalePanel({ navigation }: any) {
           try {
             await clearPlaylistSalePrice(playlistId);
             await loadData();
-            KeepAlert.alert('Succès', 'Playlist retirée de la vente.');
+            Alert.alert('Succès', 'Playlist retirée de la vente.');
           } catch (e: any) {
-            KeepAlert.alert('Erreur', e?.message || 'Impossible de désactiver.');
+            Alert.alert('Erreur', e?.message || 'Impossible de désactiver.');
           } finally {
             setBusy(false);
           }
@@ -270,7 +270,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                         <View style={s.offerInfo}>
                           <Text style={s.offerName}>{item.playlistName}</Text>
                           <Text style={s.offerPrice}>
-                            {(item.priceCents / 100).toFixed(2)}€ {item.currencyCode}
+                            {(item.priceCents / 100).toFixed(2).replace('.', ',')}€ {item.currencyCode}
                           </Text>
                         </View>
                         <View style={s.offerBadge}>
@@ -386,7 +386,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                     onPress={() => setEditing({ ...editing, priceCents })}
                   >
                     <Text style={[s.pricePresetText, selected && s.pricePresetTextSelected]}>
-                      {(priceCents / 100).toFixed(2)} €
+                      {(priceCents / 100).toFixed(2).replace('.', ',')} €
                     </Text>
                   </TouchableOpacity>
                 );
