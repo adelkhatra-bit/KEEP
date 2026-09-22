@@ -62,6 +62,38 @@ function sortGateLabel(access: QuotaAccess | null) {
   return '🔒 VIBES AUTOMATIQUES';
 }
 
+// Adel : le serveur (RPC keep_playlist_sale_set_price_for_selection_v2) lève des
+// exceptions typées. On les traduit une à une en français clair au lieu d'avaler
+// tous les cas dans un « Impossible d'enregistrer ce prix ». Code brut affiché si
+// inconnu, jamais de message générique silencieux.
+const SALE_SAVE_ERROR_MESSAGES: Record<string, string> = {
+  authentication_required: 'Ta session a expiré, reconnecte-toi puis réessaie.',
+  TRACK_SELECTION_REQUIRED: 'Sélectionne au moins un titre.',
+  TRACK_SELECTION_TOO_LARGE: 'Maximum 200 titres par vente.',
+  PRICE_MUST_BE_A_PRESET_AMOUNT: 'Choisis un des prix proposés ou saisis un montant valide.',
+  PLAYLIST_NAME_TOO_LONG: 'Le nom de la playlist est trop long (100 caractères max).',
+  COVER_URL_MUST_BE_HTTPS: "L'image de couverture doit être en HTTPS.",
+  TRACK_SELECTION_NOT_OWNED: "Tu ne peux vendre que les morceaux que tu as toi-même découverts. Un ou plusieurs titres de ta sélection viennent d'autres profils — retire-les.",
+  OFFER_NOT_FOUND_OR_NOT_YOURS: "Cette offre est introuvable ou ne t'appartient pas.",
+  OFFER_NOT_ACTIVE: "Cette offre n'est plus active.",
+  TRACK_NOT_IN_OFFER: "Ce morceau ne fait pas partie de l'offre.",
+};
+
+const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?: number | null): string => {
+  const msg = String(raw || '');
+  const lockedMatch = msg.match(/PLAYLIST_SALE_LOCKED(?::\s*(\d+))?/);
+  if (lockedMatch) {
+    const required = Number(lockedMatch[1] ?? threshold ?? 100);
+    const current = Number(followers ?? 0);
+    const missing = Math.max(required - current, 0);
+    return `Il te faut au moins ${required} abonnés pour vendre` + (missing > 0 ? ` (il t'en manque ${missing}).` : '.');
+  }
+  for (const code of Object.keys(SALE_SAVE_ERROR_MESSAGES)) {
+    if (msg.includes(code)) return SALE_SAVE_ERROR_MESSAGES[code];
+  }
+  return `Une erreur inattendue est survenue${msg ? ` (${msg})` : ''}. Réessaie ou contacte le support.`;
+};
+
 export default function MyMusicScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { playlists, isLoading, refresh } = usePlaylistStore();
@@ -615,9 +647,8 @@ export default function MyMusicScreen({ navigation }: any) {
       if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) cancelSaleSelection();
       closeSellModal();
     } catch (e: any) {
-      const message = String(e?.message || e || '');
-      if (message.includes('PLAYLIST_SALE_LOCKED')) Alert.alert('Vendre', 'Débloqué à partir d’un certain nombre d’abonnés.');
-      else Alert.alert('Vendre', 'Impossible d’enregistrer ce prix pour le moment.');
+      const raw = String(e?.message || e || '');
+      Alert.alert('Vendre', resolveSaleSaveError(raw, saleAccess?.followers, saleAccess?.threshold));
     } finally {
       setSellBusy(false);
     }
