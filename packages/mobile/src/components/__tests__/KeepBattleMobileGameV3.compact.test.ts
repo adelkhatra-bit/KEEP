@@ -452,4 +452,20 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).toContain('FREE INSUFFISANTS');
   });
 
+  it('never exposes an actionable Battle invite when the target lacks the current stake', () => {
+    expect(battle).toContain('const opponentNeedsMoreFree = React.useCallback');
+    expect(battle).toContain('const freshTarget = await loadLiveSoloPlayers(30)');
+    expect(battle).toContain('n’a que ${freshTarget.remainingFree} Free');
+    expect(battle).toContain('Aucun adversaire avec assez de Free');
+    expect(battle).toContain('Free · indisponible');
+    expect(battle).toContain("targetShort ? `${p.remainingFree}/${stakeForRounds(roundCount)} FREE` : 'BATTLE'");
+  });
+
+  it('applies the same no-credit guard to player stats and arena invitations', () => {
+    expect(battle).toContain('disabled={insufficientForOpponent(statsPlayer)}');
+    expect(battle).toContain('targetShort = opponentNeedsMoreFree(player, arena.roundCount)');
+    expect(battle).toContain('disabled={invited || blocked || targetShort || Boolean(arenaInviteBusyId)}');
+    expect(battle).toContain('BATTLE_TARGET_NO_CREDIT');
+  });
+
 });
