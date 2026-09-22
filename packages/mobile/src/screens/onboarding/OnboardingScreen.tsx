@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StyleSh
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
+import OnboardingGenresScreen from './OnboardingGenresScreen';
 import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
 import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
 import { useUserStore } from '../../store/useUserStore';
@@ -79,6 +80,11 @@ export default function OnboardingScreen() {
   const [accountOpen, setAccountOpen] = useState(Boolean(intent.mode || intent.followUsername));
   const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || (intent.followUsername ? 'login' : 'create'));
   const [busy, setBusy] = useState(false);
+  // Maquette validée (docs/mockups/Onboarding.html, 22/09/2026) : après une
+  // création de compte réussie, on propose le choix des styles musicaux
+  // avant de rejoindre l'app. Ignoré pour une simple connexion (compte déjà
+  // configuré) et skippable à tout moment ("Passer cette étape").
+  const [genresOpen, setGenresOpen] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -138,7 +144,14 @@ export default function OnboardingScreen() {
   };
 
   const finishAccount = () => {
-    void claimPendingReferral().catch(() => false).finally(closeAccount);
+    void claimPendingReferral().catch(() => false);
+    const createdAccount = accountMode === 'create';
+    const hasGenres = (useUserStore.getState().user?.favoriteGenres.length ?? 0) > 0;
+    if (createdAccount && !hasGenres) {
+      setGenresOpen(true);
+      return;
+    }
+    closeAccount();
   };
 
   const continueWithoutSignup = async () => {
@@ -151,6 +164,15 @@ export default function OnboardingScreen() {
   // lien partagé : il reste disponible uniquement si un développeur l'active
   // explicitement dans un build __DEV__.
   const showDemo = __DEV__ && process.env.EXPO_PUBLIC_KEEP_SHOW_DEMO === '1';
+
+  if (genresOpen) {
+    return (
+      <OnboardingGenresScreen
+        onDone={() => { setGenresOpen(false); closeAccount(); }}
+        onSkip={() => { setGenresOpen(false); closeAccount(); }}
+      />
+    );
+  }
 
   if (accountOpen) {
     return (
