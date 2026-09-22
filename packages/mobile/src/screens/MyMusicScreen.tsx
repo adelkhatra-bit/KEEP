@@ -1034,17 +1034,17 @@ export default function MyMusicScreen({ navigation }: any) {
 
       {activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
         <Text style={styles.originSummaryText}>
-          <Text style={styles.originOwnCount}>{ownDiscoveryEntries.length} depuis tes écoutes</Text>
+          <Text style={styles.originOwnCount}>{ownDiscoveryEntries.length} découverts</Text>
           {' · '}
-          <Text style={styles.originSocialCount}>{socialRepriseEntries.length} depuis des utilisateurs</Text>
+          <Text style={styles.originSocialCount}>{socialRepriseEntries.length} repris</Text>
           {' · Total '}
           <Text style={styles.originTotalCount}>{localKeptEntries.length}</Text>
         </Text>
         <View style={styles.originFilters}>
           {([
             ['ALL', `TOUT · ${localKeptEntries.length}`],
-            ['LISTEN', `ÉCOUTES · ${ownDiscoveryEntries.length}`],
-            ['USERS', `UTILISATEURS · ${socialRepriseEntries.length}`],
+            ['LISTEN', `DÉCOUVERTES · ${ownDiscoveryEntries.length}`],
+            ['USERS', `REPRISES · ${socialRepriseEntries.length}`],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
               key={key}
@@ -1117,7 +1117,7 @@ export default function MyMusicScreen({ navigation }: any) {
                 <View style={styles.originSectionTitleRow}>
                   <Text style={styles.originSectionIcon}>{originFilter === 'USERS' ? '👥' : '🎧'}</Text>
                   <Text style={[styles.originSectionTitle, originFilter === 'USERS' ? styles.originSectionTitleSocial : styles.originSectionTitleOwn]}>
-                    {originFilter === 'USERS' ? "Musiques reprises d'autres utilisateurs" : 'Musiques de mes écoutes'}
+                    {originFilter === 'USERS' ? "🔒 Reprises d'autres utilisateurs" : 'Mes découvertes'}
                   </Text>
                 </View>
                 <Text style={[styles.originSectionCount, originFilter === 'USERS' ? styles.originSectionCountSocial : styles.originSectionCountOwn]}>
@@ -1134,7 +1134,7 @@ export default function MyMusicScreen({ navigation }: any) {
               accessibilityState={{ expanded: socialSectionExpanded }}
               accessibilityLabel="Afficher ou masquer les musiques reprises d'autres utilisateurs"
             >
-              <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>👥</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleSocial]}>Musiques reprises d'autres utilisateurs</Text></View>
+              <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>👥</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleSocial]}>🔒 Reprises d'autres utilisateurs</Text></View>
               <View style={styles.originSectionRight}><Text style={[styles.originSectionCount, styles.originSectionCountSocial]}>{socialRepriseEntries.length} titres</Text><Text style={styles.originSectionChevron}>{socialSectionExpanded ? '⌄' : '›'}</Text></View>
             </TouchableOpacity>
             {socialSectionExpanded ? <View style={styles.originSectionBody}>{socialRepriseTracks.map((track) => (

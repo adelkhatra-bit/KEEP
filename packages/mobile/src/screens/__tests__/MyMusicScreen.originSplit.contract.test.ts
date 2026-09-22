@@ -15,14 +15,14 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
   });
 
   it('affiche deux sections explicitement nommées et trois filtres immédiats', () => {
-    expect(screen).toContain('Musiques de mes écoutes');
-    expect(screen).toContain("Musiques reprises d'autres utilisateurs");
-    expect(screen).toContain('depuis tes écoutes');
-    expect(screen).toContain('depuis des utilisateurs');
+    expect(screen).toContain('Mes découvertes');
+    expect(screen).toContain("🔒 Reprises d'autres utilisateurs");
+    expect(screen).toContain('découverts');
+    expect(screen).toContain('repris');
     expect(screen).toContain("useState<'ALL' | 'LISTEN' | 'USERS'>('ALL')");
     expect(screen).toContain("['ALL', `TOUT · ${localKeptEntries.length}`]");
-    expect(screen).toContain("['LISTEN', `ÉCOUTES · ${ownDiscoveryEntries.length}`]");
-    expect(screen).toContain("['USERS', `UTILISATEURS · ${socialRepriseEntries.length}`]");
+    expect(screen).toContain("['LISTEN', `DÉCOUVERTES · ${ownDiscoveryEntries.length}`]");
+    expect(screen).toContain("['USERS', `REPRISES · ${socialRepriseEntries.length}`]");
     expect(screen).toContain("originFilter === 'USERS' ? socialRepriseTracks : ownDiscoveryTracks");
   });
 
