@@ -259,6 +259,14 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
       name: APP_NAME,
       description: 'Nouveaux abonnés, nouveaux morceaux gardés et événements',
       importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+    });
+    await Notifications.setNotificationChannelAsync('money', {
+      name: `${APP_NAME} · Paiements reçus`,
+      description: 'Ventes et paiements reçus par le propriétaire du profil',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'keep-money.wav',
+      vibrationPattern: [0, 120, 70, 140],
     });
   }
 
