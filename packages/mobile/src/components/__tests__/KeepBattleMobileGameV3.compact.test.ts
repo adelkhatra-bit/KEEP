@@ -351,6 +351,13 @@ describe('Loki Music Battle credit gating from SOLO invite rail (audit 22/09/202
     expect(battle).toContain('if (await challenge(player)) sentCount += 1;');
     expect(battle).toContain('if (sentCount < 1) return;');
   });
+
+  it('drops an expired/stale building arena before sending a new invite', () => {
+    expect(battle).toContain('const existingArena = await loadKeepBattleArena(arenaId).catch(() => null);');
+    expect(battle).toContain("existingArena.status !== 'WAITING'");
+    expect(battle).toContain('existingArena.openSeats <= 0');
+    expect(battle).toContain('setBuildingArena(null);');
+  });
 });
 
 describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 21/09/2026 : case à cocher + barre fixe "Démarrer la Battle")', () => {
