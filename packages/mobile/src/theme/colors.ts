@@ -28,6 +28,10 @@ export const colors = {
   textPrimary: '#FFFFFF',
   textSecondary: '#FFFFFF',
   textMuted: '#FFFFFF',
+  // Gris secondaire #A0A0B0 — dérogation explicite d'Adel (spec refonte
+  // accueil 22/09/2026) pour les textes non fonctionnels : sous-titres et
+  // liens ghost.
+  textMutedGrey: '#A0A0B0',
 
   // États
   success: '#2DE1C2',

@@ -30,6 +30,7 @@ const C = {
   yellow: colors.keep, // action GARDER = menthe (#2DE1C2), jamais le jaune hors charte
   pink: colors.pass,
   muted: colors.textMuted,
+  mutedGrey: colors.textMutedGrey, // sous-titres / liens ghost (spec Adel 22/09/2026)
   text: colors.textPrimary,
 };
 
@@ -342,17 +343,17 @@ export default function HomeScreenCompact({ navigation }: any) {
       <SafeAreaView style={s.container}>
         <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
         <View style={s.idle}>
-          <SessionPulse active={false} />
+          <SessionPulse active size={120} />
           <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
           <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
           {error ? <Text style={s.error}>{error}</Text> : null}
           {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
           {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
-          <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>♪  ÉCOUTER</Text></TouchableOpacity>
+          <TouchableOpacity style={s.start} onPress={startSession} accessibilityLabel="Démarrer une écoute"><Text style={s.startText}>▶️  ÉCOUTER</Text></TouchableOpacity>
           {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
             <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours…' : '🖥️ Test : capter le son d’un onglet'}</Text>
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Test : capter le son d\u2019un onglet'}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -563,7 +564,7 @@ const s = StyleSheet.create({
   topBarSpacer: { width: 44 },
   round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   roundText: { color: C.text, fontSize: 28, lineHeight: 30, fontWeight: '700' },
-  brand: { color: C.text, fontSize: 24, fontWeight: '900', letterSpacing: 5 },
+  brand: { color: C.text, fontSize: 28, fontWeight: '900', letterSpacing: 5 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   planFree: { borderColor: colors.keepPressed, backgroundColor: 'rgba(45,225,194,0.12)' },
   planFreeText: { color: C.green },
@@ -571,14 +572,14 @@ const s = StyleSheet.create({
   planExhaustedText: { color: C.pink },
   planPaid: { borderColor: colors.border, backgroundColor: colors.backgroundCard },
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  idle: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
-  idleTitle: { color: C.text, fontSize: 28, lineHeight: 32, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 6 },
-  idleSubtitle: { color:colors.white, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 6, marginBottom: 14 },
-  start: { minWidth: 220, minHeight: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
+  idle: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 12 },
+  idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 24 },
+  idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 24 },
+  start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
-  demo: { marginTop: 10, color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12 },
-  tabTestText: { color: C.muted, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
+  demo: { marginTop: 24, color: C.purpleLight, fontSize: 10, fontWeight: '800' },
+  tabTest: { marginTop: 24, paddingVertical: 6, paddingHorizontal: 12 },
+  tabTestText: { color: C.mutedGrey, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
   main: { flex: 1 },
