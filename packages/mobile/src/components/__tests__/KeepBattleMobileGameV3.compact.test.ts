@@ -41,9 +41,9 @@ describe('Loki Music Battle mobile style selector', () => {
   });
 
   it('uses phone-sized Battle decision controls and immediate accept feedback', () => {
-    expect(source).toContain('minHeight: 142');
-    expect(source).toContain('minHeight: 64');
-    expect(source).toContain('borderWidth: 3');
+    expect(source).toContain('minHeight: 132');
+    expect(source).toContain('minHeight: 52');
+    expect(source).toContain('borderColor: colors.primary');
     expect(source).toContain('CONNEXION AU BATTLE…');
     expect(source).toContain("if (!response.arenaId) throw new Error('BATTLE_ACCEPTED_WITHOUT_ARENA')");
     expect(source).toContain('setAudioReady(false);\n      void stopTrackPreview();');
@@ -185,13 +185,13 @@ describe('Loki Music Battle mobile style selector', () => {
 
   it('uses clearly readable smartphone-sized Battle action targets', () => {
     expect(source).toContain("inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }");
-    expect(source).toContain('invite: { marginTop: 10, minHeight: 142');
-    expect(source).toContain('no: { flex: 1, minHeight: 64');
-    expect(source).toContain('yes: { flex: 1, minHeight: 64');
+    expect(source).toContain('invite: { marginTop: 10, minHeight: 132');
+    expect(source).toContain('no: { flex: 1, minHeight: 52');
+    expect(source).toContain('yes: { flex: 1, minHeight: 52');
     expect(source).toContain('hitSlop={10}');
     expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22");
     expect(source).toContain("inviteName: { color: '#FFF', fontSize: 17");
-    expect(source).toContain("borderWidth: 3, borderColor: '#E5F266'");
+    expect(source).toContain('borderColor: colors.primary');
     expect(source).toContain('CONNEXION AU BATTLE…');
     expect(source).toContain('respondingChallengeId');
   });
@@ -202,16 +202,16 @@ describe('Loki Music Battle mobile style selector', () => {
     // nombre de manches ("🎁N") sur une seconde ligne -- légèrement plus
     // haute qu'avant, mais toujours une simple rangée horizontale compacte.
     expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 }");
-    expect(source).toContain("theme: { height: 46, minHeight: 46");
+    expect(source).toContain("theme: { height: 48, minHeight: 48");
     expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
   });
 
   it('renders four equal answer choices in solo and online Battle', () => {
     expect(source).toContain('Array.from(dedupMap.values()).slice(0, 4)');
     expect(source).toContain('(round.choices || []).forEach((choice)');
-    expect(source).toContain('10 secondes réelles d’écoute · 4 choix · aucun swipe');
+    expect(source).toContain('Écoute · réponds · affronte');
     expect(source).not.toContain('i === 2 && s.answerFull');
-    expect(source).toContain("borderColor: '#4E8DFF'");
+    expect(source).toContain('borderColor: colors.primary');
   });
 
   it('keeps the timer and multiplayer score gauge below the artwork and before Qui chante', () => {
@@ -383,7 +383,7 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
   it('highlights a selected player with the KEEP violet primary color, never color alone (status text always present)', () => {
     expect(battle).toContain("import { colors } from '../theme/colors';");
     expect(battle).toContain('browsePlayerSelected: { borderColor: colors.primary, borderWidth: 2');
-    expect(battle).toContain('battleCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primary }');
+    expect(battle).toContain('battleCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primaryLight }');
   });
 
   it('prunes the selection when a player becomes ineligible after a round-count/theme filter change', () => {
@@ -395,10 +395,10 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
 
   it('adds a sticky footer with a live "X/Y joueurs sélectionnés" counter and a gated "Démarrer la Battle" button', () => {
     expect(battle).toContain('battleSelectionFooter');
-    expect(battle).toContain('{selectedBattlePlayerIds.size}/{eligiblePlayerCount} joueur{eligiblePlayerCount > 1');
-    expect(battle).toContain("sélectionné{selectedBattlePlayerIds.size > 1 ? 's' : ''}");
-    expect(battle).toContain('Démarrer la Battle');
-    expect(battle).toContain('const canStartSelectedBattle = selectedBattlePlayerIds.size >= 1 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;');
+    expect(battle).toContain('Sélectionne au moins 1 adversaire');
+    expect(battle).toContain('joueurs au total');
+    expect(battle).toContain('DÉMARRER');
+    expect(battle).toContain('const canStartSelectedBattle = selectedLiveBattlePlayers.length >= 1 && creditReady && !insufficientForRoundCount(roundCount) && !startingGroupBattle;');
     expect(battle).toContain('battleStartButtonDisabled');
   });
 
@@ -412,14 +412,14 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).toContain('const setBuildingArena = React.useCallback((id: string | null) => {');
     expect(battle).toContain('buildingArenaIdRef.current = id;');
     expect(battle).toContain('let arenaId = buildingArenaIdRef.current;');
-    expect(battle).toContain('for (const player of targets) {\n        await challenge(player);\n      }');
+    expect(battle).toContain('for (const player of targets) {\n        if (await challenge(player)) sentCount += 1;\n      }');
     expect(battle).toContain('const finalArenaId = buildingArenaIdRef.current;');
     expect(battle).not.toContain('let arenaId = buildingArenaId;');
   });
 
   it('allows a classic 1v1 Battle with one selected opponent, while still supporting group selection', () => {
     expect(battle).toContain('if (targets.length < 1) return;');
-    expect(battle).toContain('selectedBattlePlayerIds.size >= 1');
+    expect(battle).toContain('selectedLiveBattlePlayers.length >= 1');
   });
 
   it('scrolls the player list independently from the fixed header/filters and the fixed footer', () => {
