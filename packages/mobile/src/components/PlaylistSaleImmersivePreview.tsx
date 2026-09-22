@@ -180,13 +180,19 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               </View>
               <Text style={s.trackStatus}>
                 {tracksLoading
-                  ? 'Chargement des extraits…'
+                  ? 'Chargement des extraits...'
                   : tracksUnavailable
                     ? 'Aperçu indisponible pour le moment'
                     : `Extrait masqué ${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · en pause'}`}
               </Text>
             </TouchableOpacity>
           </SwipeDeck>
+
+          {!tracksLoading && !tracksUnavailable ? (
+            <View style={s.protectionBadge}>
+              <Text style={s.protectionBadgeText}>🛡️ Extrait protégé · décalage aléatoire · hauteur modifiée · voix off Loki Music</Text>
+            </View>
+          ) : null}
 
           <Text style={s.explainer}>{EXPLAINER_LINES[explainerIndex]}</Text>
 
@@ -233,6 +239,8 @@ const s = StyleSheet.create({
   bar: { width: 8, borderRadius: 4, backgroundColor: colors.primary },
   trackStatus: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 10 },
   explainer: { color: colors.textMuted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 10, minHeight: 32 },
+  protectionBadge: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, alignSelf: 'center' },
+  protectionBadgeText: { color: colors.primaryLight, fontSize: 10, fontWeight: '700', textAlign: 'center' },
   manualNotice: { marginTop: 4, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
   waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
