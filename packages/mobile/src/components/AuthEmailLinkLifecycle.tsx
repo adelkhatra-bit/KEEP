@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TextInput, Toucha
 import { consumeWebAuthAndOpenNative, subscribeToNativeAuthLinks } from '../services/authLinkHandoff';
 import { supabase } from '../services/supabaseClient';
 import { createAuthService } from '../services/authService';
+import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { colors } from '../theme/colors';
 
 /**
@@ -17,6 +18,9 @@ export default function AuthEmailLinkLifecycle() {
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Corrige le fond jaune du remplissage automatique sur le web (thème sombre).
+  useEffect(() => { ensureAuthAutofillStyleInjected(); }, []);
 
   useEffect(() => {
     if (!supabase) return undefined;
