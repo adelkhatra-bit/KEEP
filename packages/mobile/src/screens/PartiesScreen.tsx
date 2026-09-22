@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
@@ -16,6 +16,7 @@ import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBat
 import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomingChallenge } from '../services/keepBattleLiveService';
 import { supabase } from '../services/supabaseClient';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
+import { useSessionStore } from '../store/useSessionStore';
 import { FreeCreditBreakdown, loadFreeCreditBreakdown } from '../services/creditService';
 import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
@@ -146,6 +147,34 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [minEventFollowers, setMinEventFollowers] = useState(500);
   const [createOpen, setCreateOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
+  // Battle et écoute micro utilisent la même session audio iOS. Si une écoute
+  // Loki est encore active quand l'utilisateur ouvre Battle, on suspend
+  // uniquement le micro (la session et ses morceaux restent intacts), puis on
+  // le reprend automatiquement à la sortie. Cela évite le mode
+  // AVAudioSession PlayAndRecord pendant les previews Battle, source classique
+  // de son très faible / absent sur iPhone.
+  const battlePausedListeningRef = useRef(false);
+  useEffect(() => {
+    const session = useSessionStore.getState();
+    if (battleOpen) {
+      if (session.isActive && !session.micPaused) {
+        battlePausedListeningRef.current = true;
+        session.pauseListening();
+      }
+      return;
+    }
+    if (battlePausedListeningRef.current) {
+      battlePausedListeningRef.current = false;
+      const latest = useSessionStore.getState();
+      if (latest.isActive && latest.micPaused) latest.resumeListening();
+    }
+  }, [battleOpen]);
+  useEffect(() => () => {
+    if (!battlePausedListeningRef.current) return;
+    battlePausedListeningRef.current = false;
+    const session = useSessionStore.getState();
+    if (session.isActive && session.micPaused) session.resumeListening();
+  }, []);
   // Adel (02/09/2026) : "chaque fois que je reviens en arrière, ça revient
   // sur cette page" -- le bouton RETOUR du navigateur restaure une ENTRÉE
   // D'HISTORIQUE ancienne qui porte encore ?arenaId=... dans son URL (chaque
