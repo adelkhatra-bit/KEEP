@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
 import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
@@ -88,6 +89,29 @@ function qrImageUrl(payload: string): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(payload)}`;
 }
 
+// Refonte Soirées (spec Adel 22/09/2026) : pastille "EN COURS" pulsante sur
+// le hero de l'événement. Pulsation douce en boucle (opacité), aucun état
+// supplémentaire -- simple indicateur visuel de live.
+function LivePulseBadge() {
+  const pulse = React.useRef(new Animated.Value(1)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.45, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View style={[styles.liveBadge, { opacity: pulse }]}>
+      <View style={styles.liveBadgeDot} />
+      <Text style={styles.liveBadgeText}>EN COURS</Text>
+    </Animated.View>
+  );
+}
+
 export default function PartiesScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -145,6 +169,11 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
+  // Refonte Soirées (spec Adel 22/09/2026) : quand un événement est affiché,
+  // trois sous-onglets -- Lobby (infos + RSVP + participants), Classement
+  // (podium Battle, ligne utilisateur surlignée), Playlist (morceaux de la
+  // soirée). Les onglets SOIRÉES/BATTLE du niveau supérieur restent.
+  const [eventTab, setEventTab] = useState<'LOBBY' | 'CLASSEMENT' | 'PLAYLIST'>('LOBBY');
   const [leaderboard, setLeaderboard] = useState<KeepBattleGlobalLeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [myRankingOpen, setMyRankingOpen] = useState(false);
@@ -246,7 +275,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // figée), même RPC que le reste de l'app.
   const [leaderboardTiers, setLeaderboardTiers] = useState<Record<string, ProfileCertificationTier>>({});
   useEffect(() => {
-    if (partiesTab !== 'BATTLE' || !battleFeatureEnabled) return;
+    if ((partiesTab !== 'BATTLE' && eventTab !== 'CLASSEMENT') || !battleFeatureEnabled) return;
     let live = true;
     setLeaderboardLoading(true);
     Promise.all([
@@ -265,7 +294,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       }
     }).catch(() => { if (live) setLeaderboard([]); }).finally(() => { if (live) setLeaderboardLoading(false); });
     return () => { live = false; };
-  }, [partiesTab, battleFeatureEnabled]);
+  }, [partiesTab, eventTab, battleFeatureEnabled]);
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
@@ -451,6 +480,9 @@ export default function PartiesScreen({ navigation, route }: any) {
     void openCreate();
   }, [navigation, route?.params?.openCreateEvent]);
   const currentEvent = events.length ? events[eventIndex % events.length] : null;
+  // Refonte Soirées (spec Adel 22/09/2026) : retour au Lobby quand on change
+  // d'événement (SwipeDeck "Suivant").
+  useEffect(() => { setEventTab('LOBBY'); }, [currentEvent?.id]);
   const audienceReady = followers >= minEventFollowers;
   const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited) && audienceReady;
   const nextEvent = () => { if (events.length) setEventIndex((value) => (value + 1) % events.length); };
@@ -818,6 +850,57 @@ export default function PartiesScreen({ navigation, route }: any) {
     </SafeAreaView>;
   }
 
+  // Refonte Soirées (spec Adel 22/09/2026) : le classement (podium + ligne
+  // utilisateur surlignée violet) est partagé entre l'onglet BATTLE et le
+  // sous-onglet CLASSEMENT d'un événement -- une seule source de rendu.
+  const renderLeaderboard = () => (
+    <>
+      {leaderboardLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
+      {!leaderboardLoading && leaderboard.length ? (
+        <View style={styles.leaderboardPanel}>
+          <View style={styles.leaderboardHeader}>
+            <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
+              <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.leaderboardHint}>👆 Touche un joueur pour voir ses stats</Text>
+          {leaderboard.map((entry, index) => (
+            <TouchableOpacity
+              key={entry.profileId}
+              style={[styles.leaderboardRow, entry.profileId === user?.id && styles.leaderboardRowMine]}
+              onPress={() => openPlayerStats(entry)}
+            >
+              <Text style={styles.leaderboardTrophy}>{index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.leaderboardNameRow}>
+                  <Text numberOfLines={1} style={styles.leaderboardName}>{entry.username}</Text>
+                  {leaderboardTiers[entry.profileId] ? <ProfileCertificationBadge tier={leaderboardTiers[entry.profileId]} compact /> : null}
+                </View>
+                {entry.isOnline ? (
+                  <Text numberOfLines={1} style={styles.leaderboardPresence}>● joue en solo{entry.presenceThemeCode && themeLabels[entry.presenceThemeCode] ? ` · ${themeLabels[entry.presenceThemeCode]}` : ''} · {tierLabel(entry.skillTier)}</Text>
+                ) : null}
+                {entry.topThemeCode && themeLabels[entry.topThemeCode] ? (
+                  <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
+                ) : null}
+              </View>
+              <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
+              <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}</Text>
+              <Text style={styles.leaderboardChevron}>›</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Battle pour apparaître ici.</Text></View> : null}
+    </>
+  );
+
+  // Refonte Soirées (spec Adel 22/09/2026) : badge "EN COURS" affiché quand
+  // l'événement est en train de se dérouler (début passé, fin pas encore
+  // atteinte -- ou pas de fin renseignée).
+  const isEventLive = currentEvent
+    ? new Date(currentEvent.startsAt) <= new Date() && (!currentEvent.endsAt || new Date(currentEvent.endsAt) >= new Date())
+    : false;
+
   return <SafeAreaView style={styles.container}>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.headerRow}>
@@ -887,6 +970,16 @@ export default function PartiesScreen({ navigation, route }: any) {
         ))}
 
         {currentEvent ? <>
+          {/* Refonte Soirées (spec Adel 22/09/2026) : trois sous-onglets
+              quand un événement est affiché -- Lobby (infos + RSVP +
+              participants), Classement (podium Battle, ligne utilisateur
+              surlignée), Playlist (morceaux de la soirée). */}
+          <View style={styles.eventTabs}>
+            <TouchableOpacity style={[styles.eventTabBtn, eventTab === 'LOBBY' && styles.eventTabBtnOn]} onPress={() => setEventTab('LOBBY')}><Text style={[styles.eventTabText, eventTab === 'LOBBY' && styles.eventTabTextOn]}>LOBBY</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.eventTabBtn, eventTab === 'CLASSEMENT' && styles.eventTabBtnOn]} onPress={() => setEventTab('CLASSEMENT')}><Text style={[styles.eventTabText, eventTab === 'CLASSEMENT' && styles.eventTabTextOn]}>CLASSEMENT</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.eventTabBtn, eventTab === 'PLAYLIST' && styles.eventTabBtnOn]} onPress={() => setEventTab('PLAYLIST')}><Text style={[styles.eventTabText, eventTab === 'PLAYLIST' && styles.eventTabTextOn]}>PLAYLIST</Text></TouchableOpacity>
+          </View>
+          {eventTab === 'LOBBY' ? <>
           {/* Adel (08/09/2026) : "j'imagine demain un utilisateur qui va
               mettre un très grand texte ... toutes les fonctions YouTube
               etc. ... beaucoup de place sur l'étiquette pourquoi t'utilises
@@ -894,20 +987,29 @@ export default function PartiesScreen({ navigation, route }: any) {
               haut (comme une pochette), tout le texte (nom, date, avis,
               description, liens) vit dans un bloc en dessous, à fond plein :
               ça peut grandir sans jamais recouvrir la photo. */}
-          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J’Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l’invitation · les boutons fonctionnent aussi'}>
+          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J'Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l\u2019invitation · les boutons fonctionnent aussi'}>
             <View style={styles.card}>
-              {currentEvent.imageUrl ? <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardBanner} resizeMode="cover" /> : null}
+              {/* Refonte Soirées (spec Adel 22/09/2026) : hero gradient
+                  violet 180px, image par-dessus si présente, badge EN COURS
+                  pulsant quand l'événement est en train de se dérouler. */}
+              <View style={styles.cardHero}>
+                <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.cardHeroGradient}>
+                  {currentEvent.imageUrl ? <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardHeroImage} resizeMode="cover" /> : null}
+                  <View style={styles.cardHeroOverlay} />
+                  <View style={styles.badgeRow}>
+                    <View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View>
+                    {isEventLive ? <LivePulseBadge /> : null}
+                    {/* Adel (08/09/2026) : "il faut pas que les utilisateurs
+                        voient quoi que ce soit tant que le super admin a pas
+                        approuvé" -- seul l'organisateur voit cet indicateur
+                        sur SON évènement (le public ne le voit jamais, il n'y
+                        a même pas accès tant que ce n'est pas APPROVED). */}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'PENDING' ? <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>⏳ En attente de validation</Text></View> : null}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'REJECTED' ? <View style={styles.rejectedBadge}><Text style={styles.rejectedBadgeText}>⚠️ À corriger</Text></View> : null}
+                  </View>
+                </LinearGradient>
+              </View>
               <View style={styles.cardBody}>
-                <View style={styles.badgeRow}>
-                  <View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View>
-                  {/* Adel (08/09/2026) : "il faut pas que les utilisateurs
-                      voient quoi que ce soit tant que le super admin a pas
-                      approuvé" -- seul l'organisateur voit cet indicateur
-                      sur SON évènement (le public ne le voit jamais, il n'y
-                      a même pas accès tant que ce n'est pas APPROVED). */}
-                  {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'PENDING' ? <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>⏳ En attente de validation</Text></View> : null}
-                  {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'REJECTED' ? <View style={styles.rejectedBadge}><Text style={styles.rejectedBadgeText}>⚠️ À corriger</Text></View> : null}
-                </View>
                 {user?.id === currentEvent.creatorId && currentEvent.photoNote ? <Text style={styles.moderationNote}>Photo : {currentEvent.photoNote}</Text> : null}
                 {user?.id === currentEvent.creatorId && currentEvent.textNote ? <Text style={styles.moderationNote}>Texte : {currentEvent.textNote}</Text> : null}
                 <Text style={styles.eventName}>{currentEvent.name}</Text>
@@ -954,8 +1056,8 @@ export default function PartiesScreen({ navigation, route }: any) {
               ne participe pas, cohérent avec la pastille de réponse. */}
           {!isOwnEvent ? <>
             <View style={styles.rsvpMainRow}>
-              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonNo]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'NOT_GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color={colors.pass}/>:<Text style={styles.rsvpButtonNoText}>✕ Je ne participe pas</Text>}</TouchableOpacity>
-              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonYes]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color={colors.background}/>:<Text style={styles.rsvpButtonYesText}>{currentEvent.ticketPriceCents && rsvps[currentEvent.id] !== 'GOING' ? `🎟 Payer ${(currentEvent.ticketPriceCents / 100).toFixed(2)}€` : '✓ Je participe'}</Text>}</TouchableOpacity>
+              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonNo]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'NOT_GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color={colors.pass}/>:<Text style={styles.rsvpButtonNoText}>✕ Je passe</Text>}</TouchableOpacity>
+              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonYes]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color={colors.background}/>:<Text style={styles.rsvpButtonYesText}>{currentEvent.ticketPriceCents && rsvps[currentEvent.id] !== 'GOING' ? `🎟 Payer ${(currentEvent.ticketPriceCents / 100).toFixed(2)}€` : '✓ J\u2019y vais'}</Text>}</TouchableOpacity>
             </View>
             <View style={styles.rsvpMaybeRow}><TouchableOpacity style={[styles.maybeAction,currentRsvp==='MAYBE'&&styles.maybeActionOn]} onPress={()=>void chooseRsvp(currentEvent.id,'MAYBE')}><Text style={styles.maybeText}>PEUT-ÊTRE</Text></TouchableOpacity></View>
           </> : null}
@@ -974,6 +1076,9 @@ export default function PartiesScreen({ navigation, route }: any) {
             <TouchableOpacity style={styles.secondary} onPress={()=>void openParticipants(currentEvent)}><Text style={styles.secondaryText}>👥 Participants</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color={colors.pass}/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
           </View> : null}
+          </> : eventTab === 'CLASSEMENT' ? renderLeaderboard() : (
+            <View style={styles.empty}><Text style={styles.emptyTitle}>Playlist de la soirée</Text><Text style={styles.meta}>Aucun morceau publié pour cette soirée pour le moment.</Text></View>
+          )}
         </> : null}
       </> : (
         <>
@@ -994,42 +1099,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             <Text style={styles.battleLauncherOpen}>JOUER ›</Text>
           </TouchableOpacity>
 
-          {leaderboardLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
-          {!leaderboardLoading && leaderboard.length ? (
-            <View style={styles.leaderboardPanel}>
-              <View style={styles.leaderboardHeader}>
-                <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
-                  <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.leaderboardHint}>👆 Touche un joueur pour voir ses stats</Text>
-              {leaderboard.map((entry, index) => (
-                <TouchableOpacity
-                  key={entry.profileId}
-                  style={styles.leaderboardRow}
-                  onPress={() => openPlayerStats(entry)}
-                >
-                  <Text style={styles.leaderboardTrophy}>{index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</Text>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={styles.leaderboardNameRow}>
-                      <Text numberOfLines={1} style={styles.leaderboardName}>{entry.username}</Text>
-                      {leaderboardTiers[entry.profileId] ? <ProfileCertificationBadge tier={leaderboardTiers[entry.profileId]} compact /> : null}
-                    </View>
-                    {entry.isOnline ? (
-                      <Text numberOfLines={1} style={styles.leaderboardPresence}>● joue en solo{entry.presenceThemeCode && themeLabels[entry.presenceThemeCode] ? ` · ${themeLabels[entry.presenceThemeCode]}` : ''} · {tierLabel(entry.skillTier)}</Text>
-                    ) : null}
-                    {entry.topThemeCode && themeLabels[entry.topThemeCode] ? (
-                      <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
-                  <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}</Text>
-                  <Text style={styles.leaderboardChevron}>›</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Battle pour apparaître ici.</Text></View> : null}
+          {renderLeaderboard()}
         </>
       )}
     </ScrollView>
@@ -1294,6 +1364,19 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TouchableOpacity style={styles.checkinButton} disabled={checkinBusy || !checkinCode.trim()} onPress={() => void submitCheckinCode()}>{checkinBusy ? <ActivityIndicator color={colors.background}/> : <Text style={styles.checkinButtonText}>Valider</Text>}</TouchableOpacity>
         </View>
         <Text style={styles.checkinHint}>Le code est celui affiché sous le QR du participant (bouton « 🎟 Mon billet » de son côté) — utile s’il ne peut pas te montrer son écran. Sinon, touche directement « Présent ? » à côté de son nom, sans code.</Text>
+        {/* Refonte Soirées (spec Adel 22/09/2026) : grille d'avatars 48×48
+            des participants (initiales, comme partout dans l'app) au-dessus
+            de la liste détaillée -- la liste complète reste en dessous. */}
+        {!participantsLoading && participants.length ? (
+          <View style={styles.participantGrid}>
+            {participants.map((p) => (
+              <View key={p.profileId} style={styles.participantAvatarWrap}>
+                <View style={[styles.participantAvatar, p.status === 'NOT_GOING' && styles.participantAvatarNotGoing]}><Text style={styles.participantAvatarInitial}>{p.username.slice(0, 1).toUpperCase()}</Text></View>
+                <Text numberOfLines={1} style={styles.participantAvatarName}>{p.username}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
         <ScrollView showsVerticalScrollIndicator={false}>
           {participantsLoading ? <ActivityIndicator color={colors.primaryLight}/> : participants.length ? participants.map((p) => (
             <View key={p.profileId} style={styles.participantRow}>
@@ -1382,7 +1465,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
-container:{flex:1,backgroundColor:colors.background},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},partiesTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},partiesTabText:{color:colors.white,fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:colors.white},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},leaderboardTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:colors.white,fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:colors.white,fontSize:13,fontWeight:'900'},leaderboardWins:{color:colors.keep,fontSize:11,fontWeight:'900'},leaderboardStats:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:colors.textMuted,fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:colors.warning,fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:colors.white,fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:colors.white,fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:colors.keep,fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:colors.white},subtitle:{color:colors.white,fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},createButtonLocked:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},createButtonText:{color:colors.white,fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:spacing.lg},creatorHintText:{color:colors.white,fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:colors.backgroundElevated,borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:colors.border},emptyTitle:{color:colors.white,fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,overflow:'hidden'},cardBanner:{width:'100%',height:190,backgroundColor:colors.background},cardBody:{padding:20},badgeRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:2},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(124,92,252,.16)'},badgeText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,180,84,.14)',borderWidth:1,borderColor:colors.warning},pendingBadgeText:{color:colors.warning,fontSize:10,fontWeight:'900'},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.14)',borderWidth:1,borderColor:colors.pass},rejectedBadgeText:{color:colors.pass,fontSize:10,fontWeight:'900'},moderationNote:{color:colors.pass,fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:colors.white,fontSize:28,lineHeight:32,fontWeight:'900',marginTop:10},date:{color:colors.keep,fontSize:13,fontWeight:'900',marginTop:8},meta:{color:colors.white,fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},description:{color:colors.white,fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:colors.warning,fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:colors.primary},rsvpToggleCheck:{color:colors.white,fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:colors.white,fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:colors.backgroundCard,borderColor:colors.warning},eventPriceChipText:{color:colors.white,fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:colors.warning},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},reviewPromptTitle:{color:colors.warning,fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:colors.warning,fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:colors.background,marginRight:8},detailDescription:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:colors.background},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:colors.pass,alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:'rgba(255,92,114,0.10)',fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'rgba(45,225,194,0.10)',borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'rgba(45,225,194,0.12)',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:colors.backgroundCard},currentAnswerText:{color:colors.white,fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep},currentAnswerTextGoing:{color:colors.keep},currentAnswerNotGoing:{backgroundColor:'rgba(255,92,114,0.12)',borderWidth:1,borderColor:colors.pass},currentAnswerTextNotGoing:{color:colors.pass},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:50,borderRadius:25,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:colors.pass,backgroundColor:'rgba(255,92,114,0.10)'},rsvpButtonNoText:{color:colors.pass,fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:colors.keep,backgroundColor:colors.keep},rsvpButtonYesText:{color:colors.background,fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:40,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},maybeActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.border},maybeText:{color:colors.white,fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},secondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:colors.pass},secondaryDangerText:{color:colors.pass},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:colors.white,fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},participantStatusGoing:{color:colors.keep},participantStatusNotGoing:{color:colors.pass},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:colors.backgroundElevated,borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:colors.border,padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:colors.white,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,color:colors.white,paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},venueSuggestionPrimary:{color:colors.white,fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:colors.white,fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},
+container:{flex:1,backgroundColor:colors.background},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},partiesTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},partiesTabText:{color:colors.white,fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:colors.white},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},leaderboardTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:colors.white,fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:colors.white,fontSize:13,fontWeight:'900'},leaderboardWins:{color:colors.keep,fontSize:11,fontWeight:'900'},leaderboardStats:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:colors.textMuted,fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:colors.warning,fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:colors.white,fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:colors.white,fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:colors.keep,fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:colors.white},subtitle:{color:colors.white,fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},createButtonLocked:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},createButtonText:{color:colors.white,fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:spacing.lg},creatorHintText:{color:colors.white,fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:colors.backgroundElevated,borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:colors.border},emptyTitle:{color:colors.white,fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,overflow:'hidden'},cardHero:{height:180,backgroundColor:colors.background},cardHeroGradient:{flex:1},cardHeroImage:{...StyleSheet.absoluteFillObject},cardHeroOverlay:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(91,63,224,0.35)'},cardBody:{padding:20},badgeRow:{position:'absolute',left:12,bottom:10,right:12,flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(124,92,252,.16)'},badgeText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,180,84,.14)',borderWidth:1,borderColor:colors.warning},pendingBadgeText:{color:colors.warning,fontSize:10,fontWeight:'900'},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.14)',borderWidth:1,borderColor:colors.pass},rejectedBadgeText:{color:colors.pass,fontSize:10,fontWeight:'900'},moderationNote:{color:colors.pass,fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:colors.white,fontSize:24,lineHeight:30,fontWeight:'900',marginTop:10},date:{color:colors.textMutedGrey,fontSize:14,fontWeight:'900',marginTop:8},meta:{color:colors.textMutedGrey,fontSize:14,marginTop:5,fontWeight:'700'},dj:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},description:{color:colors.white,fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:colors.warning,fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:colors.primary},rsvpToggleCheck:{color:colors.white,fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:colors.white,fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:colors.backgroundCard,borderColor:colors.warning},eventPriceChipText:{color:colors.white,fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:colors.warning},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},reviewPromptTitle:{color:colors.warning,fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:colors.warning,fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:colors.background,marginRight:8},detailDescription:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:colors.background},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:colors.pass,alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:'rgba(255,92,114,0.10)',fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'rgba(45,225,194,0.10)',borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'rgba(45,225,194,0.12)',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:colors.backgroundCard},currentAnswerText:{color:colors.white,fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep},currentAnswerTextGoing:{color:colors.keep},currentAnswerNotGoing:{backgroundColor:'rgba(255,92,114,0.12)',borderWidth:1,borderColor:colors.pass},currentAnswerTextNotGoing:{color:colors.pass},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:48,borderRadius:24,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:colors.pass,backgroundColor:'rgba(255,92,114,0.10)'},rsvpButtonNoText:{color:colors.pass,fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:colors.keep,backgroundColor:colors.keep},rsvpButtonYesText:{color:colors.background,fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:40,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},maybeActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.border},maybeText:{color:colors.white,fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},secondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:colors.pass},secondaryDangerText:{color:colors.pass},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:colors.white,fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},participantStatusGoing:{color:colors.keep},participantStatusNotGoing:{color:colors.pass},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:colors.backgroundElevated,borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:colors.border,padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:colors.white,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,color:colors.white,paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},venueSuggestionPrimary:{color:colors.white,fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:colors.white,fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},
 statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},myRankingCard:{width:'100%',maxWidth:400,maxHeight:'82%',borderRadius:26,padding:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},creditHistoryRow:{minHeight:38,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,marginBottom:5},creditHistoryLabel:{flex:1,color:colors.white,fontSize:11,lineHeight:15,fontWeight:'800'},creditHistoryGain:{color:colors.keep,fontSize:12,fontWeight:'900'},creditHistoryLoss:{color:colors.pass,fontSize:12,fontWeight:'900'},creditHistoryNextCredit:{color:colors.primaryLight,fontSize:11,lineHeight:15,fontWeight:'700',marginBottom:8},statsClose:{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:17,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:colors.white,fontSize:20,lineHeight:22,fontWeight:'700'},statsUsernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:14,paddingRight:40},statsUsername:{color:colors.white,fontSize:20,fontWeight:'900'},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:colors.backgroundElevated},statsBigValue:{color:colors.keep,fontSize:22,fontWeight:'900'},statsBigLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsSmallRow:{flexDirection:'row',gap:5,marginTop:6},statsSmallItem:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:colors.backgroundElevated},statsSmallValue:{color:colors.white,fontSize:11,fontWeight:'900'},statsSmallLabel:{color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:1,textAlign:'center'},statsAvg:{color:colors.white,fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:colors.backgroundElevated,marginBottom:6},statsThemeLabel:{color:colors.white,fontSize:12,fontWeight:'900'},statsThemeValue:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:colors.primaryLight,fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.info,alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:colors.white,fontSize:11,fontWeight:'900'},
 incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:colors.keep,backgroundColor:colors.backgroundElevated},incomingText:{color:colors.white,fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:colors.white,fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:colors.textMuted,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},incomingNoText:{color:colors.white,fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},incomingYesText:{color:colors.background,fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
 ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},ticketButtonText:{color:colors.warning,fontSize:13,fontWeight:'900'},
@@ -1391,4 +1474,4 @@ imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors
 checkinRow:{flexDirection:'row',gap:8,marginBottom:4},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},checkinButtonText:{color:colors.background,fontSize:12,fontWeight:'900'},checkinHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginBottom:10},
 participantTicket:{color:colors.textMuted,fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:colors.keep,borderColor:colors.keep},participantCheckinBtnText:{color:colors.white,fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:'rgba(45,225,194,0.08)'},
 ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},ticketEventName:{color:colors.white,fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:colors.white},ticketQrImage:{width:200,height:200},ticketUsername:{color:colors.warning,fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:colors.textMuted,fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:colors.white,fontSize:10,fontWeight:'900',textAlign:'center'}
-});
+,eventTabs:{flexDirection:'row',gap:8,marginBottom:12},eventTabBtn:{flex:1,minHeight:38,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},eventTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},eventTabText:{color:colors.white,fontSize:11,fontWeight:'900'},eventTabTextOn:{color:colors.white},liveBadge:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,0.16)',borderWidth:1,borderColor:colors.keep},liveBadgeDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},liveBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1},leaderboardRowMine:{backgroundColor:'rgba(124,92,252,0.22)',borderWidth:1,borderColor:colors.primary},participantGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:12},participantAvatarWrap:{width:56,alignItems:'center',gap:3},participantAvatar:{width:48,height:48,borderRadius:24,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},participantAvatarNotGoing:{opacity:0.45},participantAvatarInitial:{color:colors.white,fontSize:18,fontWeight:'900'},participantAvatarName:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center'}});
