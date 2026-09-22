@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -18,7 +18,7 @@ import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer,
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
-import { shareBattleResult, shareProfile } from '../services/sharingService';
+import { buildPublicProfileLink, shareBattleInvite, shareBattleResult, shareProfile } from '../services/sharingService';
 import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
@@ -26,7 +26,6 @@ import { ProfileCertificationTier } from '../services/publicProfileStateService'
 import { colors } from '../theme/colors';
 
 const ROUND_MS = 10000;
-const KEEP_BATTLE_SHARE = 'https://adelkhatra-bit.github.io/KEEP/share-profile/';
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const initial = (name: string) => (name || 'K').replace(/^@/, '').slice(0, 1).toUpperCase();
 
@@ -750,11 +749,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, []);
 
   const shareInvite = React.useCallback(async () => {
-    await Share.share({ message: `Viens me défier sur Loki Music Battle ⚡\n10 secondes · 4 choix · gagne des Free\n${KEEP_BATTLE_SHARE}` });
+    const username = useUserStore.getState().user?.username;
+    const link = username ? buildPublicProfileLink(username) : 'https://adelkhatra-bit.github.io/KEEP/';
+    await shareBattleInvite('Viens me défier sur Loki Music Battle ⚡\n10 secondes · 4 choix · gagne des Free', link);
   }, []);
   const shareArenaInvite = React.useCallback(async (state: KeepBattleArenaState) => {
     const link = buildKeepBattleArenaInviteLink(state.arenaCode);
-    await Share.share({ message: `Rejoins notre Loki Music Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe\n${link}` });
+    await shareBattleInvite(`Rejoins notre Loki Music Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe`, link);
   }, []);
 
   const refreshSocial = React.useCallback(async () => {
