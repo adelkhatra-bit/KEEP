@@ -268,17 +268,15 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         : 'Connecte-toi avec ton pseudo Loki Music ou ton e-mail, puis ton mot de passe.'}
     </Text>
 
-    {mode === 'create' ? (
-      <View style={s.labelRow}>
-        <Text style={s.label}>Pseudo Loki Music</Text>
-        <TouchableOpacity
-          style={s.info}
-          onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
-          accessibilityRole="button"
-          accessibilityLabel="Pourquoi ce champ ?"
-        ><Text style={s.infoText}>i</Text></TouchableOpacity>
-      </View>
-    ) : null}
+    <View style={s.labelRow}>
+      <Text style={s.label}>{mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}</Text>
+      {mode === 'create' ? <TouchableOpacity
+        style={s.info}
+        onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
+        accessibilityRole="button"
+        accessibilityLabel="Pourquoi ce champ ?"
+      ><Text style={s.infoText}>i</Text></TouchableOpacity> : null}
+    </View>
     <TextInput
       style={s.input}
       value={username}
@@ -321,6 +319,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       </TouchableOpacity>
     </> : null}
 
+    <View style={s.labelRow}>
+      <Text style={s.label}>Mot de passe</Text>
+    </View>
     <View style={s.passwordRow}>
       <TextInput
         style={s.passwordInput}
@@ -343,6 +344,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strengthGood ? s.strengthGood : s.strengthWeak)]} />)}
       </View>
       <Text style={[s.strengthText, strengthGood ? s.strengthTextGood : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
+      <View style={s.labelRow}>
+        <Text style={s.label}>Confirmer le mot de passe</Text>
+      </View>
       <View style={s.passwordRow}>
         <TextInput
           style={s.passwordInput}
@@ -380,17 +384,37 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:560},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},
-  // Maquette validée (22/09/2026) : champs 44 -> 52px, police 14 -> 16px minimum.
-  input:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},
-  labelRow:{flexDirection:'row',alignItems:'center',gap:6,marginTop:2},
-  label:{color:colors.textSecondary,fontSize:11,fontWeight:'800',textTransform:'uppercase',letterSpacing:.4},
-  info:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
-  infoText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
-  tooltip:{color:colors.textSecondary,fontSize:11,lineHeight:15,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,borderRadius:radius.md,padding:9,marginTop:2},
-  passwordRow:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:50,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},eye:{width:48,height:50,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},
-  // Maquette validée (22/09/2026) : 2 tons cohérents avec la marque au lieu
-  // de 3 (ambre pour Faible/Correct, menthe colors.success pour Bon/Très
-  // bon) -- avant : vert générique #22C55E sans rapport avec la palette Loki.
-  strengthWeak:{backgroundColor:colors.warning},strengthGood:{backgroundColor:colors.success},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:colors.warning},strengthTextGood:{color:colors.success},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:13,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
+  scroll:{maxHeight:640},
+  container:{gap:8,paddingHorizontal:2,paddingTop:4,paddingBottom:12},
+  title:{color:colors.textPrimary,fontSize:24,lineHeight:30,fontWeight:'800',textAlign:'center',marginBottom:2},
+  subtitle:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginBottom:12,paddingHorizontal:8},
+  followHint:{color:colors.primaryLight,fontSize:12,lineHeight:17,fontWeight:'800',textAlign:'center',marginBottom:2},
+  input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
+  labelRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8,marginBottom:1},
+  label:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.8},
+  info:{width:18,height:18,borderRadius:9,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  infoText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  tooltip:{color:colors.textSecondary,fontSize:12,lineHeight:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primaryLight,borderRadius:12,paddingHorizontal:12,paddingVertical:10,marginTop:1},
+  passwordRow:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},
+  passwordInput:{flex:1,height:50,paddingHorizontal:16,color:colors.textPrimary,fontSize:16},
+  eye:{width:52,height:52,alignItems:'center',justifyContent:'center'},
+  eyeText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
+  suggestButton:{minHeight:42,borderRadius:21,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:12,paddingVertical:7,marginTop:2},
+  suggestText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.2},
+  passwordSavedHint:{color:colors.textSecondary,fontSize:11,lineHeight:15,textAlign:'center',paddingHorizontal:8},
+  strengthRow:{flexDirection:'row',gap:5,marginTop:2},
+  strengthBar:{flex:1,height:5,borderRadius:3,backgroundColor:colors.border},
+  strengthWeak:{backgroundColor:colors.warning},
+  strengthGood:{backgroundColor:colors.success},
+  strengthText:{fontSize:10,fontWeight:'800',textAlign:'right'},
+  strengthTextWeak:{color:colors.warning},
+  strengthTextGood:{color:colors.success},
+  error:{color:colors.danger,fontSize:12,lineHeight:17,textAlign:'center',paddingHorizontal:8,marginTop:2},
+  primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14,paddingHorizontal:16},
+  primaryText:{color:'#FFF',fontSize:16,fontWeight:'900',letterSpacing:.3,textAlign:'center'},
+  forgot:{minHeight:38,alignItems:'center',justifyContent:'center'},
+  forgotText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
+  switchMode:{minHeight:40,alignItems:'center',justifyContent:'center'},
+  switchText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
+  recovery:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginTop:2,paddingHorizontal:10},
 });
