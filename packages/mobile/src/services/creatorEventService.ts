@@ -32,7 +32,7 @@ export type CreatorEvent = {
   // Adel (08/09/2026) : "il faut pas que les utilisateurs voient quoi que ce
   // soit tant que le super admin a pas approuve" -- statut global + detail
   // par champ, pour afficher a l'organisateur ce qui bloque precisement.
-  moderationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  moderationStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
   photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   photoNote?: string | null;
   textStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -61,7 +61,7 @@ function mapEventRow(row: any): CreatorEvent {
     requireQrCode: Boolean(row.require_qr_code),
     ticketPriceCents: row.ticket_price_cents ?? null,
     organizerPhone: row.organizer_phone_public,
-    moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) || 'PENDING',
+    moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) ?? 'DRAFT',
     photoStatus: (row.photo_status as CreatorEvent['photoStatus']) || 'PENDING',
     photoNote: row.photo_note ?? null,
     textStatus: (row.text_status as CreatorEvent['textStatus']) || 'PENDING',
@@ -100,7 +100,6 @@ export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEven
   const ownQuery = supabase
     .from('events')
     .select(EVENT_COLUMNS)
-    .eq('is_disabled', false)
     .eq('creator_id', viewerId)
     .order('created_at', { ascending: false })
     .limit(100);

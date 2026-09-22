@@ -913,6 +913,24 @@ export default function PartiesScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
           <Text style={styles.leaderboardHint}>👆 Touche un joueur pour voir ses stats</Text>
+          {leaderboard.length ? (
+            <View style={styles.podium}>
+              {[1, 0, 2].map((rank) => {
+                const entry = leaderboard[rank];
+                if (!entry) return <View key={`podium-empty-${rank}`} style={styles.podiumCol} />;
+                const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : '🥉';
+                const barStyle = rank === 0 ? styles.podiumBarFirst : rank === 1 ? styles.podiumBarSecond : styles.podiumBarThird;
+                return (
+                  <TouchableOpacity key={`podium-${entry.profileId}`} style={styles.podiumCol} onPress={() => openPlayerStats(entry)} accessibilityRole="button" accessibilityLabel={`${medal} ${entry.username}`}>
+                    <Text style={styles.podiumMedal}>{medal}</Text>
+                    <View style={styles.podiumAvatar}><Text style={styles.podiumAvatarInitial}>{entry.username.slice(0, 1).toUpperCase()}</Text></View>
+                    <Text numberOfLines={1} style={styles.podiumName}>{entry.username}</Text>
+                    <View style={[styles.podiumBar, barStyle]}><Text style={styles.podiumScore}>{entry.wins}</Text></View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
           {leaderboard.map((entry, index) => (
             <TouchableOpacity
               key={entry.profileId}
@@ -1051,6 +1069,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                         PENDING = rouge clignotant, REJECTED = rouge fixe,
                         APPROVED = vert. Tant que l'événement n'est pas
                         approuvé, on n'affiche pas le badge vert EN COURS. */}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'DRAFT' ? <View style={styles.draftBadge}><Text style={styles.draftBadgeText}>✎ BROUILLON</Text></View> : null}
                     {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'PENDING' ? <PendingModerationBadge /> : null}
                     {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'REJECTED' ? <View style={styles.rejectedBadge}><Text style={styles.rejectedBadgeText}>✕ REFUSÉE</Text></View> : null}
                     {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'APPROVED' ? <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>✓ VALIDÉE</Text></View> : null}
@@ -1125,7 +1144,24 @@ export default function PartiesScreen({ navigation, route }: any) {
             <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color={colors.pass}/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
           </View> : null}
           </> : eventTab === 'CLASSEMENT' ? renderLeaderboard() : (
-            <View style={styles.empty}><Text style={styles.emptyTitle}>Playlist de la soirée</Text><Text style={styles.meta}>Aucun morceau publié pour cette soirée pour le moment.</Text></View>
+            <View style={styles.playlistPanel}>
+              <Text style={styles.playlistPanelTitle}>PLAYLIST DE LA SOIRÉE</Text>
+              {Array.isArray((currentEvent as any).tracks) && (currentEvent as any).tracks.length ? (
+                (currentEvent as any).tracks.map((track: any, index: number) => (
+                  <View key={`track-${track.id ?? index}`} style={styles.trackRow}>
+                    <View style={styles.trackThumb} />
+                    <View style={styles.trackInfo}>
+                      <Text numberOfLines={1} style={styles.trackTitle}>{track.title ?? 'Titre inconnu'}</Text>
+                      <Text numberOfLines={1} style={styles.trackArtist}>{track.artist ?? 'Artiste inconnu'}</Text>
+                    </View>
+                    <Text style={styles.trackAction}>▶</Text>
+                    <Text style={styles.trackAction}>♡</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.trackEmpty}><Text style={styles.trackEmptyText}>Aucun morceau proposé pour cet événement</Text></View>
+              )}
+            </View>
           )}
         </> : null}
       </> : (
@@ -1419,7 +1455,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           <View style={styles.participantGrid}>
             {participants.map((p) => (
               <View key={p.profileId} style={styles.participantAvatarWrap}>
-                <View style={[styles.participantAvatar, p.status === 'NOT_GOING' && styles.participantAvatarNotGoing]}><Text style={styles.participantAvatarInitial}>{p.username.slice(0, 1).toUpperCase()}</Text></View>
+                <View style={[styles.participantAvatar, p.status === 'MAYBE' && styles.participantAvatarMaybe, p.status === 'NOT_GOING' && styles.participantAvatarNotGoing]}><Text style={styles.participantAvatarInitial}>{p.username.slice(0, 1).toUpperCase()}</Text></View>
                 <Text numberOfLines={1} style={styles.participantAvatarName}>{p.username}</Text>
               </View>
             ))}
@@ -1522,4 +1558,4 @@ imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors
 checkinRow:{flexDirection:'row',gap:8,marginBottom:4},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},checkinButtonText:{color:colors.background,fontSize:12,fontWeight:'900'},checkinHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginBottom:10},
 participantTicket:{color:colors.textMuted,fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:colors.keep,borderColor:colors.keep},participantCheckinBtnText:{color:colors.white,fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:colors.background},
 ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},ticketEventName:{color:colors.white,fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:colors.white},ticketQrImage:{width:200,height:200},ticketUsername:{color:colors.warning,fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:colors.textMuted,fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:44,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:colors.white,fontSize:10,fontWeight:'900',textAlign:'center'}
-,eventTabs:{flexDirection:'row',gap:8,marginBottom:12},eventTabBtn:{flex:1,minHeight:44,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},eventTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},eventTabText:{color:colors.white,fontSize:11,fontWeight:'900'},eventTabTextOn:{color:colors.white},liveBadge:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,0.16)',borderWidth:1,borderColor:colors.keep},liveBadgeDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},liveBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1},leaderboardRowMine:{backgroundColor:'rgba(124,92,252,0.22)',borderWidth:1,borderColor:colors.primary},participantGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:12},participantAvatarWrap:{width:56,alignItems:'center',gap:3},participantAvatar:{width:48,height:48,borderRadius:24,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},participantAvatarNotGoing:{opacity:0.45},participantAvatarInitial:{color:colors.white,fontSize:18,fontWeight:'900'},participantAvatarName:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center'}});
+,eventTabs:{flexDirection:'row',gap:8,marginBottom:12},eventTabBtn:{flex:1,minHeight:44,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},eventTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},eventTabText:{color:colors.white,fontSize:11,fontWeight:'900'},eventTabTextOn:{color:colors.white},liveBadge:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,0.16)',borderWidth:1,borderColor:colors.keep},liveBadgeDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},liveBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1},leaderboardRowMine:{backgroundColor:'rgba(124,92,252,0.22)',borderWidth:1,borderColor:colors.primary},participantGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:12},participantAvatarWrap:{width:56,alignItems:'center',gap:3},participantAvatar:{width:48,height:48,borderRadius:24,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},participantAvatarNotGoing:{opacity:0.45},participantAvatarMaybe:{borderColor:colors.warning,borderWidth:2},participantAvatarInitial:{color:colors.white,fontSize:18,fontWeight:'900'},participantAvatarName:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center'},draftBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},draftBadgeText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.4},podium:{flexDirection:'row',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:10,marginTop:2},podiumCol:{flex:1,maxWidth:96,alignItems:'center',gap:3},podiumMedal:{fontSize:18},podiumAvatar:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},podiumAvatarInitial:{color:colors.white,fontSize:15,fontWeight:'900'},podiumName:{color:colors.white,fontSize:10,fontWeight:'800',textAlign:'center',maxWidth:88},podiumBar:{width:'100%',borderRadius:10,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},podiumBarFirst:{height:54,borderColor:colors.warning,backgroundColor:'rgba(255,180,84,0.14)'},podiumBarSecond:{height:42,borderColor:colors.primaryLight,backgroundColor:'rgba(167,139,250,0.14)'},podiumBarThird:{height:32,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,0.12)'},podiumScore:{color:colors.white,fontSize:14,fontWeight:'900'},playlistPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:8},playlistPanelTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8},trackRow:{flexDirection:'row',alignItems:'center',gap:10,minHeight:56,paddingHorizontal:6,borderRadius:12,backgroundColor:colors.backgroundCard},trackThumb:{width:48,height:48,borderRadius:8,backgroundColor:colors.backgroundElevated},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.white,fontSize:13,fontWeight:'900'},trackArtist:{color:colors.textMuted,fontSize:11,fontWeight:'700',marginTop:2},trackAction:{color:colors.primaryLight,fontSize:18,fontWeight:'900',paddingHorizontal:6},trackEmpty:{paddingVertical:24,alignItems:'center'},trackEmptyText:{color:colors.textMuted,fontSize:12,fontWeight:'700',textAlign:'center'}});
