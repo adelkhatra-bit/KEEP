@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T12:57:46.602Z
+- Régénéré le : 2026-09-22T13:06:08.974Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `54a269d` (54a269d7440970fbf4af6696ffea38e1ee9ab5ee) — feat(anti-shazam): random offset + pitch shift + TTS overlay
-- Date du dernier commit : 2026-09-22T14:15:32+02:00
+- Dernier commit : `3276a24` (3276a246c054341a4072e50765a09b71e1ac3342) — fix(marketplace): resolve price save error + detailed error messages
+- Date du dernier commit : 2026-09-22T15:05:47+02:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,6 +122,8 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
+- `d3deba0` (2026-09-22, adelkhatra-bit) — feat(infra): PROJECT_STATE.md + hooks Git pour mémoire partagée inter-IA
 - `54a269d` (2026-09-22, adelkhatra-bit) — feat(anti-shazam): random offset + pitch shift + TTS overlay
 - `a12d641` (2026-09-22, adelkhatra-bit) — chore(branding): replace KEEP verb with garder in UI
 - `2562f5e` (2026-09-22, adelkhatra-bit) — perf(battle): prefetch next round audio during answer pause
@@ -130,8 +132,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `49f60e8` (2026-09-22, adelkhatra-bit) — docs(app-store): notes reviewer + checklist de soumission
 - `f4d150d` (2026-09-22, adelkhatra-bit) — refactor(email): unifie les 3 gabarits e-mail duplique s + retry/fallback + secret HMAC dedie
 - `d63bb30` (2026-09-22, adelkhatra-bit) — feat(auth): architecture B "zero friction" -- essai auto au lancement + champs agrandis + Firefox
-- `33f48f0` (2026-09-22, adelkhatra-bit) — chore(branding): rename platform to Loki Music everywhere
-- `29aaddd` (2026-09-22, adelkhatra-bit) — docs(auth): add AUTH_ADEL4A_RESET docx/pdf exports
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
