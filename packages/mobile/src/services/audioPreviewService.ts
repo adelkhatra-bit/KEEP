@@ -8,6 +8,15 @@ let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
+// Préchargement de la manche suivante (Loki Battle solo). Distinct de
+// activeSound : le son en cours de lecture n'est jamais touché pendant
+// qu'un second son se charge en arrière-plan pendant la pause de 2,8s après
+// une réponse. Natif uniquement -- voir canUseWebAudio() plus bas, le web
+// réutilise un unique <audio> partagé pour contourner le blocage autoplay
+// Safari iOS, donc un deuxième flux en parallèle n'a pas sa place ici.
+let preloadedSound: Audio.Sound | null = null;
+let preloadedKey: string | null = null;
+
 // Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
 // deux manches. Sur le web, Loki Battle réutilise donc le même HTMLAudioElement
 // pendant toute la session. L'élément est seulement mis en pause entre les titres ;
@@ -70,6 +79,15 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   const next = operation.then(task, task);
   operation = next.then(() => undefined, () => undefined);
   return next;
+}
+
+async function discardPreloaded() {
+  const stale = preloadedSound;
+  preloadedSound = null;
+  preloadedKey = null;
+  if (!stale) return;
+  try { await stale.stopAsync(); } catch {}
+  try { await stale.unloadAsync(); } catch {}
 }
 
 // BUG RÉEL trouvé en audit runtime (Adel, 22/09/2026, "beaucoup de bugs quand
@@ -331,11 +349,8 @@ export async function playTrackPreviewSegment(
       return;
     }
 
-    await unloadActive();
-    await configurePreviewAudio();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
-
-    const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
+    const onStatus = (status: AVPlaybackStatus, sound: Audio.Sound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
@@ -345,7 +360,38 @@ export async function playTrackPreviewSegment(
           await unloadActive();
         });
       }
-    });
+    };
+
+    // Adel (22/09/2026) : "audit latence TestFlight" -- rien ne préchargeait
+    // jamais l'extrait de la manche N+1 pendant que la manche N jouait, donc
+    // chaque manche payait la latence réseau+décodage complète. Si
+    // preloadTrackPreviewSegment a déjà préparé CETTE clé (déclenché pendant
+    // la pause de 2,8s après une réponse, voir KeepBattleMobileGameV3), on
+    // consomme ce son directement -- latence quasi nulle. Sinon, repli
+    // inchangé sur le chargement normal.
+    let createdSound: Audio.Sound | null = null;
+    if (preloadedKey === key && preloadedSound) {
+      const preloaded = preloadedSound;
+      preloadedSound = null;
+      preloadedKey = null;
+      await unloadActive();
+      await configurePreviewAudio();
+      try {
+        preloaded.setOnPlaybackStatusUpdate((status) => onStatus(status, preloaded));
+        await ensurePlaying(preloaded);
+        createdSound = preloaded;
+      } catch {
+        try { await preloaded.stopAsync(); } catch {}
+        try { await preloaded.unloadAsync(); } catch {}
+        createdSound = null;
+      }
+    }
+
+    if (!createdSound) {
+      await unloadActive();
+      await configurePreviewAudio();
+      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);
+    }
 
     activeSound = createdSound;
     activeKey = key;
@@ -358,6 +404,40 @@ export async function playTrackPreviewSegment(
       onEnded?.();
     }, Math.max(1000, Math.round(durationMillis)));
   });
+}
+
+/**
+ * Précharge en arrière-plan l'extrait d'une manche pas encore commencée,
+ * sans le jouer (shouldPlay:false). N'affecte jamais activeSound : le son en
+ * cours continue de jouer normalement pendant ce chargement. Best-effort --
+ * un échec ne bloque rien, playTrackPreviewSegment retombera simplement sur
+ * son chargement normal quand cette clé sera jouée pour de vrai.
+ */
+export async function preloadTrackPreviewSegment(
+  key: string,
+  previewUrl: string,
+  positionMillis: number,
+): Promise<void> {
+  if (!previewUrl || canUseWebAudio()) return;
+  return serialize(async () => {
+    if (preloadedKey === key && preloadedSound) return;
+    await discardPreloaded();
+    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+    try {
+      await configurePreviewAudio();
+      const sound = await createSoundWithRetry(previewUrl, effectivePosition, () => {}, false);
+      preloadedSound = sound;
+      preloadedKey = key;
+    } catch {
+      await discardPreloaded();
+    }
+  });
+}
+
+/** Abandonne un préchargement en attente (ex. le joueur quitte le Battle avant que la manche préchargée ne démarre). */
+export function discardPreloadedTrackPreview(key?: string): void {
+  if (key && preloadedKey !== key) return;
+  void serialize(async () => { await discardPreloaded(); });
 }
 
 /** Précharge l'extrait et le lance sur un timestamp absolu partagé entre joueurs. */

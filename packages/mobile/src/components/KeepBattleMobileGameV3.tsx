@@ -2,7 +2,13 @@ import React from 'react';
 import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
-import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+
+// Clé stable (sans compteur de tentative) identifiant l'extrait d'une manche
+// solo -- utilisée à la fois par preloadTrackPreviewSegment (pendant la
+// pause après réponse) et par le premier essai de lecture de la manche, pour
+// que les deux se rencontrent et évitent un rechargement réseau redondant.
+const soloRoundPreviewKey = (trackId: string, roundIndex: number) => `solo:${trackId}:${roundIndex}`;
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
@@ -629,7 +635,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     useBattleAvailabilityStore.getState().setBattleScreenOpen(true);
     return () => useBattleAvailabilityStore.getState().setBattleScreenOpen(false);
   }, []);
-  React.useEffect(() => () => { void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }, []);
+  React.useEffect(() => () => { void stopTrackPreview(); discardPreloadedTrackPreview(); void leaveSoloBattle().catch(() => {}); }, []);
 
   const themeLabel = (code: string) => themes.find((t) => t.code === code)?.label || code;
   // Adel : "les boutons, il faut uniquement le nom de l'artiste" -- certains
@@ -726,8 +732,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
     if (!url) return false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
+      // Adel (22/09/2026, audit latence) : le premier essai garde `key` tel
+      // quel (sans suffixe) pour pouvoir correspondre à un préchargement
+      // lancé pendant la pause précédente (voir preloadTrackPreviewSegment /
+      // scheduleNextRoundPreload) -- latence quasi nulle si déjà prêt. Seules
+      // les vraies tentatives de reprise (essai raté) changent de clé, pour
+      // forcer un chargement frais.
+      const attemptKey = attempt === 0 ? key : `${key}:retry${attempt}`;
       try {
-        await playTrackPreviewSegment(`${key}:${attempt}`, url, 0, duration);
+        await playTrackPreviewSegment(attemptKey, url, 0, duration);
         return true;
       } catch {
         await wait(220 + attempt * 180);
@@ -891,7 +904,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // le reste de l'UI étant verrouillé tant que audioReady est false.
       let url = round.previewUrl;
       for (let cycle = 0; alive && cycle < 3; cycle += 1) {
-        const ok = await playVerified(`solo:${round.trackId}:${soloIndex}:${cycle}`, url, ROUND_MS + 800);
+        // Le cycle 0 (cas normal, pas de ré-résolution d'URL) garde la clé
+        // stable soloRoundPreviewKey(...) pour pouvoir consommer un
+        // préchargement lancé pendant la pause de la manche précédente.
+        const cycleKey = cycle === 0 ? soloRoundPreviewKey(round.trackId, soloIndex) : `solo:${round.trackId}:${soloIndex}:cycle${cycle}`;
+        const ok = await playVerified(cycleKey, url, ROUND_MS + 800);
         if (!alive) return;
         if (ok) {
           setAudioReady(true);
@@ -994,6 +1011,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo, activeIncomingId, audioReady, soloAnswer, soloIndex, animateResult, now, pausedSoloRemaining]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
+    // Adel (22/09/2026, audit latence TestFlight) : dès qu'une réponse est
+    // donnée, préchargement de l'extrait de la manche suivante en
+    // arrière-plan pendant la pause de 2,8s qui suit (voir
+    // preloadTrackPreviewSegment dans audioPreviewService.ts). L'extrait de
+    // la manche en cours n'est jamais interrompu par ce préchargement -- il
+    // continue de jouer normalement jusqu'à sa fin naturelle.
+    if (soloIndex < solo.rounds.length - 1) {
+      const nextRound = solo.rounds[soloIndex + 1];
+      if (nextRound?.previewUrl) {
+        void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0);
+      }
+    }
     if (soloIndex >= solo.rounds.length - 1) {
       const id = setTimeout(() => {
         if (saveSessionEnabled) {
