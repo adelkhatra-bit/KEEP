@@ -1438,7 +1438,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const startSelectedBattle = async () => {
     if (startingGroupBattle || challengeBusyId) return;
     const targets = livePlayers.filter((p) => selectedBattlePlayerIds.has(p.profileId));
-    if (targets.length < 2) return;
+    if (targets.length < 1) return;
     setStartingGroupBattle(true);
     try {
       for (const player of targets) {
@@ -2245,11 +2245,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   if (browseOnline) {
     const browseChallengeRemaining = incoming[0] ? Math.max(0, Math.ceil((new Date(incoming[0].expiresAt).getTime() - now) / 1000)) : 0;
     // (21/09/2026) refonte sélection multiple : compteur et bouton de la
-    // barre fixe -- au moins 2 joueurs sélectionnés ET soi-même avec assez
-    // de Free pour le nombre de morceaux choisi (même règle que le message
+    // barre fixe -- au moins 1 adversaire sélectionné (le joueur connecté
+    // est déjà le 2e participant du Battle) ET soi-même avec assez de Free
+    // pour le nombre de morceaux choisi (même règle que le message
     // d'avertissement déjà affiché sous le sélecteur de morceaux).
     const eligiblePlayerCount = livePlayers.filter(isPlayerSelectable).length;
-    const canStartSelectedBattle = selectedBattlePlayerIds.size >= 2 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
+    const canStartSelectedBattle = selectedBattlePlayerIds.size >= 1 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
     return <View style={s.root}>
       {renderPlayerStatsModal()}
       <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
