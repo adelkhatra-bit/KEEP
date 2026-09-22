@@ -28,6 +28,15 @@ function json(body: unknown, status = 200) {
 function errorMessage(value: unknown) {
   return String(value instanceof Error ? value.message : value ?? "UNKNOWN").slice(0, 500);
 }
+
+function isMoneyNotification(data: Record<string, unknown> | null) {
+  const kind = String(data?.soundKind || "").toLowerCase();
+  const event = String(data?.event || data?.type || "").toUpperCase();
+  return kind === "money" || ["PLAYLIST_SALE_COMPLETED", "EVENT_TICKET_SALE_COMPLETED"].includes(event);
+}
+function invalidatesExpoToken(code: string, message: string) {
+  return code === "DeviceNotRegistered" || /BadEnvironmentKeyInToken/i.test(message);
+}
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
@@ -95,7 +104,16 @@ async function processPending() {
         continue;
       }
 
-      const messages = valid.map(({ token: to }) => ({ to, title: notification.title, body: notification.body || "", data: notification.data || {}, sound: "default", priority: "high" }));
+      const money = isMoneyNotification(notification.data);
+      const messages = valid.map(({ token: to }) => ({
+        to,
+        title: notification.title,
+        body: notification.body || "",
+        data: notification.data || {},
+        sound: money ? "keep-money.wav" : "default",
+        priority: "high",
+        channelId: money ? "money" : "default",
+      }));
       const response = await fetch(EXPO_PUSH_URL, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(messages) });
       if (!response.ok) throw new Error(`EXPO_PUSH_HTTP_${response.status}`);
       const payload = await response.json() as { data?: ExpoTicket[] };
@@ -121,7 +139,7 @@ async function processPending() {
             status: "FAILED", attempt_count: attemptNumber, last_attempt_at: now, receipt_checked_at: now,
             last_error_code: code, last_error_message: message.slice(0, 500), updated_at: now,
           });
-          if (code === "DeviceNotRegistered") await db.from("push_tokens").delete().eq("id", token.id);
+          if (invalidatesExpoToken(code, message)) await db.from("push_tokens").delete().eq("id", token.id);
         }
       }
       await db.from("notifications").update({
@@ -174,7 +192,7 @@ async function processReceipts() {
       const code = receipt.details?.error || "EXPO_RECEIPT_ERROR";
       const message = receipt.message || code;
       await db.from("push_delivery_attempts").update({ status: "FAILED", receipt_checked_at: now, last_error_code: code, last_error_message: message.slice(0, 500), updated_at: now }).eq("id", attempt.id);
-      if (code === "DeviceNotRegistered" && attempt.push_token_id) await db.from("push_tokens").delete().eq("id", attempt.push_token_id);
+      if (invalidatesExpoToken(code, message) && attempt.push_token_id) await db.from("push_tokens").delete().eq("id", attempt.push_token_id);
     }
   }
 
