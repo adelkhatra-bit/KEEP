@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessService';
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadCurrentPlanCode } from '../services/planService';
-import { getPayoutLinkForProfile, setMyPayoutLink } from '../services/payoutLinkService';
+import { getPayoutLinkForProfile, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
@@ -49,7 +49,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
     setSavingPayoutLink(true);
     try {
       await setMyPayoutLink(payoutLinkInput);
-      Alert.alert('Lien enregistré', 'Ton lien de paiement personnel est prêt à recevoir des paiements.');
+      Alert.alert('Paiement prêt', `${payoutProviderLabel(payoutLinkInput)} est maintenant relié à ton profil. L’acheteur sera envoyé directement sur ce lien avec le montant prérempli quand PayPal.Me est utilisé.`);
     } catch (e: any) {
       Alert.alert('Lien invalide', e?.message === 'PAYOUT_LINK_MUST_BE_A_URL' ? 'Colle un lien complet (commençant par https://).' : (e?.message || 'Impossible d’enregistrer ce lien.'));
     } finally {
@@ -178,21 +178,33 @@ export default function CreatorToolsPanel({ navigation }: any) {
         musique originale -- un seul emplacement, jamais dupliqué. Toujours
         visible (pas caché derrière une formule), comme demandé le 15/09. */}
     <View style={s.paymentTeaser}>
-      <Text style={s.paymentTeaserTitle}>🔗 Mon lien de paiement personnel</Text>
-      <Text style={s.paymentTeaserText}>Colle ton lien PayPal.me, Lydia, ou un lien de paiement Stripe personnel. Loki Music ne touche jamais cet argent -- l'acheteur paie directement sur ce lien, toi seul confirmes la vente pour débloquer l'accès.</Text>
+      <View style={s.paymentHeader}>
+        <View style={s.paymentLogo}><Text style={s.paymentLogoText}>P</Text></View>
+        <View style={s.paymentHeaderCopy}>
+          <Text style={s.paymentTeaserTitle}>Paiements directs</Text>
+          <Text style={s.paymentStatus}>{payoutLinkInput.trim() ? `✓ ${payoutProviderLabel(payoutLinkInput)} configuré` : 'PayPal.Me recommandé'}</Text>
+        </View>
+      </View>
+      <Text style={s.paymentTeaserText}>Ajoute ton lien une seule fois. Avec PayPal.Me, Loki Music ouvre directement la page de paiement avec le prix total déjà prérempli : l’acheteur n’a plus qu’à valider.</Text>
       <TextInput
         style={s.payoutLinkInput}
         value={payoutLinkInput}
         onChangeText={setPayoutLinkInput}
         placeholder="https://paypal.me/tonpseudo"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textMutedGrey}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
       />
-      <TouchableOpacity style={s.payoutLinkSaveButton} disabled={savingPayoutLink} onPress={() => void savePayoutLink()}>
-        {savingPayoutLink ? <ActivityIndicator color="#0E0A14" /> : <Text style={s.payoutLinkSaveButtonText}>Enregistrer ce lien</Text>}
-      </TouchableOpacity>
+      <View style={s.payoutActions}>
+        <TouchableOpacity style={s.paypalHelpButton} onPress={() => { void Linking.openURL('https://www.paypal.com/paypalme/'); }}>
+          <Text style={s.paypalHelpText}>Créer / retrouver mon PayPal.Me</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.payoutLinkSaveButton} disabled={savingPayoutLink || !payoutLinkInput.trim()} onPress={() => void savePayoutLink()}>
+          {savingPayoutLink ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.payoutLinkSaveButtonText}>ENREGISTRER</Text>}
+        </TouchableOpacity>
+      </View>
+      <Text style={s.paymentFootnote}>Loki Music n’encaisse jamais l’argent. Le vendeur confirme la réception avant le déverrouillage.</Text>
     </View>
 
     {/* Adel (17-18/09/2026) : "construis tout ce qui manque" -- l'entrée
@@ -214,6 +226,6 @@ const s = StyleSheet.create({
   // passage avait re-transforme certaines tailles deja augmentees) --
   // valeurs reprises a la main, avec un lineHeight qui depasse toujours le
   // fontSize (jamais egal, sinon texte multi-lignes trop serre).
-  card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginTop:3},planSectionTitle:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:62,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planHeadingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7},unlockedHeading:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7,marginTop:9,marginBottom:5},planPrice:{color:'#E9DFFF',fontSize:15,fontWeight:'900'},tierBadge:{minHeight:24,borderRadius:999,borderWidth:1,paddingHorizontal:8,flexDirection:'row',alignItems:'center',gap:5},tierPremium:{backgroundColor:'#2A203A',borderColor:'#B993FF'},tierCreator:{backgroundColor:'#2C2530',borderColor:'#D5B46A'},tierVenue:{backgroundColor:'#1C2A34',borderColor:'#7DC5E8'},tierBadgeText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.55},tierDot:{width:6,height:6,borderRadius:3,backgroundColor:'#6D6376'},tierDotActive:{backgroundColor:'#FFFFFF'},planChoiceSubtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:4},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},standardProfileLink:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:9,borderRadius:22,borderWidth:1,borderColor:'#40354E',backgroundColor:'#211A2B',paddingHorizontal:14},standardProfileLinkText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},subscriptionNote:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},eventButtonText:{color:'#FFF',fontSize:15,fontWeight:'900'},paymentTeaser:{marginTop:10,padding:12,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},paymentTeaserTitle:{color:'#FFD166',fontSize:15,fontWeight:'900'},paymentTeaserText:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:4},
-  payoutLinkInput:{minHeight:44,borderRadius:12,backgroundColor:'#1A1225',borderWidth:1,borderColor:'#3F3154',paddingHorizontal:12,color:colors.textPrimary,fontSize:14,marginTop:9},payoutLinkSaveButton:{minHeight:40,borderRadius:20,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center',marginTop:9},payoutLinkSaveButtonText:{color:'#0E0A14',fontSize:13,fontWeight:'900'},
+  card:{marginHorizontal:18,marginTop:10,padding:14,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},title:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginTop:3},planSectionTitle:{color:colors.primaryLight,fontSize:15,fontWeight:'900',marginTop:10,marginBottom:7},kindWrap:{flexDirection:'row',flexWrap:'wrap',gap:6},kindChip:{alignSelf:'flex-start',paddingHorizontal:10,paddingVertical:8,borderRadius:999,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',marginBottom:7},kindChipOn:{backgroundColor:'#5B3F8C',borderColor:'#A884FA'},kindText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},kindTextOn:{color:'#FFF'},planChoiceLocked:{minHeight:62,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#493369',paddingHorizontal:12,paddingVertical:9,marginBottom:7,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},planChoiceActive:{borderColor:colors.primaryLight,backgroundColor:'#34234F'},planChoiceText:{flex:1,paddingRight:8},planHeadingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7},unlockedHeading:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7,marginTop:9,marginBottom:5},planPrice:{color:'#E9DFFF',fontSize:15,fontWeight:'900'},tierBadge:{minHeight:24,borderRadius:999,borderWidth:1,paddingHorizontal:8,flexDirection:'row',alignItems:'center',gap:5},tierPremium:{backgroundColor:'#2A203A',borderColor:'#B993FF'},tierCreator:{backgroundColor:'#2C2530',borderColor:'#D5B46A'},tierVenue:{backgroundColor:'#1C2A34',borderColor:'#7DC5E8'},tierBadgeText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.55},tierDot:{width:6,height:6,borderRadius:3,backgroundColor:'#6D6376'},tierDotActive:{backgroundColor:'#FFFFFF'},planChoiceSubtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:4},planChoiceArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'700'},standardProfileLink:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:9,borderRadius:22,borderWidth:1,borderColor:'#40354E',backgroundColor:'#211A2B',paddingHorizontal:14},standardProfileLinkText:{color:'#FFFFFF',fontSize:14,fontWeight:'800'},subscriptionNote:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:6,paddingTop:9,borderTopWidth:1,borderTopColor:'#3D324A'},hint:{color:colors.textMuted,fontSize:14,lineHeight:19,marginTop:7},eventButton:{minHeight:45,borderRadius:23,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,marginTop:13},eventButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},eventButtonText:{color:'#FFF',fontSize:15,fontWeight:'900'},paymentTeaser:{marginTop:10,padding:13,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},paymentHeader:{flexDirection:'row',alignItems:'center',gap:10},paymentLogo:{width:36,height:36,borderRadius:12,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},paymentLogoText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},paymentHeaderCopy:{flex:1},paymentTeaserTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},paymentStatus:{color:colors.success,fontSize:11,fontWeight:'900',marginTop:2},paymentTeaserText:{color:colors.textMutedGrey,fontSize:13,lineHeight:18,marginTop:9},
+  payoutLinkInput:{minHeight:48,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,paddingHorizontal:12,color:colors.textPrimary,fontSize:14,marginTop:10},payoutActions:{gap:8,marginTop:9},paypalHelpButton:{minHeight:40,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:10},paypalHelpText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},payoutLinkSaveButton:{minHeight:44,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},payoutLinkSaveButtonText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},paymentFootnote:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,textAlign:'center',marginTop:8},
 });
