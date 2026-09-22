@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T13:38:13.442Z
+- Régénéré le : 2026-09-22T13:42:07.615Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `4a29bae` (4a29bae0be65d54d95e9f475acca21ac546bcb94) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
-- Date du dernier commit : 2026-09-22T13:26:18+00:00
+- Dernier commit : `18ffee6` (18ffee6b15d565f1fea1419b5060c6bc82bf1a84) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
+- Date du dernier commit : 2026-09-22T13:38:13+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,6 +122,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `18ffee6` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
 - `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
 - `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
 - `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
@@ -131,7 +132,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `a12d641` (2026-09-22, adelkhatra-bit) — chore(branding): replace KEEP verb with garder in UI
 - `2562f5e` (2026-09-22, adelkhatra-bit) — perf(battle): prefetch next round audio during answer pause
 - `23356f3` (2026-09-22, adelkhatra-bit) — fix(audio): minor edge cases -- ended event web + manche sautee visible
-- `a98868f` (2026-09-22, adelkhatra-bit) — fix(audio): resout un conflit reel entre capture micro et lecture de previews
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -156,6 +156,16 @@ agent) et messages des sessions de chat (non versionnés).
   infrastructure de mémoire partagée (ce fichier + hooks) livrée en premier
   comme demandé ; audit API exhaustif et intégration Super Admin à suivre,
   après validation de ce rapport par Adel.
+- **[À VALIDER] (Adel) — workflow iOS obsolète** : `eas-build-ios.yml`
+  (« Build iOS EAS + TestFlight ») est à supprimer/désactiver par
+  l'utilisateur. Il échoue systématiquement sur une erreur Apple 401
+  (Distribution Certificate non validé + provisioning profiles non
+  récupérables + clé App Store Connect API expirée/invalide). Il fait doublon
+  et produit un faux ❌ rouge trompeur. **L'app iOS build correctement via
+  `auto-eas-build.yml`** (qui bootstrap lui-même le certificat de signature).
+  Suppression impossible par les agents IA : le token de l'app GitHub n'a pas
+  la permission `workflows`. Action manuelle : github.com →
+  `.github/workflows/eas-build-ios.yml` → Delete file → commit.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---
