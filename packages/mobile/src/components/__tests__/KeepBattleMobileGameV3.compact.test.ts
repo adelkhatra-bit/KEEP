@@ -303,8 +303,8 @@ describe('Loki Music Battle accept reliability', () => {
 
   it('reacts immediately and uses large touch targets for accept/refuse', () => {
     expect(battle).toContain('setAudioReady(false);\n      void stopTrackPreview();');
-    expect(battle).toContain('minHeight: 64');
-    expect(battle).toContain('borderWidth: 3');
+    expect(battle).toContain('minHeight: 52');
+    expect(battle).toContain('borderColor: colors.primary');
     expect(battle).toContain('hitSlop={10}');
     expect(battle).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22");
     expect(battle).toContain('CONNEXION AU BATTLE…');
