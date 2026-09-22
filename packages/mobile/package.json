@@ -78,5 +78,14 @@
     "jest": "^29.7.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "searchPaths": [
+        "../../node_modules",
+        "./node_modules"
+      ],
+      "nativeModulesDir": "./modules"
+    }
+  }
 }
