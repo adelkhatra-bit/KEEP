@@ -126,24 +126,25 @@ jobs:
             await bottomProfileTab.click();
             await page.waitForTimeout(700);
 
-            // Cible les vrais onglets du profil via leur libellé d'accessibilité,
-            // pas un texte KEEP/Vibes/Albums pouvant exister ailleurs sur la page.
+            // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
+            // v3 a volontairement supprimé Albums et renommé KEEP en Musiques :
+            // le test doit suivre le contrat produit réel, pas un ancien layout.
+            const musicTab = page.getByLabel('Profil Musiques');
             const vibesTab = page.getByLabel('Profil Vibes');
-            const albumsTab = page.getByLabel('Profil Albums');
-            const keepTab = page.getByLabel('Profil KEEP');
-            if (await vibesTab.count() === 0 || await albumsTab.count() === 0 || await keepTab.count() === 0) throw new Error('Profile music tabs not found');
+            const artistsTab = page.getByLabel('Profil Artistes');
+            if (await musicTab.count() === 0 || await vibesTab.count() === 0 || await artistsTab.count() === 0) throw new Error('Profile music tabs not found');
 
             await vibesTab.click();
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Vibes tab kept KEEP content mounted');
+            if (!await vibesTab.getAttribute('aria-selected').then(v => v === 'true')) throw new Error('Vibes tab did not become selected');
 
-            await albumsTab.click();
+            await artistsTab.click();
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Albums tab kept KEEP content mounted');
+            if (!await artistsTab.getAttribute('aria-selected').then(v => v === 'true')) throw new Error('Artists tab did not become selected');
 
-            await keepTab.click();
+            await musicTab.click();
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count() === 0) throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
+            if (!await musicTab.getAttribute('aria-selected').then(v => v === 'true')) throw new Error('Musiques tab did not remount immediately; browser refresh would still be required');
 
             await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
