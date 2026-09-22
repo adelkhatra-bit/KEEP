@@ -815,6 +815,15 @@ export default function MyMusicScreen({ navigation }: any) {
             title={track.title}
             artist={track.artist}
             badge={offered ? { label: `🏷️ ${(offered.priceCents / 100).toFixed(2)}€`, onPress: () => editExistingTrackOffer(track) } : undefined}
+            originBadge={localEntry ? {
+              label: localEntry.sourceProfileId
+                ? `UTILISATEUR${localEntry.sourceUsername ? ` · @${localEntry.sourceUsername.replace(/^@+/, '')}` : ''}`
+                : 'ÉCOUTE',
+              tone: localEntry.sourceProfileId ? 'social' : 'listen',
+              onPress: localEntry.sourceProfileId && localEntry.sourceUsername
+                ? () => openSourceProfile(localEntry.sourceUsername)
+                : undefined,
+            } : undefined}
             playSlot={<TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} square />}
             actions={[]}
             expandable={Boolean(localEntry)}
@@ -993,9 +1002,9 @@ export default function MyMusicScreen({ navigation }: any) {
 
       {activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
         <Text style={styles.originSummaryText}>
-          <Text style={styles.originOwnCount}>{ownDiscoveryEntries.length} découvert{ownDiscoveryEntries.length > 1 ? 's' : ''}</Text>
+          <Text style={styles.originOwnCount}>{ownDiscoveryEntries.length} depuis tes écoutes</Text>
           {' · '}
-          <Text style={styles.originSocialCount}>{socialRepriseEntries.length} repris</Text>
+          <Text style={styles.originSocialCount}>{socialRepriseEntries.length} depuis des utilisateurs</Text>
           {' · Total '}
           <Text style={styles.originTotalCount}>{localKeptEntries.length}</Text>
         </Text>
@@ -1055,8 +1064,8 @@ export default function MyMusicScreen({ navigation }: any) {
             </View> : null}
             {localKeptEntries.length ? <View style={[styles.originSection, styles.originSectionOwn]}>
               <View style={styles.originSectionHeader}>
-                <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>🎧</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleOwn]}>Mes découvertes</Text></View>
-                <Text style={[styles.originSectionCount, styles.originSectionCountOwn]}>{ownDiscoveryEntries.length} découvert{ownDiscoveryEntries.length > 1 ? 's' : ''}</Text>
+                <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>🎧</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleOwn]}>Musiques de mes écoutes</Text></View>
+                <Text style={[styles.originSectionCount, styles.originSectionCountOwn]}>{ownDiscoveryEntries.length} titres</Text>
               </View>
             </View> : null}
           </>}
@@ -1066,10 +1075,10 @@ export default function MyMusicScreen({ navigation }: any) {
               onPress={() => setSocialSectionExpanded((value) => !value)}
               accessibilityRole="button"
               accessibilityState={{ expanded: socialSectionExpanded }}
-              accessibilityLabel="Afficher ou masquer les reprises d'autres utilisateurs"
+              accessibilityLabel="Afficher ou masquer les musiques reprises d'autres utilisateurs"
             >
-              <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>🔒</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleSocial]}>Reprises d'autres utilisateurs</Text></View>
-              <View style={styles.originSectionRight}><Text style={[styles.originSectionCount, styles.originSectionCountSocial]}>{socialRepriseEntries.length} repris</Text><Text style={styles.originSectionChevron}>{socialSectionExpanded ? '⌄' : '›'}</Text></View>
+              <View style={styles.originSectionTitleRow}><Text style={styles.originSectionIcon}>👥</Text><Text style={[styles.originSectionTitle, styles.originSectionTitleSocial]}>Musiques reprises d'autres utilisateurs</Text></View>
+              <View style={styles.originSectionRight}><Text style={[styles.originSectionCount, styles.originSectionCountSocial]}>{socialRepriseEntries.length} titres</Text><Text style={styles.originSectionChevron}>{socialSectionExpanded ? '⌄' : '›'}</Text></View>
             </TouchableOpacity>
             {socialSectionExpanded ? <View style={styles.originSectionBody}>{socialRepriseTracks.map((track) => (
               <View key={`social:${trackIdentity(track)}`}>{renderTrack(track)}</View>
