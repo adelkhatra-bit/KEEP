@@ -1,6 +1,10 @@
 {
-  "platforms": ["ios"],
-  "ios": {
-    "modules": ["KeepShazamModule"]
+  "platforms": [
+    "ios"
+  ],
+  "apple": {
+    "modules": [
+      "KeepShazamModule"
+    ]
   }
 }
