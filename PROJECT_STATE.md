@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T13:59:50.032Z
+- Régénéré le : 2026-09-22T15:41:05.791Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `b7ec85b` (b7ec85b776208427fc2f7acbbe55e76c0e66382a) — docs: [A VALIDER] supprimer workflow obsolete eas-build-ios.yml (Apple 401, permission workflows requise cote Adel)
-- Date du dernier commit : 2026-09-22T13:42:07+00:00
+- Dernier commit : `2767c3a` (2767c3ac6029be1a82e29e772648b7d8dd407bab) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
+- Date du dernier commit : 2026-09-22T17:39:04+02:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,16 +122,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `2767c3a` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
+- `d85c8d9` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout DiscoverScreen (spec Adel 22/09/2026)
+- `8cd3a09` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout HomeScreenCompact (spec Adel 22/09/2026)
+- `d7df56a` (2026-09-22, adelkhatra-bit) — style(mobile): migrer HomeScreenCompact/Discover/Parties vers les tokens colors.ts (design system strict)
 - `b7ec85b` (2026-09-22, adelkhatra-bit) — docs: [A VALIDER] supprimer workflow obsolete eas-build-ios.yml (Apple 401, permission workflows requise cote Adel)
 - `18ffee6` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
 - `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
 - `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
 - `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
 - `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
-- `d3deba0` (2026-09-22, adelkhatra-bit) — feat(infra): PROJECT_STATE.md + hooks Git pour mémoire partagée inter-IA
-- `54a269d` (2026-09-22, adelkhatra-bit) — feat(anti-shazam): random offset + pitch shift + TTS overlay
-- `a12d641` (2026-09-22, adelkhatra-bit) — chore(branding): replace KEEP verb with garder in UI
-- `2562f5e` (2026-09-22, adelkhatra-bit) — perf(battle): prefetch next round audio during answer pause
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
