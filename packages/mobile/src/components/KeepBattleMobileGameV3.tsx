@@ -1356,6 +1356,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setChallengeBusyId(player.profileId);
     try {
       let arenaId = buildingArenaIdRef.current;
+      // Un ancien salon WAITING peut avoir expiré pendant qu'on reste sur
+      // l'écran. Ne jamais réutiliser indéfiniment un id périmé : c'était un
+      // bouton "Démarrer la Battle" qui semblait mort après une première
+      // tentative expirée.
+      if (arenaId) {
+        const existingArena = await loadKeepBattleArena(arenaId).catch(() => null);
+        if (!existingArena || existingArena.status !== 'WAITING' || existingArena.openSeats <= 0) {
+          setBuildingArena(null);
+          arenaId = null;
+        }
+      }
       if (!arenaId) {
         // Adel (04/09/2026) : "si j'ai sélectionné cinq [styles] ... il faut
         // qu'il me mette un peu de tout, un mix de tout" -- même mécanisme
@@ -1727,7 +1738,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Le groupe est déjà complet : 10 joueurs.');
-      else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `${player.username} n’a pas les 3 Free nécessaires.`);
+      else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `${player.username} n’a pas les ${stakeForRounds(arena.roundCount)} Free nécessaires.`);
       else if (message.includes('BATTLE_ARENA_NOT_OPEN_FOR_INVITES')) Alert.alert('Battle', 'La prochaine partie a déjà démarré.');
       else if (message.includes('BATTLE_TARGET_BLOCKED_TOO_MANY_DECLINES')) {
         const until = parseInviteBlockedUntilMs(message);
