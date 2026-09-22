@@ -63,6 +63,14 @@ function normalizeUsername(username: string) {
   return username.trim().replace(/^@+/, '').normalize('NFKC');
 }
 
+// Un pseudo Loki peut contenir `_` et `.` ; `_`/`%` sont des jokers LIKE.
+// Sans échappement, `.ilike('username', pseudo)` fait de "a_b" un motif qui
+// remonte "aXb" -> faux positif de collision de pseudo. On échappe pour une
+// correspondance exacte insensible à la casse (`\` = échappement LIKE Postgres).
+function escapeLikePattern(value: string) {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -163,7 +171,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
       const { data: usernames } = await client
         .from('profiles')
         .select('id')
-        .ilike('username', cleanUsername)
+        .ilike('username', escapeLikePattern(cleanUsername))
         .limit(1);
       if (usernames?.length) return { error: 'username_taken' };
 

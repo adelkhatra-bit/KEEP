@@ -90,7 +90,7 @@ export async function savePlaylistPreference(preference: KeepPlaylistPreference)
   if (isSmartAlbumUiId(preference.providerPlaylistId)) {
     const databaseId = smartAlbumDatabaseId(preference.providerPlaylistId);
     const { error } = await supabase.from('playlists').update({
-      name: preference.name.trim() || 'Album Loki',
+      name: preference.name.trim() || 'Album Loki Music',
       description: preference.description.trim() || null,
       is_public: preference.isPublic,
       updated_at: new Date().toISOString(),
@@ -116,7 +116,7 @@ export async function savePlaylistPreference(preference: KeepPlaylistPreference)
     owner_id: userId,
     provider: preference.provider,
     provider_playlist_id: preference.providerPlaylistId,
-    name: preference.name.trim() || 'Mes KEEP',
+    name: preference.name.trim() || 'Mes Gardés',
     description: preference.description.trim() || null,
     is_public: preference.isPublic,
     cover_url: preference.coverUrl || null,
@@ -174,8 +174,8 @@ export async function syncPlaylistTrack(params: {
       owner_id: userId,
       provider: keyProvider,
       provider_playlist_id: providerPlaylistId,
-      name: params.playlistName || 'Mes KEEP',
-      description: params.playlistDescription || 'Morceaux gardés avec Loki.',
+      name: params.playlistName || 'Mes Gardés',
+      description: params.playlistDescription || 'Morceaux gardés avec Loki Music.',
       is_public: false,
       is_smart: false,
       cover_url: params.coverUrl || null,

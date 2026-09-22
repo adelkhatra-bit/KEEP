@@ -389,6 +389,15 @@ export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditSt
   return unwrap(data as KeepBattleCreditStatus | null, error);
 }
 
+// Adel (18/09/2026) : "Lorsqu'un utilisateur se connecte, il faut marquer son
+// style musical" -- met à jour presence_theme_code pour signaler aux autres
+// joueurs quel style musical l'utilisateur joue en solo. Envoie aussi une
+// notification aux joueurs disponibles qu'une partie solo vient de démarrer.
+export async function updateSoloPresenceTheme(themeCode = 'MIX'): Promise<void> {
+  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode });
+  if (error) throw new Error(String(error?.message || error?.code || 'KEEP_BATTLE_PRESENCE_FAILED'));
+}
+
 export async function loadKeepBattleThemes(): Promise<KeepBattleTheme[]> {
   const { data, error } = await client().from('keep_battle_themes').select('code,label,sort_order').eq('enabled', true).order('sort_order', { ascending: true });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_THEME_FAILED'));

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
+import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { createAuthService } from '../services/authService';
 import {
   clearStagedGuestMusic,
@@ -26,20 +27,20 @@ type Props = {
 };
 
 function errorText(code: string) {
-  if (code === 'invalid_username') return 'Ce pseudo Loki ne peut pas être utilisé.';
+  if (code === 'invalid_username') return 'Ce pseudo Loki Music ne peut pas être utilisé.';
   if (code === 'invalid_password') return 'Choisis un autre mot de passe.';
   if (code === 'invalid_email') return 'Cette adresse e-mail n’est pas valide.';
-  if (code === 'email_taken') return 'Cette adresse e-mail est déjà utilisée par un autre compte Loki.';
+  if (code === 'email_taken') return 'Cette adresse e-mail est déjà utilisée par un autre compte Loki Music.';
   if (code === 'rate_limited') return 'Trop de demandes rapprochées. Attends un instant puis réessaie.';
   if (code === 'email_link_invalid') return 'Ce lien e-mail est expiré ou invalide. Demande un nouveau lien.';
-  if (code === 'username_taken') return 'Ce pseudo Loki est déjà utilisé. Choisis-en un autre.';
-  if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support Loki doit le régulariser.';
+  if (code === 'username_taken') return 'Ce pseudo Loki Music est déjà utilisé. Choisis-en un autre.';
+  if (code === 'username_conflict') return 'Ce pseudo existe plusieurs fois dans les anciennes données. Le support Loki Music doit le régulariser.';
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
-  if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki.';
-  if (code === 'invalid_credentials') return 'Identifiant Loki, e-mail ou mot de passe incorrect.';
-  if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki indisponible pour le moment. Réessaie plus tard.';
+  if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki Music.';
+  if (code === 'invalid_credentials') return 'Identifiant Loki Music, e-mail ou mot de passe incorrect.';
+  if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki Music indisponible pour le moment. Réessaie plus tard.';
   if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
-  return 'Connexion Loki indisponible pour le moment. Réessaie dans un instant.';
+  return 'Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.';
 }
 
 function isValidEmail(value: string) {
@@ -95,8 +96,16 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState('');
   const [error, setError] = useState('');
   const [passwordSuggested, setPasswordSuggested] = useState(false);
+  // Maquette validée (22/09/2026) : les hints longs sous Pseudo/E-mail
+  // deviennent des tooltips ⓘ au tap au lieu d'un paragraphe toujours
+  // visible -- le texte n'est pas supprimé, seulement replié par défaut.
+  const [openTip, setOpenTip] = useState<'username' | 'email' | null>(null);
   const strength = useMemo(() => passwordStrength(password), [password]);
   const strengthLabel = strength <= 1 ? 'Faible' : strength === 2 ? 'Correct' : strength === 3 ? 'Bon' : 'Très bon';
+  const strengthGood = strength >= 3;
+
+  // Corrige le fond jaune du remplissage automatique sur le web (thème sombre).
+  useEffect(() => { ensureAuthAutofillStyleInjected(); }, []);
 
   const applyFollowIntent = async () => {
     if (!supabase || !followUsername) return true;
@@ -133,7 +142,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     const followed = await applyFollowIntent();
     if (followUsername) {
       Alert.alert(
-        'Compte Loki prêt',
+        'Compte Loki Music prêt',
         followed
           ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
           : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
@@ -143,7 +152,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   };
 
   const submit = async () => {
-    if (!supabase) return setError('Connexion Loki indisponible pour le moment.');
+    if (!supabase) return setError('Connexion Loki Music indisponible pour le moment.');
     const identity = username.trim();
     const normalizedUsername = cleanUsername(identity);
     const loginByEmail = mode === 'login' && identity.includes('@');
@@ -177,7 +186,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       }
       await finishAuthenticatedFlow();
     } catch {
-      setError('Connexion Loki indisponible pour le moment. Réessaie dans un instant.');
+      setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
     } finally {
       setBusy(false);
     }
@@ -199,12 +208,12 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   };
 
   const requestRecoveryLink = async () => {
-    if (!supabase) return setError('Connexion Loki indisponible pour le moment.');
+    if (!supabase) return setError('Connexion Loki Music indisponible pour le moment.');
     const email = username.trim().toLowerCase();
     if (!email.includes('@')) {
       Alert.alert(
         'Récupération du compte',
-        'Entre d’abord ton adresse e-mail de récupération vérifiée dans le champ « Pseudo Loki ou e-mail », puis appuie de nouveau sur « Mot de passe oublié ? ». Pour un ancien compte sans e-mail, le Super Admin Loki peut toujours rétablir l’accès.',
+        'Entre d’abord ton adresse e-mail de récupération vérifiée dans le champ « Pseudo Loki Music ou e-mail », puis appuie de nouveau sur « Mot de passe oublié ? ». Pour un ancien compte sans e-mail, le Super Admin Loki Music peut toujours rétablir l’accès.',
       );
       return;
     }
@@ -218,8 +227,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         return;
       }
       Alert.alert(
-        'Lien Loki envoyé',
-        'Si cette adresse est liée à un compte Loki, ouvre l’e-mail reçu puis touche « CHANGER MON MOT DE PASSE ». Tu pourras choisir un nouveau mot de passe sécurisé.',
+        'Lien Loki Music envoyé',
+        'Si cette adresse est liée à un compte Loki Music, ouvre l’e-mail reçu puis touche « CHANGER MON MOT DE PASSE ». Tu pourras choisir un nouveau mot de passe sécurisé.',
       );
     } catch {
       setError('Impossible d’envoyer le lien de récupération pour le moment. Réessaie dans un instant.');
@@ -233,7 +242,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   if (pendingConfirmationEmail) {
     return <ScrollView style={s.scroll} contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
       <Text style={s.title}>Confirme ton e-mail</Text>
-      <Text style={s.subtitle}>Loki a envoyé un lien de confirmation à {pendingConfirmationEmail}. Ouvre cet e-mail et touche le lien pour activer ton compte, puis reviens te connecter ici.</Text>
+      <Text style={s.subtitle}>Loki Music a envoyé un lien de confirmation à {pendingConfirmationEmail}. Ouvre cet e-mail et touche le lien pour activer ton compte, puis reviens te connecter ici.</Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
       <TouchableOpacity style={s.primary} onPress={resendConfirmation} disabled={busy}>
         {busy ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>RENVOYER L’E-MAIL</Text>}
@@ -251,19 +260,30 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     nestedScrollEnabled
     showsVerticalScrollIndicator={false}
   >
-    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte Loki' : 'Se connecter à Loki'}</Text>
+    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte Loki Music' : 'Se connecter à Loki Music'}</Text>
     {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
         ? 'Ton pseudo, ton mot de passe et une adresse e-mail vérifiée sont nécessaires pour créer ton compte.'
-        : 'Connecte-toi avec ton pseudo Loki ou ton e-mail, puis ton mot de passe.'}
+        : 'Connecte-toi avec ton pseudo Loki Music ou ton e-mail, puis ton mot de passe.'}
     </Text>
 
+    {mode === 'create' ? (
+      <View style={s.labelRow}>
+        <Text style={s.label}>Pseudo Loki Music</Text>
+        <TouchableOpacity
+          style={s.info}
+          onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
+          accessibilityRole="button"
+          accessibilityLabel="Pourquoi ce champ ?"
+        ><Text style={s.infoText}>i</Text></TouchableOpacity>
+      </View>
+    ) : null}
     <TextInput
       style={s.input}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder={mode === 'create' ? 'Pseudo Loki' : 'Pseudo Loki ou e-mail'}
+      placeholder={mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}
       placeholderTextColor={colors.textMuted}
       autoCapitalize="none"
       autoCorrect={false}
@@ -271,9 +291,18 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       textContentType={mode === 'login' ? 'username' : 'username'}
       maxLength={160}
     />
+    {mode === 'create' && openTip === 'username' ? <Text style={s.tooltip}>Ton pseudo est public et unique.</Text> : null}
 
     {mode === 'create' ? <>
-      <Text style={s.usernameHint}>Ton pseudo est public et unique.</Text>
+      <View style={s.labelRow}>
+        <Text style={s.label}>Adresse e-mail</Text>
+        <TouchableOpacity
+          style={s.info}
+          onPress={() => setOpenTip((v) => (v === 'email' ? null : 'email'))}
+          accessibilityRole="button"
+          accessibilityLabel="Pourquoi ce champ ?"
+        ><Text style={s.infoText}>i</Text></TouchableOpacity>
+      </View>
       <TextInput
         style={s.input}
         value={email}
@@ -286,9 +315,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         autoComplete="email"
         textContentType="emailAddress"
       />
-      <Text style={s.usernameHint}>Ton e-mail reste privé -- il sert uniquement à activer ton compte et à récupérer ton mot de passe.</Text>
+      {openTip === 'email' ? <Text style={s.tooltip}>Ton e-mail reste privé -- il sert uniquement à activer ton compte et à récupérer ton mot de passe.</Text> : null}
       <TouchableOpacity style={s.suggestButton} onPress={suggestPassword} disabled={busy} accessibilityRole="button" accessibilityLabel="Suggérer un mot de passe sécurisé">
-        <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE Loki</Text>
+        <Text style={s.suggestText}>✦ SUGGÉRER UN MOT DE PASSE Loki Music</Text>
       </TouchableOpacity>
     </> : null}
 
@@ -311,9 +340,9 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
     {mode === 'create' ? <>
       <View style={s.strengthRow}>
-        {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strength >= 3 ? s.strengthGood : strength === 2 ? s.strengthMedium : s.strengthWeak)]} />)}
+        {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strengthGood ? s.strengthGood : s.strengthWeak)]} />)}
       </View>
-      <Text style={[s.strengthText, strength >= 3 ? s.strengthTextGood : strength === 2 ? s.strengthTextMedium : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
+      <Text style={[s.strengthText, strengthGood ? s.strengthTextGood : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
       <View style={s.passwordRow}>
         <TextInput
           style={s.passwordInput}
@@ -332,7 +361,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       </View>
     </> : null}
 
-    {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par Loki : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
+    {passwordSuggested ? <Text style={s.passwordSavedHint}>Mot de passe proposé par Loki Music : enregistre-le dans le gestionnaire de mots de passe de ton appareil.</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
     <TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>
@@ -346,10 +375,22 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
       <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
     </TouchableOpacity>
-    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, Loki charge uniquement la musique de cette identité.</Text>
+    <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, Loki Music charge uniquement la musique de cette identité.</Text>
   </ScrollView>;
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:520},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},input:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},usernameHint:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},passwordRow:{minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:42,paddingHorizontal:13,color:colors.textPrimary,fontSize:14},eye:{width:44,height:42,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},strengthWeak:{backgroundColor:'#EF4444'},strengthMedium:{backgroundColor:'#F59E0B'},strengthGood:{backgroundColor:'#22C55E'},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:'#EF4444'},strengthTextMedium:{color:'#F59E0B'},strengthTextGood:{color:'#22C55E'},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:'#F0C85A',fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
+  scroll:{maxHeight:560},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},
+  // Maquette validée (22/09/2026) : champs 44 -> 52px, police 14 -> 16px minimum.
+  input:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},
+  labelRow:{flexDirection:'row',alignItems:'center',gap:6,marginTop:2},
+  label:{color:colors.textSecondary,fontSize:11,fontWeight:'800',textTransform:'uppercase',letterSpacing:.4},
+  info:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  infoText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  tooltip:{color:colors.textSecondary,fontSize:11,lineHeight:15,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,borderRadius:radius.md,padding:9,marginTop:2},
+  passwordRow:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:50,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},eye:{width:48,height:50,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},
+  // Maquette validée (22/09/2026) : 2 tons cohérents avec la marque au lieu
+  // de 3 (ambre pour Faible/Correct, menthe colors.success pour Bon/Très
+  // bon) -- avant : vert générique #22C55E sans rapport avec la palette Loki.
+  strengthWeak:{backgroundColor:colors.warning},strengthGood:{backgroundColor:colors.success},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:colors.warning},strengthTextGood:{color:colors.success},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:13,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
 });

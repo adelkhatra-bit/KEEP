@@ -18,7 +18,7 @@ const MANUAL: Array<{ key: ManualKey; label: string; detail: string }> = [
 const PROVIDERS = [
   {
     name: 'Apple Developer', plan: 'Programme individuel', price: '99 USD / an', required: true,
-    detail: 'Obligatoire pour signer et publier Loki sur iPhone.', action: 'OUVRIR ET PAYER',
+    detail: 'Obligatoire pour signer et publier Loki Music sur iPhone.', action: 'OUVRIR ET PAYER',
     url: 'https://developer.apple.com/account/',
   },
   {
@@ -28,7 +28,7 @@ const PROVIDERS = [
   },
   {
     name: 'Vercel', plan: 'Pro — 1 siège', price: '20 USD / mois', required: true,
-    detail: 'Backend commercial Loki et crédit d’usage mensuel inclus.', action: 'CHOISIR PRO',
+    detail: 'Backend commercial Loki Music et crédit d’usage mensuel inclus.', action: 'CHOISIR PRO',
     url: 'https://vercel.com/account/billing',
   },
   {
@@ -38,7 +38,7 @@ const PROVIDERS = [
   },
   {
     name: 'Google Cloud / YouTube', plan: 'YouTube Data API', price: '0 USD au quota standard', required: false,
-    detail: 'OAuth lecture seule pour faire remonter les likes YouTube dans les sessions Loki.', action: 'CONFIGURER OAUTH',
+    detail: 'OAuth lecture seule pour faire remonter les likes YouTube dans les sessions Loki Music.', action: 'CONFIGURER OAUTH',
     url: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
   },
   {
@@ -107,7 +107,7 @@ export default function LaunchCenter() {
   const ready = totalReady === totalChecks;
 
   return <AdminLayout>
-    <div className="page-title">Centre de lancement Loki</div>
+    <div className="page-title">Centre de lancement Loki Music</div>
     <div className="page-subtitle">Un seul endroit pour choisir les abonnements, ouvrir les comptes officiels et savoir exactement ce qui bloque l’App Store.</div>
 
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
@@ -121,7 +121,7 @@ export default function LaunchCenter() {
 
     <div className="card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginTop: 0 }}>Abonnements à sélectionner</h3>
-      <p style={{ color: 'var(--text-muted)' }}>Chaque bouton ouvre le compte officiel sur le bon écran. Loki ne collecte jamais ta carte bancaire et ne revend aucun abonnement.</p>
+      <p style={{ color: 'var(--text-muted)' }}>Chaque bouton ouvre le compte officiel sur le bon écran. Loki Music ne collecte jamais ta carte bancaire et ne revend aucun abonnement.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(245px,1fr))', gap: 12 }}>
         {PROVIDERS.map((provider) => <div key={provider.name} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--bg-elevated)' }}>
           <div style={{ color: provider.required ? '#ffb454' : '#86efac', fontSize: 10, fontWeight: 900 }}>{provider.required ? 'NÉCESSAIRE AU LANCEMENT' : 'GRATUIT / OPTIONNEL'}</div>
@@ -140,7 +140,7 @@ export default function LaunchCenter() {
         etat lu (Cles detectees automatiquement + alerte d'erreur ci-dessous). */}
     <div className="card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginTop: 0 }}>Écoute multi-moteurs</h3>
-      <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki : ShazamKit sur iPhone → AudD → ACRCloud. Pour un lien YouTube/TikTok partagé : métadonnées de la page → catalogues Apple/Deezer → empreinte audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
+      <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki Music : ShazamKit sur iPhone → AudD → ACRCloud. Pour un lien YouTube/TikTok partagé : métadonnées de la page → catalogues Apple/Deezer → empreinte audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
       <a href="/integrations" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
         Tester les moteurs dans « Intégrations »
       </a>

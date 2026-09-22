@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TextInput, Toucha
 import { consumeWebAuthAndOpenNative, subscribeToNativeAuthLinks } from '../services/authLinkHandoff';
 import { supabase } from '../services/supabaseClient';
 import { createAuthService } from '../services/authService';
+import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { colors } from '../theme/colors';
 
 /**
@@ -17,6 +18,9 @@ export default function AuthEmailLinkLifecycle() {
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Corrige le fond jaune du remplissage automatique sur le web (thème sombre).
+  useEffect(() => { ensureAuthAutofillStyleInjected(); }, []);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -70,7 +74,7 @@ export default function AuthEmailLinkLifecycle() {
   return <Modal visible={recoveryOpen} transparent animationType="fade" onRequestClose={() => setRecoveryOpen(false)}>
     <View style={styles.backdrop}>
       <View style={styles.card}>
-        <Text style={styles.title}>Nouveau mot de passe Loki</Text>
+        <Text style={styles.title}>Nouveau mot de passe Loki Music</Text>
         <Text style={styles.subtitle}>Choisis au moins 10 caractères. Ce nouveau mot de passe remplacera immédiatement l’ancien.</Text>
         <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Nouveau mot de passe" placeholderTextColor={colors.textMuted} secureTextEntry autoComplete="new-password" textContentType="newPassword" />
         <TextInput style={styles.input} value={confirmation} onChangeText={setConfirmation} placeholder="Confirmer le mot de passe" placeholderTextColor={colors.textMuted} secureTextEntry autoComplete="new-password" textContentType="newPassword" onSubmitEditing={savePassword} />

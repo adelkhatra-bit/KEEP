@@ -1,4 +1,6 @@
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { Audio, AVPlaybackStatus, InterruptionModeIOS } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { isNativeRecordingModeActive } from './micCapture';
 
 let activeSound: Audio.Sound | null = null;
 let activeKey: string | null = null;
@@ -7,6 +9,15 @@ let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
+// Préchargement de la manche suivante (Loki Battle solo). Distinct de
+// activeSound : le son en cours de lecture n'est jamais touché pendant
+// qu'un second son se charge en arrière-plan pendant la pause de 2,8s après
+// une réponse. Natif uniquement -- voir canUseWebAudio() plus bas, le web
+// réutilise un unique <audio> partagé pour contourner le blocage autoplay
+// Safari iOS, donc un deuxième flux en parallèle n'a pas sa place ici.
+let preloadedSound: Audio.Sound | null = null;
+let preloadedKey: string | null = null;
+
 // Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
 // deux manches. Sur le web, Loki Battle réutilise donc le même HTMLAudioElement
 // pendant toute la session. L'élément est seulement mis en pause entre les titres ;
@@ -14,6 +25,7 @@ let operation = Promise.resolve();
 let webAudio: any = null;
 let webAudioKey: string | null = null;
 let webAudioListener: ((playing: boolean) => void) | null = null;
+const SILENT_UNLOCK_SOURCE = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 
 function canUseWebAudio(): boolean {
   return typeof (globalThis as any)?.Audio === 'function' && typeof (globalThis as any)?.document !== 'undefined';
@@ -70,11 +82,34 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   return next;
 }
 
+async function discardPreloaded() {
+  const stale = preloadedSound;
+  preloadedSound = null;
+  preloadedKey = null;
+  if (!stale) return;
+  try { await stale.stopAsync(); } catch {}
+  try { await stale.unloadAsync(); } catch {}
+}
+
+// BUG RÉEL trouvé en audit runtime (Adel, 22/09/2026, "beaucoup de bugs quand
+// il joue en solo avec la musique") : cette fonction forçait toujours
+// allowsRecordingIOS:false sur l'état audio natif GLOBAL de l'app, sans savoir
+// si micCapture.ts avait une capture micro active au même instant (session
+// d'écoute en arrière-plan pendant qu'un extrait Battle/Swipe démarre). Les
+// deux fichiers appellent Audio.setAudioModeAsync sur le MÊME état partagé,
+// chacun dans sa propre file -- sans coordination, celui qui s'exécute en
+// dernier gagne. Résultat possible : le micro se coupe silencieusement sous
+// une capture en cours, sans erreur visible, dès qu'une preview audio démarre.
+// On ne désactive donc plus jamais l'enregistrement si une capture est
+// réellement en cours -- l'extrait joue par-dessus (MixWithOthers, comme
+// micCapture.ts), sans jamais couper le micro.
 async function configurePreviewAudio() {
+  const recordingActive = isNativeRecordingModeActive();
   await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
+    allowsRecordingIOS: recordingActive,
     playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
+    staysActiveInBackground: recordingActive,
+    interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
     shouldDuckAndroid: true,
     playThroughEarpieceAndroid: false,
   });
@@ -211,14 +246,29 @@ async function playWebSegment(
   if (webAudioKey !== key) return;
   onStateChange?.(true);
 
-  activeTimer = setTimeout(() => {
+  // BUG MINEUR trouvé en audit runtime (Adel, 22/09/2026) : cette fonction ne
+  // se fiait qu'à une minuterie artificielle (durationMillis) pour signaler
+  // "extrait terminé" -- si le fichier réel est plus court (fin naturelle
+  // avant ce délai), l'élément <audio> s'arrête tout seul mais l'app continue
+  // d'afficher "en lecture" jusqu'à l'expiration du minuteur. On écoute
+  // maintenant aussi l'évènement natif `ended`, et on ne déclenche le
+  // nettoyage qu'une seule fois, quel que soit celui des deux qui arrive en
+  // premier.
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    if (activeTimer) { clearTimeout(activeTimer); activeTimer = null; }
+    element.removeEventListener('ended', finish);
     if (webAudioKey !== key || webAudio !== element) return;
     try { element.pause(); } catch {}
     webAudioListener?.(false);
     webAudioListener = null;
     webAudioKey = null;
     onEnded?.();
-  }, Math.max(1000, Math.round(durationMillis)));
+  };
+  element.addEventListener('ended', finish);
+  activeTimer = setTimeout(finish, Math.max(1000, Math.round(durationMillis)));
 }
 
 /**
@@ -300,11 +350,8 @@ export async function playTrackPreviewSegment(
       return;
     }
 
-    await unloadActive();
-    await configurePreviewAudio();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
-
-    const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
+    const onStatus = (status: AVPlaybackStatus, sound: Audio.Sound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
@@ -314,7 +361,38 @@ export async function playTrackPreviewSegment(
           await unloadActive();
         });
       }
-    });
+    };
+
+    // Adel (22/09/2026) : "audit latence TestFlight" -- rien ne préchargeait
+    // jamais l'extrait de la manche N+1 pendant que la manche N jouait, donc
+    // chaque manche payait la latence réseau+décodage complète. Si
+    // preloadTrackPreviewSegment a déjà préparé CETTE clé (déclenché pendant
+    // la pause de 2,8s après une réponse, voir KeepBattleMobileGameV3), on
+    // consomme ce son directement -- latence quasi nulle. Sinon, repli
+    // inchangé sur le chargement normal.
+    let createdSound: Audio.Sound | null = null;
+    if (preloadedKey === key && preloadedSound) {
+      const preloaded = preloadedSound;
+      preloadedSound = null;
+      preloadedKey = null;
+      await unloadActive();
+      await configurePreviewAudio();
+      try {
+        preloaded.setOnPlaybackStatusUpdate((status) => onStatus(status, preloaded));
+        await ensurePlaying(preloaded);
+        createdSound = preloaded;
+      } catch {
+        try { await preloaded.stopAsync(); } catch {}
+        try { await preloaded.unloadAsync(); } catch {}
+        createdSound = null;
+      }
+    }
+
+    if (!createdSound) {
+      await unloadActive();
+      await configurePreviewAudio();
+      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);
+    }
 
     activeSound = createdSound;
     activeKey = key;
@@ -327,6 +405,40 @@ export async function playTrackPreviewSegment(
       onEnded?.();
     }, Math.max(1000, Math.round(durationMillis)));
   });
+}
+
+/**
+ * Précharge en arrière-plan l'extrait d'une manche pas encore commencée,
+ * sans le jouer (shouldPlay:false). N'affecte jamais activeSound : le son en
+ * cours continue de jouer normalement pendant ce chargement. Best-effort --
+ * un échec ne bloque rien, playTrackPreviewSegment retombera simplement sur
+ * son chargement normal quand cette clé sera jouée pour de vrai.
+ */
+export async function preloadTrackPreviewSegment(
+  key: string,
+  previewUrl: string,
+  positionMillis: number,
+): Promise<void> {
+  if (!previewUrl || canUseWebAudio()) return;
+  return serialize(async () => {
+    if (preloadedKey === key && preloadedSound) return;
+    await discardPreloaded();
+    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+    try {
+      await configurePreviewAudio();
+      const sound = await createSoundWithRetry(previewUrl, effectivePosition, () => {}, false);
+      preloadedSound = sound;
+      preloadedKey = key;
+    } catch {
+      await discardPreloaded();
+    }
+  });
+}
+
+/** Abandonne un préchargement en attente (ex. le joueur quitte le Battle avant que la manche préchargée ne démarre). */
+export function discardPreloadedTrackPreview(key?: string): void {
+  if (key && preloadedKey !== key) return;
+  void serialize(async () => { await discardPreloaded(); });
 }
 
 /** Précharge l'extrait et le lance sur un timestamp absolu partagé entre joueurs. */
@@ -408,10 +520,160 @@ export async function scheduleTrackPreviewSegment(
 }
 
 export async function stopTrackPreview(key?: string): Promise<void> {
+  // La coupure doit être perceptible dès le geste de swipe. Si une lecture est
+  // encore en train d'attendre `canplay`, attendre son tour dans `serialize`
+  // peut laisser l'ancien extrait repartir brièvement sur la carte suivante.
+  // On invalide donc la lecture web et on la met en pause immédiatement ; la
+  // file sérialisée conserve ensuite la responsabilité du nettoyage complet.
+  const matchesCurrent = !key || activeKey === key || webAudioKey === key;
+  if (!matchesCurrent) return;
+  clearActiveTimer();
+  if (!key || webAudioKey === key) {
+    const listener = webAudioListener;
+    webAudioListener = null;
+    webAudioKey = null;
+    try { webAudio?.pause(); } catch {}
+    listener?.(false);
+  }
+  if ((!key || activeKey === key) && activeSound) {
+    void activeSound.stopAsync().catch(() => {});
+  }
   return serialize(async () => {
-    if (key && activeKey !== key && webAudioKey !== key) return;
     await unloadActive();
   });
+}
+
+// Anti-Shazam (Adel, 22/09/2026, spec validée + voix off expo-speech) :
+// previews de playlists en vente (PlaylistSaleImmersivePreview.tsx) --
+// extrait court (5-8s) à un point de départ aléatoire, léger pitch-shift, et
+// une ligne vocale Loki Music par-dessus, tirée au hasard et jamais mise en
+// cache. 100% client, aucune dépendance serveur. Fonction VOLONTAIREMENT
+// séparée de playTrackPreviewSegment (utilisée par Battle solo/arène et
+// Loki Swipe) : zéro risque de régresser ces usages en touchant ce fichier.
+const ANTI_SHAZAM_VOICE_LINES = [
+  'Découvre cette playlist sur Loki Music.',
+  'Une sélection gardée pour toi.',
+  'Écoute avant d’acheter.',
+  'La musique garde sa mémoire.',
+  'Loki Music — ton univers musical.',
+];
+
+function speakAntiShazamLine() {
+  try {
+    const line = ANTI_SHAZAM_VOICE_LINES[Math.floor(Math.random() * ANTI_SHAZAM_VOICE_LINES.length)];
+    Speech.speak(line, { language: 'fr-FR', volume: 0.25, pitch: 1, rate: 1 });
+  } catch {}
+}
+
+/**
+ * Joue un extrait anti-Shazam (offset aléatoire + pitch-shift + voix off) et
+ * résout avec la durée réelle (ms) de l'extrait choisi, pour que l'appelant
+ * puisse afficher un compte à rebours correct (la durée n'est plus fixe).
+ */
+export async function playAntiShazamPreviewSegment(
+  key: string,
+  previewUrl: string,
+  onStateChange?: (playing: boolean) => void,
+  onEnded?: () => void,
+): Promise<number> {
+  return serialize(async () => {
+    try { Speech.stop(); } catch {}
+    const extractDurationMs = 5000 + Math.random() * 3000;
+
+    if (canUseWebAudio()) {
+      // Repli web : offset aléatoire fixe (20-50s, la durée réelle du fichier
+      // n'est pas connue avant chargement) -- playWebSegment clampe déjà si
+      // le fichier est plus court. Pitch-shift best-effort via playbackRate
+      // sur l'élément <audio> partagé : non garanti identique sur tous les
+      // navigateurs (certains "corrigent" la hauteur automatiquement), mais
+      // reste un déphasage réel utile, jamais une régression si ça échoue.
+      const offsetMs = 20000 + Math.random() * 30000;
+      const rateShift = 1 + (0.03 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1);
+      await playWebSegment(key, previewUrl, offsetMs, extractDurationMs, onStateChange, onEnded);
+      try {
+        const element = getWebAudio();
+        if (element) {
+          element.playbackRate = rateShift;
+          (element as any).preservesPitch = false;
+          (element as any).mozPreservesPitch = false;
+          (element as any).webkitPreservesPitch = false;
+        }
+      } catch {}
+      speakAntiShazamLine();
+      return extractDurationMs;
+    }
+
+    await unloadActive();
+    await configurePreviewAudio();
+    const createdSound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
+
+    let durationMillis = 0;
+    try {
+      const status = await createdSound.getStatusAsync();
+      if (status.isLoaded && typeof status.durationMillis === 'number') durationMillis = status.durationMillis;
+    } catch {}
+
+    let offsetMs: number;
+    if (durationMillis > 1500) {
+      const low = durationMillis * 0.15;
+      const high = Math.max(low, Math.min(durationMillis * 0.7, durationMillis - extractDurationMs));
+      offsetMs = low + Math.random() * Math.max(0, high - low);
+    } else {
+      // Durée inconnue (métadonnée absente) -- repli sur une fenêtre fixe.
+      offsetMs = 20000 + Math.random() * 30000;
+    }
+    const rateShift = 1 + (0.03 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1);
+
+    try { await createdSound.setPositionAsync(Math.max(0, Math.round(offsetMs))); } catch {}
+    try { await createdSound.setRateAsync(rateShift, false); } catch {}
+
+    createdSound.setOnPlaybackStatusUpdate((status) => {
+      if (!status.isLoaded) return;
+      if (activeSound === createdSound) activeStateListener?.(status.isPlaying);
+    });
+
+    activeSound = createdSound;
+    activeKey = key;
+    activeStateListener = onStateChange ?? null;
+
+    try {
+      await ensurePlaying(createdSound);
+    } catch {
+      // Repli honnête : le seek/pitch-shift a fait échouer la lecture (fichier
+      // trop court, décodeur capricieux...) -- une lecture simple, sans
+      // traitement, vaut mieux qu'une manche silencieuse.
+      try { await createdSound.setPositionAsync(0); } catch {}
+      try { await createdSound.setRateAsync(1, false); } catch {}
+      await ensurePlaying(createdSound);
+    }
+    onStateChange?.(true);
+    speakAntiShazamLine();
+
+    activeTimer = setTimeout(() => {
+      if (activeSound !== createdSound) return;
+      void serialize(async () => { await unloadActive(); });
+      onEnded?.();
+    }, Math.max(1000, Math.round(extractDurationMs)));
+
+    return extractDurationMs;
+  });
+}
+
+/** Coupe l'extrait anti-Shazam en cours ET la voix off associée (voir playAntiShazamPreviewSegment). */
+export async function stopAntiShazamPreview(key?: string): Promise<void> {
+  try { Speech.stop(); } catch {}
+  if (canUseWebAudio()) {
+    try {
+      const element = getWebAudio();
+      if (element) {
+        element.playbackRate = 1;
+        (element as any).preservesPitch = true;
+        (element as any).mozPreservesPitch = true;
+        (element as any).webkitPreservesPitch = true;
+      }
+    } catch {}
+  }
+  await stopTrackPreview(key);
 }
 
 export function isTrackPreviewActive(key: string): boolean {
@@ -440,9 +702,24 @@ export function unlockWebAudioForGesture(): void {
   const element = getWebAudio();
   if (!element) return;
   try {
+    // Un élément <audio> neuf n'a aucune source : `play()` rejetait donc la
+    // promesse et ne déverrouillait rien. Une très courte piste silencieuse
+    // permet d'acquérir l'autorisation pendant le tap qui ouvre Loki Swipe ;
+    // le même élément est ensuite réutilisé pour les extraits réels.
+    if (!element.src) {
+      element.src = SILENT_UNLOCK_SOURCE;
+      try { element.load(); } catch {}
+    }
+    const unlockSource = element.src;
     const playPromise = element.play();
     if (playPromise && typeof playPromise.then === 'function') {
-      playPromise.then(() => { try { element.pause(); } catch {} }).catch(() => {});
+      playPromise.then(() => {
+        // Ne jamais mettre en pause un vrai extrait qui aurait remplacé la
+        // piste silencieuse pendant la résolution de cette promesse.
+        if (!webAudioKey && element.src === unlockSource) {
+          try { element.pause(); } catch {}
+        }
+      }).catch(() => {});
     } else {
       try { element.pause(); } catch {}
     }

@@ -22,7 +22,13 @@ import * as SecureStore from 'expo-secure-store';
 export { buildAppleMusicAuthHtml, parseAppleMusicAuthMessage } from './appleMusicAuthHtml';
 export type { AppleMusicAuthMessage } from './appleMusicAuthHtml';
 
-const SECURE_STORE_KEY = 'keep.appleMusic.musicUserToken';
+const LEGACY_SECURE_STORE_KEY = 'keep.appleMusic.musicUserToken';
+
+export function musicUserTokenStorageKey(profileId: string): string {
+  const cleanProfileId = String(profileId || '').trim().replace(/[^A-Za-z0-9._-]/g, '_');
+  if (!cleanProfileId) throw new Error('Apple Music : compte Loki Music requis');
+  return `${LEGACY_SECURE_STORE_KEY}.${cleanProfileId}`;
+}
 
 // BUG RÉEL trouvé le 26/08/2026, reproduit en direct (Adel : "'fetch' called
 // on an object that does not implement interface Window", visible dès qu'une
@@ -37,27 +43,44 @@ const SECURE_STORE_KEY = 'keep.appleMusic.musicUserToken';
 // donc pas de régression de sécurité réelle, juste plus de crash.
 const isWeb = Platform.OS === 'web';
 
-export async function saveMusicUserToken(token: string): Promise<void> {
+export async function saveMusicUserToken(profileId: string, token: string): Promise<void> {
+  const storageKey = musicUserTokenStorageKey(profileId);
   if (isWeb) {
-    try { localStorage.setItem(SECURE_STORE_KEY, token); } catch { /* stockage indisponible -- pas fatal */ }
+    try {
+      localStorage.removeItem(LEGACY_SECURE_STORE_KEY);
+      localStorage.setItem(storageKey, token);
+    } catch { /* stockage indisponible -- pas fatal */ }
     return;
   }
-  await SecureStore.setItemAsync(SECURE_STORE_KEY, token, {
+  await SecureStore.deleteItemAsync(LEGACY_SECURE_STORE_KEY).catch(() => {});
+  await SecureStore.setItemAsync(storageKey, token, {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
 }
 
-export async function getSavedMusicUserToken(): Promise<string | null> {
+export async function getSavedMusicUserToken(profileId: string): Promise<string | null> {
+  const storageKey = musicUserTokenStorageKey(profileId);
   if (isWeb) {
-    try { return localStorage.getItem(SECURE_STORE_KEY); } catch { return null; }
+    try {
+      localStorage.removeItem(LEGACY_SECURE_STORE_KEY);
+      return localStorage.getItem(storageKey);
+    } catch { return null; }
   }
-  return SecureStore.getItemAsync(SECURE_STORE_KEY);
+  await SecureStore.deleteItemAsync(LEGACY_SECURE_STORE_KEY).catch(() => {});
+  return SecureStore.getItemAsync(storageKey);
 }
 
-export async function clearSavedMusicUserToken(): Promise<void> {
+export async function clearSavedMusicUserToken(profileId: string): Promise<void> {
+  const storageKey = musicUserTokenStorageKey(profileId);
   if (isWeb) {
-    try { localStorage.removeItem(SECURE_STORE_KEY); } catch { /* rien à nettoyer */ }
+    try {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(LEGACY_SECURE_STORE_KEY);
+    } catch { /* rien à nettoyer */ }
     return;
   }
-  await SecureStore.deleteItemAsync(SECURE_STORE_KEY);
+  await Promise.all([
+    SecureStore.deleteItemAsync(storageKey),
+    SecureStore.deleteItemAsync(LEGACY_SECURE_STORE_KEY),
+  ]);
 }

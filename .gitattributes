@@ -1,0 +1,4 @@
+# Les hooks Git doivent toujours garder des fins de ligne LF : un shebang
+# "#!/bin/sh\r" (CRLF) casse l'exécution du hook sur certains environnements.
+# Voir PROJECT_STATE.md section 1 (mémoire partagée / hooks Git).
+.githooks/* text eol=lf

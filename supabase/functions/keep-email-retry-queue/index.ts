@@ -16,7 +16,7 @@ function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, 
 async function sendBrevo(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = await integrationSecret("BREVO_API_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
   if (!apiKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({
@@ -52,7 +52,7 @@ async function sendMailjet(to: string, subject: string, html: string, text: stri
   const apiKey = await integrationSecret("MAILJET_API_KEY");
   const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
   const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki";
+  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
   if (!apiKey || !secretKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
 
   const payloadBody = JSON.stringify({

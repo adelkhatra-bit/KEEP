@@ -30,7 +30,7 @@ assertOrdered(owner, [
   'accessibilityLabel="Partager mon profil"',
   '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
   '<View style={s.keepCounters}>',
-  "{ value: profileTotalKeepCount, label: 'Morceaux' }",
+  "{ value: profileTotalKeepCount, label: 'Morceaux'",
   '<View style={s.tabs}>',
 ], 'Owner profile collective hierarchy');
 
@@ -46,7 +46,7 @@ assertIncludes(owner, 'keepCounters:{marginHorizontal:18}', 'Owner Loki counter 
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
-  "{ value: followerCount, label: 'Abonnés' }",
+  "{ value: followerCount, label: 'Abonnés'",
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
   '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text>',

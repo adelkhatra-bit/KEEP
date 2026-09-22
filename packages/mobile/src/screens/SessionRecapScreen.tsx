@@ -8,6 +8,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
 import { shareSession } from '../services/sharingService';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import TrackRow from '../components/TrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { colors } from '../theme/colors';
@@ -20,12 +21,14 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const {
     keepTrackInSession,
     passTrackInSession,
+    restoreTrackInSession,
     keepAllPendingInSession,
     renameSession,
     deleteSession,
     setTrackVisibilityInSession,
     refreshCreditLocks,
   } = useSessionHistoryStore();
+  const [showPassed, setShowPassed] = useState(false);
   const { playlists } = usePlaylistStore();
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const [processing, setProcessing] = useState(false);
@@ -54,7 +57,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     if (!keptNow || useSessionHistoryStore.getState().sessions.length > 1) return;
     setFirstShareOffered(true);
     Alert.alert(
-      '🎉 Ton premier Keep !',
+      '🎉 Ton premier Gardé !',
       'Montre à tes amis ce que tu viens de découvrir, avant même de créer ton compte.',
       [
         { text: 'Plus tard', style: 'cancel' },
@@ -84,9 +87,27 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     });
   }, [session]);
 
+  // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite -- ça
+  // doit rester ré-écoutable et ré-ajoutable tant que je n'ai pas donné ma
+  // décision finale". sortedTracks (ci-dessus) reste inchangé -- un passé ne
+  // doit pas réapparaître mélangé dans la liste principale comme avant le
+  // fix du 02/09 -- mais une section dédiée, repliée par défaut, donne une
+  // vraie porte de sortie au lieu d'une suppression définitive.
+  const passedTracks = useMemo(() => {
+    if (!session) return [];
+    return session.tracks
+      .filter((entry) => entry.status === 'passed')
+      .sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  }, [session]);
+
   const openSwipe = () => {
     const pending = pendingSwipeTracks.slice();
     if (!pending.length) return;
+    // Adel (20/09/2026) : même correctif que Battle -- débloquer l'élément
+    // <audio> partagé PENDANT ce tap pour que la première lecture
+    // programmatique du Swipe (arrivant après resolveTrackPreviewUrl, donc
+    // hors du geste) ne soit pas refusée par le navigateur.
+    unlockWebAudioForGesture();
     // Snapshot volontaire : le parent met à jour le statut après chaque choix.
     // Garder la liste stable évite le double saut qui obligeait à fermer puis
     // rouvrir le Swipe après PASSER/GARDER.
@@ -166,7 +187,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   };
 
   const handleDelete = () => {
-    const message = 'Supprimer cette session de ton historique Loki ? Les morceaux déjà envoyés vers Spotify ou Apple Music ne seront pas supprimés de ces services.';
+    const message = 'Supprimer cette session de ton historique Loki Music ? Les morceaux déjà envoyés vers Spotify ou Apple Music ne seront pas supprimés de ces services.';
     const run = () => {
       deleteSession(sessionId);
       if (navigation.canGoBack()) navigation.goBack();
@@ -263,11 +284,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       {lockedCount > 0 ? (
         <TouchableOpacity style={styles.lockedBanner} onPress={() => { void openUnlock(); }}>
           <Text style={styles.lockedBannerTitle}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente</Text>
-          <Text style={styles.lockedBannerText}>Loki vérifie d’abord ton solde. S’il reste des crédits, le cadenas disparaît automatiquement ; sinon appuie ici pour voir Premium.</Text>
+          <Text style={styles.lockedBannerText}>Loki Music vérifie d’abord ton solde. S’il reste des crédits, le cadenas disparaît automatiquement ; sinon appuie ici pour voir Premium.</Text>
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki · Privé = visible seulement par toi.</Text>
+      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki Music · Privé = visible seulement par toi.</Text>
 
       <FlatList
         data={sortedTracks}
@@ -283,6 +304,25 @@ export default function SessionRecapScreen({ route, navigation }: any) {
             onUnlock={() => { void openUnlock(); }}
           />
         )}
+        ListFooterComponent={passedTracks.length > 0 ? (
+          <View style={styles.passedSection}>
+            <TouchableOpacity
+              style={styles.passedHeader}
+              onPress={() => setShowPassed((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={`${showPassed ? 'Masquer' : 'Afficher'} les ${passedTracks.length} morceaux passés`}
+            >
+              <Text style={styles.passedHeaderText}>{showPassed ? '▾' : '▸'} PASSÉS · {passedTracks.length}</Text>
+            </TouchableOpacity>
+            {showPassed ? passedTracks.map((entry) => (
+              <TrackRow
+                key={entry.id}
+                entry={entry}
+                onRestore={(entryId) => restoreTrackInSession(sessionId, entryId)}
+              />
+            )) : null}
+          </View>
+        ) : null}
       />
 
       <View style={styles.sessionActionsRow}>
@@ -361,6 +401,9 @@ const styles = StyleSheet.create({
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
   visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
+  passedHeader: { paddingVertical: 8 },
+  passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
   compactAction: { flex: 1, minHeight: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },

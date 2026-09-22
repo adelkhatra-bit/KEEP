@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
+import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { checkOwnKeepLibrary, filterSocialSwipeAgainstOwnKeep } from '../services/connectedMusicLibrary';
 import { colors } from '../theme/colors';
@@ -78,6 +78,7 @@ export default function MusicSwipeDeckModal({
   // avec un vrai bouton pour relancer via un tap direct (jamais bloqué).
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const actionInFlight = useRef(false);
+  const playbackGeneration = useRef(0);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
@@ -175,6 +176,8 @@ export default function MusicSwipeDeckModal({
 
   useEffect(() => {
     let alive = true;
+    const generation = ++playbackGeneration.current;
+    const playbackKey = current ? `swipe-${current.id}-${index}` : null;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setAutoplayBlocked(false);
@@ -193,14 +196,17 @@ export default function MusicSwipeDeckModal({
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
         await stopTrackPreview();
-        if (!alive || !previewUrl) return;
+        if (!alive || playbackGeneration.current !== generation || !previewUrl || !playbackKey) return;
         try {
+          // Un double passage d'effet (StrictMode/re-render) ne doit jamais
+          // transformer l'autoplay en "toggle off" sur la carte courante.
+          if (isTrackPreviewActive(playbackKey)) return;
           await toggleTrackPreview(
-            `swipe-${current.id}-${index}`,
+            playbackKey,
             previewUrl,
             () => {},
             () => {
-              if (!alive || actionInFlight.current) return;
+              if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
               // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
               // une décision. Le morceau reste affiché jusqu'à PASSER ou GARDER.
               if (!loop) return;
@@ -222,7 +228,8 @@ export default function MusicSwipeDeckModal({
 
     return () => {
       alive = false;
-      void stopTrackPreview(`swipe-${current.id}-${index}`);
+      if (playbackGeneration.current === generation) playbackGeneration.current += 1;
+      if (playbackKey) void stopTrackPreview(playbackKey);
     };
   }, [visible, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
 
@@ -243,6 +250,7 @@ export default function MusicSwipeDeckModal({
   };
 
   const advance = async () => {
+    playbackGeneration.current += 1;
     await stopTrackPreview();
     advanceIndex();
   };
@@ -396,12 +404,12 @@ export default function MusicSwipeDeckModal({
   return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <View style={s.headerText}><Text style={s.eyebrow}>Loki SWIPE</Text><Text style={s.title}>{title}</Text>{resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}</View>
+        <View style={s.headerText}><Text style={s.eyebrow}>Loki Music SWIPE</Text><Text style={s.title}>{title}</Text>{resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}</View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
 
       <View style={s.body}>
-        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki retire d’abord les morceaux déjà présents dans tes musiques.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
+        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music retire d’abord les morceaux déjà présents dans tes musiques.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
@@ -460,7 +468,7 @@ export default function MusicSwipeDeckModal({
 
             <TouchableOpacity style={[s.keepChoice, s.keepChoicePublic]} onPress={() => { void confirmKeep('PUBLIC'); }} accessibilityLabel="Visible sur mon profil">
               <Text style={s.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
-              <Text style={s.keepChoiceText}>Tes abonnés pourront voir ce morceau dans ton univers Loki.</Text>
+              <Text style={s.keepChoiceText}>Tes abonnés pourront voir ce morceau dans ton univers Loki Music.</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[s.keepChoice, s.keepChoicePrivate]} onPress={() => { void confirmKeep('PRIVATE'); }} accessibilityLabel="Garder en privé">
@@ -482,7 +490,7 @@ export default function MusicSwipeDeckModal({
             <Text style={s.alreadyKeepEyebrow}>DOUBLON BLOQUÉ</Text>
             <Text style={s.ownerPreviewTitle}>Déjà dans ta collection</Text>
             <Text style={s.ownerPreviewTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
-            <Text style={s.ownerPreviewBody}>Tu as déjà gardé ce morceau. Loki ne le rajoute pas une deuxième fois et n’ouvre pas le choix Public/Privé.</Text>
+            <Text style={s.ownerPreviewBody}>Tu as déjà gardé ce morceau. Loki Music ne le rajoute pas une deuxième fois et n’ouvre pas le choix Public/Privé.</Text>
             <View style={s.alreadyKeepRule}>
               <Text style={s.alreadyKeepRuleTitle}>Aucune action supplémentaire</Text>
               <Text style={s.ownerPreviewRuleText}>Ton morceau existant reste exactement comme il est dans ta collection.</Text>

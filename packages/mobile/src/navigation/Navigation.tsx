@@ -1,5 +1,6 @@
 import React from 'react';
 import { Platform, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { navigationRef } from './navigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -19,6 +20,7 @@ import AppleMusicConnectScreen from '../screens/AppleMusicConnectScreen';
 import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
+import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -48,6 +50,7 @@ const linking = {
       Notifications: 'notifications',
       Offers: 'offers',
       PlaylistSale: 'playlist-sale',
+      PlaylistSaleHistory: 'playlist-sale-history',
       AppleMusicConnect: 'apple-music-connect',
     },
   },
@@ -95,6 +98,13 @@ const TAB = {
 };
 
 function MainTabs() {
+  // Bug reel signale par Adel (16/09/2026, test TestFlight sur iPhone reel) :
+  // "la barre elle est trop basse elle est un peu cachee avec les rebords de
+  // l'iPhone" -- height/paddingBottom fixes ne laissaient aucune place pour
+  // la zone de securite (barre d'accueil) des iPhone sans bouton Home. Le
+  // simulateur/Android n'a pas cette zone, le bug n'etait donc jamais visible
+  // avant un vrai test sur iPhone.
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       initialRouteName="Listen"
@@ -105,8 +115,8 @@ function MainTabs() {
           backgroundColor: TAB.bg,
           borderTopColor: TAB.border,
           borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 7,
           display: 'flex',
         },
@@ -141,6 +151,7 @@ export default function Navigation() {
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="Offers" component={OffersScreen} />
         <RootStack.Screen name="PlaylistSale" component={PlaylistSalePanel} />
+        <RootStack.Screen name="PlaylistSaleHistory" component={PlaylistSaleHistoryScreen} />
         <RootStack.Screen name="PublicProfile" component={PublicUserProfileScreen} />
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />

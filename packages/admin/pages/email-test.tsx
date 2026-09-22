@@ -130,7 +130,7 @@ export default function EmailTestPage() {
   return (
     <AdminLayout>
       <div className="page-title">Test e-mail Brevo</div>
-      <div className="page-subtitle">Vérification réelle du circuit Loki → Supabase sécurisé → Brevo → boîte mail</div>
+      <div className="page-subtitle">Vérification réelle du circuit Loki Music → Supabase sécurisé → Brevo → boîte mail</div>
 
       <div className="kpi-card" style={{ maxWidth: 900, marginTop: 24 }}>
         <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 12 }}>
@@ -162,7 +162,7 @@ export default function EmailTestPage() {
           </button>
         </div>
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 13 }}>Voir le design réel des e-mails Loki</div>
+          <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 13 }}>Voir le design réel des e-mails Loki Music</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"

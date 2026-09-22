@@ -34,8 +34,8 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6812393589",
-        "appleTeamId": "WTG9399DBK"
+        "appleTeamId": "WTG9399DBK",
+        "ascAppId": "6812393589"
       }
     }
   }

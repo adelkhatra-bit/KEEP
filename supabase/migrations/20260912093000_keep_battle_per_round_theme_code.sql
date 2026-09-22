@@ -30,6 +30,7 @@ declare
   rr record;
   d1 text;
   d2 text;
+  d3 text;
   slot integer;
   prev_slot integer := 0;
   multi boolean;
@@ -132,19 +133,45 @@ begin
       limit 1
     ) x;
 
-    slot := floor(random()*3)::integer + 1;
+    select artist into d3 from (
+      select artist, min(prio) as prio from (
+        select trim(artist) as artist, 0 as prio
+        from public.tracks t5
+        where trim(coalesce(artist,''))<>''
+          and lower(trim(artist))<>lower(trim(rr.artist_snapshot))
+          and trim(artist)<>coalesce(d1,'')
+          and trim(artist)<>coalesce(d2,'')
+          and (
+            (multi and exists(select 1 from public.keep_battle_track_themes m5 where m5.track_id=t5.id and m5.theme_code=any(a.theme_codes)))
+            or (not multi and a.theme_code<>'MIX' and exists(select 1 from public.keep_battle_track_themes m5 where m5.track_id=t5.id and m5.theme_code=a.theme_code))
+          )
+        union all
+        select trim(artist) as artist, 1 as prio
+        from public.tracks
+        where trim(coalesce(artist,''))<>''
+          and lower(trim(artist))<>lower(trim(rr.artist_snapshot))
+          and trim(artist)<>coalesce(d1,'')
+          and trim(artist)<>coalesce(d2,'')
+      ) both_pools
+      group by artist
+      order by min(prio), random()
+      limit 1
+    ) x;
+
+    slot := floor(random()*4)::integer + 1;
     if slot = prev_slot then
-      if random() < 0.5 then slot := (prev_slot % 3) + 1;
-      else slot := ((prev_slot + 1) % 3) + 1;
+      if random() < 0.5 then slot := (prev_slot % 4) + 1;
+      else slot := ((prev_slot + 1) % 4) + 1;
       end if;
     end if;
     prev_slot := slot;
 
     update public.keep_battle_arena_rounds
     set choices = case slot
-      when 1 then jsonb_build_array(rr.artist_snapshot,d1,d2)
-      when 2 then jsonb_build_array(d1,rr.artist_snapshot,d2)
-      else jsonb_build_array(d1,d2,rr.artist_snapshot)
+      when 1 then jsonb_build_array(rr.artist_snapshot,d1,d2,d3)
+      when 2 then jsonb_build_array(d1,rr.artist_snapshot,d2,d3)
+      when 3 then jsonb_build_array(d1,d2,rr.artist_snapshot,d3)
+      else jsonb_build_array(d1,d2,d3,rr.artist_snapshot)
     end
     where id=rr.id;
   end loop;

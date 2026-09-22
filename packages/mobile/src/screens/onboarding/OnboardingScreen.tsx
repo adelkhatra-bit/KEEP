@@ -95,23 +95,6 @@ export default function OnboardingScreen() {
     if (staged && current) useUserStore.getState().setUser(mergeStagedGuestProfile(current, staged));
   };
 
-  // L'essai est local et ne crée aucun utilisateur Supabase. Une intention
-  // explicite de création/connexion (ex. + Suivre depuis un profil partagé)
-  // doit avoir priorité et ne peut pas être écrasée par un ancien essai local.
-  // Le profil préparé pendant l'essai est rechargé sur le même appareil : un
-  // refresh navigateur ne doit jamais effacer pseudo, bio, ville ou réseaux.
-  useEffect(() => {
-    if (accountOpen || intent.followUsername) return;
-    let active = true;
-    void AsyncStorage.getItem(LOCAL_GUEST_ID_KEY)
-      .then(async (guestId) => {
-        if (!active || !guestId || useUserStore.getState().user) return;
-        await restoreGuest(guestId);
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, [accountOpen, enterGuestMode, intent.followUsername]);
-
   const handleGuestPress = async () => {
     setBusy(true);
     let guestId = createLocalGuestId();
@@ -128,6 +111,26 @@ export default function OnboardingScreen() {
       setBusy(false);
     }
   };
+
+  // Architecture B (22/09/2026, "zéro friction" façon Shazam -- inspirée de
+  // l'audit concurrence Spotify/Shazam/SoundHound/Apple Music/Deezer, maquette
+  // validée) : au premier lancement, on ne demande plus à l'utilisateur de
+  // choisir entre "Essayer gratuitement" et "Se connecter" avant d'avoir vu
+  // la moindre valeur -- l'essai démarre automatiquement, qu'un identifiant
+  // invité existe déjà sur l'appareil (ancien essai repris) ou non (premier
+  // lancement, un nouvel identifiant est créé par handleGuestPress lui-même).
+  // Une intention explicite (lien "+ Suivre" depuis un profil partagé, ou
+  // ?__keep_auth=create|login) garde la priorité et n'est jamais écrasée --
+  // c'est une vraie intention de compte, pas un mur imposé par défaut. Le
+  // choix manuel (les 2 boutons ci-dessous) reste intégralement rendu et
+  // fonctionnel pendant ce court instant, en repli si cette entrée
+  // automatique échoue (ex. stockage local indisponible).
+  useEffect(() => {
+    if (accountOpen || intent.followUsername) return;
+    if (useUserStore.getState().user) return;
+    void handleGuestPress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountOpen, intent.followUsername]);
 
   const closeAccount = () => {
     clearWebIntent();
@@ -176,7 +179,7 @@ export default function OnboardingScreen() {
             >
               {busy ? <ActivityIndicator color={colors.textPrimary} /> : <Text style={styles.accountButtonText}>CONTINUER SANS INSCRIPTION</Text>}
             </TouchableOpacity>
-            <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte Loki plus tard.</Text>
+            <Text style={styles.continueTrialHint}>Tu peux revenir à l’essai gratuit maintenant et créer ton compte Loki Music plus tard.</Text>
             <LegalNotice style={styles.legal} />
           </View>
         </ScrollView>
@@ -187,7 +190,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.logo}>Loki</Text>
+        <Text style={styles.logo}>Loki Music</Text>
         <Text style={styles.tagline}>{t('onboarding.welcomeSubtitle')}</Text>
         <Text style={styles.valueLine}>Partage tes goûts musicaux. Crée ta communauté.</Text>
       </View>
@@ -200,8 +203,8 @@ export default function OnboardingScreen() {
           </>}
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.button, styles.accountButton]} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
-          <Text style={styles.accountButtonText}>SE CONNECTER / CRÉER MON COMPTE</Text>
+        <TouchableOpacity style={styles.accountGhostButton} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
+          <Text style={styles.accountGhostText}>Se connecter / Créer mon compte</Text>
         </TouchableOpacity>
 
         {showDemo ? (
@@ -229,6 +232,11 @@ const styles = StyleSheet.create({
   trialHint:{color:colors.white,fontSize:10,opacity:.82,marginTop:2},
   accountButton:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   accountButtonText:{...typography.button,color:colors.textPrimary,fontWeight:'800'},
+  // Maquette validée (22/09/2026, architecture B) : un seul CTA dominant sur
+  // l'écran d'accueil -- Essayer gratuitement reste le bouton plein, celui-ci
+  // devient un lien discret sans fond ni bordure.
+  accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center'},
+  accountGhostText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
   accountScroll:{flex:1},
   accountScrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl,paddingVertical:spacing.xl},
   accountCard:{width:'100%',maxWidth:520,alignSelf:'center',gap:spacing.sm},

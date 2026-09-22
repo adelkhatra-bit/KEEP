@@ -6,6 +6,18 @@ import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
+// Adel (20/09/2026) : "automatise tout ce que tu peux ... ne me demande pas
+// de manipuler des API ou du code" -- pour une clé interne KEEP (pas un
+// identifiant d'un fournisseur tiers), génère une valeur aléatoire
+// directement dans le navigateur d'Adel au clic : ni Claude ni aucun
+// serveur ne la voit avant qu'il clique "Enregistrer".
+const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY']); // redeploy-force 2026-09-20
+function generateRandomKey(bytes = 32): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 type IntegrationRow = {
   key: string;
   category: string;
@@ -17,6 +29,7 @@ type IntegrationRow = {
   runtimeStatus?: IntegrationStatus;
   lastCheckedAt?: string | null;
   lastError?: string | null;
+  configurationIssue?: string | null;
 };
 
 type RuntimeStatusRow = {
@@ -40,6 +53,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   music: 'Musique',
   recognition: 'Reconnaissance',
   payments: 'Paiements',
+  automation: 'Automatisation & relais',
 };
 
 const AUDD_DASHBOARD = 'https://dashboard.audd.io/';
@@ -180,16 +194,28 @@ export default function Integrations() {
   return (
     <AdminLayout>
       <div className="page-title">Intégrations</div>
-      <div className="page-subtitle">Clés et connexions externes de Loki — stockées chiffrées dans Supabase Vault.</div>
+      <div className="page-subtitle">Clés et connexions externes de Loki Music — stockées chiffrées dans Supabase Vault.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Renouvellement intelligent des clés</h3>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
+          Les clés internes Loki Music peuvent être générées ici. Pour une clé Spotify, Apple, Google, Brevo, Stripe ou autre fournisseur, le bouton ouvre directement sa page officielle de création/révocation : ces plateformes interdisent qu’une ancienne clé crée silencieusement sa remplaçante. Après remplacement, Loki Music conserve la nouvelle valeur dans le Vault et les tests disponibles s’exécutent avant activation.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(98,196,111,.14)', color: '#62c46f' }}>Automatique : clés internes Loki Music</span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(240,180,41,.12)', color: '#f0b429' }}>Guidé : clés fournisseurs</span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(224,82,82,.12)', color: '#e05252' }}>Révocation distante jamais simulée</span>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — santé réelle</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
-          Loki fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
+          Loki Music fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
         </p>
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginTop: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -223,7 +249,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Services à quota / payants</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
-          Loki surveille l’état remonté par le fournisseur pendant les vraies utilisations. Si une clé est épuisée, le statut passe automatiquement en <strong>Quota épuisé</strong>. La clé peut ensuite être remplacée ici sans redéployer l’application.
+          Loki Music surveille l’état remonté par le fournisseur pendant les vraies utilisations. Si une clé est épuisée, le statut passe automatiquement en <strong>Quota épuisé</strong>. La clé peut ensuite être remplacée ici sans redéployer l’application.
         </p>
         {paidRows.map((row) => {
           const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
@@ -232,7 +258,7 @@ export default function Integrations() {
               <div>
                 <strong>AudD — reconnaissance musicale</strong>
                 <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
-                  Sans clé, Loki exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
+                  Sans clé, Loki Music exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
                 </div>
               </div>
               <div style={{ color: STATUS_COLORS[status], fontWeight: 800 }}>● {STATUS_LABELS[status]}</div>
@@ -253,9 +279,9 @@ export default function Integrations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>E-mails Loki</h3>
+        <h3 style={{ marginTop: 0 }}>E-mails Loki Music</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          Les comptes utilisateurs Loki utilisent <strong>identifiant Loki + mot de passe + e-mail vérifié</strong> (obligatoire depuis le 01/09/2026, pour que « mot de passe oublié » fonctionne toujours). Les comptes créés avant cette date restent utilisables sans e-mail. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki.
+          Les comptes utilisateurs Loki Music utilisent <strong>identifiant Loki Music + mot de passe + e-mail vérifié</strong> (obligatoire depuis le 01/09/2026, pour que « mot de passe oublié » fonctionne toujours). Les comptes créés avant cette date restent utilisables sans e-mail. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki Music.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
@@ -300,6 +326,7 @@ export default function Integrations() {
                     {row.configured ? `● Configuré ${row.hint ? `(${row.hint})` : ''}` : '○ Non configuré'}
                   </div>
                 </div>
+                {row.configurationIssue && <div style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ff9aa8', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}><strong>Configuration incorrecte :</strong> {row.configurationIssue}</div>}
                 {row.category === 'recognition' && (
                   <div style={{ color: STATUS_COLORS[row.runtimeStatus ?? 'UNKNOWN'], fontSize: 12, marginBottom: 8 }}>
                     ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
@@ -319,7 +346,7 @@ export default function Integrations() {
                     rel="noreferrer"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
                   >
-                    🔗 Ouvrir {INTEGRATION_PROVIDER_LINKS[row.key].label}
+                    🔗 {row.configured ? 'Régénérer / révoquer chez' : 'Créer chez'} {INTEGRATION_PROVIDER_LINKS[row.key].label}
                   </a>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -343,6 +370,16 @@ export default function Integrations() {
                       </button>
                     )}
                   </div>
+                  {GENERATABLE_KEYS.has(row.key) && (
+                    <button
+                      type="button"
+                      onClick={() => setValues((prev) => ({ ...prev, [row.key]: generateRandomKey() }))}
+                      title="Génère une valeur aléatoire dans ce navigateur -- rien n'est envoyé avant de cliquer Enregistrer"
+                      style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      🎲 Générer
+                    </button>
+                  )}
                   <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
                     {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
                   </button>

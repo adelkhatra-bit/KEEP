@@ -53,11 +53,19 @@ async function verifyStripeSignature(rawBody: string, signatureHeader: string | 
 }
 
 async function fetchStripeSubscription(subscriptionId: string, secretKey: string): Promise<any | null> {
-  const response = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
-    headers: { authorization: `Bearer ${secretKey}` },
-  });
-  if (!response.ok) return null;
-  return response.json().catch(() => null);
+  try {
+    const response = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      headers: { authorization: `Bearer ${secretKey}` },
+    });
+    if (!response.ok) {
+      console.error("[keep-stripe-webhook] Stripe API error", { subscriptionId, status: response.status });
+      return null;
+    }
+    return response.json().catch(() => null);
+  } catch (error) {
+    console.error("[keep-stripe-webhook] Stripe API fetch error", { subscriptionId, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
 }
 
 function subscriptionFields(subscription: any) {
@@ -70,9 +78,17 @@ function subscriptionFields(subscription: any) {
   };
 }
 
+function validateSecretKey(secret: string): boolean {
+  return secret && secret.length >= 20;
+}
+
 async function upsertFromSubscription(profileId: string, subscription: any) {
   const fields = subscriptionFields(subscription);
-  if (!fields.stripePriceId) return json(200, { ok: true, skipped: "missing_price_id" });
+  // BUG FIX #4: Missing price ID should trigger retry (400, not 200)
+  if (!fields.stripePriceId) {
+    console.error("[keep-stripe-webhook] Missing stripePriceId in subscription", { subscriptionId: subscription?.id });
+    return json(400, { ok: false, error: "missing_price_id" });
+  }
   const { error } = await admin.rpc("service_stripe_upsert_subscription", {
     p_profile_id: profileId,
     p_stripe_subscription_id: String(subscription.id),
@@ -95,8 +111,13 @@ async function handleCheckoutCompleted(session: any, secretKey: string) {
   const subscriptionId = String(session?.subscription ?? "").trim();
   if (!profileId || !subscriptionId) return json(200, { ok: true, skipped: "missing_fields" });
 
+  // BUG FIX #2: If subscription fetch fails, return 503 to force Stripe retry
+  // (not 200, which would make Stripe give up silently)
   const subscription = await fetchStripeSubscription(subscriptionId, secretKey);
-  if (!subscription) return json(200, { ok: true, skipped: "subscription_fetch_failed" });
+  if (!subscription) {
+    console.error("[keep-stripe-webhook] Failed to fetch subscription from Stripe API", { subscriptionId, profileId });
+    return json(503, { ok: false, error: "stripe_api_unavailable" });
+  }
   return upsertFromSubscription(profileId, subscription);
 }
 
@@ -124,6 +145,13 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text();
   const secret = await integrationSecret("STRIPE_WEBHOOK_SECRET");
+
+  // BUG FIX #3: Validate webhook secret is configured and not empty
+  if (!validateSecretKey(secret)) {
+    console.error("[keep-stripe-webhook] STRIPE_WEBHOOK_SECRET not configured or invalid length");
+    return json(500, { ok: false, error: "webhook_secret_not_configured" });
+  }
+
   const validSignature = await verifyStripeSignature(rawBody, req.headers.get("stripe-signature"), secret);
   if (!validSignature) {
     console.error("[keep-stripe-webhook] invalid or missing signature");

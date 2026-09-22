@@ -14,9 +14,10 @@ import { loadCurrentPlanCode } from '../services/planService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
+import { loadKeepBattleGlobalLeaderboard, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { isFeatureEnabled } from '../services/featureFlagService';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
@@ -26,16 +27,15 @@ import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfi
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
+import TrackActionRow from '../components/TrackActionRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import SourceProfileQuickView from '../components/SourceProfileQuickView';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
-import DiscoveryImpactLabel from '../components/DiscoveryImpactLabel';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import PresenceDot from '../components/PresenceDot';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
-import PlaylistSaleCard from '../components/PlaylistSaleCard';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
@@ -98,6 +98,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
   const [battleAvailabilityInfoOpen, setBattleAvailabilityInfoOpen] = useState(false);
   useEffect(() => { let live = true; isKeepBattleEnabled().then((v) => live && setBattleFeatureEnabled(v)); return () => { live = false; }; }, []);
+  // DESIGN_SYSTEM v3 (21/09/2026) : section "Battle & présence" -- victoires,
+  // partie en cours et rang, toutes trois lues depuis Supabase (aucun chiffre
+  // inventé) : keep_battle_my_stats (wins réels), keep_battle_global_leaderboard
+  // (position réelle de ce profil, "Non classé" s'il est hors du top 50),
+  // arène active pour "en cours".
+  const [battleStats, setBattleStats] = useState<KeepBattleStats | null>(null);
+  const [battleRank, setBattleRank] = useState<number | null>(null);
+  const [battleInProgress, setBattleInProgress] = useState(false);
   const [growthStatus, setGrowthStatus] = useState<GrowthRewardStatus | null>(null);
   const [smartSortAccess, setSmartSortAccess] = useState<QuotaAccess | null>(null);
   // Adel (14/09/2026) : "ça fait trop de boutons ... il faut un système de
@@ -124,6 +132,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // simple reste dans le pop-up, les actions complexes restent en plein
   // écran).
   const [expandedMenuItem, setExpandedMenuItem] = useState<string | null>(null);
+  // Adel (21/09/2026) : "Hauteur fixe et uniforme pour toutes les cartes ...
+  // le reste des informations passe dans un menu dépliable." Le badge 1er
+  // KEEP, la ligne d'attribution et Partager ne changent plus jamais la
+  // hauteur de la carte -- ils vivent dans ce panneau, replié par défaut.
+  const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());
+  const toggleTrackExpanded = (key: string) => setExpandedTrackKeys((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
@@ -193,6 +211,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[] } | null>(null);
+  // Adel (20/09/2026) : BUG RÉEL -- "la musique ne se lance pas
+  // automatiquement, il faut appuyer sur ÉCOUTER L'EXTRAIT". Sur le web,
+  // .play() n'est autorisé sans interaction que s'il est appelé de façon
+  // SYNCHRONE depuis un vrai geste (tap) -- ici le premier essai de lecture
+  // arrive dans un .then() après resolveTrackPreviewUrl(), donc APRÈS la fin
+  // du geste : le navigateur le bloque et MusicSwipeDeckModal retombe sur
+  // son fallback "ÉCOUTER L'EXTRAIT" (voir toggleTrackPreview catch ->
+  // setAutoplayBlocked(true)). Même correctif déjà en place pour Battle
+  // (unlockWebAudioForGesture, KeepBattleMobileGameV3.tsx) : débloquer
+  // l'élément <audio> partagé PENDANT le tap qui ouvre le Swipe suffit à
+  // ce que les lectures programmatiques suivantes soient acceptées.
+  const openSelectionSwipe = (selection: { title: string; subtitle: string; tracks: CanonicalTrack[] }) => {
+    unlockWebAudioForGesture();
+    setSelectionSwipe(selection);
+  };
   const [smartAlbums, setSmartAlbums] = useState<SmartAlbumRecord[]>([]);
   const [accountMode, setAccountMode] = useState<AccountMode>('create');
   const [pendingFollowUsername, setPendingFollowUsername] = useState('');
@@ -210,9 +243,47 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // décoratif dans Super Admin.
   const [dnaFeatureEnabled, setDnaFeatureEnabled] = useState(false);
   useEffect(() => { let live = true; isFeatureEnabled('keep_dna').then((enabled) => live && setDnaFeatureEnabled(enabled)); return () => { live = false; }; }, []);
+  // Adel (20/09/2026) : marketplace playlists (VENDRE/ACHETER) en "coming
+  // soon" -- paiement par lien externe, non conforme Apple IAP pour du
+  // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
+  // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
+  const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  // (21/09/2026) BUG RÉEL corrigé : ce check ne tournait qu'au montage --
+  // un changement de flag/bypass fait dans Super Admin pendant que l'écran
+  // était déjà ouvert n'était jamais relu sans relancer l'app. Recalculé
+  // aussi à chaque focus.
+  useEffect(() => {
+    let live = true;
+    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => live && setMarketplaceEnabled(enabled)); };
+    check();
+    const unsubscribe = navigation?.addListener?.('focus', check);
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation]);
 
   const accountRequired = isLocalGuest || isDemoMode;
-  const providerId = musicEngine.musicProvider.providerId || 'Loki';
+  useEffect(() => {
+    if (!battleFeatureEnabled || accountRequired || !user) { setBattleStats(null); setBattleRank(null); setBattleInProgress(false); return undefined; }
+    let live = true;
+    const refreshBattlePresence = async () => {
+      try {
+        const stats = await loadMyKeepBattleStats();
+        if (live) setBattleStats(stats);
+      } catch { if (live) setBattleStats(null); }
+      try {
+        const leaderboard = await loadKeepBattleGlobalLeaderboard(50);
+        const position = leaderboard.findIndex((row) => row.profileId === user.id);
+        if (live) setBattleRank(position >= 0 ? position + 1 : null);
+      } catch { if (live) setBattleRank(null); }
+      try {
+        const activeArena = await loadMyActiveKeepBattleArena();
+        if (live) setBattleInProgress(!!activeArena);
+      } catch { if (live) setBattleInProgress(false); }
+    };
+    void refreshBattlePresence();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshBattlePresence(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [accountRequired, battleFeatureEnabled, navigation, user?.id]);
+  const providerId = musicEngine.musicProvider.providerId || 'Loki Music';
 
   useEffect(() => {
     let live = true;
@@ -403,6 +474,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   })), [serverOwnKeeps]);
   const profileKeptTracks = accountRequired ? keptTracks : canonicalOwnKeeps;
   const publicKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [profileKeptTracks]);
+  // DESIGN_SYSTEM v3 (21/09/2026) : "État privé (opacité réduite + icône
+  // cadenas)" -- avant, l'onglet Musiques n'affichait QUE les morceaux
+  // publics, les privés étaient invisibles même pour leur propriétaire. Ici,
+  // c'est TON profil : tes morceaux privés doivent rester visibles pour toi,
+  // juste signalés comme tels (grisés + 🔒), jamais masqués.
+  const privateKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PRIVATE'), [profileKeptTracks]);
   const localPublicOwnKeepCount = useMemo(() => publicKeptTracks.filter((entry) => entry.creditSource !== 'SOCIAL' && !entry.sourceProfileId && !entry.sourceUsername).length, [publicKeptTracks]);
   const localDiscoveryImpactCount = useMemo(() => {
     if (!user?.id) return 0;
@@ -458,12 +535,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (providerPlaylists.length) result.push(...providerPlaylists);
     if (!result.length && publicKeptTracks.length) {
       const localPreference = preferenceFor(playlistPreferences, providerId, LOCAL_PROFILE_PLAYLIST_ID);
-      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes musiques', description: localPreference?.description || 'Morceaux publics gardés avec Loki', trackCount: publicKeptTracks.length, isKeepManaged: true });
+      result.push({ id: LOCAL_PROFILE_PLAYLIST_ID, name: localPreference?.name || 'Mes musiques', description: localPreference?.description || 'Morceaux publics gardés avec Loki Music', trackCount: publicKeptTracks.length, isKeepManaged: true });
     }
     return result;
   }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length, smartAlbums]);
 
-  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil Loki</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil Loki Music</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
   const websiteLink = publicLinks.find((link) => link.platform === 'website' && link.url.trim());
@@ -510,7 +587,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [accountRequired, profileFollowerCount]);
 
   useEffect(() => {
-    if (!user || !supabase) { setPlaylistSaleOffers([]); return undefined; }
+    if (!marketplaceEnabled || !user || !supabase) { setPlaylistSaleOffers([]); return undefined; }
     let live = true;
     const loadOffers = async () => {
       try {
@@ -528,7 +605,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     };
     void loadOffers();
     return () => { live = false; };
-  }, [user?.id, supabase]);
+  }, [marketplaceEnabled, user?.id, supabase]);
 
   const fallbackCertification: ProfileCertificationTier = accountRequired
     ? 'UNVERIFIED'
@@ -577,9 +654,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openProfileSwipe = () => {
     if (!publicSwipeTracks.length) {
-      Alert.alert('Loki Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
+      Alert.alert('Loki Music Swipe', 'Aucun morceau public pour le moment. Rends au moins un morceau visible sur ton profil pour prévisualiser ton Swipe.');
       return;
     }
+    // Ce tap est le dernier geste utilisateur synchrone avant la résolution
+    // asynchrone de l'extrait. Il déverrouille l'élément audio web partagé afin
+    // que la première carte puisse réellement démarrer seule sur Safari/iOS.
+    unlockWebAudioForGesture();
     setProfileSwipeOpen(true);
   };
 
@@ -648,7 +729,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
       return visibleTracks;
     } catch {
-      Alert.alert('Vibe Loki', 'Impossible de charger les morceaux de cette collection pour le moment.');
+      Alert.alert('Vibe Loki Music', 'Impossible de charger les morceaux de cette collection pour le moment.');
       return [];
     } finally {
       setLoadingPlaylistId(null);
@@ -663,34 +744,61 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openPlaylistSwipe = async (playlist: ProviderPlaylist) => {
     const tracks = await loadPlaylistTracks(playlist);
-    if (!tracks.length) return Alert.alert('Vibe Loki', 'Cette collection ne contient pas encore de morceau à swiper.');
-    setSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
+    if (!tracks.length) return Alert.alert('Vibe Loki Music', 'Cette collection ne contient pas encore de morceau à swiper.');
+    openSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
   };
 
-  const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null, originKind?: 'SELF' | 'SOCIAL' | null, sourceTier?: ProfileCertificationTier, sourceIsFollowing?: boolean) => {
+  // DESIGN_SYSTEM v3 (21/09/2026) : "1er KEEP" -- badge visible uniquement
+  // quand ce profil est bien l'origine réelle de la découverte (originKind
+  // SELF) ET qu'un impact réel existe côté Supabase (discoveryImpacts,
+  // recoveryCount > 0). Le compteur "N KEEPs" = recoveryCount + 1 (les
+  // reprises + le KEEP d'origine) : jamais un chiffre inventé, absent si
+  // aucune donnée d'impact n'existe pour ce morceau.
+  const daysAgo = (iso?: string | null) => { if (!iso) return null; return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)); };
+  const renderCompactTrack = (track: CanonicalTrack, key: string, sourceUsername?: string | null, originKind?: 'SELF' | 'SOCIAL' | null, sourceTier?: ProfileCertificationTier, sourceIsFollowing?: boolean, detectedAt?: string, isPrivate = false) => {
     const sourceColors = sourceTier ? (CERTIFICATION_META[sourceTier] ?? CERTIFICATION_META.UNVERIFIED) : null;
     // Adel (08/09/2026) : "si l'utilisateur est abonné à celui qui a
     // découvert la musique, on met vert, si il est pas abonné, tu le mets
     // rouge ... incité à cliquer dessus" -- le contour (jamais le fond, qui
     // reste la couleur de certification) porte ce second signal pour ne
     // rien casser du code couleur déjà établi.
-    const followBorder = sourceIsFollowing === false ? '#FF6C8C' : sourceIsFollowing === true ? '#38D990' : undefined;
+    const followBorder = sourceIsFollowing === false ? colors.danger : sourceIsFollowing === true ? colors.success : undefined;
+    const impact = originKind === 'SELF' ? discoveryImpacts[track.id] : null;
+    const isFirstKeep = !!impact && impact.recoveryCount > 0;
+    const expanded = expandedTrackKeys.has(key);
+    const hasDetails = isFirstKeep || !!originKind;
+    // Adel (21/09/2026, maquette interactive validée :
+    // https://claude.ai/artifact/9X4dx8oMmCJ3hkRGndc7BW) : grille à
+    // colonnes fixes, seule source de vérité TrackActionRow. Pas de
+    // "Garder" ici (bibliothèque du propriétaire -- déjà à lui par
+    // définition), un seul carré après Play : Partager.
     return (
-    <View key={key} style={s.keepRow}>
-      {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.keepCover} /> : <View style={[s.keepCover, s.coverFallback]}><Text style={s.keepCoverK}>K</Text></View>}
-      <View style={s.keepInfo}>
-        <View style={s.keepTitleRow}>
-          <View style={s.keepTitleBlock}><Text style={s.keepTitle} numberOfLines={1}>{track.title}</Text><Text style={s.keepArtist} numberOfLines={1}>{track.artist}</Text></View>
-          <TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} compact small />
-        </View>
-        {originKind ? <DiscoveryImpactLabel impact={discoveryImpacts[track.id]} /> : null}
-        {/* Adel (08/09/2026) : "mets-le en dessous du bouton [Jouer] ...
-            bien aligné de haut en bas, respecte les espaces" -- le pseudo du
-            découvreur rejoint Partager sur la même ligne (au lieu d'une
-            ligne à lui tout seul au-dessus), aligné à droite sous le bouton
-            Jouer, mêmes marges que les autres lignes de la carte. */}
+      <TrackActionRow
+        key={key}
+        coverUrl={track.artworkUrl}
+        coverFallbackText="K"
+        title={track.title}
+        artist={track.artist}
+        dimmed={isPrivate}
+        lockIcon={isPrivate}
+        playSlot={<TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} square />}
+        actions={[{
+          key: 'share',
+          icon: '↗',
+          onPress: () => void shareProfileTrack(user.username, track.title, track.artist),
+          accessibilityLabel: 'Partager ce morceau',
+        }]}
+        expandable={hasDetails}
+        expanded={expanded}
+        onToggleExpand={() => toggleTrackExpanded(key)}
+      >
+        {isFirstKeep ? (
+          <View style={s.firstKeepBlock}>
+            <View style={s.firstKeepRow}><View style={s.firstKeepBadge}><Text style={s.firstKeepBadgeText}>🥇 1er Gardé</Text></View><Text style={s.firstKeepCount}>{impact!.recoveryCount + 1} gardés</Text></View>
+            <Text style={s.firstKeepLine}>@{user.username} a été le premier à garder ce son{daysAgo(detectedAt) != null ? ` · il y a ${daysAgo(detectedAt)}j` : ''}</Text>
+          </View>
+        ) : null}
         <View style={s.trackMetaRow}>
-          <TouchableOpacity style={s.trackShare} onPress={() => void shareProfileTrack(user.username, track.title, track.artist)}><Text style={s.trackShareText}>↗ Partager</Text></TouchableOpacity>
           {originKind ? <View style={s.discoveryOriginRow}>
             <Text style={s.originLabel}>Découvert par</Text>
             {originKind === 'SELF' ? <View style={[s.originUserLink, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[s.originUserText, { color: certificationColors.ring }]}>{user.username}</Text></View> : sourceUsername ? (
@@ -700,25 +808,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
             ) : <Text style={s.originProtected}>découvreur d’origine protégé</Text>}
           </View> : null}
         </View>
-      </View>
-    </View>
+      </TrackActionRow>
     );
   };
 
   const tabContent = () => {
     if (activeTab === 'TRACKS') {
-      if (!publicKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
+      if (!publicKeptTracks.length && !privateKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
-        <Text style={s.ownerKeepHint}>Loki construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
-        {trackGenreOptions.length > 0 ? (
-          <TouchableOpacity style={s.growthPanel} onPress={() => setStyleModalOpen(true)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ flex: 1, minWidth: 0 }}><Text style={s.listText}>Parcourir par style</Text><Text style={s.growthText}>{trackGenreOptions.length} style{trackGenreOptions.length > 1 ? 's' : ''} disponible{trackGenreOptions.length > 1 ? 's' : ''}</Text></View>
-              <Text style={{ color: colors.primaryLight, fontSize: 20, fontWeight: '900', marginLeft: 8 }}>›</Text>
-            </View>
-          </TouchableOpacity>
-        ) : null}
-        {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined))}
+        <Text style={s.ownerKeepHint}>Loki Music construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
+        {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt))}
+        {/* Adel (21/09/2026) : "chaque musique est identifiée par un
+            utilisateur, c'est l'idée de départ" -- un morceau privé reste
+            rattaché à son découvreur comme n'importe quel autre, seule sa
+            visibilité change (grisé + 🔒), jamais son attribution. */}
+        {privateKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, true))}
       </View>;
     }
 
@@ -755,7 +859,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </TouchableOpacity>
           <View style={s.playlistButtons}>
             <TouchableOpacity style={s.playlistShareButton} onPress={() => void openPlaylistSwipe(playlist)}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
-            {isPublic ? <TouchableOpacity style={s.playlistShareButton} onPress={() => void sharePlaylist(playlist.id, playlist.name)}><Text style={s.playlistShareText}>↗ Partager</Text></TouchableOpacity> : null}
+            {isPublic ? <TouchableOpacity style={s.playlistShareButtonSecondary} onPress={() => void sharePlaylist(playlist.id, playlist.name)}><Text style={s.playlistShareTextSecondary}>↗ Partager</Text></TouchableOpacity> : null}
           </View>
           {expanded ? <View style={s.playlistTracks}>{loadingPlaylistId === playlist.id ? <Text style={s.muted}>Chargement…</Text> : tracks.length ? tracks.map((track) => renderCompactTrack(track, `${playlist.id}-${track.id}`)) : <Text style={s.muted}>Aucun morceau dans cette playlist.</Text>}</View> : null}
         </View>;
@@ -778,7 +882,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
         </TouchableOpacity>
         <View style={s.playlistButtons}>
-          <TouchableOpacity style={s.playlistShareButton} onPress={() => setSelectionSwipe({ title: item.label, subtitle: 'Tous les morceaux de cet artiste dans ta collection.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
+          <TouchableOpacity style={s.playlistShareButton} onPress={() => openSelectionSwipe({ title: item.label, subtitle: 'Tous les morceaux de cet artiste dans ta collection.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
         </View>
         {expanded ? <View style={s.playlistTracks}>{selected.map((track) => renderCompactTrack(track, `${item.key}-${track.id}`))}</View> : null}
       </View>;
@@ -799,7 +903,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.freeEmptyCallout}>
           <Text style={s.freeEmptyCalloutTitle}>Solde à zéro : comment recharger ?</Text>
           <Text style={s.freeEmptyCalloutText}>1. Partage ton profil : chaque nouvel abonné qu'il t'apporte te rapporte des Free.</Text>
-          <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Battle : gagne des Free en répondant juste.</Text>
+          <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Music Battle : gagne des Free en répondant juste.</Text>
           <Text style={s.freeEmptyCalloutText}>3. Passe à une formule payante : plus de Free offerts chaque mois, sans attendre.</Text>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); void shareProfile(user.username); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
         </View>
@@ -842,7 +946,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'sellPlaylists') return <>
       <Text style={s.shareTitle}>Vendre mes playlists</Text>
-      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
+      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki Music ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES VENTES</Text></TouchableOpacity>
     </>;
 
@@ -928,12 +1032,109 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
         </View>
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
-        {/* Adel (02/09/2026) : "le bouton est parfait, par contre je le ferai
-            un tout petit peu plus petit ... mettre un petit bouton info pour
-            comprendre" -- ligne compacte (juste Disponible/Indisponible),
-            l'explication ne s'affiche plus que sur demande via le ⓘ. */}
-        {battleFeatureEnabled && !accountRequired ? (
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki Music</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki Music, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
+        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
+        {/* DESIGN_SYSTEM v3 (21/09/2026) : SWIPE devient l'action plein-largeur
+            (violet, principale) juste sous l'identité ; PARTAGER redescend en
+            action secondaire (grise), conformément à la hiérarchie des
+            couleurs v3 (violet = actions principales uniquement). */}
+        <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser ma collection en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
+        <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerShareTextSecondary}>PARTAGER</Text></TouchableOpacity>
+      </View>
+
+      {/* DESIGN_SYSTEM v3 (21/09/2026) : ordre d'implémentation -- 5) collection
+          + Filtrer, 9) offres actives, 10) communauté (4 compteurs), 11)
+          progression Creator Pro, 12) Battle & présence, 13) Loki DNA, 14)
+          liens & réseaux. Zéro suppression : chaque bloc ci-dessous existait
+          déjà plus haut dans l'écran, seul l'ordre d'affichage change. */}
+      <View style={s.collectionHeader}>
+        <Text style={s.collectionTitle}>Ma collection</Text>
+        <Text style={s.collectionCount}>{profileTotalKeepCount} {profileTotalKeepCount > 1 ? 'morceaux' : 'morceau'}</Text>
+      </View>
+      <View style={s.tabsRow}>
+        <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
+        {activeTab === 'TRACKS' && trackGenreOptions.length > 0 ? (
+          <TouchableOpacity style={s.filterButton} onPress={() => setStyleModalOpen(true)} accessibilityLabel={`Filtrer par style, ${trackGenreOptions.length} disponibles`}>
+            <Text style={s.filterButtonText}>Filtrer</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      <View key={`profile-tab-${activeTab}`}>{tabContent()}</View>
+
+      {/* (21/09/2026) Adel a signalé un bouton "ACHETER" vert sur le
+          profil -- c'était CE bloc : il s'affichait sur son PROPRE profil
+          (playlistSaleOffers = ses propres offres, seller_id = user.id) et
+          ne pouvait jamais aboutir (le serveur refuse CANNOT_BUY_OWN_PLAYLIST).
+          Un vendeur ne doit jamais voir un CTA d'achat sur sa propre offre ;
+          la gestion (modifier/retirer) vit déjà dans le menu "Vendre mes
+          playlists" (PlaylistSalePanel). Remplacé par un simple statut. */}
+      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
+        <View style={s.ownOffersStatus}>
+          <Text style={s.ownOffersStatusText}>
+            🏷️ {playlistSaleOffers.length} découverte{playlistSaleOffers.length > 1 ? 's' : ''} musicale{playlistSaleOffers.length > 1 ? 's' : ''} en vente
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes découvertes en vente">
+            <Text style={s.ownOffersManageLink}>Gérer</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <View style={s.communitySection}>
+        {/* Adel (09/09/2026) : "abonnement on devrait le descendre a la
+            place du bouton reprise et reprise le remonter a la place de
+            abonnement ... des fois il peut avoir 15 reprises mais
+            uniquement trois abonnes ... c'est comme si il s'est
+            indirectement abonne" -- Reprises (portee reelle, y compris les
+            gens non abonnes qui ont quand meme garde un morceau) rejoint
+            Abonnes ; Abonnements descend a cote de Morceaux. */}
+        <ProfileCounterRow kind="connections" items={[
+          { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
+          { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
+        ]} />
+        {!accountRequired && communityMode === 'followers' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
+        <ProfileCounterRow kind="keeps" items={[
+          { value: profileTotalKeepCount, label: 'Morceaux', onPress: () => switchProfileTab('TRACKS') },
+          { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+        ]} />
+        {!accountRequired && communityMode === 'following' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
+      </View>
+
+      {!accountRequired && growthStatus ? (
+        growthStatus.audienceProUnlocked ? (
+          // Adel (15/09/2026) : "je veux que quand on clique dessus, il y
+          // ait un petit pop-up qui explique à quoi ça va servir. Qu'est-ce
+          // que ça débloque, quels seront les avantages ?" -- réponse
+          // honnête, sans inventer d'avantage qui n'existe pas encore.
+          <TouchableOpacity style={[s.growthPanel, s.sectionMargin]} onPress={() => Alert.alert(
+            '🏆 Audience Pro débloquée',
+            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers la vente de playlists (déblocage séparé, par abonnés) quand tu en as assez.`,
+          )}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text><Text style={[s.growthText, { textAlign: 'center', marginTop: 4 }]}>Toucher pour voir les avantages ⓘ</Text></TouchableOpacity>
+        ) : growthStatus.nextFollowerGoal ? (
+          <View style={[s.growthPanel, s.sectionMargin]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <Text style={[s.growthText, { flex: 1 }]}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki Music</Text>
+              {/* Adel (14/09/2026) : "un point d'interrogation, il met une
+                  explication claire. C'est quoi le bonus ?" -- les paliers
+                  d'abonnés (25/100/250/500/1000) donnent des bonus
+                  différents (profils Découverte, essais Vibes Auto, Free,
+                  Audience Pro à 1000) ; jamais un seul type de bonus,
+                  d'où une explication générale plutôt qu'un chiffre figé
+                  qui pourrait se tromper si Adel change les seuils. */}
+              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki Music', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
+                <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '900', marginLeft: 6 }}>ⓘ</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={s.growthBarTrack}><View style={[s.growthBarFill, { width: `${Math.min(100, Math.round((growthStatus.followers / growthStatus.nextFollowerGoal) * 100))}%` }]} /></View>
+          </View>
+        ) : null
+      ) : null}
+
+      {/* Adel (02/09/2026) : "le bouton est parfait, par contre je le ferai
+          un tout petit peu plus petit ... mettre un petit bouton info pour
+          comprendre" -- ligne compacte (juste Disponible/Indisponible),
+          l'explication ne s'affiche plus que sur demande via le ⓘ. */}
+      {battleFeatureEnabled && !accountRequired ? (
+        <View style={s.sectionMargin}>
           <View style={[s.battleAvailabilityRow, battleAvailable && s.battleAvailabilityRowOn]}>
             <TouchableOpacity
               style={s.battleAvailabilityMain}
@@ -950,53 +1151,30 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <Text style={s.battleAvailabilityInfoIcon}>ⓘ</Text>
             </TouchableOpacity>
           </View>
-        ) : null}
-        {battleFeatureEnabled && !accountRequired && battleAvailabilityInfoOpen ? (
-          <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki, sans jouer en solo. Pour lancer un défi : Soirées → Loki BATTLE.</Text>
-        ) : null}
-        {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
-        {/* Adel (09/09/2026) : "abonnement on devrait le descendre a la
-            place du bouton reprise et reprise le remonter a la place de
-            abonnement ... des fois il peut avoir 15 reprises mais
-            uniquement trois abonnes ... c'est comme si il s'est
-            indirectement abonne" -- Reprises (portee reelle, y compris les
-            gens non abonnes qui ont quand meme garde un morceau) rejoint
-            Abonnes ; Abonnements descend a cote de Morceaux. */}
-        <ProfileCounterRow kind="connections" items={[
-          { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-          { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
-        ]} />
-        {!accountRequired && communityMode === 'followers' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
-        {!accountRequired && growthStatus ? (
-          growthStatus.audienceProUnlocked ? (
-            // Adel (15/09/2026) : "je veux que quand on clique dessus, il y
-            // ait un petit pop-up qui explique à quoi ça va servir. Qu'est-ce
-            // que ça débloque, quels seront les avantages ?" -- réponse
-            // honnête, sans inventer d'avantage qui n'existe pas encore.
-            <TouchableOpacity style={s.growthPanel} onPress={() => Alert.alert(
-              '🏆 Audience Pro débloquée',
-              `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers la vente de playlists (déblocage séparé, par abonnés) quand tu en as assez.`,
-            )}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text><Text style={[s.growthText, { textAlign: 'center', marginTop: 4 }]}>Toucher pour voir les avantages ⓘ</Text></TouchableOpacity>
-          ) : growthStatus.nextFollowerGoal ? (
-            <View style={s.growthPanel}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                <Text style={[s.growthText, { flex: 1 }]}>{growthStatus.followers}/{growthStatus.nextFollowerGoal} abonnés · encore {Math.max(0, growthStatus.nextFollowerGoal - growthStatus.followers)} avant ton prochain bonus Loki</Text>
-                {/* Adel (14/09/2026) : "un point d'interrogation, il met une
-                    explication claire. C'est quoi le bonus ?" -- les paliers
-                    d'abonnés (25/100/250/500/1000) donnent des bonus
-                    différents (profils Découverte, essais Vibes Auto, Free,
-                    Audience Pro à 1000) ; jamais un seul type de bonus,
-                    d'où une explication générale plutôt qu'un chiffre figé
-                    qui pourrait se tromper si Adel change les seuils. */}
-                <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
-                  <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '900', marginLeft: 6 }}>ⓘ</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={s.growthBarTrack}><View style={[s.growthBarFill, { width: `${Math.min(100, Math.round((growthStatus.followers / growthStatus.nextFollowerGoal) * 100))}%` }]} /></View>
-            </View>
-          ) : null
-        ) : null}
-      </View>
+          {battleAvailabilityInfoOpen ? (
+            <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki Music, sans jouer en solo. Pour lancer un défi : Soirées → Loki Music BATTLE.</Text>
+          ) : null}
+          {/* DESIGN_SYSTEM v3 (21/09/2026) : victoires/rang/partie en cours --
+              lus depuis Supabase (keep_battle_my_stats, keep_battle_global_
+              leaderboard, arène active) ; rien ne s'affiche tant que ces
+              appels n'ont pas répondu, jamais un chiffre par défaut inventé. */}
+          {battleStats ? (
+            <Text style={s.battlePresenceLine}>🏆 {battleStats.wins} victoire{battleStats.wins > 1 ? 's' : ''}{battleInProgress ? ' · ⚡ Partie en cours' : ''} · {battleRank ? `Rang #${battleRank}` : 'Non classé'}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {dnaFeatureEnabled && (
+        <View style={s.dna}>
+          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki Music DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
+          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=>{
+            const match = trackGenreOptions.find((row) => row.genre === g.genre);
+            return match ? (
+              <TouchableOpacity key={g.genre} style={s.chip} onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((genre) => genre.trim() === g.genre)) })}><Text style={s.chipText}>{g.genre}</Text></TouchableOpacity>
+            ) : <View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>;
+          })}</View> : <Text style={s.muted}>Commence une session Loki Music pour construire ton ADN musical.</Text>}
+        </View>
+      )}
 
       <View style={s.socialHub}>
         <View style={s.socialHeader}><Text style={s.socialTitle}>Mes réseaux</Text><TouchableOpacity onPress={() => navigation.navigate('MusicConnections')}><Text style={s.musicLink}>♫ Services musicaux</Text></TouchableOpacity></View>
@@ -1014,43 +1192,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text>
         </TouchableOpacity>
       ) : null}
-
-      <View style={[s.ownerActions, { marginHorizontal: 18 }]}>
-        <TouchableOpacity style={s.ownerShareButton} onPress={openShare} accessibilityLabel="Partager mon profil"><Text style={s.ownerActionText}>PARTAGER</Text></TouchableOpacity>
-        <TouchableOpacity style={s.ownerSwipeButton} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser ma collection en Swipe"><Text style={s.ownerActionText}>▶ SWIPE</Text></TouchableOpacity>
-      </View>
-
-      {dnaFeatureEnabled && (
-        <View style={s.dna}>
-          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
-          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,4).map((g)=>{
-            const match = trackGenreOptions.find((row) => row.genre === g.genre);
-            return match ? (
-              <TouchableOpacity key={g.genre} style={s.chip} onPress={() => setSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((genre) => genre.trim() === g.genre)) })}><Text style={s.chipText}>{g.genre}</Text></TouchableOpacity>
-            ) : <View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>;
-          })}</View> : <Text style={s.muted}>Commence une session Loki pour construire ton ADN musical.</Text>}
-        </View>
-      )}
-
-      {playlistSaleOffers.length > 0 && playlistSaleOffers.map((offer) => (
-        <PlaylistSaleCard
-          key={offer.id}
-          offer={offer}
-          isAuthenticated={!accountRequired && !!user}
-          onAuthRequired={() => openAccount('create')}
-        />
-      ))}
-
-      <View style={s.keepCounters}>
-        <ProfileCounterRow kind="keeps" items={[
-          { value: profileTotalKeepCount, label: 'Morceaux', onPress: () => switchProfileTab('TRACKS') },
-          { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-        ]} />
-        {!accountRequired && communityMode === 'following' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
-      </View>
-
-      <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
-      <View key={`profile-tab-${activeTab}`}>{tabContent()}</View>
     </ScrollView>
 
     <MusicSwipeDeckModal
@@ -1076,7 +1217,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <>
             <Text style={s.shareTitle}>Menu</Text>
             <ScrollView style={{ maxHeight: 440, marginTop: 4 }}>
-              {MENU_ITEMS.map((item) => (
+              {MENU_ITEMS.filter((item) => item.key !== 'sellPlaylists' || marketplaceEnabled).map((item) => (
                 <TouchableOpacity key={item.key} style={s.listRow} onPress={() => setExpandedMenuItem(item.key)}>
                   <Text style={[s.listText, { flex: 1 }]}>{item.icon} {item.label}</Text>
                   {item.key === 'free' ? <Text style={s.playlistCount}>{freeBalance ?? '…'}</Text> : null}
@@ -1096,7 +1237,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.shareTitle}>Parcourir par style</Text>
         <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
           {trackGenreOptions.map(({ genre, count }) => (
-            <TouchableOpacity key={genre} style={s.listRow} onPress={() => { setStyleModalOpen(false); setSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === genre)) }); }}>
+            <TouchableOpacity key={genre} style={s.listRow} onPress={() => { setStyleModalOpen(false); openSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === genre)) }); }}>
               <Text style={[s.listText, { flex: 1 }]}>{genre}</Text>
               <Text style={s.playlistCount}>{count}</Text>
             </TouchableOpacity>
@@ -1109,7 +1250,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
       tracks={selectionSwipe?.tracks ?? []}
-      title={selectionSwipe?.title ?? 'Vibe Loki'}
+      title={selectionSwipe?.title ?? 'Vibe Loki Music'}
       subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"
@@ -1187,12 +1328,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
-          <Text style={s.shareTitle}>Partager mon profil Loki</Text>
-          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
+          <Text style={s.shareTitle}>Partager mon profil Loki Music</Text>
+          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Music DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></TouchableOpacity>
           <TouchableOpacity style={s.shareAction} onPress={shareEmail}><Text style={s.shareActionText}>✉  Partager par e-mail</Text><Text style={s.shareActionHint}>Ton application Mail s’ouvre, tu choisis les destinataires</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR Loki</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR Loki Music</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
@@ -1201,10 +1342,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.qrShell}>
-          <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
+          <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki Music"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
           <ScrollView style={s.qrScroll} contentContainerStyle={s.qrScrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.qrCard}>
-            <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
+            <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki Music</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
             <View style={s.qrIdentityRow}>
               {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>K</Text></View>}
               <View style={s.qrIdentityText}><Text style={s.qrUsername}>{user.username}</Text><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
@@ -1214,7 +1355,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.qrBox}><QRCode value={publicProfileLink} size={164} color="#FFFFFF" backgroundColor="#0E0A14" /></View>
             <Text style={s.qrScan}>SCAN POUR DÉCOUVRIR MON PROFIL</Text>
             <Text style={s.qrTagline}>Tes goûts te ressemblent.</Text>
-            <Text style={s.qrWebsite}>Loki · adelkhatra-bit.github.io/KEEP</Text>
+            <Text style={s.qrWebsite}>Loki Music · adelkhatra-bit.github.io/KEEP</Text>
           </View>
           <Text style={s.screenshotHint}>Ta carte d’identité musicale : photo, bio, ville, styles et QR. Fais une capture ou partage-la pour donner envie de découvrir ton univers.</Text>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON UNIVERS</Text></TouchableOpacity>
@@ -1230,17 +1371,28 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
-  topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#6E4BA5',position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA'},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:'#EF4444',borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:'#123D2C',borderColor:'#31C981'},planExhausted:{backgroundColor:'#4A171B',borderColor:'#F0525D'},planPaid:{backgroundColor:'#3D2860',borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:62,height:62,borderRadius:31,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#21182F',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},ownerShareButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},ownerSwipeButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},ownerActionText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#6E4BA5'},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:'#FFFFFF',fontSize:13,lineHeight:18,marginTop:3},
-battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:'#18121F',borderWidth:1,borderColor:'#31263B'},battleAvailabilityRowOn:{backgroundColor:'#12271C',borderColor:'#38D990'},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:'#B79CFF',fontSize:15,fontWeight:'900'},battleAvailabilityHint:{color:'#FFFFFF',fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},
-  dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},muted:{color:'#FFFFFF',fontSize:13,lineHeight:18},
-  websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
-  socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#24163A',borderWidth:1,borderColor:'#8B5CF6'},socialButtonOn:{backgroundColor:'#5B3F8C',borderColor:'#C5ACFF'},
-  growthPanel:{marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:'#2B2238',overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:'#FFD166',fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
-  keepCounters:{marginHorizontal:18},
-  tabs:{marginTop:16,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},keepRow:{flexDirection:'row',alignItems:'center',padding:8,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},keepCover:{width:48,height:48,borderRadius:9,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},keepCoverK:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},keepInfo:{flex:1,minWidth:0,marginLeft:10},keepTitleRow:{flexDirection:'row',alignItems:'center',gap:6},keepTitleBlock:{flex:1,minWidth:0},keepTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},keepArtist:{color:colors.textMuted,fontSize:12,marginTop:2},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6,flexWrap:'wrap'},trackShare:{minHeight:25,paddingHorizontal:8,borderRadius:13,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},trackShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},originUserText:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},originProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
-  list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},freeEmptyCallout:{marginTop:14,padding:12,borderRadius:14,backgroundColor:'rgba(255,108,140,.12)',borderWidth:1,borderColor:'#FF6C8C'},freeEmptyCalloutTitle:{color:'#FF6C8C',fontSize:13,fontWeight:'900',marginBottom:6},freeEmptyCalloutText:{color:colors.textPrimary,fontSize:12,lineHeight:17,marginTop:3},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:'#0E0A14',borderWidth:1,borderColor:'#2B2038'},linkPreviewText:{color:'#BFA9FF',fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:'#211A2B',borderWidth:1,borderColor:'#40354E',paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},kindChoiceText:{color:'#F8F6FC',fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},repriseSheet:{maxHeight:'82%'},repriseScroll:{width:'100%',marginTop:12,maxHeight:420},repriseRow:{flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9,borderBottomWidth:1,borderBottomColor:'#2B2238'},repriseAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard},repriseInfo:{flex:1,minWidth:0},repriseNameRow:{flexDirection:'row',alignItems:'center',gap:6},repriseUsername:{color:'#FFF',fontSize:14,fontWeight:'900',flexShrink:1},repriseGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:4},repriseGenreChip:{paddingHorizontal:7,paddingVertical:2,borderRadius:9,borderWidth:1},repriseGenreText:{fontSize:9,fontWeight:'800'},repriseFollowButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},repriseFollowButtonOn:{backgroundColor:'#1C3028',borderWidth:1,borderColor:'#3B8061'},repriseFollowButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},repriseFollowButtonTextOn:{color:'#76E3AE'},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
-  qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:34,height:34,borderRadius:17,backgroundColor:'#5B3F8C',borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:12,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:12,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:13,lineHeight:18,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:11,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:13,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},
+  topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
+  hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerShareButton:{minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',marginTop:8},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:colors.textPrimary,fontSize:13,lineHeight:18,marginTop:3},
+  sectionMargin:{marginHorizontal:18,marginTop:10},
+battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
+  dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},muted:{color:colors.textPrimary,fontSize:13,lineHeight:18},
+  websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
+  socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
+  growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+  communitySection:{marginHorizontal:18,gap:2},
+  collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
+  ownOffersStatus:{marginHorizontal:18,marginTop:10,minHeight:44,paddingHorizontal:14,borderRadius:12,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},ownOffersStatusText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',flex:1},ownOffersManageLink:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+  keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},
+  // Adel (21/09/2026) : hauteur fixe (64) explicite sur la rangée
+  // principale -- plus jamais de variation selon le contenu. Le panneau
+  // dépliable (expandedPanel) vit HORS de cette rangée, dans trackCard.
+  // Adel (21/09/2026, maquette interactive validée) : la grille elle-même
+  // (pochette/titre/carrés/chevron/panneau) vit désormais dans
+  // TrackActionRow.tsx (source de vérité unique) -- ne restent ici que les
+  // styles propres au contenu du panneau déplié de cet écran.
+  firstKeepBlock:{gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,flexWrap:'wrap'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:colors.textPrimary,fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},originUserText:{color:colors.success,fontSize:12,fontWeight:'900'},originProtected:{color:colors.success,fontSize:12,fontWeight:'800'},
+  list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',gap:7,paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistShareButtonSecondary:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},playlistShareTextSecondary:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'center',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:colors.backgroundElevated,borderRadius:26,borderWidth:1,borderColor:colors.border,padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:colors.border,alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},freeEmptyCallout:{marginTop:14,padding:12,borderRadius:14,backgroundColor:`${colors.danger}1F`,borderWidth:1,borderColor:colors.danger},freeEmptyCalloutTitle:{color:colors.danger,fontSize:13,fontWeight:'900',marginBottom:6},freeEmptyCalloutText:{color:colors.textPrimary,fontSize:12,lineHeight:17,marginTop:3},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},linkPreviewText:{color:colors.primaryLight,fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:colors.primary,borderColor:colors.primary},kindChoiceText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},repriseSheet:{maxHeight:'82%'},repriseScroll:{width:'100%',marginTop:12,maxHeight:420},repriseRow:{flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9,borderBottomWidth:1,borderBottomColor:colors.border},repriseAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard},repriseInfo:{flex:1,minWidth:0},repriseNameRow:{flexDirection:'row',alignItems:'center',gap:6},repriseUsername:{color:'#FFF',fontSize:14,fontWeight:'900',flexShrink:1},repriseGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:4},repriseGenreChip:{paddingHorizontal:7,paddingVertical:2,borderRadius:9,borderWidth:1},repriseGenreText:{fontSize:9,fontWeight:'800'},repriseFollowButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},repriseFollowButtonOn:{backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},repriseFollowButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},repriseFollowButtonTextOn:{color:colors.success},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
+  qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:12,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:12,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:13,lineHeight:18,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:11,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:13,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},
 });

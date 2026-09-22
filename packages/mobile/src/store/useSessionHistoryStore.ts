@@ -47,6 +47,7 @@ interface SessionHistoryStore {
   reconcileOrphanedLiveSessions: (activeSessionId?: string | null) => void;
   keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
+  restoreTrackInSession: (sessionId: string, entryId: string) => void;
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
   setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
   keepAllPendingInSession: (sessionId: string, visibility?: KeepVisibility) => Promise<void>;
@@ -361,6 +362,13 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       },
 
       passTrackInSession: (sessionId, entryId) => set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed', undefined, undefined, undefined, false) })),
+
+      // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite --
+      // ça doit rester ré-écoutable et ré-ajoutable tant que je n'ai pas
+      // donné ma décision finale". Symétrique de passTrackInSession : remet
+      // un morceau passé en attente, pour lui redonner une vraie chance
+      // GARDER/PASSER au lieu d'une suppression silencieuse et définitive.
+      restoreTrackInSession: (sessionId, entryId) => set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'pending', undefined, undefined, undefined, false) })),
 
       setTrackVisibilityInSession: async (sessionId, entryId, visibility) => {
         const session = get().sessions.find((s) => s.id === sessionId);

@@ -151,7 +151,7 @@ export default function MandatoryProfileRequirementsGate({ children }: { childre
       await createProfileService(supabase).saveOwnProfile(draftUser);
       setUser(draftUser);
     } catch (e: any) {
-      Alert.alert('Profil Loki', e?.message || 'Impossible d’enregistrer les informations demandées.');
+      Alert.alert('Profil Loki Music', e?.message || 'Impossible d’enregistrer les informations demandées.');
     } finally {
       setSaving(false);
     }
@@ -159,9 +159,9 @@ export default function MandatoryProfileRequirementsGate({ children }: { childre
 
   return <SafeAreaView style={s.container}>
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <Text style={s.logo}>Loki</Text>
+      <Text style={s.logo}>Loki Music</Text>
       <Text style={s.title}>Action requise sur ton profil</Text>
-      <Text style={s.subtitle}>Le Super Admin Loki demande ces informations avant de poursuivre. Dès qu’elles sont enregistrées, ton application se débloque automatiquement.</Text>
+      <Text style={s.subtitle}>Le Super Admin Loki Music demande ces informations avant de poursuivre. Dès qu’elles sont enregistrées, ton application se débloque automatiquement.</Text>
 
       <View style={s.requirementCard}>
         {missing.map((item) => <View key={item} style={s.requirementRow}><Text style={s.dot}>•</Text><Text style={s.requirementText}>{LABELS[item]}</Text></View>)}

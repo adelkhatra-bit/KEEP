@@ -152,7 +152,7 @@ export default function Dashboard() {
   return (
     <AdminLayout>
       <div className="page-title">Dashboard</div>
-      <div className="page-subtitle">Statistiques réelles Loki — filtres par période et pays</div>
+      <div className="page-subtitle">Statistiques réelles Loki Music — filtres par période et pays</div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>

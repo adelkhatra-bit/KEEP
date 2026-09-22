@@ -153,7 +153,7 @@ export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
   return normalize(row);
 }
 
-export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null };
+export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null; battleType?: string };
 
 export type FreeCreditBreakdown = {
   remaining: number;
@@ -170,8 +170,6 @@ export type FreeCreditBreakdown = {
   battleAdjustment: number;
   battleWon: number;
   battleLost: number;
-  totalEarned: number;
-  totalSpent: number;
   used: number;
   lockedArena: number;
   recentBattles: FreeCreditBattleEvent[];
@@ -186,9 +184,23 @@ export type FreeCreditBreakdown = {
  * comme "36" devienne vérifiable au lieu d'une boîte noire.
  */
 export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | null> {
-  if (!supabase) return null;
+  if (!supabase) {
+    console.error('[FREE_CREDIT_BREAKDOWN] Supabase not initialized');
+    return null;
+  }
   const { data, error } = await supabase.rpc('keep_free_credit_breakdown');
-  if (error || !data) return null;
+  if (error) {
+    console.error('[FREE_CREDIT_BREAKDOWN] RPC Error:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+    return null;
+  }
+  if (!data) {
+    console.error('[FREE_CREDIT_BREAKDOWN] No data returned from RPC');
+    return null;
+  }
   const row = data as any;
   return {
     remaining: Number(row.remaining || 0),
@@ -205,8 +217,6 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
     battleAdjustment: Number(row.battleAdjustment || 0),
     battleWon: Number(row.battleWon || 0),
     battleLost: Number(row.battleLost || 0),
-    totalEarned: Number(row.totalEarned || 0),
-    totalSpent: Number(row.totalSpent || 0),
     used: Number(row.used || 0),
     lockedArena: Number(row.lockedArena || 0),
     recentBattles: Array.isArray(row.recentBattles) ? row.recentBattles.map((x: any) => ({
@@ -214,6 +224,7 @@ export async function loadFreeCreditBreakdown(): Promise<FreeCreditBreakdown | n
       amount: Number(x.amount || 0),
       createdAt: String(x.createdAt || ''),
       themeCode: x.themeCode ? String(x.themeCode) : null,
+      battleType: x.battleType ? String(x.battleType) : undefined,
     })) : [],
   };
 }

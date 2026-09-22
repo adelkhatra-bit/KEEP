@@ -23,7 +23,7 @@ mustInclude(requirementGate, ".from('user_profile_requirements')", 'mandatory re
 mustInclude(requirementGate, 'saveOwnProfile', 'mandatory requirements gate');
 
 mustInclude(adminUsers, "supabase.rpc('admin_user_directory')", 'Super Admin users');
-mustInclude(adminUsers, "functions.invoke('keep-admin-user-control'", 'Super Admin users');
+mustInclude(adminUsers, "invokeAdminFunction('keep-admin-user-control'", 'Super Admin users');
 mustInclude(adminUsers, "supabase.rpc('get_my_admin_role')", 'Super Admin users');
 mustNotInclude(adminUsers, 'EMAIL_VERIFIED', 'Super Admin mandatory fields');
 

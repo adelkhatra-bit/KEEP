@@ -21,6 +21,10 @@ type Props = {
   // (jamais appliquee a `compact` seul, qui reste utilise ailleurs en plein
   // largeur avec une cible tactile de 44).
   small?: boolean;
+  // Adel (21/09/2026, maquette validée "Cartes Loki — nouveau design") :
+  // carré d'action 40×40, icône seule (▶/■), même famille que les carrés
+  // Aimer/Partager/Garder -- jamais combiné avec compact/fullWidth/small.
+  square?: boolean;
 };
 
 type TrackAudioMetadata = {
@@ -61,7 +65,7 @@ async function loadTrackAudioMetadata(trackKey: string): Promise<TrackAudioMetad
   };
 }
 
-export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false, small = false }: Props) {
+export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, compact = false, fullWidth = false, small = false, square = false }: Props) {
   const [playing, setPlaying] = useState(() => isTrackPreviewActive(trackKey));
   const [busy, setBusy] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
@@ -148,7 +152,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
         Alert.alert(
           'Extrait en cours de renouvellement',
           resolvedFallbackUrl
-            ? 'Cet ancien extrait n’est plus lisible. Loki a recherché une nouvelle source. Tu peux aussi ouvrir le morceau sur sa plateforme.'
+            ? 'Cet ancien extrait n’est plus lisible. Loki Music a recherché une nouvelle source. Tu peux aussi ouvrir le morceau sur sa plateforme.'
             : 'Cet ancien extrait n’est plus lisible et aucune nouvelle source audio n’est disponible pour le moment.',
         );
       }
@@ -207,8 +211,8 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
     if (useSessionStore.getState().isActive) {
       Alert.alert(
-        'Écoute Loki en cours',
-        'Le micro Loki est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant d’ouvrir le morceau sur une plateforme.',
+        'Écoute Loki Music en cours',
+        'Le micro Loki Music est encore actif. Pour éviter d’identifier le son de ton propre téléphone, arrête la session avant d’ouvrir le morceau sur une plateforme.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
           { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void stopListeningThenFallback() },
@@ -221,11 +225,27 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   };
 
   if (resolving) {
+    if (square) return <TouchableOpacity style={styles.squareDisabled} disabled accessibilityLabel="Recherche audio en cours"><Text style={styles.squareText}>…</Text></TouchableOpacity>;
     return <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Recherche audio…</Text>;
   }
 
   if (!resolvedPreviewUrl && !resolvedFallbackUrl) {
+    if (square) return <TouchableOpacity style={styles.squareDisabled} disabled accessibilityLabel="Audio indisponible"><Text style={styles.squareText}>♪</Text></TouchableOpacity>;
     return compact ? <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
+  }
+
+  if (square) {
+    return (
+      <TouchableOpacity
+        style={[styles.square, playing && styles.squarePlaying]}
+        onPress={toggle}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
+      >
+        <Text style={[styles.squareText, playing && styles.squareTextPlaying]}>{busy ? '…' : playing ? '■' : '▶'}</Text>
+      </TouchableOpacity>
+    );
   }
 
   return (
@@ -268,4 +288,14 @@ const styles = StyleSheet.create({
   smallText: { fontSize: 12, color: '#E5F266' },
   unavailable: { color: colors.textMuted, fontSize: 11 },
   unavailableFullWidth: { width: '100%', textAlign: 'center' },
+  // Maquette interactive validée "TrackRow" (21/09/2026,
+  // https://claude.ai/artifact/9X4dx8oMmCJ3hkRGndc7BW) : fond uniforme
+  // #1A1A2E pour tous les carrés d'action -- gris au repos, vert menthe
+  // pendant la lecture, jamais de remplissage violet (contrairement à la
+  // première maquette, corrigée depuis).
+  square: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: '#8B87A0', backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
+  squarePlaying: { borderColor: colors.success },
+  squareDisabled: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center', opacity: 0.6 },
+  squareText: { color: '#8B87A0', fontSize: 15, fontWeight: '900' },
+  squareTextPlaying: { color: colors.success },
 });

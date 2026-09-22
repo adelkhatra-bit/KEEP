@@ -233,7 +233,7 @@ export default function GlobalNotificationBanner() {
           <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
           <View style={styles.artworkFallback}><Text style={styles.note}>🔁</Text></View>
           <View style={styles.copy}>
-            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki BATTLE</Text></View>
+            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki Music BATTLE</Text></View>
             <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
             <Text style={styles.body} numberOfLines={2}>{current.body}</Text>
             <View style={styles.battleActions}>
@@ -261,7 +261,7 @@ export default function GlobalNotificationBanner() {
             <View style={styles.artworkFallback}><Text style={styles.note}>⚡</Text></View>
           )}
           <View style={styles.copy}>
-            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki BATTLE</Text></View>
+            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki Music BATTLE</Text></View>
             <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
             <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
             <View style={styles.battleActions}>
@@ -302,7 +302,7 @@ export default function GlobalNotificationBanner() {
         )}
         <View style={styles.copy}>
           <View style={styles.eyebrowRow}>
-            <Text style={styles.eyebrow}>{isMusic ? 'Loki LIVE' : 'Loki'}</Text>
+            <Text style={styles.eyebrow}>{isMusic ? 'Loki Music LIVE' : 'Loki Music'}</Text>
             <Text style={styles.closeHint}>toucher = lu</Text>
           </View>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>

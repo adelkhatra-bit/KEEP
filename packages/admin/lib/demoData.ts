@@ -55,7 +55,7 @@ export const DEMO_FEATURE_FLAGS: DemoFeatureFlag[] = [
   { key: 'local_discovery', description: 'Découverte locale', isEnabledGlobally: false },
   { key: 'creator', description: 'Profils Creator', isEnabledGlobally: true },
   { key: 'venue', description: 'Profils Venue', isEnabledGlobally: true },
-  { key: 'keep_dna', description: 'Loki DNA — ADN musical (voir docs/INNOVATIONS.md)', isEnabledGlobally: false },
+  { key: 'keep_dna', description: 'Loki Music DNA — ADN musical (voir docs/INNOVATIONS.md)', isEnabledGlobally: false },
 ];
 
 export interface DemoAppSetting {

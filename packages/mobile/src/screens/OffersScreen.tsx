@@ -12,6 +12,7 @@ import { loadMyKeepBattleCreditStatus } from '../services/keepBattleService';
 import { FreeCreditBreakdown, getDownloadCreditStatus, loadFreeCreditBreakdown } from '../services/creditService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
+import { KeepBattleSoloHistoryModal } from '../components/KeepBattleSoloHistoryModal';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -95,11 +96,11 @@ function eventsPerMonthClause(limit: number | null): string {
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
-  if (feature === 'SMART_SORTING') return `Loki Vibes classe automatiquement ta musique par ambiances et styles. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
-  if (feature === 'PROFILE_SHARE') return 'Crée d’abord ton compte Loki pour partager ton profil. Premium étend ensuite la visibilité de ton univers.';
-  if (feature === 'PUBLIC_PLAYLISTS') return 'Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.';
-  if (feature === 'CREATOR_KIND') return 'Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.';
-  if (feature === 'CREATE_EVENT') return `La création d’événements s’ouvre à partir de ${eventFollowers} abonnés. Creator Pro : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} ; Venue Pro : soirées ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`;
+  if (feature === 'SMART_SORTING') return `Loki Music Vibes classe automatiquement ta musique par ambiances et styles. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
+  if (feature === 'PROFILE_SHARE') return `Crée d'abord ton compte Loki Music pour partager ton profil. Premium étend ensuite la visibilité de ton univers.`;
+  if (feature === 'PUBLIC_PLAYLISTS') return `Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.`;
+  if (feature === 'CREATOR_KIND') return `Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.`;
+  if (feature === 'CREATE_EVENT') return `La création d'événements s'ouvre à partir de ${eventFollowers} abonnés. Creator Pro : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} ; Venue Pro : soirées ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`;
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
@@ -120,11 +121,11 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   if (planCode === 'PREMIUM') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Découvertes de profils en illimité.',
-    `${rules.premiumSmartSortTrials} essais de Loki Vibes.`,
+    `${rules.premiumSmartSortTrials} essais de Loki Music Vibes.`,
   ];
   if (planCode === 'CREATOR_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Vibes illimités.' : `Jusqu’à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Vibes illimité.`,
+    rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Music Vibes illimités.' : `Jusqu'à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Music Vibes illimité.`,
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
@@ -133,7 +134,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`,
-    'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki, personne ne peut désactiver la notification.',
+    'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki Music, personne ne peut désactiver la notification.',
     'QR, communauté et analytics avancés.',
     `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
   ];
@@ -141,10 +142,10 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
 }
 
 function planSummary(planCode: string): string {
-  if (planCode === 'PREMIUM') return 'Pour profiter de Loki au quotidien avec davantage de liberté.';
+  if (planCode === 'PREMIUM') return 'Pour profiter de Loki Music au quotidien avec davantage de liberté.';
   if (planCode === 'CREATOR_PRO') return 'Pour les DJs, artistes et créateurs qui développent leur communauté.';
   if (planCode === 'VENUE_PRO') return 'Pour les lieux et établissements qui organisent et animent leur audience.';
-  return 'Les fonctions essentielles de Loki pour commencer.';
+  return 'Les fonctions essentielles de Loki Music pour commencer.';
 }
 
 export default function OffersScreen({ navigation, route }: any) {
@@ -173,8 +174,10 @@ export default function OffersScreen({ navigation, route }: any) {
   const [error, setError] = useState('');
   const [freeExpanded, setFreeExpanded] = useState(false);
   const [battleExpanded, setBattleExpanded] = useState(false);
+  const [showFreeDetails, setShowFreeDetails] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
+  const [soloHistoryVisible, setSoloHistoryVisible] = useState(false);
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
   // Adel (04/09/2026) : "il faut qu'on branche le paiement" -- premier vrai
   // achat StoreKit de bout en bout (KeepIAP -> keep-iap-verify -> activation
@@ -196,10 +199,10 @@ export default function OffersScreen({ navigation, route }: any) {
     setPaddleBusyPlan(planCode);
     try {
       const entry = paddleCatalog.find((row) => row.planCode === planCode && row.period === 'MONTHLY');
-      if (!entry) { Alert.alert('Abonnement', 'Cette formule n’est pas encore disponible au paiement.'); return; }
+      if (!entry) { Alert.alert('Abonnement', `Cette formule n'est pas encore disponible au paiement.`); return; }
       const result = await openPaddleCheckout(entry.paddlePriceId);
       if (!result.ok && result.reason !== 'CHECKOUT_FAILED') {
-        Alert.alert('Abonnement', 'Impossible d’ouvrir le paiement pour le moment. Réessaie dans un instant.');
+        Alert.alert('Abonnement', `Impossible d'ouvrir le paiement pour le moment. Réessaie dans un instant.`);
       }
       // Adel (07/09/2026, meme regle que partout ailleurs) : l'activation
       // reelle vient du webhook Paddle cote serveur (keep-paddle-webhook),
@@ -308,6 +311,37 @@ export default function OffersScreen({ navigation, route }: any) {
     return () => { cancelled = true; };
   }, []);
 
+  // Adel (18/09/2026, sync) : "vérifie qu'il est bien branché au même endroit
+  // que le profil c'est très important" -- rafraîchir les compteurs growth
+  // (followers, qualifiedShares, bonusFreeCredits) quand on revient à l'écran
+  // pour rester en sync avec ProfilePublicScreen.
+  useEffect(() => {
+    if (!user || isLocalGuest || isDemoMode || !navigation) return undefined;
+    const refreshOnFocus = async () => {
+      try {
+        const [liveGrowth, liveFreeStatus, liveBreakdown] = await Promise.all([
+          getGrowthRewardStatus().catch(() => null),
+          loadMyKeepBattleCreditStatus().catch(() => null),
+          loadFreeCreditBreakdown().catch(() => null),
+        ]);
+        setGrowth(liveGrowth);
+        setBreakdown(liveBreakdown);
+        if (liveFreeStatus && 'remainingFree' in liveFreeStatus) {
+          setFreeBalance(Number(liveFreeStatus.remainingFree ?? 0));
+          setFreeUnlimited(false);
+        } else if (liveFreeStatus) {
+          const quota = liveFreeStatus as any;
+          setFreeBalance(quota.remaining == null ? null : Number(quota.remaining));
+          setFreeUnlimited(Boolean(quota.unlimited));
+        }
+      } catch {
+        // Silencieux en cas d'erreur, les données restent en place.
+      }
+    };
+    const unsubscribe = navigation.addListener?.('focus', refreshOnFocus);
+    return () => unsubscribe?.();
+  }, [user?.id, isLocalGuest, isDemoMode, navigation]);
+
   const freeBalanceLabel = freeUnlimited ? '∞' : freeBalance == null ? '—' : String(Math.max(0, freeBalance));
   // Adel (07/09/2026) : "il faut mettre le nombre de Free qui sera crédité
   // chaque mois avec chaque certif" -- à côté du badge de certification sur
@@ -354,152 +388,147 @@ export default function OffersScreen({ navigation, route }: any) {
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
         </View> : <>
           <View style={s.promiseCard}>
-            <Text style={s.promiseEyebrow}>Loki</Text>
+            <Text style={s.promiseEyebrow}>Loki Music</Text>
             <Text style={s.promiseTitle}>Écoute. Garde. Partage. Recharge.</Text>
             <Text style={s.promiseCommunity}>Fais grandir ta communauté musicale.</Text>
           </View>
 
           <View style={s.discoveryCard}>
-            <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki</Text>
+            <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki Music</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
-            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, Loki associe cette découverte à ton profil. Si d’autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
+            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur l’attribution des découvertes"
+              accessibilityLabel="En savoir plus sur l'attribution des découvertes"
               accessibilityState={{ expanded: discoveryExpanded }}
             >
               <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'En savoir plus'}</Text>
               <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur Loki de cette occurrence.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur Loki Music de cette occurrence.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un morceau issu de la communauté.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s’il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l’enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s'il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l'enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
             </View> : null}
           </View>
 
-          <View style={s.creditCard}>
-            <View style={s.creditTop}>
-              <View><Text style={s.sectionTitle}>Tes Free disponibles</Text><Text style={s.creditBig}>{freeBalanceLabel}</Text></View>
-              <View style={s.freePill}><Text style={s.freePillText}>FREE</Text></View>
-            </View>
-
-            <TouchableOpacity
-              style={s.disclosureButton}
-              onPress={() => setFreeExpanded((value) => !value)}
-              accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur les Free"
-              accessibilityState={{ expanded: freeExpanded }}
-            >
-              <Text style={s.disclosureText}>{freeExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{freeExpanded ? '⌃' : '⌄'}</Text>
-            </TouchableOpacity>
-
-            {freeExpanded ? <>
-              <Text style={s.creditText}>Ce nombre est ton solde réellement disponible. Au démarrage : {funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. Les Free utilisés sont déduits ; les récompenses communauté et Battle s’ajoutent automatiquement.</Text>
-              <Text style={s.creditRule}>Écouter / reconnaître / PASSER = 0 Free. GARDER un morceau détecté avec Écouter = {rules.freeCostPerKeep} Free. Prendre un morceau sur le profil d’un autre membre = 0 Free.</Text>
-              {growth ? <View style={s.growthGrid}>
-                <View style={s.growthStat}><Text style={s.growthValue}>{growth.qualifiedShares}</Text><Text style={s.growthLabel}>partages qualifiés</Text></View>
-                <View style={s.growthStat}><Text style={s.growthValue}>{growth.followers}</Text><Text style={s.growthLabel}>abonnés</Text></View>
-                <View style={s.growthStat}><Text style={s.growthValue}>+{growth.bonusFreeCredits}</Text><Text style={s.growthLabel}>Free gagnés</Text></View>
-              </View> : null}
-              {/* Adel (15/09/2026) : "n'oubliez pas de rajouter dans les
-                  offres les dernières options qu'on a mis que tout soit à
-                  jour ... bien expliquer les avantages" -- Audience Pro et
-                  la vente de playlists sont réels, débloqués par les
-                  abonnés (pas par une formule payante), jamais montrés ici
-                  avant. */}
-              {growth ? <Text style={s.creditText}>
-                {growth.audienceProUnlocked
-                  ? `🏆 Audience Pro débloquée (${growth.followers} abonnés) : Free en bonus + profils Découverte/essais Vibes Auto en plus, et tu peux vendre tes playlists dès que tu passes le seuil dédié.`
-                  : growth.nextFollowerGoal
-                  ? `Prochain palier communauté : ${growth.followers}/${growth.nextFollowerGoal} abonnés -- Free en bonus, profils Découverte, essais Vibes Auto, et à terme le badge Audience Pro et la vente de playlists.`
-                  : null}
-              </Text> : null}
-
-              {breakdown ? <View style={s.breakdownBox}>
-                <Text style={s.breakdownTitle}>D’OÙ VIENT TON SOLDE ({breakdown.remaining} Free)</Text>
-                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Invité (avant inscription)</Text><Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text></View>
-                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus d’inscription</Text><Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text></View>
-                {breakdown.followerBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.followerCount} abonnés (palier {breakdown.followerCount >= breakdown.followerTier5 ? breakdown.followerTier5 : breakdown.followerTier3})</Text><Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text></View> : null}
-                {breakdown.referralBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>{breakdown.referralCount} filleul(s) parrainé(s)</Text><Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text></View> : null}
-                {breakdown.monthlyBonus > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Bonus mensuel</Text><Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text></View> : null}
-                {breakdown.adminGrant !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Crédit accordé par l’équipe</Text><Text style={s.breakdownValue}>{breakdown.adminGrant > 0 ? '+' : ''}{breakdown.adminGrant}</Text></View> : null}
-                {breakdown.battleAdjustment !== 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Résultat net des Battle</Text><Text style={s.breakdownValue}>{breakdown.battleAdjustment > 0 ? '+' : ''}{breakdown.battleAdjustment}</Text></View> : null}
-                <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Free déjà utilisés (GARDER)</Text><Text style={s.breakdownValue}>−{breakdown.used}</Text></View>
-                {breakdown.lockedArena > 0 ? <View style={s.breakdownRow}><Text style={s.breakdownLabel}>Mise verrouillée (Battle en cours)</Text><Text style={s.breakdownValue}>−{breakdown.lockedArena}</Text></View> : null}
-                {breakdown.recentBattles.length ? <>
-                  <Text style={s.breakdownSubtitle}>DERNIERS BATTLE</Text>
-                  {breakdown.recentBattles.slice(0, 6).map((event, i) => (
-                    <View key={i} style={s.breakdownRow}>
-                      <Text style={s.breakdownLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'}{event.themeCode ? ` · ${event.themeCode}` : ''} · {new Date(event.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</Text>
-                      <Text style={[s.breakdownValue, event.amount < 0 && s.breakdownValueNegative]}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
-                    </View>
-                  ))}
-                </> : null}
-              </View> : null}
-
-              <View style={s.rechargeBox}>
-                <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
-                <Text style={s.rechargeTitle}>Pas besoin de payer pour continuer.</Text>
-                <Text style={s.rechargeIntro}>Partage Loki et fais grandir ta communauté : certaines actions te redonnent réellement des Free.</Text>
-
-                <View style={s.rechargeItem}>
-                  <Text style={s.rechargeIcon}>↗</Text>
-                  <View style={s.rechargeCopy}>
-                    <Text style={s.rechargeItemTitle}>Partage Loki</Text>
-                    <Text style={s.rechargeItemText}>{s2} partages qualifiés → +{sr.tier2Credits} Free · {s3} partages → +{sr.tier3Credits} Free.</Text>
-                    <Text style={s.rechargeHint}>Limite actuelle : {rules.shareDailyCap} partages comptabilisés par jour.</Text>
-                  </View>
-                </View>
-
-                <View style={s.rechargeItem}>
-                  <Text style={s.rechargeIcon}>＋</Text>
-                  <View style={s.rechargeCopy}>
-                    <Text style={s.rechargeItemTitle}>Fais grandir tes abonnés</Text>
-                    <Text style={s.rechargeItemText}>{f3} abonnés → +{fr.tier3Credits} Free · {f5} abonnés → +{fr.tier5Credits} Free.</Text>
-                    <Text style={s.rechargeHint}>Les autres paliers peuvent aussi donner des Découvertes ou des essais Vibes.</Text>
-                  </View>
-                </View>
-
-                <View style={s.startBonus}>
-                  <Text style={s.startBonusTitle}>BONUS DE DÉPART</Text>
-                  <Text style={s.startBonusText}>{funnel.guestSuccessLimit} Free avant inscription + {funnel.signupBonusSuccesses} après création du compte. C’est un bonus de démarrage, pas une recharge répétable.</Text>
-                </View>
-              </View>
-
-              <View style={s.otherRewards}>
-                <Text style={s.otherRewardsTitle}>BONUS GRATUITS EN PLUS DE TON OFFRE</Text>
-                <Text style={s.otherRewardsIntro}>Tu les gagnes en faisant vivre ta communauté musicale et en partageant Loki.</Text>
-                <Text style={s.otherRewardsLine}>{f1} abonnés → +{fr.tier1Discovery} profils Découvertes</Text>
-                <Text style={s.otherRewardsLine}>{f2} abonnés → +{fr.tier2Sort} essai Vibes</Text>
-                <Text style={s.otherRewardsLine}>{f4} abonnés → +{fr.tier4Discovery} Découvertes + {fr.tier4Sort} essai Vibes</Text>
-                <Text style={s.otherRewardsLine}>{s1} partages → +{sr.tier1Discovery} Découvertes</Text>
-                <Text style={s.otherRewardsLine}>{s3} partages → +{sr.tier3Sort} essai Vibes en plus des Free</Text>
-                <Text style={s.vibesDefinition}>Vibes = Loki range automatiquement tes morceaux par styles et ambiances pour créer des sélections musicales intelligentes.</Text>
-              </View>
-            </> : null}
-          </View>
 
           <View style={s.battleCard}>
             <View style={s.battleHeader}>
               <View style={s.battleHeaderCopy}>
-                <Text style={s.battleEyebrow}>Loki BATTLES</Text>
+                <Text style={s.battleEyebrow}>Loki Music BATTLES</Text>
                 <Text style={s.battleTitle}>⚡ Affronte. Gagne des Free.</Text>
               </View>
             </View>
+
+            {/* Tes Free disponibles display */}
+            {freeBalance != null && (
+              <View style={s.freeBalanceRow}>
+                <Text style={s.freeBalanceLabel}>Tes Free disponibles</Text>
+                <Text style={s.freeBalanceValue}>{freeBalanceLabel}</Text>
+              </View>
+            )}
+
+            {/* Toggle button for Free details */}
+            {breakdown && (
+              <TouchableOpacity
+                style={s.freeDetailsToggle}
+                onPress={() => setShowFreeDetails((value) => !value)}
+                accessibilityRole="button"
+                accessibilityLabel="Details du solde"
+                accessibilityState={{ expanded: showFreeDetails }}
+              >
+                <Text style={s.freeDetailsToggleText}>SOURCES DU SOLDE</Text>
+                <Text style={s.freeDetailsToggleChevron}>{showFreeDetails ? 'v' : '>'}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Free breakdown box */}
+            {showFreeDetails && breakdown && (
+              <View style={s.breakdownBox}>
+                <Text style={s.breakdownTitle}>SOURCES DES FREE</Text>
+                <View style={s.breakdownRow}>
+                  <Text style={s.breakdownLabel}>Solde actuel</Text>
+                  <Text style={s.breakdownValue}>{breakdown.remaining ?? 0}</Text>
+                </View>
+                {breakdown.guestLimit > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>🎁 Essai invité</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.guestLimit}</Text>
+                  </View>
+                )}
+                {breakdown.signupBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>🆕 Bonus inscription</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.signupBonus}</Text>
+                  </View>
+                )}
+                {breakdown.referralBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>👥 Partage du profil ({breakdown.referralCount})</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.referralBonus}</Text>
+                  </View>
+                )}
+                {breakdown.followerBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>⭐ Followers bonus</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.followerBonus}</Text>
+                  </View>
+                )}
+                {breakdown.monthlyBonus > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>📅 Bonus mensuel</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.monthlyBonus}</Text>
+                  </View>
+                )}
+                {breakdown.battleAdjustment !== 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>⚔️ Loki Music Battle</Text>
+                    <Text style={[s.breakdownValue, breakdown.battleAdjustment < 0 && s.breakdownValueNegative]}>
+                      {breakdown.battleAdjustment >= 0 ? '+' : ''}{breakdown.battleAdjustment}
+                    </Text>
+                  </View>
+                )}
+                {breakdown.adminGrant > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>🛡️ Admin grant</Text>
+                    <Text style={s.breakdownValue}>+{breakdown.adminGrant}</Text>
+                  </View>
+                )}
+                {breakdown.lockedArena > 0 && (
+                  <View style={s.breakdownRow}>
+                    <Text style={s.breakdownLabel}>🔒 Mises Battles en cours</Text>
+                    <Text style={s.breakdownValue}>-{breakdown.lockedArena}</Text>
+                  </View>
+                )}
+                {breakdown.recentBattles && Array.isArray(breakdown.recentBattles) && breakdown.recentBattles.length > 0 && (
+                  <View style={s.recentBattlesBox}>
+                    <Text style={s.recentBattlesTitle}>HISTORIQUE RECENT</Text>
+                    {breakdown.recentBattles.slice(0, 5).map((battle: any, idx: number) => (
+                      <View key={`${battle.createdAt}-${idx}`} style={s.recentBattleRow}>
+                        <Text style={s.recentBattleLabel}>{battle.themeCode ? `[${battle.themeCode}]` : '[Battle]'}</Text>
+                        <Text style={[s.recentBattleAmount, battle.amount >= 0 ? s.recentBattleGain : s.recentBattleLoss]}>
+                          {battle.amount >= 0 ? '+' : ''}{battle.amount}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setBattleExpanded((value) => !value)}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur les Loki Battles"
+              accessibilityLabel="En savoir plus sur les Loki Music Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{battleExpanded ? '⌃' : '⌄'}</Text>
+              <Text style={s.disclosureText}>{battleExpanded ? 'Reduire' : 'En savoir plus'}</Text>
+              <Text style={s.disclosureChevron}>{battleExpanded ? 'v' : '>'}</Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
                 offres de bien expliquer les règles pour les Battle" -- le
@@ -511,8 +540,8 @@ export default function OffersScreen({ navigation, route }: any) {
                 vérité, plus jamais un texte à mettre à jour à la main
                 quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l’adversaire. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
-              <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu’à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l'adversaire. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
+              <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu'à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
           </View>
           {/* Adel (04/09/2026) : "il faut qu'il comprenne comment il peut
@@ -521,8 +550,8 @@ export default function OffersScreen({ navigation, route }: any) {
               plan. */}
           <View style={s.battleDetails}>
             <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
-            <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d’abonnés, plus Loki t’offre de Free.</Text>
-            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne contre d’autres joueurs.</Text>
+            <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d'abonnés, plus Loki Music t'offre de Free.</Text>
+            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne contre d'autres joueurs.</Text>
             <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
             <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
           </View>
@@ -573,9 +602,9 @@ export default function OffersScreen({ navigation, route }: any) {
                   disabled={purchasingPlan !== null}
                   onPress={() => void handlePurchase(plan.code)}
                   accessibilityRole="button"
-                  accessibilityLabel={`S’abonner à ${planLabel(plan.code)}`}
+                  accessibilityLabel={`S'abonner à ${planLabel(plan.code)}`}
                 >
-                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
+                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S'ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
                 </TouchableOpacity>
               ) : null}
               {!active && plan.code !== "FREE" && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === "MONTHLY") ? (
@@ -584,9 +613,9 @@ export default function OffersScreen({ navigation, route }: any) {
                   disabled={paddleBusyPlan !== null}
                   onPress={() => void handlePaddleCheckout(plan.code)}
                   accessibilityRole="button"
-                  accessibilityLabel={`S’abonner a ${planLabel(plan.code)}`}
+                  accessibilityLabel={`S'abonner a ${planLabel(plan.code)}`}
                 >
-                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S’ABONNER - {paddlePrice(paddleCatalog, plan.code)}</Text>}
+                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S'ABONNER - {paddlePrice(paddleCatalog, plan.code)}</Text>}
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -595,7 +624,7 @@ export default function OffersScreen({ navigation, route }: any) {
 
         {iapAvailable() ? (
           <View>
-            <Text style={s.renewalText}>Abonnement mensuel renouvelé automatiquement jusqu’à résiliation. Le paiement est débité sur ton compte Apple. Tu peux gérer ou résilier l’abonnement dans les réglages Apple.</Text>
+            <Text style={s.renewalText}>Abonnement mensuel renouvelé automatiquement jusqu'à résiliation. Le paiement est débité sur ton compte Apple. Tu peux gérer ou résilier l'abonnement dans les réglages Apple.</Text>
             <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
               <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
             </TouchableOpacity>
@@ -621,9 +650,9 @@ export default function OffersScreen({ navigation, route }: any) {
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
             <Text style={s.subscriptionText}>• Écouter, reconnaître et PASSER ne consomment aucun Free.</Text>
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d’un autre membre utilise 0 Free.</Text>
-            <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s’ajoutent à ta formule.</Text>
-            <Text style={s.subscriptionText}>• La provenance d’une découverte reste rattachée au membre qui l’a reconnue avec Écouter.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule.</Text>
+            <Text style={s.subscriptionText}>• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Écouter.</Text>
           </View> : null}
         </View>
 
@@ -631,6 +660,8 @@ export default function OffersScreen({ navigation, route }: any) {
           <Text style={s.allPlansText}>Voir toutes les formules</Text>
         </TouchableOpacity> : null}
       </ScrollView>
+
+      <KeepBattleSoloHistoryModal visible={soloHistoryVisible} onClose={() => setSoloHistoryVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -690,6 +721,9 @@ const s = StyleSheet.create({
   breakdownLabel: { flex: 1, color: '#E9E3F0', fontSize: 11, fontWeight: '700' },
   breakdownValue: { color: '#7FF2B7', fontSize: 12, fontWeight: '900' },
   breakdownValueNegative: { color: '#FFB3C3' },
+  soloHistoryButton: { marginTop: 10, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#E5F266', backgroundColor: '#1A1C0F', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  soloHistoryButtonText: { color: '#E5F266', fontSize: 13, fontWeight: '900' },
+  soloHistoryButtonChevron: { color: '#E5F266', fontSize: 20, fontWeight: '900' },
   rechargeBox: { marginTop: 13, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
   rechargeEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   rechargeTitle: { color: '#FFFFFF', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 3 },
@@ -718,9 +752,22 @@ const s = StyleSheet.create({
   battleHeaderCopy: { flex: 1 },
   battleEyebrow: { color: '#FFF4C2', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   battleTitle: { color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 4 },
+  freeBalanceRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#5B4A19' },
+  freeBalanceLabel: { color: '#FFF4C2', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  freeBalanceValue: { color: '#E5F266', fontSize: 18, fontWeight: '900' },
+  freeDetailsToggle: { minHeight: 40, marginTop: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#D6AA36', backgroundColor: '#1A1710', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  freeDetailsToggleText: { color: '#FFF4C2', fontSize: 11, fontWeight: '900', letterSpacing: 0.6 },
+  freeDetailsToggleChevron: { color: '#D6AA36', fontSize: 18, fontWeight: '900' },
   battleDetails: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#5B4A19' },
   battleDetailText: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, fontWeight: '800' },
   battleDetailHint: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 5 },
+  recentBattlesBox: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#3D2860' },
+  recentBattlesTitle: { color: '#E5F266', fontSize: 9, fontWeight: '900', letterSpacing: 0.6, marginBottom: 6 },
+  recentBattleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 20, marginBottom: 4 },
+  recentBattleLabel: { flex: 1, color: '#F8F6FC', fontSize: 10, fontWeight: '800' },
+  recentBattleAmount: { fontSize: 11, fontWeight: '900' },
+  recentBattleGain: { color: '#7FF2B7' },
+  recentBattleLoss: { color: '#FFB3C3' },
   paidSectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
   planCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   planCardActive: { borderColor: colors.primaryLight },

@@ -37,7 +37,7 @@ type Rule = {
 };
 
 const RULES: Rule[] = [
-  { key: 'slow-love', name: 'SLOW & LOVE', description: 'Ballades, slows et morceaux doux détectés par KEEP.', tokens: ['slow', 'ballad', 'love song', 'romantic', 'easy listening', 'adult contemporary'] },
+  { key: 'slow-love', name: 'SLOW & LOVE', description: 'Ballades, slows et morceaux doux détectés par Loki Music.', tokens: ['slow', 'ballad', 'love song', 'romantic', 'easy listening', 'adult contemporary'] },
   { key: 'rai-maghreb', name: 'RAÏ / MAGHREB', description: 'Raï, chaâbi et sonorités maghrébines.', tokens: ['rai', 'raï', 'chaabi', 'chaâbi', 'maghreb', 'algerian', 'gnawa', 'kabyle'] },
   { key: 'afro-vibes', name: 'AFRO VIBES', description: 'Afrobeats, amapiano, zouk, kompa et sons afro.', tokens: ['afrobeat', 'afrobeats', 'afro pop', 'afropop', 'amapiano', 'zouk', 'kompa', 'coupe decale', 'coupé-décalé'] },
   { key: 'rap-hiphop', name: 'RAP / HIP-HOP', description: 'Rap, trap, drill et hip-hop.', tokens: ['hip hop', 'hip-hop', 'rap', 'trap', 'drill', 'grime'] },

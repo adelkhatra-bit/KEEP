@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { lokiEmailShell } from "../_shared/lokiEmailShell.ts";
+import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -19,8 +19,8 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   BREVO_API_KEY: { category: "email", label: "Brevo API key", secret: true },
   BREVO_SMTP_KEY: { category: "email", label: "Brevo SMTP key", secret: true },
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
-  BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki" },
-  BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki" },
+  BREVO_SENDER_EMAIL: { category: "email", label: "E-mail expéditeur Loki Music" },
+  BREVO_SENDER_NAME: { category: "email", label: "Nom expéditeur Loki Music" },
   // Adel (08/09/2026) : "trouve une autre solution ... une autre plate-forme
   // d'e-mail ... gratuite ... 6000 e-mails gratuit" -- Mailjet (200/jour =
   // 6000/mois, sans carte bancaire), en repli/alternative a Brevo. Meme
@@ -28,6 +28,15 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   // bascule automatiquement sur Mailjet des que ces deux cles sont renseignees.
   MAILJET_API_KEY: { category: "email", label: "Mailjet API Key" },
   MAILJET_SECRET_KEY: { category: "email", label: "Mailjet Secret Key", secret: true },
+  // Adel (22/09/2026, audit Bloc 4 B4) : "remplacer le HMAC couple au
+  // service_role par un secret dedie" -- keep-account-email hachait les
+  // codes de verification a 6 chiffres avec SUPABASE_SERVICE_ROLE_KEY
+  // (privilege maximal, contourne toute RLS) comme cle HMAC. Secret dedie,
+  // sans rapport avec les acces base de donnees -- une chaine aleatoire
+  // longue suffit (ex. generee via `openssl rand -hex 32`). Tant qu'il
+  // n'est pas configure, keep-account-email continue de fonctionner avec
+  // un repli automatique sur SERVICE_ROLE (voir accountEmailCodeSecret()).
+  ACCOUNT_EMAIL_CODE_SECRET: { category: "email", label: "Secret HMAC — codes de vérification e-mail (keep-account-email)", secret: true },
   SPOTIFY_CLIENT_ID: { category: "music", label: "Spotify Client ID" },
   SPOTIFY_CLIENT_SECRET: { category: "music", label: "Spotify Client Secret", secret: true },
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
@@ -62,6 +71,11 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   PADDLE_CLIENT_TOKEN: { category: "payments", label: "Paddle Client-side Token (checkout web)" },
   PADDLE_API_KEY: { category: "payments", label: "Paddle API Key (serveur)", secret: true },
   PADDLE_WEBHOOK_SECRET: { category: "payments", label: "Paddle Webhook Secret", secret: true },
+  // Adel (20/09/2026) : relais ChatGPT -> Claude Code (voir AI/AI_bridge.md).
+  // Clé partagée que SEUL Adel génère et colle ici (jamais Claude) ; elle
+  // authentifie les appels entrants du connecteur ChatGPT vers la fonction
+  // keep-ai-relay et n'a aucune portée sur un service tiers payant.
+  AI_RELAY_API_KEY: { category: "automation", label: "Relais IA — clé du connecteur ChatGPT (keep-ai-relay)", secret: true },
 };
 
 const ADMIN_TEAM_ROLES = ["ADMIN", "SUPPORT", "FINANCE", "MARKETING", "MODERATOR", "TECH"] as const;
@@ -80,6 +94,16 @@ function hint(value: string) {
   }
   if (clean.length <= 8) return "••••••••";
   return `${clean.slice(0, 3)}••••••${clean.slice(-4)}`;
+}
+
+function integrationConfigurationIssue(key: string, valueHint: string | null): string | null {
+  if (key === "STRIPE_SECRET_KEY" && valueHint?.startsWith("pk_")) {
+    return "Une clé publique Stripe (pk_) est enregistrée dans le champ secret. Remplace-la par la clé serveur sk_.";
+  }
+  if (key === "STRIPE_PUBLISHABLE_KEY" && valueHint?.startsWith("sk_")) {
+    return "Une clé secrète Stripe (sk_) est enregistrée dans le champ public. Remplace-la par la clé pk_.";
+  }
+  return null;
 }
 
 function existingEdgeSecret(key: string): string | null {
@@ -283,62 +307,16 @@ async function setRecognitionRuntimeStatus(key: string, status: string, message:
   }, { onConflict: "key" });
 }
 
-// Adel (08/09/2026) : "fait un bouton pour tester les email verification e-mail
-// et mots de passe oublie comme ca je voie tout le design" -- EXACTEMENT le
-// meme gabarit que supabase/functions/keep-auth-email (shellHtml/escapeHtml),
-// duplique ici car chaque edge function Deno est deployee separement (pas de
-// module partage). Si l'un des deux change, reporter le changement dans
-// l'autre fichier.
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
-}
-
-function shellHtml(title: string, heading: string, intro: string, buttonLabel: string, link: string, footer: string) {
-  return `<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="supported-color-schemes" content="dark" />
-  <title>${escapeHtml(title)}</title>
-</head>
-<body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
-    <tr>
-      <td align="center" style="padding:24px 14px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
-          <tr>
-            <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki</div>
-              <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
-              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${intro}</p>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:14px 24px 26px;">
-              <a href="${link}" style="display:inline-block;background:#e5f266;color:#15110b;font-weight:900;font-size:15px;text-decoration:none;border-radius:999px;padding:15px 34px;">${escapeHtml(buttonLabel)}</a>
-              <p style="margin:18px 0 0;font-size:11px;line-height:16px;color:#72697e;word-break:break-all;">${escapeHtml(link)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:6px 26px 30px;">
-              <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
-              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">${footer}</p>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki · Ton univers musical, gardé au même endroit.</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
+// Audit Adel (22/09/2026, Bloc 4 B1) : ce gabarit (EXACTEMENT le meme que
+// supabase/functions/keep-auth-email) etait duplique ici -- le commentaire
+// d'origine (08/09/2026) invoquait "pas de module partage" entre fonctions
+// Deno, ce qui est inexact : ce fichier importe deja lokiEmailShell depuis
+// _shared/ trois lignes plus haut. escapeHtml/shellHtml deplaces vers
+// _shared/lokiEmailShell.ts (lokiEmailCtaShell), source unique desormais.
 
 async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
   const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
+  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
   if (!senderEmail) return { ok: false, status: 409, error: "sender_not_configured" };
 
   const mjKey = await getSecret("MAILJET_API_KEY");
@@ -535,6 +513,7 @@ Deno.serve(async (req) => {
             hint: row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
             updatedAt: row?.updated_at ?? null,
             source: vaultConfigured ? "VAULT" : edgeConfigured ? "EDGE_SECRET" : null,
+            configurationIssue: integrationConfigurationIssue(key, row?.value_hint ?? null),
           };
         }),
       });
@@ -547,6 +526,12 @@ Deno.serve(async (req) => {
       const meta = CATALOG[key];
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
+      if (key === "STRIPE_SECRET_KEY" && !/^sk_(test_|live_)/.test(value)) {
+        return json(400, { error: "invalid_stripe_secret_key", message: "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY." });
+      }
+      if (key === "STRIPE_PUBLISHABLE_KEY" && !/^pk_(test_|live_)/.test(value)) {
+        return json(400, { error: "invalid_stripe_publishable_key", message: "Stripe Publishable Key doit commencer par pk_test_ ou pk_live_." });
+      }
       const providerValidation = key === "AUDD_API_KEY" ? await validateAuddToken(value) : null;
       if (providerValidation && !providerValidation.valid) {
         await resetIntegrationRuntimeStatus(key, false);
@@ -643,17 +628,17 @@ Deno.serve(async (req) => {
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
       const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki";
-      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki, partagée par tous les fournisseurs)." });
+      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
+      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki Music, partagée par tous les fournisseurs)." });
 
-      const subject = "Loki — test e-mail réussi";
+      const subject = "Loki Music — test e-mail réussi";
       const html = lokiEmailShell(
         subject,
-        "Ton e-mail Loki est bien connecté",
-        `<p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.</p>`,
+        "Ton e-mail Loki Music est bien connecté",
+        `<p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">Tes goûts te ressemblent. Partage ton Loki Music DNA, fais grandir ta communauté.</p>`,
         "Ceci est un e-mail de test envoyé depuis le Super Admin -- aucune action requise.",
       );
-      const text = "Loki — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki DNA, fais grandir ta communauté.";
+      const text = "Loki Music — ton e-mail est bien connecté. Tes goûts te ressemblent. Partage ton Loki Music DNA, fais grandir ta communauté.";
 
       // Adel (08/09/2026) : "une autre plate-forme d'e-mail ... 6000 e-mails
       // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
@@ -675,15 +660,15 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
-      const html = shellHtml(
-        "Confirme ton compte Loki",
+      const html = lokiEmailCtaShell(
+        "Confirme ton compte Loki Music",
         "Confirme ton adresse e-mail",
-        `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki et pouvoir récupérer ton mot de passe si besoin.`,
+        `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki Music et pouvoir récupérer ton mot de passe si besoin.`,
         "Confirmer mon compte",
         "https://adelkhatra-bit.github.io/KEEP/#apercu-design",
         "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
       );
-      const sent = await sendViaConfiguredProvider(email, "Loki — Confirme ton compte (aperçu design)", html, "Aperçu design — confirmation de compte Loki.");
+      const sent = await sendViaConfiguredProvider(email, "Loki Music — Confirme ton compte (aperçu design)", html, "Aperçu design — confirmation de compte Loki Music.");
       if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
       await audit(actor.id, "integration_email.preview_signup", sent.provider, email, { ok: true });
       return json(200, { ok: true, provider: sent.provider, real: false });
@@ -703,15 +688,15 @@ Deno.serve(async (req) => {
         });
         if (!error && data?.properties?.action_link) { link = data.properties.action_link; real = true; }
       } catch { /* pas de compte pour cette adresse -> lien d'apercu */ }
-      const html = shellHtml(
-        "Réinitialise ton mot de passe Loki",
+      const html = lokiEmailCtaShell(
+        "Réinitialise ton mot de passe Loki Music",
         "Réinitialise ton mot de passe",
-        "Tu as demandé à changer ton mot de passe Loki. Ouvre ce lien pour en choisir un nouveau.",
+        "Tu as demandé à changer ton mot de passe Loki Music. Ouvre ce lien pour en choisir un nouveau.",
         "Choisir un nouveau mot de passe",
         link,
         "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail, ton mot de passe reste inchangé.",
       );
-      const sent = await sendViaConfiguredProvider(email, `Loki — Réinitialise ton mot de passe${real ? "" : " (aperçu design)"}`, html, "Réinitialise ton mot de passe Loki.");
+      const sent = await sendViaConfiguredProvider(email, `Loki Music — Réinitialise ton mot de passe${real ? "" : " (aperçu design)"}`, html, "Réinitialise ton mot de passe Loki Music.");
       if (!sent.ok) return json(sent.status, { error: sent.error, details: sent.details });
       await audit(actor.id, "integration_email.preview_recovery", sent.provider, email, { ok: true, real });
       return json(200, { ok: true, provider: sent.provider, real });
@@ -804,7 +789,7 @@ Deno.serve(async (req) => {
       const { data: authData, error: authError } = await admin.auth.admin.getUserById(profile.id);
       if (authError || !authData.user) return json(404, { error: "auth_user_not_found" });
       if (!authData.user.is_anonymous) {
-        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte Loki." });
+        return json(409, { error: "not_legacy_anonymous", message: "Ce profil possède déjà un vrai compte Loki Music." });
       }
 
       const temporaryPassword = generateTemporaryPassword();
@@ -847,13 +832,13 @@ Deno.serve(async (req) => {
       const user = await findAuthUserByIdentity(identity);
       if (!user) return json(404, { error: "user_not_found" });
       const { data: profile } = await admin.from("profiles").select("id,username").eq("id", user.id).maybeSingle();
-      if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir Loki une première fois avant l’attribution." });
+      if (!profile) return json(409, { error: "profile_not_ready", message: "L’utilisateur doit ouvrir Loki Music une première fois avant l’attribution." });
       const { data, error } = await admin.rpc("service_grant_plan", {
         p_profile_id: user.id,
         p_plan_code: planCode,
         p_months: months,
         p_granted_by: actor.id,
-        p_reason: reason || "Offert depuis le Super Admin Loki",
+        p_reason: reason || "Offert depuis le Super Admin Loki Music",
       });
       if (error) throw error;
       await audit(actor.id, "subscription.admin_granted", "profile", user.id, { identity, username: profile.username, planCode, months, reason });

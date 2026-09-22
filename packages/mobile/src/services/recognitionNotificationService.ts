@@ -51,7 +51,7 @@ export async function notifyRecognitionOutsideKeep(result: RecognitionResult): P
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Loki a trouvé la musique ✓',
+      title: 'Loki Music a trouvé la musique ✓',
       body: `${artist} — ${title}`,
       data: { type: 'music_detected', title, artist },
       sound: true,

@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
 import { Alert as KeepAlert } from '../utils/keepAlert';
+import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
+import { isFeatureEnabled } from '../services/featureFlagService';
 
-type PriceEditState = { playlistId: string; priceText: string } | null;
+const PRICE_PRESETS = [50, 100, 200, 300, 500, 1000] as const;
+
+type PriceEditState = { playlistId: string; playlistName: string; priceCents: number } | null;
 
 export default function PlaylistSalePanel({ navigation }: any) {
   const user = useUserStore((s) => s.user);
@@ -20,6 +24,23 @@ export default function PlaylistSalePanel({ navigation }: any) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
   const [error, setError] = useState('');
+  // Adel (20/09/2026) : marketplace playlists en "coming soon" -- paiement
+  // par lien externe, non conforme Apple IAP pour du contenu numérique
+  // déverrouillé dans l'app. Garde-fou d'accès direct (deep-link/route),
+  // au cas où le point d'entrée menu serait contourné -- le flag Super
+  // Admin 'playlist_marketplace' reste la seule source de vérité.
+  const [marketplaceEnabled, setMarketplaceEnabled] = useState<boolean | null>(null);
+  // (21/09/2026) BUG RÉEL corrigé : ce check ne tournait qu'au montage --
+  // un changement de flag/bypass fait dans Super Admin pendant que l'écran
+  // était déjà ouvert n'était jamais relu sans relancer l'app. Recalculé
+  // aussi à chaque focus.
+  useEffect(() => {
+    let live = true;
+    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    check();
+    const unsubscribe = navigation?.addListener?.('focus', check);
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation]);
 
   const loadData = async () => {
     if (!user || isLocalGuest || isDemoMode) {
@@ -64,8 +85,15 @@ export default function PlaylistSalePanel({ navigation }: any) {
           onPress: async () => {
             setBusy(true);
             try {
-              await markPlaylistSalePaid(transaction.id);
+              const delivered = await markPlaylistSalePaid(transaction.id);
+              const providerSync = await syncMarketplaceDelivery(transaction.id).catch(() => null);
               await loadData();
+              if (!providerSync?.connectedProviders) {
+                KeepAlert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki Music de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
+              } else {
+                const complete = providerSync.results.filter((row) => row.status === 'COMPLETE').map((row) => row.provider).join(', ');
+                KeepAlert.alert('Playlist livrée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
+              }
             } catch (e: any) {
               KeepAlert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
             } finally {
@@ -88,10 +116,9 @@ export default function PlaylistSalePanel({ navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation]);
 
-  const handleSetPrice = async (playlistId: string, playlistName: string, priceText: string) => {
-    const priceCents = Math.round(parseFloat(priceText) * 100);
-    if (!priceText || isNaN(priceCents) || priceCents <= 0) {
-      KeepAlert.alert('Prix invalide', 'Entrez un prix positif.');
+  const handleSetPrice = async (playlistId: string, playlistName: string, priceCents: number) => {
+    if (!PRICE_PRESETS.includes(priceCents as (typeof PRICE_PRESETS)[number])) {
+      KeepAlert.alert('Prix invalide', 'Choisis un des prix proposés.');
       return;
     }
     setBusy(true);
@@ -128,11 +155,21 @@ export default function PlaylistSalePanel({ navigation }: any) {
     ]);
   };
 
+  if (marketplaceEnabled === false) {
+    return (
+      <SafeAreaView style={s.container}>
+        <View style={s.empty}>
+          <Text style={s.emptyText}>Bientôt disponible.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!user) {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.empty}>
-          <Text style={s.emptyText}>Crée un compte KEEP pour vendre tes playlists.</Text>
+          <Text style={s.emptyText}>Crée un compte Loki Music pour vendre tes playlists.</Text>
         </View>
       </SafeAreaView>
     );
@@ -158,7 +195,11 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <Text style={s.title}>💰 Vendre mes playlists</Text>
           <Text style={s.subtitle}>Fixe tes prix, gagne avec ta sélection</Text>
         </View>
-        <View style={s.headerSpacer} />
+        {/* Adel (21/09/2026, mission 3/3) : "Écran historique des ventes"
+            -- lecture seule, séparé de ce panneau de gestion. */}
+        <TouchableOpacity style={s.historyLink} onPress={() => navigation.navigate('PlaylistSaleHistory')} accessibilityLabel="Voir l'historique complet des ventes">
+          <Text style={s.historyLinkText}>Historique</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -205,6 +246,16 @@ export default function PlaylistSalePanel({ navigation }: any) {
               )}
             </View>
 
+            {/* Adel (21/09/2026, décision 2) : encart permanent -- le
+                fonctionnement reste manuel tant que l'API de paiement
+                réelle n'est pas intégrée. Le vendeur doit comprendre AVANT
+                de confirmer une vente que c'est lui, et lui seul, qui
+                certifie avoir reçu l'argent. */}
+            <View style={s.manualNotice}>
+              <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
+              <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
+            </View>
+
             {/* Offres Actives */}
             {offers.length > 0 && (
               <View style={s.offersSection}>
@@ -231,7 +282,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                         <TouchableOpacity
                           style={s.editBtn}
                           disabled={busy}
-                          onPress={() => setEditing({ playlistId: item.playlistId, priceText: (item.priceCents / 100).toFixed(2) })}
+                          onPress={() => setEditing({ playlistId: item.playlistId, playlistName: item.playlistName, priceCents: item.priceCents })}
                         >
                           <Text style={s.editBtnText}>✎ Modifier</Text>
                         </TouchableOpacity>
@@ -323,17 +374,23 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <TouchableOpacity style={s.modalOverlay} onPress={() => setEditing(null)} />
           <View style={s.modalContent}>
             <Text style={s.modalTitle}>Modifier le prix</Text>
-            <Text style={s.modalSubtitle}>{editing.playlistId}</Text>
-            <View style={s.modalInput}>
-              <Text style={s.modalCurrency}>€</Text>
-              <TextInput
-                style={s.modalTextInput}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                value={editing.priceText}
-                onChangeText={(text) => setEditing({ ...editing, priceText: text })}
-                editable={!busy}
-              />
+            <Text style={s.modalSubtitle}>{editing.playlistName}</Text>
+            <View style={s.pricePresetGrid}>
+              {PRICE_PRESETS.map((priceCents) => {
+                const selected = editing.priceCents === priceCents;
+                return (
+                  <TouchableOpacity
+                    key={priceCents}
+                    style={[s.pricePreset, selected && s.pricePresetSelected]}
+                    disabled={busy}
+                    onPress={() => setEditing({ ...editing, priceCents })}
+                  >
+                    <Text style={[s.pricePresetText, selected && s.pricePresetTextSelected]}>
+                      {(priceCents / 100).toFixed(2)} €
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             <View style={s.modalActions}>
               <TouchableOpacity
@@ -346,7 +403,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
               <TouchableOpacity
                 style={s.modalSaveBtn}
                 disabled={busy}
-                onPress={() => void handleSetPrice(editing.playlistId, editing.playlistId, editing.priceText)}
+                onPress={() => void handleSetPrice(editing.playlistId, editing.playlistName, editing.priceCents)}
               >
                 {busy ? <ActivityIndicator color="#FFF" /> : <Text style={s.modalSaveBtnText}>Valider</Text>}
               </TouchableOpacity>
@@ -366,6 +423,8 @@ const s = StyleSheet.create({
   title: { ...typography.h3, color: colors.textPrimary },
   subtitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '800', marginTop: 2 },
   headerSpacer: { width: 42 },
+  historyLink: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  historyLinkText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   centerView: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 200 },
   errorBox: { borderRadius: radius.lg, backgroundColor: '#5C2C3C', borderWidth: 1, borderColor: '#E74C8C', padding: spacing.lg, alignItems: 'center' },
@@ -388,6 +447,9 @@ const s = StyleSheet.create({
   accessLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 },
   accessSeparator: { width: 1, height: 30, backgroundColor: colors.border },
   accessHint: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: spacing.md, textAlign: 'center', lineHeight: 16 },
+  manualNotice: { marginTop: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.border, padding: spacing.md },
+  manualNoticeTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
   offersSection: { marginTop: spacing.lg },
   sectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.md },
   offerCard: { borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md },
@@ -411,9 +473,11 @@ const s = StyleSheet.create({
   modalContent: { backgroundColor: colors.backgroundCard, borderRadius: radius.xl, padding: spacing.lg, width: '85%', borderWidth: 1, borderColor: colors.border },
   modalTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', textAlign: 'center' },
   modalSubtitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: spacing.sm },
-  modalInput: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
-  modalCurrency: { color: colors.textMuted, fontSize: 14, fontWeight: '900' },
-  modalTextInput: { flex: 1, paddingVertical: spacing.md, color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  pricePresetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
+  pricePreset: { width: '31%', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  pricePresetSelected: { backgroundColor: colors.success, borderColor: colors.success },
+  pricePresetText: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
+  pricePresetTextSelected: { color: '#0A140F' },
   modalActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
   modalCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
   modalCancelBtnText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },

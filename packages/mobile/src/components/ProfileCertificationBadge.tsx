@@ -30,7 +30,7 @@ export default function ProfileCertificationBadge({ tier, compact = false, showL
   const meta = CERTIFICATION_META[tier] ?? CERTIFICATION_META.UNVERIFIED;
   const size = compact ? 20 : 26;
   return (
-    <View style={styles.wrap} accessibilityLabel={`Certification Loki ${meta.label}`}>
+    <View style={styles.wrap} accessibilityLabel={`Certification Loki Music ${meta.label}`}>
       <View style={[styles.ring, { width: size, height: size, borderRadius: size / 2, borderColor: meta.ring }]}>
         <LinearGradient colors={meta.colors as [string, string, ...string[]]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={[styles.medallion, { borderRadius: size / 2 }]}>
           <Text style={[styles.check, compact && styles.checkCompact, { color: meta.check }]}>✓</Text>

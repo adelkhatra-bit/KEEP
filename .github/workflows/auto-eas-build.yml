@@ -12,9 +12,14 @@ on:
           - production
           - preview
           - development
+      forceNewCertificate:
+        description: 'Ignorer le certificat de distribution en cache (recreer meme si un certificat actif existe) -- utile si un certificat cache est corrompu, ex. p12 exporte avant le correctif -legacy'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
-      - main
+      - reconcile/claude-main-20260825
     paths:
       - 'packages/mobile/app.json'
       - 'packages/mobile/eas.json'
@@ -29,17 +34,22 @@ env:
 
 jobs:
   build-ios:
-    runs-on: ubuntu-latest
+    # Adel (19/09/2026) : "comment font les gens ... que ça coute le moins
+    # cher possible" -- le depot KEEP est PUBLIC, donc GitHub offre des
+    # runners macOS gratuits et illimites (normalement payants sur prive).
+    # Compiler ici en local (eas build --local) evite entierement la file
+    # d'attente/le quota du plan gratuit EAS Cloud Build.
+    runs-on: macos-latest
     timeout-minutes: 120
     name: Build iOS ${{ inputs.profile || 'production' }}
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -152,8 +162,8 @@ jobs:
             }
             const app = await get('apps/6812393589','App access');
             if(app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') throw new Error('Apple app bundle mismatch');
-            const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=2','Bundle access');
-            if(bundles.data?.length !== 1) throw new Error('Expected exactly one KEEP bundle identifier');
+            const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=50','Bundle access'); const exactBundles = (bundles.data || []).filter(b => b.attributes?.identifier === 'com.adelkhatra.keep');
+            if(exactBundles.length !== 1) { console.log('Bundle identifiers found via Apple prefix filter (' + (bundles.data?.length ?? 0) + '): ' + JSON.stringify((bundles.data || []).map(b => ({id: b.id, identifier: b.attributes?.identifier})))); throw new Error('Expected exactly one exact-match KEEP bundle identifier (found ' + exactBundles.length + ')'); }
             await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1','Distribution certificate access');
             await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1','Provisioning profile access');
             console.log('Read-only Apple API preflight passed; no signing resources created.');
@@ -165,6 +175,7 @@ jobs:
         timeout-minutes: 10
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          LOKI_FORCE_NEW_CERTIFICATE: ${{ inputs.forceNewCertificate }}
         working-directory: packages/mobile
         run: |
           export NODE_PATH="$(npm root -g)"
@@ -220,9 +231,9 @@ jobs:
             check(appleApp.data.attributes.bundleId === targets[0], 'Unexpected Apple app');
             for (const bundleIdentifier of targets) {
               phase = 'resolve bundle ' + bundleIdentifier;
-              const result = await apple('bundleIds?filter[identifier]=' + encodeURIComponent(bundleIdentifier) + '&limit=2');
-              check(result.data.length <= 1, 'Ambiguous bundle identifier');
-              let bundle = result.data[0];
+              const result = await apple('bundleIds?filter[identifier]=' + encodeURIComponent(bundleIdentifier) + '&limit=50');
+              const exactResultData = result.data.filter(b => b.attributes?.identifier === bundleIdentifier); check(exactResultData.length <= 1, 'Ambiguous bundle identifier');
+              let bundle = exactResultData[0];
               if (!bundle) {
                 check(bundleIdentifier === targets[1], 'Main Apple bundle missing');
                 bundle = (await apple('bundleIds','POST',{type:'bundleIds',attributes:{identifier:bundleIdentifier,name:'Loki Share Extension',platform:'IOS'}})).data;
@@ -235,7 +246,9 @@ jobs:
             check(!portal.links?.next, 'Certificate list pagination requires review');
             const active = portal.data.filter(c => new Date(c.attributes.expirationDate).getTime() > Date.now()+7*86400000);
             const normalize = serial => String(serial).replace(/^0+/,'').toUpperCase();
-            const existing = await ios.getDistributionCertificatesForAccountAsync(graphqlClient, base.account);
+            const forceNewCertificate = process.env.LOKI_FORCE_NEW_CERTIFICATE === 'true';
+            const existing = forceNewCertificate ? [] : await ios.getDistributionCertificatesForAccountAsync(graphqlClient, base.account);
+            if (forceNewCertificate) console.log('LOKI_FORCE_NEW_CERTIFICATE=true : cache de certificat ignore, creation forcee.');
             let cert = existing.find(c => c.appleTeam?.appleTeamIdentifier === teamId && c.certificateP12 && active.some(a => normalize(a.attributes.serialNumber) === normalize(c.serialNumber)));
             let portalCert;
             if (cert) {
@@ -259,7 +272,7 @@ jobs:
               const parsed = new crypto.X509Certificate(fs.readFileSync(certFile));
               check(parsed.subject.split('\n').some(line => line === 'OU='+teamId), 'Certificate team mismatch');
               run(['x509','-inform','DER','-in',certFile,'-out',pemFile]);
-              run(['pkcs12','-export','-inkey',keyFile,'-in',pemFile,'-out',p12File,'-passout','env:LOKI_P12_PASSWORD']);
+              run(['pkcs12','-export','-legacy','-certpbe','PBE-SHA1-3DES','-keypbe','PBE-SHA1-3DES','-macalg','sha1','-inkey',keyFile,'-in',pemFile,'-out',p12File,'-passout','env:LOKI_P12_PASSWORD']);
               phase = 'persist distribution certificate in EAS';
               cert = await ios.createDistributionCertificateAsync(graphqlClient,base.account,{
                 certId:portalCert.id,certP12:fs.readFileSync(p12File).toString('base64'),certPassword:password,teamId
@@ -302,18 +315,32 @@ jobs:
           module.exports = { main };
           NODE
 
-      - name: 🏗️ Build iOS (${{ inputs.profile || 'production' }})
+      - name: 🏗️ Build iOS local (${{ inputs.profile || 'production' }})
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         working-directory: packages/mobile
         run: |
           set -euo pipefail
           profile="${{ inputs.profile || 'production' }}"
-          args=(build --platform ios --profile "$profile" --non-interactive --wait)
-          if [ "$profile" = "production" ]; then
-            args+=(--auto-submit-with-profile production)
-          fi
-          eas "${args[@]}"
+          eas build --local --platform ios --profile "$profile" --non-interactive --output "$RUNNER_TEMP/loki.ipa"
+
+      - name: 📤 Soumettre a TestFlight
+        if: ${{ (inputs.profile || 'production') == 'production' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        working-directory: packages/mobile
+        run: |
+          set -euo pipefail
+          eas submit --platform ios --path "$RUNNER_TEMP/loki.ipa" --non-interactive
+
+      - name: 📦 Artefact .ipa (toujours conserve)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-ios-${{ inputs.profile || 'production' }}
+          path: ${{ runner.temp }}/loki.ipa
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Remove temporary Apple key
         if: always()

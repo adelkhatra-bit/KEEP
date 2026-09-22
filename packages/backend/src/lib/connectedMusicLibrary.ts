@@ -417,6 +417,128 @@ export async function addTrackToConnectedPlaylist(profileId: string, provider: P
   return { added: true, alreadyExists: false, providerTrackId: resolved.id };
 }
 
+async function createConnectedPlaylist(profileId: string, provider: Provider, name: string, description: string) {
+  if (provider === 'spotify') {
+    const token = await spotifyToken(profileId);
+    if (!token) throw new Error('Spotify non connecté');
+    const response = await axios.post(
+      'https://api.spotify.com/v1/me/playlists',
+      { name: name.slice(0, 100), description: description.slice(0, 300), public: false },
+      { headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' }, timeout: 15000 },
+    );
+    if (!response.data?.id) throw new Error('Spotify n’a pas renvoyé l’identifiant de la playlist');
+    return String(response.data.id);
+  }
+
+  const token = await deezerToken(profileId);
+  if (!token) throw new Error('Deezer non connecté');
+  const response = await axios.post(
+    'https://api.deezer.com/user/me/playlists',
+    null,
+    { params: { access_token: token, title: name.slice(0, 100) }, timeout: 15000 },
+  );
+  if (response.data?.error) throw new Error(response.data.error.message || 'Échec création playlist Deezer');
+  if (!response.data?.id) throw new Error('Deezer n’a pas renvoyé l’identifiant de la playlist');
+  return String(response.data.id);
+}
+
+/**
+ * Livraison marketplace vers tous les comptes directs déjà reliés par
+ * l'acheteur. La playlist Loki livrée par la RPC reste la source unique ;
+ * cette étape est idempotente grâce à playlist_sale_provider_deliveries.
+ */
+export async function syncMarketplacePurchaseToConnectedProviders(args: { paymentId: string; actorId: string }) {
+  const database = db();
+  const { data: payment, error: paymentError } = await database
+    .from('playlist_sale_payments')
+    .select('id,seller_id,buyer_id,status,delivered_playlist_id,offer_id')
+    .eq('id', args.paymentId)
+    .maybeSingle();
+  if (paymentError) throw paymentError;
+  if (!payment) throw new Error('Paiement marketplace introuvable');
+  if (payment.seller_id !== args.actorId && payment.buyer_id !== args.actorId) throw new Error('Accès livraison refusé');
+  if (payment.status !== 'COMPLETED' || !payment.delivered_playlist_id) throw new Error('Playlist pas encore livrée dans Loki Music');
+
+  const [{ data: offer, error: offerError }, { data: connections, error: connectionsError }] = await Promise.all([
+    database.from('playlist_sale_offers').select('playlist_name').eq('id', payment.offer_id).maybeSingle(),
+    database.from('music_provider_connections').select('provider').eq('profile_id', payment.buyer_id).in('provider', ['spotify', 'deezer']),
+  ]);
+  if (offerError) throw offerError;
+  if (connectionsError) throw connectionsError;
+
+  const providers = Array.from(new Set((connections ?? []).map((row: any) => String(row.provider))))
+    .filter((provider): provider is Provider => provider === 'spotify' || provider === 'deezer');
+  const results: Array<{ provider: Provider; status: 'COMPLETE' | 'ERROR'; providerPlaylistId?: string; added?: number; failed?: number; error?: string }> = [];
+
+  for (const provider of providers) {
+    const { data: existing } = await database
+      .from('playlist_sale_provider_deliveries')
+      .select('provider_playlist_id,status')
+      .eq('payment_id', payment.id)
+      .eq('provider', provider)
+      .maybeSingle();
+    if (existing?.status === 'COMPLETE' && existing.provider_playlist_id) {
+      results.push({ provider, status: 'COMPLETE', providerPlaylistId: existing.provider_playlist_id });
+      continue;
+    }
+
+    try {
+      const providerPlaylistId = existing?.provider_playlist_id || await createConnectedPlaylist(
+        payment.buyer_id,
+        provider,
+        String(offer?.playlist_name || 'Playlist Loki Music'),
+        'Playlist achetée et livrée par Loki Music',
+      );
+      await database.from('playlist_sale_provider_deliveries').upsert({
+        payment_id: payment.id,
+        buyer_id: payment.buyer_id,
+        provider,
+        provider_playlist_id: providerPlaylistId,
+        status: 'SYNCING',
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'payment_id,provider' });
+
+      const synced = await syncKeepPlaylistToConnectedProvider({
+        profileId: payment.buyer_id,
+        keepPlaylistId: payment.delivered_playlist_id,
+        provider,
+        providerPlaylistId,
+      });
+      const status = synced.failed === synced.total && synced.total > 0 ? 'ERROR' : 'COMPLETE';
+      await database.from('playlist_sale_provider_deliveries').upsert({
+        payment_id: payment.id,
+        buyer_id: payment.buyer_id,
+        provider,
+        provider_playlist_id: providerPlaylistId,
+        status,
+        last_error: status === 'ERROR' ? `${synced.failed} titre(s) non synchronisé(s)` : null,
+        synced_at: status === 'COMPLETE' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'payment_id,provider' });
+      results.push({ provider, status, providerPlaylistId, added: synced.added, failed: synced.failed });
+    } catch (error: any) {
+      const message = String(error?.response?.data?.error?.message || error?.message || 'provider_sync_failed').slice(0, 500);
+      await database.from('playlist_sale_provider_deliveries').upsert({
+        payment_id: payment.id,
+        buyer_id: payment.buyer_id,
+        provider,
+        status: 'ERROR',
+        last_error: message,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'payment_id,provider' });
+      results.push({ provider, status: 'ERROR', error: message });
+    }
+  }
+
+  return {
+    paymentId: payment.id,
+    keepPlaylistId: payment.delivered_playlist_id,
+    connectedProviders: providers.length,
+    results,
+  };
+}
+
 export async function syncKeepPlaylistToConnectedProvider(args: {
   profileId: string;
   keepPlaylistId: string;

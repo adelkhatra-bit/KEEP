@@ -6,6 +6,17 @@ Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne cré
 
 Adel est francophone. Toute réponse, tout message, toute mise à jour à destination d'Adel doit être écrite **en français**, sans exception, y compris les messages courts, les confirmations et les résumés de fin de tâche. Ne jamais basculer en anglais au milieu d'une conversation.
 
+## 🧠 MÉMOIRE PARTAGÉE
+
+- **Avant toute session, lire `PROJECT_STATE.md`** (racine du repo) : tableau de bord unique (état git, fonctionnalités actives, points ouverts, APIs) qui articule tous les fichiers de mémoire ci-dessous sans les dupliquer.
+- Avant toute action, consulte le dossier `.context/` pour connaître l'état actuel du projet.
+- Lis en priorité `.context/activeContext.md` pour savoir où on en est.
+- À la fin de chaque session importante, mets à jour `.context/activeContext.md` **et** la section « Points ouverts » de `PROJECT_STATE.md` avec ce qui a été fait et ce qui reste à faire.
+- Avant un commit significatif : `node scripts/update-project-state.cjs` (régénère les sections git de `PROJECT_STATE.md`).
+- **Configuration une fois par clone** (hooks Git non versionnés par défaut dans `.git/hooks`) : `git config core.hooksPath .githooks` — active un rappel pre-commit non bloquant + une resynchronisation automatique post-merge de `PROJECT_STATE.md`.
+
+Cette mémoire facilite la continuité entre agents. Le code, le schéma Supabase réel, `CLAUDE.md` et `AGENTS.md` restent les sources de vérité en cas d'écart.
+
 ## Projet officiel
 
 - Repository unique : `adelkhatra-bit/KEEP`
@@ -107,6 +118,28 @@ Exécuter/laisser passer au minimum :
 5. pour les routes publiques : test direct + refresh et absence de page blanche
 
 Si un test échoue, ne pas annoncer PASS.
+
+## JEV (TypeSafe AI) — décisions binaires/simples à bas coût
+
+Un juge auxiliaire (plugin `typesafe@jev`, marketplace `gecm0/jev-judge-mcp`,
+installé au niveau du compte Claude Code) répond par jugement typé
+(oui/non, score, sélection) au lieu de générer du texte -- très bon marché
+par rapport à un tour de raisonnement complet. Il **envoie les données
+fournies à `api.typesafe.ai`** (service tiers) : jamais de secret/clé, et
+réfléchir avant d'y passer du code propriétaire sensible.
+
+- **Utiliser** (outil `judge` du MCP) : validations binaires courtes,
+  classification, score de confiance, choix entre options déjà énumérées,
+  garde-fous avant une action (ex. "cette réponse contredit-elle un fait
+  déjà établi dans la conversation ?"). Toujours un jugement TYPÉ sur du
+  texte/JSON déjà en main -- jamais une génération.
+- **Ne jamais utiliser** pour : lire un fichier, écrire/modifier du code,
+  générer du texte explicatif, une réponse destinée à Adel. JEV ne fait
+  aucune de ces choses.
+- **Repli obligatoire** : si l'outil `judge` n'apparaît pas dans les outils
+  disponibles de la session (le plugin peut demander un redémarrage de
+  session pour s'enregistrer), continuer normalement sans lui -- ne jamais
+  bloquer une tâche en attendant JEV.
 
 ## Coordination IA
 

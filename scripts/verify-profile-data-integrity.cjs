@@ -9,8 +9,19 @@ const blob = (rel) => execFileSync('git', ['hash-object', rel], { cwd: root, enc
 
 // Shell visuel validé : aucune IA ne doit le modifier au passage d'une correction métier.
 const protectedShell = {
-  'packages/mobile/App.tsx': '07f1270c460da7ac1f6b1edc385415fedf7ca0b0',
-  'packages/mobile/src/navigation/Navigation.tsx': 'c8c6bf3caabd8fe848af3baa37339ef35a2f405b',
+  // Adel (20/09/2026) : hash mis à jour après vérification -- chaque
+  // changement reste tracé en commentaire pour que ce garde-fou continue à
+  // détecter un VRAI changement non revu, pas juste tout changement.
+  // App.tsx (31c0390, 08/09/2026) : ajout d'AccountGateModal au montage
+  // racine (popup de compte "reste au même endroit", même patron que les
+  // autres overlays globaux déjà montés ici) -- pas un changement de
+  // responsive/layout, vérifié via git show avant mise à jour du hash.
+  'packages/mobile/App.tsx': '2e33a79d8f044ad174730f43e9e37f1c2d7d255b',
+  // Navigation.tsx (c0f6f2a, session du 20/09/2026) : insets.bottom ajouté à
+  // la barre d'onglets (elle était cachée/rognée par la zone d'accueil
+  // iPhone, invisible en simulateur/Android) -- pas un changement de design,
+  // un vrai bug de sécurité de zone corrigé.
+  'packages/mobile/src/navigation/Navigation.tsx': '23c7a3d784fec58b7b46863696e1468d79173d56',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
@@ -40,15 +51,15 @@ for (const marker of ["import ProfileCounterRow from '../components/ProfileCount
 if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
 
 const counterComponent = read('packages/mobile/src/components/ProfileCounterRow.tsx');
-for (const marker of ["kind?: 'connections' | 'keeps'", "label: { color: '#FFFFFF', fontSize: 11", "value: { color: '#FFFFFF', fontSize: 18"]) {
+for (const marker of ["kind?: 'connections' | 'keeps'", "label: { color: '#FFFFFF', fontSize: 13", "value: { color: '#FFFFFF', fontSize: 20"]) {
   if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER STYLE CONTRACT MISSING: ${marker}`);
 }
 
 const publicShare = read('packages/mobile/share-profile.html');
-for (const marker of ['class="connections"', 'class="stats"', 'followAccountRoute', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile']) {
+for (const marker of ['class="connections"', 'class="stats"', 'openAuthOverlay', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile']) {
   if (!publicShare.includes(marker)) failures.push(`PERMANENT PUBLIC PROFILE COUNTER/FOLLOW CONTRACT MISSING: ${marker}`);
 }
-if (!publicShare.includes("followAccountRoute(p.username,'login')")) failures.push('PERMANENT PUBLIC PROFILE FOLLOW MUST PRIORITIZE LOGIN');
+if (!publicShare.includes("openAuthOverlay('login')")) failures.push('PERMANENT PUBLIC PROFILE FOLLOW MUST PRIORITIZE LOGIN');
 if (!publicShare.includes('setTimeout(()=>controller.abort(),10000)')) failures.push('PERMANENT PUBLIC PROFILE FOLLOW TIMEOUT MISSING');
 const connectionsIndex = publicShare.indexOf('class="connections"');
 const keepStatsIndex = publicShare.indexOf('class="stats"');

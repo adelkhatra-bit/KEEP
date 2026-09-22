@@ -136,7 +136,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
         <TouchableOpacity
           style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
           onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
-          accessibilityLabel="Voir mon offre Loki"
+          accessibilityLabel="Voir mon offre Loki Music"
         >
           <Text style={[styles.planBadgeText, planBadge.paid ? styles.planBadgePaidText : styles.planBadgeFreeText]}>{planBadge.label}</Text>
         </TouchableOpacity>

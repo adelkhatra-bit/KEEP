@@ -254,3 +254,180 @@ Sources : [Auto Shazam — Apple Support](https://support.apple.com/guide/shazam
 [How to use continuous background music recognition on iPhone](https://www.idownloadblog.com/2025/12/10/use-auto-shazam/) ·
 [Apple Developer Forums — Background Audio capabilities not accepted](https://developer.apple.com/forums/thread/91872) ·
 [Apple Developer Forums — Cannot record audio when app is background](https://developer.apple.com/forums/thread/674632)
+
+## 9. Marketplace "Découvertes musicales entre particuliers" — audit juridique/fiscal/technique (21/09/2026)
+
+> ⚠️ **Je ne suis pas juriste.** Ce qui suit est une analyse technique et une
+> mise en cohérence de premier niveau (Code de la consommation, RGPD, IAP),
+> pas un avis juridique. Une relecture par un avocat spécialisé droit du
+> numérique/consommation est recommandée avant d'exposer cette fonctionnalité
+> à un volume significatif d'utilisateurs, en particulier pour la partie
+> droit voisin/SACEM et le seuil DAC7 ci-dessous.
+
+### 9.1 Ce qui a été corrigé cette session
+
+- **CGV / non-remboursement** : `legal/terms.html` §6bis + `legal/refund.html`
+  §3bis — accès à une "découverte musicale" (jamais une cession de droits),
+  vendeur = particulier (jamais de statut pro/SIRET requis ou affiché),
+  aucun remboursement une fois la case de renonciation au délai de
+  rétractation (L221-28 13°) cochée et le paiement confirmé.
+- **RGPD** : `legal/privacy.html` §6bis — mention du lien de paiement perso,
+  clarifie que Loki ne voit/stocke aucune donnée bancaire.
+- **Bug réel identifié et corrigé** : le bouton "ACHETER" vert qu'Adel a vu
+  n'était pas un défaut du flow acheteur (déjà correct côté profil visité,
+  masquage + preview immersive + case de renonciation) mais un résidu de
+  code sur **son propre profil** (`ProfilePublicScreen.tsx`, l'onglet
+  "Profil" — toujours en libre-service pour son propre compte), qui listait
+  ses propres offres avec un CTA d'achat impossible à aboutir (le serveur
+  bloque `CANNOT_BUY_OWN_PLAYLIST`). Corrigé + composant mort
+  `PlaylistSaleCard.tsx` supprimé.
+
+### 9.2 Flux PayPal réel — preuve par le code, pas une promesse
+
+**Il n'existe aucune intégration PayPal (API, SDK, webhook) dans ce
+dépôt.** Ce que l'app appelle "payer avec PayPal" est en réalité :
+
+1. Le vendeur colle **une URL personnelle en texte libre** (PayPal.me, Lydia,
+   n'importe quoi) via `keep_set_payout_link` —
+   [`payoutLinkService.ts:15-19`](../packages/mobile/src/services/payoutLinkService.ts#L15-L19).
+   Rien ne vérifie que c'est bien un lien PayPal ni qu'il est valide.
+2. L'acheteur appelle `requestPlaylistPurchase(offerId)` puis
+   `Linking.openURL(request.payoutLink)` —
+   [`PublicUserProfileScreen.tsx:383-385`](../packages/mobile/src/screens/PublicUserProfileScreen.tsx#L383-L385)
+   — ce qui ouvre simplement ce lien dans le navigateur/l'app PayPal.
+   **Aucune donnée de montant, de référence ou de retour n'est transmise à
+   Loki par PayPal** : rien ne relie le paiement PayPal réel à la commande
+   Loki.
+3. Le paiement est ensuite déclaré manuellement par le **vendeur** via un
+   bouton "J'ai bien été payé" —
+   [`PlaylistSalePanel.tsx:67-96`](../packages/mobile/src/components/PlaylistSalePanel.tsx#L67-L96)
+   — qui appelle `markPlaylistSalePaid` → RPC
+   `keep_playlist_sale_mark_paid_and_deliver`. C'est cette déclaration
+   humaine, non vérifiée, qui débloque les morceaux pour l'acheteur.
+
+**Conséquences concrètes, à ne jamais présenter comme résolues :**
+- Pas de confirmation de paiement (webhook IPN/Order API), pas de 3D-Secure/
+  SCA côté Loki — c'est PayPal ou le service choisi par le vendeur qui gère
+  ça pour son propre compte, hors de Loki.
+- **Un vendeur malhonnête peut débloquer une vente jamais payée**, ou
+  refuser de confirmer un paiement réellement reçu — aucun arbitrage
+  automatique possible, seul un litige manuel entre les deux personnes.
+- Pas de génération de facture, pas de preuve de transaction exploitable
+  par Loki en cas de litige — seul l'historique `playlist_sale_payments`
+  (montant déclaré, statut, dates) existe côté Loki.
+- Cohérent avec la position "Loki n'est qu'un intermédiaire technique" des
+  CGV, mais ça veut dire concrètement que **Loki ne peut garantir aucune
+  protection acheteur/vendeur sur le paiement lui-même**.
+
+Le système de paiement Paddle.com (abonnements Premium/Creator Pro/Venue
+Pro, `terms.html` §6) est totalement séparé, réel, et non concerné par ce
+qui précède.
+
+### 9.3 Risque IAP Apple/Google — le flag est maintenant ACTIF en production
+
+Constat vérifié en base ce jour (`feature_flags`, table de production) :
+
+```
+key: playlist_marketplace
+is_enabled_globally: true
+rollout_percent: 100
+description (écrite par une session précédente, jamais mise à jour) :
+  "Marketplace playlists (VENDRE/ACHETER + pré-écoute) — paiement par
+   lien externe, désactivé tant que non conforme Apple IAP"
+```
+
+**La description du flag dit explicitement pourquoi il devait rester
+désactivé, et il est actif à 100% depuis le 21/09/2026 12:08 UTC** (activé
+plus tôt dans cette session, sur demande explicite d'Adel de faire avancer
+la marketplace). C'est un vrai risque de rejet App Store / suspension de
+compte développeur, pas une formalité :
+
+- Guideline 3.1.1 App Store : "if you want to unlock features or
+  functionality within your app [...] you must use in-app purchase" —
+  débloquer des morceaux/une playlist via un lien de paiement externe
+  saisi par l'utilisateur est exactement le cas visé.
+- Une exception existe pour du contenu "consommé en dehors de l'app"
+  (lecture-seule externe) ou pour certaines catégories (ex. "reader apps"),
+  mais **ne s'applique pas ici** : les morceaux achetés sont livrés et
+  écoutés **dans** l'app Loki.
+- Risque identique côté Google Play Billing (règle équivalente).
+
+**Recommandation, pas une décision prise ici** (hors périmètre de cette
+session — c'est un choix produit/juridique, pas un bug à corriger seul) :
+soit (a) repasser le flag à `is_enabled_globally: false` en attendant un
+vrai arbitrage Apple/Google, soit (b) limiter le rollout à une plateforme
+non concernée (web only) via `enabled_plans`/un contrôle de plateforme côté
+client, soit (c) obtenir un avis explicite que le risque est accepté pour
+la phase actuelle. Je n'ai pas désactivé le flag moi-même : c'est un choix
+produit qui appartient à Adel, pas une correction technique.
+
+### 9.4 RGPD — ce qui reste à faire
+
+- `privacy.html` a été complétée (§6bis, voir 9.1) mais **aucun registre
+  des traitements formel**, ni DPA (Data Processing Agreement) documenté
+  avec Supabase pour les nouvelles données `playlist_sale_payments` /
+  `playlist_sale_offers` n'existe. Hors budget de cette session.
+- Les cookies : `pricing.html` et le reste du site public ne documentent
+  aucun cookie/tracker — à vérifier si un outil analytics est ajouté un
+  jour (rien de tel n'a été trouvé dans le code cette session).
+
+### 9.5 Risques non-minimisés (SACEM / droit voisin / droit à l'image)
+
+- **Droit voisin / SACEM** : la "découverte musicale" vendue est une
+  sélection curatée de morceaux déjà présents dans la bibliothèque du
+  vendeur (via ses propres comptes Apple Music/Spotify), jamais un fichier
+  audio hébergé par Loki. Les CGV (§6bis) l'affirment explicitly. **Ce
+  n'est cependant pas une garantie juridique absolue** : faire payer un
+  accès à une sélection/mise en avant d'œuvres protégées, même sans
+  transférer le fichier, peut être requalifié selon les faits précis
+  (nombre de morceaux, caractère systématique, volume) — c'est le point le
+  plus incertain de tout l'audit et celui qui justifie le plus une relecture
+  par un avocat spécialisé propriété intellectuelle avant un lancement à
+  grande échelle.
+- **Droit à l'image / pochettes** : les pochettes (artwork) restent
+  masquées jusqu'à l'achat (`keep_playlist_sale_offer_preview_tracks` ne
+  renvoie jamais artwork/titre/artiste) — réduit mais n'élimine pas le
+  risque, une fois achetées les pochettes redeviennent visibles dans le
+  Loki de l'acheteur, ce qui est un usage normal (l'app affiche déjà des
+  pochettes partout pour la musique reconnue).
+
+### 9.6 Vendeur particulier, pas de TVA, obligations de la plateforme
+
+Traité dans `terms.html` §6bis : statut particulier explicite (jamais
+"micro-entreprise"/"auto-entrepreneur"/"SIRET"/"professionnel"), pas de TVA
+prélevée par Loki sur l'échange entre particuliers. Vérifié dans le code :
+aucun champ SIRET/TVA/statut professionnel n'existe dans le formulaire de
+mise en vente (`MyMusicScreen.tsx` `openSellModal`/`PlaylistSalePanel.tsx`
+modal de prix) — rien à retirer, ce n'était jamais présent.
+
+**Obligation DAC7-style (2 000€ OU 30 transactions/an → transmission à
+l'administration fiscale) : NON implémentée.** Aucun cumul annuel par
+vendeur n'est calculé aujourd'hui. C'est un vrai chantier technique (pas
+une case à cocher) : il faudrait a minima une vue agrégée
+`sum(amount_cents) / count(*) group by seller_id` sur `playlist_sale_payments`
+filtrée par année civile, un job de rapprochement, et un canal de
+transmission réel vers l'administration — non construit cette session,
+volontairement, plutôt que de livrer quelque chose de non fiable sur un
+sujet fiscal. À planifier avant que le volume de ventes ne devienne
+significatif.
+
+### 9.7 Checklist conformité France — état au 21/09/2026
+
+| Point | Statut |
+|---|---|
+| CGV marketplace (accès à une découverte, pas cession de droits) | ✅ fait (`terms.html` §6bis) |
+| Renonciation expresse au délai de rétractation (case dédiée, non pré-cochée) | ✅ fait (`PlaylistSaleImmersivePreview.tsx`) |
+| Politique de non-remboursement explicite | ✅ fait (`refund.html` §3bis) |
+| Statut vendeur = particulier, aucun champ SIRET/TVA affiché | ✅ déjà conforme (rien à retirer) |
+| Pas de collecte de TVA sur l'échange entre particuliers | ✅ déjà conforme (Loki n'encaisse jamais) |
+| RGPD — mention du paiement dans la politique de confidentialité | ✅ fait (`privacy.html` §6bis) |
+| RGPD — registre des traitements / DPA formel | ❌ non fait — nécessite un professionnel |
+| PayPal end-to-end réellement câblé (webhook, capture, SCA) | ❌ n'existe pas — lien externe + confirmation manuelle (voir 9.2) |
+| Conformité Apple/Google IAP | ❌ **risque actif** — flag marketplace à 100% en prod alors que sa propre description dit le contraire (voir 9.3) |
+| Obligations DAC7 (récap annuel, seuils 2000€/30 transactions) | ❌ non implémenté — chantier technique à planifier (voir 9.6) |
+| Risque SACEM/droit voisin sur la vente de sélections | ⚠️ atténué mais pas éliminé — relecture avocat recommandée |
+
+Sources : [App Review Guidelines §3.1.1](https://developer.apple.com/app-store/review/guidelines/) ·
+Code de la consommation articles L221-18, L221-28 13° · code du dépôt cité
+ligne par ligne ci-dessus (vérifié le 21/09/2026, requête directe en
+production via l'API Management Supabase).

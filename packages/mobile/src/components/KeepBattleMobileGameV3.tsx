@@ -2,8 +2,15 @@ import React from 'react';
 import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
-import { playTrackPreviewSegment, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena } from '../services/keepBattleService';
+import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+
+// Clé stable (sans compteur de tentative) identifiant l'extrait d'une manche
+// solo -- utilisée à la fois par preloadTrackPreviewSegment (pendant la
+// pause après réponse) et par le premier essai de lecture de la manche, pour
+// que les deux se rencontrent et évitent un rechargement réseau redondant.
+const soloRoundPreviewKey = (trackId: string, roundIndex: number) => `solo:${trackId}:${roundIndex}`;
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
@@ -16,6 +23,7 @@ import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
+import { colors } from '../theme/colors';
 
 const ROUND_MS = 10000;
 const KEEP_BATTLE_SHARE = 'https://adelkhatra-bit.github.io/KEEP/share-profile/';
@@ -28,6 +36,24 @@ const initial = (name: string) => (name || 'K').replace(/^@/, '').slice(0, 1).to
 // serveur, seule source de vérité réelle : ceci ne sert qu'à l'aperçu
 // instantané avant validation).
 const stakeForRounds = (n: number) => Math.max(1, Math.ceil((3 * Math.max(1, n)) / 8));
+
+// Adel (18/09/2026) : Calcul des Free gagnés en SOLO selon le nombre de bonnes réponses
+// Formule: free_earned = floor(correct_answers / total * max_reward_for_pack_size)
+// Max rewards: 8→3, 15→6, 20→8, 30→12
+const maxRewardForRounds = (n: number): number => {
+  if (n <= 8) return 3;
+  if (n <= 15) return 6;
+  if (n <= 20) return 8;
+  return 12;
+};
+const freeEarnedForSoloScore = (correctAnswers: number, totalRounds: number): number => {
+  if (totalRounds <= 0) return 0;
+  // Adel (19/09/2026) : seul un score parfait (8/8) donne droit à des Free.
+  // Toute autre score ne crédite rien, même 7/8.
+  if (correctAnswers < totalRounds) return 0;
+  const maxReward = maxRewardForRounds(totalRounds);
+  return maxReward;
+};
 // Le serveur embarque désormais le montant exact requis dans le message
 // d'erreur ("...REQUIRED:12") sans casser les anciens .includes() : on
 // l'utilise pour un message précis, avec repli sur le calcul local.
@@ -353,6 +379,19 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloScore, setSoloScore] = React.useState(0);
   const [soloFinished, setSoloFinished] = React.useState(false);
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
+  const [soloBefore, setSoloBefore] = React.useState<number | null>(null);
+  const [soloAfter, setSoloAfter] = React.useState<number | null>(null);
+  const [soloFreeEarned, setSoloFreeEarned] = React.useState(0);
+  // Adel (20/09/2026) : BUG RÉEL rapporté ("41 → +3 → 41", le message
+  // affichait un gain jamais réellement crédité). soloAfter est déjà
+  // rechargé depuis le serveur (pas une estimation), mais rien ne
+  // vérifiait que le solde avait VRAIMENT bougé du montant attendu avant
+  // d'afficher "Tu as gagné" -- si record_completion/report_result
+  // échouaient silencieusement (RLS, réseau...), le message mentait quand
+  // même sur la foi du seul calcul local. Score parfait + crédit non
+  // confirmé par le delta réel -> ce nouvel état pilote un message honnête
+  // au lieu d'un faux "gagné".
+  const [soloCreditPending, setSoloCreditPending] = React.useState(false);
   // Adel (02/09/2026) : "la première musique ça fonctionne, la deuxième ça
   // bloque, pas de son, et ça répond automatiquement tout seul" -- BUG RÉEL
   // confirmé en direct (instrumentation HTMLMediaElement.pause/play) : à
@@ -452,6 +491,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // match (pas seulement sur son profil), même source unifiée que partout
   // ailleurs (keep_battle_credit_status -> remainingFree).
   const [myCreditStatus, setMyCreditStatus] = React.useState<KeepBattleCreditStatus | null>(null);
+  // Adel (19/09/2026) : "afficher les compteurs du joueur sur l'écran de
+  // sélection BATTLE, entre le texte '10 secondes réelles...' et le bouton
+  // 'JOUER SOLO'" -- ses stats (victoires, matchs, bonnes réponses, etc.)
+  // chargées une fois au démarrage.
+  const [myPlayerStats, setMyPlayerStats] = React.useState<KeepBattlePlayerStats | null>(null);
   // Adel (07/09/2026) : "un utilisateur a 4 Free et veut faire un 30 ... il
   // faut lui dire crédit insuffisant" -- jamais pour un CREATOR_PRO/VENUE_PRO
   // (hasPaidBattleAccess), qui joue sans jamais débiter de Free.
@@ -488,6 +532,22 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // (WAITING, pas encore pleine), les appuis suivants ajoutent la personne
   // dans CETTE MÊME arène au lieu d'en recréer une nouvelle.
   const [buildingArenaId, setBuildingArenaId] = React.useState<string | null>(null);
+  // (21/09/2026) : la sélection multiple "Démarrer la Battle" appelle
+  // `challenge()` plusieurs fois d'affilée pour le même salon en cours de
+  // construction. `challenge()` lisait jusqu'ici `buildingArenaId` depuis
+  // la fermeture React (figée au rendu), correct tant que chaque appui
+  // venait d'un tap utilisateur séparé (un re-rendu entre deux), mais faux
+  // en boucle programmatique : la 2e invite ne verrait pas encore l'arène
+  // créée par la 1re et en recréerait une nouvelle -- exactement le bug
+  // "un match par joueur" que ce système existant corrigeait déjà pour le
+  // cas d'un tap à la fois. Une ref lue/écrite en même temps que le state
+  // reste à jour de façon synchrone, y compris entre deux `await` sans
+  // re-rendu entre les deux.
+  const buildingArenaIdRef = React.useRef<string | null>(null);
+  const setBuildingArena = React.useCallback((id: string | null) => {
+    buildingArenaIdRef.current = id;
+    setBuildingArenaId(id);
+  }, []);
   // Adel (02/09/2026) : "que l'utilisateur sache qu'il y a une invite qui
   // est partie" -- le bouton BATTLE ne montrait "ENVOI…" que pendant la
   // requête elle-même (quelques centaines de ms), puis redevenait un simple
@@ -575,7 +635,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     useBattleAvailabilityStore.getState().setBattleScreenOpen(true);
     return () => useBattleAvailabilityStore.getState().setBattleScreenOpen(false);
   }, []);
-  React.useEffect(() => () => { void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }, []);
+  React.useEffect(() => () => { void stopTrackPreview(); discardPreloadedTrackPreview(); void leaveSoloBattle().catch(() => {}); }, []);
 
   const themeLabel = (code: string) => themes.find((t) => t.code === code)?.label || code;
   // Adel : "les boutons, il faut uniquement le nom de l'artiste" -- certains
@@ -672,8 +732,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
     if (!url) return false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
+      // Adel (22/09/2026, audit latence) : le premier essai garde `key` tel
+      // quel (sans suffixe) pour pouvoir correspondre à un préchargement
+      // lancé pendant la pause précédente (voir preloadTrackPreviewSegment /
+      // scheduleNextRoundPreload) -- latence quasi nulle si déjà prêt. Seules
+      // les vraies tentatives de reprise (essai raté) changent de clé, pour
+      // forcer un chargement frais.
+      const attemptKey = attempt === 0 ? key : `${key}:retry${attempt}`;
       try {
-        await playTrackPreviewSegment(`${key}:${attempt}`, url, 0, duration);
+        await playTrackPreviewSegment(attemptKey, url, 0, duration);
         return true;
       } catch {
         await wait(220 + attempt * 180);
@@ -683,11 +750,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, []);
 
   const shareInvite = React.useCallback(async () => {
-    await Share.share({ message: `Viens me défier sur Loki Battle ⚡\n10 secondes · 4 choix · gagne des Free\n${KEEP_BATTLE_SHARE}` });
+    await Share.share({ message: `Viens me défier sur Loki Music Battle ⚡\n10 secondes · 4 choix · gagne des Free\n${KEEP_BATTLE_SHARE}` });
   }, []);
   const shareArenaInvite = React.useCallback(async (state: KeepBattleArenaState) => {
     const link = buildKeepBattleArenaInviteLink(state.arenaCode);
-    await Share.share({ message: `Rejoins notre Loki Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe\n${link}` });
+    await Share.share({ message: `Rejoins notre Loki Music Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe\n${link}` });
   }, []);
 
   const refreshSocial = React.useCallback(async () => {
@@ -746,7 +813,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           handledOutgoingIds.add(feedback.id);
           Alert.alert(
             'Battle refusé',
-            `${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki à un ami.`,
+            `${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki Music à un ami.`,
             [{ text: 'Continuer', style: 'cancel' }, { text: 'Inviter un ami', onPress: () => { void shareInvite(); } }],
           );
         }
@@ -823,17 +890,51 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let alive = true;
     answeredRoundRef.current = -1;
     soloStartedAtRef.current = 0; setSoloStartedAt(0); setAudioReady(false);
+    // Charger le Free avant la partie SOLO (première manche uniquement)
+    if (soloIndex === 0 && soloBefore === null) {
+      loadMyKeepBattleCreditStatus().then((status) => {
+        if (alive && 'remainingFree' in status) setSoloBefore(Number(status.remainingFree ?? 0));
+      }).catch(() => {});
+    }
     const start = async () => {
-      while (alive) {
-        const ok = await playVerified(`solo:${round.trackId}:${soloIndex}`, round.previewUrl, ROUND_MS + 800);
+      // Adel : "Battle solo, il n'y a pas de son" -- playVerified() épuise 4
+      // tentatives sur la MÊME URL avant d'échouer ; sans ce filet, un extrait
+      // mort (Apple peut invalider une previewUrl à tout moment, voir
+      // trackPreviewResolver.ts) bloquait la manche en silence pour toujours,
+      // le reste de l'UI étant verrouillé tant que audioReady est false.
+      let url = round.previewUrl;
+      for (let cycle = 0; alive && cycle < 3; cycle += 1) {
+        // Le cycle 0 (cas normal, pas de ré-résolution d'URL) garde la clé
+        // stable soloRoundPreviewKey(...) pour pouvoir consommer un
+        // préchargement lancé pendant la pause de la manche précédente.
+        const cycleKey = cycle === 0 ? soloRoundPreviewKey(round.trackId, soloIndex) : `solo:${round.trackId}:${soloIndex}:cycle${cycle}`;
+        const ok = await playVerified(cycleKey, url, ROUND_MS + 800);
         if (!alive) return;
         if (ok) {
           setAudioReady(true);
           soloStartedAtRef.current = Date.now(); setSoloStartedAt(soloStartedAtRef.current);
           return;
         }
-        await wait(650);
+        if (cycle < 2) {
+          try {
+            const fresh = await resolveTrackPreviewUrl(
+              { id: round.trackId, title: round.title, artist: round.artist, previewUrl: url } as any,
+              { forceRefresh: true },
+            );
+            if (fresh) url = fresh;
+          } catch { /* on retente avec l'URL déjà en main */ }
+          await wait(650);
+        }
       }
+      if (!alive) return;
+      // BUG MINEUR trouvé en audit runtime (Adel, 22/09/2026) : cette manche
+      // disparaissait silencieusement (seulement un console.warn, invisible
+      // pour le joueur) -- vu depuis l'app, la manche saute sans explication,
+      // exactement ce qui ressemble à "l'app casse". On prévient maintenant
+      // clairement avant de passer à la suivante.
+      console.warn(`[Battle SOLO] extrait indisponible manche ${soloIndex + 1}/${solo?.rounds.length}, passage à la suivante`);
+      Alert.alert('Manche sautée', 'Ce morceau est momentanément indisponible -- passage à la manche suivante.');
+      setSoloIndex((v) => v + 1);
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
@@ -910,6 +1011,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo, activeIncomingId, audioReady, soloAnswer, soloIndex, animateResult, now, pausedSoloRemaining]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
+    // Adel (22/09/2026, audit latence TestFlight) : dès qu'une réponse est
+    // donnée, préchargement de l'extrait de la manche suivante en
+    // arrière-plan pendant la pause de 2,8s qui suit (voir
+    // preloadTrackPreviewSegment dans audioPreviewService.ts). L'extrait de
+    // la manche en cours n'est jamais interrompu par ce préchargement -- il
+    // continue de jouer normalement jusqu'à sa fin naturelle.
+    if (soloIndex < solo.rounds.length - 1) {
+      const nextRound = solo.rounds[soloIndex + 1];
+      if (nextRound?.previewUrl) {
+        void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0);
+      }
+    }
     if (soloIndex >= solo.rounds.length - 1) {
       const id = setTimeout(() => {
         if (saveSessionEnabled) {
@@ -920,7 +1033,51 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // Adel (02/09/2026) : "un petit joueur devra monter sa note en solo"
         // -- seul moment où un score solo complet est connu ; alimente le
         // palier serveur utilisé pour bloquer un défi trop déséquilibré.
-        void reportSoloBattleResult(soloScore, solo.rounds.length).catch(() => {});
+        // (19/09/2026) BUG CRITIQUE : l'ordre des appels RPC était inversé.
+        // keep_battle_solo_report_result cherche une ligne dans
+        // keep_battle_solo_history qui n'existe que si keep_battle_solo_record_completion
+        // a déjà été appelé. Solution: enregistrer l'historique AVANT de créditer.
+        // (19/09/2026) AUDIT: Ne jamais avaler les erreurs - elles doivent être visibles.
+        (async () => {
+          const freeEarned = freeEarnedForSoloScore(soloScore, solo.rounds.length);
+          if (soloBefore !== null && supabase) {
+            // Étape 1: enregistrer d'abord la ligne d'historique (le RPC de crédit la cherchera)
+            const recordErr = await supabase.rpc('keep_battle_solo_record_completion', {
+              p_theme_code: solo.themeCode,
+              p_round_count: solo.rounds.length,
+              p_correct_answers: soloScore,
+              p_free_before: soloBefore,
+              p_free_earned: freeEarned,
+              p_free_after: soloBefore + freeEarned // valeur estimée avant vérification
+            });
+            if (recordErr?.error) console.error('[SOLO] record_completion failed:', recordErr.error);
+          }
+          // Étape 2: appeler le RPC qui crédite via keep_battle_solo_credit_events
+          // (le RPC trouve maintenant la ligne historique)
+          const reportErr = await reportSoloBattleResult(soloScore, solo.rounds.length).catch((e) => ({ error: e }));
+          if (reportErr && 'error' in reportErr && reportErr.error) console.error('[SOLO] report_result failed:', reportErr.error);
+          // Étape 3: charger le solde APRÈS que le crédit soit appliqué
+          const status = await loadMyKeepBattleCreditStatus();
+          if ('remainingFree' in status) {
+            const freeAfter = Number(status.remainingFree ?? 0);
+            setSoloAfter(freeAfter);
+            // (20/09/2026) BUG RÉEL : n'annoncer "Tu as gagné" que si le
+            // solde a RÉELLEMENT augmenté du montant attendu -- sinon le
+            // message affichait un gain fantôme (ex: 41 → +3 → 41) quand
+            // record_completion/report_result échouaient silencieusement
+            // avant ce correctif. Le solde peut légitimement bouger pour
+            // d'autres raisons pendant la partie (>=  au lieu de ===).
+            const actuallyCredited = soloBefore !== null ? Math.max(0, freeAfter - soloBefore) : 0;
+            const confirmed = freeEarned > 0 && actuallyCredited >= freeEarned;
+            setSoloFreeEarned(confirmed ? freeEarned : 0);
+            setSoloCreditPending(freeEarned > 0 && !confirmed);
+            if (freeEarned > 0 && !confirmed) {
+              console.error('[SOLO] credit mismatch: attendu', freeEarned, 'delta réel', actuallyCredited, 'before', soloBefore, 'after', freeAfter);
+            }
+          }
+        })().catch((e) => {
+          console.error('[SOLO] Unexpected error in SOLO credit flow:', e);
+        });
         setSoloFinished(true); celebrate();
       }, 520);
       return () => clearTimeout(id);
@@ -975,6 +1132,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     load();
     const id = setInterval(load, 4000);
     return () => { live = false; clearInterval(id); };
+  }, []);
+
+  // Charger les statistiques du joueur au démarrage
+  React.useEffect(() => {
+    let live = true;
+    const userId = useUserStore.getState().user?.id;
+    if (!userId) return;
+    loadKeepBattlePlayerStats(userId).then((stats) => { if (live) setMyPlayerStats(stats); }).catch(() => {});
+    return () => { live = false; };
   }, []);
 
   React.useEffect(() => {
@@ -1102,12 +1268,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
-      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
+      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloFreeEarned(0); setSoloCreditPending(false); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
       // Adel (02/09/2026) : "lorsque j'appuie sur Battle seul ou Battle à
       // plusieurs, automatiquement ça m'active mon profil" -- entrer en
       // Battle (solo ou en ligne) montre déjà l'intention de jouer.
       void useBattleAvailabilityStore.getState().autoEnable().catch(() => {});
-    } catch (e: any) { Alert.alert('Loki Battle', String(e?.message || 'Impossible de démarrer.')); }
+      // Adel (18/09/2026) : "Lorsqu'un utilisateur se connecte, il faut marquer
+      // son style musical" -- met à jour presence_theme_code pour que les autres
+      // joueurs voient quel style musical on joue, best-effort (ne bloque pas
+      // le démarrage de la partie si ça échoue).
+      void updateSoloPresenceTheme(themeCode).catch(() => {});
+    } catch (e: any) { Alert.alert('Loki Music Battle', String(e?.message || 'Impossible de démarrer.')); }
     finally { setBusy(false); }
   };
 
@@ -1179,7 +1350,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     unlockWebAudioForGesture();
     setChallengeBusyId(player.profileId);
     try {
-      let arenaId = buildingArenaId;
+      let arenaId = buildingArenaIdRef.current;
       if (!arenaId) {
         // Adel (04/09/2026) : "si j'ai sélectionné cinq [styles] ... il faut
         // qu'il me mette un peu de tout, un mix de tout" -- même mécanisme
@@ -1201,7 +1372,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const realThemes = (freshPrefs?.themeCodes || myPreferredThemes).filter((c) => c !== 'MIX');
         const created = await createKeepBattleArena(themeCode, roundCount, realThemes.length > 1 ? realThemes : undefined);
         arenaId = created.id;
-        setBuildingArenaId(arenaId);
+        setBuildingArena(arenaId);
       }
       await sendBattleArenaChallenge(arenaId, player.profileId);
     } catch (e: any) {
@@ -1224,6 +1395,62 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       void refreshSocial();
     } finally {
       setChallengeBusyId(null);
+    }
+  };
+
+  // Adel (21/09/2026) : refonte "Joueurs disponibles" -- sélection multiple
+  // avec case à cocher + barre fixe "Démarrer la Battle" au lieu de taper
+  // BATTLE joueur par joueur. Un joueur en crédit insuffisant, déjà invité
+  // (sent) ou en cooldown de refus (blocked) n'est jamais sélectionnable :
+  // mêmes règles d'éligibilité que le bouton BATTLE individuel qu'elle
+  // remplace, jamais une seconde logique parallèle.
+  const [selectedBattlePlayerIds, setSelectedBattlePlayerIds] = React.useState<Set<string>>(new Set());
+  const [startingGroupBattle, setStartingGroupBattle] = React.useState(false);
+  const isPlayerSelectable = React.useCallback((player: KeepBattleLivePlayer) => {
+    if (insufficientForOpponent(player)) return false;
+    if (outgoingPendingTargetIds.has(player.profileId)) return false;
+    if ((inviteBlockedUntil[player.profileId] || 0) - now > 0) return false;
+    return true;
+  }, [insufficientForOpponent, outgoingPendingTargetIds, inviteBlockedUntil, now]);
+  const toggleBattlePlayerSelection = (player: KeepBattleLivePlayer) => {
+    if (!isPlayerSelectable(player)) return;
+    setSelectedBattlePlayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(player.profileId)) next.delete(player.profileId); else next.add(player.profileId);
+      return next;
+    });
+  };
+  // Un changement de NOMBRE DE MORCEAUX (donc de mise Free requise, cf.
+  // insufficientForOpponent) ou la disparition d'un joueur de la liste peut
+  // rendre une sélection existante invalide -- jamais garder un joueur
+  // sélectionné qui n'est plus réellement éligible.
+  React.useEffect(() => {
+    setSelectedBattlePlayerIds((prev) => {
+      if (!prev.size) return prev;
+      const stillValid = new Set(Array.from(prev).filter((id) => {
+        const player = livePlayers.find((p) => p.profileId === id);
+        return player ? isPlayerSelectable(player) : false;
+      }));
+      return stillValid.size === prev.size ? prev : stillValid;
+    });
+  }, [livePlayers, isPlayerSelectable]);
+  const startSelectedBattle = async () => {
+    if (startingGroupBattle || challengeBusyId) return;
+    const targets = livePlayers.filter((p) => selectedBattlePlayerIds.has(p.profileId));
+    if (targets.length < 2) return;
+    setStartingGroupBattle(true);
+    try {
+      for (const player of targets) {
+        await challenge(player);
+      }
+      setSelectedBattlePlayerIds(new Set());
+      const finalArenaId = buildingArenaIdRef.current;
+      if (finalArenaId) {
+        const loaded = await loadKeepBattleArena(finalArenaId).catch(() => null);
+        if (loaded) setArena(loaded);
+      }
+    } finally {
+      setStartingGroupBattle(false);
     }
   };
 
@@ -1562,10 +1789,30 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // BATTLE" doivent maintenant amener au même endroit que ‹, l'accueil
   // INTERNE de Battle, jamais plus loin.
   const backToArenaHome = React.useCallback(() => {
+    if (arena?.status === 'ACTIVE') {
+      const stakeLoss = stakeForRounds(arena.roundCount);
+      Alert.alert(
+        'Êtes-vous sûr de sortir ?',
+        `Si tu quittes maintenant, tu vas perdre ${stakeLoss} Free (forfait du Battle).`,
+        [
+          { text: 'Non, continuer', style: 'cancel' },
+          {
+            text: 'Oui, je quitte',
+            style: 'destructive',
+            onPress: () => {
+              void stopTrackPreview();
+              if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
+              setArena(null);
+            },
+          },
+        ],
+      );
+      return;
+    }
     void stopTrackPreview();
     if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
     setArena(null);
-    setBuildingArenaId(null);
+    setBuildingArena(null);
   }, [arena?.id]);
 
   // Adel (04/09/2026) : "je sais pas pourquoi le Battle ça me revient à chaque
@@ -1601,7 +1848,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setArena(null);
     setBrowseOnline(false);
     setSolo(null);
-    setBuildingArenaId(null);
+    setBuildingArena(null);
   }, [arena?.id]);
 
   const answerArena = async (choice: string) => {
@@ -1644,7 +1891,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
       return <View style={s.root}>
-        <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
+        <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
         {/* Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
             invitation ... la partie est terminée" -- vrai trou : incoming[0]
             continue d'être sondé même sur cet écran de fin de partie
@@ -1666,8 +1913,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.finishSpark}>✦ ⚡ ✦</Text>
             <ResultIcon icon={perfect ? '👑' : soloScore >= 6 ? '🏆' : soloScore >= 4 ? '🎯' : '💪'} big={perfect} />
             <Text style={s.finishTitle}>{perfect ? `PARFAIT · ${solo.rounds.length}/${solo.rounds.length}` : `${soloScore}/${solo.rounds.length}`}</Text>
-            <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
+            <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki Music BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
+            {soloFreeEarned > 0 ? (
+              <Text style={s.finishReward}>🎁 Tu as gagné {soloFreeEarned} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloFreeEarned} → ${soloAfter})` : ''}</Text>
+            ) : soloCreditPending ? (
+              <Text style={s.finishReward}>Score parfait ! Ton crédit Free est en cours de confirmation -- vérifie ton solde dans un instant.</Text>
+            ) : (
+              <Text style={s.finishReward}>Rejoue pour gagner jusqu'à {maxRewardForRounds(solo.rounds.length)} Free</Text>
+            )}
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
           <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
@@ -1694,7 +1948,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       </View>;
     }
     return <View style={s.root}>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>{themeLabel(solo.rounds[soloIndex]?.themeCode || solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/{solo.rounds.length}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>{themeLabel(solo.rounds[soloIndex]?.themeCode || solo.themeCode)}</Text></View><Text style={s.round}>{soloIndex + 1}/{solo.rounds.length}</Text></View>
       {/* Adel (02/09/2026) : "règle une fois pour toute ... je ne vois pas
           l'utilisateur entier" -- sans ScrollView, sur un écran/viewport
           court (barre d'adresse + barre d'onglets fixe du build web), le
@@ -1711,7 +1965,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         {!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche proposée avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Tu peux te rattraper ! Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {challengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         <Text style={s.question}>Qui chante ?</Text>
-        <View style={s.answers}>{round.choices.slice(0, 4).map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0]) || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect, answered && choice === soloAnswer && choice !== round.correctAnswer && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={3} style={s.answerText}>{primaryArtistLabel(choice)}</Text></TouchableOpacity>)}</View>
+        <View style={s.answers}>{(() => { const dedupMap = new Map<string, string>(); (round.choices || []).forEach((choice) => { const label = primaryArtistLabel(choice); if (!dedupMap.has(label)) dedupMap.set(label, choice); }); const answers = Array.from(dedupMap.values()).slice(0, 4); if (answers.length < 4) console.warn(`[Battle SOLO] ${answers.length} < 4 réponses à la manche ${soloIndex + 1}/${solo.rounds.length}`); return answers; })().map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0]) || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect, answered && choice === soloAnswer && choice !== round.correctAnswer && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={s.answerText}>{primaryArtistLabel(choice)}</Text></TouchableOpacity>)}</View>
       </Animated.View>
       <View style={s.scoreLine}><Text style={s.score}>✓ {soloScore} · ✕ {errors}</Text><Text style={s.score}>{remaining} à jouer</Text></View>
       {/* Adel (02/09/2026) : "trouve une solution où il y a l'abonné
@@ -1731,7 +1985,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const specTeamB = spectating.seats.filter((_, index) => index % 2 === 1);
     const canJoin = spectating.status !== 'CLOSED' && spectating.status !== 'EXPIRED';
     return <View style={s.root}>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
       {renderTeamSquares(specTeamA, specTeamB, canJoin ? { onPress: () => { void joinSpectatedMatch(); }, busy: spectateJoinBusy } : undefined)}
       <View style={s.waiting}>
@@ -1781,7 +2035,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // les noms pour qu'on sache qui est qui dans le Battle" -- l'overlay
     // "⚡ BATTLE ⚡" à 3 joueurs et plus n'affichait qu'un compte ("3 JOUEURS"),
     // jamais qui participait réellement. Liste maintenant les vrais pseudos.
-    const versusLabel = players.length > 2 ? players.map((p: any) => `${p.username}`).join(' · ') : `${first ? `${first.username}` : 'Loki'} VS ${second ? `${second.username}` : 'Loki'}`;
+    const versusLabel = players.length > 2 ? players.map((p: any) => `${p.username}`).join(' · ') : `${first ? `${first.username}` : 'Loki Music'} VS ${second ? `${second.username}` : 'Loki Music'}`;
     const palmares = Array.from(winnerHistory.reduce((map, row) => {
       const current = map.get(row.profileId) || { ...row, wins: 0 };
       current.wins += 1;
@@ -1819,7 +2073,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       };
       return <View style={s.root}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
-        <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
+        <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <Text style={s.finishSpark}>✦ 👑 ✦</Text>
@@ -1946,7 +2200,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
           ou "QUITTER LE BATTLE" sur l'écran de fin. Conservée uniquement là. */}
       <Animated.View pointerEvents="none" style={[s.versus, { opacity: versusOpacity, transform: [{ scale: versusScale }] }]}><Text style={s.versusText}>⚡ BATTLE ⚡</Text><Text style={s.versusNames} numberOfLines={2}>{versusLabel}</Text></Animated.View>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(round?.themeCode || arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE · {arena.seats.length} JOUEURS</Text><Text style={s.title}>{themeLabel(round?.themeCode || arena.themeCode)}</Text></View><Text style={s.round}>{arena.currentRound || 0}/{arena.roundCount}</Text></View>
       {myCreditStatus ? <View style={s.creditBadgeRow}><Text style={s.creditBadgeText}>🎁 {formatCompactNumber(myCreditStatus.remainingFree)} Free restant</Text></View> : null}
       {/* Adel (03/09/2026) : "on voit pas les titres en dessous, on voit pas
           la suite du bas" -- vrai bug : cet écran n'avait AUCUN scroll, donc
@@ -1960,34 +2214,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       {arena.status === 'ACTIVE' && round ? <><Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}><View style={s.visual}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : null}</View> : null}</View>
       <View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{round.answered ? 'RÉPONSE ENREGISTRÉE' : ready ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View>
       {first && second && players.length === 2 ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(first.username)}><Text style={s.duelName}>{first.username}</Text><Text style={s.duelPoints}>{teamAScore} pts</Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => onOpenProfile(second.username)}><Text style={[s.duelName, { textAlign: 'right' }]}>{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}>{teamBScore} pts</Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
-      {/* Adel (04/09/2026) : "tu les mets juste en dessous entre qui chante
-          et la jaquette" -- au-delà de 2 joueurs, le mini-classement se
-          place maintenant entre la jaquette/l'égaliseur et la question,
-          plus au-dessus de tout l'écran. Toujours un nom sous l'autre
-          (haut en bas), jamais en grille -- seule sa position a changé. */}
-      {/* Adel (05/09/2026) : "si par exemple demain on est 10, comment t'as
-          prévu, est-ce qu'on va être obligé de Swiper" -- pendant une
-          manche chronométrée, afficher les 10 joueurs forcerait un scroll
-          pour voir la question/les réponses. Le direct se limite aux 5
-          premiers + ma propre ligne si je suis classé plus bas (jamais
-          invisible à mes propres yeux) ; le classement complet reste
-          disponible sur l'écran d'attente et de fin de match, pas sous
-          pression du chrono. */}
-      {players.length > 2 ? <View style={s.groupStandings}><Text style={s.groupStandingsTitle}>{players.length} JOUEURS · {arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text>{(() => {
-        const top = players.slice(0, 5);
-        const meId = arena.me?.profileId;
-        const meVisible = !meId || top.some((p) => p.profileId === meId);
-        const mePlayer = meId ? players.find((p) => p.profileId === meId) : null;
-        const visible = meVisible || !mePlayer ? top : [...top, mePlayer];
-        const hidden = players.length - visible.length;
-        return <>
-          {visible.map((player) => {
-            const rank = players.findIndex((p) => p.profileId === player.profileId);
-            return <TouchableOpacity key={player.profileId} style={[s.groupStandingRow, rank === 0 && s.groupStandingRowLead]} onPress={() => onOpenProfile(player.username)}><Text style={s.groupStandingRank}>{rank === 0 ? '👑' : `#${rank + 1}`}</Text><Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text><Text style={s.groupStandingScore}>{Number(player?.score || 0)} pts</Text></TouchableOpacity>;
-          })}
-          {hidden > 0 ? <Text style={s.groupStandingsMore}>+{hidden} autre{hidden > 1 ? 's' : ''}</Text> : null}
-        </>;
-      })()}</View> : null}
+      {players.length > 2 ? <View style={s.groupStandings}><Text style={s.groupStandingsTitle}>{players.length} JOUEURS · {arena.status === 'ACTIVE' ? `${Math.ceil(left / 1000)}s` : 'PRÊT'}</Text>{(() => { const top = players.slice(0, 5); const meId = arena.me?.profileId; const meVisible = !meId || top.some((p) => p.profileId === meId); const mePlayer = meId ? players.find((p) => p.profileId === meId) : null; const visible = meVisible || !mePlayer ? top : [...top, mePlayer]; const hidden = players.length - visible.length; return <>{visible.map((player) => { const rank = players.findIndex((p) => p.profileId === player.profileId); return <TouchableOpacity key={player.profileId} style={[s.groupStandingRow, rank === 0 && s.groupStandingRowLead]} onPress={() => onOpenProfile(player.username)}><Text style={s.groupStandingRank}>{rank === 0 ? '👑' : `#${rank + 1}`}</Text><Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text><Text style={s.groupStandingScore}>{Number(player?.score || 0)} pts</Text></TouchableOpacity>; })}{hidden > 0 ? <Text style={s.groupStandingsMore}>+{hidden} autre{hidden > 1 ? 's' : ''}</Text> : null}</> })()}</View> : null}
       <Text style={s.question}>Qui chante ?</Text>
       {/* Adel (02/09/2026) : "on a pas le même principe pour la mauvaise
           réponse qu'on ne la voit pas en rouge et en vert" -- en arène,
@@ -2008,16 +2235,23 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       {/* Adel (05/09/2026) : quatre réponses alignées en solo et en ligne.
           Le serveur complète chaque manche avec un quatrième artiste réel ;
           les quatre boutons conservent la grille 2 × 2 existante. */}
-      <View style={s.answers}>{(round.choices || []).slice(0, 4).map((choice, i) => <TouchableOpacity key={choice} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, Boolean(round.myAnswer) && choice === round.artist && s.answerCorrect, round.myAnswer?.selectedAnswer === choice && choice !== round.artist && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={3} style={s.answerText}>{primaryArtistLabel(choice)}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>)}</View></Animated.View></> : null}
+      <View style={s.answers}>{(() => { const dedupMap = new Map<string, string>(); (round.choices || []).forEach((choice) => { const label = primaryArtistLabel(choice); if (!dedupMap.has(label)) dedupMap.set(label, choice); }); const answers = Array.from(dedupMap.values()).slice(0, 4); if (answers.length < 4) console.warn(`[Battle ARENA] ${answers.length} < 4 réponses à la manche ${arena.currentRound}/${arena.roundCount}`); return answers; })().map((choice, i) => <TouchableOpacity key={choice} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, Boolean(round.myAnswer) && choice === round.artist && s.answerCorrect, round.myAnswer?.selectedAnswer === choice && choice !== round.artist && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={s.answerText}>{primaryArtistLabel(choice)}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>)}</View>
+      </Animated.View></> : null}
       </ScrollView>
     </View>;
   }
 
   if (browseOnline) {
     const browseChallengeRemaining = incoming[0] ? Math.max(0, Math.ceil((new Date(incoming[0].expiresAt).getTime() - now) / 1000)) : 0;
+    // (21/09/2026) refonte sélection multiple : compteur et bouton de la
+    // barre fixe -- au moins 2 joueurs sélectionnés ET soi-même avec assez
+    // de Free pour le nombre de morceaux choisi (même règle que le message
+    // d'avertissement déjà affiché sous le sélecteur de morceaux).
+    const eligiblePlayerCount = livePlayers.filter(isPlayerSelectable).length;
+    const canStartSelectedBattle = selectedBattlePlayerIds.size >= 2 && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
     return <View style={s.root}>
       {renderPlayerStatsModal()}
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
+      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>Loki Music BATTLE</Text><Text style={s.title}>Joueurs disponibles</Text></View><View style={{ width: 36 }} /></View>
       {/* Adel (04/09/2026) : "j'ai juste à envoyer une invite comme ça je
           puisse en envoyer plusieurs" -- BUG RÉEL : chaque appui sur BATTLE
           créait son propre match 1 contre 1 séparé, jamais un seul match à
@@ -2031,7 +2265,63 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           côté serveur (jamais branché à aucun écran) : liste les matchs
           WAITING/ACTIVE que n'importe qui peut suivre en spectateur. */}
       {openSalons.length ? <View style={s.liveMatches}><Text style={s.section}>MATCHS EN DIRECT</Text>{openSalons.map((salon) => <TouchableOpacity key={salon.id} style={s.liveMatchRow} onPress={() => { void startSpectating(salon); }}><PresenceDot online /><View style={{ flex: 1 }}><Text style={s.liveMatchTheme}>⚡ {salon.themeLabel} · {salon.players}/{salon.maxPlayers} joueurs</Text><Text style={s.liveMatchHost}>{salon.hostUsername}{salon.queue > 0 ? ` · ${salon.queue} en file` : ''}</Text></View><Text style={s.liveMatchWatch}>REGARDER ›</Text></TouchableOpacity>)}</View> : null}
-      {busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <View style={s.browseList}>{livePlayers.map((p) => { const rank = leaderboardRank[p.profileId]; const rankBadge = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank ? `#${rank}` : null; const preferredLabel = p.preferredThemeCodes.length === 1 && p.preferredThemeCodes[0] === 'MIX' ? 'Mix' : p.preferredThemeCodes.map((c) => themeLabel(c)).join(', '); const short = insufficientForOpponent(p); return <View key={p.profileId} style={s.browsePlayer}><TouchableOpacity onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={48} /><View style={s.browseAvatarDot}><PresenceDot online /></View></TouchableOpacity><View style={{ flex: 1 }}><TouchableOpacity onPress={() => openPlayerStats(p)} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>{/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de taper BATTLE. */}<Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text></View>{(() => { const sent = outgoingPendingTargetIds.has(p.profileId); const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now; const blocked = blockedMs > 0; return <TouchableOpacity disabled={Boolean(challengeBusyId) || sent || blocked} style={[s.browseBattle, challengeBusyId === p.profileId && s.battleButtonSending, sent && s.battleButtonSent, (blocked || short) && s.battleButtonBlocked, challengeBusyId && challengeBusyId !== p.profileId && s.actionDisabled]} onPress={() => { void challenge(p); }}><Text style={[s.browseBattleText, sent && s.battleButtonSentText, (blocked || short) && s.battleButtonBlockedText]}>{challengeBusyId === p.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : sent ? 'ENVOYÉ ✓' : short ? '🎁 Insuffisant' : `BATTLE · ${themeLabel(themeCode)} · ${roundCount}`}</Text></TouchableOpacity>; })()}</View>; })}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}</View>;
+      <ScrollView style={s.browseScroll} contentContainerStyle={s.browseScrollContent} showsVerticalScrollIndicator={false}>
+      {busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <View style={s.browseList}>{livePlayers.map((p) => {
+        const rank = leaderboardRank[p.profileId];
+        const rankBadge = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank ? `#${rank}` : null;
+        const preferredLabel = p.preferredThemeCodes.length === 1 && p.preferredThemeCodes[0] === 'MIX' ? 'Mix' : p.preferredThemeCodes.map((c) => themeLabel(c)).join(', ');
+        const short = insufficientForOpponent(p);
+        const sent = outgoingPendingTargetIds.has(p.profileId);
+        const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now;
+        const blocked = blockedMs > 0;
+        const sending = challengeBusyId === p.profileId;
+        const selectable = isPlayerSelectable(p);
+        const selected = selectedBattlePlayerIds.has(p.profileId);
+        // (21/09/2026) : le bouton BATTLE par joueur devient un badge de
+        // statut en lecture seule -- l'action de lancement passe par la
+        // case à cocher + la barre fixe "Démarrer la Battle" ci-dessous.
+        const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? 'En attente' : short ? 'Crédits insuffisants' : 'Prêt';
+        return <View key={p.profileId} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
+          <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected, disabled: !selectable }}
+            accessibilityLabel={`Sélectionner ${p.username} pour la Battle${short ? ', crédits insuffisants' : ''}`}
+            disabled={!selectable}
+            hitSlop={8}
+            style={[s.battleCheckbox, selected && s.battleCheckboxOn, !selectable && s.battleCheckboxDisabled]}
+            onPress={() => toggleBattlePlayerSelection(p)}
+          >
+            {selected ? <Text style={s.battleCheckboxMark}>✓</Text> : null}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={48} /><View style={s.browseAvatarDot}><PresenceDot online /></View></TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity onPress={() => openPlayerStats(p)} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>
+            {/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de cocher la case. */}
+            <Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text>
+          </View>
+          <View style={[s.battleStatusBadge, (short || blocked) && s.battleStatusBadgeMuted]}><Text style={[s.battleStatusBadgeText, (short || blocked) && s.battleStatusBadgeTextMuted]}>{statusLabel}</Text></View>
+        </View>;
+      })}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}
+      </ScrollView>
+      {/* Adel (21/09/2026) : barre fixe "Démarrer la Battle" -- remplace le
+          tap BATTLE joueur par joueur par une sélection groupée explicite.
+          Réutilise le même `challenge()` (donc la même arène partagée, cf.
+          buildingArenaIdRef) que l'ancien flux un-par-un : aucune nouvelle
+          logique métier, uniquement l'UI de déclenchement qui change. */}
+      <View style={s.battleSelectionFooter}>
+        <Text style={s.battleSelectionCount}>{selectedBattlePlayerIds.size}/{eligiblePlayerCount} joueur{eligiblePlayerCount > 1 ? 's' : ''} sélectionné{selectedBattlePlayerIds.size > 1 ? 's' : ''}</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Démarrer la Battle avec les joueurs sélectionnés"
+          accessibilityState={{ disabled: !canStartSelectedBattle }}
+          disabled={!canStartSelectedBattle}
+          style={[s.battleStartButton, !canStartSelectedBattle && s.battleStartButtonDisabled]}
+          onPress={() => { void startSelectedBattle(); }}
+        >
+          <Text style={[s.battleStartButtonText, !canStartSelectedBattle && s.battleStartButtonTextDisabled]}>{startingGroupBattle ? 'DÉMARRAGE…' : 'Démarrer la Battle'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>;
   }
 
   // Adel (02/09/2026) : "il faut la rajouter qu'on soit pas obligé de
@@ -2046,27 +2336,83 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
           à intégrer des artistes sur leur profil" -- pourquoi jouer, pas
           seulement comment. */}
-      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Pourquoi jouer à Loki Battle" onPress={() => Alert.alert(
-        'Pourquoi jouer à Loki Battle ?',
+      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Pourquoi jouer à Loki Music Battle" onPress={() => Alert.alert(
+        'Pourquoi jouer à Loki Music Battle ?',
         'JOUER SOLO : entraîne-toi seul sur 8, 15, 20 ou 30 morceaux et gagne des Free selon tes bonnes réponses.\n\nBATTLE EN LIGNE : affronte d’autres joueurs en direct sur le même nombre de morceaux — plus tu choisis un grand nombre de morceaux, plus la mise ET le gain en Free sont importants.\n\nÀ quoi servent les Free ? Ils te permettent d’intégrer plus d’artistes et de morceaux à ton profil, dans ton style musical. Plus ton profil te ressemble, plus tu attires une vraie communauté musicale autour de toi — et une communauté, ça se monétise un jour.',
       )}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
-      <Text style={s.homeIcon}>⚡</Text><Text style={s.homeTitle}>Loki BATTLE</Text><Text style={s.homeSub}>10 secondes réelles d’écoute · 4 choix · aucun swipe</Text></View>{!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche proposée avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Tu peux te rattraper ! Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}{incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {homeChallengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}<Text style={s.section}>NOMBRE DE MORCEAUX</Text><ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>{ROUND_COUNT_OPTIONS.map((n) => { const short = insufficientForRoundCount(n); return <TouchableOpacity key={n} onPress={() => setRoundCount(n)} style={[s.theme, n === roundCount && s.themeOn, short && s.themeShort]}><Text style={[s.themeText, n === roundCount && s.themeTextOn, short && s.themeTextShort]}>{n}</Text><Text style={[s.themeStake, n === roundCount && s.themeStakeOn, short && s.themeTextShort]}>🎁{stakeForRounds(n)}</Text></TouchableOpacity>; })}</ScrollView>{insufficientForRoundCount(roundCount) ? <Text style={s.themeShortWarning}>Crédit insuffisant pour {roundCount} morceaux : il te faut {stakeForRounds(roundCount)} Free, tu as {myCreditStatus?.remainingFree ?? 0}.</Text> : null}{renderMyPreferencesPicker()}<TouchableOpacity style={s.mainButton} disabled={busy} onPress={() => { void startSolo(); }}>{busy ? <ActivityIndicator color="#15110B" /> : <><Text style={s.mainButtonText}>JOUER SOLO</Text><Text style={s.mainButtonSub}>Le chrono attend que le son démarre</Text></>}</TouchableOpacity><TouchableOpacity style={s.onlineButton} disabled={busy} onPress={() => { void openOnline(); }}><Text style={s.onlineTitle}>BATTLE EN LIGNE</Text><Text style={s.onlineSub}>Voir les joueurs qui jouent déjà en solo</Text></TouchableOpacity></View>;
+      <Text style={s.homeIcon}>⚡</Text><Text style={s.homeTitle}>Loki Music BATTLE</Text><Text style={s.homeSub}>10 secondes réelles d’écoute · 4 choix · aucun swipe</Text></View>{myPlayerStats ? (
+        <View style={s.playerStatsContainer}>
+          <View style={s.playerStatsBigRow}>
+            <View style={s.playerStatsBigItem}>
+              <Text style={s.playerStatsBigValue}>{myPlayerStats.wins}</Text>
+              <Text style={s.playerStatsBigLabel}>Victoires</Text>
+            </View>
+            <View style={s.playerStatsBigItem}>
+              <Text style={s.playerStatsBigValue}>{myPlayerStats.matchesPlayed}</Text>
+              <Text style={s.playerStatsBigLabel}>Matchs</Text>
+            </View>
+            <View style={s.playerStatsBigItem}>
+              <Text style={s.playerStatsBigValue}>{myPlayerStats.totalCorrect}</Text>
+              <Text style={s.playerStatsBigLabel}>Bonnes rép.</Text>
+            </View>
+          </View>
+          <View style={s.playerStatsSmallRow}>
+            <View style={s.playerStatsSmallItem}>
+              <Text style={s.playerStatsSmallValue}>{myPlayerStats.followers}</Text>
+              <Text style={s.playerStatsSmallLabel}>Abonnés</Text>
+            </View>
+            <View style={s.playerStatsSmallItem}>
+              <Text style={s.playerStatsSmallValue}>{myPlayerStats.freeBalance}</Text>
+              <Text style={s.playerStatsSmallLabel}>Free restant</Text>
+            </View>
+            <View style={s.playerStatsSmallItem}>
+              <Text style={s.playerStatsSmallValue}>{myPlayerStats.freeWon}</Text>
+              <Text style={s.playerStatsSmallLabel}>Free gagné</Text>
+            </View>
+            <View style={s.playerStatsSmallItem}>
+              <Text style={s.playerStatsSmallValue}>{myPlayerStats.freeLost}</Text>
+              <Text style={s.playerStatsSmallLabel}>Free perdu</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}{!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche proposée avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Tu peux te rattraper ! Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}{incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>{incoming[0].username}</Text> souhaite faire un Battle avec vous. Acceptez-vous ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {homeChallengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}<Text style={s.section}>NOMBRE DE MORCEAUX</Text><ScrollView horizontal style={s.themeScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={s.themeRow}>{ROUND_COUNT_OPTIONS.map((n) => { const short = insufficientForRoundCount(n); return <TouchableOpacity key={n} onPress={() => setRoundCount(n)} style={[s.theme, n === roundCount && s.themeOn, short && s.themeShort]}><Text style={[s.themeText, n === roundCount && s.themeTextOn, short && s.themeTextShort]}>{n}</Text><Text style={[s.themeStake, n === roundCount && s.themeStakeOn, short && s.themeTextShort]}>🎁{stakeForRounds(n)}</Text></TouchableOpacity>; })}</ScrollView>{insufficientForRoundCount(roundCount) ? <Text style={s.themeShortWarning}>Crédit insuffisant pour {roundCount} morceaux : il te faut {stakeForRounds(roundCount)} Free, tu as {myCreditStatus?.remainingFree ?? 0}.</Text> : null}{renderMyPreferencesPicker()}<TouchableOpacity style={s.mainButton} disabled={busy} onPress={() => { void startSolo(); }}>{busy ? <ActivityIndicator color="#15110B" /> : <><Text style={s.mainButtonText}>JOUER SOLO</Text><Text style={s.mainButtonSub}>Gagne jusqu'à {maxRewardForRounds(roundCount)} Free · le chrono attend que le son démarre</Text></>}</TouchableOpacity><TouchableOpacity style={s.onlineButton} disabled={busy} onPress={() => { void openOnline(); }}><Text style={s.onlineTitle}>BATTLE EN LIGNE</Text><Text style={s.onlineSub}>Voir les joueurs qui jouent déjà en solo</Text></TouchableOpacity></View>;
 }
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 4, position: 'relative' },
   statsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 18 }, statsCard: { width: '100%', maxWidth: 400, borderRadius: 26, padding: 20, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' }, statsClose: { position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: '#1F1830', alignItems: 'center', justifyContent: 'center', zIndex: 2 }, statsCloseText: { color: '#FFF', fontSize: 20, lineHeight: 22, fontWeight: '700' }, statsUsername: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 14, paddingRight: 40 }, statsBigRow: { flexDirection: 'row', gap: 8 }, statsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#1B1422' }, statsBigValue: { color: '#E5F266', fontSize: 22, fontWeight: '900' }, statsBigLabel: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, statsSmallRow: { flexDirection: 'row', gap: 6, marginTop: 6 }, statsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 12, backgroundColor: '#17121D' }, statsSmallValue: { color: '#FFF', fontSize: 13, fontWeight: '900' }, statsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' }, statsAvg: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 12 }, statsSectionTitle: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8, marginTop: 20, marginBottom: 8 }, statsThemeRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#1B1422', marginBottom: 6 }, statsThemeLabel: { color: '#FFF', fontSize: 12, fontWeight: '900' }, statsThemeValue: { color: '#B79CFF', fontSize: 11, fontWeight: '800' }, statsThemeEmpty: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700' }, statsActionsRow: { flexDirection: 'row', gap: 8, marginTop: 18 }, statsFollowButton: { flex: 1, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsFollowButtonText: { color: '#8B5CF6', fontSize: 11, fontWeight: '900' }, statsProfileButtonSmall: { flex: 1, minHeight: 48, borderRadius: 24, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsProfileButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
+  playerStatsContainer: { marginVertical: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A' }, playerStatsBigRow: { flexDirection: 'row', gap: 6, marginBottom: 8 }, playerStatsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#1B1422' }, playerStatsBigValue: { color: '#E5F266', fontSize: 18, fontWeight: '900' }, playerStatsBigLabel: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, playerStatsSmallRow: { flexDirection: 'row', gap: 5 }, playerStatsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10, backgroundColor: '#1B1422' }, playerStatsSmallValue: { color: '#FFF', fontSize: 12, fontWeight: '900' }, playerStatsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' },
   prefsSummaryButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 14, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A', marginBottom: 10 }, prefsSummaryLabel: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8 }, prefsSummaryValue: { color: '#FFF', fontSize: 13, fontWeight: '800', marginTop: 2 }, prefsSummaryHint: { color: '#75E6AA', fontSize: 11, fontWeight: '800', marginTop: 3 }, prefsSummaryChevron: { color: '#8F879D', fontSize: 20, fontWeight: '900' }, prefsPickerHint: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700', marginBottom: 12 }, prefsPickerScroll: { maxHeight: 320, marginBottom: 14 }, prefsPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, paddingHorizontal: 4 }, prefsPickerCheckbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#8B5CF6', textAlign: 'center', lineHeight: 19, color: '#17130B', fontSize: 13, fontWeight: '900' }, prefsPickerCheckboxOn: { backgroundColor: '#E5F266', borderColor: '#E5F266' }, prefsPickerRowText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
-  arenaInvitePanel: { maxHeight: 290, marginBottom: 8, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#4A3C55', backgroundColor: '#120E17' }, arenaInviteTitle: { color: '#E5F266', fontSize: 12, fontWeight: '900', marginBottom: 8 }, arenaInviteScroll: { maxHeight: 190 }, arenaInviteList: { gap: 7 }, arenaInviteRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7, borderRadius: 15, backgroundColor: '#1B1422' }, arenaInviteName: { color: '#FFF', fontSize: 14, fontWeight: '900' }, arenaInviteMeta: { color: '#75E6AA', fontSize: 11, fontWeight: '800', marginTop: 2 }, arenaInviteButton: { minWidth: 94, minHeight: 52, paddingHorizontal: 13, borderRadius: 26, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, arenaInviteButtonText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, arenaInviteEmpty: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 14 }, arenaShareButton: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#4A3C55', alignItems: 'center', justifyContent: 'center', marginTop: 8 }, arenaShareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, closeBattle: { position: 'absolute', top: 0, right: 0, zIndex: 60, width: 48, height: 48, borderRadius: 24, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#51445E', alignItems: 'center', justifyContent: 'center' }, closeBattleText: { color: '#FFF', fontSize: 30, lineHeight: 32, fontWeight: '700', marginTop: -2 }, finishScroll: { paddingBottom: 18 }, finishHero: { marginTop: 10, borderRadius: 24, borderWidth: 1, borderColor: '#5A476B', backgroundColor: '#17101F', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 20, overflow: 'hidden' }, finishSpark: { color: '#E5F266', fontSize: 18, fontWeight: '900', letterSpacing: 4 }, finishTrophy: { fontSize: 52, marginTop: 4 }, finishTrophyBig: { fontSize: 62 }, finishSessionHint: { color: '#B79CFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 2, marginBottom: 6 }, finishTitle: { color: '#FFF', fontSize: 23, fontWeight: '900', textAlign: 'center', marginTop: 5 }, finishSub: { color: '#FFF', fontSize: 11, lineHeight: 15, fontWeight: '800', textAlign: 'center', marginTop: 5, maxWidth: 280 }, finishScore: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }, finishScoreBig: { color: '#E5F266', fontSize: 38, lineHeight: 42, fontWeight: '900' }, finishScoreSlash: { color: '#FFF', fontSize: 15, fontWeight: '900' }, finishWon: { color: '#7FF2B7', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishLost: { color: '#FFB3C3', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishTaunt: { color: '#FFF', fontSize: 12, lineHeight: 16, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 12 }, finishQuestion: { color: '#FFF', textAlign: 'center', fontSize: 12, fontWeight: '900', marginVertical: 9 }, matchRanking: { marginTop: 10, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#120E17', gap: 5 }, matchRankingTitle: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8, marginBottom: 2 }, matchRankRow: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 9, borderRadius: 12, backgroundColor: '#1B1422' }, matchRankRowWon: { borderWidth: 1, borderColor: '#38D990' }, matchRankRowLost: { opacity: .88 }, matchRankTrophy: { width: 20, textAlign: 'center', fontSize: 13, color: '#FFF', fontWeight: '900' }, matchRankName: { flex: 1, color: '#FFF', fontSize: 12, fontWeight: '900', textDecorationLine: 'underline' }, matchRankScore: { color: '#E5F266', fontSize: 11, fontWeight: '900' }, matchRankCorrect: { color: '#B79CFF', fontSize: 11, fontWeight: '800' }, matchRankTime: { color: '#FFF', fontSize: 11, fontWeight: '800', minWidth: 32, textAlign: 'right' },
-  palmares: { marginTop: 10, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#120E17' }, palmaresTitle: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', letterSpacing: .7, marginBottom: 7 }, palmaresRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9 }, palmaresRank: { width: 24, color: '#E5F266', fontSize: 18, fontWeight: '900' }, palmaresName: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '900', textDecorationLine: 'underline' }, palmaresWins: { color: '#FFF', fontSize: 11, fontWeight: '800' }, finishPrimary: { minHeight: 46, borderRadius: 23, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }, finishPrimaryText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, finishSecondary: { minHeight: 42, borderRadius: 21, borderWidth: 1.5, borderColor: '#6E5A94', backgroundColor: '#18121F', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }, finishSecondaryText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, home: { alignItems: 'center', paddingVertical: 10, position: 'relative' }, homeBack: { position: 'absolute', left: 0, top: 5, width: 30, height: 30, borderRadius: 15, backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }, homeBackText: { color: '#FFF', fontSize: 23, lineHeight: 25 }, homeHelp: { position: 'absolute', right: 0, top: 5, width: 30, height: 30, borderRadius: 15, backgroundColor: '#17121D', borderWidth: 1.5, borderColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, homeHelpText: { color: '#8B5CF6', fontSize: 16, fontWeight: '900' }, homeIcon: { fontSize: 28 }, homeTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' }, homeSub: { color: '#FFF', fontSize: 11, fontWeight: '700', marginTop: 2 }, section: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginBottom: 5 }, themeScroll: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 }, themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }, theme: { height: 46, minHeight: 46, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }, themeOn: { backgroundColor: '#FFF', borderColor: '#FFF' }, themeShort: { borderColor: '#FF6C8C' }, themeText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, themeTextOn: { color: '#120E16' }, themeTextShort: { color: '#FF6C8C' }, themeStake: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 1 }, themeStakeOn: { color: '#4C3E6B' }, themeShortWarning: { color: '#FF6C8C', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 4, marginBottom: 2 }, mainButton: { minHeight: 54, borderRadius: 25, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 14 }, mainButtonText: { color: '#17130B', fontSize: 14, fontWeight: '900' }, mainButtonSub: { color: '#494D22', fontSize: 11, fontWeight: '800', marginTop: 2 }, onlineButton: { minHeight: 58, borderRadius: 20, backgroundColor: '#18121F', borderWidth: 1, borderColor: '#31263B', alignItems: 'center', justifyContent: 'center', marginTop: 9 }, onlineTitle: { color: '#FFF', fontSize: 13, fontWeight: '900' }, onlineSub: { color: '#FFF', fontSize: 11, fontWeight: '700', marginTop: 2 }, header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 }, back: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1.5, borderColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, backText: { color: '#FFF', fontSize: 24, lineHeight: 26 }, headerMid: { flex: 1, alignItems: 'center' }, kicker: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: 1 }, title: { color: '#FFF', fontSize: 15, fontWeight: '900' }, round: { width: 36, textAlign: 'right', color: '#FFF', fontSize: 11, fontWeight: '900' }, clockRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 }, clock: { color: '#FFF', fontSize: 25, fontWeight: '900' }, clockHot: { color: '#FF6687' }, clockHint: { color: '#FFF', fontSize: 11, fontWeight: '900', letterSpacing: .8 }, timeTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#211A29', marginVertical: 5 }, timeFill: { height: '100%', backgroundColor: '#E5F266' }, card: { borderRadius: 22, padding: 7, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A' }, visual: { height: 120, borderRadius: 17, overflow: 'hidden', backgroundColor: '#21192A', alignItems: 'center', justifyContent: 'center', position: 'relative' }, cover: { width: '100%', height: '100%' }, music: { color: '#FFF', fontSize: 68, fontWeight: '900' }, result: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,10,.72)', alignItems: 'center', justifyContent: 'center', padding: 14 }, good: { color: '#7FF2B7', fontSize: 26, fontWeight: '900' }, bad: { color: '#FF6C8C', fontSize: 23, fontWeight: '900' }, artist: { color: '#FFF', fontSize: 19, fontWeight: '900', textAlign: 'center', marginTop: 5 }, roundWinner: { color: '#FFE193', fontSize: 13, fontWeight: '900', textAlign: 'center', marginTop: 9 }, question: { color: '#FFF', fontSize: 15, fontWeight: '900', textAlign: 'center', marginTop: 7 }, answers: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 5 }, answer: { width: '48.2%', minHeight: 58, borderRadius: 14, backgroundColor: '#241C30', borderWidth: 1.5, borderColor: '#4E8DFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 7 }, answerFull: { width: '100%' }, answerTextCenter: { textAlign: 'center' }, answerSelected: { borderColor: '#E5F266', backgroundColor: '#30351B' }, answerCorrect: { borderWidth: 2, borderColor: '#69E5A4', backgroundColor: 'rgba(105,229,164,0.16)' }, answerWrong: { borderWidth: 2, borderColor: '#FF6C8C', backgroundColor: '#3A1B22' }, answerNo: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#4E8DFF', backgroundColor: '#2B2235', color: '#FFF', textAlign: 'center', lineHeight: 23, fontSize: 13, fontWeight: '900', alignSelf: 'center' }, answerText: { flex: 1, color: '#FFF', fontSize: 15, fontWeight: '900' }, answerTime: { color: '#E5F266', fontSize: 11, fontWeight: '900' }, scoreLine: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 3 }, score: { color: '#FFF', fontSize: 13, fontWeight: '800' }, // Adel (02/09/2026) : "on voit bien le bouton en bas" -- le panneau "joueurs
+  arenaInvitePanel: { maxHeight: 290, marginBottom: 8, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#4A3C55', backgroundColor: '#120E17' }, arenaInviteTitle: { color: '#E5F266', fontSize: 12, fontWeight: '900', marginBottom: 8 }, arenaInviteScroll: { maxHeight: 190 }, arenaInviteList: { gap: 7 }, arenaInviteRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7, borderRadius: 15, backgroundColor: '#1B1422' }, arenaInviteName: { color: '#FFF', fontSize: 14, fontWeight: '900' }, arenaInviteMeta: { color: '#75E6AA', fontSize: 11, fontWeight: '800', marginTop: 2 }, arenaInviteButton: { minWidth: 94, minHeight: 52, paddingHorizontal: 13, borderRadius: 26, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, arenaInviteButtonText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, arenaInviteEmpty: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 14 }, arenaShareButton: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#4A3C55', alignItems: 'center', justifyContent: 'center', marginTop: 8 }, arenaShareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, closeBattle: { position: 'absolute', top: 0, right: 0, zIndex: 60, width: 48, height: 48, borderRadius: 24, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#51445E', alignItems: 'center', justifyContent: 'center' }, closeBattleText: { color: '#FFF', fontSize: 30, lineHeight: 32, fontWeight: '700', marginTop: -2 }, finishScroll: { paddingBottom: 18 }, finishHero: { marginTop: 10, borderRadius: 24, borderWidth: 1, borderColor: '#5A476B', backgroundColor: '#17101F', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 20, overflow: 'hidden' }, finishSpark: { color: '#E5F266', fontSize: 18, fontWeight: '900', letterSpacing: 4 }, finishTrophy: { fontSize: 52, marginTop: 4 }, finishTrophyBig: { fontSize: 62 }, finishSessionHint: { color: '#B79CFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 2, marginBottom: 6 }, finishTitle: { color: '#FFF', fontSize: 23, fontWeight: '900', textAlign: 'center', marginTop: 5 }, finishSub: { color: '#FFF', fontSize: 11, lineHeight: 15, fontWeight: '800', textAlign: 'center', marginTop: 5, maxWidth: 280 }, finishScore: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }, finishScoreBig: { color: '#E5F266', fontSize: 38, lineHeight: 42, fontWeight: '900' }, finishScoreSlash: { color: '#FFF', fontSize: 15, fontWeight: '900' }, finishReward: { color: '#75E6AA', fontSize: 13, fontWeight: '900', marginTop: 10 }, finishWon: { color: '#7FF2B7', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishLost: { color: '#FFB3C3', fontSize: 12, fontWeight: '900', marginTop: 7 }, finishTaunt: { color: '#FFF', fontSize: 12, lineHeight: 16, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 12 }, finishQuestion: { color: '#FFF', textAlign: 'center', fontSize: 12, fontWeight: '900', marginVertical: 9 }, matchRanking: { marginTop: 10, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#120E17', gap: 5 }, matchRankingTitle: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8, marginBottom: 2 }, matchRankRow: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 9, borderRadius: 12, backgroundColor: '#1B1422' }, matchRankRowWon: { borderWidth: 1, borderColor: '#38D990' }, matchRankRowLost: { opacity: .88 }, matchRankTrophy: { width: 20, textAlign: 'center', fontSize: 13, color: '#FFF', fontWeight: '900' }, matchRankName: { flex: 1, color: '#FFF', fontSize: 12, fontWeight: '900', textDecorationLine: 'underline' }, matchRankScore: { color: '#E5F266', fontSize: 11, fontWeight: '900' }, matchRankCorrect: { color: '#B79CFF', fontSize: 11, fontWeight: '800' }, matchRankTime: { color: '#FFF', fontSize: 11, fontWeight: '800', minWidth: 32, textAlign: 'right' },
+  palmares: { marginTop: 10, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: '#40334B', backgroundColor: '#120E17' }, palmaresTitle: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', letterSpacing: .7, marginBottom: 7 }, palmaresRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9 }, palmaresRank: { width: 24, color: '#E5F266', fontSize: 18, fontWeight: '900' }, palmaresName: { flex: 1, color: '#FFF', fontSize: 14, fontWeight: '900', textDecorationLine: 'underline' }, palmaresWins: { color: '#FFF', fontSize: 11, fontWeight: '800' }, finishPrimary: { minHeight: 46, borderRadius: 23, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }, finishPrimaryText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, finishSecondary: { minHeight: 42, borderRadius: 21, borderWidth: 1.5, borderColor: '#6E5A94', backgroundColor: '#18121F', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }, finishSecondaryText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, home: { alignItems: 'center', paddingVertical: 10, position: 'relative' }, homeBack: { position: 'absolute', left: 0, top: 5, width: 30, height: 30, borderRadius: 15, backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center' }, homeBackText: { color: '#FFF', fontSize: 23, lineHeight: 25 }, homeHelp: { position: 'absolute', right: 0, top: 5, width: 30, height: 30, borderRadius: 15, backgroundColor: '#17121D', borderWidth: 1.5, borderColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, homeHelpText: { color: '#8B5CF6', fontSize: 16, fontWeight: '900' }, homeIcon: { fontSize: 28 }, homeTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' }, homeSub: { color: '#FFF', fontSize: 11, fontWeight: '700', marginTop: 2 }, section: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginBottom: 5 }, themeScroll: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 }, themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }, theme: { height: 46, minHeight: 46, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }, themeOn: { backgroundColor: '#FFF', borderColor: '#FFF' }, themeShort: { borderColor: '#FF6C8C' }, themeText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, themeTextOn: { color: '#120E16' }, themeTextShort: { color: '#FF6C8C' }, themeStake: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 1 }, themeStakeOn: { color: '#4C3E6B' }, themeShortWarning: { color: '#FF6C8C', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 4, marginBottom: 2 }, mainButton: { minHeight: 54, borderRadius: 25, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 14 }, mainButtonText: { color: '#17130B', fontSize: 14, fontWeight: '900' }, mainButtonSub: { color: '#494D22', fontSize: 11, fontWeight: '800', marginTop: 2 }, onlineButton: { minHeight: 58, borderRadius: 20, backgroundColor: '#18121F', borderWidth: 1, borderColor: '#31263B', alignItems: 'center', justifyContent: 'center', marginTop: 9 }, onlineTitle: { color: '#FFF', fontSize: 13, fontWeight: '900' }, onlineSub: { color: '#FFF', fontSize: 11, fontWeight: '700', marginTop: 2 }, header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 }, back: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1.5, borderColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, backText: { color: '#FFF', fontSize: 24, lineHeight: 26 }, headerMid: { flex: 1, alignItems: 'center' }, kicker: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: 1 }, title: { color: '#FFF', fontSize: 15, fontWeight: '900' }, round: { width: 36, textAlign: 'right', color: '#FFF', fontSize: 11, fontWeight: '900' }, clockRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 }, clock: { color: '#FFF', fontSize: 25, fontWeight: '900' }, clockHot: { color: '#FF6687' }, clockHint: { color: '#FFF', fontSize: 11, fontWeight: '900', letterSpacing: .8 }, timeTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#211A29', marginVertical: 5 }, timeFill: { height: '100%', backgroundColor: '#E5F266' }, card: { borderRadius: 22, padding: 7, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A' }, visual: { height: 160, borderRadius: 17, overflow: 'hidden', backgroundColor: '#21192A', alignItems: 'center', justifyContent: 'center', position: 'relative' }, cover: { width: '100%', height: '100%' }, music: { color: '#FFF', fontSize: 68, fontWeight: '900' }, result: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,10,.72)', alignItems: 'center', justifyContent: 'center', padding: 14 }, good: { color: '#7FF2B7', fontSize: 26, fontWeight: '900' }, bad: { color: '#FF6C8C', fontSize: 23, fontWeight: '900' }, artist: { color: '#FFF', fontSize: 19, fontWeight: '900', textAlign: 'center', marginTop: 5 }, roundWinner: { color: '#FFE193', fontSize: 13, fontWeight: '900', textAlign: 'center', marginTop: 9 }, question: { color: '#FFF', fontSize: 15, fontWeight: '900', textAlign: 'center', marginTop: 7 }, answers: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 }, answer: { width: '48.2%', height: 66, borderRadius: 14, backgroundColor: '#241C30', borderWidth: 1.5, borderColor: '#4E8DFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 7 }, answerFull: { width: '100%' }, answerTextCenter: { textAlign: 'center' }, answerSelected: { borderColor: '#E5F266', backgroundColor: '#30351B' }, answerCorrect: { borderWidth: 2, borderColor: '#69E5A4', backgroundColor: 'rgba(105,229,164,0.16)' }, answerWrong: { borderWidth: 2, borderColor: '#FF6C8C', backgroundColor: '#3A1B22' }, answerNo: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#4E8DFF', backgroundColor: '#2B2235', color: '#FFF', textAlign: 'center', lineHeight: 23, fontSize: 13, fontWeight: '900', alignSelf: 'center' }, answerText: { flex: 1, color: '#FFF', fontSize: 17, fontWeight: '900' }, answerTime: { color: '#E5F266', fontSize: 11, fontWeight: '900' }, scoreLine: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 3 }, score: { color: '#FFF', fontSize: 13, fontWeight: '800' }, // Adel (02/09/2026) : "on voit bien le bouton en bas" -- le panneau "joueurs
   // disponibles" est poussé tout en bas par marginTop:'auto', mais rien ne
   // l'empêchait de finir pile derrière la barre d'onglets fixe (68px +
   // paddingBottom 8, voir Navigation.tsx) sur le build web, coupant
   // l'avatar/bouton BATTLE de la dernière ligne. marginBottom réserve cette
   // hauteur sans toucher au Design de la barre d'onglets elle-même.
-  soloScroll: { flexGrow: 1, paddingBottom: 24 },
+  soloScroll: { flexGrow: 1, paddingBottom: 48 },
   live: { marginTop: 14, padding: 7, borderRadius: 16, backgroundColor: '#100D14' }, liveHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 }, dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#6EE8A7' }, liveTitle: { color: '#FFF', fontSize: 12, fontWeight: '900' }, liveList: { gap: 6, paddingTop: 7 }, liveRowCompact: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 40, paddingHorizontal: 7, borderRadius: 14, backgroundColor: '#18131F' }, liveRowLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }, liveRowName: { flex: 1, color: '#FFF', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' }, avatarFallback: { backgroundColor: '#2B2235', alignItems: 'center', justifyContent: 'center' }, avatarLetter: { color: '#FFF', fontSize: 16, fontWeight: '900' }, username: { color: '#FFF', fontSize: 11, fontWeight: '800', marginTop: 3, maxWidth: 70 }, battleButton: { minHeight: 26, paddingHorizontal: 7, borderRadius: 13, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 4 }, battleButtonText: { color: '#17130B', fontSize: 11, fontWeight: '900' }, battleButtonSending: { backgroundColor: '#8A7E4A', opacity: .85 }, battleButtonSent: { backgroundColor: '#1B1422', borderWidth: 1, borderColor: '#6EE8A7' }, battleButtonSentText: { color: '#6EE8A7' }, battleButtonBlocked: { backgroundColor: '#1B1422', borderWidth: 1, borderColor: '#FF5F83' }, battleButtonBlockedText: { color: '#FF5F83' }, invite: { marginTop: 10, minHeight: 142, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 24, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' }, inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }, inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }, inviteLabel: { color: '#E5F266', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 4 }, inviteName: { color: '#FFF', fontSize: 17, lineHeight: 22, fontWeight: '900' }, inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22, fontWeight: '800' }, inviteConnecting: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', textAlign: 'center', marginBottom: 8, letterSpacing: .5 }, no: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 16, fontWeight: '900' }, yes: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 16, fontWeight: '900' }, actionDisabled: { opacity: .62 }, versus: { position: 'absolute', zIndex: 20, left: 16, right: 16, top: 120, padding: 18, borderRadius: 24, backgroundColor: '#22152D', borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center' }, versusText: { color: '#E5F266', fontSize: 25, fontWeight: '900' }, versusNames: { color: '#FFF', fontSize: 12, fontWeight: '900', marginTop: 5 }, duel: { marginBottom: 6 }, duelNames: { flexDirection: 'row', alignItems: 'center' }, duelName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, duelScore: { color: '#E5F266', fontSize: 15, fontWeight: '900' }, duelCenter: { minWidth: 46, alignItems: 'center', justifyContent: 'center' }, duelTimer: { color: '#FFF', fontSize: 11, fontWeight: '900', marginTop: 2 }, duelPoints: { color: '#FFF', fontSize: 13, fontWeight: '900', marginTop: 3 }, teamMembers: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 }, teamChip: { paddingHorizontal: 6, minHeight: 22, borderRadius: 11, backgroundColor: '#1D1625', alignItems: 'center', justifyContent: 'center' }, teamChipText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, power: { height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: '#2A2032', flexDirection: 'row', position: 'relative', marginTop: 7 }, powerLeft: { height: '100%', backgroundColor: '#8B5CF6' }, powerRight: { flex: 1, height: '100%', backgroundColor: '#E14E78' }, powerMiddle: { position: 'absolute', zIndex: 3, left: '50%', width: 2, height: '100%', backgroundColor: '#FFF' }, waiting: { padding: 14, borderRadius: 21, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A', alignItems: 'center' }, trophy: { fontSize: 34 }, winner: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 3 }, waitText: { color: '#FFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 6 }, browseText: { color: '#FFF', fontSize: 11, lineHeight: 16, marginBottom: 10 }, browseList: { gap: 7 }, browsePlayer: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 17, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#151020', padding: 9 }, browseNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 }, browseName: { color: '#FFF', fontSize: 13, fontWeight: '900', textDecorationLine: 'underline' }, browseChevron: { color: '#8F879D', fontSize: 16, fontWeight: '900' }, browseAvatarDot: { position: 'absolute', right: -1, bottom: -1 }, browseRankBadge: { color: '#E5F266', fontSize: 12, fontWeight: '900' }, browseMeta: { color: '#6EE8A7', fontSize: 11, fontWeight: '800', marginTop: 2 }, browseMetaShort: { color: '#FF5F83' }, browseBattle: { minHeight: 34, borderRadius: 17, backgroundColor: '#E5F266', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }, browseBattleText: { color: '#17130B', fontSize: 11, fontWeight: '900' }, shareButton: { minHeight: 40, borderRadius: 20, backgroundColor: '#8B5CF6', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10 }, shareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
-  arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 24 },
+  // (21/09/2026) refonte "Joueurs disponibles" -- sélection multiple + barre
+  // fixe. Design System KEEP : violet = action principale, gris = secondaire
+  // ou désactivé, jamais de couleur seule pour un statut (texte toujours présent).
+  browseScroll: { flex: 1 }, browseScrollContent: { paddingBottom: 12 },
+  browsePlayerSelected: { borderColor: colors.primary, borderWidth: 2, backgroundColor: `${colors.primary}1A` },
+  browsePlayerIneligible: { opacity: 0.5 },
+  battleCheckbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  battleCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  battleCheckboxDisabled: { opacity: 0.4 },
+  battleCheckboxMark: { color: '#FFF', fontSize: 14, fontWeight: '900' },
+  battleStatusBadge: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  battleStatusBadgeText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  battleStatusBadgeMuted: { opacity: 0.75 },
+  battleStatusBadgeTextMuted: { color: colors.textMuted },
+  battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 22, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
+  battleSelectionCount: { color: colors.textPrimary, fontSize: 13, fontWeight: '800', flexShrink: 1 },
+  battleStartButton: { minHeight: 48, minWidth: 44, paddingHorizontal: 20, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  battleStartButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  battleStartButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  battleStartButtonTextDisabled: { color: colors.textMuted },
+  arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 48 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#30273A', backgroundColor: '#17121D' },
   squareTileFill: { flex: 1, justifyContent: 'space-between' }, squareTileImage: { resizeMode: 'cover' },

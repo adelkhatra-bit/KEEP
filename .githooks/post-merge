@@ -1,0 +1,6 @@
+#!/bin/sh
+# KEEP -- resynchronise les sections dynamiques de PROJECT_STATE.md (branche,
+# dernier commit, 10 derniers commits) juste apres un `git pull`/merge.
+# Best-effort : ne bloque jamais le merge lui-meme.
+node scripts/update-project-state.cjs 2>/dev/null || true
+exit 0

@@ -8,6 +8,33 @@ const AUDITED_LEGACY_TEXT_COLORS = new Map([
     'packages/mobile/src/screens/DiscoverScreen.tsx',
     new Set(['#C9C2D4', '#AFA5BF', '#C9C0D4', '#D2CADB', '#AFA4BF']),
   ],
+  // Audit du 20/09/2026 : #8F879D et #6B6478 sont la teinte grise secondaire
+  // KEEP établie (hints, sous-libellés) -- utilisée de façon cohérente sur
+  // 5 fichiers Battle/Parties, pas des couleurs improvisées ponctuelles.
+  // Whitelistées comme DiscoverScreen.tsx ci-dessus plutôt que repeintes en
+  // blanc, ce qui aplatirait la hiérarchie visuelle voulue (texte principal
+  // vs indice secondaire) -- pas un changement de design, une correction du
+  // garde-fou pour refléter un choix déjà établi.
+  [
+    'packages/mobile/src/components/KeepBattleMobileGameV3.tsx',
+    new Set(['#8F879D']),
+  ],
+  [
+    'packages/mobile/src/components/KeepBattleSoloHistoryModal.tsx',
+    new Set(['#8F879D']),
+  ],
+  [
+    'packages/mobile/src/components/TrackListenControls.tsx',
+    new Set(['#8F879D']),
+  ],
+  [
+    'packages/mobile/src/screens/PartiesScreen.tsx',
+    new Set(['#8F879D']),
+  ],
+  [
+    'packages/mobile/src/components/WheelPicker.tsx',
+    new Set(['#6B6478']),
+  ],
 ]);
 
 function walk(dir) {

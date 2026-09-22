@@ -164,6 +164,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // KeepBattleMobileGameV3 une fois qu'on y est).
   const [incomingBattle, setIncomingBattle] = useState<KeepBattleIncomingChallenge[]>([]);
   const [incomingResponding, setIncomingResponding] = useState<string | null>(null);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   useEffect(() => {
     // Adel (03/09/2026) : "il doit être en soirée, il doit être dans Battle,
     // il est de partout pour pas le louper" -- ce bandeau doit vivre sur
@@ -230,7 +231,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   };
   const openMyRanking = () => {
     if (!user || isLocalGuest || isDemoMode) {
-      Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour retrouver ton classement et l’historique de tes Free.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour retrouver ton classement et l’historique de tes Free.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
       ]);
@@ -496,7 +497,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     }
   };
 
-  const requireAccount = () => Alert.alert('Compte Loki requis', 'Crée ou connecte ton compte Loki pour répondre aux soirées.', [
+  const requireAccount = () => Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour répondre aux soirées.', [
     { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
   ]);
 
@@ -513,7 +514,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       const request = await requestEventTicketPurchase(event.id);
       if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de lien de paiement personnel.`); return; }
       await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. KEEP ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
+      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Loki Music ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('CANNOT_BUY_OWN_TICKET')) Alert.alert('Impossible', 'Tu ne peux pas acheter un billet pour ta propre soirée.');
@@ -803,8 +804,8 @@ export default function PartiesScreen({ navigation, route }: any) {
           initialArenaId={pendingArenaId}
           onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
           onRequireAccount={() => Alert.alert(
-            'Compte Loki requis',
-            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            'Compte Loki Music requis',
+            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Music Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
             [
               { text: 'Plus tard', style: 'cancel' },
               { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
@@ -825,7 +826,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             un évènement, une porte ouverte, etc." -- l'ancien texte parlait
             de swipe/jeu (vocabulaire Battle) ; celui-ci ne nomme plus que
             les évènements eux-mêmes, sans présumer du type. */}
-        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki BATTLE' : 'Soirées'}</Text><Text style={styles.subtitle}>{partiesTab === 'BATTLE' ? 'Classement, solo ou multijoueur.' : 'Soirées, concerts, portes ouvertes… découvre les évènements et réponds en un geste.'}</Text></View>
+        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Soirées'}</Text><Text style={styles.subtitle}>{partiesTab === 'BATTLE' ? 'Classement, solo ou multijoueur.' : 'Soirées, concerts, portes ouvertes… découvre les évènements et réponds en un geste.'}</Text></View>
         {partiesTab === 'SOIREES' ? <TouchableOpacity style={[styles.createButton,!canCreate&&styles.createButtonLocked]} onPress={() => void openCreate()}><Text style={styles.createButtonText}>{createLabel}</Text></TouchableOpacity> : null}
       </View>
 
@@ -980,11 +981,11 @@ export default function PartiesScreen({ navigation, route }: any) {
               classement global, jouer en jaune au lieu de violet, le contour
               du bouton battle en jaune" -- le lanceur passe avant le
               classement, couleurs alignées sur le jaune de marque Battle. */}
-          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Battle">
+          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Music Battle">
             <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
             <View style={styles.battleLauncherCopy}>
               <View style={styles.battleLauncherKickerRow}>
-                <Text style={styles.battleLauncherKicker}>Loki BATTLE</Text>
+                <Text style={styles.battleLauncherKicker}>Loki Music BATTLE</Text>
                 {battleFreeBalance != null ? <View style={[styles.battleLauncherFreeBadge, { backgroundColor: `${myTierColors.colors[myTierColors.colors.length - 1]}33`, borderColor: myTierColors.ring }]}><Text style={[styles.battleLauncherFreeBadgeText, { color: myTierColors.ring }]}>{battleFreeBalance} Free</Text></View> : null}
               </View>
               <Text style={styles.battleLauncherTitle}>Salon musical</Text>
@@ -1047,12 +1048,41 @@ export default function PartiesScreen({ navigation, route }: any) {
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.matchesPlayed ?? statsEntry.matchesPlayed}</Text><Text style={styles.statsBigLabel}>Matchs</Text></View>
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.totalCorrect ?? statsEntry.totalCorrect}</Text><Text style={styles.statsBigLabel}>Bonnes rép.</Text></View>
                   </View>
-                  {statsData ? <View style={styles.statsSmallRow}>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>Free gagné</Text></View>
-                    <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>Free perdu</Text></View>
-                  </View> : null}
+                  {statsData ? <>
+                    <View style={styles.statsSmallRow}>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>Free gagné</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>Free perdu</Text></View>
+                    </View>
+                    <Text style={styles.statsSectionTitle}>DÉTAIL FREE</Text>
+                    <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:'#24192E'}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.creditHistoryLabel}>💰 Bilan Battle</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Gagné vs Perdu</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={{color: '#7CF2B9', fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
+                        <Text style={{fontSize: 10, color: '#8F879D', marginTop: 2}}>{expandedMatchId === `user-free-${statsEntry?.profileId}` ? '▼' : '▶'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {expandedMatchId === `user-free-${statsEntry?.profileId}` ? (
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#17121D', marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Free gagné</Text>
+                          <Text style={{color: '#7CF2B9', fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Free perdu</Text>
+                          <Text style={{color: '#FFB3C3', fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#312348', paddingTop: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Bilan net</Text>
+                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{statsData.freeWon - statsData.freeLost >= 0 ? '+' : ''}{statsData.freeWon - statsData.freeLost}</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </> : null}
                   {(statsData?.avgResponseMs ?? statsEntry.avgResponseMs) != null ? (
                     <Text style={styles.statsAvg}>⚡ {(((statsData?.avgResponseMs ?? statsEntry.avgResponseMs) as number) / 1000).toFixed(1)}s de temps de réponse moyen</Text>
                   ) : null}
@@ -1091,21 +1121,55 @@ export default function PartiesScreen({ navigation, route }: any) {
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
               </View>
               {myFreeBreakdown ? <>
-                <Text style={styles.statsSectionTitle}>HISTORIQUE ET SOLDE DES FREE</Text>
-                <Text style={styles.creditHistoryNextCredit}>📅 Prochain versement mensuel dans {(() => { const now = new Date(); const nextFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1); return Math.max(1, Math.ceil((nextFirst.getTime() - now.getTime()) / 86400000)); })()} jour(s) (le 1er du mois)</Text>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Total gagné</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.totalEarned}</Text></View>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Total dépensé / perdu</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.totalSpent}</Text></View>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Base invité + inscription</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.guestLimit + myFreeBreakdown.signupBonus}</Text></View>
-                {myFreeBreakdown.followerBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Bonus abonnés</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
-                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Parrainages ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
-                {myFreeBreakdown.monthlyBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Bonus mensuels</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
-                {myFreeBreakdown.adminGrant ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Ajustements Super Admin</Text><Text style={myFreeBreakdown.adminGrant > 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{myFreeBreakdown.adminGrant > 0 ? '+' : ''}{myFreeBreakdown.adminGrant}</Text></View> : null}
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Battle gagnés</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View>
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Battle perdus</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View>
+                <Text style={styles.statsSectionTitle}>SOURCES DES FREE</Text>
+                {myFreeBreakdown.guestLimit > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🎁 Essai invité</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.guestLimit}</Text></View> : null}
+                {myFreeBreakdown.signupBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🆕 Bonus inscription</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.signupBonus}</Text></View> : null}
+                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>👥 Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
+                {myFreeBreakdown.followerBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⭐ Followers bonus</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
+                {myFreeBreakdown.monthlyBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>📅 Bonus mensuel</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
+                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⚔️ Victoires Loki Music Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
+                {myFreeBreakdown.battleLost > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>   (Défaites)</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View> : null}
+                {myFreeBreakdown.adminGrant > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🛡️ Admin grant</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.adminGrant}</Text></View> : null}
                 <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
-                {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
+                {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🔒 Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
                 <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
-                {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => <View key={`${event.createdAt}-${index}`} style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'}{event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : ''} · {new Date(event.createdAt).toLocaleDateString('fr-FR')}</Text><Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text></View>) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
+                {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => {
+                  const matchId = `match-${event.createdAt}-${index}`;
+                  const isExpanded = expandedMatchId === matchId;
+                  const battleTypeLabel = event.battleType === 'SOLO' ? '🎯 SOLO' : event.battleType === 'ARENA' ? '⚡ Arena' : '⚔️ Duel';
+                  const themeLabel = event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : '';
+                  const timeStr = new Date(event.createdAt).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                  return <View key={matchId}>
+                    <TouchableOpacity style={[styles.creditHistoryRow, isExpanded && {backgroundColor:'#24192E'}]} onPress={() => setExpandedMatchId(isExpanded ? null : matchId)}>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
+                        <Text style={{fontSize: 10, color: '#8F879D', marginTop: 2}}>{isExpanded ? '▼' : '▶'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {isExpanded ? (
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#17121D', marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Type</Text>
+                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{battleTypeLabel.replace('🎯 ', '').replace('⚡ ', '').replace('⚔️ ', '')}</Text>
+                        </View>
+                        {event.themeCode ? (
+                          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                            <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Style</Text>
+                            <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{themeLabels[event.themeCode] || event.themeCode}</Text>
+                          </View>
+                        ) : null}
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#312348', paddingTop: 8}}>
+                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Détail Free</Text>
+                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700', textAlign: 'right'}}>{event.amount > 0 ? 'Gagné' : 'Perdu'} {Math.abs(event.amount)} Free</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>;
+                }) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
               </> : <Text style={styles.statsThemeEmpty}>Historique indisponible. Réessaie dans un instant.</Text>}
             </>;
           })()}
@@ -1185,7 +1249,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
-      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki ne touche jamais cet argent.</Text> : null}
+      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text> : null}
 
       {/* Adel (08/09/2026) : "les trucs à cocher tu les mets ensemble en
           dessous, à la fin ... que tu comprends l'idée" -- les trois
@@ -1313,6 +1377,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.publishSecondary} onPress={() => setReviewTarget(null)}><Text style={styles.publishSecondaryText}>Plus tard</Text></TouchableOpacity>
       </View></View>
     </Modal>
+
   </SafeAreaView>;
 }
 

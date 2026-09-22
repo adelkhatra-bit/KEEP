@@ -59,7 +59,7 @@ export default function PublicProfilePanel({ navigation }: any) {
       if (isLocalGuest || !supabase) {
         setUser(nextUser);
         if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
-        Alert.alert('Réseau enregistré', 'Le lien est conservé sur cet appareil. Il sera repris automatiquement lorsque tu créeras ton compte Loki.');
+        Alert.alert('Réseau enregistré', 'Le lien est conservé sur cet appareil. Il sera repris automatiquement lorsque tu créeras ton compte Loki Music.');
         return;
       }
       await createProfileService(supabase).saveOwnProfile(nextUser);

@@ -124,8 +124,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     if (!embedUrl && !externalPlayUrl) return;
     if (useSessionStore.getState().isActive) {
       Alert.alert(
-        'Écoute Loki en cours',
-        'Le micro Loki est encore actif. Arrête la session avant d’ouvrir ce morceau afin d’éviter une fausse détection.',
+        'Écoute Loki Music en cours',
+        'Le micro Loki Music est encore actif. Arrête la session avant d’ouvrir ce morceau afin d’éviter une fausse détection.',
         [
           { text: 'Continuer l’écoute', style: 'cancel' },
           { text: 'Arrêter et ouvrir', style: 'destructive', onPress: () => void (async () => { await stopKeepListening(); await openExternalNow(); })() },
@@ -170,7 +170,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
                     style: { border: 0, borderRadius: 12 },
                   })
                 : null}
-              <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki.</Text>
+              <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki Music.</Text>
             </View>
           </View>
         </Modal>

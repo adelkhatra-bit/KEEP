@@ -114,17 +114,25 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;
+  // Adel (18/09/2026, audit) : simplifyArtistCredit retourne un format
+  // différent de primaryArtistLabel (42 vs 28 char, règles de split différentes)
+  // -- utilisé PARTOUT pour la déduplication, cela crée des doublons masqués.
+  // Solution : utiliser primaryArtistLabel UNIQUEMENT, partout.
+  const primaryArtistLabel = (full: string) => {
+    const first = full.split(/\s*(?:,|&|\/|\+|\bfeat\.?\b|\bft\.?\b|\bx\b|\bet\b|\band\b|\bvs\.?\b)\s*/i)[0]?.trim() || full;
+    return first.length > 28 ? `${first.slice(0, 26).trim()}…` : first;
+  };
   const rounds = Array.isArray(raw.rounds) ? raw.rounds.map((round: any) => {
     const rawChoices: string[] = Array.isArray(round.choices) ? round.choices.map(String) : [];
-    const cleanedChoices = rawChoices.map(simplifyArtistCredit);
+    const cleanedChoices = rawChoices.map(primaryArtistLabel);
     const rawCorrect = String(round.correctAnswer || round.artist || '');
     const correctIndex = rawChoices.indexOf(rawCorrect);
-    const correctAnswer = correctIndex >= 0 ? cleanedChoices[correctIndex] : simplifyArtistCredit(rawCorrect);
+    const correctAnswer = correctIndex >= 0 ? cleanedChoices[correctIndex] : primaryArtistLabel(rawCorrect);
     return {
       position: Number(round.position || 0),
       trackId: String(round.trackId || ''),
       title: String(round.title || ''),
-      artist: simplifyArtistCredit(String(round.artist || '')) || correctAnswer,
+      artist: primaryArtistLabel(String(round.artist || '')) || correctAnswer,
       artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
       previewUrl: String(round.previewUrl || ''),
       themeCode: round.themeCode ? String(round.themeCode).toUpperCase() : null,
@@ -133,15 +141,35 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     };
   }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
-  // Le serveur historique renvoie trois choix. Pour conserver la même source
-  // musicale et garantir quatre réponses sans inventer d'artiste, on complète
-  // chaque manche avec un artiste d'une autre manche du pack, déjà validé par
-  // le catalogue et distinct des choix présents.
+  // Adel (18/09/2026) : "il faut au moins quatre réponses ... aucun doublon ...
+  // une seule bonne réponse" -- le serveur historique renvoie 3 choix. Pour
+  // conserver la même source musicale et garantir EXACTEMENT 4 réponses sans
+  // doublons ni inventer d'artiste, on complète chaque manche avec un artiste
+  // d'une autre manche du pack, déjà validé par le catalogue et distinct des
+  // choix présents.
   rounds.forEach((round: KeepBattleSoloRound) => {
     const unique = Array.from(new Set(round.choices.filter(Boolean)));
-    for (const candidate of rounds.map((item: KeepBattleSoloRound) => item.artist)) {
+    // Adel (18/09/2026, CRITICAL BUG) : les candidats étaient les BONNES
+    // RÉPONSES d'autres manches, créant ainsi 2+ bonnes réponses par manche.
+    // Solution: utiliser les CHOICES (mauvaises réponses) d'autres manches.
+    // IMPORTANT: s'assurer que correctAnswer est TOUJOURS incluse dans les 4 réponses.
+    // Adel (19/09/2026) : les choix incorrects doivent rester dans le même genre
+    // musical (même themeCode) pour que le jeu soit cohérent et pas trop facile.
+    // Priorité 1: même themeCode ; Priorité 2: autres themeCode si pas assez.
+    const sameThemeCandidates = rounds
+      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist && item.themeCode === round.themeCode)
+      .flatMap((item: KeepBattleSoloRound) => item.choices);
+    const otherThemeCandidates = rounds
+      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist && item.themeCode !== round.themeCode)
+      .flatMap((item: KeepBattleSoloRound) => item.choices);
+    const allCandidates = [...sameThemeCandidates, ...otherThemeCandidates];
+    for (const candidate of allCandidates) {
       if (unique.length >= 4) break;
       if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
+    }
+    // S'assurer que correctAnswer est dans unique (obligatoire pour le composant)
+    if (!unique.some((value) => value.toLocaleLowerCase() === round.correctAnswer.toLocaleLowerCase())) {
+      unique.unshift(round.correctAnswer);
     }
     round.choices = unique.slice(0, 4);
   });
