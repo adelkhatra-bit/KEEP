@@ -1338,11 +1338,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     );
   };
 
-  const challenge = async (player: KeepBattleLivePlayer) => {
-    if (challengeBusyId) return;
+  const challenge = async (player: KeepBattleLivePlayer): Promise<boolean> => {
+    if (challengeBusyId) return false;
+    if (insufficientForRoundCount(roundCount)) {
+      notEnoughFreeAlert(`Il te faut au moins ${stakeForRounds(roundCount)} Free pour lancer un Battle de ${roundCount} morceaux`);
+      return false;
+    }
     if (insufficientForOpponent(player)) {
       Alert.alert('Battle', `${player.username} n’a pas assez de Free pour jouer ${roundCount} morceaux maintenant.`);
-      return;
+      return false;
     }
     // Adel (03/09/2026) : "j'entends pas le son" -- le camp qui ENVOIE le
     // défi ne retape jamais rien au moment où l'autre accepte (détecté par
@@ -1376,6 +1380,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         setBuildingArena(arenaId);
       }
       await sendBattleArenaChallenge(arenaId, player.profileId);
+      return true;
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT') || message.includes('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert(`Il te faut au moins ${parseRequiredFree(message, stakeForRounds(roundCount))} Free pour lancer un Battle de ${roundCount} morceaux`);
@@ -1394,6 +1399,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       else if (message.includes('BATTLE_DAILY_INVITE_LIMIT_REACHED')) Alert.alert('Battle', 'Tu as atteint le nombre d’invitations Battle autorisées aujourd’hui. Réessaie demain.');
       else Alert.alert('Battle', `${player.username} n’est plus disponible.`);
       void refreshSocial();
+      return false;
     } finally {
       setChallengeBusyId(null);
     }
@@ -1441,9 +1447,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (targets.length < 1) return;
     setStartingGroupBattle(true);
     try {
+      let sentCount = 0;
       for (const player of targets) {
-        await challenge(player);
+        if (await challenge(player)) sentCount += 1;
       }
+      if (sentCount < 1) return;
       setSelectedBattlePlayerIds(new Set());
       const finalArenaId = buildingArenaIdRef.current;
       if (finalArenaId) {
@@ -1975,7 +1983,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           face de l'invité" -- rangée compacte (avatar + pseudo + bouton),
           au lieu de cartes empilées verticalement dans un scroll horizontal
           qui poussait le bouton hors de l'écran visible. */}
-      {enabled ? <View style={s.live}><View style={s.liveHeader}><View style={s.dot} /><Text style={s.liveTitle}>{livePlayers.length ? `${livePlayers.length} joueur${livePlayers.length > 1 ? 's' : ''} disponible${livePlayers.length > 1 ? 's' : ''}` : 'Tu es visible pour les Battles'}</Text></View>{livePlayers.length ? <View style={s.liveList}>{livePlayers.slice(0, 3).map((p) => <View key={p.profileId} style={s.liveRowCompact}><TouchableOpacity style={s.liveRowLeft} onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={32} /><PresenceDot online /><Text numberOfLines={1} style={s.liveRowName}>{p.username}{p.skillTier ? ` · ${tierLabel(p.skillTier)}` : ''}</Text></TouchableOpacity>{(() => { const sent = outgoingPendingTargetIds.has(p.profileId); const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now; const blocked = blockedMs > 0; return <TouchableOpacity disabled={Boolean(challengeBusyId) || sent || blocked} style={[s.battleButton, challengeBusyId === p.profileId && s.battleButtonSending, sent && s.battleButtonSent, blocked && s.battleButtonBlocked, challengeBusyId && challengeBusyId !== p.profileId && s.actionDisabled]} onPress={() => { void challenge(p); }}><Text style={[s.battleButtonText, sent && s.battleButtonSentText, blocked && s.battleButtonBlockedText]}>{challengeBusyId === p.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : sent ? 'ENVOYÉ ✓' : 'BATTLE'}</Text></TouchableOpacity>; })()}</View>)}</View> : null}</View> : null}
+      {enabled ? <View style={s.live}><View style={s.liveHeader}><View style={s.dot} /><Text style={s.liveTitle}>{livePlayers.length ? `${livePlayers.length} joueur${livePlayers.length > 1 ? 's' : ''} disponible${livePlayers.length > 1 ? 's' : ''}` : 'Tu es visible pour les Battles'}</Text></View>{livePlayers.length ? <View style={s.liveList}>{livePlayers.slice(0, 3).map((p) => <View key={p.profileId} style={s.liveRowCompact}><TouchableOpacity style={s.liveRowLeft} onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={32} /><PresenceDot online /><Text numberOfLines={1} style={s.liveRowName}>{p.username}{p.skillTier ? ` · ${tierLabel(p.skillTier)}` : ''}</Text></TouchableOpacity>{(() => { const sent = outgoingPendingTargetIds.has(p.profileId); const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now; const blocked = blockedMs > 0; const selfShort = insufficientForRoundCount(roundCount); const targetShort = insufficientForOpponent(p); const creditBlocked = selfShort || targetShort; return <TouchableOpacity disabled={Boolean(challengeBusyId) || sent || blocked || creditBlocked} style={[s.battleButton, challengeBusyId === p.profileId && s.battleButtonSending, sent && s.battleButtonSent, blocked && s.battleButtonBlocked, creditBlocked && s.battleButtonCreditBlocked, challengeBusyId && challengeBusyId !== p.profileId && s.actionDisabled]} onPress={() => { void challenge(p); }}><Text style={[s.battleButtonText, sent && s.battleButtonSentText, blocked && s.battleButtonBlockedText, creditBlocked && s.battleButtonCreditBlockedText]}>{challengeBusyId === p.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : sent ? 'ENVOYÉ ✓' : selfShort ? 'FREE INSUFF.' : targetShort ? 'FREE INSUFF.' : 'BATTLE'}</Text></TouchableOpacity>; })()}</View>)}</View> : null}</View> : null}
       </ScrollView>
       {renderPlayerStatsModal()}
     </View>;
@@ -2394,6 +2402,8 @@ const s = StyleSheet.create({
   // hauteur sans toucher au Design de la barre d'onglets elle-même.
   soloScroll: { flexGrow: 1, paddingBottom: 48 },
   live: { marginTop: 14, padding: 7, borderRadius: 16, backgroundColor: '#100D14' }, liveHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 }, dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#6EE8A7' }, liveTitle: { color: '#FFF', fontSize: 12, fontWeight: '900' }, liveList: { gap: 6, paddingTop: 7 }, liveRowCompact: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 40, paddingHorizontal: 7, borderRadius: 14, backgroundColor: '#18131F' }, liveRowLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 }, liveRowName: { flex: 1, color: '#FFF', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline' }, avatarFallback: { backgroundColor: '#2B2235', alignItems: 'center', justifyContent: 'center' }, avatarLetter: { color: '#FFF', fontSize: 16, fontWeight: '900' }, username: { color: '#FFF', fontSize: 11, fontWeight: '800', marginTop: 3, maxWidth: 70 }, battleButton: { minHeight: 26, paddingHorizontal: 7, borderRadius: 13, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', marginTop: 4 }, battleButtonText: { color: '#17130B', fontSize: 11, fontWeight: '900' }, battleButtonSending: { backgroundColor: '#8A7E4A', opacity: .85 }, battleButtonSent: { backgroundColor: '#1B1422', borderWidth: 1, borderColor: '#6EE8A7' }, battleButtonSentText: { color: '#6EE8A7' }, battleButtonBlocked: { backgroundColor: '#1B1422', borderWidth: 1, borderColor: '#FF5F83' }, battleButtonBlockedText: { color: '#FF5F83' }, invite: { marginTop: 10, minHeight: 142, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 24, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#1B1222', justifyContent: 'center' }, inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }, inviteActions: { flexDirection: 'row', gap: 12, width: '100%' }, inviteLabel: { color: '#E5F266', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 4 }, inviteName: { color: '#FFF', fontSize: 17, lineHeight: 22, fontWeight: '900' }, inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22, fontWeight: '800' }, inviteConnecting: { color: '#E5F266', fontSize: 13, lineHeight: 18, fontWeight: '900', textAlign: 'center', marginBottom: 8, letterSpacing: .5 }, no: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' }, noText: { color: '#FFF', fontSize: 16, fontWeight: '900' }, yes: { flex: 1, minHeight: 64, paddingHorizontal: 16, borderRadius: 32, borderWidth: 3, borderColor: '#E5F266', backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, yesText: { color: '#17130B', fontSize: 16, fontWeight: '900' }, actionDisabled: { opacity: .62 }, versus: { position: 'absolute', zIndex: 20, left: 16, right: 16, top: 120, padding: 18, borderRadius: 24, backgroundColor: '#22152D', borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center' }, versusText: { color: '#E5F266', fontSize: 25, fontWeight: '900' }, versusNames: { color: '#FFF', fontSize: 12, fontWeight: '900', marginTop: 5 }, duel: { marginBottom: 6 }, duelNames: { flexDirection: 'row', alignItems: 'center' }, duelName: { color: '#FFF', fontSize: 13, fontWeight: '900' }, duelScore: { color: '#E5F266', fontSize: 15, fontWeight: '900' }, duelCenter: { minWidth: 46, alignItems: 'center', justifyContent: 'center' }, duelTimer: { color: '#FFF', fontSize: 11, fontWeight: '900', marginTop: 2 }, duelPoints: { color: '#FFF', fontSize: 13, fontWeight: '900', marginTop: 3 }, teamMembers: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 }, teamChip: { paddingHorizontal: 6, minHeight: 22, borderRadius: 11, backgroundColor: '#1D1625', alignItems: 'center', justifyContent: 'center' }, teamChipText: { color: '#FFF', fontSize: 11, fontWeight: '800' }, power: { height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: '#2A2032', flexDirection: 'row', position: 'relative', marginTop: 7 }, powerLeft: { height: '100%', backgroundColor: '#8B5CF6' }, powerRight: { flex: 1, height: '100%', backgroundColor: '#E14E78' }, powerMiddle: { position: 'absolute', zIndex: 3, left: '50%', width: 2, height: '100%', backgroundColor: '#FFF' }, waiting: { padding: 14, borderRadius: 21, backgroundColor: '#120E17', borderWidth: 1, borderColor: '#30263A', alignItems: 'center' }, trophy: { fontSize: 34 }, winner: { color: '#FFF', fontSize: 19, fontWeight: '900', marginTop: 3 }, waitText: { color: '#FFF', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 6 }, browseText: { color: '#FFF', fontSize: 11, lineHeight: 16, marginBottom: 10 }, browseList: { gap: 7 }, browsePlayer: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 17, borderWidth: 1, borderColor: '#30273A', backgroundColor: '#151020', padding: 9 }, browseNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 }, browseName: { color: '#FFF', fontSize: 13, fontWeight: '900', textDecorationLine: 'underline' }, browseChevron: { color: '#8F879D', fontSize: 16, fontWeight: '900' }, browseAvatarDot: { position: 'absolute', right: -1, bottom: -1 }, browseRankBadge: { color: '#E5F266', fontSize: 12, fontWeight: '900' }, browseMeta: { color: '#6EE8A7', fontSize: 11, fontWeight: '800', marginTop: 2 }, browseMetaShort: { color: '#FF5F83' }, browseBattle: { minHeight: 34, borderRadius: 17, backgroundColor: '#E5F266', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }, browseBattleText: { color: '#17130B', fontSize: 11, fontWeight: '900' }, shareButton: { minHeight: 40, borderRadius: 20, backgroundColor: '#8B5CF6', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10 }, shareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
+  battleButtonCreditBlocked: { opacity: .58, borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,0.10)' },
+  battleButtonCreditBlockedText: { color: colors.danger },
   // (21/09/2026) refonte "Joueurs disponibles" -- sélection multiple + barre
   // fixe. Design System KEEP : violet = action principale, gris = secondaire
   // ou désactivé, jamais de couleur seule pour un statut (texte toujours présent).
