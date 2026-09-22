@@ -196,8 +196,8 @@ const s = StyleSheet.create({
   networkBlock: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 },
   logo: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' },
   connectionState: { color: colors.textMuted, fontSize: 11, fontWeight: '800', marginTop: 1 },
-  input: { minHeight: 42, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.background },
+  input: { minHeight: 44, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.background },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 },
-  primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 13, fontWeight: '900' },
-  secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  primaryButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  secondaryButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
 });
