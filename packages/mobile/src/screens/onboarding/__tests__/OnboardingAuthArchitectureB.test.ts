@@ -60,6 +60,13 @@ describe('UsernameAccountForm -- champs agrandis, tooltips, force à 2 tons (Ade
     expect(form).not.toContain('minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14');
   });
 
+  it('utilise un gris clair pour les placeholders afin de distinguer le texte indicatif du texte saisi', () => {
+    const placeholders = form.match(/placeholderTextColor=\{colors\.textMutedGrey\}/g) || [];
+    expect(placeholders).toHaveLength(4);
+    expect(form).not.toContain('placeholderTextColor={colors.textMuted}');
+    expect(form).toContain('color:colors.textPrimary');
+  });
+
   it('tooltip ⓘ tap-to-reveal sur pseudo et e-mail, texte conservé (pas supprimé, juste replié)', () => {
     expect(form).toContain("const [openTip, setOpenTip] = useState<'username' | 'email' | null>(null);");
     expect(form).toContain("setOpenTip((v) => (v === 'username' ? null : 'username'))");
