@@ -1,5 +1,10 @@
 # KEEP — Reste à faire (par priorité, cf. cahier des charges §93)
 
+> ⚠️ **ARCHIVÉ (22/09/2026)** : ce fichier date d'août 2026 et n'est plus
+> maintenu. Pour les chantiers ouverts actuels, voir **`PROJECT_STATE.md`**
+> (section « Points ouverts ») et **`BACKLOG.md`** à la racine du repo.
+> Conservé tel quel pour l'historique (rien ne disparaît).
+
 ## Priorité 1-2 — Cœur musical (EN COURS)
 - [x] Débloquer npm/Expo — fait en session locale le 21/08/2026 (voir
       PROJECT_STATUS.md "Session locale du 21/08/2026") : `npm install`

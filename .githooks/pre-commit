@@ -1,0 +1,21 @@
+#!/bin/sh
+# KEEP -- rappel PROJECT_STATE.md avant commit (voir PROJECT_STATE.md,
+# section "Regle imposee a toute IA"). Volontairement NON BLOQUANT : sur un
+# depot travaille par plusieurs agents IA + Adel en parallele, un hook qui
+# bloque un commit legitime cause plus de degats (session bloquee, agent qui
+# ne sait pas contourner) qu'un rappel qu'on peut ignorer en connaissance de
+# cause. Ne fait jamais echouer `git commit` (exit 0 dans tous les cas).
+staged=$(git diff --cached --name-only)
+if [ -z "$staged" ]; then
+  exit 0
+fi
+if ! echo "$staged" | grep -q "^PROJECT_STATE\.md$"; then
+  echo ""
+  echo "Rappel PROJECT_STATE.md : ce commit ne met pas a jour PROJECT_STATE.md."
+  echo "Si ce commit change une fonctionnalite/API/regle importante :"
+  echo "  node scripts/update-project-state.cjs   (regenere l'etat git)"
+  echo "  + editer a la main la section 'Points ouverts' si besoin."
+  echo "(rappel non bloquant -- le commit continue)"
+  echo ""
+fi
+exit 0

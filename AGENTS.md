@@ -9,9 +9,12 @@ dans ce dossier EN PARALLÈLE de Claude Code.
 
 ## 🧠 MÉMOIRE PARTAGÉE
 
+- **Avant toute session, lire `PROJECT_STATE.md`** (racine du repo) : tableau de bord unique (état git, fonctionnalités actives, points ouverts, APIs).
 - Avant toute action, consulte le dossier `.context/` pour connaître l'état actuel du projet.
 - Lis en priorité `.context/activeContext.md` pour savoir où on en est.
-- À la fin de chaque session importante, mets à jour `.context/activeContext.md` avec ce qui a été fait et ce qui reste à faire.
+- À la fin de chaque session importante, mets à jour `.context/activeContext.md` **et** la section « Points ouverts » de `PROJECT_STATE.md`.
+- Avant un commit significatif : `node scripts/update-project-state.cjs`.
+- **Une fois par clone** : `git config core.hooksPath .githooks` (rappel pre-commit + sync post-merge de `PROJECT_STATE.md`).
 
 La mémoire `.context/` transmet l'état de travail entre agents ; elle ne remplace ni le code, ni le schéma Supabase réel, ni les règles de `CLAUDE.md` et `AGENTS.md`.
 

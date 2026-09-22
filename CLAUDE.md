@@ -8,9 +8,12 @@ Adel est francophone. Toute réponse, tout message, toute mise à jour à destin
 
 ## 🧠 MÉMOIRE PARTAGÉE
 
+- **Avant toute session, lire `PROJECT_STATE.md`** (racine du repo) : tableau de bord unique (état git, fonctionnalités actives, points ouverts, APIs) qui articule tous les fichiers de mémoire ci-dessous sans les dupliquer.
 - Avant toute action, consulte le dossier `.context/` pour connaître l'état actuel du projet.
 - Lis en priorité `.context/activeContext.md` pour savoir où on en est.
-- À la fin de chaque session importante, mets à jour `.context/activeContext.md` avec ce qui a été fait et ce qui reste à faire.
+- À la fin de chaque session importante, mets à jour `.context/activeContext.md` **et** la section « Points ouverts » de `PROJECT_STATE.md` avec ce qui a été fait et ce qui reste à faire.
+- Avant un commit significatif : `node scripts/update-project-state.cjs` (régénère les sections git de `PROJECT_STATE.md`).
+- **Configuration une fois par clone** (hooks Git non versionnés par défaut dans `.git/hooks`) : `git config core.hooksPath .githooks` — active un rappel pre-commit non bloquant + une resynchronisation automatique post-merge de `PROJECT_STATE.md`.
 
 Cette mémoire facilite la continuité entre agents. Le code, le schéma Supabase réel, `CLAUDE.md` et `AGENTS.md` restent les sources de vérité en cas d'écart.
 

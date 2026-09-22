@@ -1,5 +1,10 @@
 # KEEP — Statut du projet
 
+> ⚠️ **ARCHIVÉ (22/09/2026)** : ce fichier date d'août 2026, avant la refonte
+> design, Loki Battle, la marketplace et le renommage Loki Music. Il n'est
+> plus maintenu. Pour l'état actuel du projet, voir **`PROJECT_STATE.md`** à
+> la racine du repo. Conservé tel quel pour l'historique (rien ne disparaît).
+
 Dernière mise à jour : 2026-08-21, session locale (machine d'Adel — voir
 "Session locale du 21/08/2026" ci-dessous, qui lève la contrainte réseau
 décrite dans la note "session cloud" juste en dessous ; cette note cloud est
