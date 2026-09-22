@@ -148,6 +148,10 @@ Avant modification, lire :
 1. `CLAUDE.md`
 2. `AGENTS.md`
 3. les derniers messages de `AGENT_MESSAGES.md`
+4. `AI/AI_INSTRUCTIONS.md` pour les instructions arrivées par le relais ChatGPT ↔ Claude Code
+5. `AI/AI_REPORT.md` pour l'état du dernier relais Claude → ChatGPT
+
+Le relais canonique est `keep-ai-relay` + `public.ai_relay_messages`. Ne créer aucun second canal IA et ne recopier aucun secret dans le dépôt. Après une étape notable pilotée par le relais, mettre à jour `AI/AI_REPORT.md` et le journal partagé.
 
 Utiliser `scripts/agent-lock.cjs` avant de toucher les mêmes fichiers qu'un autre agent. Une IA ne doit jamais supposer le nom d'une table, d'une route ou d'une branche : vérifier le dépôt et le schéma réel.
 
