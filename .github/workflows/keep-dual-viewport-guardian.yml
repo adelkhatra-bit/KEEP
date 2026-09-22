@@ -210,6 +210,8 @@ jobs:
             const save=page.getByText('Enregistrer sur cet appareil',{exact:true}).last();
             await save.waitFor({state:'visible',timeout:15000});
             await save.click();
+            await page.getByText('✓ Profil enregistré',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Retour au profil').last().click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
             await openEdit(page);
