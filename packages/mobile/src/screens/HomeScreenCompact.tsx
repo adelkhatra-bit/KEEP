@@ -418,27 +418,29 @@ export default function HomeScreenCompact({ navigation }: any) {
             navigateur pouvait refuser la permission (bannière rouge juste en
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
-        <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{error ? 'MICRO · BLOQUÉ' : recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
-
-        <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
-          <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
-            <Animated.View pointerEvents="none" style={[s.signalGlow, { opacity: liveGlowOpacity }]} />
-            <Animated.View pointerEvents="none" style={[s.signalTop, { opacity: topOpacity }]} />
-            <Animated.View pointerEvents="none" style={[s.signalRight, { opacity: rightOpacity }]} />
-            <Animated.View pointerEvents="none" style={[s.signalBottom, { opacity: bottomOpacity }]} />
-            <Animated.View pointerEvents="none" style={[s.signalLeft, { opacity: leftOpacity }]} />
-            <View style={s.stats}>
-              <MiniStat value={elapsed} label="Durée" />
-              <MiniStat value={String(detected)} label="Détectés" />
-              <MiniStat value={String(kept)} label="Gardés" />
-            </View>
-          </Animated.View>
-        </ListenEnergyAura>
+        <View style={s.livePanel}>
+          <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{error ? 'MICRO · BLOQUÉ' : recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
+  
+          <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
+            <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
+              <Animated.View pointerEvents="none" style={[s.signalGlow, { opacity: liveGlowOpacity }]} />
+              <Animated.View pointerEvents="none" style={[s.signalTop, { opacity: topOpacity }]} />
+              <Animated.View pointerEvents="none" style={[s.signalRight, { opacity: rightOpacity }]} />
+              <Animated.View pointerEvents="none" style={[s.signalBottom, { opacity: bottomOpacity }]} />
+              <Animated.View pointerEvents="none" style={[s.signalLeft, { opacity: leftOpacity }]} />
+              <View style={s.stats}>
+                <MiniStat value={elapsed} label="Durée" />
+                <MiniStat value={String(detected)} label="Détectés" />
+                <MiniStat value={String(kept)} label="Gardés" />
+              </View>
+            </Animated.View>
+          </ListenEnergyAura>
+        </View>
 
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{/microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
-        <Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text>
+        <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text><View style={s.sectionCount}><Text style={s.sectionCountText}>{detected}</Text></View></View>
 
         {tracks.length > 1 ? (
           <View style={s.queueNav}>
@@ -510,7 +512,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       </ScrollView>
 
       <View style={s.footerActions}>
-        <TouchableOpacity style={s.secondary} onPress={finishSession}><Text style={s.secondaryText}>{t('session.endNow')}</Text></TouchableOpacity>
+        <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Arrêter l'écoute"><Text style={s.secondaryText}>■  ARRÊTER L’ÉCOUTE</Text></TouchableOpacity>
       </View>
 
       <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => setKeepChoiceOpen(false)}>
@@ -581,9 +583,13 @@ export default function HomeScreenCompact({ navigation }: any) {
 
 function TopBar({ navigation }: any) {
   return <View style={s.topBar}>
-    <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')}><Text style={s.roundText}>☰</Text></TouchableOpacity>
-    <Text style={s.brand}>Loki Music</Text>
-    <View style={s.topBarSpacer} />
+    <View style={s.topTitleWrap}>
+      <Text style={s.topEyebrow}>LOKI MUSIC</Text>
+      <Text style={s.brand}>Écouter</Text>
+    </View>
+    <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel="Ouvrir mes sessions">
+      <Text style={s.roundText}>☰</Text>
+    </TouchableOpacity>
   </View>;
 }
 
