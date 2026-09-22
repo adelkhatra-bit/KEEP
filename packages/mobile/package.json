@@ -5,16 +5,17 @@
   "scripts": {
     "start": "expo start",
     "start:web": "expo start --web",
-    "prebuild:clean": "expo prebuild --clean",
-    "prebuild:ios": "expo prebuild --platform ios --clean",
-    "build:ios:local": "eas build --platform ios --local",
+    "prebuild:clean": "node scripts/generate-notification-sounds.cjs && expo prebuild --clean",
+    "prebuild:ios": "node scripts/generate-notification-sounds.cjs && expo prebuild --platform ios --clean",
+    "build:ios:local": "node scripts/generate-notification-sounds.cjs && eas build --platform ios --local",
     "ios:dev": "expo run:ios --device",
     "android": "expo run:android",
     "test": "node scripts/verify-profile-hierarchy.cjs && node scripts/verify-production-resilience.cjs && jest",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "install:all": "npm install && npm run type-check",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "postinstall": "node scripts/generate-notification-sounds.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
