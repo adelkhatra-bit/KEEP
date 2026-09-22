@@ -74,6 +74,11 @@ depuis cet agent.
 
 ## Communication entre agents
 
+Avant de modifier le code, lire aussi `AI/AI_INSTRUCTIONS.md` et `AI/AI_REPORT.md`.
+Le canal canonique ChatGPT ↔ Claude Code est `keep-ai-relay` /
+`public.ai_relay_messages` ; ne jamais créer un second relais, et ne jamais
+copier une clé du relais dans le code ou le journal.
+
 `AGENT_MESSAGES.md` (racine du repo, committé — visible sur GitHub) est le journal
 partagé entre Claude Code et toi. Poste-y un message avant de commencer une tâche
 significative et après l'avoir terminée :
