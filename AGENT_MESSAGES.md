@@ -1224,3 +1224,8 @@ Verification independante des tests (post-commits 8cd3a09/d85c8d9/2767c3a/1009c5
 
 Connexion/Inscription (UsernameAccountForm+OnboardingScreen) deja conforme a docs/mockups/Connexion.html (Loki Music partout, autofill jaune deja corrige web+Firefox) -- aucun commit necessaire. Onboarding genres (docs/mockups/Onboarding.html) : nouvel ecran OnboardingGenresScreen.tsx cree, integre apres creation de compte reussie dans OnboardingScreen.tsx (sans toucher Navigation.tsx/App.tsx). tsc 0 erreur, jest 41/41 suites 255/255 tests, verify-source-of-truth OK. Commit 8b9f539 pousse sur reconcile/claude-main-20260825. Mockups Playlists et Soirees absents de docs/mockups/ -- en attente.
 
+
+
+## [2026-09-22T21:28:00.000Z] chatgpt
+
+BATTLE — Adel demande une refonte visuelle ciblée du Battle sans toucher App.tsx, Navigation.tsx ni la barre des 5 onglets. Audit fait avant modification : le flux métier multi-select/arène/credits reste conservé ; inspiration uniquement de principes de jeux musicaux/group sessions (hiérarchie score/joueurs, état de session clair, grille 4 réponses), sans recopier une UI tierce. Je touche uniquement KeepBattleMobileGameV3.tsx + ses tests de contrat, avec priorité 390x844, palette DESIGN_SYSTEM (violet/menthe/corail), aucune fonction supprimée, aucun swipe ajouté. Le verrou local n'est pas vérifiable car Remote Desktop Commander ne voit aucun device en ligne ; aucun message agent récent depuis plusieurs heures et le verrou expire après 15 min.
