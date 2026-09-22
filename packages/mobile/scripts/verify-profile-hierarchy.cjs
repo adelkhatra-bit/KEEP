@@ -24,14 +24,15 @@ function assertIncludes(source, marker, label) {
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
   '{user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}',
+  'accessibilityLabel="Partager mon profil"',
+  '<View style={s.collectionHeader}>',
+  '<View style={s.tabsRow}>',
+  '<View style={s.communitySection}>',
   "{ value: profileFollowerCount, label: 'Abonnés',",
   '<CommunityConnectionsPanel userId={user.id}',
-  '<Text style={s.socialTitle}>Mes réseaux</Text>',
-  'accessibilityLabel="Partager mon profil"',
-  '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
-  '<View style={s.keepCounters}>',
   "{ value: profileTotalKeepCount, label: 'Morceaux'",
-  '<View style={s.tabs}>',
+  '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
+  '<Text style={s.socialTitle}>Mes réseaux</Text>',
 ], 'Owner profile collective hierarchy');
 
 if ((owner.match(/accessibilityLabel="Partager mon profil"/g) || []).length !== 1) {
@@ -42,21 +43,23 @@ if ((owner.match(/accessibilityLabel="Prévisualiser ma collection en Swipe"/g) 
 }
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
-assertIncludes(owner, 'keepCounters:{marginHorizontal:18}', 'Owner Loki counter frame');
+assertIncludes(owner, 'communitySection:{marginHorizontal:18,gap:2}', 'Owner community counter frame');
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
+  '<View style={styles.unifiedCounters}>',
   "{ value: followerCount, label: 'Abonnés'",
-  '<Text style={styles.socialTitle}>Ses réseaux</Text>',
-  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
-  '<Text style={styles.swipeLaunchTitle}>▶ DÉCOUVRIR SA COLLECTION EN SWIPE</Text>',
-  '<View style={styles.visitorKeepCounters}>',
+  '<CommunityConnectionsPanel userId={profile.id}',
   "{ value: directKeepCount, label: 'Morceaux' }",
+  '<View style={styles.collectionHeader}>',
+  '<View style={styles.tabsRow}>',
+  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<View style={styles.publicMusicSection}>',
+  '<Text style={styles.socialTitle}>Ses réseaux</Text>',
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
-assertIncludes(visitor, 'visitorKeepCounters:{marginHorizontal:18}', 'Visited Loki counter frame');
+assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2}', 'Visited unified counter frame');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
 assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
