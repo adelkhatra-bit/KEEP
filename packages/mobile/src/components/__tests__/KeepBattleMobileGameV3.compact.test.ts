@@ -342,7 +342,9 @@ describe('Loki Music Battle credit gating from SOLO invite rail (audit 22/09/202
   });
 
   it('rechecks the sender credit before any challenge leaves the device', () => {
-    expect(battle).toContain('if (insufficientForRoundCount(roundCount)) {');
+    expect(battle).toContain('const freshCredit = await loadMyKeepBattleCreditStatus().catch(() => myCreditStatus);');
+    expect(battle).toContain('const senderShort = freshCredit');
+    expect(battle).toContain('if (senderShort) {');
     expect(battle).toContain('return false;');
   });
 
