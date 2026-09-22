@@ -103,12 +103,15 @@ jobs:
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
-          async function openAdvancedFromEdit(page) {
-            const advanced=page.getByText('Réglages avancés du profil',{exact:true}).last();
-            await advanced.waitFor({state:'visible',timeout:15000});
-            await advanced.scrollIntoViewIfNeeded();
-            await advanced.click();
-            await page.getByText('Réglages avancés',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          async function openPublicProfileSettings(page) {
+            await page.getByText('Profil',{exact:true}).last().click();
+            const menu=page.getByLabel('Menu du profil').last();
+            await menu.waitFor({state:'visible',timeout:15000});
+            await menu.click();
+            const entry=page.getByText('🌐 Profil public, réseaux & site web',{exact:true}).last();
+            await entry.waitFor({state:'visible',timeout:15000});
+            await entry.click();
+            await page.getByText('Réseaux sociaux',{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
           async function assertNoOverflow(page,label) {
@@ -211,12 +214,15 @@ jobs:
 
             await openEdit(page);
             await assertProfileForm(page);
-            await openAdvancedFromEdit(page);
+            await openPublicProfileSettings(page);
             const instagram=page.getByPlaceholder('Lien Instagram').last();
             await instagram.waitFor({state:'visible',timeout:15000});
             await instagram.fill(INSTAGRAM);
-            await page.getByLabel('Enregistrer Instagram').last().click();
+            await page.getByPlaceholder('Lien Instagram').last().locator('xpath=..').getByText('Enregistrer',{exact:true}).click();
             await page.getByText('Connecté au profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('‹ Menu',{exact:true}).last().click();
+            await page.getByText('Fermer',{exact:true}).last().click();
+            await openEdit(page);
             await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
@@ -225,7 +231,7 @@ jobs:
             if(await tryFree.isVisible().catch(()=>false)) await tryFree.click();
             await openEdit(page);
             await assertProfileForm(page);
-            await openAdvancedFromEdit(page);
+            await openPublicProfileSettings(page);
             const instagramReload=page.getByPlaceholder('Lien Instagram').last();
             await instagramReload.waitFor({state:'visible',timeout:15000});
             if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
