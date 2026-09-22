@@ -330,6 +330,29 @@ describe('Loki Music Battle persistent group invitations', () => {
   });
 });
 
+describe('Loki Music Battle credit gating from SOLO invite rail (audit 22/09/2026)', () => {
+  const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+
+  it('disables the in-solo BATTLE button when the current user or target lacks the required Free', () => {
+    expect(battle).toContain('const selfShort = insufficientForRoundCount(roundCount);');
+    expect(battle).toContain('const targetShort = insufficientForOpponent(p);');
+    expect(battle).toContain('const creditBlocked = selfShort || targetShort;');
+    expect(battle).toContain('disabled={Boolean(challengeBusyId) || sent || blocked || creditBlocked}');
+    expect(battle).toContain("selfShort ? 'FREE INSUFF.' : targetShort ? 'FREE INSUFF.' : 'BATTLE'");
+  });
+
+  it('rechecks the sender credit before any challenge leaves the device', () => {
+    expect(battle).toContain('if (insufficientForRoundCount(roundCount)) {');
+    expect(battle).toContain('return false;');
+  });
+
+  it('keeps selected players when no invite was actually sent and only enters the arena after success', () => {
+    expect(battle).toContain('let sentCount = 0;');
+    expect(battle).toContain('if (await challenge(player)) sentCount += 1;');
+    expect(battle).toContain('if (sentCount < 1) return;');
+  });
+});
+
 describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 21/09/2026 : case à cocher + barre fixe "Démarrer la Battle")', () => {
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
 
