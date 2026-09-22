@@ -4,7 +4,7 @@ import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 import { useAlertStore } from '../store/useAlertStore';
 
-/** Rendu web de keepAlert.ts -- voir useAlertStore.ts pour le pourquoi. */
+/** Popup Loki Music global : web + iOS + Android. */
 export default function AlertHost() {
   const current = useAlertStore((s) => s.current);
   const hide = useAlertStore((s) => s.hide);
@@ -20,6 +20,7 @@ export default function AlertHost() {
     <Modal visible transparent animationType="fade" onRequestClose={() => press(current.buttons.find((b) => b.style === 'cancel')?.onPress)}>
       <View style={s.backdrop}>
         <View style={s.card}>
+          <View style={s.brandLine} />
           <Text style={s.title}>{current.title}</Text>
           {current.message ? <Text style={s.message}>{current.message}</Text> : null}
           <View style={s.buttons}>
@@ -42,7 +43,8 @@ export default function AlertHost() {
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(4, 3, 8, 0.72)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  card: { width: '100%', maxWidth: 400, backgroundColor: colors.backgroundCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 10 },
+  card: { width: '100%', maxWidth: 400, backgroundColor: colors.backgroundElevated, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary, padding: 20, gap: 10, shadowColor: '#000', shadowOpacity: 0.34, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 12 },
+  brandLine: { width: 44, height: 4, borderRadius: 2, backgroundColor: colors.primary, marginBottom: 2 },
   title: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', lineHeight: 22 },
   message: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
   // Adel (02/09/2026) : "je les aurais fait un tout petit peu plus petits et
@@ -55,8 +57,8 @@ const s = StyleSheet.create({
   button: { minHeight: 38, borderRadius: radius.pill, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   buttonDefault: { backgroundColor: colors.primary, borderColor: colors.primary },
   buttonDestructive: { backgroundColor: colors.danger, borderColor: colors.danger },
-  buttonCancel: { backgroundColor: 'transparent', borderColor: colors.border },
+  buttonCancel: { backgroundColor: 'rgba(124,92,252,0.10)', borderColor: colors.primary },
   buttonText: { fontSize: 11, fontWeight: '900' },
   buttonTextSolid: { color: colors.white },
-  buttonTextCancel: { color: colors.textSecondary },
+  buttonTextCancel: { color: colors.primaryLight },
 });
