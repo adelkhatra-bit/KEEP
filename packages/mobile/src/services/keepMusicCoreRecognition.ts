@@ -200,7 +200,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
   if (!userId) return [];
 
   const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/keep_decisions`);
-  url.searchParams.set('select', 'id,profile_id,visibility,created_at,context,source_user_id,source:profiles!keep_decisions_source_user_id_fkey(username),track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
+  url.searchParams.set('select', 'id,profile_id,visibility,created_at,context,source_user_id,source_type,source:profiles!keep_decisions_source_user_id_fkey(username),track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
   url.searchParams.set('profile_id', `eq.${userId}`);
   url.searchParams.set('decision', 'eq.KEPT');
   url.searchParams.set('order', 'created_at.asc');
@@ -220,15 +220,27 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
     const detectedAt = typeof context.detectedAt === 'string' && context.detectedAt ? context.detectedAt : createdAt;
     const sessionId = typeof context.sessionId === 'string' && context.sessionId ? context.sessionId : undefined;
     const visibility: KeepVisibility = row.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+    const contextSourceProfileId = typeof context.sourceProfileId === 'string' && context.sourceProfileId.trim()
+      ? context.sourceProfileId.trim()
+      : undefined;
+    const sourceProfileId = row.source_user_id ? String(row.source_user_id) : contextSourceProfileId;
+    const sourceUsername = source?.username
+      ? String(source.username)
+      : typeof context.sourceUsername === 'string' && context.sourceUsername.trim()
+        ? context.sourceUsername.trim()
+        : undefined;
+    const isSocial = context.creditPolicy === 'SOCIAL_ZERO_CREDIT'
+      || Boolean(sourceProfileId)
+      || row.source_type === 'profile';
     return [{
       decisionId: String(row.id),
       visibility,
       createdAt,
       detectedAt,
       sessionId,
-      sourceProfileId: row.source_user_id ? String(row.source_user_id) : undefined,
-      sourceUsername: source?.username ? String(source.username) : undefined,
-      creditPolicy: context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP',
+      sourceProfileId,
+      sourceUsername,
+      creditPolicy: isSocial ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP',
       track: {
         id: String(track.id),
         isrc: track.isrc || undefined,
