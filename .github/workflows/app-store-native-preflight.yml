@@ -170,6 +170,15 @@ jobs:
           cache: npm
       - name: Install exact workspace dependencies
         run: npm ci
+      - name: Verify Expo autolinking sees local iOS modules
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx expo-modules-autolinking resolve --platform apple > /tmp/keep-autolinking-apple.json
+          cat /tmp/keep-autolinking-apple.json
+          grep -q 'KeepShazam' /tmp/keep-autolinking-apple.json
+          grep -q 'KeepIAP' /tmp/keep-autolinking-apple.json
       - name: Generate iOS project
         working-directory: packages/mobile
         run: npx expo prebuild --platform ios --clean --no-install
