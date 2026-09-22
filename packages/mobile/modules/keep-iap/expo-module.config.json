@@ -1,6 +1,10 @@
 {
-  "platforms": ["ios"],
-  "ios": {
-    "modules": ["KeepIAPModule"]
+  "platforms": [
+    "ios"
+  ],
+  "apple": {
+    "modules": [
+      "KeepIAPModule"
+    ]
   }
 }
