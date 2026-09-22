@@ -51,7 +51,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
       await setMyPayoutLink(payoutLinkInput);
       Alert.alert('Paiement prêt', `${payoutProviderLabel(payoutLinkInput)} est maintenant relié à ton profil. L’acheteur sera envoyé directement sur ce lien avec le montant prérempli quand PayPal.Me est utilisé.`);
     } catch (e: any) {
-      Alert.alert('Lien invalide', e?.message === 'PAYOUT_LINK_MUST_BE_A_URL' ? 'Colle un lien complet (commençant par https://).' : (e?.message || 'Impossible d’enregistrer ce lien.'));
+      Alert.alert('Lien invalide', String(e?.message || '').includes('PAYOUT_LINK_MUST_BE_HTTPS') ? 'Utilise un lien sécurisé complet commençant par https://.' : (e?.message || 'Impossible d’enregistrer ce lien.'));
     } finally {
       setSavingPayoutLink(false);
     }
