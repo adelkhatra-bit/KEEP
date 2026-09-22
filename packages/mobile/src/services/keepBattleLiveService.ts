@@ -90,8 +90,11 @@ export async function leaveSoloBattle(): Promise<void> {
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));
 }
 
-export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePlayer[]> {
-  const { data, error } = await client().rpc('keep_battle_solo_available', { p_limit: limit });
+export async function loadLiveSoloPlayers(limit = 12, roundCount = 8): Promise<KeepBattleLivePlayer[]> {
+  const { data, error } = await client().rpc('keep_battle_solo_available', {
+    p_limit: limit,
+    p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)),
+  });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LIVE_PLAYERS_FAILED'));
   return Array.isArray(data) ? data.map((row: any) => ({
     profileId: str(row, 'profileId', 'profile_id'),
