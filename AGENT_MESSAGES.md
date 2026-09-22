@@ -1212,3 +1212,15 @@ DESIGN — Migration stricte des 3 écrans vers le Design System (tokens colors.
 - PartiesScreen.tsx : ~240 littéraux couleur (dont jaunes/lime/or hors charte) mappés : CTA positifs → colors.keep, tickets/notes → colors.warning, roses → colors.pass, violets → primary/primaryLight, surfaces → background/elevated/card, bordures → border, bleu → info. rgba réalignés sur les RGB des tokens.
 RÈGLE "rien ne disparaît" respectée : aucun bouton/état/fonction supprimé, seules les VALEURS de couleur changent (structure JSX + logique intactes). 0 hex en dur restant hors commentaires.
 Tests avant push : `tsc --noEmit -p packages/mobile` = 0 erreur ; `jest` (packages/mobile) = 41 suites / 255 tests verts ; `verify-source-of-truth.cjs` = OK. Push sur reconcile/claude-main-20260825.
+## [2026-09-22T15:40:54.132Z] codex
+
+Refonte layout 3 ecrans (spec Adel 22/09/2026) codee et poussee : HomeScreenCompact 8cd3a09, DiscoverScreen d85c8d9, PartiesScreen 2767c3a (tsc 0, jest 255/255, verify OK). Build 1 (couleurs d7df56a) run 35744403068 en cours, build 2 (refontes) run 35748916845 lance. Numero TestFlight a confirmer quand les builds seront soumis.
+
+## [2026-09-22T16:28:59.148Z] codex
+
+Verification independante des tests (post-commits 8cd3a09/d85c8d9/2767c3a/1009c5b) : tsc --noEmit -p packages/mobile = 0 erreur, jest = 41/41 suites 255/255 tests PASS, verify-source-of-truth.cjs = OK. Statut builds a 15:41 UTC : run 35744403068 (couleurs d7df56a) etape 'Soumettre a TestFlight' en cours ; run 35748916845 (refonte layout 3 ecrans, HEAD 2767c3a/1009c5b) en file d'attente (concurrency group, demarre apres run1). Surveillance en cours, rapport final avec numeros TestFlight des que les deux runs sont conclus.
+
+## [2026-09-22T17:40:04.594Z] codex
+
+Connexion/Inscription (UsernameAccountForm+OnboardingScreen) deja conforme a docs/mockups/Connexion.html (Loki Music partout, autofill jaune deja corrige web+Firefox) -- aucun commit necessaire. Onboarding genres (docs/mockups/Onboarding.html) : nouvel ecran OnboardingGenresScreen.tsx cree, integre apres creation de compte reussie dans OnboardingScreen.tsx (sans toucher Navigation.tsx/App.tsx). tsc 0 erreur, jest 41/41 suites 255/255 tests, verify-source-of-truth OK. Commit 8b9f539 pousse sur reconcile/claude-main-20260825. Mockups Playlists et Soirees absents de docs/mockups/ -- en attente.
+

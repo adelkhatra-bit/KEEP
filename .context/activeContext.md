@@ -1,17 +1,21 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 21 septembre 2026.
+Dernière mise à jour : 22 septembre 2026 (session Abacus/Codex).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
 ## Tâche en cours
 
-- Mémoire partagée `.context/` mise en place pour Claude Code, Codex, Cursor et les autres agents ayant accès au dépôt.
-- Audit exhaustif des profils mobile personnel (`ProfilePublicScreen.tsx`) et public visité (`PublicUserProfileScreen.tsx`) validé.
-- Design system écrit dans `DESIGN_SYSTEM.md` et direction visuelle mobile validée par Adel.
-- Spécification visuelle commune des deux profils mobile formalisée dans `docs/PROFILE_MOBILE_REDESIGN.md` pour éviter toute divergence entre agents.
-- Refonte du profil personnel mobile (`ProfilePublicScreen.tsx`) faite par Claude Code (21/09, commit `9495eab`) : hiérarchie de couleurs v3, badge 1er KEEP + compteur KEEPs réels, morceaux privés visibles grisés+cadenas, titre "Ma collection", bouton Filtrer, SWIPE plein-largeur/PARTAGER secondaire, cibles tactiles 44×44, Battle & présence avec victoires/rang/partie en cours réels. En attente de validation visuelle par Adel avant de passer à `PublicUserProfileScreen.tsx`.
-- Limites signalées, pas corrigées sans validation : sections secondaires pas encore de vrais accordéons avec chevron ; barre 5 onglets absente sur le profil public visité (nécessiterait `Navigation.tsx`) ; aucune capture d'écran réelle produite (pas de simulateur/navigateur dans cette session).
+- **Refonte layout 3 écrans (spec textuelle validée d'Adel, 22/09/2026) — CODÉE, TESTÉE, POUSSÉE** :
+  - `HomeScreenCompact.tsx` : commit `8cd3a09` — ordre vertical strict (titre 28px, waveform menthe animée 120px via prop `size` de SessionPulse, accroche 24px, sous-titre 14px gris, bouton ÉCOUTER 52px/80%, lien ghost 13px), espacements 24px, nouveau token `colors.textMutedGrey` (#A0A0B0, dérogation Adel).
+  - `DiscoverScreen.tsx` : commit `d85c8d9` — pochette 220×220, badge affinité sur pochette, titre 22px, bio 16px gris, chips genres, 3 boutons PASSER/SUPER/GARDER (GARDER = follow via RPC sécurisées `keep_follow_profile`/`keep_unfollow_profile`).
+  - `PartiesScreen.tsx` : commit `2767c3a` — hero gradient violet 180px, badge EN COURS pulsant, titre 24px + lieu/horaire 14px gris, RSVP "J'y vais"/"Je passe" 48px, grille participants 48×48, sous-onglets Lobby/Classement/Playlist (Classement = leaderboard partagé `renderLeaderboard` + ligne utilisateur surlignée violet ; Playlist = état vide, pas de données playlist événement dans le code).
+  - Tests verts avant push : tsc 0 erreur, jest 255/255, verify-source-of-truth OK.
+- **Builds iOS TestFlight** :
+  - Build 1 (couleurs `d7df56a`) : run GitHub Actions `35744403068`, déclenché 15:01 UTC.
+  - Build 2 (refontes, HEAD `2767c3a`) : run `35748916845`, déclenché 15:39 UTC.
+  - Numéros de build TestFlight à confirmer quand les builds seront soumis (30-60 min).
+- Les maquettes HTML des 3 écrans sont perdues (session précédente) — remplacées par la spec textuelle validée d'Adel.
 
 ## État du projet
 
@@ -22,11 +26,9 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 
 ## Derniers changements
 
-- `DESIGN_SYSTEM.md` ajouté et validé : palette KEEP, typographie, espacements, composants, micro-interactions et accessibilité (`c0c57620b459fccb3b3e8fb8ba7b2f8d5f8ecfb5`).
-- Loki Swipe : autoplay fiabilisé, arrêt immédiat de l'extrait précédent au swipe et bouton de repli si le navigateur bloque la lecture (`daa846577a1eac2fd0632e18cd213c8ffe30313e`).
-- Le jeton Apple Music utilisateur est isolé par profil afin d'éviter le partage de session entre comptes sur un même appareil.
-- Le chemin GARDER est centralisé : contrôle de crédit, décision KEEP et synchronisation playlist passent par les services partagés, sans débit client isolé.
-- La mémoire partagée est désormais référencée par `CLAUDE.md` et `AGENTS.md`.
+- `d7df56a` : migration couleurs HomeScreenCompact/Discover/Parties vers tokens colors.ts (Claude Code, 22/09 13:59 UTC).
+- `8cd3a09`, `d85c8d9`, `2767c3a` : refontes layout des 3 écrans (Codex, 22/09).
+- `1009c5b` : régénération PROJECT_STATE.md.
 
 ## Décisions récentes
 
@@ -56,17 +58,12 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 
 ## Prochaines étapes immédiates
 
-1. Reprendre l'inventaire exhaustif validé avant toute modification de `ProfilePublicScreen.tsx`.
-2. Refaire uniquement la hiérarchie visuelle du profil personnel mobile selon `DESIGN_SYSTEM.md`, sans changer la logique métier.
-3. Conserver les deux accès lorsque l'interface actuelle possède plusieurs raccourcis vers la même fonction.
-4. Vérifier tous les états : invité, démo, authentifié, vide, chargement, erreur, public/privé, crédits, Battle, vente et feature flags.
-5. Faire valider le profil personnel avant de modifier le profil public visité.
-6. Tester typecheck, contrats profil, rendu mobile réel et non-régression des modales/Swipes.
+1. Confirmer les numéros de build TestFlight des 2 runs (35744403068, 35748916845) quand soumis.
+2. Vérifier dans un vrai navigateur que le rendu web des 3 écrans refondus n'est ni blanc ni en erreur console (protocole Adel).
+3. Playlist d'événement : pas de données dans le code actuel — l'onglet Playlist affiche un état vide ; à valider avec Adel si une vraie playlist événement doit être créée (nouvelle fonctionnalité).
 
 ## Points de vigilance
 
-- Ne supprimer aucun texte explicatif : déplacer les contenus longs dans des panneaux `ⓘ`, accordéons ou sous-menus accessibles en 1–2 taps.
 - Ne pas modifier `App.tsx`, `Navigation.tsx` ni la barre des cinq onglets.
-- Ne pas toucher à Battle, Marketplace ou aux autres modules pour la refonte desktop sans demande dédiée.
-- `expo-av` est déprécié : prévoir une migration séparée vers `expo-audio`, sans la mélanger à une correction fonctionnelle urgente.
-- Les échecs CI historiques liés aux sélecteurs navigateur, au contraste d'autres écrans ou aux identifiants Apple/EAS sont hors du correctif Loki Swipe et doivent être traités dans des tâches séparées.
+- `expo-av` est déprécié : prévoir une migration séparée vers `expo-audio`.
+- Le token GitHub de l'app n'a pas la permission `workflows` (push de fichiers `.github/workflows/*` rejeté) — les builds sont déclenchés via `workflow_dispatch` (API REST, token du credential manager Windows).
