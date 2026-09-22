@@ -47,7 +47,8 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   APPLE_IAP_PRIVATE_KEY: { label: 'App Store Connect — clés API', url: 'https://appstoreconnect.apple.com/access/integrations/api' },
   GOOGLE_PLAY_PACKAGE_NAME: { label: 'Google Play Console', url: 'https://play.google.com/console/' },
   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { label: 'Google Play Console — API', url: 'https://play.google.com/console/api-access' },
-  STRIPE_SECRET_KEY: { label: 'Stripe Dashboard — clés API', url: 'https://dashboard.stripe.com/apikeys' },
+  STRIPE_SECRET_KEY: { label: 'Stripe Dashboard — clé secrète (sk_live_…)', url: 'https://dashboard.stripe.com/apikeys' },
+  STRIPE_PUBLISHABLE_KEY: { label: 'Stripe Dashboard — clé publiable (pk_live_…)', url: 'https://dashboard.stripe.com/apikeys' },
   STRIPE_WEBHOOK_SECRET: { label: 'Stripe Dashboard — webhooks', url: 'https://dashboard.stripe.com/webhooks' },
   // Adel (08/09/2026) : Paddle choisi comme merchant of record (pas de
   // société requise à Dubaï) -- voir supabase/functions/keep-paddle-webhook.
