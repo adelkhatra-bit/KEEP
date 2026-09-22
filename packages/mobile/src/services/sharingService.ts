@@ -15,6 +15,7 @@ import { loadCurrentPlanCode } from './planService';
 import { hasFeature } from './entitlementService';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
+import { appendReferralToLink, loadMyReferralCode } from './referralService';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
 export const KEEP_SHARE_SLOGAN = `${APP_NAME} — Tes goûts te ressemblent.`;
@@ -63,6 +64,14 @@ export function buildPublicProfileLink(username: string): string {
   return buildShareLanding({ u: cleanUsername(username), share: 'profile' });
 }
 
+export async function buildAffiliatedPublicProfileLink(username: string): Promise<string> {
+  const base = buildPublicProfileLink(username);
+  const state = useUserStore.getState();
+  if (!state.user || state.isLocalGuest || state.isDemoMode) return base;
+  const code = await loadMyReferralCode().catch(() => '');
+  return code ? appendReferralToLink(base, code) : base;
+}
+
 export function buildPublicTrackLink(username: string, title: string, artist: string): string {
   return buildShareLanding({
     u: cleanUsername(username),
@@ -70,6 +79,22 @@ export function buildPublicTrackLink(username: string, title: string, artist: st
     title: title.trim(),
     artist: artist.trim(),
   });
+}
+
+async function attachReferral(copy: ShareCopy): Promise<ShareCopy> {
+  const state = useUserStore.getState();
+  if (!state.user || state.isLocalGuest || state.isDemoMode) return copy;
+  const code = await loadMyReferralCode().catch(() => '');
+  if (!code) return copy;
+
+  const link = appendReferralToLink(copy.link, code);
+  if (link === copy.link) return copy;
+  return {
+    ...copy,
+    link,
+    message: copy.message.replace(copy.link, link),
+    emailBody: copy.emailBody.replace(copy.link, link),
+  };
 }
 
 async function trackShare(eventName: ShareEvent, channel: string) {
@@ -399,31 +424,29 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
 }
 
 export async function shareProfile(username: string): Promise<void> {
-  const copy = buildProfileCopy(username);
-  // Le profil propriétaire possède déjà son propre modal complet avec QR. Dans
-  // ce cas, son bouton principal doit ouvrir directement la feuille système.
+  const copy = await attachReferral(buildProfileCopy(username));
   if (copy.ownProfile) return shareSystem(copy);
   return presentShare(copy);
 }
 
 export async function shareProfileByEmail(username: string): Promise<void> {
-  return shareEmail(buildProfileCopy(username));
+  return shareEmail(await attachReferral(buildProfileCopy(username)));
 }
 
 export async function copyProfileShareText(username: string): Promise<boolean> {
-  return copyShareText(buildProfileCopy(username));
+  return copyShareText(await attachReferral(buildProfileCopy(username)));
 }
 
 export async function shareProfileTrack(username: string, title: string, artist: string): Promise<void> {
-  return presentShare(buildTrackCopy(username, title, artist));
+  return presentShare(await attachReferral(buildTrackCopy(username, title, artist)));
 }
 
 export async function copyProfileTrackShareText(username: string, title: string, artist: string): Promise<boolean> {
-  return copyShareText(buildTrackCopy(username, title, artist));
+  return copyShareText(await attachReferral(buildTrackCopy(username, title, artist)));
 }
 
 export async function shareSession(sessionId: string, title: string, keptCount: number): Promise<void> {
-  return presentShare(buildContextCopy('session', title, sessionId, keptCount));
+  return presentShare(await attachReferral(buildContextCopy('session', title, sessionId, keptCount)));
 }
 
 export async function sharePlaylist(playlistId: string, playlistName: string): Promise<void> {
@@ -439,17 +462,17 @@ export async function sharePlaylist(playlistId: string, playlistName: string): P
     return;
   }
 
-  return presentShare(buildContextCopy('vibe', playlistName, playlistId));
+  return presentShare(await attachReferral(buildContextCopy('vibe', playlistName, playlistId)));
 }
 
 export async function shareCompareInvite(username: string): Promise<void> {
-  return presentShare(buildContextCopy('compare', cleanUsername(username)));
+  return presentShare(await attachReferral(buildContextCopy('compare', cleanUsername(username))));
 }
 
 export async function shareEvent(eventId: string, eventName: string): Promise<void> {
-  return presentShare(buildContextCopy('event', eventName, eventId));
+  return presentShare(await attachReferral(buildContextCopy('event', eventName, eventId)));
 }
 
 export async function shareBattleResult(resultLabel: string): Promise<void> {
-  return presentShare(buildContextCopy('battle', resultLabel));
+  return presentShare(await attachReferral(buildContextCopy('battle', resultLabel)));
 }
