@@ -9,7 +9,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { ProfileKind, SocialLink } from '../types';
-import { buildPublicProfileLink, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
+import { buildAffiliatedPublicProfileLink, buildPublicProfileLink, copyProfileShareText, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
@@ -208,6 +208,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [affiliatedProfileLink, setAffiliatedProfileLink] = useState('');
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[] } | null>(null);
@@ -261,6 +262,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [navigation]);
 
   const accountRequired = isLocalGuest || isDemoMode;
+  useEffect(() => {
+    let live = true;
+    if (!user || accountRequired) {
+      setAffiliatedProfileLink('');
+      return () => { live = false; };
+    }
+    buildAffiliatedPublicProfileLink(user.username)
+      .then((link) => { if (live) setAffiliatedProfileLink(link); })
+      .catch(() => { if (live) setAffiliatedProfileLink(buildPublicProfileLink(user.username)); });
+    return () => { live = false; };
+  }, [accountRequired, user?.id, user?.username]);
   useEffect(() => {
     if (!battleFeatureEnabled || accountRequired || !user) { setBattleStats(null); setBattleRank(null); setBattleInProgress(false); return undefined; }
     let live = true;
@@ -550,7 +562,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce site pour le moment.'); }
   };
-  const publicProfileLink = buildPublicProfileLink(user.username);
+  const publicProfileLink = affiliatedProfileLink || buildPublicProfileLink(user.username);
   const identityGenres = user.favoriteGenres.length ? user.favoriteGenres.slice(0, 4) : dna.topGenres.slice(0, 4).map((g) => g.genre);
   const creditsExhausted = !creditUnlimited && creditRemaining === 0;
   // Adel (04/09/2026) : "le nombre de Free disponibles pour tout le monde
@@ -701,6 +713,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
     setShareOpen(false);
     try { await shareProfileByEmail(user.username); }
     catch { Alert.alert('E-mail', 'Aucune application e-mail n’est disponible sur cet appareil.'); }
+  };
+
+  const copyShare = async () => {
+    if (accountRequired) return openAccount('create');
+    try {
+      const copied = await copyProfileShareText(user.username);
+      Alert.alert(copied ? 'Lien Loki Music copié' : 'Partage prêt', copied
+        ? 'Le message contient ton profil et ton lien d’invitation. Tu peux le coller où tu veux.'
+        : 'Choisis « Copier » dans la feuille de partage.');
+    } catch {
+      Alert.alert('Partage', 'Impossible de copier le lien pour le moment.');
+    }
   };
 
   const showQr = () => {
@@ -1333,7 +1357,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
           <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></TouchableOpacity>
           <TouchableOpacity style={s.shareAction} onPress={shareEmail}><Text style={s.shareActionText}>✉  Partager par e-mail</Text><Text style={s.shareActionHint}>Ton application Mail s’ouvre, tu choisis les destinataires</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Mon QR Loki Music</Text><Text style={s.shareActionHint}>Carte d’identité musicale prête pour une story</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Ma carte d’identité Loki Music</Text><Text style={s.shareActionHint}>QR + profil + styles + statistiques, pensée pour une story</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  Copier mon lien d’invitation</Text><Text style={s.shareActionHint}>Le lien d’affiliation est conservé automatiquement dans tous les partages</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
@@ -1345,17 +1370,38 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki Music"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
           <ScrollView style={s.qrScroll} contentContainerStyle={s.qrScrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.qrCard}>
-            <View style={s.qrBrandRow}><Text style={s.qrLogo}>Loki Music</Text><Text style={s.qrDnaLabel}>DIGITAL DNA</Text></View>
-            <View style={s.qrIdentityRow}>
-              {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>K</Text></View>}
-              <View style={s.qrIdentityText}><Text style={s.qrUsername}>{user.username}</Text><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text>{(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}</View>
+            <View style={s.qrBrandRow}>
+              <View><Text style={s.qrLogo}>LOKI</Text><Text style={s.qrMusic}>MUSIC ID</Text></View>
+              <View style={s.qrOfficial}><View style={s.qrOfficialDot}/><Text style={s.qrOfficialText}>IDENTITÉ MUSICALE</Text></View>
             </View>
-            {user.bio ? <Text style={s.qrBio} numberOfLines={3}>{user.bio}</Text> : <Text style={s.qrBio}>Mon univers musical, en un scan.</Text>}
+            <View style={s.qrIdentityRow}>
+              {user.avatar ? <Image source={{uri:user.avatar}} style={s.qrAvatar}/> : <View style={[s.qrAvatar,s.qrAvatarFallback]}><Text style={s.qrAvatarText}>{user.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.qrIdentityText}>
+                <Text style={s.qrHandle}>@{user.username}</Text>
+                <View style={s.qrKindRow}><Text style={s.qrKind}>{PROFILE_KIND_LABELS[user.kind]}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+                {(user.city || user.countryCode) ? <Text style={s.qrLocation}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
+              </View>
+            </View>
+            {user.bio ? <Text style={s.qrBio} numberOfLines={3}>{user.bio}</Text> : <Text style={s.qrBio}>Mon univers musical, mes découvertes, mon identité.</Text>}
             {identityGenres.length ? <View style={s.qrGenres}>{identityGenres.map((genre) => <View key={genre} style={s.qrGenre}><Text style={s.qrGenreText}>{genre}</Text></View>)}</View> : null}
-            <View style={s.qrBox}><QRCode value={publicProfileLink} size={164} color="#FFFFFF" backgroundColor="#0E0A14" /></View>
-            <Text style={s.qrScan}>SCAN POUR DÉCOUVRIR MON PROFIL</Text>
-            <Text style={s.qrTagline}>Tes goûts te ressemblent.</Text>
-            <Text style={s.qrWebsite}>Loki Music · adelkhatra-bit.github.io/KEEP</Text>
+            <View style={s.qrStats}>
+              <View style={s.qrStat}><Text style={s.qrStatValue}>{profileTotalKeepCount}</Text><Text style={s.qrStatLabel}>KEEPS</Text></View>
+              <View style={s.qrStatDivider}/>
+              <View style={s.qrStat}><Text style={s.qrStatValue}>{profileFollowerCount}</Text><Text style={s.qrStatLabel}>ABONNÉS</Text></View>
+              <View style={s.qrStatDivider}/>
+              <View style={s.qrStat}><Text style={s.qrStatValue}>{displayPlaylists.length}</Text><Text style={s.qrStatLabel}>VIBES</Text></View>
+            </View>
+            <View style={s.qrCodeZone}>
+              <View style={s.qrBox}><QRCode value={publicProfileLink} size={172} color="#0B0A12" backgroundColor="#FFFFFF" /></View>
+              <View style={s.qrCodeCopy}>
+                <Text style={s.qrScan}>SCAN · DÉCOUVRE · SWIPE</Text>
+                <Text style={s.qrReferral}>Le scan ouvre mon profil et conserve mon invitation Loki Music.</Text>
+              </View>
+            </View>
+            <View style={s.qrFooter}>
+              <Text style={s.qrTagline}>TES GOÛTS TE RESSEMBLENT.</Text>
+              <Text style={s.qrWebsite}>LOKI MUSIC · CARTE À PARTAGER</Text>
+            </View>
           </View>
           <Text style={s.screenshotHint}>Ta carte d’identité musicale : photo, bio, ville, styles et QR. Fais une capture ou partage-la pour donner envie de découvrir ton univers.</Text>
           <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON UNIVERS</Text></TouchableOpacity>
@@ -1394,5 +1440,5 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   firstKeepBlock:{gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},trackMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,flexWrap:'wrap'},discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap'},originLabel:{color:colors.textPrimary,fontSize:12,fontWeight:'800',letterSpacing:.1},originUserLink:{minHeight:24,paddingHorizontal:8,borderRadius:12,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},originUserText:{color:colors.success,fontSize:12,fontWeight:'900'},originProtected:{color:colors.success,fontSize:12,fontWeight:'800'},
   list:{marginHorizontal:18,marginTop:10},playlistBlock:{borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:6},listRow:{flexDirection:'row',alignItems:'center',paddingVertical:10},note:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},noteText:{color:colors.primaryLight,fontSize:18,fontWeight:'800'},playlistText:{flex:1,minWidth:0,marginLeft:12},listText:{color:colors.textPrimary,fontSize:14,fontWeight:'600'},playlistCount:{color:colors.textMuted,fontSize:12,marginTop:2},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900',paddingHorizontal:7},playlistButtons:{flexDirection:'row',justifyContent:'flex-end',gap:7,paddingBottom:6},playlistShareButton:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},playlistShareText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},playlistShareButtonSecondary:{minHeight:27,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},playlistShareTextSecondary:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},playlistTracks:{paddingBottom:8,paddingLeft:6},empty:{alignItems:'center',paddingVertical:50,paddingHorizontal:20},emptyIcon:{color:colors.primaryLight,fontSize:28,marginBottom:10},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'center',alignItems:'center',padding:14},shareSheet:{width:'100%',maxWidth:520,backgroundColor:colors.backgroundElevated,borderRadius:26,borderWidth:1,borderColor:colors.border,padding:18,paddingBottom:24},accountSheet:{maxHeight:'92%'},sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:colors.border,alignSelf:'center',marginBottom:16},shareTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',textAlign:'center'},shareSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,textAlign:'center',marginTop:6},freeEmptyCallout:{marginTop:14,padding:12,borderRadius:14,backgroundColor:`${colors.danger}1F`,borderWidth:1,borderColor:colors.danger},freeEmptyCalloutTitle:{color:colors.danger,fontSize:13,fontWeight:'900',marginBottom:6},freeEmptyCalloutText:{color:colors.textPrimary,fontSize:12,lineHeight:17,marginTop:3},linkPreview:{marginTop:14,padding:11,borderRadius:12,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},linkPreviewText:{color:colors.primaryLight,fontSize:13,textAlign:'center'},shareActionPrimary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},shareActionPrimaryText:{color:'#FFF',fontSize:14,fontWeight:'900'},shareAction:{minHeight:48,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,paddingHorizontal:14,justifyContent:'center',marginTop:9},shareActionText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},shareActionHint:{color:colors.textMuted,fontSize:12,marginTop:2},cancelShare:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},kindPickerGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,width:'100%',marginTop:14},kindChoice:{minHeight:42,paddingHorizontal:14,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},kindChoiceOn:{backgroundColor:colors.primary,borderColor:colors.primary},kindChoiceText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindChoiceTextOn:{color:'#FFF'},repriseSheet:{maxHeight:'82%'},repriseScroll:{width:'100%',marginTop:12,maxHeight:420},repriseRow:{flexDirection:'row',alignItems:'center',gap:9,paddingVertical:9,borderBottomWidth:1,borderBottomColor:colors.border},repriseAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard},repriseInfo:{flex:1,minWidth:0},repriseNameRow:{flexDirection:'row',alignItems:'center',gap:6},repriseUsername:{color:'#FFF',fontSize:14,fontWeight:'900',flexShrink:1},repriseGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:4},repriseGenreChip:{paddingHorizontal:7,paddingVertical:2,borderRadius:9,borderWidth:1},repriseGenreText:{fontSize:9,fontWeight:'800'},repriseFollowButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},repriseFollowButtonOn:{backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},repriseFollowButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},repriseFollowButtonTextOn:{color:colors.success},cancelShareText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
-  qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0E0A14',borderRadius:26,padding:20,borderWidth:1,borderColor:'#8B5CF6'},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:27,fontWeight:'900',letterSpacing:6},qrDnaLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.2},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:20},qrAvatar:{width:64,height:64,borderRadius:32,backgroundColor:'#241936',borderWidth:1,borderColor:'#8B5CF6'},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:'#B79CFF',fontSize:24,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:12},qrUsername:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKind:{color:'#B79CFF',fontSize:12,fontWeight:'900',marginTop:2},qrLocation:{color:'#E1D8EA',fontSize:12,marginTop:3},qrBio:{color:'#F4EFF8',fontSize:13,lineHeight:18,marginTop:14},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:11},qrGenre:{backgroundColor:'#211831',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'#6E4BA5'},qrGenreText:{color:'#D9C7FF',fontSize:11,fontWeight:'800'},qrBox:{alignSelf:'center',marginTop:18,padding:12,backgroundColor:'#0E0A14',borderRadius:16,borderWidth:2,borderColor:'#8B5CF6'},qrScan:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1,textAlign:'center',marginTop:11},qrTagline:{color:'#B79CFF',fontSize:13,fontWeight:'900',textAlign:'center',marginTop:5},qrWebsite:{color:'#FFFFFF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:8,letterSpacing:.25},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},
+  qrShell:{width:'100%',maxWidth:520,maxHeight:'96%',alignItems:'center',backgroundColor:'#0E0A14',borderRadius:24,paddingTop:42,paddingHorizontal:4,paddingBottom:6,position:'relative'},qrCloseTop:{position:'absolute',right:10,top:8,width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',zIndex:20},qrCloseTopText:{color:'#FFFFFF',fontSize:16,fontWeight:'900'},qrScroll:{width:'100%'},qrScrollContent:{alignItems:'center',paddingHorizontal:4,paddingBottom:8},qrCard:{width:'100%',backgroundColor:'#0B0A12',borderRadius:30,padding:18,borderWidth:1,borderColor:colors.primary,shadowColor:'#000',shadowOpacity:.42,shadowRadius:24,shadowOffset:{width:0,height:14},elevation:14},qrBrandRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},qrLogo:{color:'#FFFFFF',fontSize:30,fontWeight:'900',letterSpacing:7},qrMusic:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:3,marginTop:2},qrOfficial:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:8,paddingVertical:5,borderRadius:99,backgroundColor:'rgba(124,92,252,.14)',borderWidth:1,borderColor:colors.primary},qrOfficialDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.keep},qrOfficialText:{color:'#FFF',fontSize:8,fontWeight:'900',letterSpacing:.8},qrIdentityRow:{flexDirection:'row',alignItems:'center',marginTop:18},qrAvatar:{width:72,height:72,borderRadius:36,backgroundColor:'#241936',borderWidth:2,borderColor:colors.primaryLight},qrAvatarFallback:{alignItems:'center',justifyContent:'center'},qrAvatarText:{color:colors.primaryLight,fontSize:27,fontWeight:'900'},qrIdentityText:{flex:1,marginLeft:13},qrHandle:{color:'#FFFFFF',fontSize:22,fontWeight:'900'},qrKindRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:4},qrKind:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},qrLocation:{color:'#D8D2E5',fontSize:11,marginTop:5},qrBio:{color:'#F4EFF8',fontSize:12,lineHeight:17,marginTop:13},qrGenres:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:10},qrGenre:{backgroundColor:'rgba(124,92,252,.12)',borderRadius:999,paddingHorizontal:8,paddingVertical:4,borderWidth:1,borderColor:'rgba(167,139,250,.55)'},qrGenreText:{color:'#E6DCFF',fontSize:10,fontWeight:'800'},qrStats:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',marginTop:14,paddingVertical:10,borderTopWidth:1,borderBottomWidth:1,borderColor:'rgba(167,139,250,.22)'},qrStat:{flex:1,alignItems:'center'},qrStatValue:{color:'#FFF',fontSize:17,fontWeight:'900'},qrStatLabel:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:1,marginTop:2},qrStatDivider:{width:1,height:28,backgroundColor:'rgba(167,139,250,.22)'},qrCodeZone:{marginTop:15,flexDirection:'row',alignItems:'center',gap:12},qrBox:{padding:9,backgroundColor:'#FFFFFF',borderRadius:18,borderWidth:2,borderColor:colors.primary,shadowColor:'#7C5CFC',shadowOpacity:.25,shadowRadius:12,shadowOffset:{width:0,height:4},elevation:6},qrCodeCopy:{flex:1,minWidth:0},qrScan:{color:'#FFFFFF',fontSize:10,fontWeight:'900',letterSpacing:1.1},qrReferral:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:6},qrFooter:{marginTop:15,paddingTop:11,borderTopWidth:1,borderColor:'rgba(167,139,250,.22)',alignItems:'center'},qrTagline:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.1,textAlign:'center'},qrWebsite:{color:'#FFFFFF',fontSize:9,fontWeight:'800',textAlign:'center',marginTop:5,letterSpacing:.6},screenshotHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:10,paddingHorizontal:10},
 });
