@@ -1,6 +1,8 @@
-# KEEP — Design System
+# KEEP — Design System v3
 
-Statut : proposition à valider avant implémentation. Ce document unifie l'identité existante sans modifier les écrans actuels.
+Statut : **validée**. Ce document décrit l'identité réellement livrée dans `packages/mobile/src/theme/` et les composants partagés existants (pas une proposition) — toute valeur ci-dessous doit correspondre au code, jamais l'inverse.
+
+Sauf mention contraire, tout écran existant reste inchangé : ce document sert de référence pour les prochains écrans/composants, pas de mandat de refonte. La refonte visuelle de `ProfilePublicScreen.tsx` reste un chantier séparé, non couvert ici (N4, 22/09/2026 : "ne refactore pas encore ProfilePublicScreen.tsx").
 
 ## 1. Principes
 
@@ -37,15 +39,14 @@ Statut : proposition à valider avant implémentation. Ce document unifie l'iden
 
 | Token | Hex | Nom d'usage | Usage |
 |---|---:|---|---|
-| `neutral.canvas` | `#0B0A12` | Fond principal | Fond de tous les écrans |
-| `neutral.surface` | `#151320` | Surface élevée | Sections, modales, menus |
-| `neutral.card` | `#1C1930` | Carte | Cartes et lignes interactives |
-| `neutral.border` | `#2A2640` | Bordure | Séparateurs et contours calmes |
-| `neutral.textPrimary` | `#FFFFFF` | Texte principal | Titres, valeurs, actions |
-| `neutral.textSecondary` | `#E5E0EC` | Texte secondaire | Métadonnées utiles |
-| `neutral.textMuted` | `#B8B2C4` | Texte discret | Aides et légendes non critiques |
-| `neutral.disabled` | `#7D7789` | Désactivé | Texte/icône inactive seulement |
+| `neutral.canvas` | `#0B0A12` | Fond principal | Fond de tous les écrans (`colors.background`) |
+| `neutral.surface` | `#151320` | Surface élevée | Sections, modales, menus (`colors.backgroundElevated`) |
+| `neutral.card` | `#1C1930` | Carte | Cartes et lignes interactives (`colors.backgroundCard`) |
+| `neutral.border` | `#2A2640` | Bordure | Séparateurs et contours calmes (`colors.border`) |
+| `neutral.text` | `#FFFFFF` | Texte fonctionnel | **Règle absolue du code** (`src/theme/colors.ts`) : `textPrimary`, `textSecondary` et `textMuted` valent tous `#FFFFFF` — aucun texte fonctionnel gris sur fond sombre. La hiérarchie visuelle passe par la taille/le poids de police ou l'opacité, jamais par une nuance de gris. |
 | `neutral.black` | `#000000` | Noir | Texte sur menthe claire si nécessaire |
+
+Note historique : une première version de ce document proposait des gris différenciés (`#E5E0EC`, `#B8B2C4`, `#7D7789`) pour `textSecondary`/`textMuted`/`disabled`. Cette proposition n'a jamais été implémentée — le code applique la règle "blanc partout" depuis le début. La v3 documente l'état réel, pas la proposition initiale.
 
 ### États interactifs
 
@@ -104,9 +105,32 @@ Règles : un seul `h1` par écran ; `h2` pour l'identité ; `h3` pour les sectio
 ### Cartes
 
 - **Profil** : avatar `64 px`, identité, certification et actions ; padding `16 px`, rayon `16 px`.
-- **Morceau** : pochette `56 px`, titre + artiste, lecture visible, actions secondaires regroupées.
 - **Offre** : pochette `64 px`, nom, nombre de titres, prix très lisible, CTA d'achat explicite.
 - **Section** : fond `#151320`; **élément interactif** : fond `#1C1930`; bordure `1 px #2A2640`.
+
+### Morceau — `TrackActionRow` (composant partagé, source unique de vérité)
+
+Validé par maquette HTML interactive (21/09/2026) puis livré dans
+`packages/mobile/src/components/TrackActionRow.tsx`, utilisé par
+`MyMusicScreen.tsx`, `ProfilePublicScreen.tsx` et `PublicUserProfileScreen.tsx`.
+Toute nouvelle liste de morceaux doit réutiliser ce composant plutôt que
+recréer une grille inline.
+
+- **Grille à colonnes fixes**, jamais de positions absolues (plus robuste sur petits écrans, arbitrage validé) :
+  pochette `56×56` (rayon `10`) → zone titre/artiste flexible (troncature 1 ligne) → 0 à N carrés d'action `40×40`
+  (rayon `10`, fond uniforme `#1A1A2E`, icône seule sans texte, `flexShrink:0`) → chevron `24×24` séparé en bout de ligne.
+- **Hauteur de rangée constante**, jamais dérivée de l'état/props : `56 px` (MyMusicScreen), `64 px` (écrans de profil).
+- **Un seul carré par concept d'état** : jamais deux boutons pour deux états d'un même morceau (ex. Garder = un seul
+  carré changeant d'icône `+`/`✓`/`🔒`/`💰` et de `tone` selon l'état, jamais deux carrés distincts).
+- **Tones d'action** (`TrackActionRowAction.tone`) : `success` → `colors.success` (Play en lecture, Garder actif) ;
+  `pink` → `#FF5F83` (Like actif uniquement) ; `gold` → `#E8C766` (statut en attente/premium). Un tone ne change
+  jamais le fond du carré (toujours `#1A1A2E`), seulement l'icône/bordure.
+- **Badge de statut** (`badge?: { label, onPress? }`) : rendu sur la ligne du titre, jamais une 3ᵉ ligne — utilisé
+  pour un statut toujours visible sans déplier (ex. `🏷️ 2,00€` pour un morceau en vente).
+- **Panneau dépliable** (`expandable`/`expanded`/`children`) : réservé aux actions de gestion secondaires
+  (Public/Privé, Supprimer, Vendre, "Donné par…") — jamais une action rapide qui devrait être un carré visible.
+- Preview audio : `TrackPreviewButton` variante `square` (prop `square?: boolean`) — réutilise exactement la même
+  logique play/stop que les autres variantes, jamais dupliquée.
 
 ### Badges
 
