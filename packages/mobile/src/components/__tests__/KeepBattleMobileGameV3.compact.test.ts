@@ -189,7 +189,7 @@ describe('Loki Music Battle mobile style selector', () => {
     expect(source).toContain('no: { flex: 1, minHeight: 52');
     expect(source).toContain('yes: { flex: 1, minHeight: 52');
     expect(source).toContain('hitSlop={10}');
-    expect(source).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22");
+    expect(source).toContain("inviteQuestion: { color: colors.textPrimary, fontSize: 15, lineHeight: 21");
     expect(source).toContain("inviteName: { color: '#FFF', fontSize: 17");
     expect(source).toContain('borderColor: colors.primary');
     expect(source).toContain('CONNEXION AU BATTLE…');
@@ -265,7 +265,7 @@ describe('Loki Music Battle mobile style selector', () => {
   // trois comportements pour qu'une régression future casse la suite au
   // lieu de dépendre d'un signalement en prod.
   it('keeps the red wrong-answer highlight, the animated result icon (no static lightning), and the session-save buttons', () => {
-    expect(source).toContain("answerWrong: { borderWidth: 2, borderColor: '#FF6C8C'");
+    expect(source).toContain("answerWrong: { borderWidth: 2, borderColor: colors.danger");
     expect(source).toContain("s.answerWrong]}");
     expect(source).toContain('function ResultIcon(');
     expect(source).toContain('<ResultIcon icon={perfect ?');
@@ -306,7 +306,7 @@ describe('Loki Music Battle accept reliability', () => {
     expect(battle).toContain('minHeight: 52');
     expect(battle).toContain('borderColor: colors.primary');
     expect(battle).toContain('hitSlop={10}');
-    expect(battle).toContain("inviteQuestion: { color: '#F3EDF7', fontSize: 16, lineHeight: 22");
+    expect(battle).toContain("inviteQuestion: { color: colors.textPrimary, fontSize: 15, lineHeight: 21");
     expect(battle).toContain('CONNEXION AU BATTLE…');
   });
 });
@@ -319,7 +319,7 @@ describe('Loki Music Battle persistent group invitations', () => {
     expect(live).toContain("rpc('keep_battle_arena_challenge_send'");
     expect(battle).toContain('sendBattleArenaChallenge(arena.id, player.profileId)');
     expect(battle).toContain('GROUPE {arena.seats.length}/10');
-    expect(battle).toContain("invited ? 'INVITÉ' : 'INVITER'");
+    expect(battle).toContain("invited ? 'INVITÉ' : targetShort ? `${player.remainingFree}/${stakeForRounds(arena.roundCount)} FREE` : 'INVITER'");
     expect(battle).toContain('arena.openSeats > 0');
   });
 
@@ -338,7 +338,7 @@ describe('Loki Music Battle credit gating from SOLO invite rail (audit 22/09/202
     expect(battle).toContain('const targetShort = insufficientForOpponent(p);');
     expect(battle).toContain('const creditBlocked = selfShort || targetShort;');
     expect(battle).toContain('disabled={Boolean(challengeBusyId) || sent || blocked || creditBlocked}');
-    expect(battle).toContain("selfShort ? 'FREE INSUFF.' : targetShort ? 'FREE INSUFF.' : 'BATTLE'");
+    expect(battle).toContain("selfShort ? 'MES FREE INSUFF.' : targetShort ? `${p.remainingFree}/${stakeForRounds(roundCount)} FREE` : 'BATTLE'");
   });
 
   it('rechecks the sender credit before any challenge leaves the device', () => {
