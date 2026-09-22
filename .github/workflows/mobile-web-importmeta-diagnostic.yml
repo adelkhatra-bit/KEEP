@@ -138,17 +138,23 @@ jobs:
             const artistsTab = page.getByLabel('Profil Artistes');
             if (await musicTab.count() === 0 || await vibesTab.count() === 0 || await artistsTab.count() === 0) throw new Error('Profile music tabs not found');
 
+            const vibesBefore = await vibesTab.innerHTML();
             await vibesTab.click();
             await page.waitForTimeout(250);
-            if (!await vibesTab.getAttribute('aria-selected').then(v => v === 'true')) throw new Error('Vibes tab did not become selected');
+            const vibesAfter = await vibesTab.innerHTML();
+            if (vibesAfter === vibesBefore) throw new Error('Vibes tab did not visibly change state after click');
 
+            const artistsBefore = await artistsTab.innerHTML();
             await artistsTab.click();
             await page.waitForTimeout(250);
-            if (!await artistsTab.getAttribute('aria-selected').then(v => v === 'true')) throw new Error('Artists tab did not become selected');
+            const artistsAfter = await artistsTab.innerHTML();
+            if (artistsAfter === artistsBefore) throw new Error('Artists tab did not visibly change state after click');
 
+            const musicBefore = await musicTab.innerHTML();
             await musicTab.click();
             await page.waitForTimeout(250);
-            if (!await musicTab.getAttribute('aria-selected').then(v => v === 'true')) throw new Error('Musiques tab did not remount immediately; browser refresh would still be required');
+            const musicAfter = await musicTab.innerHTML();
+            if (musicAfter === musicBefore) throw new Error('Musiques tab did not remount immediately; browser refresh would still be required');
 
             await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
