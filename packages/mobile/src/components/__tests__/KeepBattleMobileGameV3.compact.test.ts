@@ -454,7 +454,7 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
 
   it('never exposes an actionable Battle invite when the target lacks the current stake', () => {
     expect(battle).toContain('const opponentNeedsMoreFree = React.useCallback');
-    expect(battle).toContain('const freshTarget = await loadLiveSoloPlayers(30)');
+    expect(battle).toContain('const freshTarget = await loadLiveSoloPlayers(30, roundCount)');
     expect(battle).toContain('n’a que ${freshTarget.remainingFree} Free');
     expect(battle).toContain('Aucun adversaire avec assez de Free');
     expect(battle).toContain('Free · indisponible');
@@ -466,6 +466,13 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).toContain('targetShort = opponentNeedsMoreFree(player, arena.roundCount)');
     expect(battle).toContain('disabled={invited || blocked || targetShort || Boolean(arenaInviteBusyId)}');
     expect(battle).toContain('BATTLE_TARGET_NO_CREDIT');
+  });
+
+  it('asks Supabase for players who can afford the currently selected Battle format', () => {
+    const live = readNormalized(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
+    expect(live).toContain("p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30))");
+    expect(battle).toContain('loadLiveSoloPlayers(20, roundCount)');
+    expect(battle).toContain('loadLiveSoloPlayers(30, arena.roundCount)');
   });
 
 });
