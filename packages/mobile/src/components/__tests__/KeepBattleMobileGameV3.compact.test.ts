@@ -435,4 +435,21 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(startSelectedBattleBody).not.toContain('createKeepBattleArena');
     expect(startSelectedBattleBody).not.toContain('sendBattleArenaChallenge');
   });
+  it('shows unmistakable feedback after DÉMARRER sends an invitation', () => {
+    expect(battle).toContain("'INVITATION ENVOYÉE'");
+    expect(battle).toContain('EN ATTENTE DE RÉPONSE');
+    expect(battle).toContain('arena.pendingInviteCount > 0');
+    expect(battle).toContain('tu peux continuer à inviter d’autres joueurs');
+  });
+
+  it('uses a coherent Loki lobby hierarchy and fresh server credit state', () => {
+    expect(battle).toContain('battleHero: {');
+    expect(battle).toContain('battleSetupCard: {');
+    expect(battle).toContain('battleModes: {');
+    expect(battle).toContain('lobbySummary: {');
+    expect(battle).toContain('const freshCredit = await loadMyKeepBattleCreditStatus().catch(() => myCreditStatus);');
+    expect(battle).toContain('VÉRIFICATION…');
+    expect(battle).toContain('FREE INSUFFISANTS');
+  });
+
 });
