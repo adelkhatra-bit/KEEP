@@ -57,10 +57,12 @@
   const params=new URLSearchParams(location.search);
   const username=(params.get('u')||'').replace(/^@+/,'').trim();
   const shareKind=(params.get('share')||'profile').toLowerCase();
+  const referral=(params.get('ref')||'').trim();
   const headers={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`,'Content-Type':'application/json'};
   const $=id=>document.getElementById(id);
   const safe=value=>String(value||'').trim();
-  const routeProfile=u=>{const clean=String(u||'').replace(/^@+/,'').trim();return `keep://profile/${encodeURIComponent(clean)}?u=${encodeURIComponent(clean)}&share=profile`;};
+  const referralSuffix=()=>referral?`&ref=${encodeURIComponent(referral)}`:'';
+  const routeProfile=u=>{const clean=String(u||'').replace(/^@+/,'').trim();return `keep://profile/${encodeURIComponent(clean)}?u=${encodeURIComponent(clean)}&share=profile${referralSuffix()}`;};
   // L'app native n'est pas encore installable (pré-lancement) : sur TOUT appareil
   // sans l'app, `keep://...` ne fait rien -- filet de sécurité standard
   // ("deferred deep link") : on tente le schéma natif, et si la page est
@@ -69,7 +71,7 @@
   function openInKeepWithFallback(username){
     const clean=String(username||'').replace(/^@+/,'').trim();
     const nativeUrl=routeProfile(clean);
-    const webFallback=`${KEEP_ROOT}?u=${encodeURIComponent(clean)}&share=profile`;
+    const webFallback=`${KEEP_ROOT}?u=${encodeURIComponent(clean)}&share=profile${referralSuffix()}`;
     const timer=setTimeout(()=>{if(!document.hidden)location.href=webFallback;},1200);
     document.addEventListener('visibilitychange',function onHide(){if(document.hidden){clearTimeout(timer);document.removeEventListener('visibilitychange',onHide);}});
     location.href=nativeUrl;
