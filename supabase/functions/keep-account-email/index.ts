@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { escapeHtml, lokiEmailCodeShell } from "../_shared/lokiEmailShell.ts";
+import { integrationSecret, sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -23,16 +25,27 @@ async function currentUser(req: Request) {
   return error ? null : data.user;
 }
 
-async function integrationSecret(key: string): Promise<string> {
-  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
-  if (!error && typeof data === "string" && data.trim()) return data.trim();
-  return String(Deno.env.get(key) ?? "").trim();
+// Audit Adel (22/09/2026, Bloc 4 B4) : "remplacer le HMAC couple au
+// service_role par un secret dedie" -- reutiliser SERVICE_ROLE (cle a
+// privilege maximal, contourne toute RLS) comme cle HMAC pour hacher un
+// simple code a 6 chiffres n'a aucune raison d'etre : ca expose inutilement
+// ce secret critique a un usage sans rapport avec son role reel. Secret
+// dedie stocke dans integration_secrets (Super Admin > Integrations,
+// categorie email), avec repli sur SERVICE_ROLE UNIQUEMENT tant que ce
+// nouveau secret n'a pas encore ete configure -- aucune interruption du
+// flux existant le temps qu'Adel le renseigne.
+async function accountEmailCodeSecret(): Promise<string> {
+  const dedicated = await integrationSecret("ACCOUNT_EMAIL_CODE_SECRET");
+  if (dedicated) return dedicated;
+  console.warn("[keep-account-email] ACCOUNT_EMAIL_CODE_SECRET non configure -- repli temporaire sur SERVICE_ROLE, a corriger dans Super Admin > Integrations.");
+  return SERVICE_ROLE;
 }
 
 async function digest(value: string) {
+  const secret = await accountEmailCodeSecret();
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(SERVICE_ROLE),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -52,76 +65,20 @@ function maskEmail(email: string) {
   return `${local.slice(0, 2)}•••@${domain}`;
 }
 
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
-}
-
+// Audit Adel (22/09/2026, Bloc 4 B1 + B2) : template deplace vers
+// _shared/lokiEmailShell.ts (source unique, voir lokiEmailCodeShell) et
+// envoi aligne sur sendTransactionalEmail (Mailjet en priorite + repli
+// Brevo automatique + 3 essais avec backoff sur 429/5xx) au lieu d'un seul
+// essai Brevo sans filet.
 function verificationEmailHtml(code: string, username: string) {
   const handle = username ? `@${escapeHtml(username)}` : "";
-  return `<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="supported-color-schemes" content="dark" />
-  <title>Valide ton adresse e-mail Loki Music</title>
-</head>
-<body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
-    <tr>
-      <td align="center" style="padding:24px 14px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
-          <tr>
-            <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki Music</div>
-              <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">Valide ton adresse e-mail</h1>
-              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${handle ? `<strong style="color:#ffffff">${handle}</strong>, ` : ""}saisis ce code dans Loki Music pour sécuriser ton compte et faciliter sa récupération.</p>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:22px 24px 8px;">
-              <div style="box-sizing:border-box;width:100%;max-width:360px;background:#09070d;border:1px solid #463653;border-radius:22px;padding:22px 12px;font-size:34px;line-height:40px;font-weight:900;letter-spacing:9px;color:#e5f266;text-align:center;">${code}</div>
-              <p style="margin:12px 0 0;font-size:13px;line-height:19px;color:#a99eb5;">Ce code expire dans <strong style="color:#ffffff">10 minutes</strong>.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 26px 30px;">
-              <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
-              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail. Loki Music ne te demandera jamais ton mot de passe ni ce code par e-mail.</p>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki Music · Ton univers musical, gardé au même endroit.</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
-
-async function sendBrevoCode(to: string, code: string, username: string) {
-  const apiKey = await integrationSecret("BREVO_API_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
-  if (!apiKey || !senderEmail) return { ok: false as const, error: "email_provider_unconfigured" };
-
-  const subject = "Ton code de vérification Loki Music";
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
-    body: JSON.stringify({
-      sender: { email: senderEmail, name: senderName },
-      to: [{ email: to }],
-      subject,
-      htmlContent: verificationEmailHtml(code, username),
-      textContent: `${username ? `@${username}, ` : ""}ton code de vérification Loki Music est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
-      tags: ["keep", "account", "email-verification"],
-    }),
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) return { ok: false as const, error: "email_send_failed", detail: String(payload?.message || response.status) };
-  return { ok: true as const, messageId: String(payload?.messageId || "") };
+  return lokiEmailCodeShell(
+    "Valide ton adresse e-mail Loki Music",
+    "Valide ton adresse e-mail",
+    `${handle ? `<strong style="color:#ffffff">${handle}</strong>, ` : ""}saisis ce code dans Loki Music pour sécuriser ton compte et faciliter sa récupération.`,
+    code,
+    "Tu n’es pas à l’origine de cette demande ? Ignore simplement cet e-mail. Loki Music ne te demandera jamais ton mot de passe ni ce code par e-mail.",
+  );
 }
 
 async function requestCode(user: any, body: any) {
@@ -143,7 +100,15 @@ async function requestCode(user: any, body: any) {
   const { error: saveError } = await admin.from("account_email_verifications").upsert({ profile_id: user.id, email, code_hash: codeHash, attempts: 0, requested_at: now.toISOString(), expires_at: expires.toISOString(), verified_at: null }, { onConflict: "profile_id" });
   if (saveError) return json({ ok: false, error: "server_error" }, 500);
 
-  const sent = await sendBrevoCode(email, code, String(profile?.username ?? ""));
+  const username = String(profile?.username ?? "");
+  const sent = await sendTransactionalEmail(
+    email,
+    "Ton code de vérification Loki Music",
+    verificationEmailHtml(code, username),
+    `${username ? `@${username}, ` : ""}ton code de vérification Loki Music est ${code}. Il expire dans 10 minutes. Si tu n’as pas demandé ce code, ignore cet e-mail.`,
+    "email-verification",
+    "keep-account-email",
+  );
   if (!sent.ok) {
     await admin.from("account_email_verifications").delete().eq("profile_id", user.id);
     return json({ ok: false, error: sent.error, detail: "detail" in sent ? sent.detail : null }, 503);

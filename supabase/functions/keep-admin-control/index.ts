@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { lokiEmailShell } from "../_shared/lokiEmailShell.ts";
+import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -28,6 +28,15 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   // bascule automatiquement sur Mailjet des que ces deux cles sont renseignees.
   MAILJET_API_KEY: { category: "email", label: "Mailjet API Key" },
   MAILJET_SECRET_KEY: { category: "email", label: "Mailjet Secret Key", secret: true },
+  // Adel (22/09/2026, audit Bloc 4 B4) : "remplacer le HMAC couple au
+  // service_role par un secret dedie" -- keep-account-email hachait les
+  // codes de verification a 6 chiffres avec SUPABASE_SERVICE_ROLE_KEY
+  // (privilege maximal, contourne toute RLS) comme cle HMAC. Secret dedie,
+  // sans rapport avec les acces base de donnees -- une chaine aleatoire
+  // longue suffit (ex. generee via `openssl rand -hex 32`). Tant qu'il
+  // n'est pas configure, keep-account-email continue de fonctionner avec
+  // un repli automatique sur SERVICE_ROLE (voir accountEmailCodeSecret()).
+  ACCOUNT_EMAIL_CODE_SECRET: { category: "email", label: "Secret HMAC — codes de vérification e-mail (keep-account-email)", secret: true },
   SPOTIFY_CLIENT_ID: { category: "music", label: "Spotify Client ID" },
   SPOTIFY_CLIENT_SECRET: { category: "music", label: "Spotify Client Secret", secret: true },
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
@@ -298,58 +307,12 @@ async function setRecognitionRuntimeStatus(key: string, status: string, message:
   }, { onConflict: "key" });
 }
 
-// Adel (08/09/2026) : "fait un bouton pour tester les email verification e-mail
-// et mots de passe oublie comme ca je voie tout le design" -- EXACTEMENT le
-// meme gabarit que supabase/functions/keep-auth-email (shellHtml/escapeHtml),
-// duplique ici car chaque edge function Deno est deployee separement (pas de
-// module partage). Si l'un des deux change, reporter le changement dans
-// l'autre fichier.
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] ?? char));
-}
-
-function shellHtml(title: string, heading: string, intro: string, buttonLabel: string, link: string, footer: string) {
-  return `<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="supported-color-schemes" content="dark" />
-  <title>${escapeHtml(title)}</title>
-</head>
-<body style="margin:0;padding:0;background:#09070d;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#09070d;margin:0;padding:0;">
-    <tr>
-      <td align="center" style="padding:24px 14px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#14101b;border:1px solid #2b2235;border-radius:28px;overflow:hidden;">
-          <tr>
-            <td style="padding:30px 26px 12px;text-align:center;">
-              <div style="display:inline-block;background:#e5f266;color:#15110b;border-radius:999px;padding:8px 15px;font-size:12px;font-weight:900;letter-spacing:1.7px;">Loki Music</div>
-              <h1 style="margin:22px 0 8px;font-size:27px;line-height:32px;font-weight:900;color:#ffffff;">${escapeHtml(heading)}</h1>
-              <p style="margin:0 auto;max-width:410px;font-size:15px;line-height:22px;color:#cfc7d8;">${intro}</p>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:14px 24px 26px;">
-              <a href="${link}" style="display:inline-block;background:#e5f266;color:#15110b;font-weight:900;font-size:15px;text-decoration:none;border-radius:999px;padding:15px 34px;">${escapeHtml(buttonLabel)}</a>
-              <p style="margin:18px 0 0;font-size:11px;line-height:16px;color:#72697e;word-break:break-all;">${escapeHtml(link)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:6px 26px 30px;">
-              <div style="height:1px;background:#2b2235;margin-bottom:20px;"></div>
-              <p style="margin:0;font-size:12px;line-height:18px;color:#90869d;text-align:center;">${footer}</p>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:16px 0 0;font-size:11px;line-height:16px;color:#72697e;text-align:center;">Loki Music · Ton univers musical, gardé au même endroit.</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
+// Audit Adel (22/09/2026, Bloc 4 B1) : ce gabarit (EXACTEMENT le meme que
+// supabase/functions/keep-auth-email) etait duplique ici -- le commentaire
+// d'origine (08/09/2026) invoquait "pas de module partage" entre fonctions
+// Deno, ce qui est inexact : ce fichier importe deja lokiEmailShell depuis
+// _shared/ trois lignes plus haut. escapeHtml/shellHtml deplaces vers
+// _shared/lokiEmailShell.ts (lokiEmailCtaShell), source unique desormais.
 
 async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
   const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
@@ -697,7 +660,7 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
-      const html = shellHtml(
+      const html = lokiEmailCtaShell(
         "Confirme ton compte Loki Music",
         "Confirme ton adresse e-mail",
         `<strong style="color:#ffffff">@apercu</strong>, plus qu’une étape pour activer ton compte Loki Music et pouvoir récupérer ton mot de passe si besoin.`,
@@ -725,7 +688,7 @@ Deno.serve(async (req) => {
         });
         if (!error && data?.properties?.action_link) { link = data.properties.action_link; real = true; }
       } catch { /* pas de compte pour cette adresse -> lien d'apercu */ }
-      const html = shellHtml(
+      const html = lokiEmailCtaShell(
         "Réinitialise ton mot de passe Loki Music",
         "Réinitialise ton mot de passe",
         "Tu as demandé à changer ton mot de passe Loki Music. Ouvre ce lien pour en choisir un nouveau.",
