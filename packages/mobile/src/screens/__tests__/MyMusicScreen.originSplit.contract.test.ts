@@ -14,11 +14,16 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
     expect(screen).toContain("localKeptEntries.filter((entry) => Boolean(entry.sourceProfileId))");
   });
 
-  it('affiche deux sections explicitement nommées', () => {
+  it('affiche deux sections explicitement nommées et trois filtres immédiats', () => {
     expect(screen).toContain('Musiques de mes écoutes');
     expect(screen).toContain("Musiques reprises d'autres utilisateurs");
     expect(screen).toContain('depuis tes écoutes');
     expect(screen).toContain('depuis des utilisateurs');
+    expect(screen).toContain("useState<'ALL' | 'LISTEN' | 'USERS'>('ALL')");
+    expect(screen).toContain("['ALL', `TOUT · ${localKeptEntries.length}`]");
+    expect(screen).toContain("['LISTEN', `ÉCOUTES · ${ownDiscoveryEntries.length}`]");
+    expect(screen).toContain("['USERS', `UTILISATEURS · ${socialRepriseEntries.length}`]");
+    expect(screen).toContain("originFilter === 'USERS' ? socialRepriseTracks : ownDiscoveryTracks");
   });
 
   it('rend l’origine visible sur chaque ligne sans ouvrir le détail', () => {
