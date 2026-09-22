@@ -17,11 +17,11 @@ const protectedShell = {
   // autres overlays globaux déjà montés ici) -- pas un changement de
   // responsive/layout, vérifié via git show avant mise à jour du hash.
   'packages/mobile/App.tsx': '2e33a79d8f044ad174730f43e9e37f1c2d7d255b',
-  // Navigation.tsx (c0f6f2a, session du 20/09/2026) : insets.bottom ajouté à
-  // la barre d'onglets (elle était cachée/rognée par la zone d'accueil
-  // iPhone, invisible en simulateur/Android) -- pas un changement de design,
-  // un vrai bug de sécurité de zone corrigé.
-  'packages/mobile/src/navigation/Navigation.tsx': '23c7a3d784fec58b7b46863696e1468d79173d56',
+  // Navigation.tsx : c0f6f2a ajoute insets.bottom à la barre d'onglets
+  // (safe-area iPhone), puis e828b1c3 ajoute uniquement la route
+  // PlaylistSaleHistory vers l'écran d'historique validé. Aucun changement
+  // de responsive/design de la barre : hash revérifié après ces deux ajouts.
+  'packages/mobile/src/navigation/Navigation.tsx': '387150e976eba03103be0d9b4e8c39b490ddbdc8',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
