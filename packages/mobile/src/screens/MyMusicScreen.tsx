@@ -14,6 +14,7 @@ import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService
 import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, removeTrackFromOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
+import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
   isSmartAlbumUiId,
   loadOwnSmartAlbums,
@@ -125,6 +126,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState<LibraryTab>('MUSIQUES');
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
+  const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
   // Adel (14/09/2026) : "chaque utilisateur ... vendre leur playlist ...
   // pour le debloquer il faut un certain nombre d'abonnes" -- construit
   // integralement SAUF le paiement reel (Stripe Connect reserve a Adel,
@@ -185,17 +187,39 @@ export default function MyMusicScreen({ navigation }: any) {
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
 
   const localKeptEntries = useMemo(() => {
-    const all = sessions.flatMap((session) => session.tracks
+    // Source canonique = Supabase. L'historique de sessions reste utile pour
+    // les KEEPs locaux non encore synchronisés, mais il ne doit plus pouvoir
+    // masquer un KEEP serveur quand l'utilisateur a supprimé une ancienne
+    // session de son historique.
+    const local = sessions.flatMap((session) => session.tracks
       .filter((entry) => entry.status === 'kept')
       .map((entry) => ({ ...entry, sessionId: session.id })));
-    const unique = new Map<string, (typeof all)[number]>();
-    for (const entry of all) {
+    const remote = serverKeeps.map((entry) => ({
+      id: `server-${entry.decisionId}`,
+      track: entry.track,
+      recommendations: [],
+      status: 'kept' as const,
+      detectedAt: entry.detectedAt,
+      visibility: entry.visibility,
+      keepDecisionId: entry.decisionId,
+      sourceProfileId: entry.sourceProfileId,
+      sourceUsername: entry.sourceUsername,
+      creditSource: entry.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' as const : 'FREE' as const,
+      sessionId: entry.sessionId || '__keep-server-library__',
+    }));
+    const unique = new Map<string, (typeof remote)[number] | (typeof local)[number]>();
+
+    // Le serveur passe d'abord : visibilité et origine sociale y sont les
+    // références durables. Le local n'ajoute ensuite que les morceaux encore
+    // absents du serveur (offline / synchro en attente).
+    for (const entry of remote) unique.set(trackIdentity(entry.track), entry);
+    for (const entry of local) {
       const key = trackIdentity(entry.track);
-      const current = unique.get(key);
-      if (!current || new Date(entry.detectedAt).getTime() >= new Date(current.detectedAt).getTime()) unique.set(key, entry);
+      if (!unique.has(key)) unique.set(key, entry);
     }
+
     return Array.from(unique.values()).sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
-  }, [sessions]);
+  }, [sessions, serverKeeps]);
 
   const ownDiscoveryEntries = useMemo(
     () => localKeptEntries.filter((entry) => !entry.sourceProfileId),
@@ -260,6 +284,12 @@ export default function MyMusicScreen({ navigation }: any) {
 
   const refreshLibrary = async () => {
     await syncUnsyncedKeeps().catch(() => {});
+    if (userId && !isLocalGuest && !isDemoMode) {
+      const persisted = await loadOwnPersistedKeeps().catch(() => null);
+      if (persisted) setServerKeeps(persisted);
+    } else {
+      setServerKeeps([]);
+    }
     await refresh().catch(() => {});
     await refreshSmartState().catch(() => {});
     await refreshSaleState().catch(() => {});
@@ -274,6 +304,7 @@ export default function MyMusicScreen({ navigation }: any) {
     setSortAccess(null);
     setSaleAccess(null);
     setMyOffers({});
+    setServerKeeps([]);
   }, [userId]);
 
   // Adel (21/09/2026) BUG RÉEL corrigé : "1000 abonnés assignés via Super
