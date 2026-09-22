@@ -133,6 +133,84 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   }));
 }
 
+export async function loadPublicSmartAlbums(profileId: string): Promise<SmartAlbumRecord[]> {
+  if (!supabase || !profileId) return [];
+  const { data: playlists, error } = await supabase
+    .from('playlists')
+    .select('id,provider_playlist_id,name,description,is_public')
+    .eq('owner_id', profileId)
+    .eq('provider', 'KEEP_SMART')
+    .eq('is_smart', true)
+    .eq('is_public', true)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+
+  const ids = (playlists ?? []).map((row: any) => String(row.id));
+  const counts = new Map<string, number>();
+  if (ids.length) {
+    const { data: memberships, error: membershipError } = await supabase
+      .from('playlist_tracks')
+      .select('playlist_id')
+      .in('playlist_id', ids);
+    if (membershipError) throw membershipError;
+    for (const row of memberships ?? []) {
+      const id = String((row as any).playlist_id);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+
+  return (playlists ?? []).map((row: any) => ({
+    id: String(row.id),
+    smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
+    name: String(row.name ?? 'Vibe Loki Music'),
+    description: String(row.description ?? ''),
+    isPublic: true,
+    trackCount: counts.get(String(row.id)) ?? 0,
+    matchedGenres: [],
+  }));
+}
+
+export async function loadPublicSmartAlbumTracks(profileId: string, uiOrDatabaseId: string): Promise<CanonicalTrack[]> {
+  if (!supabase || !profileId) return [];
+  const databaseId = smartAlbumDatabaseId(uiOrDatabaseId);
+  const { data: playlist, error: playlistError } = await supabase
+    .from('playlists')
+    .select('id')
+    .eq('id', databaseId)
+    .eq('owner_id', profileId)
+    .eq('provider', 'KEEP_SMART')
+    .eq('is_smart', true)
+    .eq('is_public', true)
+    .maybeSingle();
+  if (playlistError) throw playlistError;
+  if (!playlist) return [];
+
+  const { data, error } = await supabase
+    .from('playlist_tracks')
+    .select('added_at,tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,available_on,external_urls)')
+    .eq('playlist_id', databaseId)
+    .order('added_at', { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => {
+    const track = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks;
+    return {
+      id: String(track.id),
+      isrc: track.isrc ? String(track.isrc) : undefined,
+      title: String(track.title ?? ''),
+      artist: String(track.artist ?? ''),
+      album: track.album ? String(track.album) : undefined,
+      durationSec: track.duration_sec == null ? undefined : Number(track.duration_sec),
+      artworkUrl: track.artwork_url ? String(track.artwork_url) : undefined,
+      genres: Array.isArray(track.genres) ? track.genres.map(String) : [],
+      providerIds: track.provider_ids && typeof track.provider_ids === 'object' ? track.provider_ids : {},
+      previewUrl: track.preview_url ? String(track.preview_url) : undefined,
+      availableOn: Array.isArray(track.available_on) ? track.available_on.map(String) : [],
+      externalUrls: track.external_urls && typeof track.external_urls === 'object' ? track.external_urls : {},
+    } satisfies CanonicalTrack;
+  });
+}
+
 export async function loadSmartAlbumTracks(uiOrDatabaseId: string): Promise<CanonicalTrack[]> {
   if (!supabase) return [];
   const userId = await currentUserId();
