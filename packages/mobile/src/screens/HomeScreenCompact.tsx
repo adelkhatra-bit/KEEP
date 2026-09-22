@@ -159,11 +159,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       wakeLockRef.current?.release?.().catch(() => {});
       wakeLockRef.current = null;
     };
-    if (showMicPrimer) {
-    return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
-  }
-
-  if (!isActive) { release(); return; }
+    if (!isActive) { release(); return; }
     const acquire = async () => {
       try {
         const lock = await (navigator as any).wakeLock.request('screen');
@@ -365,6 +361,10 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
   };
 
+  if (showMicPrimer) {
+    return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
+  }
+
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}>
@@ -394,6 +394,15 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
   }
 
+  const micBlocked = Boolean(error && /(permission microphone|microphone refus|permissiondenied|notallowederror)/i.test(error));
+  const liveStatusLabel = micBlocked
+    ? 'MICRO · BLOQUÉ'
+    : error
+      ? 'ÉCOUTE · À VÉRIFIER'
+      : recognizing
+        ? 'MICRO · ANALYSE'
+        : 'MICRO · ACTIF';
+
   const liveGlowOpacity = micPulse.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.85] });
   const liveGlowScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] });
   const topOpacity = signalScan.interpolate({ inputRange: [0, 0.16, 0.29, 1], outputRange: [0.15, 1, 0.15, 0.15] });
@@ -419,7 +428,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
         <View style={s.livePanel}>
-          <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{error ? 'MICRO · BLOQUÉ' : recognizing ? 'MICRO · ANALYSE' : 'MICRO · ACTIF'}</Text></View>
+          <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{liveStatusLabel}</Text></View>
   
           <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
             <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
@@ -437,7 +446,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           </ListenEnergyAura>
         </View>
 
-        {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{/microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
+        {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{micBlocked && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
         <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text><View style={s.sectionCount}><Text style={s.sectionCountText}>{detected}</Text></View></View>
