@@ -74,17 +74,54 @@ function mapEventRow(row: any): CreatorEvent {
 // (avec son badge d'attente) tant qu'il n'a pas ete approuve.
 export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEvent[]> {
   if (!supabase) return [];
-  let query = supabase
+
+  // Public : uniquement les événements approuvés encore pertinents.
+  // Créateur : garder aussi SES propres événements quel que soit leur statut
+  // (PENDING / REJECTED / APPROVED), même lorsque la date est passée.
+  // Avant ce correctif, le filtre starts_at >= now-12h s'appliquait aussi au
+  // créateur : une demande restait bien en base et visible au Super Admin,
+  // mais disparaissait de l'app utilisateur dès qu'elle vieillissait.
+  const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+  const publicQuery = supabase
     .from('events')
     .select(EVENT_COLUMNS)
     .eq('is_disabled', false)
-    .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString());
-  query = viewerId
-    ? query.or(`moderation_status.eq.APPROVED,creator_id.eq.${viewerId}`)
-    : query.eq('moderation_status', 'APPROVED');
-  const { data, error } = await query.order('starts_at', { ascending: true }).limit(100);
-  if (error) throw error;
-  return (data ?? []).map(mapEventRow);
+    .eq('moderation_status', 'APPROVED')
+    .gte('starts_at', cutoff)
+    .order('starts_at', { ascending: true })
+    .limit(100);
+
+  if (!viewerId) {
+    const { data, error } = await publicQuery;
+    if (error) throw error;
+    return (data ?? []).map(mapEventRow);
+  }
+
+  const ownQuery = supabase
+    .from('events')
+    .select(EVENT_COLUMNS)
+    .eq('is_disabled', false)
+    .eq('creator_id', viewerId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const [{ data: publicRows, error: publicError }, { data: ownRows, error: ownError }] = await Promise.all([publicQuery, ownQuery]);
+  if (publicError) throw publicError;
+  if (ownError) throw ownError;
+
+  const unique = new Map<string, CreatorEvent>();
+  for (const row of publicRows ?? []) unique.set(String((row as any).id), mapEventRow(row));
+  for (const row of ownRows ?? []) unique.set(String((row as any).id), mapEventRow(row));
+
+  const now = Date.now();
+  return Array.from(unique.values()).sort((a, b) => {
+    const aTime = new Date(a.startsAt).getTime();
+    const bTime = new Date(b.startsAt).getTime();
+    const aFuture = Number.isFinite(aTime) && aTime >= now;
+    const bFuture = Number.isFinite(bTime) && bTime >= now;
+    if (aFuture !== bFuture) return aFuture ? -1 : 1;
+    return aFuture ? aTime - bTime : bTime - aTime;
+  });
 }
 
 // Adel (08/09/2026) : "il faut un bouton en savoir plus ... avoir quelques
