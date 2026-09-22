@@ -20,10 +20,10 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
-import { persistEnrichedGenres } from '../services/smartAlbumService';
+import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadMaskedPlaylistSaleTrackIds, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -55,9 +55,9 @@ type SocialPlatform = SocialLink['platform'];
 // jamais interrogeables pour un visiteur (ils dépendent de la session
 // provider du PROFIL VISITÉ, pas de la nôtre). Seuls Musiques et Artistes ont
 // une vraie source de données publique.
-type ProfileTab = 'TRACKS' | 'ARTISTS';
+type ProfileTab = 'TRACKS' | 'VIBES' | 'ARTISTS';
 const TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'TRACKS', label: 'Musiques' }, { key: 'ARTISTS', label: 'Artistes' },
+  { key: 'TRACKS', label: 'Musiques' }, { key: 'VIBES', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' },
 ];
 
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
@@ -139,6 +139,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  const [publicVibes, setPublicVibes] = useState<SmartAlbumRecord[]>([]);
+  const [saleUnlocks, setSaleUnlocks] = useState<Record<string, { offerId: string; deliveredPlaylistId: string }>>({});
+  const [folderSwipeTracks, setFolderSwipeTracks] = useState<CanonicalTrack[]>([]);
+  const [folderSwipeTitle, setFolderSwipeTitle] = useState('');
+  const [folderLoadingId, setFolderLoadingId] = useState<string | null>(null);
   // Adel (20/09/2026) : marketplace playlists (ACHETER) en "coming soon" --
   // paiement par lien externe, non conforme Apple IAP pour du contenu
   // numérique déverrouillé dans l'app. Code intact, juste masqué tant que
@@ -161,6 +166,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
     return () => { live = false; };
   }, [marketplaceEnabled, profile?.id]);
+  useEffect(() => {
+    if (!profile?.id) { setPublicVibes([]); return undefined; }
+    let live = true;
+    loadPublicSmartAlbums(profile.id).then((rows) => { if (live) setPublicVibes(rows); }).catch(() => { if (live) setPublicVibes([]); });
+    return () => { live = false; };
+  }, [profile?.id]);
+  useEffect(() => {
+    if (!viewer?.id || isLocalGuest || isDemoMode) { setSaleUnlocks({}); return undefined; }
+    let live = true;
+    loadMyPlaylistSaleUnlocks().then((rows) => { if (live) setSaleUnlocks(rows); }).catch(() => { if (live) setSaleUnlocks({}); });
+    return () => { live = false; };
+  }, [viewer?.id, isLocalGuest, isDemoMode, saleOffers.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -376,6 +393,46 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // à partir de discoveryImpacts (déjà chargé, réel) et keptAt (déjà
   // renvoyé par loadPublicProfileKeeps, juste jamais mappé jusqu'ici).
   const daysAgo = (iso?: string | null) => { if (!iso) return null; return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)); };
+  const openFolderSwipe = async (title: string, loader: () => Promise<CanonicalTrack[]>, loadingKey: string) => {
+    if (folderLoadingId) return;
+    unlockWebAudioForGesture();
+    setFolderLoadingId(loadingKey);
+    try {
+      const rows = await loader();
+      if (!rows.length) {
+        Alert.alert('Vibe Loki Music', 'Cette sélection ne contient pas encore de morceau accessible.');
+        return;
+      }
+      setFolderSwipeTracks(rows);
+      setFolderSwipeTitle(title);
+      setBrowseFilter(null);
+      setSwipeOpen(true);
+    } catch {
+      Alert.alert('Vibe Loki Music', 'Impossible d’ouvrir cette sélection pour le moment.');
+    } finally {
+      setFolderLoadingId(null);
+    }
+  };
+
+  const openPublicVibe = (vibe: SmartAlbumRecord) => {
+    if (!profile) return;
+    void openFolderSwipe(vibe.name, () => loadPublicSmartAlbumTracks(profile.id, vibe.id), `vibe:${vibe.id}`);
+  };
+
+  const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
+    const ownerViewingSelf = Boolean(viewer?.id && profile?.id && viewer.id === profile.id);
+    if (ownerViewingSelf) {
+      void openFolderSwipe(offer.playlistName, () => loadOwnPlaylistSaleOfferTracks(offer.offerId), `sale:${offer.offerId}`);
+      return;
+    }
+    const unlock = saleUnlocks[offer.offerId];
+    if (unlock?.deliveredPlaylistId) {
+      void openFolderSwipe(offer.playlistName, () => loadDeliveredPlaylistSaleTracks(unlock.deliveredPlaylistId), `sale:${offer.offerId}`);
+      return;
+    }
+    setImmersivePreviewOffer(offer);
+  };
+
   const openBrowseSwipe = (filter: { type: 'genre' | 'artist'; value: string; label: string } | null) => {
     // Adel (20/09/2026) : BUG RÉEL -- l'autoplay du Swipe ne démarrait
     // jamais tout seul sur le web, forçant "ÉCOUTER L'EXTRAIT" à chaque
@@ -931,6 +988,40 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               })}</View>
             ) : null}
           </View>
+        ) : activeTab === 'VIBES' ? (
+          <View style={styles.publicMusicSection}>
+            <View style={styles.folderIntro}>
+              <Text style={styles.sectionTitle}>Vibes de @${profile.username}</Text>
+              <Text style={styles.folderIntroText}>Les dossiers sont rangés par style par Loki Music. Appuie sur un dossier pour le swiper. Les dossiers avec cadenas sont des sélections à débloquer.</Text>
+            </View>
+            {publicVibes.length === 0 && (!marketplaceEnabled || saleOffers.length === 0) ? (
+              <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>✦</Text><Text style={styles.muted}>Aucune Vibe publique pour le moment.</Text></View>
+            ) : (
+              <View style={styles.folderGrid}>
+                {publicVibes.map((vibe) => (
+                  <TouchableOpacity key={`vibe:${vibe.id}`} style={styles.folderCard} onPress={() => openPublicVibe(vibe)} accessibilityLabel={`Swiper la Vibe ${vibe.name}`}>
+                    <View style={styles.folderIcon}><Text style={styles.folderIconText}>✦</Text></View>
+                    <View style={styles.folderCopy}><Text style={styles.folderTitle} numberOfLines={1}>{vibe.name}</Text><Text style={styles.folderMeta}>{vibe.trackCount} morceau{vibe.trackCount > 1 ? 'x' : ''} · Vibe publique</Text></View>
+                    <Text style={styles.folderAction}>{folderLoadingId === `vibe:${vibe.id}` ? '…' : '›'}</Text>
+                  </TouchableOpacity>
+                ))}
+                {marketplaceEnabled ? saleOffers.map((offer) => {
+                  const ownerViewingSelf = Boolean(viewer?.id && viewer.id === profile.id);
+                  const unlocked = ownerViewingSelf || Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId);
+                  return (
+                    <TouchableOpacity key={`sale:${offer.offerId}`} style={[styles.folderCard, styles.folderCardSale, unlocked && styles.folderCardUnlocked]} onPress={() => openSaleFolder(offer)} accessibilityLabel={unlocked ? `Swiper ${offer.playlistName}` : `Débloquer ${offer.playlistName}`}>
+                      {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.folderCover} /> : <View style={[styles.folderIcon, styles.folderIconSale]}><Text style={styles.folderIconText}>{unlocked ? '✓' : '🔒'}</Text></View>}
+                      <View style={styles.folderCopy}>
+                        <Text style={styles.folderTitle} numberOfLines={1}>{offer.playlistName}</Text>
+                        <Text style={styles.folderMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'Déverrouillé' : 'Aperçu masqué avant achat'}</Text>
+                      </View>
+                      <View style={[styles.folderPrice, unlocked && styles.folderUnlockedPill]}><Text style={styles.folderPriceText}>{unlocked ? 'SWIPE' : `${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
+                    </TouchableOpacity>
+                  );
+                }) : null}
+              </View>
+            )}
+          </View>
         ) : (
           <View style={styles.publicMusicSection}>
             {/* (21/09/2026) : onglet Artistes -- remplace le bouton "PAR
@@ -949,48 +1040,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             )}
           </View>
         )}
-
-        {/* Adel (16-17/09/2026) : "on ne vend pas la playlist, ils vendent
-            suivant une liste de musique qui pourra avoir sur son profil"
-            -- une seule liste désormais (playlist entière, album ou un
-            seul morceau, tout passe par la même offre côté serveur) au
-            lieu de deux sections parallèles qui se recoupaient. */}
-        {marketplaceEnabled ? (
-          <View style={styles.browseSection}>
-            <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
-            <Text style={styles.marketplaceHint}>Des sélections curatées prêtes à rejoindre ta bibliothèque Loki Music puis tes services connectés.</Text>
-            {saleOffers.length === 0 ? (
-              // Adel (21/09/2026) : "même s'il n'a pas de musique à la vente, il
-              // faut que le système soit fonctionnel et visible" -- jamais de
-              // section entièrement cachée, un état vide explicite à la place.
-              <TouchableOpacity
-                style={styles.marketplaceEmpty}
-                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
-                accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
-              >
-                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
-              </TouchableOpacity>
-            ) : (
-            <View style={styles.marketplaceList}>
-              {saleOffers.map((offer) => (
-                <View key={offer.offerId} style={styles.marketplaceCard}>
-                  <TouchableOpacity style={styles.marketplaceCardTop} onPress={() => setImmersivePreviewOffer(offer)} accessibilityLabel={`Découvrir un aperçu de ${offer.playlistName}`}>
-                    {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.marketplaceCover} /> : <View style={[styles.marketplaceCover, styles.marketplaceCoverFallback]}><Text style={styles.marketplaceCoverIcon}>♫</Text></View>}
-                    <View style={styles.marketplaceCopy}>
-                      <Text style={styles.marketplaceTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                      <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · liaison automatique à ton Loki Music après accès</Text>
-                    </View>
-                    <View style={styles.marketplacePriceButton}><Text style={styles.marketplacePriceText}>{`${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.immersiveLaunchButton} onPress={() => setImmersivePreviewOffer(offer)} accessibilityLabel={`Écouter un aperçu de ${offer.playlistName}`}>
-                    <Text style={styles.immersiveLaunchText}>▶️ Écouter un aperçu de cette découverte</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-            )}
-          </View>
-        ) : null}
 
         {immersivePreviewOffer ? (
           <PlaylistSaleImmersivePreview
@@ -1034,12 +1083,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
       <MusicSwipeDeckModal
         visible={swipeOpen}
-        tracks={browseSwipeTracks}
-        title={browseFilter ? `${profile.username} · ${browseFilter.label}` : `La collection de ${profile.username}`}
+        tracks={folderSwipeTracks.length ? folderSwipeTracks : browseSwipeTracks}
+        title={folderSwipeTracks.length ? folderSwipeTitle : browseFilter ? `${profile.username} · ${browseFilter.label}` : `La collection de ${profile.username}`}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         requiresAccount={!viewer || isLocalGuest || isDemoMode}
-        onClose={() => { setSwipeOpen(false); setBrowseFilter(null); }}
+        onClose={() => { setSwipeOpen(false); setBrowseFilter(null); setFolderSwipeTracks([]); setFolderSwipeTitle(''); }}
         onKeep={addCanonicalToMyKeep}
       />
 
@@ -1140,7 +1189,8 @@ const styles = StyleSheet.create({
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
-  marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+  folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+    marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:'#B7AECA',fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
   unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2},
