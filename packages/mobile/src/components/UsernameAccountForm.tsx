@@ -282,7 +282,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
       placeholder={mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}
-      placeholderTextColor={colors.textMuted}
+      placeholderTextColor={colors.textMutedGrey}
       autoCapitalize="none"
       autoCorrect={false}
       autoComplete={mode === 'login' ? 'email' : 'username'}
@@ -306,7 +306,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         value={email}
         onChangeText={(value) => { setEmail(value); if (error) setError(''); }}
         placeholder="Adresse e-mail"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textMutedGrey}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -328,7 +328,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         value={password}
         onChangeText={(value) => { setPassword(value); setPasswordSuggested(false); if (error) setError(''); }}
         placeholder="Mot de passe"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textMutedGrey}
         secureTextEntry={!showPassword}
         autoCapitalize="none"
         autoCorrect={false}
@@ -353,7 +353,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
           value={password2}
           onChangeText={(value) => { setPassword2(value); setPasswordSuggested(false); if (error) setError(''); }}
           placeholder="Confirmer le mot de passe"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textMutedGrey}
           secureTextEntry={!showPassword2}
           autoCapitalize="none"
           autoCorrect={false}
