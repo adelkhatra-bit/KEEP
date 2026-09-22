@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T13:06:08.974Z
-- Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `3276a24` (3276a246c054341a4072e50765a09b71e1ac3342) — fix(marketplace): resolve price save error + detailed error messages
-- Date du dernier commit : 2026-09-22T15:05:47+02:00
+- Régénéré le : 2026-09-22T13:26:53.106Z
+- Branche : `HEAD`
+- Dernier commit : `f766644` (f76664440c2ffa14ff4fa40285e5f041eed16f47) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
+- Date du dernier commit : 2026-09-22T13:25:41+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,6 +122,8 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
+- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
 - `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
 - `d3deba0` (2026-09-22, adelkhatra-bit) — feat(infra): PROJECT_STATE.md + hooks Git pour mémoire partagée inter-IA
 - `54a269d` (2026-09-22, adelkhatra-bit) — feat(anti-shazam): random offset + pitch shift + TTS overlay
@@ -130,8 +132,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `23356f3` (2026-09-22, adelkhatra-bit) — fix(audio): minor edge cases -- ended event web + manche sautee visible
 - `a98868f` (2026-09-22, adelkhatra-bit) — fix(audio): resout un conflit reel entre capture micro et lecture de previews
 - `49f60e8` (2026-09-22, adelkhatra-bit) — docs(app-store): notes reviewer + checklist de soumission
-- `f4d150d` (2026-09-22, adelkhatra-bit) — refactor(email): unifie les 3 gabarits e-mail duplique s + retry/fallback + secret HMAC dedie
-- `d63bb30` (2026-09-22, adelkhatra-bit) — feat(auth): architecture B "zero friction" -- essai auto au lancement + champs agrandis + Firefox
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
