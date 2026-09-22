@@ -245,11 +245,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}>
+        <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour">
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('session.recapTitle')}</Text>
-        <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn}>
+        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>SESSION</Text><Text style={styles.title}>{t('session.recapTitle')}</Text></View>
+        <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Partager la session">
           <Text style={styles.shareBtnText}>🔗</Text>
         </TouchableOpacity>
       </View>
@@ -377,15 +377,18 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textSecondary, fontSize: 15, marginBottom: spacing.lg },
   backLink: { paddingVertical: spacing.sm },
   backLinkText: { color: colors.primaryLight, fontWeight: '700' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
-  backArrow: { color: colors.textPrimary, fontSize: 22 },
-  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
-  shareBtn: { padding: spacing.xs },
-  shareBtnText: { fontSize: 20 },
+  header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth:1, borderBottomColor:colors.border },
+  backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
+  headerCopy:{flex:1,minWidth:0},
+  headerEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
+  title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
+  shareBtn: { width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border },
+  shareBtnText: { fontSize: 18 },
   nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
   titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  titleInput: { flex: 1, minHeight: 44, color: colors.textPrimary, fontSize: 15, fontWeight: '600', borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm },
-  validateTitleButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  titleInput: { flex: 1, minHeight: 48, color: colors.textPrimary, fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: colors.border, backgroundColor:colors.backgroundElevated, borderRadius:14, paddingHorizontal:12, paddingVertical: spacing.sm },
+  validateTitleButton: { minHeight: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
   titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
   titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
@@ -394,24 +397,24 @@ const styles = StyleSheet.create({
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
   statsDot: { color: colors.textMuted },
-  pendingPill: { minHeight: 30, paddingHorizontal: 10, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  pendingPill: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
   pendingPillText: { color: colors.black, fontSize: 9, fontWeight: '900', letterSpacing: .35 },
-  lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
+  lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, minHeight:64, padding: spacing.md, borderRadius: 18, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight, justifyContent:'center' },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
   visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
   passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
-  passedHeader: { paddingVertical: 8 },
+  passedHeader: { minHeight:44, justifyContent:'center', paddingVertical: 8 },
   passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
-  compactAction: { flex: 1, minHeight: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  compactAction: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
   swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
   keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
-  keepAllButtonLocked: { backgroundColor: '#27222E', borderColor: '#5C5468' },
+  keepAllButtonLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
   keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
-  keepAllButtonTextLocked: { color: '#FFFFFF' },
+  keepAllButtonTextLocked: { color: colors.textPrimary },
   deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
   deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
