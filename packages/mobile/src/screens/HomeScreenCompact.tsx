@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
@@ -11,10 +12,13 @@ import SessionPulse from '../components/SessionPulse';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
+import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { captureTabAudioSample, MicPermissionDeniedError } from '../services/micCapture';
+import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
 import { colors } from '../theme/colors';
+
+const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 
 // Palette locale desormais derivee du Design System (packages/mobile/src/theme/colors.ts).
 // Les cles conservent leur nom pour ne rien casser dans les styles ci-dessous ; seules
@@ -116,6 +120,25 @@ export default function HomeScreenCompact({ navigation }: any) {
       .catch(() => {});
     return () => { live = false; };
   }, []);
+
+  // Maquette validée (docs/mockups/Permissions.html, 22/09/2026) : écran de
+  // mise en confiance natif (iOS/Android), affiché une seule fois avant la
+  // toute première demande d'autorisation micro. Web non concerné.
+  const [showMicPrimer, setShowMicPrimer] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let live = true;
+    AsyncStorage.getItem(MIC_PRIMER_SEEN_KEY).then(async (seen) => {
+      if (seen || !live) return;
+      const status = await getMicPermissionStatus();
+      if (live && status === 'undetermined') setShowMicPrimer(true);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const dismissMicPrimer = () => {
+    setShowMicPrimer(false);
+    void AsyncStorage.setItem(MIC_PRIMER_SEEN_KEY, '1').catch(() => {});
+  };
 
   // Adel (03/09/2026) : "mon téléphone se met en veille, je dois appuyer à
   // chaque fois ... le système coupe le son automatiquement" -- vrai bug :
@@ -367,6 +390,10 @@ export default function HomeScreenCompact({ navigation }: any) {
   const rightOpacity = signalScan.interpolate({ inputRange: [0, 0.22, 0.38, 0.52, 1], outputRange: [0.15, 0.15, 1, 0.15, 0.15] });
   const bottomOpacity = signalScan.interpolate({ inputRange: [0, 0.48, 0.64, 0.77, 1], outputRange: [0.15, 0.15, 1, 0.15, 0.15] });
   const leftOpacity = signalScan.interpolate({ inputRange: [0, 0.72, 0.88, 1], outputRange: [0.15, 0.15, 1, 0.15] });
+
+  if (showMicPrimer) {
+    return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
+  }
 
   return (
     <SafeAreaView style={s.container}>

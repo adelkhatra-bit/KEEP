@@ -89,6 +89,24 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
   return nativeAudioModeQueue;
 }
 
+// Maquette validée (docs/mockups/Permissions.html, 22/09/2026) : écran de
+// mise en confiance affiché une fois avant la toute première demande
+// d'autorisation micro native. Web non concerné -- le navigateur affiche
+// déjà sa propre invite au geste utilisateur.
+export async function getMicPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
+  if (Platform.OS === 'web') return 'granted';
+  const { status } = await Audio.getPermissionsAsync();
+  if (status === 'granted') permissionGranted = true;
+  return status as 'granted' | 'denied' | 'undetermined';
+}
+
+export async function requestMicPermission(): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
+  const { status } = await Audio.requestPermissionsAsync();
+  permissionGranted = status === 'granted';
+  return permissionGranted;
+}
+
 async function ensurePermission(): Promise<void> {
   if (!permissionGranted) {
     const { status } = await Audio.requestPermissionsAsync();
