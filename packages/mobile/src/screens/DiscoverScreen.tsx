@@ -380,6 +380,33 @@ export default function DiscoverScreen({ navigation }: any) {
   // reste au même endroit" -- même popup en place que partout ailleurs
   // (useAccountGateStore), plus de saut vers l'onglet Profil.
   const openAccount = () => useAccountGateStore.getState().requestAccount('create');
+  // Refonte deck (spec Adel 22/09/2026) : le bouton GARDER (♥ menthe) suit
+  // le profil directement depuis Découvertes -- mêmes RPC sécurisées que le
+  // profil public (keep_follow_profile/keep_unfollow_profile), jamais
+  // d'écriture directe sur `follows`.
+  const [isFollowing, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  useEffect(() => { setFollowing(false); setFollowBusy(false); }, [currentProfile?.id]);
+  const toggleFollow = async () => {
+    if (!supabase || !user || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte Loki Music requis', `Crée ou connecte ton compte Loki Music : tu suivras ${currentProfile?.username || 'ce profil'} automatiquement dès que ton compte sera prêt.`, [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create', currentProfile?.username) },
+      ]);
+      return;
+    }
+    if (!currentProfile || followBusy) return;
+    setFollowBusy(true);
+    if (isFollowing) {
+      const { error } = await supabase.rpc('keep_unfollow_profile', { p_followee_id: currentProfile.id });
+      if (!error) setFollowing(false);
+    } else {
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: currentProfile.id });
+      if (!error) setFollowing(true);
+      else if (String(error.message || '').includes('FOLLOW_LIMIT')) Alert.alert('Limite atteinte', 'Ton plan actuel limite le nombre de profils que tu peux suivre.');
+    }
+    setFollowBusy(false);
+  };
 
   const compatibility = currentProfile ? overlapScore([...(user?.favoriteGenres ?? []), ...(user?.favoriteArtists ?? [])], [...currentProfile.favoriteGenres, ...currentProfile.favoriteArtists]) : null;
   const currentDistance = currentProfile && searchPosition && Number.isFinite(currentProfile.approxLat) && Number.isFinite(currentProfile.approxLng)
@@ -436,17 +463,26 @@ export default function DiscoverScreen({ navigation }: any) {
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à ${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun autre profil public disponible pour le moment.'}</Text></View>
         ) : (
           <View style={styles.profileCard}>
-            <TouchableOpacity activeOpacity={0.85} onPress={openCurrentProfile} style={styles.profileHero} accessibilityLabel={`Ouvrir le profil de ${currentProfile.username}`}>
-              {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.avatar} onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
-              <View style={styles.profileInfo}><View style={styles.profileNameRow}><Text style={styles.profileName}>{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View><Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki Music public'}</Text><Text style={styles.proximity}>{proximity || 'Profil public Loki Music'}</Text></View>
+            <TouchableOpacity activeOpacity={0.85} onPress={openCurrentProfile} style={styles.coverWrap} accessibilityLabel={`Ouvrir le profil de ${currentProfile.username}`}>
+              {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.cover} onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.cover, styles.coverFallback]}><Text style={styles.coverInitial}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
+              {compareFeatureEnabled ? (
+                compareAccess?.allowed === false
+                  ? <TouchableOpacity style={styles.affinityBadge} onPress={openPremium} accessibilityLabel="Voir Premium pour comparer les affinités"><Text style={styles.affinityBadgeText}>🔒</Text></TouchableOpacity>
+                  : <View style={styles.affinityBadge}><Text style={styles.affinityBadgeText}>{compatibility ?? 0}%</Text></View>
+              ) : null}
             </TouchableOpacity>
+            <View style={styles.profileNameRow}><Text style={styles.profileName}>{currentProfile.username}</Text><ProfileCertificationBadge tier={currentProfileSnapshot?.certificationTier ?? currentProfile.certificationTier ?? 'UNVERIFIED'} compact /></View>
+            <Text style={styles.profileBio} numberOfLines={2}>{currentProfile.bio || 'Profil Loki Music public'}</Text>
+            <Text style={styles.proximity}>{proximity || 'Profil public Loki Music'}</Text>
+            <View style={styles.genreChips}>{(currentProfile.favoriteGenres.length ? currentProfile.favoriteGenres.slice(0, 2) : ['Loki Music']).map((genre) => (
+              <View key={genre} style={styles.genreChip}><Text style={styles.genreChipText}>{genre}</Text></View>
+            ))}</View>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
-            <View style={styles.matchRow}>{compareFeatureEnabled ? (
-              compareAccess?.allowed === false
-                ? <TouchableOpacity style={styles.matchBlock} onPress={openPremium}><Text style={styles.matchValue}>🔒</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></TouchableOpacity>
-                : <View style={styles.matchBlock}><Text style={styles.matchValue}>{compatibility ?? 0}%</Text><Text style={styles.matchLabel}>AFFINITÉ</Text></View>
-            ) : null}<View style={styles.matchBlock}><Text style={styles.matchValue}>{currentProfile.favoriteGenres.slice(0,2).join(' · ') || 'Loki Music'}</Text><Text style={styles.matchLabel}>VIBES</Text></View></View>
-            <View style={styles.cardActions}><TouchableOpacity style={styles.passButton} onPress={nextProfile}><Text style={styles.passText}>PASSER</Text></TouchableOpacity></View>
+            <View style={styles.cardActions}>
+              <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={nextProfile} accessibilityLabel="Passer au profil suivant"><Text style={styles.passIcon}>✕</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, styles.superButton]} onPress={openCurrentProfile} accessibilityLabel="Ouvrir le profil complet"><Text style={styles.superIcon}>⭐</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, styles.keepButton, isFollowing && styles.keepButtonOn]} onPress={() => { void toggleFollow(); }} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre ce profil' : 'Suivre ce profil'}><Text style={styles.keepIcon}>{followBusy ? '…' : isFollowing ? '✓' : '♥'}</Text></TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -464,5 +500,5 @@ const styles = StyleSheet.create({
   searchPanel:{padding:10,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:8},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:colors.backgroundCard,alignItems:'center'},radiusValueText:{color:colors.white,fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:colors.border,overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:colors.primary},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:6,marginBottom:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:4,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:colors.primary},radiusChoiceText:{color:colors.white,fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:colors.white},searchButton:{minHeight:48,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:colors.textMuted,fontSize:8,marginTop:5,textAlign:'center'},
   lockCard:{padding:16,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:colors.white,fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:colors.primaryLight,fontSize:12,fontWeight:'900',marginTop:12},
   emptyCard:{padding:18,borderRadius:18,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},
-  profileCard:{padding:12,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},profileHero:{flexDirection:'row',alignItems:'center',gap:12},avatar:{width:72,height:72,borderRadius:36,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarInitial:{color:colors.white,fontSize:30,fontWeight:'900'},profileInfo:{flex:1},profileNameRow:{flexDirection:'row',alignItems:'center',gap:6},profileName:{color:colors.white,fontSize:17,fontWeight:'900'},profileBio:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},proximity:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:4},matchRow:{flexDirection:'row',gap:8,marginTop:12},matchBlock:{flex:1,minHeight:52,borderRadius:15,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},matchValue:{color:colors.white,fontSize:13,fontWeight:'900'},matchLabel:{color:colors.textMuted,fontSize:8,fontWeight:'900',marginTop:2},cardActions:{flexDirection:'row',gap:9,marginTop:12},passButton:{flex:1,minHeight:48,borderRadius:16,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},passText:{color:colors.white,fontSize:13,fontWeight:'900'},
+  profileCard:{padding:12,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},coverWrap:{position:'relative',alignItems:'center',alignSelf:'center'},cover:{width:220,height:220,borderRadius:16,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},coverInitial:{color:colors.white,fontSize:80,fontWeight:'900'},affinityBadge:{position:'absolute',top:10,right:10,minWidth:44,minHeight:32,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},affinityBadgeText:{color:colors.white,fontSize:13,fontWeight:'900'},profileNameRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,marginTop:12},profileName:{color:colors.white,fontSize:22,fontWeight:'900',textAlign:'center'},profileBio:{color:colors.textMutedGrey,fontSize:16,lineHeight:21,textAlign:'center',marginTop:4},proximity:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center',marginTop:4},genreChips:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:6,marginTop:10},genreChip:{paddingHorizontal:10,paddingVertical:5,borderRadius:12,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},genreChipText:{color:colors.white,fontSize:11,fontWeight:'800'},cardActions:{flexDirection:'row',justifyContent:'center',alignItems:'center',gap:14,marginTop:14},actionButton:{width:68,height:68,borderRadius:34,alignItems:'center',justifyContent:'center'},passButton:{backgroundColor:colors.pass},passIcon:{color:colors.white,fontSize:24,fontWeight:'900'},superButton:{backgroundColor:colors.primary},superIcon:{fontSize:24},keepButton:{width:80,height:80,borderRadius:40,backgroundColor:colors.keep,shadowColor:colors.keep,shadowOpacity:0.55,shadowRadius:12,shadowOffset:{width:0,height:0},elevation:8},keepButtonOn:{backgroundColor:colors.keepPressed},keepIcon:{color:colors.black,fontSize:26,fontWeight:'900'},
 });
