@@ -253,6 +253,73 @@ export async function loadMySalesHistory(): Promise<PlaylistSaleHistoryEntry[]> 
   })).filter((row) => row.id);
 }
 
+export type PlaylistSaleUnlock = {
+  offerId: string;
+  deliveredPlaylistId: string;
+};
+
+export async function loadMyPlaylistSaleUnlocks(): Promise<Record<string, PlaylistSaleUnlock>> {
+  if (!supabase) return {};
+  const { data: sessionData } = await supabase.auth.getSession();
+  const buyerId = sessionData.session?.user?.id;
+  if (!buyerId) return {};
+  const { data, error } = await supabase
+    .from('playlist_sale_payments')
+    .select('offer_id,delivered_playlist_id,status')
+    .eq('buyer_id', buyerId)
+    .eq('status', 'COMPLETED')
+    .not('delivered_playlist_id', 'is', null);
+  if (error) throw error;
+  const out: Record<string, PlaylistSaleUnlock> = {};
+  for (const row of data ?? []) {
+    const offerId = String((row as any).offer_id ?? '');
+    const deliveredPlaylistId = String((row as any).delivered_playlist_id ?? '');
+    if (offerId && deliveredPlaylistId) out[offerId] = { offerId, deliveredPlaylistId };
+  }
+  return out;
+}
+
+async function mapPlaylistTrackRows(rows: any[]): Promise<import('@keep/music').CanonicalTrack[]> {
+  return (rows ?? []).map((row: any) => {
+    const track = Array.isArray(row.tracks) ? row.tracks[0] : row.tracks;
+    return {
+      id: String(track.id),
+      isrc: track.isrc ? String(track.isrc) : undefined,
+      title: String(track.title ?? ''),
+      artist: String(track.artist ?? ''),
+      album: track.album ? String(track.album) : undefined,
+      durationSec: track.duration_sec == null ? undefined : Number(track.duration_sec),
+      artworkUrl: track.artwork_url ? String(track.artwork_url) : undefined,
+      genres: Array.isArray(track.genres) ? track.genres.map(String) : [],
+      providerIds: track.provider_ids && typeof track.provider_ids === 'object' ? track.provider_ids : {},
+      previewUrl: track.preview_url ? String(track.preview_url) : undefined,
+      availableOn: Array.isArray(track.available_on) ? track.available_on.map(String) : [],
+      externalUrls: track.external_urls && typeof track.external_urls === 'object' ? track.external_urls : {},
+    };
+  });
+}
+
+export async function loadDeliveredPlaylistSaleTracks(deliveredPlaylistId: string): Promise<import('@keep/music').CanonicalTrack[]> {
+  if (!supabase || !deliveredPlaylistId) return [];
+  const { data, error } = await supabase
+    .from('playlist_tracks')
+    .select('added_at,tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,available_on,external_urls)')
+    .eq('playlist_id', deliveredPlaylistId)
+    .order('added_at', { ascending: false });
+  if (error) throw error;
+  return mapPlaylistTrackRows(data ?? []);
+}
+
+export async function loadOwnPlaylistSaleOfferTracks(offerId: string): Promise<import('@keep/music').CanonicalTrack[]> {
+  if (!supabase || !offerId) return [];
+  const { data, error } = await supabase
+    .from('playlist_sale_offer_tracks')
+    .select('tracks!inner(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,available_on,external_urls)')
+    .eq('offer_id', offerId);
+  if (error) throw error;
+  return mapPlaylistTrackRows(data ?? []);
+}
+
 export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_purchases');
