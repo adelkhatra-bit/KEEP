@@ -154,6 +154,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <Text style={s.eyebrow}>DÉCOUVERTE À DÉBLOQUER</Text>
           <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
           <Text style={s.meta}>{trackCountLabel} titre{trackCountLabel > 1 ? 's' : ''} · masqués jusqu'à l'achat</Text>
+          <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>PRIX TOTAL</Text><Text style={s.totalPriceValue}>{(offer.priceCents / 100).toFixed(2).replace('.', ',')}{offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}</Text></View>
 
           <Text style={s.marketing}>{MARKETING_LINES[marketingIndex]}</Text>
 
@@ -214,9 +215,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
             disabled={!waiverAccepted || busy}
             onPress={() => onConfirmPurchase(offer)}
-            accessibilityLabel={`Acheter et ajouter à mon Loki Music, ${(offer.priceCents / 100).toFixed(2)} ${offer.currencyCode}`}
+            accessibilityLabel={`Débloquer toute la sélection, prix total ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode}`}
           >
-            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2)}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
+            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `DÉBLOQUER TOUTE LA SÉLECTION · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
           </TouchableOpacity>
           <Text style={s.noRefund}>Accès numérique immédiat : aucun remboursement possible une fois la renonciation validée.</Text>
         </View>
@@ -232,7 +233,10 @@ const s = StyleSheet.create({
   closeBtnText: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
   eyebrow: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 6 },
   playlistName: { color: colors.textPrimary, fontSize: 19, fontWeight: '800', marginTop: 4 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  meta: { color: colors.textMutedGrey, fontSize: 12, marginTop: 2 },
+  totalPricePill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
+  totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
+  totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
   marketing: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 20 },
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
   visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72 },
