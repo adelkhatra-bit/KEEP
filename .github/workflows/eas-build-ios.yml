@@ -198,8 +198,9 @@ jobs:
               }
               return response.json();
             }
-            const app = await get(`apps/${process.env.KEEP_ASC_APP_ID}`, 'App access');
-            if (app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') {
+            const app = await get(`apps/${process.env.KEEP_ASC_APP_ID}?include=bundleId`, 'App access');
+            const linkedBundle = (app.included || []).find((item) => item.type === 'bundleIds');
+            if (linkedBundle?.attributes?.identifier !== 'com.adelkhatra.keep') {
               throw new Error('Apple app bundle mismatch for ascAppId.');
             }
             const exactBundle = async (identifier, label) => {
@@ -213,11 +214,12 @@ jobs:
             const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
             const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
             const exactProfiles = async (bundle, label) => {
-              const result = await get(`profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=${encodeURIComponent(bundle.id)}&limit=50`, label);
+              const result = await get('profiles?filter[profileType]=IOS_APP_STORE&include=bundleId&limit=200', label);
               const validProfiles = (result.data || []).filter((profile) => {
                 const state = profile.attributes?.profileState;
                 const expirationDate = profile.attributes?.expirationDate;
-                return state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
+                const profileBundleId = profile.relationships?.bundleId?.data?.id;
+                return profileBundleId === bundle.id && state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
               });
               if (!validProfiles.length) {
                 throw new Error(`Apple App Store provisioning profile missing for ${bundle.attributes?.identifier || label}.`);
