@@ -189,7 +189,8 @@ jobs:
               enc({ iss: process.env.EXPO_ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
             const token = body + '.' + crypto.sign('sha256', Buffer.from(body), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
             async function get(route, label) {
-              const response = await fetch('https://api.appstoreconnect.apple.com/v1/' + route, {
+              const url = route.startsWith('https://') ? route : 'https://api.appstoreconnect.apple.com/v1/' + route;
+              const response = await fetch(url, {
                 headers: { Authorization: 'Bearer ' + token },
                 signal: AbortSignal.timeout(30000)
               });
@@ -214,11 +215,20 @@ jobs:
             const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
             const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
             const exactProfiles = async (bundle, label) => {
-              const result = await get('profiles?filter[profileType]=IOS_APP_STORE&include=bundleId&limit=200', label);
-              const includedBundlesById = new Map((result.included || [])
-                .filter((item) => item.type === 'bundleIds' && item.id)
-                .map((item) => [item.id, item]));
-              const validProfiles = (result.data || []).filter((profile) => {
+              let route = 'profiles?filter[profileType]=IOS_APP_STORE&include=bundleId&limit=200';
+              const profiles = [];
+              const includedBundlesById = new Map();
+              while (route) {
+                const result = await get(route, label);
+                for (const item of result.data || []) profiles.push(item);
+                for (const item of result.included || []) {
+                  if (item.type === 'bundleIds' && item.id && !includedBundlesById.has(item.id)) {
+                    includedBundlesById.set(item.id, item);
+                  }
+                }
+                route = result.links?.next || null;
+              }
+              const validProfiles = profiles.filter((profile) => {
                 const state = profile.attributes?.profileState;
                 const expirationDate = profile.attributes?.expirationDate;
                 const profileBundleId = profile.relationships?.bundleId?.data?.id;
