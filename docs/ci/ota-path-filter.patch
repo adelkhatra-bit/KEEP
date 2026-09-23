@@ -1,0 +1,17 @@
+diff --git a/.github/workflows/eas-update-production.yml b/.github/workflows/eas-update-production.yml
+index 5b033804..ef5c1af3 100644
+--- a/.github/workflows/eas-update-production.yml
++++ b/.github/workflows/eas-update-production.yml
+@@ -4,10 +4,8 @@ on:
+   push:
+     branches: ['reconcile/claude-main-20260825']
+     paths:
+-      - 'packages/mobile/src/**'
+-      - 'packages/mobile/App.tsx'
+-      - 'packages/mobile/index.js'
+-      - 'packages/mobile/assets/**'
++      # Trigger OTA on any mobile JS/TS/asset change (refontes = JS pur → 0 build EAS)
++      - 'packages/mobile/**'
+       - 'packages/music/**'
+       - 'package.json'
+       - 'package-lock.json'
