@@ -8,25 +8,26 @@ import path from 'path';
 // KeepBattleMobileGameV3.compact.test.ts).
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PublicUserProfileScreen redesign (Adel, 21/09/2026 : plan validé -- identité > compteurs regroupés > Ma collection > boutique > réseaux)', () => {
+describe('PublicUserProfileScreen redesign (Adel, 23/09/2026 : plan revalidé -- les produits EN VENTE remontent tout en haut du profil visité pour être mis en valeur : identité > compteurs regroupés > vitrine EN VENTE > Ma collection > réseaux)', () => {
   const source = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('orders the top-level sections: identity < unified counters < collection header < tabs < boutique < socials', () => {
+  it('orders the top-level sections: identity < unified counters < boutique EN VENTE < collection header < tabs < socials', () => {
     const hero = source.indexOf('<View style={styles.hero}>');
     const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
-    // (21/09/2026) : "Boutique playlists" renommé "Découvertes à débloquer"
-    // -- reframing conformité (on ne vend pas de musique, on donne accès à
-    // une découverte curatée).
+    // (23/09/2026, Adel) : la vitrine "Découvertes à débloquer" (produits en
+    // vente) est remontée AU-DESSUS de la collection pour être mise en valeur
+    // dès l'ouverture du profil. Rien supprimé : même section, même logique
+    // d'aperçu immersif, seulement relocalisée + accent visuel (saleShowcase).
     const boutique = source.indexOf("<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>");
     const socialHub = source.indexOf('<View style={styles.socialHub}>');
     expect(hero).toBeGreaterThanOrEqual(0);
     expect(unifiedCounters).toBeGreaterThan(hero);
-    expect(collectionHeader).toBeGreaterThan(unifiedCounters);
+    expect(boutique).toBeGreaterThan(unifiedCounters);
+    expect(collectionHeader).toBeGreaterThan(boutique);
     expect(tabsRow).toBeGreaterThan(collectionHeader);
-    expect(boutique).toBeGreaterThan(tabsRow);
-    expect(socialHub).toBeGreaterThan(boutique);
+    expect(socialHub).toBeGreaterThan(tabsRow);
   });
 
   it('exposes exactly two collection tabs, Musiques and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
