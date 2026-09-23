@@ -1387,3 +1387,7 @@ Je mets en place le poste de commandement GitHub-native pour agents IA : doc de 
 
 Poste de commandement GitHub-native IA implemente : doc docs/ops/GITHUB_AI_COMMAND_CENTER.md, config config/github-ai-command-center.json, templates d'issues (bug/ci/design/security/release/audit + agent-task), PR template enrichi, labels GitHub crees (agent-task, ci, design, security, release, audit, chatgpt, claude, codex, copilot). Validations : JSON/YAML OK, git diff --check OK, secret scan OK, parallel_validation OK. verify-source-of-truth reste FAIL hors scope a cause de la branche copilot/* et du marqueur preexistant Mon QR Loki.
 
+## [2026-09-23T01:13:04.888Z] codex
+
+Je continue sans ouvrir de second canal : prochaine etape = automatiser le triage GitHub des issues/agents et documenter la matrice de deblocage des plateformes externes (ce que les agents peuvent faire vs ce qui exige Adel).
+
