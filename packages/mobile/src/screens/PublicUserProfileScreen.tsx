@@ -57,9 +57,9 @@ type SocialPlatform = SocialLink['platform'];
 // jamais interrogeables pour un visiteur (ils dépendent de la session
 // provider du PROFIL VISITÉ, pas de la nôtre). Seuls Musiques et Artistes ont
 // une vraie source de données publique.
-type ProfileTab = 'TRACKS' | 'VIBES' | 'ARTISTS';
+type ProfileTab = 'TRACKS' | 'ARTISTS';
 const TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'TRACKS', label: 'Musiques' }, { key: 'VIBES', label: 'Vibes' }, { key: 'ARTISTS', label: 'Artistes' },
+  { key: 'TRACKS', label: 'Musiques' }, { key: 'ARTISTS', label: 'Artistes' },
 ];
 
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
@@ -1106,42 +1106,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </View>
             ) : null}
           </View>
-        ) : activeTab === 'VIBES' ? (
-          <View style={styles.publicMusicSection}>
-            <View style={styles.folderIntro}>
-              <Text style={styles.sectionTitle}>Vibes de @${profile.username}</Text>
-              <Text style={styles.folderIntroText}>Les dossiers sont rangés par style par Loki Music. Appuie sur un dossier pour le swiper. Les dossiers avec cadenas sont des sélections à débloquer.</Text>
-            </View>
-            {visiblePublicVibes.length === 0 && (!marketplaceEnabled || saleOffers.length === 0) ? (
-              <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>✦</Text><Text style={styles.muted}>Aucune Vibe publique pour le moment.</Text></View>
-            ) : (
-              <View style={styles.folderGrid}>
-                {visiblePublicVibes.map((vibe) => (
-                  <TouchableOpacity key={`vibe:${vibe.id}`} style={styles.folderCard} onPress={() => openPublicVibe(vibe)} accessibilityLabel={`Swiper la Vibe ${vibe.name}`}>
-                    <View style={styles.folderIcon}><Text style={styles.folderIconText}>✦</Text></View>
-                    <View style={styles.folderCopy}><Text style={styles.folderTitle} numberOfLines={1}>{vibe.name}</Text><Text style={styles.folderMeta}>{vibe.trackCount} morceau{vibe.trackCount > 1 ? 'x' : ''} · Swipe libre</Text></View>
-                    <Text style={styles.folderAction}>{folderLoadingId === `vibe:${vibe.id}` ? '…' : '›'}</Text>
-                  </TouchableOpacity>
-                ))}
-                {marketplaceEnabled ? saleOffers.map((offer) => {
-                  const ownerViewingSelf = Boolean(viewer?.id && viewer.id === profile.id);
-                  const unlocked = ownerViewingSelf || Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId);
-                  return (
-                    <TouchableOpacity key={`sale:${offer.offerId}`} style={[styles.folderCard, styles.folderCardSale, unlocked && styles.folderCardUnlocked]} onPress={() => openSaleFolder(offer)} accessibilityLabel={unlocked ? `Swiper ${offer.playlistName}` : `Débloquer ${offer.playlistName}`}>
-                      {unlocked && offer.coverUrl
-                        ? <Image source={{ uri: offer.coverUrl }} style={styles.folderCover} />
-                        : <View style={[styles.folderIcon, styles.folderIconSale]}><Text style={styles.folderIconText}>{unlocked ? '✓' : '🔒'}</Text></View>}
-                      <View style={styles.folderCopy}>
-                        <Text style={styles.folderTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                        <Text style={styles.folderMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'Déverrouillé · Swipe complet' : 'Audio uniquement · titres et jaquettes masqués'}</Text>
-                      </View>
-                      <View style={[styles.folderPrice, unlocked && styles.folderUnlockedPill]}><Text style={styles.folderPriceText}>{unlocked ? 'SWIPE' : `🔒 ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
-                    </TouchableOpacity>
-                  );
-                }) : null}
-              </View>
-            )}
-          </View>
         ) : (
           <View style={styles.publicMusicSection}>
             {/* (21/09/2026) : onglet Artistes -- remplace le bouton "PAR
@@ -1160,6 +1124,66 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             )}
           </View>
         )}
+
+        {/* Boutique « Découvertes à débloquer » (Adel, 21/09/2026) : section
+            toujours visible dès que le marketplace est activé, même sans offre
+            active (le système doit rester visible et fonctionnel sur un profil
+            visité). Chaque pack ouvre l'aperçu immersif (extraits 15s masqués,
+            aucun titre/jaquette révélé) ; l'achat se fait dans la modale, jamais
+            au tap de la carte. */}
+        {marketplaceEnabled ? (
+          <View style={styles.marketplaceSection}>
+            <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
+            <Text style={styles.marketplaceHint}>Des sélections complètes à écouter en aperçu avant de les débloquer. Titres et jaquettes restent masqués jusqu'à l'achat.</Text>
+            {saleOffers.length === 0 ? (
+              <TouchableOpacity
+                style={styles.marketplaceEmpty}
+                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
+                accessibilityRole="button"
+                accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
+              >
+                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.marketplaceList}>
+                {saleOffers.map((offer) => {
+                  const ownerViewingSelf = Boolean(viewer?.id && viewer.id === profile.id);
+                  const unlocked = ownerViewingSelf || Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId);
+                  const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+                  return (
+                    <View key={`sale:${offer.offerId}`} style={styles.marketplaceCard}>
+                      <View style={styles.marketplaceCardTop}>
+                        {unlocked && offer.coverUrl
+                          ? <Image source={{ uri: offer.coverUrl }} style={styles.marketplaceCover} />
+                          : <View style={[styles.marketplaceCover, styles.marketplaceCoverFallback]}><Text style={styles.marketplaceCoverIcon}>{unlocked ? '✓' : '🔒'}</Text></View>}
+                        <View style={styles.marketplaceCopy}>
+                          <Text style={styles.marketplaceTitle} numberOfLines={1}>{offer.playlistName}</Text>
+                          <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'Déverrouillé · Swipe complet' : 'Audio uniquement · titres et jaquettes masqués'}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.marketplacePriceButton}
+                          onPress={() => setImmersivePreviewOffer(offer)}
+                          accessibilityRole="button"
+                          accessibilityLabel={unlocked ? `Rouvrir l'aperçu de ${offer.playlistName}` : `Aperçu de ${offer.playlistName}, ${priceLabel}`}
+                        >
+                          <Text style={styles.marketplacePriceText}>{unlocked ? '✓' : priceLabel}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.immersiveLaunchButton}
+                        onPress={() => setImmersivePreviewOffer(offer)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Aperçu du pack ${offer.playlistName}`}
+                      >
+                        <Text style={styles.immersiveLaunchText}>{unlocked ? '▶ Rouvrir l\'aperçu' : '▶ Aperçu du pack'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        ) : null}
 
         {immersivePreviewOffer ? (
           <PlaylistSaleImmersivePreview
@@ -1310,7 +1334,7 @@ const styles = StyleSheet.create({
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-    marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+    marketplaceSection:{marginTop:22},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
   unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2},

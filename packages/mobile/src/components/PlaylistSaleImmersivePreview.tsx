@@ -215,9 +215,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
             disabled={!waiverAccepted || busy}
             onPress={() => onConfirmPurchase(offer)}
-            accessibilityLabel={`Débloquer toute la sélection, prix total ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode}`}
+            accessibilityLabel={`Acheter et ajouter à mon Loki Music, prix total ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode}`}
           >
-            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `DÉBLOQUER TOUTE LA SÉLECTION · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
+            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
           </TouchableOpacity>
           <Text style={s.noRefund}>Accès numérique immédiat : aucun remboursement possible une fois la renonciation validée.</Text>
         </View>
