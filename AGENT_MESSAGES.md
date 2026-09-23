@@ -1371,3 +1371,7 @@ Côté agent (vérification à faire après redeploy Vercel) :
   et vérifier les logs de build Vercel.
 
 ⛔ Attente confirmation d'Adel pour la vérification post-Vercel.
+## [2026-09-23T00:48:04.675Z] codex
+
+Diagnostic CI en cours sur auto-eas-build.yml : job 106998002116 échoue dans le bootstrap iOS sur Apple HTTP 403 FORBIDDEN_ERROR pendant ensure push notifications capability. Je vais corriger le workflow pour tolérer l'absence de permission sur bundleIdCapabilities sans masquer un vrai profil App Store invalide.
+
