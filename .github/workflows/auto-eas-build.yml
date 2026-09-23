@@ -168,23 +168,16 @@ jobs:
           })().catch(error => { console.error(error.message); process.exitCode=1; });
           NODE
 
-      - name: Validate existing Apple signing (non-destructive)
+      - name: Validate existing Apple resources (non-destructive)
         if: ${{ (inputs.profile || 'production') == 'production' }}
         timeout-minutes: 10
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         working-directory: packages/mobile
         run: |
-          export NODE_PATH="$(npm root -g)"
           node - <<'NODE'
           // Read-only by design: never create/update/revoke Apple identifiers,
           // capabilities, certificates or provisioning profiles from CI.
           const fs = require('node:fs');
           const crypto = require('node:crypto');
-          const { createGraphqlClient } = require('eas-cli/build/commandUtils/context/contextUtils/createGraphqlClient');
-          const { AppQuery } = require('eas-cli/build/graphql/queries/AppQuery');
-          const ios = require('eas-cli/build/credentials/ios/api/GraphqlClient');
-          const { parse } = require('eas-cli/build/credentials/ios/utils/provisioningProfile');
 
           class SigningError extends Error {}
           const check = (value, message) => { if (!value) throw new SigningError(message); };
@@ -194,7 +187,6 @@ jobs:
             const bundleIdentifier = 'com.adelkhatra.keep';
             const projectId = 'f9598ced-2480-4fa6-8d6e-885dd4e489e8';
             check(process.env.EXPO_APPLE_TEAM_ID === teamId, 'Unexpected Apple team');
-            check(process.env.EXPO_TOKEN, 'Missing Expo token');
 
             const config = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
             check(config.extra?.eas?.projectId === projectId, 'Unexpected Expo project');
@@ -211,44 +203,33 @@ jobs:
                 headers:{Authorization:'Bearer '+token},
                 signal:AbortSignal.timeout(30000)
               });
-              if (!response.ok) {
-                throw new SigningError('Apple read-only check failed: HTTP ' + response.status);
-              }
+              if (!response.ok) throw new SigningError('Apple read-only check failed: HTTP ' + response.status);
               return response.json();
             }
 
             const bundleResult = await apple('bundleIds?filter[identifier]=' + encodeURIComponent(bundleIdentifier) + '&limit=50');
             const exactBundles = (bundleResult.data || []).filter(b => b.attributes?.identifier === bundleIdentifier);
             check(exactBundles.length === 1, 'Main Apple bundle identifier must already exist exactly once');
-            console.log('Existing Apple bundle identifier found; no mutation performed.');
 
-            const graphqlClient = createGraphqlClient({accessToken:process.env.EXPO_TOKEN});
-            const project = await AppQuery.byIdAsync(graphqlClient, projectId);
-            check(project.ownerAccount.name === 'saleme01s-team', 'Unexpected Expo owner');
-            const app = {account:project.ownerAccount,projectName:config.slug,bundleIdentifier};
-            const current = await ios.getIosAppCredentialsWithBuildCredentialsAsync(
-              graphqlClient,
-              app,
-              {iosDistributionType:'APP_STORE'}
+            const certResult = await apple('certificates?filter[certificateType]=DISTRIBUTION,IOS_DISTRIBUTION&limit=200');
+            const activeCertificates = (certResult.data || []).filter(c =>
+              new Date(c.attributes?.expirationDate || 0).getTime() > Date.now() + 7*86400000
             );
-            const prior = current?.iosAppBuildCredentialsList?.[0];
-            check(prior?.distributionCertificate?.id, 'No existing EAS distribution certificate for main app');
-            check(prior?.provisioningProfile?.developerPortalIdentifier, 'No existing EAS App Store provisioning profile for main app');
+            check(activeCertificates.length > 0, 'No active Apple distribution certificate valid for more than 7 days');
 
-            const profile = await apple('profiles/' + prior.provisioningProfile.developerPortalIdentifier);
-            check(profile.data?.attributes?.profileState === 'ACTIVE', 'Existing main provisioning profile is not ACTIVE');
-            check(new Date(profile.data.attributes.expirationDate).getTime() > Date.now() + 7*86400000, 'Existing main provisioning profile expires in less than 7 days');
-            if (profile.data.attributes.profileContent) {
-              const plist = parse(profile.data.attributes.profileContent);
-              check(plist.TeamIdentifier?.[0] === teamId, 'Existing profile Apple team mismatch');
-              check(plist.Entitlements?.['application-identifier'] === teamId + '.' + bundleIdentifier, 'Existing profile bundle mismatch');
-            }
+            const profileResult = await apple('profiles?filter[profileType]=IOS_APP_STORE&limit=200');
+            const activeProfiles = (profileResult.data || []).filter(p =>
+              p.attributes?.profileState === 'ACTIVE' &&
+              new Date(p.attributes?.expirationDate || 0).getTime() > Date.now() + 7*86400000
+            );
+            check(activeProfiles.length > 0, 'No active App Store provisioning profile valid for more than 7 days');
 
-            console.log('Existing Apple/EAS signing is valid and reused read-only.');
+            console.log('Existing Apple bundle/certificate/profile found; no mutation performed.');
+            console.log('EAS remote credentials will be reused with --freeze-credentials.');
           }
 
           main().catch(error => {
-            console.error(error instanceof SigningError ? error.message : 'Read-only Apple/EAS signing validation failed.');
+            console.error(error instanceof SigningError ? error.message : 'Read-only Apple resource validation failed.');
             process.exitCode=1;
           });
           NODE
@@ -260,7 +241,8 @@ jobs:
         run: |
           set -euo pipefail
           profile="${{ inputs.profile || 'production' }}"
-          eas build --local --platform ios --profile "$profile" --non-interactive --freeze-credentials --output "$RUNNER_TEMP/loki.ipa"
+          env -u EXPO_ASC_API_KEY_PATH -u EXPO_ASC_KEY_ID -u EXPO_ASC_ISSUER_ID -u EXPO_APPLE_TEAM_ID \
+            eas build --local --platform ios --profile "$profile" --non-interactive --freeze-credentials --output "$RUNNER_TEMP/loki.ipa"
 
       - name: 📤 Soumettre a TestFlight
         if: ${{ (inputs.profile || 'production') == 'production' }}

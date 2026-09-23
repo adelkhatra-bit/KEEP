@@ -135,6 +135,8 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -145,6 +147,9 @@ jobs:
           eas.submit.production.ios ||= {};
           eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID;
           eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID;
+          eas.submit.production.ios.ascApiKeyPath = process.env.EXPO_ASC_API_KEY_PATH;
+          eas.submit.production.ios.ascApiKeyId = process.env.ASC_KEY_ID;
+          eas.submit.production.ios.ascApiKeyIssuerId = process.env.ASC_ISSUER_ID;
           fs.writeFileSync(file, JSON.stringify(eas, null, 2) + '\n');
           console.log('EAS submit config injected in runner only.');
           NODE
@@ -167,7 +172,8 @@ jobs:
           else
             echo 'Build EAS armé sans auto-submit TestFlight.'
           fi
-          eas "${args[@]}"
+          env -u EXPO_ASC_API_KEY_PATH -u EXPO_ASC_KEY_ID -u EXPO_ASC_ISSUER_ID -u EXPO_APPLE_TEAM_ID -u EXPO_APPLE_ID \
+            eas "${args[@]}"
 
       - name: Résumé pipeline Apple
         if: always()
