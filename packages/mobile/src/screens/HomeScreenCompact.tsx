@@ -13,12 +13,14 @@ import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
+import CoachMarks from '../components/CoachMarks';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
 import { colors } from '../theme/colors';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
+const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
 
 // Palette locale desormais derivee du Design System (packages/mobile/src/theme/colors.ts).
 // Les cles conservent leur nom pour ne rien casser dans les styles ci-dessous ; seules
@@ -142,6 +144,22 @@ export default function HomeScreenCompact({ navigation }: any) {
   const dismissMicPrimer = () => {
     setShowMicPrimer(false);
     void AsyncStorage.setItem(MIC_PRIMER_SEEN_KEY, '1').catch(() => {});
+  };
+
+  // Mini-tour de bienvenue (coach-marks) affiche une seule fois au tout premier
+  // lancement, pour que l'utilisateur "comprenne le systeme en deux clics".
+  // Ne remplace rien : simple surcouche non bloquante (skip a tout moment).
+  const [showCoach, setShowCoach] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AsyncStorage.getItem(COACH_SEEN_KEY).then((seen) => {
+      if (live && !seen) setShowCoach(true);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const finishCoach = () => {
+    setShowCoach(false);
+    void AsyncStorage.setItem(COACH_SEEN_KEY, '1').catch(() => {});
   };
 
   // Adel (03/09/2026) : "mon téléphone se met en veille, je dois appuyer à
@@ -434,6 +452,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             </TouchableOpacity>
           ) : null}
         </View>
+        <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
       </SafeAreaView>
     );
   }
@@ -662,6 +681,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           </View>
         </View></View>
       </Modal>
+      <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
     </SafeAreaView>
   );
 }
