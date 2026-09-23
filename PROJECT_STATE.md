@@ -31,11 +31,11 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-23T01:14:36.880Z
+- Régénéré le : 2026-09-23T01:19:37.079Z
 - Branche : `copilot/fix-github-actions-job-failure`
-- Dernier commit : `81f5258d` (81f5258d7d944cca2738a75e4ca7e73e7aa5a38d) — chore: plan agent triage and external unlock rollout
-- Date du dernier commit : 2026-09-23T01:13:15Z
-- Working tree : ⚠️ modifications non commitées présentes
+- Dernier commit : `70585ee8` (70585ee8e67c98c0773a76e8a89094d7618b9d72) — feat: direct issue triage to agents
+- Date du dernier commit : 2026-09-23T01:19:30Z
+- Working tree : ✅ propre
 <!-- AUTO:GIT-STATE:END -->
 
 **Statut global** : application mobile/web en production active (GitHub Pages +
@@ -122,9 +122,10 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `70585ee8` (2026-09-23, copilot-swe-agent[bot]) — feat: direct issue triage to agents
+- `bff2ba2b` (2026-09-23, copilot-swe-agent[bot]) — chore: plan issue triage automation follow-up
+- `6bbf90d3` (2026-09-23, copilot-swe-agent[bot]) — fix: unblock source-of-truth and add agent triage
 - `81f5258d` (2026-09-23, copilot-swe-agent[bot]) — chore: plan agent triage and external unlock rollout
-- `f8b6b491` (2026-09-23, copilot-swe-agent[bot]) — docs: record AI command center rollout
-- `ae1a6077` (2026-09-23, copilot-swe-agent[bot]) — docs: add GitHub AI command center governance
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par

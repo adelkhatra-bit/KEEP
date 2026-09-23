@@ -1395,3 +1395,7 @@ Je continue sans ouvrir de second canal : prochaine etape = automatiser le triag
 
 Je lance l'etape suivante du poste de commandement GitHub-native : ajout d'un workflow GitHub de triage automatique des issues pour appliquer les labels type/agent a partir des templates.
 
+## [2026-09-23T01:21:03.273Z] codex
+
+Suivi poste de commandement IA termine : le workflow .github/workflows/agent-command-triage.yml ne se contente plus de poser les labels type/agent, il maintient aussi un commentaire de routage sur chaque issue (type detecte, agent detecte, coordination, workflows recommandes, garde-fous secrets/preuves). Validations : YAML OK, git diff --check OK, verify-source-of-truth OK, secret scan OK, parallel_validation OK (CodeQL 0 alerte).
+
