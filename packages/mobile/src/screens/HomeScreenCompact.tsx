@@ -81,7 +81,7 @@ function formatElapsed(startedAt: string | null) {
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel,
+    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, micPaused, silenceTimeoutMin,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
@@ -399,9 +399,12 @@ export default function HomeScreenCompact({ navigation }: any) {
     ? 'MICRO · BLOQUÉ'
     : error
       ? 'ÉCOUTE · À VÉRIFIER'
-      : recognizing
-        ? 'MICRO · ANALYSE'
-        : 'MICRO · ACTIF';
+      : micPaused
+        ? 'MICRO · EN PAUSE'
+        : recognizing
+          ? 'MICRO · ANALYSE'
+          : 'MICRO · ACTIF';
+  const micIdle = Boolean(error) || micPaused;
 
   const liveGlowOpacity = micPulse.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.85] });
   const liveGlowScale = micPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] });
@@ -412,6 +415,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.container}>
+      <AuroraBackground active={isActive && !micIdle} />
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 
       <ScrollView
@@ -428,8 +432,20 @@ export default function HomeScreenCompact({ navigation }: any) {
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
         <View style={s.livePanel}>
-          <View style={s.liveRow}><View style={[s.liveDot, Boolean(error) && s.liveDotError]} /><Text style={[s.liveText, Boolean(error) && s.liveTextError]}>{liveStatusLabel}</Text></View>
-  
+          {/* Refonte écran d'écoute (maquette validée docs/mockups/EcouteRedesign.html,
+              23/09/2026) : pastille micro en "pill" + puce de veille auto, onde sonore
+              animée et compteurs unifiés. Restyling seul -- aucune fonctionnalité, aucun
+              état ni animation existante (micPulse/signalScan/aura) n'est retiré. */}
+          <View style={s.liveTopbar}>
+            <View style={[s.micPill, micIdle && s.micPillIdle]}>
+              <View style={[s.liveDot, micIdle && s.liveDotError]} />
+              <Text style={[s.liveText, micIdle && s.liveTextError]}>{liveStatusLabel}</Text>
+            </View>
+            <View style={s.autoStopChip}>
+              <Text style={s.autoStopText}>⏱ Veille auto · {silenceTimeoutMin} min</Text>
+            </View>
+          </View>
+
           <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
             <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
               <Animated.View pointerEvents="none" style={[s.signalGlow, { opacity: liveGlowOpacity }]} />
@@ -437,10 +453,11 @@ export default function HomeScreenCompact({ navigation }: any) {
               <Animated.View pointerEvents="none" style={[s.signalRight, { opacity: rightOpacity }]} />
               <Animated.View pointerEvents="none" style={[s.signalBottom, { opacity: bottomOpacity }]} />
               <Animated.View pointerEvents="none" style={[s.signalLeft, { opacity: leftOpacity }]} />
+              <ListenWaveform active={isActive} recognizing={recognizing} micLevel={micLevel} idle={micIdle} />
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
                 <MiniStat value={String(detected)} label="Détectés" />
-                <MiniStat value={String(kept)} label="Gardés" />
+                <MiniStat value={String(kept)} label="Gardés" highlight />
               </View>
             </Animated.View>
           </ListenEnergyAura>
@@ -602,8 +619,70 @@ function TopBar({ navigation }: any) {
   </View>;
 }
 
-function MiniStat({ value, label }: { value: string; label: string }) {
-  return <View style={s.miniStat}><Text style={s.miniValue}>{value}</Text><Text style={s.miniLabel}>{label}</Text></View>;
+function MiniStat({ value, label, highlight }: { value: string; label: string; highlight?: boolean }) {
+  return <View style={s.miniStat}><Text style={[s.miniValue, highlight && s.miniValueKept]}>{value}</Text><Text style={s.miniLabel}>{label}</Text></View>;
+}
+
+// Refonte écran d'écoute (maquette validée 23/09/2026) : fond "aurora" animé,
+// additif et purement décoratif (pointerEvents désactivé, aucune interaction
+// capturée). 100% JS/Animated -> compatible OTA (eas update), aucune dépendance
+// native ajoutée. Ne remplace rien : le contenu s'affiche par-dessus.
+function AuroraBackground({ active }: { active: boolean }) {
+  const drift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!active) { drift.stopAnimation(); drift.setValue(0); return undefined; }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(drift, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(drift, { toValue: 0, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, drift]);
+  const b1 = { transform: [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [-70, -30] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [-50, 10] }) }] };
+  const b2 = { transform: [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 50] }) }] };
+  const b3 = { transform: [{ translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -40] }) }] };
+  return (
+    <View pointerEvents="none" style={s.aurora}>
+      <Animated.View style={[s.blob, s.blob1, b1]} />
+      <Animated.View style={[s.blob, s.blob2, b2]} />
+      <Animated.View style={[s.blob, s.blob3, b3]} />
+    </View>
+  );
+}
+
+// Onde sonore animée (maquette validée 23/09/2026). Barres pilotées par le
+// niveau micro réel (micLevel) déjà exposé par le store -- pas de nouvel état,
+// pas de nouvelle logique de session. Décoratif, pointerEvents désactivé.
+const WAVE_BARS = 13;
+function ListenWaveform({ active, recognizing, micLevel, idle }: { active: boolean; recognizing: boolean; micLevel: number; idle?: boolean }) {
+  const anims = useRef(Array.from({ length: WAVE_BARS }, () => new Animated.Value(0.15))).current;
+  useEffect(() => {
+    if (!active) { anims.forEach((a) => a.stopAnimation()); return undefined; }
+    const level = Math.max(0, Math.min(1, micLevel));
+    const base = idle ? 0.06 : recognizing ? 0.42 : 0.18;
+    anims.forEach((a, i) => {
+      const wave = 0.5 + 0.5 * Math.sin(i * 1.35 + (idle ? 0 : level * 6));
+      const peak = idle ? 0.08 : Math.max(0.12, Math.min(1, base + level * 0.9 * wave));
+      Animated.timing(a, { toValue: peak, duration: 240, easing: Easing.out(Easing.ease), useNativeDriver: false }).start();
+    });
+    return undefined;
+  }, [active, recognizing, micLevel, idle, anims]);
+  return (
+    <View pointerEvents="none" style={s.waveRow}>
+      {anims.map((a, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            s.waveBar,
+            idle && s.waveBarIdle,
+            { height: a.interpolate({ inputRange: [0, 1], outputRange: [5, 38] }), opacity: a.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.95] }) },
+          ]}
+        />
+      ))}
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
@@ -614,6 +693,19 @@ const s = StyleSheet.create({
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 12, maxWidth: 300 },
   livePanel: { marginBottom: 8 },
+  aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  blob: { position: 'absolute', borderRadius: 999 },
+  blob1: { width: 320, height: 320, backgroundColor: C.purple, top: -60, left: -80, opacity: 0.20 },
+  blob2: { width: 280, height: 280, backgroundColor: C.green, top: 170, right: -90, opacity: 0.12 },
+  blob3: { width: 260, height: 260, backgroundColor: colors.primaryDark, bottom: 120, left: -50, opacity: 0.16 },
+  liveTopbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, marginBottom: 8 },
+  micPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,0.4)' },
+  micPillIdle: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.4)' },
+  autoStopChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
+  autoStopText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
+  waveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 42, gap: 3, marginBottom: 8 },
+  waveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight },
+  waveBarIdle: { backgroundColor: C.muted },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9, marginBottom: 6 },
   sectionCount: { minWidth: 22, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   sectionCountText: { color: C.purpleLight, fontSize: 11, fontWeight: '900' },
@@ -655,9 +747,10 @@ const s = StyleSheet.create({
   signalBottom: { position: 'absolute', left: 16, right: 16, bottom: 0, height: 2, borderRadius: 2, backgroundColor: C.purpleLight },
   signalLeft: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 2, borderRadius: 2, backgroundColor: C.green },
   stats: { flexDirection: 'row', gap: 7 },
-  miniStat: { flex: 1, height: 48, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(42,38,64,0.78)', backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
-  miniValue: { color: C.text, fontSize: 14, fontWeight: '800' },
-  miniLabel: { color: C.muted, fontSize: 9, marginTop: 1 },
+  miniStat: { flex: 1, height: 58, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(42,38,64,0.78)', backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  miniValue: { color: C.text, fontSize: 20, fontWeight: '900' },
+  miniValueKept: { color: C.green },
+  miniLabel: { color: C.muted, fontSize: 10, fontWeight: '700', letterSpacing: 0.4, marginTop: 3, textTransform: 'uppercase' },
   errorBanner: { marginTop: 7, minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: C.pink, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 6 },
   errorBannerText: { color: C.pink, fontSize: 11, textAlign: 'center' },
   micFixHintInBanner: { color: C.muted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 4 },
