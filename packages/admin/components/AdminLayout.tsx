@@ -36,10 +36,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [integrationIssues, setIntegrationIssues] = useState(0);
   const [pendingModeration, setPendingModeration] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.innerWidth < 1180) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const update = () => setIsMobile(window.innerWidth < 900);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   useEffect(() => {
@@ -94,6 +103,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="layout">
+      {sidebarOpen && isMobile && (
+        <div
+          className="sidebar-backdrop active"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
         <div className="logo">{APP_NAME}</div>
         <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>

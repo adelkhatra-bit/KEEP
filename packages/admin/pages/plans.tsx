@@ -3,9 +3,9 @@ import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
-interface ApiPrice { id: string; currency_code: string; period: 'MONTHLY' | 'YEARLY'; amount: number | string; is_active: boolean; free_bonus_per_month?: number | string; }
+interface ApiPrice { id: string; currency_code: string; period: 'MONTHLY' | 'YEARLY'; amount: number | string; is_active: boolean; free_bonus_per_month?: number | string; stripe_price_id?: string | null; }
 interface ApiPlan { id: string; code: string; name: string; trial_days: number; plan_prices?: ApiPrice[]; }
-interface PlanRow { id: string; code: string; monthly: number; yearly: number; trialDays: number; monthlyPriceId?: string; yearlyPriceId?: string; monthlyFreeBonus: number; yearlyFreeBonus: number; }
+interface PlanRow { id: string; code: string; monthly: number; yearly: number; trialDays: number; monthlyPriceId?: string; yearlyPriceId?: string; monthlyFreeBonus: number; yearlyFreeBonus: number; monthlyStripePriceId?: string; yearlyStripePriceId?: string; }
 
 type LimitKey =
   | 'keeps_per_month'
@@ -54,6 +54,8 @@ function mapPlan(plan: ApiPlan): PlanRow {
     id: plan.id, code: plan.code, monthly: Number(monthly?.amount ?? 0), yearly: Number(yearly?.amount ?? 0), trialDays: Number(plan.trial_days ?? 0),
     monthlyPriceId: monthly?.id, yearlyPriceId: yearly?.id,
     monthlyFreeBonus: Number(monthly?.free_bonus_per_month ?? 0), yearlyFreeBonus: Number(yearly?.free_bonus_per_month ?? 0),
+    monthlyStripePriceId: (monthly as any)?.stripe_price_id ?? '',
+    yearlyStripePriceId: (yearly as any)?.stripe_price_id ?? '',
   };
 }
 
@@ -102,7 +104,7 @@ export default function Plans() {
   };
 
   useEffect(() => { void load(); }, []);
-  const updatePlan = (code: string, field: 'monthly' | 'yearly' | 'trialDays' | 'monthlyFreeBonus' | 'yearlyFreeBonus', value: number) => { setPlans((prev) => prev.map((p) => p.code === code ? { ...p, [field]: value } : p)); setSavedAt(null); };
+  const updatePlan = (code: string, field: 'monthly' | 'yearly' | 'trialDays' | 'monthlyFreeBonus' | 'yearlyFreeBonus' | 'monthlyStripePriceId' | 'yearlyStripePriceId', value: number | string) => { setPlans((prev) => prev.map((p) => p.code === code ? { ...p, [field]: value } : p)); setSavedAt(null); };
   const updateLimit = (planCode: string, key: LimitKey, value: number | null) => { setLimits((prev) => ({ ...prev, [planCode]: { ...(prev[planCode] ?? {}), [key]: value } })); setSavedAt(null); };
 
   const handleSave = async () => {
@@ -111,8 +113,8 @@ export default function Plans() {
     try {
       for (const plan of plans) {
         await invokeAdmin({ action: 'plans.update', planId: plan.id, trialDays: plan.trialDays, prices: [
-          ...(plan.monthlyPriceId ? [{ id: plan.monthlyPriceId, amount: plan.monthly, freeBonusPerMonth: plan.monthlyFreeBonus }] : []),
-          ...(plan.yearlyPriceId ? [{ id: plan.yearlyPriceId, amount: plan.yearly, freeBonusPerMonth: plan.yearlyFreeBonus }] : []),
+          ...(plan.monthlyPriceId ? [{ id: plan.monthlyPriceId, amount: plan.monthly, freeBonusPerMonth: plan.monthlyFreeBonus, stripePriceId: plan.monthlyStripePriceId ?? '' }] : []),
+          ...(plan.yearlyPriceId ? [{ id: plan.yearlyPriceId, amount: plan.yearly, freeBonusPerMonth: plan.yearlyFreeBonus, stripePriceId: plan.yearlyStripePriceId ?? '' }] : []),
         ] });
       }
       const freeSave = await supabase.rpc('admin_set_free_credit_rules', { p_guest_limit: Math.max(0, Math.floor(guestLimit)), p_signup_bonus: Math.max(0, Math.floor(signupBonus)) });
@@ -153,8 +155,15 @@ export default function Plans() {
         automatiquement dans les offres" -- une colonne Free/mois juste à
         côté de chaque prix, au même endroit et dans le même geste. */}
     <p style={{color:'#9f96ad',marginTop:-8}}>Free/mois : combien de Free ce prix accorde par mois écoulé depuis l’inscription (cumulatif, jamais remis à zéro). Peut différer entre mensuel et annuel pour la même formule.</p>
-    <table><thead><tr><th>Plan</th><th>Prix mensuel</th><th>Free/mois (mensuel)</th><th>Prix annuel</th><th>Free/mois (annuel)</th><th>Essai</th></tr></thead><tbody>
-      {loading&&<tr><td colSpan={6} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
+    <div className="demo-banner" style={{ marginTop: 8, borderColor: '#f0b429', color: '#f0b429' }}>
+      ⚠️ Les Stripe Price ID (price_...) doivent être copiés depuis le{' '}
+      <a href="https://dashboard.stripe.com/products" target="_blank" rel="noreferrer" style={{ color: '#f0b429', textDecoration: 'underline' }}>
+        Stripe Dashboard → Produits
+      </a>
+      {' '}pour chaque plan × période. Sans eux, aucun checkout Stripe ne peut aboutir.
+    </div>
+    <table><thead><tr><th>Plan</th><th>Prix mensuel</th><th>Free/mois (mensuel)</th><th>Prix annuel</th><th>Free/mois (annuel)</th><th>Essai</th><th>Stripe Price ID mensuel</th><th>Stripe Price ID annuel</th></tr></thead><tbody>
+      {loading&&<tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
       {plans.map((p)=><tr key={p.id}>
         <td>{p.code}</td>
         <td><input type="number" step="0.01" value={p.monthly} onChange={(e)=>updatePlan(p.code,'monthly',Number(e.target.value)||0)}/> €</td>
@@ -162,6 +171,8 @@ export default function Plans() {
         <td><input type="number" step="0.01" value={p.yearly} onChange={(e)=>updatePlan(p.code,'yearly',Number(e.target.value)||0)}/> €</td>
         <td><input type="number" min="0" value={p.yearlyFreeBonus} onChange={(e)=>updatePlan(p.code,'yearlyFreeBonus',Math.max(0,parseInt(e.target.value,10)||0))} style={{width:70}}/></td>
         <td><input type="number" min="0" value={p.trialDays} onChange={(e)=>updatePlan(p.code,'trialDays',parseInt(e.target.value,10)||0)}/></td>
+        <td><input type="text" placeholder="price_..." value={p.monthlyStripePriceId ?? ''} onChange={(e)=>updatePlan(p.code,'monthlyStripePriceId',e.target.value)} style={{width:160,fontFamily:'monospace',fontSize:11}}/></td>
+        <td><input type="text" placeholder="price_..." value={p.yearlyStripePriceId ?? ''} onChange={(e)=>updatePlan(p.code,'yearlyStripePriceId',e.target.value)} style={{width:160,fontFamily:'monospace',fontSize:11}}/></td>
       </tr>)}
     </tbody></table>
 
