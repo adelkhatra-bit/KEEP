@@ -113,6 +113,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // dérouleur que côté profil visiteur, jamais un mur de puces qui grossit
   // avec la taille de la collection.
   const [styleModalOpen, setStyleModalOpen] = useState(false);
+  // Mission C (23/09/2026, maquette validée ProfileGenreFolders.html) :
+  // onglet Musiques rangeable "Par genre" (dossiers) en plus de "Tout" (la
+  // liste plate historique). 'ALL' par défaut : aucune régression, la vue
+  // existante reste la vue par défaut. Rien ne disparaît, on ajoute un mode.
+  const [tracksGrouping, setTracksGrouping] = useState<'ALL' | 'GENRE'>('ALL');
+  const [expandedGenreFolder, setExpandedGenreFolder] = useState<string | null>(null);
   // Adel (16-17/09/2026) : "quand on clique sur l'hamburger, on doit avoir
   // toutes les rubriques, tout en une fois ... je sélectionne et ça me met
   // sur la bonne page, là c'est trop compliqué ... va t'inspirer de la
@@ -527,6 +533,30 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [publicKeptTracks]);
+  // Mission C (23/09/2026) : mêmes morceaux, rangés en dossiers par genre pour
+  // la vue "Par genre" de l'onglet Musiques. On regroupe TOUTE la collection
+  // du propriétaire (publics + privés, comme la liste plate) ; un morceau
+  // multi-genres apparaît dans chaque dossier concerné, les morceaux sans
+  // genre tombent dans "Sans genre". Aucune donnée retirée, juste une autre
+  // présentation des mêmes entrées que renderCompactTrack sait déjà afficher.
+  const genreFolders = useMemo(() => {
+    type FolderEntry = (typeof profileKeptTracks)[number];
+    const map = new Map<string, FolderEntry[]>();
+    const push = (rawGenre: string, entry: FolderEntry) => {
+      const clean = rawGenre.trim() || 'Sans genre';
+      const arr = map.get(clean) ?? [];
+      arr.push(entry);
+      map.set(clean, arr);
+    };
+    for (const entry of profileKeptTracks) {
+      const genres = (entry.track.genres ?? []).map((g) => g.trim()).filter(Boolean);
+      if (genres.length) genres.forEach((g) => push(g, entry));
+      else push('Sans genre', entry);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+      .map(([genre, entries]) => ({ genre, entries }));
+  }, [profileKeptTracks]);
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- la détection de genre existait déjà mais restait
   // réservée à Creator Pro/Venue Pro (Vibes Auto) et n'était jamais
@@ -841,12 +871,50 @@ export default function ProfilePublicScreen({ navigation }: any) {
       if (!publicKeptTracks.length && !privateKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
       return <View style={s.keepList}>
         <Text style={s.ownerKeepHint}>Loki Music construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
-        {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt))}
-        {/* Adel (21/09/2026) : "chaque musique est identifiée par un
-            utilisateur, c'est l'idée de départ" -- un morceau privé reste
-            rattaché à son découvreur comme n'importe quel autre, seule sa
-            visibilité change (grisé + 🔒), jamais son attribution. */}
-        {privateKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, true))}
+        {/* Mission C (23/09/2026) : bascule "Tout / Par genre". "Tout" garde
+            la liste plate historique (aucune régression) ; "Par genre" range
+            la même collection en dossiers repliables. */}
+        <View style={s.groupingToggle}>
+          <TouchableOpacity style={[s.groupingChip, tracksGrouping === 'ALL' && s.groupingChipOn]} onPress={() => setTracksGrouping('ALL')} accessibilityRole="button" accessibilityState={{ selected: tracksGrouping === 'ALL' }} accessibilityLabel="Voir tous les morceaux"><Text style={[s.groupingChipText, tracksGrouping === 'ALL' && s.groupingChipTextOn]}>Tout</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.groupingChip, tracksGrouping === 'GENRE' && s.groupingChipOn]} onPress={() => setTracksGrouping('GENRE')} accessibilityRole="button" accessibilityState={{ selected: tracksGrouping === 'GENRE' }} accessibilityLabel="Ranger mes morceaux par genre"><Text style={[s.groupingChipText, tracksGrouping === 'GENRE' && s.groupingChipTextOn]}>Par genre</Text></TouchableOpacity>
+        </View>
+        {tracksGrouping === 'GENRE' ? (
+          genreFolders.length ? <View>
+            <View style={s.genreFolderGrid}>
+              {genreFolders.map((folder) => {
+                const open = expandedGenreFolder === folder.genre;
+                return <TouchableOpacity key={folder.genre} style={[s.genreFolderTile, open && s.genreFolderTileOn]} onPress={() => setExpandedGenreFolder(open ? null : folder.genre)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`Dossier ${folder.genre}, ${folder.entries.length} morceau${folder.entries.length > 1 ? 'x' : ''}`}>
+                  <Text style={s.genreFolderIcon}>{open ? '📂' : '📁'}</Text>
+                  <Text style={s.genreFolderName} numberOfLines={1}>{folder.genre}</Text>
+                  <Text style={s.genreFolderCount}>{folder.entries.length} morceau{folder.entries.length > 1 ? 'x' : ''}</Text>
+                </TouchableOpacity>;
+              })}
+            </View>
+            {expandedGenreFolder ? (() => {
+              const folder = genreFolders.find((f) => f.genre === expandedGenreFolder);
+              if (!folder) return null;
+              return <View style={s.genreFolderPanel}>
+                <View style={s.genreFolderPanelHead}>
+                  <Text style={s.genreFolderPanelTitle} numberOfLines={1}>{folder.genre} · {folder.entries.length} morceau{folder.entries.length > 1 ? 'x' : ''}</Text>
+                  {/* Mission C : "Mettre en vente" par dossier -- ouvre l'écran
+                      de vente existant (PlaylistSalePanel), jamais un raccourci
+                      qui court-circuite le tunnel de prix/renonciation. */}
+                  {marketplaceEnabled ? <TouchableOpacity style={s.genreFolderSellButton} onPress={() => navigation.navigate('PlaylistSale', { preselectGenre: folder.genre })} accessibilityLabel={`Mettre en vente le dossier ${folder.genre}`}><Text style={s.genreFolderSellText}>🏷️ Mettre en vente</Text></TouchableOpacity> : null}
+                </View>
+                {folder.entries.map((entry) => renderCompactTrack(entry.track, `genre-${folder.genre}-${entry.id}`, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, entry.visibility === 'PRIVATE'))}
+              </View>;
+            })() : null}
+          </View> : <Text style={s.muted}>Aucun genre détecté pour l’instant. Loki Music enrichit tes morceaux en arrière-plan — reviens dans un instant.</Text>
+        ) : (
+          <>
+            {publicKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt))}
+            {/* Adel (21/09/2026) : "chaque musique est identifiée par un
+                utilisateur, c'est l'idée de départ" -- un morceau privé reste
+                rattaché à son découvreur comme n'importe quel autre, seule sa
+                visibilité change (grisé + 🔒), jamais son attribution. */}
+            {privateKeptTracks.map((entry) => renderCompactTrack(entry.track, entry.id, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, true))}
+          </>
+        )}
       </View>;
     }
 
@@ -1427,6 +1495,9 @@ const s=StyleSheet.create({
   sectionMargin:{marginHorizontal:18,marginTop:10},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},genreGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:8},genreTile:{width:'48%',minHeight:56,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreTileText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreTileCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},muted:{color:colors.textPrimary,fontSize:13,lineHeight:18},
+  groupingToggle:{flexDirection:'row',gap:8,marginBottom:4},groupingChip:{minHeight:30,paddingHorizontal:14,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},groupingChipOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},groupingChipText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},groupingChipTextOn:{color:'#FFFFFF'},
+  genreFolderGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:6},genreFolderTile:{width:'48%',minHeight:72,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreFolderTileOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},genreFolderIcon:{fontSize:18,marginBottom:4},genreFolderName:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreFolderCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},
+  genreFolderPanel:{marginTop:2,marginBottom:6,padding:10,borderRadius:radius.md,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,gap:7},genreFolderPanelHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:2},genreFolderPanelTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',flex:1,minWidth:0},genreFolderSellButton:{minHeight:30,paddingHorizontal:12,borderRadius:radius.pill,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},genreFolderSellText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
