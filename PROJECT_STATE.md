@@ -31,11 +31,11 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-23T01:19:37.079Z
+- Régénéré le : 2026-09-23T23:36:11.693Z
 - Branche : `copilot/fix-github-actions-job-failure`
-- Dernier commit : `70585ee8` (70585ee8e67c98c0773a76e8a89094d7618b9d72) — feat: direct issue triage to agents
-- Date du dernier commit : 2026-09-23T01:19:30Z
-- Working tree : ✅ propre
+- Dernier commit : `9e072c99` (9e072c99bbe0cab7e26a2edbd1b2b5b32b87077e) — fix: align trial smoke with Loki branding
+- Date du dernier commit : 2026-09-23T23:31:36Z
+- Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
 **Statut global** : application mobile/web en production active (GitHub Pages +
@@ -122,10 +122,12 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `9e072c99` (2026-09-23, copilot-swe-agent[bot]) — fix: align trial smoke with Loki branding
+- `f31162b8` (2026-09-23, copilot-swe-agent[bot]) — fix: tolerate restored guest mode in trial smoke
+- `bb5781dd` (2026-09-23, copilot-swe-agent[bot]) — feat: harden public web audits
+- `22155236` (2026-09-23, copilot-swe-agent[bot]) — chore: plan ci robustness fixes
+- `b0d815d0` (2026-09-23, copilot-swe-agent[bot]) — docs: record automated agent issue routing
 - `70585ee8` (2026-09-23, copilot-swe-agent[bot]) — feat: direct issue triage to agents
-- `bff2ba2b` (2026-09-23, copilot-swe-agent[bot]) — chore: plan issue triage automation follow-up
-- `6bbf90d3` (2026-09-23, copilot-swe-agent[bot]) — fix: unblock source-of-truth and add agent triage
-- `81f5258d` (2026-09-23, copilot-swe-agent[bot]) — chore: plan agent triage and external unlock rollout
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -135,6 +137,7 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **Robustesse CI web public (23/09/2026)** : correctifs poussés sur la branche Copilot pour fiabiliser l'essai gratuit public, le clic Playlists→Profil après suppression et la vérification de route après reload. **Reste à confirmer après intégration sur `reconcile/claude-main-20260825`** : relance des workflows `public-trial-smoke.yml`, `mobile-web-importmeta-diagnostic.yml` et `web-preview-pages.yml`, car leurs triggers `push.branches` ne s'exécutent pas sur `copilot/*`.
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
   correctif micro/preview, anti-Shazam (« lance Shazam pendant la preview »).
   Aucun de ces tests n'a pu être fait depuis cet environnement (pas de

@@ -1,9 +1,6 @@
-locator.waitFor: Timeout 20000ms exceeded.
-Call log:
-  - waiting for getByText('Créer mon compte KEEP', { exact: true }).last() to be visible
-
-    at proveCreatorPaywall (/home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:60:73)
-    at async /home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:176:7
-URL: http://127.0.0.1:8081/Main/Profile
+Error: trial-desktop-chromium: le profil partagé @keeptest-a-mt7jit5n n'est pas affiché
+    at proveSharedProfileRoute (/home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:126:51)
+    at async /home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:224:7
+URL: http://127.0.0.1:8081/profile/keeptest-a-mt7jit5n
 AUTH REQUESTS: none
 ERRORS: none

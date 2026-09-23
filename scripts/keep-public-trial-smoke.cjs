@@ -26,6 +26,17 @@ async function waitForFiveTabs(page) {
   }
 }
 
+async function firstVisibleLocator(candidates) {
+  for (const locator of candidates) {
+    if (await locator.count()) {
+      const candidate = locator.last();
+      await candidate.waitFor({ state: 'visible', timeout: 20000 });
+      return candidate;
+    }
+  }
+  throw new Error('Aucun sélecteur visible correspondant');
+}
+
 async function findTrialButton(page) {
   const candidates = [
     page.getByTestId('onboarding-trial-button'),
@@ -57,22 +68,49 @@ async function enterTrialIfNeeded(page, scenarioName) {
 
 async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Profil', { exact: true }).last().click();
-  await page.getByText(/Créer mon compte (KEEP|Loki Music)/i).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('ESPACE CRÉATEUR', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText(/(?:KEEP\\s+)?PREMIUM/i).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText(/(?:KEEP\\s+)?CREATOR PRO/i).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText(/(?:KEEP\\s+)?VENUE PRO/i).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByLabel('Creator Pro requis').last().click();
+  await firstVisibleLocator([
+    page.getByText(/Créer mon compte (KEEP|Loki Music)/i),
+    page.getByText(/Conserve ton profil avec ton identifiant/i),
+  ]);
+
+  const creatorUnlockBadge = page.getByLabel('Voir comment débloquer DJ, Artiste, Créateur ou Producteur');
+  if (await creatorUnlockBadge.count()) {
+    await creatorUnlockBadge.last().click();
+    await firstVisibleLocator([
+      page.getByText('Débloque DJ, Artiste, Créateur, Producteur…', { exact: true }),
+      page.getByText(/Passe à Creator Pro/i),
+    ]);
+    await page.getByText('DJ / Artiste · Creator Pro', { exact: true }).click();
+  } else {
+    await firstVisibleLocator([
+      page.getByText('ESPACE CRÉATEUR', { exact: true }),
+      page.getByLabel('Creator Pro requis'),
+    ]);
+    await page.getByLabel('Creator Pro requis').last().click();
+  }
+
   await page.getByText('Offre & crédits', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('Formule requise : Creator Pro', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('FORMULE REQUISE', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('Cette formule débloque les profils DJ, Artiste, Créateur et Producteur.', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await firstVisibleLocator([
+    page.getByText('Formule requise : Creator Pro', { exact: true }),
+    page.getByText('À partir de Creator Pro', { exact: true }),
+  ]);
+  await firstVisibleLocator([
+    page.getByText('FORMULE REQUISE', { exact: true }),
+    page.getByText('FONCTION VERROUILLÉE', { exact: true }),
+  ]);
+  await firstVisibleLocator([
+    page.getByText('Cette formule débloque les profils DJ, Artiste, Créateur et Producteur.', { exact: true }),
+    page.getByText(/Creator Pro est la formule minimale requise pour cette fonction/i),
+  ]);
   const paywallText = await page.locator('body').innerText();
   const paywallHtml = await page.locator('body').innerHTML();
   assertVisibleBody(paywallText, paywallHtml, `${scenarioName} creator paywall`);
   await page.screenshot({ path: path.join(OUT, `${scenarioName}-creator-paywall.png`), fullPage: true });
 
-  await page.getByLabel('Retour').click();
+  await firstVisibleLocator([
+    page.getByLabel('Retour'),
+    page.getByText('‹', { exact: true }),
+  ]).then(locator => locator.click());
   await waitForFiveTabs(page);
 }
 

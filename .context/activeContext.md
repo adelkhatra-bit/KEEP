@@ -6,6 +6,13 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 
 ## Tâche en cours
 
+- **Robustesse des audits web publics / GitHub Actions — CODÉE, TESTÉE, POUSSÉE (branche Copilot)** :
+  - `packages/mobile/src/screens/onboarding/OnboardingScreen.tsx` : ajout d'un `testID="onboarding-trial-button"` + `accessibilityLabel="Essayer gratuitement"` stable pour l'essai gratuit public.
+  - `scripts/keep-public-trial-smoke.cjs` : sélecteur Playwright durci (testID/label/role/texte), tolérance si le mode invité est déjà restauré, et alignement des assertions avec le branding/flow Creator Pro actuels (`Loki Music`, badge de déblocage profil, route `offers?focusPlan=CREATOR_PRO`).
+  - `.github/workflows/mobile-web-importmeta-diagnostic.yml` : helper `clickRobust()` ajouté pour fiabiliser le clic vers `Profil` après suppression malgré les overlays qui interceptent les pointeurs.
+  - `.github/workflows/web-preview-pages.yml` : ajout d'une vraie assertion Playwright sur la préservation de la route métier après chargement puis reload (y compris `/superadmin/` → `/admin-preview/` et `/share-profile/`).
+  - Validations : `npm ci`, `npm --workspace packages/mobile run type-check`, `node scripts/verify-source-of-truth.cjs`, vérifications `git diff --check` + syntaxe YAML/JS, scan secrets OK, contrôle navigateur local Chromium OK (rendu non blanc + route Offers Creator Pro atteinte).
+
 - **Refonte layout 3 écrans (spec textuelle validée d'Adel, 22/09/2026) — CODÉE, TESTÉE, POUSSÉE** :
   - `HomeScreenCompact.tsx` : commit `8cd3a09` — ordre vertical strict (titre 28px, waveform menthe animée 120px via prop `size` de SessionPulse, accroche 24px, sous-titre 14px gris, bouton ÉCOUTER 52px/80%, lien ghost 13px), espacements 24px, nouveau token `colors.textMutedGrey` (#A0A0B0, dérogation Adel).
   - `DiscoverScreen.tsx` : commit `d85c8d9` — pochette 220×220, badge affinité sur pochette, titre 22px, bio 16px gris, chips genres, 3 boutons PASSER/SUPER/GARDER (GARDER = follow via RPC sécurisées `keep_follow_profile`/`keep_unfollow_profile`).
