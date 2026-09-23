@@ -1383,3 +1383,7 @@ Correctif pousse pour le job 106998002116 : auto-eas-build.yml tolere maintenant
 
 Je mets en place le poste de commandement GitHub-native pour agents IA : doc de gouvernance, templates GitHub (issues/PR), matrice d'acces minimale et labels de pilotage, sans creer de second relais.
 
+## [2026-09-23T01:09:36.122Z] codex
+
+Poste de commandement GitHub-native IA implemente : doc docs/ops/GITHUB_AI_COMMAND_CENTER.md, config config/github-ai-command-center.json, templates d'issues (bug/ci/design/security/release/audit + agent-task), PR template enrichi, labels GitHub crees (agent-task, ci, design, security, release, audit, chatgpt, claude, codex, copilot). Validations : JSON/YAML OK, git diff --check OK, secret scan OK, parallel_validation OK. verify-source-of-truth reste FAIL hors scope a cause de la branche copilot/* et du marqueur preexistant Mon QR Loki.
+
