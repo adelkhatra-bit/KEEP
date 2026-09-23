@@ -159,8 +159,18 @@ for (const expected of ['usernameFlow', 'emailFlow', 'syntheticEmail', 'username
 if (!usernameAuth.includes('@keep.local')) failures.push('SERVER-SIDE SYNTHETIC AUTH IDENTITY MISSING');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
-for (const marker of ['QRCode', 'Ma carte d’identité Loki Music', 'Partager par e-mail']) {
-  if (!publicProfile.includes(marker)) failures.push(`PROFILE SHARE MARKER MISSING: ${marker}`);
+// IMPORTANT: validate profile-sharing BEHAVIOUR, not visible button copy.
+// Product wording is allowed to evolve ("Mon QR Loki", "Ma carte d’identité Loki Music", etc.).
+// A cosmetic rename must never block GitHub Pages again. Only fail when the QR/e-mail
+// sharing capability itself disappears or is no longer wired to its action.
+for (const [marker, capability] of [
+  ['QRCode', 'QR renderer'],
+  ['const showQr = () =>', 'QR action'],
+  ['onPress={showQr}', 'QR button wiring'],
+  ['const shareEmail = async () =>', 'e-mail share action'],
+  ['onPress={shareEmail}', 'e-mail share button wiring'],
+]) {
+  if (!publicProfile.includes(marker)) failures.push(`PROFILE SHARE CAPABILITY MISSING: ${capability}`);
 }
 
 const viewedProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/PublicUserProfileScreen.tsx'), 'utf8');
