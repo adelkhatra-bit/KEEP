@@ -1394,3 +1394,23 @@ Côté agent (vérification à faire après redeploy Vercel) :
 - **Secret requis** : `EXPO_TOKEN` dans les GitHub Secrets du dépôt (référencé par le workflow).
 - **Tests** : tsc ✅, verify-source-of-truth ✅, jest en cours de validation.
 - Commit : `feat(ci): configure OTA for JS-only changes`.
+
+
+
+## Mission 2 — Playlist de soirée (PartiesScreen) — CODÉ + TESTÉ (23/09/2026)
+- **Constat audit** (`docs/audit/AUDIT_playlist_soiree_PartiesScreen.md`) : l'onglet PLAYLIST d'une soirée lisait `(currentEvent as any).tracks`, jamais peuplé → liste toujours vide.
+- **Correctif** (restyling/ajout uniquement, rien retiré) :
+  - Migration `supabase/migrations/20260923100000_keep_event_playlist.sql` : RPC `keep_event_playlist(p_event_id uuid)` (SQL, STABLE, SECURITY DEFINER, search_path=public). Joint `events → playlists → playlist_tracks → tracks`, trié par `added_at asc`. **Anti-fuite marketplace** : exclut les titres présents dans une offre de vente active du créateur de la soirée. `grant execute to anon, authenticated`.
+  - `creatorEventService.ts` : type `EventTrack` + `loadEventPlaylist(eventId)` (appel RPC + mapping).
+  - `PartiesScreen.tsx` : état `eventPlaylist`/`eventPlaylistLoading`, chargement à l'ouverture de l'onglet PLAYLIST, rendu avec spinner + jaquette. Boutons ▶ et ♡ conservés.
+- **Tests** : tsc ✅ · jest 284/284 mobile + 18/18 music ✅ · verify-source-of-truth ✅.
+
+## Mission 3 — Refonte écran d'écoute (HomeScreenCompact) — CODÉ + TESTÉ (23/09/2026)
+- **Maquette validée** : `docs/mockups/EcouteRedesign.html`.
+- **Refonte visuelle (restyling seul, rien retiré)** dans `packages/mobile/src/screens/HomeScreenCompact.tsx` :
+  - Fond « aurora » animé (3 halos violet/menthe dérivés des tokens colors.ts), 100% JS/Animated → compatible OTA, `pointerEvents` désactivé, purement décoratif.
+  - Onde sonore animée (`ListenWaveform`) pilotée par le `micLevel` réel du store — aucun nouvel état de session.
+  - Pastille micro en « pill » (menthe active / corail si bloqué ou en pause) + puce « Veille auto · N min » (reflète `silenceTimeoutMin` déjà géré par le store).
+  - Compteurs Durée / Détectés / Gardés unifiés en cartes (Gardés en menthe).
+- **Conservé (rien ne disparaît)** : SwipeDeck ← PASSER / GARDER →, TrackListenControls, nav file d'attente, états Gardé/Passé + pastille Public/Privé, bannière erreur + astuce micro, modales (garder/recherche/fin), aura ListenEnergyAura et animations micPulse/signalScan, footer ARRÊTER L'ÉCOUTE, capture d'onglet web.
+- **Tests** : tsc ✅ · jest 284/284 mobile + 18/18 music ✅ · verify-source-of-truth ✅.
