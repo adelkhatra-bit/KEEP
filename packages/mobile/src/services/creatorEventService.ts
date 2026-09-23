@@ -101,6 +101,7 @@ export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEven
     .from('events')
     .select(EVENT_COLUMNS)
     .eq('creator_id', viewerId)
+    .eq('is_disabled', false)
     .order('created_at', { ascending: false })
     .limit(100);
 
