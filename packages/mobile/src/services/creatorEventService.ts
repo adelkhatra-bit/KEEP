@@ -136,6 +136,36 @@ export async function loadEventById(eventId: string): Promise<CreatorEvent | nul
   return mapEventRow(data);
 }
 
+// Morceau d'une playlist de soirée. Les morceaux en vente par l'organisateur
+// sont exclus côté serveur (RPC keep_event_playlist) : rien ne fuit du
+// marketplace via cet écran.
+export type EventTrack = {
+  id: string;
+  title: string;
+  artist: string;
+  album?: string | null;
+  artworkUrl?: string | null;
+  durationSec?: number | null;
+};
+
+// Charge la playlist rattachée à un événement (events.playlist_id →
+// playlist_tracks → tracks), triée par ordre d'ajout. Renvoie [] si
+// l'événement n'a pas de playlist ou si aucun morceau n'est visible.
+export async function loadEventPlaylist(eventId: string): Promise<EventTrack[]> {
+  if (!supabase || !eventId) return [];
+  const { data, error } = await supabase.rpc('keep_event_playlist', { p_event_id: eventId });
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((row: any) => ({
+    id: String(row.id),
+    title: row.title ?? 'Titre inconnu',
+    artist: row.artist ?? 'Artiste inconnu',
+    album: row.album ?? null,
+    artworkUrl: row.artworkUrl ?? null,
+    durationSec: typeof row.durationSec === 'number' ? row.durationSec : null,
+  }));
+}
+
 export async function loadMyRsvps(profileId: string): Promise<Record<string, EventRsvpStatus>> {
   if (!supabase) return {};
   const { data, error } = await supabase.from('event_rsvps').select('event_id,status').eq('profile_id', profileId);

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
-import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction } from '../services/creatorEventService';
+import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
@@ -400,6 +400,11 @@ export default function PartiesScreen({ navigation, route }: any) {
   // dédié. État séparé pour ne jamais interférer avec la modale Participants.
   const [eventPodiumParticipants, setEventPodiumParticipants] = useState<EventParticipant[]>([]);
   const [eventPodiumLoading, setEventPodiumLoading] = useState(false);
+  // Playlist de la soirée : morceaux rattachés à events.playlist_id, chargés à
+  // l'ouverture de l'onglet PLAYLIST (RPC keep_event_playlist). Les morceaux en
+  // vente par l'organisateur sont exclus côté serveur (anti-fuite marketplace).
+  const [eventPlaylist, setEventPlaylist] = useState<EventTrack[]>([]);
+  const [eventPlaylistLoading, setEventPlaylistLoading] = useState(false);
   // Adel (08/09/2026) : "en savoir plus ... toute la deroulement du texte
   // ... j'appuie hop et je participe" -- detail plein ecran de l'evenement
   // courant (photo complete + texte integral + YouTube), avec la reponse
@@ -564,6 +569,19 @@ export default function PartiesScreen({ navigation, route }: any) {
       .then((rows) => { if (!cancelled) setEventPodiumParticipants(rows); })
       .catch(() => { if (!cancelled) setEventPodiumParticipants([]); })
       .finally(() => { if (!cancelled) setEventPodiumLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentEvent?.id, eventTab]);
+
+  // Playlist de la soirée : chargée à l'ouverture de l'onglet PLAYLIST. Le RPC
+  // renvoie [] pour un événement sans playlist -> l'état vide prend le relais.
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentEvent || eventTab !== 'PLAYLIST') return undefined;
+    setEventPlaylistLoading(true);
+    loadEventPlaylist(currentEvent.id)
+      .then((rows) => { if (!cancelled) setEventPlaylist(rows); })
+      .catch(() => { if (!cancelled) setEventPlaylist([]); })
+      .finally(() => { if (!cancelled) setEventPlaylistLoading(false); });
     return () => { cancelled = true; };
   }, [currentEvent?.id, eventTab]);
 
@@ -1242,13 +1260,19 @@ export default function PartiesScreen({ navigation, route }: any) {
           </> : eventTab === 'CLASSEMENT' ? renderEventClassement() : (
             <View style={styles.playlistPanel}>
               <Text style={styles.playlistPanelTitle}>PLAYLIST DE LA SOIRÉE</Text>
-              {Array.isArray((currentEvent as any).tracks) && (currentEvent as any).tracks.length ? (
-                (currentEvent as any).tracks.map((track: any, index: number) => (
+              {eventPlaylistLoading ? (
+                <View style={styles.trackEmpty}><ActivityIndicator color={colors.primaryLight} /></View>
+              ) : eventPlaylist.length ? (
+                eventPlaylist.map((track, index) => (
                   <View key={`track-${track.id ?? index}`} style={styles.trackRow}>
-                    <View style={styles.trackThumb} />
+                    {track.artworkUrl ? (
+                      <Image source={{ uri: track.artworkUrl }} style={styles.trackThumb} />
+                    ) : (
+                      <View style={styles.trackThumb} />
+                    )}
                     <View style={styles.trackInfo}>
-                      <Text numberOfLines={1} style={styles.trackTitle}>{track.title ?? 'Titre inconnu'}</Text>
-                      <Text numberOfLines={1} style={styles.trackArtist}>{track.artist ?? 'Artiste inconnu'}</Text>
+                      <Text numberOfLines={1} style={styles.trackTitle}>{track.title}</Text>
+                      <Text numberOfLines={1} style={styles.trackArtist}>{track.artist}</Text>
                     </View>
                     <Text style={styles.trackAction}>▶</Text>
                     <Text style={styles.trackAction}>♡</Text>
