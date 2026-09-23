@@ -39,6 +39,12 @@ export const colors = {
   danger: '#FF5C72',
   info: '#5CA8FC',
 
+  // Fonds translucides dérivés des états (menthe #2DE1C2 / corail #FF5C72)
+  // + voile de modale. Ajoutés pour bannir les rgba() en dur des écrans.
+  dangerSoft: 'rgba(255, 92, 114, 0.12)', // corail à 12% — encadrés d'erreur
+  successSoft: 'rgba(45, 225, 194, 0.08)', // menthe à 8% — cartes déverrouillées
+  overlay: 'rgba(0, 0, 0, 0.7)', // voile sombre des modales plein écran
+
   // Badges
   demoBadgeBg: 'rgba(255, 180, 84, 0.16)',
   demoBadgeBorder: '#FFB454',
