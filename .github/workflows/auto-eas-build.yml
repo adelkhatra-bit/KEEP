@@ -253,12 +253,26 @@ jobs:
             const mainCapabilities = await apple('bundleIdCapabilities?filter[bundleId]=' + encodeURIComponent(bundles[0].id) + '&limit=200');
             const pushEnabled = (mainCapabilities.data || []).some(cap => cap.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
             if (!pushEnabled) {
-              await apple('bundleIdCapabilities','POST',{
-                type:'bundleIdCapabilities',
-                attributes:{capabilityType:'PUSH_NOTIFICATIONS',settings:[]},
-                relationships:{bundleId:{data:{type:'bundleIds',id:bundles[0].id}}}
-              });
-              console.log('Enabled Push Notifications capability for Loki main bundle.');
+              // Certaines clés App Store Connect peuvent lire certificats et
+              // profils mais n'ont pas le droit de modifier les capabilities
+              // du Developer Portal (403). Ce n'est pas une raison pour
+              // bloquer tout le build : EAS peut réutiliser un profil déjà
+              // valide. On tente l'activation, puis on continue proprement si
+              // Apple refuse uniquement cette mutation.
+              try {
+                await apple('bundleIdCapabilities','POST',{
+                  type:'bundleIdCapabilities',
+                  attributes:{capabilityType:'PUSH_NOTIFICATIONS',settings:[]},
+                  relationships:{bundleId:{data:{type:'bundleIds',id:bundles[0].id}}}
+                });
+                console.log('Enabled Push Notifications capability for Loki main bundle.');
+              } catch (error) {
+                if (error instanceof SigningError && /Apple HTTP 403/.test(error.message)) {
+                  console.log('Push Notifications capability mutation not permitted by this Apple API key; continuing with existing signing state.');
+                } else {
+                  throw error;
+                }
+              }
             } else {
               console.log('Push Notifications capability already enabled.');
             }
