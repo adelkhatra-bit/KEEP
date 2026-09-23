@@ -687,6 +687,10 @@ export default function MyMusicScreen({ navigation }: any) {
         ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents)
         : await setPlaylistSalePriceForSelection(sellTarget.trackIds, sellTarget.name, sellPriceCents, 'EUR', sellTarget.coverUrl);
       setMyOffers((prev) => ({ ...prev, [stableKey]: offer }));
+      // L'offre est créée côté serveur avec son vrai playlist_id. Recharge
+      // immédiatement l'état marketplace afin que cadenas/badges et mapping
+      // des morceaux reflètent la base sans obliger l'utilisateur à refresh.
+      await refreshSaleState();
       if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) cancelSaleSelection();
       closeSellModal();
     } catch (e: any) {
