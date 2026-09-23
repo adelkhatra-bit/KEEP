@@ -212,7 +212,10 @@ jobs:
             };
             const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
             const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
-            await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1', 'Distribution certificate access');
+            const certificates = await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1', 'Distribution certificate access');
+            if (!(certificates.data || []).length) {
+              throw new Error('Apple distribution certificate missing for the current App Store Connect account.');
+            }
             const exactProfiles = async (bundle, label) => {
               const result = await get(`profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=${encodeURIComponent(bundle.id)}&limit=50`, label);
               if (!(result.data || []).length) {
