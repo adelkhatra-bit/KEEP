@@ -120,7 +120,9 @@ check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') &&
 check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
 check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'Missing normalized Apple submit identifiers in runner.') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = appleTeamId'));
 check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'Missing normalized Apple submit identifiers in runner.') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = ascAppId'));
+check('Workflow iOS valide ascAppId contre le bundle KEEP', contains(iosWorkflow, 'Apple app bundle mismatch for ascAppId.'));
 check('Workflow iOS vérifie la share extension Apple', contains(iosWorkflow, 'com.adelkhatra.keep.share-extension'));
+check('Workflow iOS signale bundle Apple manquant/ambigu', contains(iosWorkflow, 'Apple bundle identifier missing or ambiguous:'));
 check('Workflow iOS vérifie le certificat Apple exact', contains(iosWorkflow, 'Apple distribution certificate missing for the current App Store Connect account.'));
 check('Workflow iOS vérifie les profils Apple exacts', contains(iosWorkflow, 'profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=') && contains(iosWorkflow, 'Apple App Store provisioning profile missing for'));
 
