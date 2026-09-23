@@ -218,7 +218,14 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
+        <TouchableOpacity
+          style={[styles.button, styles.trialButton]}
+          onPress={handleGuestPress}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Essayer gratuitement"
+          testID="onboarding-trial-button"
+        >
           {busy ? <ActivityIndicator color={colors.white} /> : <>
             <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
             <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>

@@ -26,6 +26,21 @@ async function waitForFiveTabs(page) {
   }
 }
 
+async function findTrialButton(page) {
+  const candidates = [
+    page.getByTestId('onboarding-trial-button'),
+    page.getByLabel('Essayer gratuitement', { exact: true }),
+    page.getByRole('button', { name: 'Essayer gratuitement', exact: true }),
+    page.getByText('ESSAYER GRATUITEMENT', { exact: true }),
+  ];
+
+  for (const locator of candidates) {
+    if (await locator.count()) return locator.last();
+  }
+
+  throw new Error("CTA d'essai gratuit introuvable");
+}
+
 async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Profil', { exact: true }).last().click();
   await page.getByText('Créer mon compte KEEP', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
@@ -132,7 +147,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       const beforeHtml = await page.locator('body').innerHTML();
       assertVisibleBody(beforeText, beforeHtml, `${scenario.name} onboarding`);
 
-      const trial = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
+      const trial = await findTrialButton(page);
       await trial.waitFor({ state: 'visible', timeout: 20000 });
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-before.png`), fullPage: true });
       await trial.click();

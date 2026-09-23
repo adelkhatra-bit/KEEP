@@ -305,6 +305,25 @@ jobs:
           ];
           const blank = (text, html) => !text || text.trim().length < 4 || !html || html.trim().length < 20;
           const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');
+          const normalizePath = value => {
+            const url = new URL(value, BASE);
+            return url.pathname
+              .replace(/\/KEEP\/KEEP(?=\/|$)/, '/KEEP')
+              .replace(/\/index\.html$/, '/')
+              .replace(/\/+$/, '/');
+          };
+          const expectedPathForRoute = route => {
+            if (route === '/superadmin/') return '/KEEP/admin-preview/';
+            if (route.startsWith('/share-profile/')) return '/KEEP/share-profile/';
+            return normalizePath(`/KEEP${route}`);
+          };
+          const assertRoutePreserved = (currentUrl, route, label) => {
+            const actual = normalizePath(currentUrl);
+            const expected = expectedPathForRoute(route);
+            if (actual !== expected) {
+              throw new Error(`${label}: route perdue (${actual} au lieu de ${expected})`);
+            }
+          };
 
           (async () => {
             const report = [];
@@ -322,6 +341,7 @@ jobs:
                 const html = await page.content().catch(() => '');
                 const status = response ? response.status() : 0;
                 const ok = status >= 200 && status < 500 && !blank(text, html) && !bad404(text);
+                assertRoutePreserved(page.url(), route, `${scenario.name} initial ${route}`);
                 report.push({ scenario: scenario.name, route, status, ok, pageErrors: [...pageErrors] });
                 if (!ok) throw new Error(`${scenario.name} ${route} failed: status=${status} text=${text.slice(0,120)}`);
                 pageErrors.length = 0;
@@ -329,6 +349,7 @@ jobs:
                   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
                   await page.waitForTimeout(900);
                   const refreshed = await page.locator('body').innerText().catch(() => '');
+                  assertRoutePreserved(page.url(), route, `${scenario.name} reload ${route}`);
                   if (!refreshed || bad404(refreshed)) throw new Error(`${scenario.name} refresh ${route} failed`);
                 }
               }
