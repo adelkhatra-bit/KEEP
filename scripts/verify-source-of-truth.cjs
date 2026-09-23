@@ -159,7 +159,7 @@ for (const expected of ['usernameFlow', 'emailFlow', 'syntheticEmail', 'username
 if (!usernameAuth.includes('@keep.local')) failures.push('SERVER-SIDE SYNTHETIC AUTH IDENTITY MISSING');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
-for (const marker of ['QRCode', 'Mon QR Loki', 'Partager par e-mail']) {
+for (const marker of ['QRCode', 'Ma carte d’identité Loki Music', 'Partager par e-mail']) {
   if (!publicProfile.includes(marker)) failures.push(`PROFILE SHARE MARKER MISSING: ${marker}`);
 }
 
