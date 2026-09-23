@@ -222,7 +222,8 @@ jobs:
             await exactProfiles(mainBundle, 'Main provisioning profile access');
             await exactProfiles(shareBundle, 'Share extension provisioning profile access');
             const capabilities = await get(`bundleIdCapabilities?filter[bundleId]=${encodeURIComponent(mainBundle.id)}&limit=200`, 'Push capability access');
-            const pushEnabled = (capabilities.data || []).some((capability) => capability.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
+            const pushCapability = (capabilities.data || []).find((capability) => capability.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
+            const pushEnabled = Boolean(pushCapability) && pushCapability.attributes?.enabled !== false && pushCapability.attributes?.state !== 'DISABLED';
             if (!pushEnabled) {
               throw new Error('Push Notifications non activé sur com.adelkhatra.keep côté Apple Developer.');
             }
