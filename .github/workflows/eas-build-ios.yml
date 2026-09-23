@@ -215,7 +215,7 @@ jobs:
             const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
             const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
             const exactProfiles = async (bundle, label) => {
-              const result = await get(`profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=${encodeURIComponent(bundle.id)}&limit=50`, label);
+              const result = await get(`profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=${encodeURIComponent(bundle.id)}&include=bundleId&limit=50`, label);
               const validProfiles = (result.data || []).filter((profile) => {
                 const state = profile.attributes?.profileState;
                 const expirationDate = profile.attributes?.expirationDate;
