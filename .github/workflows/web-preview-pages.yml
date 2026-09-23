@@ -27,7 +27,7 @@ permissions:
 # here used to leave the public URL on GitHub's "There isn't a GitHub Pages site here"
 # page until a later run finally survived. New runs queue and publish in order instead.
 concurrency:
-  group: keep-pages-v2-reconcile-claude-main-20260825-v2
+  group: keep-pages-v3-reconcile-claude-main-20260825
   cancel-in-progress: false
 
 jobs:
