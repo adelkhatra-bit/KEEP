@@ -11,6 +11,32 @@ Le build est prêt et sur TestFlight ; il ne reste qu'à **remplir la fiche App 
 
 ---
 
+## CHEMIN 0 — 100% autonome (aucune saisie, aucun mot de passe) ⭐ RECOMMANDÉ
+
+La clé API App Store Connect (`.p8`) qui a **déjà produit le build 312** est présente dans les
+**GitHub Secrets** (`ASC_API_KEY_P8_BASE64` + `ASC_KEY_ID` + `ASC_ISSUER_ID`). Avec elle, la
+soumission est **entièrement automatique** — via le workflow `app-store-submit.yml` (livré en
+`docs/ci/app-store-submit-workflow.patch`) ou le script `scripts/publish-app-store.sh submit`.
+
+**Blocage actuel** : le connecteur GitHub (App abacusai) n'a ni la permission **« Workflows »**
+(pousser un workflow refusé) ni **« Actions »** (le déclencher refusé), et ne peut pas lire les
+Secrets. Il ne peut donc ni installer ce workflow ni le lancer.
+
+**La SEULE action à faire une fois (≈ 20 s, un seul réglage)** :
+1. Ouvre **https://github.com/apps/abacusai/installations/select_target**
+2. Choisis le dépôt **KEEP** → **« Repository permissions »**
+3. Passe **« Workflows »** et **« Actions »** en **Read and write** → **Save**.
+
+**Texte vocal à dicter (si on te demande) :** « Autoriser l'application Abacus AI à écrire les
+workflows et les actions sur le dépôt KEEP. »
+
+**Résultat attendu** : je pousse `app-store-submit.yml`, je le lance, la fiche est remplie et la
+v1.0.0 (build 312) est soumise à la review — **sans que tu touches à rien d'autre**.
+
+> Tant que cette permission n'est pas accordée, utilise le Chemin A ou B ci-dessous.
+
+---
+
 ## CHEMIN A — Automatique (je remplis + je soumets à ta place)
 
 Tu fais **une seule chose** (≈ 30 secondes), le reste est automatisé par le script `scripts/publish-app-store.sh`.
