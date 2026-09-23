@@ -394,6 +394,12 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+  // Refonte Soirées (spec Adel 22/09/2026) : le sous-onglet CLASSEMENT d'un
+  // événement montre le podium des PARTICIPANTS de CETTE soirée -- et non le
+  // classement Battle global, qui reste disponible dans l'onglet BATTLE
+  // dédié. État séparé pour ne jamais interférer avec la modale Participants.
+  const [eventPodiumParticipants, setEventPodiumParticipants] = useState<EventParticipant[]>([]);
+  const [eventPodiumLoading, setEventPodiumLoading] = useState(false);
   // Adel (08/09/2026) : "en savoir plus ... toute la deroulement du texte
   // ... j'appuie hop et je participe" -- detail plein ecran de l'evenement
   // courant (photo complete + texte integral + YouTube), avec la reponse
@@ -545,6 +551,21 @@ export default function PartiesScreen({ navigation, route }: any) {
     else setTicketSales([]);
     return () => { cancelled = true; };
   }, [currentEvent?.id]);
+
+  // Refonte Soirées (spec Adel 22/09/2026) : charge les participants de la
+  // soirée courante quand on ouvre son sous-onglet CLASSEMENT (podium des
+  // participants). loadEventParticipants renvoie [] pour qui n'a pas le droit
+  // de voir la liste -> l'état vide prend le relais.
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentEvent || eventTab !== 'CLASSEMENT') return undefined;
+    setEventPodiumLoading(true);
+    loadEventParticipants(currentEvent.id)
+      .then((rows) => { if (!cancelled) setEventPodiumParticipants(rows); })
+      .catch(() => { if (!cancelled) setEventPodiumParticipants([]); })
+      .finally(() => { if (!cancelled) setEventPodiumLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentEvent?.id, eventTab]);
 
   const confirmTicketPaid = async (order: EventTicketTransaction) => {
     if (ticketConfirmBusyId) return;
@@ -988,6 +1009,53 @@ export default function PartiesScreen({ navigation, route }: any) {
     </>
   );
 
+  // Refonte Soirées (spec Adel 22/09/2026) : sous-onglet CLASSEMENT d'un
+  // événement -- podium (🥇🥈🥉) des PARTICIPANTS de la soirée en cours, mêmes
+  // styles que le podium Battle. Ordre = celui renvoyé par
+  // keep_event_participants (participants « J'y vais » en tête). Le classement
+  // Battle global reste, inchangé, dans l'onglet BATTLE dédié.
+  const renderEventClassement = () => {
+    const top3 = eventPodiumParticipants.slice(0, 3);
+    return (
+      <View style={styles.leaderboardPanel}>
+        <View style={styles.leaderboardHeader}>
+          <Text style={styles.leaderboardTitle}>PARTICIPANTS</Text>
+        </View>
+        {eventPodiumLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
+        {!eventPodiumLoading && top3.length ? (
+          <View style={styles.podium}>
+            {[1, 0, 2].map((slot) => {
+              const entry = top3[slot];
+              if (!entry) return <View key={`event-podium-empty-${slot}`} style={styles.podiumCol} />;
+              const medal = slot === 0 ? '🥇' : slot === 1 ? '🥈' : '🥉';
+              const barStyle = slot === 0 ? styles.podiumBarFirst : slot === 1 ? styles.podiumBarSecond : styles.podiumBarThird;
+              return (
+                <View key={`event-podium-${entry.profileId}`} style={styles.podiumCol}>
+                  <Text style={styles.podiumMedal}>{medal}</Text>
+                  <View style={styles.podiumAvatar}><Text style={styles.podiumAvatarInitial}>{entry.username.slice(0, 1).toUpperCase()}</Text></View>
+                  <Text numberOfLines={1} style={styles.podiumName}>{entry.username}</Text>
+                  <View style={[styles.podiumBar, barStyle]}><Text style={styles.podiumScore}>{entry.status === 'GOING' ? '✓' : entry.status === 'MAYBE' ? '?' : '✕'}</Text></View>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+        {!eventPodiumLoading && eventPodiumParticipants.length ? (
+          eventPodiumParticipants.map((p) => (
+            <View key={`event-rank-${p.profileId}`} style={styles.participantRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.participantNameRow}><Text style={styles.participantName} numberOfLines={1}>{p.username}</Text><ProfileCertificationBadge tier={p.certificationTier} compact /></View>
+              </View>
+              <Text style={[styles.participantStatus, p.status === 'GOING' && styles.participantStatusGoing, p.status === 'NOT_GOING' && styles.participantStatusNotGoing]}>{RSVP_LABEL[p.status]}</Text>
+            </View>
+          ))
+        ) : !eventPodiumLoading ? (
+          <View style={styles.empty}><Text style={styles.emptyTitle}>Sois le premier à participer</Text><Text style={styles.meta}>Réponds « J'y vais » pour ouvrir le classement de cette soirée.</Text></View>
+        ) : null}
+      </View>
+    );
+  };
+
   // Refonte Soirées (spec Adel 22/09/2026) : badge "EN COURS" affiché quand
   // l'événement est en train de se dérouler (début passé, fin pas encore
   // atteinte -- ou pas de fin renseignée).
@@ -1171,7 +1239,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             <TouchableOpacity style={styles.secondary} onPress={()=>void openParticipants(currentEvent)}><Text style={styles.secondaryText}>👥 Participants</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color={colors.pass}/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
           </View> : null}
-          </> : eventTab === 'CLASSEMENT' ? renderLeaderboard() : (
+          </> : eventTab === 'CLASSEMENT' ? renderEventClassement() : (
             <View style={styles.playlistPanel}>
               <Text style={styles.playlistPanelTitle}>PLAYLIST DE LA SOIRÉE</Text>
               {Array.isArray((currentEvent as any).tracks) && (currentEvent as any).tracks.length ? (
