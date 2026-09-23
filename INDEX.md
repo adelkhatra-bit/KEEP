@@ -54,6 +54,21 @@
 | Conformité plateformes (Apple/Spotify/Google) | `docs/PLATFORM_COMPLIANCE.md` |
 | Vérif automatique (75/75) | `node scripts/verify-app-store-readiness.cjs` |
 
+## 🔧 Correctifs CI livrés en patch (permission `workflows` requise)
+> Le connecteur GitHub ne peut pas pousser `.github/workflows/**` (permission « Workflows » absente).
+> Ces correctifs sont donc livrés en `.patch` sous `docs/ci/` (même convention que `ota-path-filter.patch`).
+> Pour les appliquer : `git apply docs/ci/<nom>.patch` puis commit/push par un compte ayant la permission.
+
+| Patch | Rôle |
+|---|---|
+| `docs/ci/e2e-playlists-profile-stabilize.patch` | Stabilise la navigation Playlists→Profil après suppression (clic « Profil » fiabilisé + libellés « Loki Music ») |
+| `docs/ci/e2e-route-after-reload.patch` | Vérifie la route après reload sur GitHub Pages (/Main/Profile, /Main/Parties, /Main/MyMusic) |
+| `docs/ci/app-store-submit-workflow.patch` | Workflow `app-store-submit.yml` : soumission fiche + review via clé API ASC (100% autonome) |
+| `docs/ci/ota-path-filter.patch` | (existant) Élargit le filtre de chemins OTA |
+
+## 👤 Actions humaines (ce que seul Adel peut faire)
+- `docs/ADEL_ACTIONS.md` — liste des actions manuelles minimales (quota EAS, permissions Apple/GitHub, Stripe live, IAP/MusicKit, branche par défaut, Vercel) avec lien direct, texte vocal exact et résultat attendu.
+
 ## 🧭 Mémoire & journaux (communication entre IAs)
 | Fichier | Rôle |
 |---|---|
