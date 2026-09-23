@@ -1,6 +1,6 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 22 septembre 2026 (session Abacus/Codex).
+Dernière mise à jour : 23 septembre 2026 (session Codex).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
@@ -29,6 +29,7 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `d7df56a` : migration couleurs HomeScreenCompact/Discover/Parties vers tokens colors.ts (Claude Code, 22/09 13:59 UTC).
 - `8cd3a09`, `d85c8d9`, `2767c3a` : refontes layout des 3 écrans (Codex, 22/09).
 - `1009c5b` : régénération PROJECT_STATE.md.
+- Poste de commandement GitHub-native IA ajouté : `docs/ops/GITHUB_AI_COMMAND_CENTER.md`, `config/github-ai-command-center.json`, templates d'issues/PR structurés et labels GitHub normalisés (Codex, 23/09).
 
 ## Décisions récentes
 
@@ -61,6 +62,7 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 1. Confirmer les numéros de build TestFlight des 2 runs (35744403068, 35748916845) quand soumis.
 2. Vérifier dans un vrai navigateur que le rendu web des 3 écrans refondus n'est ni blanc ni en erreur console (protocole Adel).
 3. Playlist d'événement : pas de données dans le code actuel — l'onglet Playlist affiche un état vide ; à valider avec Adel si une vraie playlist événement doit être créée (nouvelle fonctionnalité).
+4. Faire valider côté humain les accès/apps/secrets externes non automatisables du poste de commandement GitHub-native IA.
 
 ## Points de vigilance
 

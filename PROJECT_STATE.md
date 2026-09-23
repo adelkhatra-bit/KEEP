@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T15:41:05.791Z
-- Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `2767c3a` (2767c3ac6029be1a82e29e772648b7d8dd407bab) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- Date du dernier commit : 2026-09-22T17:39:04+02:00
+- Régénéré le : 2026-09-23T01:08:47.770Z
+- Branche : `copilot/fix-github-actions-job-failure`
+- Dernier commit : `29c2b3d3` (29c2b3d3be38488257c6bd2de0aa73dc65b9b401) — chore: plan GitHub AI command center rollout
+- Date du dernier commit : 2026-09-23T01:05:46Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,16 +122,9 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `2767c3a` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- `d85c8d9` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout DiscoverScreen (spec Adel 22/09/2026)
-- `8cd3a09` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout HomeScreenCompact (spec Adel 22/09/2026)
-- `d7df56a` (2026-09-22, adelkhatra-bit) — style(mobile): migrer HomeScreenCompact/Discover/Parties vers les tokens colors.ts (design system strict)
-- `b7ec85b` (2026-09-22, adelkhatra-bit) — docs: [A VALIDER] supprimer workflow obsolete eas-build-ios.yml (Apple 401, permission workflows requise cote Adel)
-- `18ffee6` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
-- `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
-- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
-- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
+- `29c2b3d3` (2026-09-23, copilot-swe-agent[bot]) — chore: plan GitHub AI command center rollout
+- `091b0797` (2026-09-23, copilot-swe-agent[bot]) — chore: document workflow fix progress
+- `e7a258f5` (2026-09-23, copilot-swe-agent[bot]) — fix: tolerate Apple capability 403 in auto EAS build
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -156,6 +149,11 @@ agent) et messages des sessions de chat (non versionnés).
   infrastructure de mémoire partagée (ce fichier + hooks) livrée en premier
   comme demandé ; audit API exhaustif et intégration Super Admin à suivre,
   après validation de ce rapport par Adel.
+- **Poste de commandement GitHub-native IA (23/09/2026)** : documentation,
+  configuration machine-readable, templates d'issues/PR et labels de pilotage
+  ajoutés dans le dépôt. **Reste à valider côté Adel** : les accès externes,
+  apps GitHub et secrets qui ne peuvent pas être accordés automatiquement par
+  un agent.
 - **[À VALIDER] (Adel) — workflow iOS obsolète** : `eas-build-ios.yml`
   (« Build iOS EAS + TestFlight ») est à supprimer/désactiver par
   l'utilisateur. Il échoue systématiquement sur une erreur Apple 401

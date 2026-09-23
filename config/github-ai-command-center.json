@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "sourceBranch": "reconcile/claude-main-20260825",
+  "canonicalChannels": {
+    "github": {
+      "issues": true,
+      "pullRequests": true,
+      "reviews": true,
+      "actions": true,
+      "artifacts": true,
+      "labels": true
+    },
+    "relay": "keep-ai-relay",
+    "relayMirror": [
+      "AI/AI_INSTRUCTIONS.md",
+      "AI/AI_REPORT.md"
+    ],
+    "agentJournal": "AGENT_MESSAGES.md",
+    "lockScript": "scripts/agent-lock.cjs"
+  },
+  "roles": {
+    "chatgpt": {
+      "responsibilities": [
+        "task framing",
+        "task decomposition",
+        "product wording",
+        "instruction preparation"
+      ],
+      "access": {
+        "repositoryRead": true,
+        "codeWrite": false,
+        "workflowDispatch": false,
+        "artifactsRead": false,
+        "secretsAccess": false
+      }
+    },
+    "claude": {
+      "responsibilities": [
+        "repository audit",
+        "implementation",
+        "workflow diagnostics",
+        "technical validation"
+      ],
+      "access": {
+        "repositoryRead": true,
+        "codeWrite": true,
+        "workflowDispatch": true,
+        "artifactsRead": true,
+        "secretsAccess": false
+      }
+    },
+    "codex": {
+      "responsibilities": [
+        "repository audit",
+        "implementation",
+        "workflow diagnostics",
+        "technical validation"
+      ],
+      "access": {
+        "repositoryRead": true,
+        "codeWrite": true,
+        "workflowDispatch": true,
+        "artifactsRead": true,
+        "secretsAccess": false
+      }
+    },
+    "copilot": {
+      "responsibilities": [
+        "issue and PR execution",
+        "localized fixes",
+        "GitHub-native workflow operations"
+      ],
+      "access": {
+        "repositoryRead": true,
+        "codeWrite": true,
+        "workflowDispatch": true,
+        "artifactsRead": true,
+        "secretsAccess": false
+      }
+    },
+    "design": {
+      "responsibilities": [
+        "ux structure",
+        "visual hierarchy",
+        "copy review"
+      ],
+      "access": {
+        "repositoryRead": true,
+        "codeWrite": false,
+        "workflowDispatch": false,
+        "artifactsRead": false,
+        "secretsAccess": false
+      }
+    }
+  },
+  "labels": {
+    "type": ["bug", "ci", "design", "security", "release", "audit"],
+    "agent": ["chatgpt", "claude", "codex", "copilot"],
+    "coordination": ["agent-task"]
+  },
+  "workflowRouting": {
+    "bug": [
+      "mobile-ci.yml",
+      "full-stack-ci.yml",
+      "keep-human-guardian.yml",
+      "keep-dual-viewport-guardian.yml"
+    ],
+    "ci": [
+      "full-stack-ci.yml",
+      "mobile-web-importmeta-diagnostic.yml",
+      "codeql.yml",
+      "verify-migrations.yml",
+      "auto-eas-build.yml"
+    ],
+    "design": [
+      "mobile-ci.yml",
+      "web-preview-pages.yml"
+    ],
+    "security": [
+      "codeql.yml",
+      "loki-security-guard.yml"
+    ],
+    "release": [
+      "app-store-native-preflight.yml",
+      "auto-eas-build.yml",
+      "web-preview-pages.yml",
+      "eas-update-production.yml"
+    ],
+    "audit": [
+      "codeql.yml",
+      "verify-migrations.yml",
+      "data-preservation.yml"
+    ]
+  },
+  "humanApprovalRequiredFor": [
+    "github app installation or removal",
+    "secret creation, rotation or revocation",
+    "external platform permission grants",
+    "branch protection and environment rule changes",
+    "opening new long-lived access for external AI systems"
+  ]
+}
