@@ -59,6 +59,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
           INPUT_PROFILE: ${{ github.event.inputs.profile }}
           INPUT_AUTO_SUBMIT: ${{ github.event.inputs.auto_submit }}
         shell: bash
@@ -68,10 +69,17 @@ jobs:
           requested_auto_submit="${INPUT_AUTO_SUBMIT:-true}"
           build_ready=false
           submit_ready=false
+          apple_credentials_ready=false
           has_p8=false
 
           if [ -n "${EXPO_TOKEN:-}" ]; then build_ready=true; fi
           if [ -n "${ASC_API_KEY_P8_BASE64:-}" ]; then has_p8=true; fi
+          if [ -n "${ASC_API_KEY_P8_BASE64:-}" ] \
+             && [ -n "${ASC_KEY_ID:-}" ] \
+             && [ -n "${ASC_ISSUER_ID:-}" ] \
+             && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            apple_credentials_ready=true
+          fi
           if [ "$profile" = "production" ] && [ "$requested_auto_submit" != "false" ] \
              && [ -n "${EXPO_TOKEN:-}" ] \
              && [ -n "${ASC_API_KEY_P8_BASE64:-}" ] \
@@ -86,6 +94,7 @@ jobs:
           echo "requested_auto_submit=$requested_auto_submit" >> "$GITHUB_OUTPUT"
           echo "build_ready=$build_ready" >> "$GITHUB_OUTPUT"
           echo "submit_ready=$submit_ready" >> "$GITHUB_OUTPUT"
+          echo "apple_credentials_ready=$apple_credentials_ready" >> "$GITHUB_OUTPUT"
           echo "has_p8=$has_p8" >> "$GITHUB_OUTPUT"
 
           if [ "$build_ready" != "true" ]; then
@@ -93,6 +102,9 @@ jobs:
           fi
           if [ "$requested_auto_submit" != "false" ] && [ "$submit_ready" != "true" ]; then
             echo "::warning::Auto-soumission TestFlight non armée : il manque au moins un des secrets ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID ou ASC_APP_ID."
+          fi
+          if [ "$profile" = "production" ] && [ "$apple_credentials_ready" != "true" ]; then
+            echo "::warning::Credentials Apple API incomplètes : un build store non interactif peut échouer lors de la validation des provisioning profiles."
           fi
 
       - name: Setup EAS CLI
@@ -143,6 +155,7 @@ jobs:
           EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPO_APPLE_ID: ${{ secrets.EXPO_APPLE_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -154,6 +167,11 @@ jobs:
           else
             echo 'Build EAS armé sans auto-submit TestFlight.'
           fi
+          # --freeze-credentials interdit à EAS d'essayer de créer/réparer des
+          # identifiants Apple pendant ce job non interactif. Les credentials
+          # iOS doivent déjà être gérés sur EAS/Apple ; le workflow ne doit
+          # jamais tomber sur une invite interactive.
+          args+=(--freeze-credentials)
           eas "${args[@]}"
 
       - name: Résumé pipeline Apple
