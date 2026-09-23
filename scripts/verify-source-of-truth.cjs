@@ -224,8 +224,19 @@ for (const filename of fs.readdirSync(workflowsDir).filter((name) => /\.ya?ml$/i
 }
 
 const pagesWorkflow = fs.readFileSync(path.join(root, '.github/workflows/web-preview-pages.yml'), 'utf8');
-for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, '__keep_route', 'Live browser matrix']) {
-  if (!pagesWorkflow.includes(expected)) failures.push(`PUBLIC DEPLOY MARKER MISSING: ${expected}`);
+// Validate durable Pages capabilities, never the display name of an optional audit step.
+// Renaming/removing a browser-matrix label must not block publication if the site still
+// builds, deploys, restores deep links and smoke-tests critical Loki routes.
+for (const [marker, capability] of [
+  [expectedRepository, 'repository lock'],
+  [expectedBranch, 'branch lock'],
+  [expectedPublicRoot, 'public root'],
+  ['__keep_route', 'deep-link fallback'],
+  ['Deploy to GitHub Pages', 'Pages deployment'],
+  ['Live refresh + direct-link HTTP smoke', 'live HTTP smoke'],
+  ['playlist-sale', 'playlist sale deep link'],
+]) {
+  if (!pagesWorkflow.includes(marker)) failures.push(`PUBLIC DEPLOY CAPABILITY MISSING: ${capability}`);
 }
 
 const launchers = fs.readdirSync(root).filter((name) => /^START_.*KEEP.*\.bat$/i.test(name) || /^FORCE_.*KEEP.*\.bat$/i.test(name));
