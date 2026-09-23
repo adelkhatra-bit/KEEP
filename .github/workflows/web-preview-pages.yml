@@ -102,7 +102,7 @@ jobs:
           history_guard = r'''<script>(function(){
           try{
             var base='/KEEP';
-            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect'];
+            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/playlist-sale','/playlist-sale-history','/apple-music-connect'];
             function normalize(raw){
               if(raw==null)return raw;
               var u=new URL(String(raw),location.href);
@@ -193,6 +193,8 @@ jobs:
           test -f _site/Main/index.html
           test -f _site/Main/Listen/index.html
           test -f _site/Main/Profile/index.html
+          test -f _site/playlist-sale/index.html
+          test -f _site/playlist-sale-history/index.html
           test -f _site/admin-preview/index.html
           test -f _site/superadmin/index.html
           test -f _site/share-profile/index.html
