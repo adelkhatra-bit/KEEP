@@ -118,10 +118,11 @@ check('Workflow iOS gère EXPO_TOKEN', contains(iosWorkflow, 'EXPO_TOKEN'));
 check('Workflow iOS pince EAS CLI 24.6.0', contains(iosWorkflow, 'eas-version: 24.6.0'));
 check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') && contains(iosWorkflow, 'eas "${args[@]}"'));
 check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
-check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.EXPO_APPLE_TEAM_ID'));
-check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.KEEP_ASC_APP_ID'));
+check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'Missing normalized Apple submit identifiers in runner.') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = appleTeamId'));
+check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'Missing normalized Apple submit identifiers in runner.') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = ascAppId'));
 check('Workflow iOS vérifie la share extension Apple', contains(iosWorkflow, 'com.adelkhatra.keep.share-extension'));
 check('Workflow iOS vérifie Push Notifications côté Apple', contains(iosWorkflow, 'PUSH_NOTIFICATIONS') && contains(iosWorkflow, 'Push Notifications non activé sur com.adelkhatra.keep côté Apple Developer.'));
+check('Workflow iOS vérifie les profils Apple exacts', contains(iosWorkflow, 'profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=') && contains(iosWorkflow, 'Apple App Store provisioning profile missing for'));
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
 const offers = 'packages/mobile/src/screens/OffersScreen.tsx';

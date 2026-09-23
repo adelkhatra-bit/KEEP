@@ -153,16 +153,24 @@ jobs:
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const file = 'eas.json';
           const eas = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const appleTeamId = (process.env.EXPO_APPLE_TEAM_ID || process.env.APPLE_TEAM_ID || '').trim();
+          const ascAppId = (process.env.KEEP_ASC_APP_ID || process.env.ASC_APP_ID || '').trim();
+          if (!appleTeamId || !ascAppId) {
+            throw new Error('Missing normalized Apple submit identifiers in runner.');
+          }
           eas.submit ||= {};
           eas.submit.production ||= {};
           eas.submit.production.ios ||= {};
-          eas.submit.production.ios.appleTeamId = process.env.EXPO_APPLE_TEAM_ID;
-          eas.submit.production.ios.ascAppId = process.env.KEEP_ASC_APP_ID;
+          eas.submit.production.ios.appleTeamId = appleTeamId;
+          eas.submit.production.ios.ascAppId = ascAppId;
           fs.writeFileSync(file, JSON.stringify(eas, null, 2) + '\n');
           console.log('EAS submit config injected in runner only.');
           NODE
@@ -203,9 +211,16 @@ jobs:
               return matches[0];
             };
             const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
-            await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
+            const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
             await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1', 'Distribution certificate access');
-            await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1', 'Provisioning profile access');
+            const exactProfiles = async (bundle, label) => {
+              const result = await get(`profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=${encodeURIComponent(bundle.id)}&limit=50`, label);
+              if (!(result.data || []).length) {
+                throw new Error(`Apple App Store provisioning profile missing for ${bundle.attributes?.identifier || label}.`);
+              }
+            };
+            await exactProfiles(mainBundle, 'Main provisioning profile access');
+            await exactProfiles(shareBundle, 'Share extension provisioning profile access');
             const capabilities = await get(`bundleIdCapabilities?filter[bundleId]=${encodeURIComponent(mainBundle.id)}&limit=200`, 'Push capability access');
             const pushEnabled = (capabilities.data || []).some((capability) => capability.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
             if (!pushEnabled) {
