@@ -97,8 +97,8 @@ jobs:
               raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
 
           has_extension_target = ('com.apple.product-type.app-extension' in pbx_text or '.appex' in pbx_text)
-          if not extension_info and not has_extension_target:
-              raise SystemExit('FAIL: expo-share-intent did not generate an iOS app-extension target')
+          if extension_info or has_extension_target:
+              raise SystemExit('FAIL: share extension must stay out of the first TestFlight build')
 
           podfile = ios / 'Podfile'
           podfile_text = podfile.read_text(encoding='utf-8', errors='ignore') if podfile.exists() else ''
@@ -220,7 +220,7 @@ jobs:
           echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
           echo "Xcode workspace: $workspace"
           echo "Xcode scheme: $scheme"
-      - name: Compile iOS Simulator — ShazamKit + StoreKit + share extension
+      - name: Compile iOS Simulator — ShazamKit + StoreKit
         working-directory: packages/mobile
         shell: bash
         run: |

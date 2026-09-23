@@ -54,21 +54,6 @@
         }
       ],
       [
-        "expo-share-intent",
-        {
-          "iosShareExtensionName": "LokiShareExtension",
-          "iosHideView": true,
-          "iosActivationRules": {
-            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
-            "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
-            "NSExtensionActivationSupportsText": true
-          },
-          "androidIntentFilters": [
-            "text/*"
-          ]
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "Loki Music peut accéder à vos photos uniquement lorsque vous choisissez une photo de profil."
