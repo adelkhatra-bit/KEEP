@@ -1,0 +1,11 @@
+# EAS build trigger — Loki Music
+#
+# Marqueur inerte servant uniquement à déclencher le workflow GitHub Actions
+# `auto-eas-build.yml` (déclencheur push sur packages/mobile/**) quand le HEAD
+# à compiler ne contient pas de modification mobile (ex : commit admin-only).
+# Ce fichier n'est jamais importé par l'application et n'entre pas dans le bundle iOS.
+#
+# Build demandé pour : 0162529 (feat(admin): add genres visibility toggle + taxonomy editor)
+# MISSION C Phase 2 — dossiers par genre.
+build-request: 2026-09-23T-mission-c-phase2
+target-commit: 0162529
