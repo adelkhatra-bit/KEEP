@@ -1403,3 +1403,7 @@ Suivi poste de commandement IA termine : le workflow .github/workflows/agent-com
 
 Je corrige les blocages repo encore reproductibles: CTA essai gratuit plus robuste, clic Profil apres suppression dans l'audit navigateur, et verification de route precise apres reload GitHub Pages.
 
+## [2026-09-23T23:36:24.432Z] codex
+
+Blocages repo web/CI corriges sur la branche Copilot : CTA essai gratuit stabilise (testID/accessibilityLabel), smoke public durci (branding Loki + mode invite restaure), clic Profil apres suppression fiabilise dans l'audit navigateur, assertion de route apres reload ajoutee sur GitHub Pages. Validations: npm ci, type-check mobile OK, verify-source-of-truth OK, syntaxe YAML/JS OK, secret scan OK, check navigateur local Chromium OK.
+
