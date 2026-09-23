@@ -1,6 +1,9 @@
-Error: CTA d'essai gratuit introuvable
-    at findTrialButton (/home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:41:9)
-    at async /home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:150:21
-URL: http://127.0.0.1:8081/Main/Listen
+locator.waitFor: Timeout 20000ms exceeded.
+Call log:
+  - waiting for getByText('Créer mon compte KEEP', { exact: true }).last() to be visible
+
+    at proveCreatorPaywall (/home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:60:73)
+    at async /home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:176:7
+URL: http://127.0.0.1:8081/Main/Profile
 AUTH REQUESTS: none
 ERRORS: none

@@ -57,11 +57,11 @@ async function enterTrialIfNeeded(page, scenarioName) {
 
 async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Profil', { exact: true }).last().click();
-  await page.getByText('Créer mon compte KEEP', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText(/Créer mon compte (KEEP|Loki Music)/i).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('ESPACE CRÉATEUR', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('KEEP PREMIUM', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('KEEP CREATOR PRO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByText('KEEP VENUE PRO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText(/(?:KEEP\\s+)?PREMIUM/i).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText(/(?:KEEP\\s+)?CREATOR PRO/i).last().waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByText(/(?:KEEP\\s+)?VENUE PRO/i).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByLabel('Creator Pro requis').last().click();
   await page.getByText('Offre & crédits', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   await page.getByText('Formule requise : Creator Pro', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
@@ -101,7 +101,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       throw new Error(`${scenarioName}: + Suivre n'ouvre pas l'inscription canonique KEEP: ${url}`);
     }
 
-    const signupTitle = page.getByText('Créer mon compte KEEP', { exact: true }).last();
+    const signupTitle = page.getByText(/Créer mon compte (KEEP|Loki Music)/i).last();
     const followHint = page.getByText('Après connexion, le profil que tu consultais sera suivi automatiquement.', { exact: true }).last();
     const signupSubtitle = page.getByText(/Adresse e-mail obligatoire/i).last();
     const requiredEmail = page.getByPlaceholder('Adresse e-mail obligatoire').last();
