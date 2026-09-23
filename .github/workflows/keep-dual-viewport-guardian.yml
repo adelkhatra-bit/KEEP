@@ -32,6 +32,7 @@ jobs:
       EXPO_PUBLIC_KEEP_PREVIEW: '0'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+      KEEP_BATTLE_GUARDIAN_EXPECTED: '0'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -169,8 +170,11 @@ jobs:
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('Playlists',{exact:true}).last().click();
             await page.getByText('Soirées',{exact:true}).last().click();
+            const expectBattle=process.env.KEEP_BATTLE_GUARDIAN_EXPECTED==='1';
             const battleTab=page.getByText('⚡ BATTLE',{exact:true}).last();
-            if (await battleTab.isVisible().catch(()=>false)) {
+            const hasBattleTab=await battleTab.isVisible().catch(()=>false);
+            if (expectBattle) {
+              if (!hasBattleTab) throw new Error('Battle tab expected by guardian but not rendered');
               await battleTab.click();
               const openSalon=page.getByLabel(/Ouvrir le Salon .* Battle/i).last();
               await openSalon.waitFor({state:'visible',timeout:15000});
@@ -185,7 +189,8 @@ jobs:
               await page.getByText('Soirées',{exact:true}).last().waitFor({state:'visible',timeout:15000});
               report.push('battle-tab: PASS — onglet Battle détecté, launcher et écran plein format validés');
             } else {
-              report.push('battle-tab: SKIP — feature flag keep_battle désactivé sur cet environnement');
+              if (hasBattleTab) throw new Error('Battle tab rendered while guardian expects keep_battle disabled');
+              report.push('battle-tab: PASS — feature keep_battle intentionnellement désactivée sur cet environnement');
             }
 
             await openEdit(page);

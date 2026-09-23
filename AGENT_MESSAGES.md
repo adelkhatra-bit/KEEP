@@ -1120,3 +1120,7 @@ Je commence l'audit/corrections: CI EAS, overlays centres, detection musicale, e
 
 Je prends le verrou pour corriger le job GitHub Actions en echec : audit des logs Mobile CI / Guardian, correction minimale du marker source-of-truth et verification locale.
 
+## [2026-09-23T00:43:01.639Z] codex
+
+Correction du guardian GitHub Actions terminee : le script Playwright du workflow keep-dual-viewport-guardian n'impose plus Loki/KEEP Battle sur l'onglet Soirees par defaut ; il detecte d'abord l'onglet Battle et skip proprement si keep_battle est desactive. Verifications locales OK : verify-source-of-truth, typecheck mobile, test navigateur cible sans page blanche.
+
