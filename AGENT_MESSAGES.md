@@ -1379,3 +1379,7 @@ Diagnostic CI en cours sur auto-eas-build.yml : job 106998002116 échoue dans le
 
 Correctif pousse pour le job 106998002116 : auto-eas-build.yml tolere maintenant Apple HTTP 403 FORBIDDEN_ERROR sur bundleIdCapabilities et continue si le profil App Store existant/genere garde bien aps-environment ; echec explicite seulement si l entitlement push manque reellement. Validation locale : parse YAML OK, git diff --check OK, regex 403 OK. parallel_validation : Code Review OK, CodeQL OK.
 
+## [2026-09-23T01:05:12.875Z] codex
+
+Je mets en place le poste de commandement GitHub-native pour agents IA : doc de gouvernance, templates GitHub (issues/PR), matrice d'acces minimale et labels de pilotage, sans creer de second relais.
+
