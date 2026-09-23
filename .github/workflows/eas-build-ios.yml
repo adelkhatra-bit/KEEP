@@ -219,7 +219,8 @@ jobs:
               const validProfiles = (result.data || []).filter((profile) => {
                 const state = profile.attributes?.profileState;
                 const expirationDate = profile.attributes?.expirationDate;
-                return state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
+                const profileBundleId = profile.relationships?.bundleId?.data?.id;
+                return profileBundleId === bundle.id && state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
               });
               if (!validProfiles.length) {
                 throw new Error(`Apple App Store provisioning profile missing for ${bundle.attributes?.identifier || label}.`);
