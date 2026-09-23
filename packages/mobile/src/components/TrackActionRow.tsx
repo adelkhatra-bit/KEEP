@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   badgeText: { color: colors.success, fontSize: 9, fontWeight: '900' },
   lock: { fontSize: 13 },
   square: { width: SQUARE, height: SQUARE, flexShrink: 0, borderRadius: 10, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
-  squareIcon: { color: '#8B87A0', fontSize: 15, fontWeight: '900' },
+  squareIcon: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
   squareCounter: { color: colors.textMuted, fontSize: 8, fontWeight: '800', marginTop: 1 },
   chevron: { width: CHEVRON, height: CHEVRON, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   chevronText: { color: colors.textMuted, fontSize: 13, fontWeight: '900' },
