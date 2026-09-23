@@ -43,6 +43,9 @@ export const colors = {
   // + voile de modale. Ajoutés pour bannir les rgba() en dur des écrans.
   dangerSoft: 'rgba(255, 92, 114, 0.12)', // corail à 12% — encadrés d'erreur
   successSoft: 'rgba(45, 225, 194, 0.08)', // menthe à 8% — cartes déverrouillées
+  // menthe/violet faint pour fonds sections découvertes/reprises (MyMusicScreen)
+  successFaint: 'rgba(45, 225, 194, 0.06)', // menthe à 6% — fond section découvertes
+  primaryFaint: 'rgba(124, 92, 252, 0.07)', // violet à 7% — fond section reprises
   overlay: 'rgba(0, 0, 0, 0.7)', // voile sombre des modales plein écran
 
   // Badges
