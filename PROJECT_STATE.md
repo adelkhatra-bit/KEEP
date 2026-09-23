@@ -139,6 +139,15 @@ agent) et messages des sessions de chat (non versionnés).
 
 ---
 
+## Apple iOS — signature non destructive (23/09/2026)
+
+- Bundle principal existant à conserver : `com.adelkhatra.keep` (App Store Connect app `6812393589`, Team `WTG9399DBK`).
+- Certificat de distribution et provisioning profile App Store du bundle principal : déjà présents dans EAS/Apple ; la CI doit uniquement les lire et les réutiliser.
+- Le bootstrap CI est **read-only** : aucun `POST` de création/modification/révocation de Bundle ID, capability, certificat ou provisioning profile.
+- La clé App Store Connect actuelle sait lire l'app, les Bundle IDs, certificats et profils ; un `403` a été observé sur les mutations du Developer Portal. Ne pas contourner ce `403` en recréant des ressources.
+- `com.adelkhatra.keep.share-extension` / `LokiShareExtension` est temporairement retirée du premier build TestFlight. Ne pas la recréer automatiquement. Réactivation après la première publication, avec Bundle ID + profil dédiés préparés manuellement puis réintroduits dans la config.
+- Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
+
 ## 4. Points ouverts
 
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
