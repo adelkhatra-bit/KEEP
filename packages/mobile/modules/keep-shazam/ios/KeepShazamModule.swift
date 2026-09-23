@@ -22,6 +22,23 @@ public class KeepShazamModule: Module {
     }
   }
 
+  /// Identifiant stable du morceau reconnu.
+  /// `SHMediaItem.id` n'est disponible qu'à partir d'iOS 17 : on le protège par
+  /// un guard `@available` et on retombe sur les identifiants compatibles iOS 16
+  /// (shazamID, appleMusicID) puis, en dernier recours, sur un UUID généré.
+  private func stableTrackId(for item: SHMediaItem) -> String {
+    if let shazamID = item.shazamID, !shazamID.isEmpty {
+      return shazamID
+    }
+    if #available(iOS 17.0, *) {
+      return item.id.uuidString
+    }
+    if let appleMusicID = item.appleMusicID, !appleMusicID.isEmpty {
+      return appleMusicID
+    }
+    return UUID().uuidString
+  }
+
   private func recognizeBase64(_ base64: String) async throws -> [String: Any]? {
     guard let data = Data(base64Encoded: base64), !data.isEmpty else {
       throw NSError(domain: "KeepShazam", code: 1, userInfo: [NSLocalizedDescriptionKey: "Échantillon audio ShazamKit invalide."])
@@ -59,7 +76,7 @@ public class KeepShazamModule: Module {
         "confidence": 0.99,
         "title": title,
         "artist": artist,
-        "recognitionProviderTrackId": item.shazamID ?? item.id.uuidString,
+        "recognitionProviderTrackId": self.stableTrackId(for: item),
         "genres": item.genres,
       ]
       if let isrc = item.isrc, !isrc.isEmpty { payload["isrc"] = isrc }
