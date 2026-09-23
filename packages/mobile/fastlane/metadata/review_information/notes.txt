@@ -1,0 +1,7 @@
+Loki Music is a music recognition, organization and social music profile app. It is not a music streaming service.
+
+Microphone: activated only after the user starts a listening session; short samples for recognition; STOP releases the recording.
+Location: optional, only when the user chooses "Utiliser ma position"; prefills city/country; editable manually.
+Account deletion: Profil > Reglages avances > Supprimer definitivement mon compte.
+Privacy/legal links: Profil > Reglages avances > Informations & confidentialite.
+No external digital-goods purchase is active in this build (in-app marketplace disabled by remote flag).

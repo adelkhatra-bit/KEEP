@@ -44,6 +44,8 @@
 ## 🍎 App Store (tout est ici)
 | Sujet | Chemin |
 |---|---|
+| **PUBLIER (guide vocal A/B, sans .p8)** | `docs/APP_STORE_VOCAL_GUIDE.md` |
+| **Automatisation Fastlane (fiche + soumission)** | `packages/mobile/fastlane/` + `scripts/publish-app-store.sh` |
 | Textes fiche (description, mots-clés, URLs, copyright) — **prêts à coller** | `docs/APP_STORE_SUBMISSION_READY.md` |
 | Checklist soumission | `APP_STORE_CHECKLIST.md` |
 | Notes App Review | `APP_STORE_REVIEW_NOTES.md` |

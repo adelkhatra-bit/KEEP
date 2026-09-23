@@ -1,0 +1,56 @@
+########################################################################
+# Fastfile — Loki Music
+#
+# Objectif : publier la FICHE App Store et soumettre la v1.0.0 (build 312,
+# deja sur TestFlight) SANS clé .p8. Auth par Apple ID + mot de passe d'app
+# (Option 1). Voir docs/APP_STORE_VOCAL_GUIDE.md.
+#
+# Variables d'environnement attendues (aucun secret dans le repo) :
+#   FASTLANE_USER                                   -> Apple ID (email)
+#   FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD    -> mot de passe d'app
+#   APPLE_TEAM_ID (defaut WTG9399DBK), ITC_TEAM_ID (facultatif)
+#
+# Lanes :
+#   fastlane ios listing   -> remplit la fiche SANS soumettre (verif visuelle)
+#   fastlane ios submit    -> remplit la fiche ET soumet a la review
+#   fastlane ios precheck  -> controle la conformite de la fiche
+########################################################################
+
+default_platform(:ios)
+
+platform :ios do
+  before_all do
+    UI.user_error!("FASTLANE_USER manquant (Apple ID). Voir docs/APP_STORE_VOCAL_GUIDE.md") if ENV["FASTLANE_USER"].to_s.empty?
+    unless ENV["FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD"].to_s.length > 0
+      UI.user_error!("FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD manquant (mot de passe d'app). Voir docs/APP_STORE_VOCAL_GUIDE.md")
+    end
+  end
+
+  desc "Remplit la fiche App Store (metadonnees + screenshots) SANS soumettre"
+  lane :listing do
+    deliver(
+      submit_for_review: false,
+      skip_binary_upload: true,
+      force: true,
+      run_precheck_before_submit: false
+    )
+    UI.success("Fiche App Store mise a jour. Verifie dans App Store Connect, puis lance `fastlane ios submit`.")
+  end
+
+  desc "Remplit la fiche ET soumet la v1.0.0 (build 312) a la review Apple"
+  lane :submit do
+    deliver(
+      submit_for_review: true,
+      skip_binary_upload: true,
+      force: true,
+      automatic_release: true,
+      run_precheck_before_submit: true
+    )
+    UI.success("Loki Music v1.0.0 (build 312) soumise a la review App Store.")
+  end
+
+  desc "Controle la conformite de la fiche avant soumission"
+  lane :precheck do
+    precheck
+  end
+end
