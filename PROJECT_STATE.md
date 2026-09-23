@@ -280,3 +280,12 @@ fait.
 - Après paiement confirmé : déverrouillage immédiat sans refresh, puis accès au Swipe complet et au contenu livré selon les droits marketplace.
 - Une Vibe/Smart Album mise en vente ne doit jamais rester simultanément accessible gratuitement par un autre chemin du profil.
 - Les agents doivent suivre ces points comme backlog durable avec statuts demandé / codé / testé / déployé / restant, et ne pas les considérer terminés sur la seule présence de code.
+
+
+
+## App Store — publication clé en main (23/09/2026)
+- **Automatisation créée** (Option 1, sans .p8) : `packages/mobile/fastlane/` (Fastfile/Appfile/Deliverfile/Gemfile + metadata fr-FR « Loki Music »), `scripts/publish-app-store.sh`, capture 6.5" (`59878944`).
+- **Guide** : `docs/APP_STORE_VOCAL_GUIDE.md` — Chemin A (auto via mot de passe spécifique app) + Chemin B (manuel iPhone, 100% fiable).
+- **État** : build 312 v1.0.0 déjà sur TestFlight (« Prêt à soumettre »). Non soumis — reste 1 action de 30 s (mot de passe spécifique app OU Chemin B). Lien : https://appstoreconnect.apple.com/apps/6812393589/appstore
+- **Marketplace v1** : flag `playlist_marketplace` OFF (achat lien externe = rejet Apple 3.1.1). Statut : codé, non déployé (attente Apple IAP/StoreKit). Rien supprimé.
+- **Audit profil vente** : préécoute protégée ✅, titres masqués ✅, anti-Shazam ✅, envie d'achat ✅. Vitrine « En vente » remontée en haut du profil (`bb89c56f`).

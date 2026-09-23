@@ -80,3 +80,11 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Après paiement confirmé : déverrouillage immédiat sans refresh, puis accès au Swipe complet et au contenu livré selon les droits marketplace.
 - Une Vibe/Smart Album mise en vente ne doit jamais rester simultanément accessible gratuitement par un autre chemin du profil.
 - Les agents doivent suivre ces points comme backlog durable avec statuts demandé / codé / testé / déployé / restant, et ne pas les considérer terminés sur la seule présence de code.
+
+
+
+## 2026-09-23 — App Store clé en main + audit profil vente
+- Fastlane complet créé (Option 1, sans .p8) + guide vocal `docs/APP_STORE_VOCAL_GUIDE.md` (Chemin A auto / Chemin B manuel). Capture 6.5" `59878944`.
+- Non soumis : reste 1 action de 30 s (mot de passe spécifique app OU Chemin B iPhone). Lien fiche : https://appstoreconnect.apple.com/apps/6812393589/appstore
+- Marketplace v1 : flag OFF (rejet Apple 3.1.1 lien externe). Vitrine « En vente » remontée en haut du profil (bb89c56f).
+- Commits session : fac3ca83, 5e2349ed, bb89c56f, 89355657, 29e35a29, 59878944.

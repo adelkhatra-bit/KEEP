@@ -1421,3 +1421,28 @@ Côté agent (vérification à faire après redeploy Vercel) :
 - **P3 Vitrine « En vente » sur profil visité** — commit `bb89c56f`. Section « Découvertes à débloquer » **remontée tout en haut du profil** (après l'identité/compteurs, avant « Ma collection ») + accent visuel violet (Design System). Test de garde d'ordre mis à jour (revalidation Adel 23/09). Rien supprimé : même logique d'aperçu immersif, même achat.
 - Tests à chaque étape : `tsc -p packages/mobile` = 0, `jest` = 284/284 + 18/18, `verify-source-of-truth.cjs` = 0.
 - **⚠️ Décision App Store en attente** : la vitrine reste masquée en prod via le flag Super Admin `playlist_marketplace` car l'achat se fait par **lien PayPal externe** (`Linking.openURL`) → rejet Apple garanti (règle 3.1.1, contenu déverrouillé dans l'app). Options : (A) ship v1 sans marketplace [recommandé, appro rapide], (B) activer le flag = risque rejet, (C) implémenter Apple In-App Purchase (StoreKit) puis activer [conforme + valorisé].
+
+
+
+## 2026-09-23 — Mission App Store (publication clé en main) + Audit profil vente (agent, exécution autonome)
+### Audit approfondi « profil vendeur vu par un visiteur »
+Vérifié dans le code réel (`PublicUserProfileScreen.tsx`, `PlaylistSaleImmersivePreview.tsx`, `audioPreviewService`) :
+- **Écouter un aperçu ?** ✅ OUI — `playAntiShazamPreviewSegment`, play/pause, swipe pour changer d'extrait.
+- **Titre / texte masqués ?** ✅ OUI — la RPC `keep_playlist_sale_offer_preview_tracks` ne renvoie JAMAIS titre/artiste/jaquette. Affiche « Extrait masqué N/M ».
+- **Shazam filtré ?** ✅ OUI — anti-Shazam : segment 5-8 s de durée aléatoire, offset aléatoire, hauteur modifiée, voix off Loki Music. Badge « 🛡️ Extrait protégé ».
+- **Donne envie d'acheter ?** ✅ OUI — lignes marketing rotatives (rareté), pastille prix, explications, case de renonciation, bouton « Acheter et ajouter à mon Loki Music ».
+- **Seule incohérence réelle** = la vitrine « En vente » était enterrée en bas de profil → **corrigée (P3, `bb89c56f`)** : remontée tout en haut.
+
+### Publication App Store — solution trouvée par l'agent (aucun .p8 requis)
+- **Option 3 (fastlane/secrets déjà dans le repo)** : ❌ aucun trouvé.
+- **Option 1 (Fastlane + mot de passe spécifique app, SANS .p8)** : ✅ retenue → automatisation complète créée.
+- **Livrables (commit `29e35a29`)** :
+  - `packages/mobile/fastlane/` : `Fastfile` (lanes `listing`/`submit`/`precheck`), `Appfile`, `Deliverfile`, `Gemfile`, `metadata/` complet fr-FR « Loki Music », `review_information/`.
+  - `scripts/publish-app-store.sh` (runner, lit les ENV, aucun secret en dur).
+  - `docs/APP_STORE_VOCAL_GUIDE.md` (+ .docx/.pdf) : **Chemin A** (auto : mot de passe spécifique app dicté → je lance fastlane) + **Chemin B** (12 étapes manuelles iPhone, 100% fiable, aucun secret).
+  - `INDEX.md` (+ .docx/.pdf) mis à jour.
+- **Capture 6.5" conforme** (1284×2778, « Loki Music », FR) — commit `59878944`.
+- **Faits Apple** : build 312 v1.0.0 déjà sur TestFlight (« Prêt à soumettre »). Team `WTG9399DBK`, App ID `6812393589`, Bundle `com.adelkhatra.keep`. Lien fiche : https://appstoreconnect.apple.com/apps/6812393589/appstore
+- **État honnête** : l'app n'est PAS encore soumise. Il manque UNE action de 30 s : soit dicter le mot de passe spécifique app (généré sur appleid.apple.com) pour que je lance fastlane, soit suivre le Chemin B sur iPhone. Le .p8 n'est jamais requis.
+- **Décision marketplace v1** : flag `playlist_marketplace` OFF en prod (achat via lien PayPal externe = rejet Apple 3.1.1). v1 conforme + appro rapide ; code 100% conservé, s'active via 1 flag une fois Apple In-App Purchase (StoreKit) câblé.
+- Tests : `tsc -p packages/mobile` = 0 · `jest` 284/284 + 18/18 · `verify-source-of-truth.cjs` = 0.
