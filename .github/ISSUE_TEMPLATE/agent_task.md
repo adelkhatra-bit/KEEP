@@ -1,21 +1,52 @@
 ---
 name: Tâche agent
-about: Une tâche à suivre pour un des agents IA du projet (remplace un item perdu dans AGENT_MESSAGES.md)
-title: "[tâche] "
+about: Tâche GitHub-native pilotée pour une IA ou un binôme humain + IA
+title: "[agent-task] "
 labels: agent-task
 ---
 
-## Demande
+## Type de tâche
 
-<!-- Ce qu'Adel a demandé, aussi proche que possible de ses mots. -->
+- [ ] bug
+- [ ] ci
+- [ ] design
+- [ ] security
+- [ ] release
+- [ ] audit
 
-## Agent visé
+## Agent principal demandé
 
+- [ ] chatgpt
 - [ ] claude
 - [ ] codex
+- [ ] copilot
 - [ ] design
-- [ ] n'importe lequel disponible
+- [ ] triage humain
 
-## Fait / reste à faire
+## Objectif
 
-<!-- Mis à jour au fil de l'avancement. -->
+<!-- Résultat attendu, en une phrase vérifiable. -->
+
+## Périmètre autorisé
+
+<!-- Dossiers/fichiers ou systèmes que l'agent peut toucher. -->
+
+## Fichiers / zones interdits
+
+<!-- Exemple : App.tsx, Navigation.tsx, secrets, production externe, etc. -->
+
+## Validations requises
+
+- [ ] `node scripts/verify-source-of-truth.cjs`
+- [ ] typecheck des workspaces touchés
+- [ ] tests ciblés
+- [ ] workflow(s) GitHub associé(s)
+- [ ] artifacts / captures si utile
+
+## Liens GitHub utiles
+
+<!-- Issue liée, PR liée, run Actions, artifact, discussion, etc. -->
+
+## Notes de coordination
+
+<!-- Résumé fidèle de la demande et informations pour le prochain agent. -->

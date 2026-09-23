@@ -245,22 +245,30 @@ jobs:
               bundles.push(bundle);
             }
 
+            const hasPushEntitlement = plist => ['production','development'].includes(String(plist?.Entitlements?.['aps-environment'] || ''));
             // Push notifications are a native production capability, not just
             // a JavaScript permission. Keep the main App ID enabled before
             // creating/reusing its App Store profile so aps-environment is
             // present in the signed TestFlight build.
             phase = 'ensure push notifications capability';
-            const mainCapabilities = await apple('bundleIdCapabilities?filter[bundleId]=' + encodeURIComponent(bundles[0].id) + '&limit=200');
-            const pushEnabled = (mainCapabilities.data || []).some(cap => cap.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
-            if (!pushEnabled) {
-              await apple('bundleIdCapabilities','POST',{
-                type:'bundleIdCapabilities',
-                attributes:{capabilityType:'PUSH_NOTIFICATIONS',settings:[]},
-                relationships:{bundleId:{data:{type:'bundleIds',id:bundles[0].id}}}
-              });
-              console.log('Enabled Push Notifications capability for Loki main bundle.');
-            } else {
-              console.log('Push Notifications capability already enabled.');
+            let canManagePushCapability = true;
+            try {
+              const mainCapabilities = await apple('bundleIdCapabilities?filter[bundleId]=' + encodeURIComponent(bundles[0].id) + '&limit=200');
+              const pushEnabled = (mainCapabilities.data || []).some(cap => cap.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
+              if (!pushEnabled) {
+                await apple('bundleIdCapabilities','POST',{
+                  type:'bundleIdCapabilities',
+                  attributes:{capabilityType:'PUSH_NOTIFICATIONS',settings:[]},
+                  relationships:{bundleId:{data:{type:'bundleIds',id:bundles[0].id}}}
+                });
+                console.log('Enabled Push Notifications capability for Loki main bundle.');
+              } else {
+                console.log('Push Notifications capability already enabled.');
+              }
+            } catch (error) {
+              if (!(error instanceof SigningError) || !/Apple HTTP 403\b.*FORBIDDEN_ERROR/.test(error.message)) throw error;
+              canManagePushCapability = false;
+              console.log('Apple API key cannot read/update bundleIdCapabilities; continuing with provisioning profile entitlement validation.');
             }
 
             phase = 'resolve distribution certificate';
@@ -312,19 +320,24 @@ jobs:
               if (prior?.distributionCertificate?.id === cert.id && prior.provisioningProfile?.developerPortalIdentifier) {
                 const profile = await apple('profiles/'+prior.provisioningProfile.developerPortalIdentifier);
                 const existingPlist = profile.data.attributes.profileContent ? parse(profile.data.attributes.profileContent) : null;
-                const pushEntitlementOk = i !== 0 || ['production','development'].includes(String(existingPlist?.Entitlements?.['aps-environment'] || ''));
+                const pushEntitlementOk = i !== 0 || hasPushEntitlement(existingPlist);
                 if(profile.data.attributes.profileState === 'ACTIVE' && new Date(profile.data.attributes.expirationDate).getTime() > Date.now()+7*86400000 && pushEntitlementOk) {
                   console.log('Existing active profile kept for '+bundleIdentifier);
                   continue;
                 }
-                if (i === 0 && !pushEntitlementOk) console.log('Existing main profile has no APNs entitlement; regenerating.');
+                if (i === 0 && !pushEntitlementOk) {
+                  if (!canManagePushCapability) {
+                    throw new SigningError('Main App Store profile missing aps-environment and Apple API key cannot manage bundleIdCapabilities. Enable Push Notifications for the App ID or grant additional App Store Connect permissions.');
+                  }
+                  console.log('Existing main profile has no APNs entitlement; regenerating.');
+                }
               }
               const profile = (await apple('profiles','POST',{type:'profiles',attributes:{name:'Loki EAS '+(i?'Share':'App')+' '+Date.now(),profileType:'IOS_APP_STORE'},relationships:{bundleId:{data:{type:'bundleIds',id:bundles[i].id}},certificates:{data:[{type:'certificates',id:portalCert.id}]}}})).data;
               const content = profile.attributes.profileContent;
               const plist = parse(content);
               check(plist.TeamIdentifier?.[0] === teamId && plist.Entitlements?.['application-identifier'] === teamId+'.'+bundleIdentifier, 'Profile team / bundle mismatch');
               check(!plist.Entitlements?.['get-task-allow'] && !plist.ProvisionedDevices && !plist.ProvisionsAllDevices, 'Not an App Store profile');
-              if (i === 0) check(['production','development'].includes(String(plist.Entitlements?.['aps-environment'] || '')), 'Main App Store profile missing aps-environment');
+              if (i === 0) check(hasPushEntitlement(plist), canManagePushCapability ? 'Main App Store profile missing aps-environment' : 'Main App Store profile missing aps-environment and Apple API key cannot manage bundleIdCapabilities. Enable Push Notifications for the App ID or grant additional App Store Connect permissions.');
               phase = 'persist profile '+bundleIdentifier;
               const identifier = await ios.createOrGetExistingAppleAppIdentifierAsync(graphqlClient,app,appleTeam);
               const stored = await ios.createProvisioningProfileAsync(graphqlClient,app,identifier,{appleProvisioningProfile:content});

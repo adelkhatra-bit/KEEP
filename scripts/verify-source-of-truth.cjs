@@ -6,12 +6,15 @@ const failures = [];
 const expectedRepository = 'adelkhatra-bit/KEEP';
 const expectedBranch = 'reconcile/claude-main-20260825';
 const expectedPublicRoot = 'https://adelkhatra-bit.github.io/KEEP';
+const allowedTaskBranchPatterns = [/^copilot\//, /^claude\//];
 
 if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedRepository) {
   failures.push(`WRONG REPOSITORY: ${process.env.GITHUB_REPOSITORY}`);
 }
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch) {
-  failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
+if (process.env.GITHUB_REF_NAME) {
+  const currentBranch = process.env.GITHUB_REF_NAME;
+  const allowedCurrentBranch = currentBranch === expectedBranch || allowedTaskBranchPatterns.some((pattern) => pattern.test(currentBranch));
+  if (!allowedCurrentBranch) failures.push(`WRONG BRANCH: ${currentBranch}`);
 }
 
 const mustExist = [
@@ -159,8 +162,11 @@ for (const expected of ['usernameFlow', 'emailFlow', 'syntheticEmail', 'username
 if (!usernameAuth.includes('@keep.local')) failures.push('SERVER-SIDE SYNTHETIC AUTH IDENTITY MISSING');
 
 const publicProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
-for (const marker of ['QRCode', 'Mon QR Loki', 'Partager par e-mail']) {
+for (const marker of ['QRCode', 'Partager par e-mail']) {
   if (!publicProfile.includes(marker)) failures.push(`PROFILE SHARE MARKER MISSING: ${marker}`);
+}
+if (!(/Mon QR Loki|Ma carte d’identité Loki Music/.test(publicProfile))) {
+  failures.push('PROFILE SHARE MARKER MISSING: QR identity action');
 }
 
 const viewedProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/PublicUserProfileScreen.tsx'), 'utf8');

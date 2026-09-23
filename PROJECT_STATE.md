@@ -31,11 +31,11 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T15:41:05.791Z
-- Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `2767c3a` (2767c3ac6029be1a82e29e772648b7d8dd407bab) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- Date du dernier commit : 2026-09-22T17:39:04+02:00
-- Working tree : ⚠️ modifications non commitées présentes
+- Régénéré le : 2026-09-23T01:19:37.079Z
+- Branche : `copilot/fix-github-actions-job-failure`
+- Dernier commit : `70585ee8` (70585ee8e67c98c0773a76e8a89094d7618b9d72) — feat: direct issue triage to agents
+- Date du dernier commit : 2026-09-23T01:19:30Z
+- Working tree : ✅ propre
 <!-- AUTO:GIT-STATE:END -->
 
 **Statut global** : application mobile/web en production active (GitHub Pages +
@@ -122,16 +122,10 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `2767c3a` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- `d85c8d9` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout DiscoverScreen (spec Adel 22/09/2026)
-- `8cd3a09` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout HomeScreenCompact (spec Adel 22/09/2026)
-- `d7df56a` (2026-09-22, adelkhatra-bit) — style(mobile): migrer HomeScreenCompact/Discover/Parties vers les tokens colors.ts (design system strict)
-- `b7ec85b` (2026-09-22, adelkhatra-bit) — docs: [A VALIDER] supprimer workflow obsolete eas-build-ios.yml (Apple 401, permission workflows requise cote Adel)
-- `18ffee6` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
-- `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
-- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
-- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
+- `70585ee8` (2026-09-23, copilot-swe-agent[bot]) — feat: direct issue triage to agents
+- `bff2ba2b` (2026-09-23, copilot-swe-agent[bot]) — chore: plan issue triage automation follow-up
+- `6bbf90d3` (2026-09-23, copilot-swe-agent[bot]) — fix: unblock source-of-truth and add agent triage
+- `81f5258d` (2026-09-23, copilot-swe-agent[bot]) — chore: plan agent triage and external unlock rollout
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -156,6 +150,18 @@ agent) et messages des sessions de chat (non versionnés).
   infrastructure de mémoire partagée (ce fichier + hooks) livrée en premier
   comme demandé ; audit API exhaustif et intégration Super Admin à suivre,
   après validation de ce rapport par Adel.
+- **Poste de commandement GitHub-native IA (23/09/2026)** : documentation,
+  configuration machine-readable, templates d'issues/PR et labels de pilotage
+  ajoutés dans le dépôt. Le workflow `.github/workflows/agent-command-triage.yml`
+  applique aussi automatiquement les labels type/agent et un commentaire de
+  routage sur les issues. **Reste à valider côté Adel** : les accès externes,
+  apps GitHub et secrets qui ne peuvent pas être accordés automatiquement par
+  un agent.
+- **Déblocage plateformes externes (23/09/2026)** : matrice documentaire des
+  verrous humains vs actions automatisables ajoutée (`docs/ops/EXTERNAL_PLATFORM_UNLOCK_MATRIX.md`) et triage GitHub automatique des issues agents ajouté
+  (`.github/workflows/agent-command-triage.yml`). **Reste à valider côté Adel**
+  : les permissions/apps/secrets réellement absents sur GitHub, Supabase,
+  Vercel, Apple, Stripe et ChatGPT Action.
 - **[À VALIDER] (Adel) — workflow iOS obsolète** : `eas-build-ios.yml`
   (« Build iOS EAS + TestFlight ») est à supprimer/désactiver par
   l'utilisateur. Il échoue systématiquement sur une erreur Apple 401

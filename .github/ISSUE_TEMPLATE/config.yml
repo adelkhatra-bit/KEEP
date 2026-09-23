@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: KEEP — Poste de commandement GitHub-native pour agents IA
+    url: https://github.com/adelkhatra-bit/KEEP/blob/reconcile/claude-main-20260825/docs/ops/GITHUB_AI_COMMAND_CENTER.md
+    about: Lire la gouvernance, les roles, les labels et les validations requises avant d'ouvrir une tache agent.

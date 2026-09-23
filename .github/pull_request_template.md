@@ -11,11 +11,25 @@
 - [ ] Si routage/partage est touché : lien direct + refresh + profil partagé testés.
 - [ ] Aucun secret/API privé n’est présent dans le client ou dans le diff.
 
+### Pilotage GitHub / agent principal
+
+Type de tâche :
+
+Agent principal :
+
+Issue source :
+
+Labels attendus :
+
+Fichiers / zones interdits :
+
 ### Preuves
 
 SHA testé :
 
 CI / workflow :
+
+Artifacts / captures :
 
 Viewport(s) testé(s) :
 

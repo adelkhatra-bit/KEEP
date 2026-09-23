@@ -1371,3 +1371,31 @@ Côté agent (vérification à faire après redeploy Vercel) :
   et vérifier les logs de build Vercel.
 
 ⛔ Attente confirmation d'Adel pour la vérification post-Vercel.
+## [2026-09-23T00:48:04.675Z] codex
+
+Diagnostic CI en cours sur auto-eas-build.yml : job 106998002116 échoue dans le bootstrap iOS sur Apple HTTP 403 FORBIDDEN_ERROR pendant ensure push notifications capability. Je vais corriger le workflow pour tolérer l'absence de permission sur bundleIdCapabilities sans masquer un vrai profil App Store invalide.
+
+## [2026-09-23T00:49:51.560Z] codex
+
+Correctif pousse pour le job 106998002116 : auto-eas-build.yml tolere maintenant Apple HTTP 403 FORBIDDEN_ERROR sur bundleIdCapabilities et continue si le profil App Store existant/genere garde bien aps-environment ; echec explicite seulement si l entitlement push manque reellement. Validation locale : parse YAML OK, git diff --check OK, regex 403 OK. parallel_validation : Code Review OK, CodeQL OK.
+
+## [2026-09-23T01:05:12.875Z] codex
+
+Je mets en place le poste de commandement GitHub-native pour agents IA : doc de gouvernance, templates GitHub (issues/PR), matrice d'acces minimale et labels de pilotage, sans creer de second relais.
+
+## [2026-09-23T01:09:36.122Z] codex
+
+Poste de commandement GitHub-native IA implemente : doc docs/ops/GITHUB_AI_COMMAND_CENTER.md, config config/github-ai-command-center.json, templates d'issues (bug/ci/design/security/release/audit + agent-task), PR template enrichi, labels GitHub crees (agent-task, ci, design, security, release, audit, chatgpt, claude, codex, copilot). Validations : JSON/YAML OK, git diff --check OK, secret scan OK, parallel_validation OK. verify-source-of-truth reste FAIL hors scope a cause de la branche copilot/* et du marqueur preexistant Mon QR Loki.
+
+## [2026-09-23T01:13:04.888Z] codex
+
+Je continue sans ouvrir de second canal : prochaine etape = automatiser le triage GitHub des issues/agents et documenter la matrice de deblocage des plateformes externes (ce que les agents peuvent faire vs ce qui exige Adel).
+
+## [2026-09-23T01:18:31.483Z] codex
+
+Je lance l'etape suivante du poste de commandement GitHub-native : ajout d'un workflow GitHub de triage automatique des issues pour appliquer les labels type/agent a partir des templates.
+
+## [2026-09-23T01:21:03.273Z] codex
+
+Suivi poste de commandement IA termine : le workflow .github/workflows/agent-command-triage.yml ne se contente plus de poser les labels type/agent, il maintient aussi un commentaire de routage sur chaque issue (type detecte, agent detecte, coordination, workflows recommandes, garde-fous secrets/preuves). Validations : YAML OK, git diff --check OK, verify-source-of-truth OK, secret scan OK, parallel_validation OK (CodeQL 0 alerte).
+
