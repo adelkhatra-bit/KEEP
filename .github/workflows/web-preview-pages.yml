@@ -22,9 +22,13 @@ permissions:
   pages: write
   id-token: write
 
+# Multi-agent safety: never cancel an in-flight Pages publication.
+# Several Loki agents can push the same working branch within minutes; cancelling
+# here used to leave the public URL on GitHub's "There isn't a GitHub Pages site here"
+# page until a later run finally survived. New runs queue and publish in order instead.
 concurrency:
   group: keep-pages-reconcile-claude-main-20260825
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
