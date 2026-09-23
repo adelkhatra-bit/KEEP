@@ -97,6 +97,10 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [keepChoiceOpen, setKeepChoiceOpen] = useState(false);
   const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
   const [keepBusy, setKeepBusy] = useState(false);
+  const [keepEditId, setKeepEditId] = useState<string | null>(null);
+  const [keepSnackbar, setKeepSnackbar] = useState<{ entryId: string; visibility: KeepVisibility } | null>(null);
+  const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
   // Adel (02/09/2026) : "neutralise le problème sans impacter le reste du
@@ -316,16 +320,56 @@ export default function HomeScreenCompact({ navigation }: any) {
     if (keepBusy) return;
     setKeepBusy(true);
     setKeepChoiceOpen(false);
+    setKeepEditId(null);
     await keepTrack(entryId, playlistId, visibility);
     await refreshCreditBadge();
     setKeepBusy(false);
   };
 
+  // 1-tap keep (23/09/2026, GO Adel) : GARDER en 1 clic avec valeur par
+  // defaut intelligente = PUBLIC. Le choix Public/Prive n'est PAS supprime :
+  // il reste accessible via appui long / bouton reglages sur la carte, et via
+  // le lien "Modifier" du bandeau de confirmation ci-dessous.
+  const showKeepSnackbar = (entryId: string, visibility: KeepVisibility) => {
+    if (snackTimer.current) clearTimeout(snackTimer.current);
+    setKeepSnackbar({ entryId, visibility });
+    snackTimer.current = setTimeout(() => setKeepSnackbar(null), 6000);
+  };
+
+  const quickKeep = async () => {
+    if (!current || alreadySaved || !pending || keepBusy) return;
+    if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
+    const entryId = current.id;
+    const playlistId = current.recommendations?.[0]?.playlistId || playlists[0]?.id;
+    await doKeep(entryId, playlistId, 'PUBLIC');
+    showKeepSnackbar(entryId, 'PUBLIC');
+  };
+
+  // Action secondaire : ouvre le choix complet Public/Prive (+ destination)
+  // AVANT de garder. Declenchee par appui long ou bouton reglages sur la carte.
   const openKeepChooser = () => {
     if (!current || alreadySaved || !pending || keepBusy) return;
     if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
+    setKeepEditId(null);
     setKeepPlaylistId(current.recommendations?.[0]?.playlistId || playlists[0]?.id);
     setKeepChoiceOpen(true);
+  };
+
+  // "Modifier" depuis le bandeau : rouvre le choix sur un morceau DEJA garde
+  // pour ajuster sa visibilite (sans re-decompter de credit).
+  const openKeepEditor = (entryId: string) => {
+    setKeepEditId(entryId);
+    setKeepChoiceOpen(true);
+  };
+
+  const applyVisibilityEdit = async (entryId: string, visibility: KeepVisibility) => {
+    if (privacyBusy) return;
+    setPrivacyBusy(true);
+    setKeepChoiceOpen(false);
+    await setTrackVisibility(entryId, visibility);
+    setPrivacyBusy(false);
+    setKeepEditId(null);
+    showKeepSnackbar(entryId, visibility);
   };
 
   const toggleCurrentVisibility = async () => {
@@ -485,10 +529,10 @@ export default function HomeScreenCompact({ navigation }: any) {
             resetKey={current.id}
             enabled={Boolean(pending && !keepBusy)}
             onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
-            onSwipeRight={openKeepChooser}
+            onSwipeRight={() => { void quickKeep(); }}
             leftLabel="PASSER"
             rightLabel="GARDER"
-            hint="Swipe facultatif : ← passer · garder → · les boutons restent disponibles"
+            hint="Swipe facultatif : ← passer · garder → (public) · ⚙︎ pour choisir"
           >
             <View style={s.trackCard}>
               <View style={s.trackHead}>
@@ -522,8 +566,12 @@ export default function HomeScreenCompact({ navigation }: any) {
                   {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
                   <View style={s.actions}>
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Passer ce morceau" style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Garder ce morceau" style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Garder ce morceau en 1 clic (public par défaut)" accessibilityHint="Appui long pour choisir public ou privé" style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={() => { void quickKeep(); }} onLongPress={openKeepChooser} delayLongPress={280} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                    {!insufficientCredit ? (
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choisir public ou privé avant de garder" style={[s.keepOptionsBtn, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepOptionsBtnText}>⚙︎</Text></TouchableOpacity>
+                    ) : null}
                   </View>
+                  {!insufficientCredit ? <Text style={s.keepHint}>1 clic = gardé en public · ⚙︎ ou appui long pour choisir</Text> : null}
                 </>
               )}
             </View>
@@ -537,15 +585,26 @@ export default function HomeScreenCompact({ navigation }: any) {
         </TouchableOpacity>
       </ScrollView>
 
+      {keepSnackbar ? (
+        <View style={s.keepSnackbar} pointerEvents="box-none">
+          <Text style={s.keepSnackbarText} numberOfLines={1}>
+            {keepSnackbar.visibility === 'PUBLIC' ? '✓ Gardé en public' : '✓ Gardé en privé'}
+          </Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Modifier la visibilité du morceau gardé" onPress={() => { const id = keepSnackbar.entryId; if (snackTimer.current) clearTimeout(snackTimer.current); setKeepSnackbar(null); openKeepEditor(id); }}>
+            <Text style={s.keepSnackbarAction}>Modifier</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <View style={s.footerActions}>
         <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Arrêter l'écoute"><Text style={s.secondaryText}>■  ARRÊTER L’ÉCOUTE</Text></TouchableOpacity>
       </View>
 
-      <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => setKeepChoiceOpen(false)}>
+      <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => { setKeepChoiceOpen(false); setKeepEditId(null); }}>
         <View style={s.modalOverlay}><View style={s.keepChoiceCard}>
-          <Text style={s.modalTitle}>Garder ce morceau</Text>
+          <Text style={s.modalTitle}>{keepEditId ? 'Modifier la visibilité' : 'Garder ce morceau'}</Text>
           <Text style={s.modalBody}>Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard dans Mes Sessions.</Text>
-          {playlists.length > 1 ? (
+          {!keepEditId && playlists.length > 1 ? (
             <View style={s.playlistChoices}>
               <Text style={s.choiceLabel}>DESTINATION</Text>
               <View style={s.playlistChoiceWrap}>
@@ -556,15 +615,15 @@ export default function HomeScreenCompact({ navigation }: any) {
               </View>
             </View>
           ) : null}
-          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePublic]} onPress={() => current && void doKeep(current.id, keepPlaylistId, 'PUBLIC')} disabled={keepBusy}>
+          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePublic]} onPress={() => { if (keepEditId) { void applyVisibilityEdit(keepEditId, 'PUBLIC'); } else if (current) { void doKeep(current.id, keepPlaylistId, 'PUBLIC'); } }} disabled={keepBusy || privacyBusy}>
             <Text style={s.visibilityChoiceTitlePublic}>PUBLIC SUR MON PROFIL</Text>
             <Text style={s.visibilityChoiceText}>Le morceau apparaîtra dans ton univers Loki Music partagé.</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePrivate]} onPress={() => current && void doKeep(current.id, keepPlaylistId, 'PRIVATE')} disabled={keepBusy}>
+          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePrivate]} onPress={() => { if (keepEditId) { void applyVisibilityEdit(keepEditId, 'PRIVATE'); } else if (current) { void doKeep(current.id, keepPlaylistId, 'PRIVATE'); } }} disabled={keepBusy || privacyBusy}>
             <Text style={s.visibilityChoiceTitlePrivate}>GARDER EN PRIVÉ</Text>
             <Text style={s.visibilityChoiceText}>Le morceau reste dans ta bibliothèque et n’apparaît pas sur ton profil public.</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.cancelChoice} onPress={() => setKeepChoiceOpen(false)}><Text style={s.cancelChoiceText}>Annuler</Text></TouchableOpacity>
+          <TouchableOpacity style={s.cancelChoice} onPress={() => { setKeepChoiceOpen(false); setKeepEditId(null); }}><Text style={s.cancelChoiceText}>Annuler</Text></TouchableOpacity>
         </View></View>
       </Modal>
 
@@ -778,6 +837,12 @@ const s = StyleSheet.create({
   keepText: { color: colors.background, fontSize: 13, fontWeight: '900' },
   keepLockedText: { color: colors.white },
   lockedHint: { color: colors.white, fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 7 },
+  keepOptionsBtn: { minHeight: 48, width: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.green, backgroundColor: 'rgba(45,225,194,0.10)' },
+  keepOptionsBtnText: { color: C.green, fontSize: 18, fontWeight: '900' },
+  keepHint: { color: C.mutedGrey, fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 7 },
+  keepSnackbar: { position: 'absolute', left: 14, right: 14, bottom: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: C.green, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11 },
+  keepSnackbarText: { color: colors.white, fontSize: 13, fontWeight: '800', flexShrink: 1 },
+  keepSnackbarAction: { color: C.green, fontSize: 13, fontWeight: '900' },
   disabled: { opacity: 0.45 },
   saved: { minHeight: 42, marginTop: 9, borderRadius: 10, backgroundColor: 'rgba(45,225,194,0.10)', alignItems: 'center', justifyContent: 'center' },
   savedText: { color: C.green, fontWeight: '800', fontSize: 12 },
