@@ -1391,3 +1391,7 @@ Poste de commandement GitHub-native IA implemente : doc docs/ops/GITHUB_AI_COMMA
 
 Je continue sans ouvrir de second canal : prochaine etape = automatiser le triage GitHub des issues/agents et documenter la matrice de deblocage des plateformes externes (ce que les agents peuvent faire vs ce qui exige Adel).
 
+## [2026-09-23T01:18:31.483Z] codex
+
+Je lance l'etape suivante du poste de commandement GitHub-native : ajout d'un workflow GitHub de triage automatique des issues pour appliquer les labels type/agent a partir des templates.
+
