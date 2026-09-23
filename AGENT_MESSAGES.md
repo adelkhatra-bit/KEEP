@@ -1371,3 +1371,7 @@ Côté agent (vérification à faire après redeploy Vercel) :
   et vérifier les logs de build Vercel.
 
 ⛔ Attente confirmation d'Adel pour la vérification post-Vercel.
+## [2026-09-23T00:45:54.203Z] codex
+
+J'analyse le job GitHub Actions iOS en echec (run 35803194377/job 106998001283), je recupere les logs et je cherche un correctif minimal dans les workflows/scripts associes.
+
