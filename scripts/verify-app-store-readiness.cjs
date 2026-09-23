@@ -123,7 +123,7 @@ check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && co
 check('Workflow iOS valide ascAppId contre le bundle KEEP', contains(iosWorkflow, 'apps/${process.env.KEEP_ASC_APP_ID}?include=bundleId') && contains(iosWorkflow, 'Apple app bundle mismatch for ascAppId.'));
 check('Workflow iOS vérifie la share extension Apple', contains(iosWorkflow, 'com.adelkhatra.keep.share-extension'));
 check('Workflow iOS signale bundle Apple manquant/ambigu', contains(iosWorkflow, 'Apple bundle identifier missing or ambiguous:'));
-check('Workflow iOS vérifie les profils Apple exacts', contains(iosWorkflow, 'profiles?filter[profileType]=IOS_APP_STORE&include=bundleId&limit=200') && contains(iosWorkflow, 'includedBundlesById') && contains(iosWorkflow, 'result.links?.next') && contains(iosWorkflow, 'profile.relationships?.bundleId?.data?.id') && contains(iosWorkflow, "state === 'ACTIVE'") && contains(iosWorkflow, 'Apple App Store provisioning profile missing for'));
+check('Workflow iOS vérifie les profils Apple exacts', contains(iosWorkflow, 'profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=') && contains(iosWorkflow, "state === 'ACTIVE'") && contains(iosWorkflow, 'Apple App Store provisioning profile missing for'));
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
 const offers = 'packages/mobile/src/screens/OffersScreen.tsx';

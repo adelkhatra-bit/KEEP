@@ -215,26 +215,11 @@ jobs:
             const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
             const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
             const exactProfiles = async (bundle, label) => {
-              let route = 'profiles?filter[profileType]=IOS_APP_STORE&include=bundleId&limit=200';
-              const profiles = [];
-              const includedBundlesById = new Map();
-              while (route) {
-                const result = await get(route, label);
-                for (const item of result.data || []) profiles.push(item);
-                for (const item of result.included || []) {
-                  if (item.type === 'bundleIds' && item.id && !includedBundlesById.has(item.id)) {
-                    includedBundlesById.set(item.id, item);
-                  }
-                }
-                route = result.links?.next || null;
-              }
-              const validProfiles = profiles.filter((profile) => {
+              const result = await get(`profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=${encodeURIComponent(bundle.id)}&limit=50`, label);
+              const validProfiles = (result.data || []).filter((profile) => {
                 const state = profile.attributes?.profileState;
                 const expirationDate = profile.attributes?.expirationDate;
-                const profileBundleId = profile.relationships?.bundleId?.data?.id;
-                const relatedBundle = profileBundleId ? includedBundlesById.get(profileBundleId) : null;
-                const matchesBundle = profileBundleId === bundle.id || relatedBundle?.attributes?.identifier === bundle.attributes?.identifier;
-                return matchesBundle && state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
+                return state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
               });
               if (!validProfiles.length) {
                 throw new Error(`Apple App Store provisioning profile missing for ${bundle.attributes?.identifier || label}.`);
