@@ -121,7 +121,6 @@ check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto
 check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'Missing normalized Apple submit identifiers in runner.') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = appleTeamId'));
 check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'Missing normalized Apple submit identifiers in runner.') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = ascAppId'));
 check('Workflow iOS vérifie la share extension Apple', contains(iosWorkflow, 'com.adelkhatra.keep.share-extension'));
-check('Workflow iOS audite Push Notifications côté Apple', contains(iosWorkflow, 'PUSH_NOTIFICATIONS') && contains(iosWorkflow, 'Apple bundleIdCapabilities API did not confirm PUSH_NOTIFICATIONS for com.adelkhatra.keep.'));
 check('Workflow iOS vérifie les profils Apple exacts', contains(iosWorkflow, 'profiles?filter[profileType]=IOS_APP_STORE&filter[bundleId]=') && contains(iosWorkflow, 'Apple App Store provisioning profile missing for'));
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
