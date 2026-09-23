@@ -19,8 +19,8 @@ describe('Loki Music Battle challenge UX', () => {
     // "PARTIE TERMINÉE" (avant s.visual dans le fichier) depuis le fix
     // "à l'étape huit pourquoi tu mets pas cette invitation" -- on cherche
     // ici précisément l'occurrence de l'écran de manche active.
-    const invite = battle.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', visual);
-    const question = battle.indexOf("<Text style={s.question}>Qui chante ?</Text>");
+    const invite = battle.indexOf('te défie sur un Battle. Tu acceptes ?', visual);
+    const question = battle.indexOf("<Text style={s.question}>QUI CHANTE ?</Text>");
     const answers = battle.indexOf('<View style={s.answers}>');
     expect(visual).toBeGreaterThan(-1);
     expect(invite).toBeGreaterThan(visual);

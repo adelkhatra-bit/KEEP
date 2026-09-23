@@ -18,8 +18,8 @@ describe('Loki Music Battle mobile style selector', () => {
     // l'écran "PARTIE TERMINÉE" (avant s.visual dans le fichier, cet écran
     // n'a pas de jaquette). On cherche donc l'occurrence dans l'écran de
     // manche active spécifiquement, celle qui suit s.visual.
-    const invite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', visual);
-    const question = source.indexOf('<Text style={s.question}>Qui chante ?</Text>');
+    const invite = source.indexOf('te défie sur un Battle. Tu acceptes ?', visual);
+    const question = source.indexOf('<Text style={s.question}>QUI CHANTE ?</Text>');
     const answers = source.indexOf('<View style={s.answers}>');
     expect(visual).toBeGreaterThanOrEqual(0);
     expect(invite).toBeGreaterThan(visual);
@@ -33,7 +33,7 @@ describe('Loki Music Battle mobile style selector', () => {
 
   it('also shows the incoming Battle invite on the finished-game screen (Adel, 02/09/2026: "à l\'étape huit pourquoi tu mets pas cette invitation")', () => {
     const finishedHeader = source.indexOf('PARTIE TERMINÉE');
-    const finishedInvite = source.indexOf('souhaite faire un Battle avec vous. Acceptez-vous ?', finishedHeader);
+    const finishedInvite = source.indexOf('te défie sur un Battle. Tu acceptes ?', finishedHeader);
     const finishedHero = source.indexOf('s.finishHero', finishedHeader);
     expect(finishedHeader).toBeGreaterThanOrEqual(0);
     expect(finishedInvite).toBeGreaterThan(finishedHeader);
@@ -218,7 +218,7 @@ describe('Loki Music Battle mobile style selector', () => {
     const soloStart = source.indexOf('<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>');
     const soloVisual = source.indexOf('<View style={s.visual}>', soloStart);
     const soloClock = source.indexOf('<View style={s.clockRow}>', soloVisual);
-    const soloQuestion = source.indexOf('<Text style={s.question}>Qui chante ?</Text>', soloClock);
+    const soloQuestion = source.indexOf('<Text style={s.question}>QUI CHANTE ?</Text>', soloClock);
     expect(soloVisual).toBeLessThan(soloClock);
     expect(soloClock).toBeLessThan(soloQuestion);
 
@@ -227,7 +227,7 @@ describe('Loki Music Battle mobile style selector', () => {
     const arenaClock = source.indexOf('<View style={s.clockRow}>', arenaVisual);
     const duelGauge = source.indexOf('players.length === 2 ? <View style={s.duel}>', arenaClock);
     const groupGauge = source.indexOf('players.length > 2 ? <View style={s.groupStandings}>', arenaClock);
-    const arenaQuestion = source.indexOf('<Text style={s.question}>Qui chante ?</Text>', arenaClock);
+    const arenaQuestion = source.indexOf('<Text style={s.question}>QUI CHANTE ?</Text>', arenaClock);
     expect(arenaVisual).toBeLessThan(arenaClock);
     expect(arenaClock).toBeLessThan(duelGauge);
     expect(duelGauge).toBeLessThan(arenaQuestion);

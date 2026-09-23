@@ -31,7 +31,7 @@ export type PayoutProvider = 'PAYPAL' | 'STRIPE' | 'LYDIA' | 'OTHER';
 export function detectPayoutProvider(url: string): PayoutProvider {
   try {
     const host = new URL(url.trim()).hostname.toLowerCase().replace(/^www\./, '');
-    if (host === 'paypal.me' || host.endsWith('.paypal.com')) return 'PAYPAL';
+    if (host === 'paypal.me' || host === 'paypal.com' || host.endsWith('.paypal.com')) return 'PAYPAL';
     if (host === 'buy.stripe.com' || host === 'checkout.stripe.com' || host.endsWith('.stripe.com')) return 'STRIPE';
     if (host === 'lydia-app.com' || host.endsWith('.lydia-app.com') || host === 'lydia.me') return 'LYDIA';
   } catch {}
