@@ -160,18 +160,13 @@ jobs:
         run: |
           set -euo pipefail
           profile='${{ steps.gate.outputs.profile }}'
-          args=(build --platform ios --profile "$profile" --non-interactive --no-wait)
+          args=(build --platform ios --profile "$profile" --non-interactive --no-wait --freeze-credentials)
           if [ '${{ steps.gate.outputs.submit_ready }}' = 'true' ]; then
             args+=(--auto-submit-with-profile production)
             echo 'Build + auto-submit TestFlight armé.'
           else
             echo 'Build EAS armé sans auto-submit TestFlight.'
           fi
-          # --freeze-credentials interdit à EAS d'essayer de créer/réparer des
-          # identifiants Apple pendant ce job non interactif. Les credentials
-          # iOS doivent déjà être gérés sur EAS/Apple ; le workflow ne doit
-          # jamais tomber sur une invite interactive.
-          args+=(--freeze-credentials)
           eas "${args[@]}"
 
       - name: Résumé pipeline Apple
