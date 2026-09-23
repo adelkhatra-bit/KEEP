@@ -180,6 +180,23 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     return () => { live = false; };
   }, [viewer?.id, isLocalGuest, isDemoMode, saleOffers.length]);
 
+  // Une Vibe KEEP_SMART mise en vente ne doit jamais apparaître deux fois :
+  // une fois gratuitement comme Vibe publique ET une fois verrouillée comme
+  // offre payante. L'offre verrouillée remplace la carte publique jusqu'au
+  // déblocage. Cela protège aussi le contenu : aucun accès indirect au Swipe
+  // gratuit de la même sélection avant achat.
+  const saleProtectedSmartAlbumIds = useMemo(() => new Set(
+    saleOffers
+      .map((offer) => String(offer.playlistId || '').trim())
+      .filter((id) => id.startsWith('keep-smart:'))
+      .map((id) => id.slice('keep-smart:'.length))
+      .filter(Boolean),
+  ), [saleOffers]);
+  const visiblePublicVibes = useMemo(
+    () => publicVibes.filter((vibe) => !saleProtectedSmartAlbumIds.has(vibe.id)),
+    [publicVibes, saleProtectedSmartAlbumIds],
+  );
+
   useEffect(() => {
     let cancelled = false;
     // BUG RÉEL trouvé le 01/09/2026 (Adel, capture à l'appui : deux
@@ -1005,14 +1022,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               <Text style={styles.sectionTitle}>Vibes de @${profile.username}</Text>
               <Text style={styles.folderIntroText}>Les dossiers sont rangés par style par Loki Music. Appuie sur un dossier pour le swiper. Les dossiers avec cadenas sont des sélections à débloquer.</Text>
             </View>
-            {publicVibes.length === 0 && (!marketplaceEnabled || saleOffers.length === 0) ? (
+            {visiblePublicVibes.length === 0 && (!marketplaceEnabled || saleOffers.length === 0) ? (
               <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>✦</Text><Text style={styles.muted}>Aucune Vibe publique pour le moment.</Text></View>
             ) : (
               <View style={styles.folderGrid}>
-                {publicVibes.map((vibe) => (
+                {visiblePublicVibes.map((vibe) => (
                   <TouchableOpacity key={`vibe:${vibe.id}`} style={styles.folderCard} onPress={() => openPublicVibe(vibe)} accessibilityLabel={`Swiper la Vibe ${vibe.name}`}>
                     <View style={styles.folderIcon}><Text style={styles.folderIconText}>✦</Text></View>
-                    <View style={styles.folderCopy}><Text style={styles.folderTitle} numberOfLines={1}>{vibe.name}</Text><Text style={styles.folderMeta}>{vibe.trackCount} morceau{vibe.trackCount > 1 ? 'x' : ''} · Vibe publique</Text></View>
+                    <View style={styles.folderCopy}><Text style={styles.folderTitle} numberOfLines={1}>{vibe.name}</Text><Text style={styles.folderMeta}>{vibe.trackCount} morceau{vibe.trackCount > 1 ? 'x' : ''} · Swipe libre</Text></View>
                     <Text style={styles.folderAction}>{folderLoadingId === `vibe:${vibe.id}` ? '…' : '›'}</Text>
                   </TouchableOpacity>
                 ))}
@@ -1021,12 +1038,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   const unlocked = ownerViewingSelf || Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId);
                   return (
                     <TouchableOpacity key={`sale:${offer.offerId}`} style={[styles.folderCard, styles.folderCardSale, unlocked && styles.folderCardUnlocked]} onPress={() => openSaleFolder(offer)} accessibilityLabel={unlocked ? `Swiper ${offer.playlistName}` : `Débloquer ${offer.playlistName}`}>
-                      {offer.coverUrl ? <Image source={{ uri: offer.coverUrl }} style={styles.folderCover} /> : <View style={[styles.folderIcon, styles.folderIconSale]}><Text style={styles.folderIconText}>{unlocked ? '✓' : '🔒'}</Text></View>}
+                      {unlocked && offer.coverUrl
+                        ? <Image source={{ uri: offer.coverUrl }} style={styles.folderCover} />
+                        : <View style={[styles.folderIcon, styles.folderIconSale]}><Text style={styles.folderIconText}>{unlocked ? '✓' : '🔒'}</Text></View>}
                       <View style={styles.folderCopy}>
                         <Text style={styles.folderTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                        <Text style={styles.folderMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'Déverrouillé' : 'Aperçu masqué avant achat'}</Text>
+                        <Text style={styles.folderMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'Déverrouillé · Swipe complet' : 'Audio uniquement · titres et jaquettes masqués'}</Text>
                       </View>
-                      <View style={[styles.folderPrice, unlocked && styles.folderUnlockedPill]}><Text style={styles.folderPriceText}>{unlocked ? 'SWIPE' : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`} TOTAL`}</Text></View>
+                      <View style={[styles.folderPrice, unlocked && styles.folderUnlockedPill]}><Text style={styles.folderPriceText}>{unlocked ? 'SWIPE' : `🔒 ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text></View>
                     </TouchableOpacity>
                   );
                 }) : null}
