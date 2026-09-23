@@ -1399,3 +1399,7 @@ Je lance l'etape suivante du poste de commandement GitHub-native : ajout d'un wo
 
 Suivi poste de commandement IA termine : le workflow .github/workflows/agent-command-triage.yml ne se contente plus de poser les labels type/agent, il maintient aussi un commentaire de routage sur chaque issue (type detecte, agent detecte, coordination, workflows recommandes, garde-fous secrets/preuves). Validations : YAML OK, git diff --check OK, verify-source-of-truth OK, secret scan OK, parallel_validation OK (CodeQL 0 alerte).
 
+## [2026-09-23T23:23:53.240Z] codex
+
+Je corrige les blocages repo encore reproductibles: CTA essai gratuit plus robuste, clic Profil apres suppression dans l'audit navigateur, et verification de route precise apres reload GitHub Pages.
+
