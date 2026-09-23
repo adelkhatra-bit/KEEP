@@ -15,6 +15,7 @@ import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import TrackActionRow from '../components/TrackActionRow';
+import LockedTrackRow from '../components/LockedTrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
@@ -89,6 +90,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [profile, setProfile] = useState<User | null>(null);
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
+  // Mission C (23/09/2026) : morceaux d'une offre active, autrefois retirés de
+  // la liste, désormais conservés pour être rendus en LockedTrackRow (visibles,
+  // verrouillés). Les compteurs restent calculés sur la liste `visible`.
+  const [lockedSaleTracks, setLockedSaleTracks] = useState<PublicKeepTrack[]>([]);
   const [directKeepCount, setDirectKeepCount] = useState(0);
   const [socialKeepCount, setSocialKeepCount] = useState(0);
   const [discoveryImpacts, setDiscoveryImpacts] = useState<Record<string, DiscoveryImpact>>({});
@@ -277,6 +282,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         if (cancelled) return;
         const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;
         setTracks(visible);
+        // Mission C (23/09/2026) : au lieu de disparaître, les morceaux masqués
+        // (offre en vente active) sont conservés pour être affichés verrouillés
+        // (LockedTrackRow) sous la liste publique. Jamais pour le propriétaire.
+        setLockedSaleTracks(maskedIds.length ? normalized.filter((t) => maskedIds.includes(t.trackId)) : []);
         const impacts = await impactPromise;
         if (cancelled) return;
         setDiscoveryImpacts(impacts);
@@ -1015,6 +1024,32 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 );
               })}</View>
             ) : null}
+            {/* Mission C (23/09/2026) : morceaux verrouillés (offre en vente).
+                Titre, artiste et jaquette réels restent masqués (modèle
+                Anti-Shazam) — libellés génériques ici. Le clic ouvre l'aperçu
+                immersif (waveform + « Débloquer »). Attaché à la première offre
+                active du profil ; l'achat porte sur toute la sélection. */}
+            {marketplaceEnabled && lockedSaleTracks.length > 0 && saleOffers.length > 0 ? (
+              <View style={styles.lockedTracksBlock}>
+                <Text style={styles.lockedTracksHeader}>🔒 À débloquer</Text>
+                <View style={styles.musicList}>
+                  {lockedSaleTracks.map((track) => {
+                    const offer = saleOffers[0];
+                    return (
+                      <LockedTrackRow
+                        key={`locked:${track.id}`}
+                        trackId={track.trackId}
+                        title="Découverte masquée"
+                        artistName="Titre et artiste masqués jusqu'à l'achat"
+                        priceCents={offer.priceCents}
+                        currencyCode={offer.currencyCode}
+                        onUnlockPress={() => setImmersivePreviewOffer(offer)}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : activeTab === 'VIBES' ? (
           <View style={styles.publicMusicSection}>
@@ -1227,7 +1262,7 @@ const styles = StyleSheet.create({
   collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},
-  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},
+  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},lockedTracksBlock:{marginTop:16},lockedTracksHeader:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:0.5,marginBottom:8},
   // Adel (21/09/2026, maquette interactive validée) : la grille de la liste
   // de morceaux (hauteur fixe, carrés, chevron, panneau) vit désormais dans
   // TrackActionRow.tsx (source de vérité unique). musicRow/musicCover/
