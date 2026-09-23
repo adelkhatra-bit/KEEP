@@ -1116,3 +1116,7 @@ Preflight Apple API reussi (run 35045119084) : acces app/bundle/certificats/prof
 
 Je commence l'audit/corrections: CI EAS, overlays centres, detection musicale, email, notifications, env/workflows.
 
+## [2026-09-23T00:35:13.102Z] codex
+
+Je prends le verrou pour corriger le job GitHub Actions en echec : audit des logs Mobile CI / Guardian, correction minimale du marker source-of-truth et verification locale.
+
