@@ -79,6 +79,7 @@ Une PR = une unité de travail vérifiable.
 - `claude`
 - `codex`
 - `copilot`
+- `design`
 - `agent-task` (coordination transversale)
 
 ## 5. Workflows GitHub comme gardes
@@ -102,6 +103,12 @@ Exemples de workflows KEEP à utiliser selon le type de tâche :
 4. Travailler sur une branche dédiée et ouvrir une PR.
 5. Laisser GitHub Actions produire les preuves : logs, checks, artifacts, captures.
 6. Reporter les résultats dans la PR et, si nécessaire, dans `AGENT_MESSAGES.md`.
+
+### Automatisation de triage
+
+Le workflow `.github/workflows/agent-command-triage.yml` applique automatiquement
+les labels de type et d'agent sur les issues ouvertes/éditées à partir des
+templates GitHub et du fichier `config/github-ai-command-center.json`.
 
 ## 7. Actions réservées à l'humain
 
@@ -127,4 +134,5 @@ Cette implémentation doit rester visible dans le dépôt via :
 - des templates d'issues orientés agents ;
 - un template de PR imposant les preuves et validations ;
 - une configuration machine-readable des rôles, canaux et accès minimaux ;
-- des labels GitHub normalisés pour le pilotage.
+- des labels GitHub normalisés pour le pilotage ;
+- une matrice de déblocage externe : `docs/ops/EXTERNAL_PLATFORM_UNLOCK_MATRIX.md`.

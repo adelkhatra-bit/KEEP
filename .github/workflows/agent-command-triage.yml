@@ -1,0 +1,103 @@
+name: KEEP — Agent Command Triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    if: ${{ github.event.issue.pull_request == null }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+
+      - name: 🏷️ Apply type and agent labels
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+
+            const configPath = path.join(process.env.GITHUB_WORKSPACE, 'config', 'github-ai-command-center.json');
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            const issue = context.payload.issue;
+            const body = process.env.ISSUE_BODY || '';
+            const title = process.env.ISSUE_TITLE || '';
+            const lowerTitle = title.toLowerCase();
+            const managedTypeLabels = new Set(config.labels.type || []);
+            const managedAgentLabels = new Set(config.labels.agent || []);
+            const managedCoordinationLabels = new Set(config.labels.coordination || []);
+            const managedLabels = new Set([...managedTypeLabels, ...managedAgentLabels, ...managedCoordinationLabels]);
+
+            const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const isChecked = value => new RegExp(`- \\[(?:x|X)\\]\\s+${escape(value)}(?:\\r?\\n|$)`, 'm').test(body);
+
+            const detectType = () => {
+              for (const label of managedTypeLabels) {
+                if (isChecked(label)) return label;
+              }
+              const prefixes = ['bug', 'ci', 'design', 'security', 'release', 'audit'];
+              for (const prefix of prefixes) {
+                if (lowerTitle.startsWith(`[${prefix}]`)) return prefix;
+              }
+              if (/github actions|workflow|codeql|runner|testflight|build/.test(lowerTitle)) return 'ci';
+              if (/security|secret|permission|vulnerability/.test(lowerTitle)) return 'security';
+              return null;
+            };
+
+            const detectAgent = () => {
+              for (const label of managedAgentLabels) {
+                if (isChecked(label)) return label;
+              }
+              if (isChecked('triage humain') || isChecked('n\'importe lequel disponible')) return 'agent-task';
+              if (/chatgpt/.test(lowerTitle)) return 'chatgpt';
+              if (/claude/.test(lowerTitle)) return 'claude';
+              if (/codex/.test(lowerTitle)) return 'codex';
+              if (/copilot/.test(lowerTitle)) return 'copilot';
+              return null;
+            };
+
+            const typeLabel = detectType();
+            const agentLabel = detectAgent();
+            const shouldTrackAsAgentTask =
+              /^\[agent-task\]/i.test(title) ||
+              /##\s+Notes de coordination/i.test(body) ||
+              /##\s+Fait \/ reste à faire/i.test(body) ||
+              isChecked('n\'importe lequel disponible');
+
+            const existing = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+
+            const kept = existing.map(label => label.name).filter(name => !managedLabels.has(name));
+            const next = new Set(kept);
+            if (typeLabel) next.add(typeLabel);
+            if (agentLabel) next.add(agentLabel);
+            if (shouldTrackAsAgentTask) next.add('agent-task');
+
+            await github.rest.issues.setLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: [...next],
+            });
+
+            const summary = [
+              `type=${typeLabel || 'none'}`,
+              `agent=${agentLabel || 'none'}`,
+              `agent-task=${shouldTrackAsAgentTask ? 'yes' : 'no'}`,
+            ].join(', ');
+            core.notice(`KEEP triage applied on issue #${issue.number}: ${summary}`);

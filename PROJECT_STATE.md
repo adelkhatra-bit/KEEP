@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-23T01:08:47.770Z
+- Régénéré le : 2026-09-23T01:14:36.880Z
 - Branche : `copilot/fix-github-actions-job-failure`
-- Dernier commit : `29c2b3d3` (29c2b3d3be38488257c6bd2de0aa73dc65b9b401) — chore: plan GitHub AI command center rollout
-- Date du dernier commit : 2026-09-23T01:05:46Z
+- Dernier commit : `81f5258d` (81f5258d7d944cca2738a75e4ca7e73e7aa5a38d) — chore: plan agent triage and external unlock rollout
+- Date du dernier commit : 2026-09-23T01:13:15Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,9 +122,9 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `29c2b3d3` (2026-09-23, copilot-swe-agent[bot]) — chore: plan GitHub AI command center rollout
-- `091b0797` (2026-09-23, copilot-swe-agent[bot]) — chore: document workflow fix progress
-- `e7a258f5` (2026-09-23, copilot-swe-agent[bot]) — fix: tolerate Apple capability 403 in auto EAS build
+- `81f5258d` (2026-09-23, copilot-swe-agent[bot]) — chore: plan agent triage and external unlock rollout
+- `f8b6b491` (2026-09-23, copilot-swe-agent[bot]) — docs: record AI command center rollout
+- `ae1a6077` (2026-09-23, copilot-swe-agent[bot]) — docs: add GitHub AI command center governance
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -154,6 +154,11 @@ agent) et messages des sessions de chat (non versionnés).
   ajoutés dans le dépôt. **Reste à valider côté Adel** : les accès externes,
   apps GitHub et secrets qui ne peuvent pas être accordés automatiquement par
   un agent.
+- **Déblocage plateformes externes (23/09/2026)** : matrice documentaire des
+  verrous humains vs actions automatisables ajoutée (`docs/ops/EXTERNAL_PLATFORM_UNLOCK_MATRIX.md`) et triage GitHub automatique des issues agents ajouté
+  (`.github/workflows/agent-command-triage.yml`). **Reste à valider côté Adel**
+  : les permissions/apps/secrets réellement absents sur GitHub, Supabase,
+  Vercel, Apple, Stripe et ChatGPT Action.
 - **[À VALIDER] (Adel) — workflow iOS obsolète** : `eas-build-ios.yml`
   (« Build iOS EAS + TestFlight ») est à supprimer/désactiver par
   l'utilisateur. Il échoue systématiquement sur une erreur Apple 401
