@@ -1230,7 +1230,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     />
 
     <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => (expandedMenuItem ? setExpandedMenuItem(null) : setMenuOpen(false))}>
-      <View style={s.modalBackdrop}><View style={s.shareSheet}>
+      <View style={s.modalBackdrop}><View style={[s.shareSheet, { maxHeight: '92%' }]}>
         <View style={s.sheetHandle} />
         {expandedMenuItem ? (
           <>
