@@ -1375,3 +1375,7 @@ Côté agent (vérification à faire après redeploy Vercel) :
 
 J'analyse le job GitHub Actions iOS en echec (run 35803194377/job 106998001283), je recupere les logs et je cherche un correctif minimal dans les workflows/scripts associes.
 
+## [2026-09-23T00:48:58.194Z] codex
+
+Diagnostic CI iOS: le job 35803194377 echoue dans .github/workflows/eas-build-ios.yml avec un 401/flux opaque EAS. Verification croisee avec le workflow auto-eas-build: les secrets Apple lisent bien App Store Connect, mais le vrai blocage est maintenant localisable cote prerequis Apple natifs (bundle share extension et Push Notifications App ID). Correctif pousse dans eas-build-ios.yml: version EAS pinnee 24.6.0, secrets Apple normalises dans le runner, preflight lecture seule explicite (app, certificats, profils, share extension, push capability) + contrat verify-app-store-readiness mis a jour.
+

@@ -99,7 +99,7 @@ jobs:
         if: steps.gate.outputs.build_ready == 'true'
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
-          eas-version: latest
+          eas-version: 24.6.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies (workspace root)
@@ -111,18 +111,48 @@ jobs:
         if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
         env:
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/asc-api-key.p8"
-          chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
-          echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8" >> "$GITHUB_ENV"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const value = (name) => {
+            const raw = process.env[name];
+            if (!raw?.trim()) throw new Error(`Missing GitHub secret: ${name}`);
+            const trimmed = raw.trim();
+            if (/[\r\n]/.test(trimmed)) throw new Error(`Invalid multiline secret: ${name}`);
+            return trimmed;
+          };
+          const keyPath = path.join(process.env.RUNNER_TEMP, 'asc-api-key.p8');
+          const key = Buffer.from(value('ASC_API_KEY_P8_BASE64'), 'base64');
+          try {
+            const parsed = crypto.createPrivateKey(key);
+            if (parsed.asymmetricKeyType !== 'ec' || parsed.asymmetricKeyDetails?.namedCurve !== 'prime256v1') {
+              throw new Error('invalid key type');
+            }
+          } catch {
+            throw new Error('ASC_API_KEY_P8_BASE64 must encode a valid Apple P-256 private key.');
+          }
+          fs.writeFileSync(keyPath, key, { mode: 0o600 });
+          fs.appendFileSync(process.env.GITHUB_ENV, [
+            `EXPO_ASC_API_KEY_PATH=${keyPath}`,
+            `EXPO_ASC_KEY_ID=${value('ASC_KEY_ID')}`,
+            `EXPO_ASC_ISSUER_ID=${value('ASC_ISSUER_ID')}`,
+            `EXPO_APPLE_TEAM_ID=${value('APPLE_TEAM_ID')}`,
+            `KEEP_ASC_APP_ID=${value('ASC_APP_ID')}`,
+            ''
+          ].join('\n'));
+          console.log('Apple API key and identifiers normalized in runner only.');
+          NODE
 
       - name: Injecter les identifiants de soumission uniquement dans le runner
         if: steps.gate.outputs.submit_ready == 'true'
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -131,18 +161,67 @@ jobs:
           eas.submit ||= {};
           eas.submit.production ||= {};
           eas.submit.production.ios ||= {};
-          eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID;
-          eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID;
+          eas.submit.production.ios.appleTeamId = process.env.EXPO_APPLE_TEAM_ID;
+          eas.submit.production.ios.ascAppId = process.env.KEEP_ASC_APP_ID;
           fs.writeFileSync(file, JSON.stringify(eas, null, 2) + '\n');
           console.log('EAS submit config injected in runner only.');
+          NODE
+
+      - name: Vérifier les prérequis Apple en lecture seule
+        if: steps.gate.outputs.build_ready == 'true' && steps.gate.outputs.has_p8 == 'true'
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          (async () => {
+            const key = fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH);
+            const enc = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+            const now = Math.floor(Date.now() / 1000);
+            const body = enc({ alg: 'ES256', kid: process.env.EXPO_ASC_KEY_ID, typ: 'JWT' }) + '.' +
+              enc({ iss: process.env.EXPO_ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
+            const token = body + '.' + crypto.sign('sha256', Buffer.from(body), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+            async function get(route, label) {
+              const response = await fetch('https://api.appstoreconnect.apple.com/v1/' + route, {
+                headers: { Authorization: 'Bearer ' + token },
+                signal: AbortSignal.timeout(30000)
+              });
+              if (!response.ok) {
+                throw new Error(`${label}: Apple HTTP ${response.status}`);
+              }
+              return response.json();
+            }
+            const app = await get(`apps/${process.env.KEEP_ASC_APP_ID}`, 'App access');
+            if (app.data?.attributes?.bundleId !== 'com.adelkhatra.keep') {
+              throw new Error('Apple app bundle mismatch for ascAppId.');
+            }
+            const exactBundle = async (identifier, label) => {
+              const result = await get(`bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=50`, label);
+              const matches = (result.data || []).filter((bundle) => bundle.attributes?.identifier === identifier);
+              if (matches.length !== 1) {
+                throw new Error(`Apple bundle identifier missing or ambiguous: ${identifier}`);
+              }
+              return matches[0];
+            };
+            const mainBundle = await exactBundle('com.adelkhatra.keep', 'Main bundle access');
+            await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
+            await get('certificates?filter[certificateType]=DISTRIBUTION&limit=1', 'Distribution certificate access');
+            await get('profiles?filter[profileType]=IOS_APP_STORE&limit=1', 'Provisioning profile access');
+            const capabilities = await get(`bundleIdCapabilities?filter[bundleId]=${encodeURIComponent(mainBundle.id)}&limit=200`, 'Push capability access');
+            const pushEnabled = (capabilities.data || []).some((capability) => capability.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
+            if (!pushEnabled) {
+              throw new Error('Push Notifications non activé sur com.adelkhatra.keep côté Apple Developer.');
+            }
+            console.log('Read-only Apple preflight passed for KEEP main app + share extension.');
+          })().catch((error) => {
+            console.error(error.message);
+            process.exitCode = 1;
+          });
           NODE
 
       - name: Build iOS EAS
         if: steps.gate.outputs.build_ready == 'true'
         env:
-          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
