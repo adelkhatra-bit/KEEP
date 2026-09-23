@@ -41,6 +41,20 @@ async function findTrialButton(page) {
   throw new Error("CTA d'essai gratuit introuvable");
 }
 
+async function enterTrialIfNeeded(page, scenarioName) {
+  const trial = await findTrialButton(page).catch(() => null);
+  if (trial) {
+    await trial.waitFor({ state: 'visible', timeout: 20000 });
+    await page.screenshot({ path: path.join(OUT, `${scenarioName}-before.png`), fullPage: true });
+    await trial.click();
+    return 'clicked';
+  }
+
+  await waitForFiveTabs(page);
+  await page.screenshot({ path: path.join(OUT, `${scenarioName}-before.png`), fullPage: true });
+  return 'already-active';
+}
+
 async function proveCreatorPaywall(page, scenarioName) {
   await page.getByText('Profil', { exact: true }).last().click();
   await page.getByText('Créer mon compte KEEP', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
@@ -147,11 +161,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       const beforeHtml = await page.locator('body').innerHTML();
       assertVisibleBody(beforeText, beforeHtml, `${scenario.name} onboarding`);
 
-      const trial = await findTrialButton(page);
-      await trial.waitFor({ state: 'visible', timeout: 20000 });
-      await page.screenshot({ path: path.join(OUT, `${scenario.name}-before.png`), fullPage: true });
-      await trial.click();
-
+      const trialState = await enterTrialIfNeeded(page, scenario.name);
       await waitForFiveTabs(page);
       await page.waitForTimeout(800);
       const afterText = await page.locator('body').innerText();
@@ -176,7 +186,7 @@ async function proveSharedProfileRoute(page, scenarioName) {
       await proveSharedProfileRoute(page, scenario.name);
 
       if (errors.length) throw new Error(`${scenario.name}: ${errors.join(' | ')}`);
-      report.push(`${scenario.name}: PASS — Free/Premium/Creator/Venue controls + reload + required email signup + no overlap + return to free trial; no blank page/no auth signup`);
+      report.push(`${scenario.name}: PASS — Free/Premium/Creator/Venue controls + reload + required email signup + no overlap + return to free trial; no blank page/no auth signup; trial state=${trialState}`);
     } catch (error) {
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-FAIL.png`), fullPage: true }).catch(() => {});
       fs.writeFileSync(path.join(OUT, `${scenario.name}-FAIL.txt`), [

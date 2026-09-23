@@ -1,0 +1,6 @@
+Error: CTA d'essai gratuit introuvable
+    at findTrialButton (/home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:41:9)
+    at async /home/runner/work/KEEP/KEEP/scripts/keep-public-trial-smoke.cjs:150:21
+URL: http://127.0.0.1:8081/Main/Listen
+AUTH REQUESTS: none
+ERRORS: none
