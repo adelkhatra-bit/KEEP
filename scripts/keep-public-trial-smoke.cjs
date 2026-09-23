@@ -132,7 +132,13 @@ async function proveSharedProfileRoute(page, scenarioName) {
       const beforeHtml = await page.locator('body').innerHTML();
       assertVisibleBody(beforeText, beforeHtml, `${scenario.name} onboarding`);
 
-      const trial = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
+      // Sélecteur résilient : testID stable, puis rôle/accessibilité, puis texte
+      // visible. Le parcours reste vert même si le libellé évolue (restyling).
+      const trial = page
+        .getByTestId('onboarding-trial-button')
+        .or(page.getByRole('button', { name: 'Essayer gratuitement' }))
+        .or(page.getByText('ESSAYER GRATUITEMENT', { exact: true }))
+        .last();
       await trial.waitFor({ state: 'visible', timeout: 20000 });
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-before.png`), fullPage: true });
       await trial.click();
