@@ -1038,9 +1038,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     return (
                       <LockedTrackRow
                         key={`locked:${track.id}`}
-                        trackId={track.trackId}
-                        title="Découverte masquée"
-                        artistName="Titre et artiste masqués jusqu'à l'achat"
+                        track={{ id: track.trackId }}
                         priceCents={offer.priceCents}
                         currencyCode={offer.currencyCode}
                         onUnlockPress={() => setImmersivePreviewOffer(offer)}

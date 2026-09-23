@@ -8,10 +8,12 @@ import { colors } from '../theme/colors';
  * masqués des vues publiques gratuites (voir loadMaskedPlaylistSaleTrackIds).
  * Adel : "le morceau en vente doit rester visible dans la liste, avec un
  * badge EN VENTE ... il ne doit pas être caché." Ce composant les rend donc
- * visibles SANS jamais trahir le modèle Anti-Shazam : titre, artiste et
- * jaquette réels ne sont pas révélés tant que l'achat n'est pas payé — le
- * parent passe des libellés masqués. Le clic délègue au parent
- * (onUnlockPress) qui ouvre l'aperçu immersif waveform + CTA « Débloquer ».
+ * visibles SANS jamais trahir le modèle Anti-Shazam : le titre affiché est
+ * toujours « ??? » et l'artiste « Artiste masqué », la pochette est floutée
+ * et coiffée d'un cadenas. Les vrais titre/artiste/jaquette ne sont jamais
+ * révélés tant que l'achat n'est pas payé, même si le parent les passe. Le
+ * clic délègue au parent (onUnlockPress) qui ouvre l'aperçu immersif
+ * waveform + CTA « Débloquer ».
  *
  * S'appuie sur la même grammaire visuelle que TrackActionRow.tsx (source de
  * vérité de la ligne morceau : pochette 56×56, rayon 14, fond backgroundCard,
@@ -19,15 +21,16 @@ import { colors } from '../theme/colors';
  * Tokens colors.ts uniquement — aucune couleur en dur.
  */
 export interface LockedTrackRowProps {
-  trackId: string;
-  title: string;
-  artistName: string;
-  thumbnailUrl?: string;
+  track: { id: string; title?: string; artistName?: string; thumbnailUrl?: string };
   priceCents: number;
   /** Par défaut EUR (« € »). Toute autre devise est affichée après le montant. */
   currencyCode?: string;
-  onUnlockPress: (trackId: string) => void;
+  onUnlockPress: () => void;
 }
+
+/** Anti-Shazam : jamais le vrai titre/artiste, quelle que soit la donnée reçue. */
+const MASKED_TITLE = '???';
+const MASKED_ARTIST = 'Artiste masqué';
 
 function formatPrice(priceCents: number, currencyCode: string): string {
   const amount = (priceCents / 100).toFixed(2).replace('.', ',');
@@ -35,10 +38,7 @@ function formatPrice(priceCents: number, currencyCode: string): string {
 }
 
 export default function LockedTrackRow({
-  trackId,
-  title,
-  artistName,
-  thumbnailUrl,
+  track,
   priceCents,
   currencyCode = 'EUR',
   onUnlockPress,
@@ -48,8 +48,8 @@ export default function LockedTrackRow({
     <View style={styles.card}>
       <View style={styles.row}>
         <View style={styles.coverWrap}>
-          {thumbnailUrl ? (
-            <Image source={{ uri: thumbnailUrl }} style={styles.cover} blurRadius={14} />
+          {track.thumbnailUrl ? (
+            <Image source={{ uri: track.thumbnailUrl }} style={styles.cover} blurRadius={16} />
           ) : (
             <View style={[styles.cover, styles.coverFallback]}>
               <Text style={styles.coverFallbackText}>♪</Text>
@@ -62,17 +62,17 @@ export default function LockedTrackRow({
 
         <View style={styles.info}>
           <View style={styles.titleRow}>
-            <Text style={styles.title} numberOfLines={1}>{title}</Text>
+            <Text style={styles.title} numberOfLines={1}>{MASKED_TITLE}</Text>
             <View style={styles.badge} accessibilityLabel="En vente">
               <Text style={styles.badgeText}>EN VENTE</Text>
             </View>
           </View>
-          <Text style={styles.artist} numberOfLines={1}>{artistName}</Text>
+          <Text style={styles.artist} numberOfLines={1}>{MASKED_ARTIST}</Text>
         </View>
 
         <TouchableOpacity
           style={styles.unlockButton}
-          onPress={() => onUnlockPress(trackId)}
+          onPress={onUnlockPress}
           accessibilityRole="button"
           accessibilityLabel={`Débloquer cette découverte, ${priceLabel}`}
         >
