@@ -88,3 +88,12 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Non soumis : reste 1 action de 30 s (mot de passe spécifique app OU Chemin B iPhone). Lien fiche : https://appstoreconnect.apple.com/apps/6812393589/appstore
 - Marketplace v1 : flag OFF (rejet Apple 3.1.1 lien externe). Vitrine « En vente » remontée en haut du profil (bb89c56f).
 - Commits session : fac3ca83, 5e2349ed, bb89c56f, 89355657, 29e35a29, 59878944.
+
+
+
+## 2026-09-23 (suite) — Priorité 1 e2e + mission finale App Store
+- Poussé `373c733c..9b82e0ac` (7 commits, aucun `.github/workflows/**` — livrés en patch sous `docs/ci/`).
+- 5 correctifs P1 : trial public (373c733c), playlists→profil (patch e753622e), route après reload (patch d36cb1b1), INDEX.md (e8db2956), guide vocal (33d843b4). + Fastlane autonome (445004dc) + patch workflow submit (8fea7665).
+- P2 listée : `docs/ADEL_ACTIONS.md` (9b82e0ac) — 6 actions humaines.
+- App Store NON soumis : clé API ASC cloisonnée dans GitHub Secrets ; connecteur sans permission Workflows/Actions ni lecture secrets. Seule action : accorder Workflows+Actions à l'App abacusai (https://github.com/apps/abacusai/installations/select_target).
+- Tests verts : tsc 0 · jest 284/284 + 18/18 · verify 0.

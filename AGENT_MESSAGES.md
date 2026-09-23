@@ -1446,3 +1446,27 @@ Vérifié dans le code réel (`PublicUserProfileScreen.tsx`, `PlaylistSaleImmers
 - **État honnête** : l'app n'est PAS encore soumise. Il manque UNE action de 30 s : soit dicter le mot de passe spécifique app (généré sur appleid.apple.com) pour que je lance fastlane, soit suivre le Chemin B sur iPhone. Le .p8 n'est jamais requis.
 - **Décision marketplace v1** : flag `playlist_marketplace` OFF en prod (achat via lien PayPal externe = rejet Apple 3.1.1). v1 conforme + appro rapide ; code 100% conservé, s'active via 1 flag une fois Apple In-App Purchase (StoreKit) câblé.
 - Tests : `tsc -p packages/mobile` = 0 · `jest` 284/284 + 18/18 · `verify-source-of-truth.cjs` = 0.
+
+
+---
+
+## 2026-09-23 — Priorité 1 e2e (5 correctifs) + MISSION FINALE App Store 100% autonome
+
+**Priorité 1 — livré et poussé (`373c733c..9b82e0ac`) :**
+- `373c733c` fix(e2e): stabilize free trial public path — `OnboardingScreen.tsx` (testID `onboarding-trial-button` + accessibilityLabel, rien supprimé) + `scripts/keep-public-trial-smoke.cjs` (locator résilient testID/role/texte).
+- `e753622e` fix(e2e): stabilize playlists→profile navigation after deletion — **livré en patch** `docs/ci/e2e-playlists-profile-stabilize.patch` (helper `safeBottomTabClick` waitFor+scroll+retry, libellés « Supprimer ce morceau de Loki Music »). Workflow non poussable directement (permission GitHub « Workflows » absente).
+- `d36cb1b1` test(e2e): verify route after reload on GitHub Pages — **livré en patch** `docs/ci/e2e-route-after-reload.patch` (vérifie /Main/Profile, /Main/Parties, /Main/MyMusic après reload). Idem, patch.
+- `e8db2956` docs: add central INDEX.md — enrichi (section patches CI + renvoi ADEL_ACTIONS.md).
+- `33d843b4` docs: add App Store vocal guide — ajout **Chemin 0** (100% autonome via clé API ASC déjà dans les Secrets, 1 seul réglage permission GitHub).
+- `445004dc` feat(appstore): soumission 100% autonome via clé API ASC (Fastfile réécrit) + `scripts/publish-app-store.sh` (clé API prioritaire, mot de passe d'app en repli).
+- `8fea7665` ci(appstore): `docs/ci/app-store-submit-workflow.patch` (workflow `app-store-submit.yml` : deliver + submit via clé API ASC).
+
+**Priorité 2 — listée (non exécutée)** : `9b82e0ac` `docs/ADEL_ACTIONS.md` — 6 actions humaines (quota EAS, permissions GitHub Workflows/Actions, permissions Apple ASC, Stripe live, IAP/MusicKit, branche défaut GitHub + Vercel) avec lien direct + texte vocal + résultat attendu.
+
+**MISSION FINALE App Store — recherche exhaustive de l'auth Apple :**
+- `.p8` : ❌ absent du repo, ❌ absent de l'historique git (seul `APPLE_MUSICKIT_PRIVATE_KEY` trouvé, inutile pour submit), ❌ absent de Supabase (17 `integration_secrets`, aucun apple/asc/fastlane), ❌ absent du sandbox (`~/.eas`, `~/.appstoreconnect`, env).
+- La clé API ASC (`ASC_API_KEY_P8_BASE64`) existe UNIQUEMENT dans les **GitHub Secrets** (a produit le build 312) — illisible par le connecteur (403).
+- Le connecteur GitHub (App abacusai) : ❌ lecture secrets (403), ❌ dispatch workflow (403 actions:write), ❌ push `.github/workflows/**` (permission « Workflows » refusée).
+- **Conclusion honnête** : soumission App Store **impossible en 100% autonome dans l'état actuel des permissions**. La SEULE action minimale : accorder à l'App abacusai les permissions **Workflows + Actions** en écriture sur KEEP (https://github.com/apps/abacusai/installations/select_target). Alternative 100% auto : aucune, car la clé Apple est cloisonnée dans les Secrets GitHub hors de portée du connecteur.
+
+**Tests** : `tsc -p packages/mobile` = 0 · `jest` 284/284 + 18/18 · `verify-source-of-truth.cjs` = 0.
