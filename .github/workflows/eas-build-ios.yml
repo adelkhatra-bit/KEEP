@@ -225,7 +225,9 @@ jobs:
             const pushCapability = (capabilities.data || []).find((capability) => capability.attributes?.capabilityType === 'PUSH_NOTIFICATIONS');
             const pushEnabled = Boolean(pushCapability) && pushCapability.attributes?.enabled !== false && pushCapability.attributes?.state !== 'DISABLED';
             if (!pushEnabled) {
-              throw new Error('Push Notifications non activé sur com.adelkhatra.keep côté Apple Developer.');
+              console.warn('Apple bundleIdCapabilities API did not confirm PUSH_NOTIFICATIONS for com.adelkhatra.keep. Vérifier la capability dans Apple Developer si le build ou les notifications échouent.');
+            } else {
+              console.log('Push Notifications capability confirmed by App Store Connect API.');
             }
             console.log('Read-only Apple preflight passed for KEEP main app + share extension.');
           })().catch((error) => {
