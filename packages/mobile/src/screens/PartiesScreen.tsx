@@ -848,7 +848,38 @@ export default function PartiesScreen({ navigation, route }: any) {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
         await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
         resetEventForm();
-        await reload();
+        // La lecture serveur peut avoir un très court délai après l'Edge
+        // Function. Injecter immédiatement la soirée créée évite l'état
+        // "disparue jusqu'au refresh", puis reload réconcilie avec Supabase.
+        const optimisticEvent: CreatorEvent = {
+          id: created.id,
+          creatorId: user.id,
+          creatorUsername: user.username || 'keep-user',
+          name: payload.name,
+          description: payload.description || null,
+          venueName: payload.venueName || null,
+          startsAt: payload.startsAt,
+          endsAt: null,
+          countryCode: payload.countryCode || null,
+          ticketUrl: null,
+          djArtistNames: user?.username ? [user.username] : [],
+          youtubeUrl: null,
+          imageUrl: payload.imageUrls?.[0] || null,
+          imageUrls: payload.imageUrls || [],
+          requireQrCode: payload.requireQrCode,
+          organizerPhonePublic: payload.showOrganizerPhone ? (payload.organizerPhone || null) : null,
+          includeRsvpButtons,
+          ticketPriceCents,
+          moderationStatus: 'PENDING',
+          moderationNote: null,
+          photoStatus: 'PENDING',
+          photoNote: null,
+          textStatus: 'PENDING',
+          textNote: null,
+        };
+        setEvents((current) => [optimisticEvent, ...current.filter((event) => event.id !== created.id)]);
+        setEventIndex(0);
+        void reload();
         Alert.alert('Envoyé pour validation', 'Le Super Admin doit approuver la photo et le texte avant qu’il soit visible. Tu seras notifié dès que c’est fait.');
       }
     } catch (e: any) {
