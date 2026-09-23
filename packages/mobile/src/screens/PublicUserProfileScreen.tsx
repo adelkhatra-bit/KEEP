@@ -106,6 +106,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // badge 1er KEEP, l'attribution et Partager ne changent plus jamais la
   // hauteur de la carte -- ils vivent dans ce panneau, replié par défaut.
   const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());
+  // Mission C (23/09/2026) : dossier-genre verrouillé actuellement déplié.
+  const [expandedLockedGenre, setExpandedLockedGenre] = useState<string | null>(null);
   const toggleTrackExpanded = (key: string) => setExpandedTrackKeys((prev) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -398,6 +400,28 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [swipeTracks]);
+  // Mission C (23/09/2026, maquette ProfileGenreFolders.html section B) : les
+  // morceaux en vente (verrouillés) sont désormais VISIBLES, rangés en dossiers
+  // par genre. Le genre n'est pas une donnée identifiante (contrairement au
+  // titre/artiste/jaquette) : le regrouper ne trahit pas le modèle Anti-Shazam.
+  // Un morceau sans genre tombe dans "Sans genre". Aucune donnée retirée.
+  const lockedGenreFolders = useMemo(() => {
+    const map = new Map<string, PublicKeepTrack[]>();
+    const push = (rawGenre: string, track: PublicKeepTrack) => {
+      const clean = rawGenre.trim() || 'Sans genre';
+      const arr = map.get(clean) ?? [];
+      arr.push(track);
+      map.set(clean, arr);
+    };
+    for (const track of lockedSaleTracks) {
+      const genres = (track.genres ?? []).map((g) => g.trim()).filter(Boolean);
+      if (genres.length) genres.forEach((g) => push(g, track));
+      else push('Sans genre', track);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+      .map(([genre, lockedTracks]) => ({ genre, tracks: lockedTracks }));
+  }, [lockedSaleTracks]);
   const artistGroups = useMemo(() => groupTracksByArtist(swipeTracks), [swipeTracks]);
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- même enrichissement en tâche de fond que le propre
@@ -1032,17 +1056,50 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             {marketplaceEnabled && lockedSaleTracks.length > 0 && saleOffers.length > 0 ? (
               <View style={styles.lockedTracksBlock}>
                 <Text style={styles.lockedTracksHeader}>🔒 À débloquer</Text>
-                <View style={styles.musicList}>
-                  {lockedSaleTracks.map((track) => {
+                {/* Mission C (23/09/2026) : dossiers par genre. Chaque dossier
+                    porte le cadenas 🔒, un badge EN VENTE et le prix ; on le
+                    déplie pour voir les LockedTrackRow (titre/artiste/jaquette
+                    masqués). Le clic (dossier ou ligne) ouvre l'aperçu immersif
+                    de la première offre active — l'achat porte sur toute la
+                    sélection. */}
+                <View style={styles.folderGrid}>
+                  {lockedGenreFolders.map((folder) => {
                     const offer = saleOffers[0];
+                    const open = expandedLockedGenre === folder.genre;
+                    const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
                     return (
-                      <LockedTrackRow
-                        key={`locked:${track.id}`}
-                        track={{ id: track.trackId }}
-                        priceCents={offer.priceCents}
-                        currencyCode={offer.currencyCode}
-                        onUnlockPress={() => setImmersivePreviewOffer(offer)}
-                      />
+                      <View key={`locked-genre:${folder.genre}`}>
+                        <TouchableOpacity
+                          style={[styles.folderCard, styles.folderCardSale]}
+                          onPress={() => setExpandedLockedGenre(open ? null : folder.genre)}
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: open }}
+                          accessibilityLabel={`Dossier ${folder.genre} en vente, ${folder.tracks.length} morceau${folder.tracks.length > 1 ? 'x' : ''}, ${priceLabel}`}
+                        >
+                          <View style={[styles.folderIcon, styles.folderIconSale]}><Text style={styles.folderIconText}>🔒</Text></View>
+                          <View style={styles.folderCopy}>
+                            <View style={styles.lockedFolderTitleRow}>
+                              <Text style={styles.folderTitle} numberOfLines={1}>{folder.genre}</Text>
+                              <View style={styles.lockedFolderBadge}><Text style={styles.lockedFolderBadgeText}>EN VENTE</Text></View>
+                            </View>
+                            <Text style={styles.folderMeta}>{folder.tracks.length} titre{folder.tracks.length > 1 ? 's' : ''} · Audio uniquement · titres et jaquettes masqués</Text>
+                          </View>
+                          <View style={styles.folderPrice}><Text style={styles.folderPriceText}>{`🔒 ${priceLabel}`}</Text></View>
+                        </TouchableOpacity>
+                        {open ? (
+                          <View style={styles.lockedFolderTracks}>
+                            {folder.tracks.map((track) => (
+                              <LockedTrackRow
+                                key={`locked:${track.id}`}
+                                track={{ id: track.trackId }}
+                                priceCents={offer.priceCents}
+                                currencyCode={offer.currencyCode}
+                                onUnlockPress={() => setImmersivePreviewOffer(offer)}
+                              />
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
                     );
                   })}
                 </View>
@@ -1260,7 +1317,7 @@ const styles = StyleSheet.create({
   collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},
-  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},lockedTracksBlock:{marginTop:16},lockedTracksHeader:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:0.5,marginBottom:8},
+  publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},lockedTracksBlock:{marginTop:16},lockedTracksHeader:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:0.5,marginBottom:8},lockedFolderTitleRow:{flexDirection:'row',alignItems:'center',gap:6},lockedFolderBadge:{flexShrink:0,paddingHorizontal:6,paddingVertical:2,borderRadius:8,backgroundColor:colors.dangerSoft,borderWidth:1,borderColor:colors.danger},lockedFolderBadgeText:{color:colors.danger,fontSize:9,fontWeight:'900',letterSpacing:0.5},lockedFolderTracks:{gap:8,marginTop:8,marginBottom:4,paddingLeft:6},
   // Adel (21/09/2026, maquette interactive validée) : la grille de la liste
   // de morceaux (hauteur fixe, carrés, chevron, panneau) vit désormais dans
   // TrackActionRow.tsx (source de vérité unique). musicRow/musicCover/
