@@ -1414,3 +1414,10 @@ Côté agent (vérification à faire après redeploy Vercel) :
   - Compteurs Durée / Détectés / Gardés unifiés en cartes (Gardés en menthe).
 - **Conservé (rien ne disparaît)** : SwipeDeck ← PASSER / GARDER →, TrackListenControls, nav file d'attente, états Gardé/Passé + pastille Public/Privé, bannière erreur + astuce micro, modales (garder/recherche/fin), aura ListenEnergyAura et animations micPulse/signalScan, footer ARRÊTER L'ÉCOUTE, capture d'onglet web.
 - **Tests** : tsc ✅ · jest 284/284 mobile + 18/18 music ✅ · verify-source-of-truth ✅.
+
+## 2026-09-23 — Mission P1/P2/P3 (agent, chef de projet, exécution autonome)
+- **P1 Garder en 1 clic** — commit `fac3ca83`. GARDER = 1 tap → public par défaut ; appui long/⚙︎/swipe = choix visibilité complet ; bandeau « ✓ Gardé en public · Modifier ». Rien supprimé.
+- **P2 Mini-tour de bienvenue (coach-marks)** — commit `5e2349ed`. Nouveau `CoachMarks.tsx` (5 étapes, skippable, 1 seule fois au 1er lancement). Câblé dans HomeScreenCompact sans toucher Navigation/App. Devise « compris en 2 clics ».
+- **P3 Vitrine « En vente » sur profil visité** — commit `bb89c56f`. Section « Découvertes à débloquer » **remontée tout en haut du profil** (après l'identité/compteurs, avant « Ma collection ») + accent visuel violet (Design System). Test de garde d'ordre mis à jour (revalidation Adel 23/09). Rien supprimé : même logique d'aperçu immersif, même achat.
+- Tests à chaque étape : `tsc -p packages/mobile` = 0, `jest` = 284/284 + 18/18, `verify-source-of-truth.cjs` = 0.
+- **⚠️ Décision App Store en attente** : la vitrine reste masquée en prod via le flag Super Admin `playlist_marketplace` car l'achat se fait par **lien PayPal externe** (`Linking.openURL`) → rejet Apple garanti (règle 3.1.1, contenu déverrouillé dans l'app). Options : (A) ship v1 sans marketplace [recommandé, appro rapide], (B) activer le flag = risque rejet, (C) implémenter Apple In-App Purchase (StoreKit) puis activer [conforme + valorisé].
