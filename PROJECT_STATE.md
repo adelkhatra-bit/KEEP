@@ -151,7 +151,9 @@ agent) et messages des sessions de chat (non versionnés).
   après validation de ce rapport par Adel.
 - **Poste de commandement GitHub-native IA (23/09/2026)** : documentation,
   configuration machine-readable, templates d'issues/PR et labels de pilotage
-  ajoutés dans le dépôt. **Reste à valider côté Adel** : les accès externes,
+  ajoutés dans le dépôt. Le workflow `.github/workflows/agent-command-triage.yml`
+  applique aussi automatiquement les labels type/agent et un commentaire de
+  routage sur les issues. **Reste à valider côté Adel** : les accès externes,
   apps GitHub et secrets qui ne peuvent pas être accordés automatiquement par
   un agent.
 - **Déblocage plateformes externes (23/09/2026)** : matrice documentaire des

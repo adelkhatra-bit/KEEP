@@ -95,6 +95,54 @@ jobs:
               labels: [...next],
             });
 
+            const recommendedWorkflows = typeLabel ? (config.workflowRouting?.[typeLabel] || []) : [];
+            const commentMarker = '<!-- keep-agent-command-triage -->';
+            const commentBody = [
+              commentMarker,
+              '## KEEP — triage automatique',
+              '',
+              `- Type détecté : \`${typeLabel || 'non détecté'}\``,
+              `- Agent principal détecté : \`${agentLabel || 'à choisir'}\``,
+              `- Coordination inter-agents : \`${shouldTrackAsAgentTask ? 'oui' : 'non'}\``,
+              '',
+              recommendedWorkflows.length
+                ? '### Workflows GitHub recommandés\n' + recommendedWorkflows.map(name => `- \`${name}\``).join('\n')
+                : '### Workflows GitHub recommandés\n- À préciser manuellement selon le périmètre.',
+              '',
+              '### Rappels de contrôle',
+              '- Les preuves doivent revenir dans la PR ou le run GitHub correspondant.',
+              '- Aucun secret ne doit être copié dans l’issue, les commentaires ou les artifacts.',
+              '- Les accès externes, permissions de plateforme et secrets restent sous validation humaine.',
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+            const existingComment = comments.find(comment =>
+              comment.user?.type === 'Bot' &&
+              typeof comment.body === 'string' &&
+              comment.body.includes(commentMarker)
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: commentBody,
+              });
+            }
+
             const summary = [
               `type=${typeLabel || 'none'}`,
               `agent=${agentLabel || 'none'}`,

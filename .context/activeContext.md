@@ -30,6 +30,7 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `8cd3a09`, `d85c8d9`, `2767c3a` : refontes layout des 3 écrans (Codex, 22/09).
 - `1009c5b` : régénération PROJECT_STATE.md.
 - Poste de commandement GitHub-native IA ajouté : `docs/ops/GITHUB_AI_COMMAND_CENTER.md`, `config/github-ai-command-center.json`, templates d'issues/PR structurés et labels GitHub normalisés (Codex, 23/09).
+- Workflow de triage automatique agents/labels en place : `.github/workflows/agent-command-triage.yml` applique les labels type/agent et publie un commentaire de routage avec workflows recommandés (Codex, 23/09).
 - Suite du poste de commandement IA : workflow de triage automatique des issues `.github/workflows/agent-command-triage.yml`, matrice de déblocage externe `docs/ops/EXTERNAL_PLATFORM_UNLOCK_MATRIX.md` et durcissement de `.github/agents/config.yml` pour supprimer le faux accès total (Codex, 23/09).
 
 ## Décisions récentes

@@ -110,6 +110,14 @@ Le workflow `.github/workflows/agent-command-triage.yml` applique automatiquemen
 les labels de type et d'agent sur les issues ouvertes/éditées à partir des
 templates GitHub et du fichier `config/github-ai-command-center.json`.
 
+Il publie ou met aussi à jour un commentaire de synthèse avec :
+
+- le type détecté ;
+- l'agent principal détecté ;
+- le statut de coordination inter-agents ;
+- les workflows GitHub recommandés pour traiter l'issue ;
+- les rappels de contrôle (preuves GitHub, aucun secret, validation humaine des accès externes).
+
 ## 7. Actions réservées à l'humain
 
 Restent explicitement manuelles :
