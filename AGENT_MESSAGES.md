@@ -1384,3 +1384,13 @@ Côté agent (vérification à faire après redeploy Vercel) :
 - Après paiement confirmé : déverrouillage immédiat sans refresh, puis accès au Swipe complet et au contenu livré selon les droits marketplace.
 - Une Vibe/Smart Album mise en vente ne doit jamais rester simultanément accessible gratuitement par un autre chemin du profil.
 - Les agents doivent suivre ces points comme backlog durable avec statuts demandé / codé / testé / déployé / restant, et ne pas les considérer terminés sur la seule présence de code.
+
+
+## Mission OTA — configuration eas update (23/09/2026)
+- **Constat audit** : le workflow OTA existait déjà (`.github/workflows/eas-update-production.yml`) — pas de doublon créé pour éviter un double `eas update` par push.
+- **Changements** :
+  - Filtre de chemins élargi à `packages/mobile/**` (au lieu de `src/**` + fichiers isolés) pour couvrir toute refonte JS mobile sans déclencher de build natif.
+  - Ajout section **« Stratégie OTA (eas update) »** dans `CLAUDE.md` : quelles modifs → OTA (JS pur, 0 build EAS) vs build natif obligatoire (deps natives, app.json natif, SDK Expo, runtimeVersion).
+- **Secret requis** : `EXPO_TOKEN` dans les GitHub Secrets du dépôt (référencé par le workflow).
+- **Tests** : tsc ✅, verify-source-of-truth ✅, jest en cours de validation.
+- Commit : `feat(ci): configure OTA for JS-only changes`.

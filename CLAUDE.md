@@ -107,6 +107,31 @@ Une correction de logique ne doit pas devenir une refonte graphique.
 - Un clic sur une fonction verrouillée doit ouvrir `Offers` directement sur **la formule exacte requise**, avec le badge `FORMULE REQUISE`; ne pas afficher une impasse ou un bouton sans destination.
 - Tant que le paiement n'est pas réellement câblé, ne jamais prétendre que le CTA d'achat encaisse ou active un abonnement.
 
+## Stratégie OTA (eas update) — réduire les coûts EAS
+
+L'objectif est de **ne consommer un build EAS que quand c'est indispensable**. La majorité des refontes Loki Music sont du JS/TS pur et se livrent en OTA (0 build EAS consommé).
+
+Le workflow `.github/workflows/eas-update-production.yml` publie automatiquement en OTA sur `production` à chaque push sur `reconcile/claude-main-20260825` qui touche `packages/mobile/**`, `packages/music/**` ou les dépendances JS (`package.json` / `package-lock.json`). Secret requis dans GitHub : `EXPO_TOKEN`. Le `runtimeVersion.policy` est `appVersion` : un OTA n'est délivré qu'aux binaires dont la version applicative correspond.
+
+### Livraison OTA — `eas update` (0 build EAS)
+Toute modif **purement JavaScript/TypeScript** embarquée dans le bundle :
+- composants et écrans React (`.tsx`), styles, `colors.ts`, logique métier ;
+- textes, wording, traductions ;
+- assets JS chargés au runtime (images du bundle, `assets/**`) ;
+- correctifs de bugs JS, refontes visuelles sans nouvelle dépendance native.
+
+### Build natif obligatoire — `eas build` (consomme un build)
+Dès qu'on touche à la couche native, l'OTA ne suffit pas :
+- ajout/màj d'une **dépendance native** (module avec code natif, config plugin) ;
+- changement de `app.json` impactant le natif : permissions, plugins, `bundleIdentifier`/`package`, icônes/splash natifs, `newArchEnabled`, entitlements ;
+- montée de version du **SDK Expo** ou de `runtimeVersion` ;
+- toute modif nécessitant une recompilation iOS/Android.
+
+### Règle de décision rapide
+« Est-ce que ça marcherait en rechargeant seulement le bundle JS sur le binaire déjà installé ? »
+- Oui → OTA (`eas update`).
+- Non (besoin de recompiler) → build natif (`eas build`) puis nouvelle soumission TestFlight/Store.
+
 ## Avant chaque push
 
 Exécuter/laisser passer au minimum :
