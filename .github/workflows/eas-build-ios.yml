@@ -215,11 +215,16 @@ jobs:
             const shareBundle = await exactBundle('com.adelkhatra.keep.share-extension', 'Share extension bundle access');
             const exactProfiles = async (bundle, label) => {
               const result = await get('profiles?filter[profileType]=IOS_APP_STORE&include=bundleId&limit=200', label);
+              const includedBundlesById = new Map((result.included || [])
+                .filter((item) => item.type === 'bundleIds' && item.id)
+                .map((item) => [item.id, item]));
               const validProfiles = (result.data || []).filter((profile) => {
                 const state = profile.attributes?.profileState;
                 const expirationDate = profile.attributes?.expirationDate;
                 const profileBundleId = profile.relationships?.bundleId?.data?.id;
-                return profileBundleId === bundle.id && state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
+                const relatedBundle = profileBundleId ? includedBundlesById.get(profileBundleId) : null;
+                const matchesBundle = profileBundleId === bundle.id || relatedBundle?.attributes?.identifier === bundle.attributes?.identifier;
+                return matchesBundle && state === 'ACTIVE' && (!expirationDate || Date.parse(expirationDate) > Date.now());
               });
               if (!validProfiles.length) {
                 throw new Error(`Apple App Store provisioning profile missing for ${bundle.attributes?.identifier || label}.`);
