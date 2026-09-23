@@ -853,7 +853,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         // "disparue jusqu'au refresh", puis reload réconcilie avec Supabase.
         const optimisticEvent: CreatorEvent = {
           id: created.id,
-          creatorId: user?.id || created.creatorId,
+          creatorId: user?.id || '',
           name: payload.name,
           description: payload.description || null,
           venueName: payload.venueName || null,
