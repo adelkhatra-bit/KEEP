@@ -892,7 +892,90 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {/* DESIGN_SYSTEM v3 (21/09/2026) : ordre validé par Adel -- identité,
+        {marketplaceEnabled ? (
+          <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
+            <View style={styles.marketplaceHeaderRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.marketplaceKicker}>EXCLUSIVITÉS DE @{profile.username.replace(/^@/, '')}</Text>
+                <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
+              </View>
+              {saleOffers.length > 0 ? (
+                <View style={styles.marketplaceCountPill}>
+                  <Text style={styles.marketplaceCountText}>{saleOffers.length} EN VENTE</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.marketplaceHint}>Ici, tu ne vois jamais les vrais morceaux avant déblocage : titres, artistes et pochettes restent masqués. Tu peux seulement tester des extraits audio protégés.</Text>
+            {saleOffers.length === 0 ? (
+              <TouchableOpacity
+                style={styles.marketplaceEmpty}
+                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
+                accessibilityRole="button"
+                accessibilityLabel="Aucune musique en vente pour le moment"
+              >
+                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.marketplaceFeaturedList}>
+                {saleOffers.slice(0, 3).map((offer, index) => {
+                  const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
+                  const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+                  return (
+                    <View
+                      key={`featured-sale:${offer.offerId}`}
+                      style={[
+                        styles.marketplaceFeaturedCard,
+                        index === 0 && styles.marketplaceFeaturedCardHero,
+                        unlocked && styles.marketplaceFeaturedCardUnlocked,
+                      ]}
+                    >
+                      <View style={styles.marketplaceFeaturedTop}>
+                        <View style={styles.marketplaceSecretCover}>
+                          <Text style={styles.marketplaceSecretIcon}>{unlocked ? '✓' : '🔒'}</Text>
+                          <Text style={styles.marketplaceSecretCoverText}>{unlocked ? 'OUVERT' : 'SECRET'}</Text>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.marketplaceFeaturedBadge}>{unlocked ? '✓ DÉBLOQUÉ' : '🔒 EN VENTE · CONTENU MASQUÉ'}</Text>
+                          <Text style={styles.marketplaceFeaturedTitle} numberOfLines={2}>{offer.playlistName}</Text>
+                          <Text style={styles.marketplaceFeaturedMeta}>{offer.trackCount} découverte{offer.trackCount > 1 ? 's' : ''} {unlocked ? '· écoute complète' : 'secrète'}</Text>
+                        </View>
+                        <View style={[styles.marketplaceFeaturedPrice, unlocked && styles.marketplaceFeaturedPriceUnlocked]}>
+                          <Text style={[styles.marketplaceFeaturedPriceText, unlocked && styles.marketplaceFeaturedPriceTextUnlocked]}>{unlocked ? 'OUVERT' : priceLabel}</Text>
+                        </View>
+                      </View>
+                      {!unlocked ? (
+                        <View style={styles.marketplaceTrustRow}>
+                          <Text style={styles.marketplaceTrustText}>??? titre</Text>
+                          <Text style={styles.marketplaceTrustDot}>•</Text>
+                          <Text style={styles.marketplaceTrustText}>artiste masqué</Text>
+                          <Text style={styles.marketplaceTrustDot}>•</Text>
+                          <Text style={styles.marketplaceTrustText}>pochette masquée</Text>
+                        </View>
+                      ) : null}
+                      <TouchableOpacity
+                        style={[styles.marketplaceFeaturedCta, unlocked && styles.marketplaceFeaturedCtaUnlocked]}
+                        onPress={() => openSaleFolder(offer)}
+                        accessibilityRole="button"
+                        accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}` : `Écouter un aperçu protégé de ${offer.playlistName}, ${priceLabel}`}
+                      >
+                        <Text style={[styles.marketplaceFeaturedCtaText, unlocked && styles.marketplaceFeaturedCtaTextUnlocked]}>
+                          {unlocked ? '▶ ÉCOUTER LA COLLECTION' : index === 0 ? '▶ TESTER LA COLLECTION' : '▶ APERÇU PROTÉGÉ'}
+                        </Text>
+                      </TouchableOpacity>
+                      {!unlocked && index === 0 ? (
+                        <Text style={styles.marketplaceReassurance}>Le vrai contenu reste secret jusqu’au déblocage. L’accès arrive après confirmation du paiement.</Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+                {saleOffers.length > 3 ? <Text style={styles.marketplaceMore}>+ {saleOffers.length - 3} autre{saleOffers.length - 3 > 1 ? 's' : ''} collection{saleOffers.length - 3 > 1 ? 's' : ''} exclusive{saleOffers.length - 3 > 1 ? 's' : ''}</Text> : null}
+              </View>
+            )}
+          </ProfileMotionReveal>
+        ) : null}
+
+        {/* DESIGN_SYSTEM v3 (24/09/2026) : identité, vitrine commerciale
+            immédiatement visible, puis compteurs regroupés et collection. */}
             puis compteurs regroupés en UN SEUL bloc (avant : Abonnés/Reprises
             dans hero, Morceaux/Abonnements plus bas séparés par Réseaux/DNA/
             Boutique entre les deux), puis "Ma collection". */}
@@ -908,54 +991,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ]} />
           {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
-
-        {marketplaceEnabled ? (
-          <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
-            <Text style={styles.marketplaceKicker}>BOUTIQUE DE @{profile.username.replace(/^@/, '')}</Text>
-            <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
-            <Text style={styles.marketplaceHint}>Écoute les extraits avant de débloquer. Les titres, artistes et pochettes restent masqués avant achat.</Text>
-            {saleOffers.length === 0 ? (
-              <TouchableOpacity
-                style={styles.marketplaceEmpty}
-                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
-                accessibilityRole="button"
-                accessibilityLabel="Aucune musique en vente pour le moment"
-              >
-                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.marketplaceFeaturedList}>
-                {saleOffers.slice(0, 3).map((offer) => {
-                  const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
-                  const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                  return (
-                    <View key={`featured-sale:${offer.offerId}`} style={[styles.marketplaceFeaturedCard, unlocked && styles.marketplaceFeaturedCardUnlocked]}>
-                      <View style={styles.marketplaceFeaturedTop}>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.marketplaceFeaturedBadge}>{unlocked ? '✓ DÉBLOQUÉ' : '🔒 EN VENTE'}</Text>
-                          <Text style={styles.marketplaceFeaturedTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                          <Text style={styles.marketplaceFeaturedMeta}>{offer.trackCount} découverte{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'écoute complète' : 'aperçu audio disponible'}</Text>
-                        </View>
-                        <View style={[styles.marketplaceFeaturedPrice, unlocked && styles.marketplaceFeaturedPriceUnlocked]}>
-                          <Text style={[styles.marketplaceFeaturedPriceText, unlocked && styles.marketplaceFeaturedPriceTextUnlocked]}>{unlocked ? 'OUVERT' : priceLabel}</Text>
-                        </View>
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.marketplaceFeaturedCta, unlocked && styles.marketplaceFeaturedCtaUnlocked]}
-                        onPress={() => openSaleFolder(offer)}
-                        accessibilityRole="button"
-                        accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}` : `Écouter un aperçu de ${offer.playlistName}, ${priceLabel}`}
-                      >
-                        <Text style={[styles.marketplaceFeaturedCtaText, unlocked && styles.marketplaceFeaturedCtaTextUnlocked]}>{unlocked ? '▶ ÉCOUTER LA COLLECTION' : '▶ ÉCOUTER UN APERÇU'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-                {saleOffers.length > 3 ? <Text style={styles.marketplaceMore}>+ {saleOffers.length - 3} autre{saleOffers.length - 3 > 1 ? 's' : ''} collection{saleOffers.length - 3 > 1 ? 's' : ''} dans ses Styles</Text> : null}
-              </View>
-            )}
-          </ProfileMotionReveal>
-        ) : null}
 
         <View style={styles.collectionHeader}>
           <Text style={styles.collectionTitle}>Ses styles</Text>
@@ -1419,12 +1454,19 @@ const styles = StyleSheet.create({
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-    marketplaceSection:{marginHorizontal:18,marginTop:14},
+    marketplaceSection:{marginHorizontal:18,marginTop:14,padding:14,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+  marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:10},
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
-  marketplaceFeaturedList:{gap:10,marginTop:10},
+  marketplaceCountPill:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  marketplaceCountText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.5},
+  marketplaceFeaturedList:{gap:10,marginTop:12},
   marketplaceFeaturedCard:{padding:14,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},
+  marketplaceFeaturedCardHero:{paddingVertical:16,borderWidth:2},
   marketplaceFeaturedCardUnlocked:{borderColor:colors.success},
   marketplaceFeaturedTop:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  marketplaceSecretCover:{width:54,height:54,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},
+  marketplaceSecretIcon:{fontSize:18},
+  marketplaceSecretCoverText:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8,marginTop:2},
   marketplaceFeaturedBadge:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8},
   marketplaceFeaturedTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginTop:4},
   marketplaceFeaturedMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:4},
@@ -1436,6 +1478,10 @@ const styles = StyleSheet.create({
   marketplaceFeaturedCtaUnlocked:{backgroundColor:colors.success},
   marketplaceFeaturedCtaText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
   marketplaceFeaturedCtaTextUnlocked:{color:colors.background},
+  marketplaceTrustRow:{marginTop:10,minHeight:28,paddingHorizontal:10,borderRadius:14,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',justifyContent:'center',flexWrap:'wrap',gap:5},
+  marketplaceTrustText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800'},
+  marketplaceTrustDot:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  marketplaceReassurance:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:7},
   marketplaceMore:{color:colors.textMutedGrey,fontSize:10,fontWeight:'700',textAlign:'center',marginTop:2},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchButtonHot:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},immersiveLaunchTextHot:{color:colors.keep,fontSize:13,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
