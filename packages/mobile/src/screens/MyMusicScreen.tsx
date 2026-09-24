@@ -12,7 +12,7 @@ import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
 import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, removeTrackFromOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection, updateOfferPrice } from '../services/playlistSaleService';
-import { isFeatureEnabled } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
@@ -166,7 +166,7 @@ export default function MyMusicScreen({ navigation }: any) {
   // chaque focus de l'écran, comme refreshLibrary juste en dessous.
   useEffect(() => {
     let live = true;
-    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
     check();
     const unsubscribe = navigation?.addListener?.('focus', check);
     return () => { live = false; unsubscribe?.(); };

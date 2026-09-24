@@ -16,7 +16,7 @@ import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadKeepBattleGlobalLeaderboard, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
-import { isFeatureEnabled } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
@@ -261,7 +261,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // aussi à chaque focus.
   useEffect(() => {
     let live = true;
-    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => live && setMarketplaceEnabled(enabled)); };
+    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => live && setMarketplaceEnabled(enabled)); };
     check();
     const unsubscribe = navigation?.addListener?.('focus', check);
     return () => { live = false; unsubscribe?.(); };

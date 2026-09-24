@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 
 /**
@@ -35,4 +36,15 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+
+/**
+ * Marketplace de découvertes : web uniquement pour la première publication.
+ * Le flag Super Admin reste nécessaire sur le web, mais ne peut pas réactiver
+ * le paiement externe dans une build native iOS/Android par erreur.
+ */
+export async function isPlaylistMarketplaceEnabled(): Promise<boolean> {
+  if (Platform.OS !== 'web') return false;
+  return isFeatureEnabled('playlist_marketplace');
 }

@@ -6,7 +6,7 @@ import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
-import { isFeatureEnabled } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
 
 const PRICE_PRESETS = [50, 100, 200, 300, 500, 1000] as const;
 
@@ -36,7 +36,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
   // aussi à chaque focus.
   useEffect(() => {
     let live = true;
-    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
     check();
     const unsubscribe = navigation?.addListener?.('focus', check);
     return () => { live = false; unsubscribe?.(); };

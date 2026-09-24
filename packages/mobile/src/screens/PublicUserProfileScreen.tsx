@@ -25,7 +25,7 @@ import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenre
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
-import { isFeatureEnabled } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
@@ -173,7 +173,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // aussi à chaque focus.
   useEffect(() => {
     let live = true;
-    const check = () => { isFeatureEnabled('playlist_marketplace').then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
     check();
     const unsubscribe = navigation?.addListener?.('focus', check);
     return () => { live = false; unsubscribe?.(); };
