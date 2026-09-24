@@ -13,6 +13,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   const freeMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163120_playlist_sale_free_mode.sql');
   const freeAccessMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163533_playlist_sale_free_transfer_access_hardening.sql');
   const permanentUserMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163615_playlist_sale_free_permanent_user_only.sql');
+  const freeIndexMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163717_playlist_sale_free_transfer_indexes.sql');
   const featureFlags = readNormalized(__dirname, '..', '..', 'services', 'featureFlagService.ts');
   const immersivePreview = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx');
   const salePanel = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
@@ -78,6 +79,11 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(freeAccessMigration).toContain('grant select on table public.playlist_sale_free_transfers to authenticated;');
     expect(permanentUserMigration).toContain("(auth.jwt()->>'is_anonymous')::boolean");
     expect(permanentUserMigration).toContain('is false');
+  });
+
+  it('indexes seller and buyer ownership lookups for FREE transfers', () => {
+    expect(freeIndexMigration).toContain('idx_playlist_sale_free_transfers_seller');
+    expect(freeIndexMigration).toContain('idx_playlist_sale_free_transfers_buyer');
   });
 
   it('keeps the FREE transfer adjustment helper inaccessible to app clients', () => {
