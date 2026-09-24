@@ -42,24 +42,27 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(listen).toContain('resolveTrackPreviewUrl(track)');
   });
 
-  it('uses the approved colorful card system for public and locked styles', () => {
+  it('uses the approved colorful card system for public styles and a separate locked collection carousel', () => {
     expect(profile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
     expect(profile).toContain('mode="PUBLIC"');
     expect(profile).toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(profile).toContain("onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}");
     expect(profile).toContain('artworkUrl={genreArtwork[genre]}');
+    expect(profile).toContain('horizontal');
+    expect(profile).toContain('saleCarouselCard');
+    expect(profile).toContain('SON GOÛT MUSICAL · SES COLLECTIONS');
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
-    expect(styleCard).toContain("locked ? '🔒 EN VENTE'");
+    expect(styleCard).toContain('const SALE_GRADIENTS');
   });
 
-  it('never passes real artwork metadata into a locked sale style card and removes odd-grid black holes', () => {
-    const saleCardStart = profile.indexOf('key={`sale-style:${offer.offerId}`}');
+  it('never passes real artwork metadata into a locked collection card and keeps sale products out of the public style grid', () => {
+    const saleCardStart = profile.indexOf('key={`sale-carousel:${offer.offerId}`}');
     const saleCardEnd = profile.indexOf('/>', saleCardStart);
     const saleCard = profile.slice(saleCardStart, saleCardEnd);
     expect(saleCard).not.toContain('artworkUrl=');
-    expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && index === saleOffers.length - 1}');
-    expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}');
+    expect(profile).not.toContain('key={`sale-style:${offer.offerId}`}');
+    expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && index === freeStyleCardCount - 1}');
   });
 
   it('never hides active sale products behind the checkout feature flag', () => {
@@ -73,7 +76,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('BOUTIQUE MUSICALE ACTIVE');
     expect(profile).toContain("collection{saleOffers.length > 1 ? 's' : ''} exclusive");
     expect(profile).toContain('Extraits anonymes · vrais titres masqués avant déblocage');
-    expect(profile).toContain('EXCLUSIVITÉS DE @{profile.username.replace(/^@/, \'\')}');
+    expect(profile).toContain('SON GOÛT MUSICAL · SES COLLECTIONS');
   });
 
   it('shows already-owned counts directly on public style cards', () => {
@@ -85,7 +88,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('uses the same immersive visual system on the owner profile without file-folder UI as the primary styles view', () => {
     expect(ownerProfile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
     expect(ownerProfile).toContain('style={s.ownerStyleGrid}');
-    expect(ownerProfile).toContain("actionLabel={marketplaceEnabled ? 'VENDRE' : undefined}");
+    expect(ownerProfile).toContain("actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}");
     expect(ownerProfile).toContain('title="JOUER EN SOLO"');
     expect(ownerProfile).toContain('BOUTIQUE ACTIVE');
   });
@@ -104,10 +107,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('onPlayPress={() => void playInlinePublicTrack');
   });
 
-  it('plays locked sale previews anonymously on the same profile', () => {
-    expect(profile).toContain('const playInlineSalePreview = async');
+  it('plays locked collection previews anonymously from the collection carousel', () => {
     expect(profile).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
-    expect(profile).toContain('onPlayPress={unlocked ? () => openSaleFolder(offer) : () => void playInlineSalePreview(offer)}');
+    expect(profile).toContain('onPlayPress={() => openSaleFolder(offer)}');
+    expect(profile).toContain('Lancer la préécoute anonyme de toute la collection');
   });
 
   it('renders locked sale cards with a vivid dedicated palette', () => {
