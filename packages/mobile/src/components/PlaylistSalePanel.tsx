@@ -405,7 +405,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                   <View key={purchase.id} style={s.offerCard}>
                     <Text style={s.offerName}>@{purchase.counterpartUsername} · {purchase.playlistName}</Text>
                     <Text style={s.offerPrice}>{(purchase.amountCents / 100).toFixed(2)}€ {purchase.currencyCode}</Text>
-                    <Text style={s.offerDate}>{purchase.status === 'COMPLETED' ? '✓ Débloqué -- va sur son profil pour voir les morceaux' : '⏳ En attente que le vendeur confirme ton paiement'}</Text>
+                    <Text style={s.offerDate}>{purchase.status === 'COMPLETED' ? '✓ Débloqué -- va sur son profil pour voir les morceaux' : '⏳ En attente que le créateur confirme ton paiement'}</Text>
                   </View>
                 ))}
               </View>
