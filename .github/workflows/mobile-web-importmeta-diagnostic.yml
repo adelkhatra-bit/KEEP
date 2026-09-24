@@ -193,13 +193,26 @@ jobs:
             await page.waitForTimeout(300);
 
             let detailsButton = page.getByLabel('Voir les détails').first();
-            const detailsVisible = await detailsButton.isVisible().catch(() => false);
-            if (!detailsVisible) {
-              const socialToggle = page.getByLabel("Afficher ou masquer les musiques reprises d'autres utilisateurs").first();
-              if (await socialToggle.isVisible().catch(() => false)) {
-                await clickRobust(socialToggle, 'Expand social reprises for delete fixture');
+            if (!await detailsButton.isVisible().catch(() => false)) {
+              const discoveryFilter = page.getByLabel(/^DÉCOUVERTES · [1-9]/).first();
+              const repriseFilter = page.getByLabel(/^REPRISES · [1-9]/).first();
+              if (await discoveryFilter.isVisible().catch(() => false)) {
+                await clickRobust(discoveryFilter, 'Open discovery tracks for delete fixture');
                 await page.waitForTimeout(350);
                 detailsButton = page.getByLabel('Voir les détails').first();
+              }
+              if (!await detailsButton.isVisible().catch(() => false) && await repriseFilter.isVisible().catch(() => false)) {
+                await clickRobust(repriseFilter, 'Open reprise tracks for delete fixture');
+                await page.waitForTimeout(350);
+                detailsButton = page.getByLabel('Voir les détails').first();
+              }
+              if (!await detailsButton.isVisible().catch(() => false)) {
+                const socialToggle = page.getByLabel("Afficher ou masquer les musiques reprises d'autres utilisateurs").first();
+                if (await socialToggle.isVisible().catch(() => false)) {
+                  await clickRobust(socialToggle, 'Expand social reprises for delete fixture');
+                  await page.waitForTimeout(350);
+                  detailsButton = page.getByLabel('Voir les détails').first();
+                }
               }
             }
             await detailsButton.waitFor({ state: 'visible', timeout: 15000 });
