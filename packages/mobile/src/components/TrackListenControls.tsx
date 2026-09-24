@@ -60,7 +60,11 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   useEffect(() => {
     setResolvedPreviewUrl(track.previewUrl ?? null);
-    if (track.previewUrl || embedUrl || externalPlayUrl) return;
+    // Un simple lien de recherche YouTube/TikTok ne constitue pas un extrait
+    // jouable dans Loki Music. C'était le bug du mode démo : TrackResolver
+    // fournit toujours ces liens de découverte, ce qui empêchait auparavant
+    // le repli iTunes de chercher un vrai previewUrl.
+    if (track.previewUrl || embedUrl) return;
     let live = true;
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
@@ -68,7 +72,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.title, track.artist, track.previewUrl, embedUrl, externalPlayUrl]);
+  }, [track.title, track.artist, track.previewUrl, embedUrl]);
 
   useEffect(() => () => {
     void stopTrackPreview(previewKey);
