@@ -8,26 +8,35 @@ import path from 'path';
 // KeepBattleMobileGameV3.compact.test.ts).
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PublicUserProfileScreen redesign (Adel, 23/09/2026 : plan revalidé -- les produits EN VENTE remontent tout en haut du profil visité pour être mis en valeur : identité > compteurs regroupés > vitrine EN VENTE > Ma collection > réseaux)', () => {
+describe('PublicUserProfileScreen redesign (Adel, 24/09/2026 : les produits EN VENTE doivent être trouvés immédiatement : identité > vitrine EN VENTE > compteurs regroupés > Ma collection > réseaux)', () => {
   const source = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('orders the top-level sections: identity < unified counters < boutique EN VENTE < collection header < tabs < socials', () => {
+  it('orders the top-level sections: identity < boutique EN VENTE < unified counters < collection header < tabs < socials', () => {
     const hero = source.indexOf('<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>');
     const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
-    // (23/09/2026, Adel) : la vitrine "Découvertes à débloquer" (produits en
-    // vente) est remontée AU-DESSUS de la collection pour être mise en valeur
-    // dès l'ouverture du profil. Rien supprimé : même section, même logique
-    // d'aperçu immersif, seulement relocalisée + accent visuel (saleShowcase).
+    // (24/09/2026, Adel) : la vitrine "Découvertes à débloquer" doit être
+    // visible immédiatement après l'identité, avant même les compteurs.
     const boutique = source.indexOf("<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>");
     const socialHub = source.indexOf('<View style={styles.socialHub}>');
     expect(hero).toBeGreaterThanOrEqual(0);
-    expect(unifiedCounters).toBeGreaterThan(hero);
-    expect(boutique).toBeGreaterThan(unifiedCounters);
-    expect(collectionHeader).toBeGreaterThan(boutique);
+    expect(boutique).toBeGreaterThan(hero);
+    expect(unifiedCounters).toBeGreaterThan(boutique);
+    expect(collectionHeader).toBeGreaterThan(unifiedCounters);
     expect(tabsRow).toBeGreaterThan(collectionHeader);
     expect(socialHub).toBeGreaterThan(tabsRow);
+  });
+
+
+  it('makes the sale proposition explicit while keeping paid music metadata masked', () => {
+    expect(source).toContain('EXCLUSIVITÉS DE @{profile.username.replace(/^@/, \'\')}');
+    expect(source).toContain('EN VENTE · CONTENU MASQUÉ');
+    expect(source).toContain('??? titre');
+    expect(source).toContain('artiste masqué');
+    expect(source).toContain('pochette masquée');
+    expect(source).toContain('▶ TESTER LA COLLECTION');
+    expect(source).toContain('Le vrai contenu reste secret jusqu’au déblocage.');
   });
 
   it('exposes exactly two collection tabs, Styles and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
