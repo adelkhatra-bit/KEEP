@@ -98,7 +98,7 @@ jobs:
           history_guard = r'''<script>(function(){
           try{
             var base='/KEEP';
-            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect'];
+            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect','/playlist-sale','/playlist-sale-history'];
             function normalize(raw){
               if(raw==null)return raw;
               var u=new URL(String(raw),location.href);
@@ -156,7 +156,7 @@ jobs:
           for route in \
             Main Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
             session-recap session-history profile-settings profile-settings/advanced \
-            music-connections notifications offers apple-music-connect; do
+            music-connections notifications offers apple-music-connect playlist-sale playlist-sale-history; do
             mkdir -p "_site/$route"
             cp _site/index.html "_site/$route/index.html"
           done
@@ -199,6 +199,8 @@ jobs:
           test -f _site/mentions-legales/index.html
           test -f _site/pricing/index.html
           test -f _site/refund/index.html
+          test -f _site/playlist-sale/index.html
+          test -f _site/playlist-sale-history/index.html
           test -f _site/keep-share.png
           test -f _site/version.json
           grep -q "$GITHUB_SHA" _site/version.json
@@ -242,6 +244,8 @@ jobs:
             "$base/profile-settings/"
             "$base/notifications/"
             "$base/offers/"
+            "$base/playlist-sale/"
+            "$base/playlist-sale-history/"
             "$base/admin-preview/"
             "$base/superadmin/"
             "$base/share-profile/"
@@ -294,7 +298,7 @@ jobs:
           const routes = [
             '/', '/Main/', '/Main/Listen/', '/Main/Discover/', '/Main/MyMusic/',
             '/Main/Parties/', '/Main/Profile/', '/profile-settings/', '/notifications/',
-            '/offers/', '/share-profile/?u=__keep_public_smoke__', '/admin-preview/', '/superadmin/',
+            '/offers/', '/playlist-sale/', '/playlist-sale-history/', '/share-profile/?u=__keep_public_smoke__', '/admin-preview/', '/superadmin/',
             '/privacy/', '/privacy-choices/', '/terms/', '/support/', '/mentions-legales/', '/pricing/', '/refund/'
           ];
           const scenarios = [
