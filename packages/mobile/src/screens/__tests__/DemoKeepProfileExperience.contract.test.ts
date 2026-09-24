@@ -107,7 +107,8 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('const playInlinePublicTrack = async');
     expect(profile).toContain('toggleTrackPreview(');
     expect(profile).toContain('resolveTrackPreviewUrl(track)');
-    expect(profile).toContain('Tu peux quand même l’écouter ici.');
+    expect(profile).toContain("setInlineListenNotice('✓ Déjà dans ta collection · l’écoute continue')");
+    expect(profile).not.toContain("Alert.alert('Déjà dans ta collection'");
     expect(profile).toContain('onPlayPress={() => void playInlinePublicTrack');
   });
 
@@ -155,7 +156,22 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
     expect(myMusic).toContain("setActiveTab('MUSIQUES')");
     expect(myMusic).toContain('GÉRER MES MUSIQUES');
+    expect(myMusic).toContain('setManageMusicMode(true)');
+    expect(myMusic).toContain('expanded={manageMusicMode || expanded}');
     expect(myMusic).toContain('PUBLIC / PRIVÉ, SUPPRIMER');
+  });
+
+  it('uses the kept library as the single source for the Styles count', () => {
+    expect(myMusic).toContain('for (const track of localKeptTracks)');
+    expect(myMusic).not.toContain('for (const track of allKnownTracks)');
+    expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}");
+  });
+
+  it('keeps already-owned public tracks playable inside social Swipe', () => {
+    expect(swipe).toContain("setPrefilterRemovedCount(0)");
+    expect(swipe).toContain("setDeckTracks(loop ? shuffle(inputTracks) : inputTracks)");
+    expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
+    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
   });
 
   it('does not shorten normal profile previews with the Battle 9-second offset', () => {
