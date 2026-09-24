@@ -41,9 +41,10 @@ interface Props {
   onClose: () => void;
   onConfirmPurchase: (offer: PublicPlaylistSaleOffer) => void;
   busy?: boolean;
+  purchaseEnabled?: boolean;
 }
 
-export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy }: Props) {
+export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true }: Props) {
   const [marketingIndex, setMarketingIndex] = useState(0);
   const [explainerIndex, setExplainerIndex] = useState(0);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
@@ -206,20 +207,29 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
           </View>
 
-          <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
-            <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
-            <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le vendeur et je reconnais que le contenu pourra alors être débloqué dans mon Loki Music.</Text>
-          </TouchableOpacity>
+          {purchaseEnabled ? (
+            <>
+              <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
+                <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
+                <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le vendeur et je reconnais que le contenu pourra alors être débloqué dans mon Loki Music.</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
-            disabled={!waiverAccepted || busy}
-            onPress={() => onConfirmPurchase(offer)}
-            accessibilityLabel={`Acheter et ajouter à mon Loki Music, prix total ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode}`}
-          >
-            <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
-          </TouchableOpacity>
-          <Text style={s.noRefund}>Le déblocage intervient après confirmation du paiement par le vendeur. Les conditions applicables restent celles affichées avant validation.</Text>
+              <TouchableOpacity
+                style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
+                disabled={!waiverAccepted || busy}
+                onPress={() => onConfirmPurchase(offer)}
+                accessibilityLabel={`Acheter et ajouter à mon Loki Music, prix total ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode}`}
+              >
+                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
+              </TouchableOpacity>
+              <Text style={s.noRefund}>Le déblocage intervient après confirmation du paiement par le vendeur. Les conditions applicables restent celles affichées avant validation.</Text>
+            </>
+          ) : (
+            <View style={s.nativePreviewNotice}>
+              <Text style={s.nativePreviewTitle}>APERÇU MOBILE ACTIF</Text>
+              <Text style={s.nativePreviewText}>Tu peux écouter les extraits anonymes et parcourir les collections verrouillées. L’achat n’est pas activé dans cette version mobile.</Text>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
