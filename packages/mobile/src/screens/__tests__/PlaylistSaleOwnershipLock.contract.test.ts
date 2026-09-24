@@ -22,6 +22,8 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
   const lockedTrackRow = readNormalized(__dirname, '..', '..', 'components', 'LockedTrackRow.tsx');
   const saleService = readNormalized(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
   const previewMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260920201000_playlist_sale_offer_preview_tracks.sql');
+  const featureFlags = readNormalized(__dirname, '..', '..', 'services', 'featureFlagService.ts');
+  const immersivePreview = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx');
 
   it('MyMusicScreen locks the sale checkbox for a track that came from another profile (sourceProfileId set = not self-discovered), styled red (Adel, 21/09/2026 : "il faut que le cadenas soit rouge")', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
@@ -59,6 +61,24 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
     expect(saleService).toContain('previewUrl: string;');
     expect(previewMigration).toContain('returns table(track_id uuid, preview_url text)');
     expect(previewMigration).not.toMatch(/returns table\([^)]*(title|artist|artwork)/i);
+  });
+
+  it('keeps marketplace products and anonymous previews visible on native while external checkout remains web-only', () => {
+    expect(featureFlags).toContain('export async function isPlaylistMarketplaceVisible(): Promise<boolean>');
+    expect(featureFlags).toContain("return isFeatureEnabled('playlist_marketplace');");
+    expect(featureFlags).toContain("if (Platform.OS !== 'web') return false;");
+    expect(publicProfile).toContain('isPlaylistMarketplaceVisible()');
+    expect(publicProfile).toContain('setMarketplacePurchaseEnabled(purchaseEnabled)');
+    expect(publicProfile).toContain('purchaseEnabled={marketplacePurchaseEnabled}');
+    expect(immersivePreview).toContain('APERÇU MOBILE ACTIF');
+    expect(immersivePreview).toContain('L’achat n’est pas activé dans cette version mobile.');
+  });
+
+  it('keeps ordinary shared music directly listenable while locked sale tracks use the anonymous unlock row', () => {
+    expect(publicProfile).toContain('playSlot={<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />}');
+    expect(publicProfile).toContain('<LockedTrackRow');
+    expect(publicProfile).toContain('track={{ id: track.trackId }}');
+    expect(publicProfile).not.toContain('track={{ id: track.trackId, title: track.title');
   });
 
   /**
