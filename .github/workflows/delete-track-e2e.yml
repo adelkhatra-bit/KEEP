@@ -85,7 +85,7 @@ jobs:
 
             const trial = exact('ESSAYER GRATUITEMENT');
             if (await trial.isVisible().catch(() => false)) {
-              await trial.click();
+              await trial.click({ force: true });
               await page.waitForTimeout(300);
             }
 
@@ -95,7 +95,7 @@ jobs:
 
             // 1. Créer une vraie entrée dans la bibliothèque locale via le même
             // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
-            await exact('Écouter').click();
+            await exact('Écouter').click({ force: true });
             const start = page.getByLabel('Démarrer une écoute').last();
             if (await start.isVisible().catch(() => false)) await start.click();
 
