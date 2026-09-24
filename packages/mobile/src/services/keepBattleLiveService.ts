@@ -120,7 +120,7 @@ function normalizePreferredThemeCodes(themeCodes: unknown): string[] {
   if (!Array.isArray(themeCodes)) return ['MIX'];
   const real = Array.from(new Set(themeCodes
     .map((code) => String(code || '').trim().toUpperCase())
-    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+    .filter((code) => code && code !== 'MIX'))).slice(0, 12);
   return real.length ? real : ['MIX'];
 }
 
