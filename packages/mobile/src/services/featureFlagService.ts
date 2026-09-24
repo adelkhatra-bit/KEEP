@@ -40,21 +40,22 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
 
 
 /**
- * Visibilité marketplace : les profils et produits restent visibles sur
- * toutes les plateformes quand le flag est actif. Le natif peut ainsi montrer
- * les collections verrouillées et leurs aperçus anonymes sans lancer de
- * paiement externe.
+ * Visibilité marketplace : indépendante du flag de transaction.
+ *
+ * Une offre active est une donnée publique du profil vendeur et ne doit jamais
+ * disparaître parce que le checkout est coupé. C'était la cause du profil
+ * "vendeur mais sans rien à vendre" lorsque playlist_marketplace était à 0 %.
  */
 export async function isPlaylistMarketplaceVisible(): Promise<boolean> {
-  return isFeatureEnabled('playlist_marketplace');
+  return Boolean(supabase);
 }
 
 /**
- * Transaction marketplace : web uniquement pour la première publication.
- * Sur iOS/Android on affiche les produits et previews, mais jamais le lien
- * de paiement externe dans l'app native.
+ * Transaction marketplace : web uniquement et toujours derrière le flag.
+ * Sur iOS/Android on affiche produits + cadenas + previews anonymes, mais
+ * jamais de checkout externe.
  */
 export async function isPlaylistMarketplaceEnabled(): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
-  return isPlaylistMarketplaceVisible();
+  return isFeatureEnabled('playlist_marketplace');
 }
