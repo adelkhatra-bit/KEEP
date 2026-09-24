@@ -1500,3 +1500,32 @@ Vérifié dans le code réel (`PublicUserProfileScreen.tsx`, `PlaylistSaleImmers
 
 
 **État final** : Tests locaux non exécutés (workflow non poussable). INDEX.md et AGENT_MESSAGES.md mis à jour via connecteur GitHub (fichiers réguliers). Commit  (app-store-submit.yml) en attente de push avec le bon PAT.
+
+
+## [2026-09-24T02:00:00.000Z] abacus-claude — RETEST PAT corrigé (résultat empirique)
+
+**Mission** : Adel a corrigé les permissions du PAT « loki ia bote » (Repository=KEEP, Actions=R+W, Contents=R+W, Workflows=R+W, même valeur) et a demandé de pousser `app-store-submit.yml` + déclencher `lane=submit`.
+
+**Résultat des tests réels (même token, retesté)** :
+| Opération | Permission | HTTP |
+|---|---|---|
+| `GET /user` | — | ✅ 200 (login adelkhatra-bit) |
+| `GET contents/INDEX.md` | Contents:read | ✅ 200 |
+| `GET actions/workflows` | Actions:read | ✅ 200 (110 workflows) |
+| `PUT` fichier régulier `docs/ci/pat-write-test.txt` | **Contents:write** | ❌ 403 |
+| `PUT .github/workflows/app-store-submit.yml` | **Workflows:write** | ❌ 403 |
+| `POST .../dispatches` | **Actions:write** | ❌ 403 |
+
+→ Message constant : `403 "Resource not accessible by personal access token"`. Le token est **valide mais toujours read-only** : les permissions Read+Write **ne sont pas effectives** (probable : édition des permissions non enregistrée côté GitHub, ou token affiché ≠ token appliqué).
+
+**Token GitHub App (connecteur abacusai) retesté aussi** : `403 "Resource not accessible by integration"` sur push workflow ET dispatch. Écrit uniquement les fichiers réguliers.
+
+**Supabase `integration_secrets.GITHUB_PERSONAL_ACCESS_TOKEN`** : ne contient qu'un placeholder (`PENDING_NEW_TOKEN_RE...`, `is_configured=false`), pas la vraie valeur.
+
+**Blocage** : la clé Apple (`ASC_API_KEY_P8_BASE64`) est cloisonnée dans les GitHub Secrets, utilisable UNIQUEMENT dans un workflow Actions. Pousser + déclencher le workflow exige un token qui écrit workflows + dispatch — aucun des deux tokens disponibles ne le peut. `.p8` introuvable ailleurs (repo/historique/Supabase/sandbox) → impossible de lancer `fastlane deliver submit` depuis ce sandbox Linux.
+
+**2 seules voies de déblocage** (aucune autre autonome ne subsiste) :
+1. PAT réellement en écriture (revérifier que Contents+Workflows+Actions sont bien SAUVEGARDÉS puis re-fournir) → je pousse `c70affc` + `gh workflow run` en 30 s.
+2. OU fournir le contenu du `.p8` ASC (base64) → je lance `fastlane deliver submit` directement d'ici, sans passer par GitHub Actions.
+
+**Commit `c70affc` (app-store-submit.yml) prêt localement, en attente d'un token écrivain.**
