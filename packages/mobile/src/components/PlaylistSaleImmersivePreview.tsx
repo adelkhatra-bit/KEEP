@@ -22,9 +22,9 @@ import { playAntiShazamPreviewSegment, stopAntiShazamPreview } from '../services
  * que l'achat n'est pas confirmé.
  */
 const MARKETING_LINES = [
-  'Cette découverte est très réclamée en ce moment.',
-  'Une sélection musicale rare, à débloquer avant qu’elle ne file.',
-  'D’autres l’ont déjà rejointe dans leur Loki Music.',
+  'Écoute les extraits avant de choisir.',
+  'Cette collection a été préparée par ce profil Loki Music.',
+  'Débloque la sélection pour découvrir tous ses morceaux.',
 ];
 
 const EXPLAINER_LINES = [
