@@ -106,3 +106,26 @@ Pour passer une ligne à `VERIFIED` :
 | ERR-PROFILE-ALREADY-OWNED-023 | Profil visité / collection | Le nombre de morceaux déjà gardés était connu au niveau ligne mais absent des cartes Styles ; l'utilisateur ne voyait pas immédiatement ce qu'il possédait déjà. | Calculer `genreAlreadyOwnedCounts`, afficher `n déjà chez toi` / `✓ DÉJÀ CHEZ TOI`, et montrer un popup informatif au lancement inline d'un morceau déjà gardé sans bloquer l'écoute. | Commit `38ad9ce6` + `06137b71`; contrat `f04c6b28`/`426f1ce2`. | FIXED_UNVERIFIED |
 | ERR-MARKETPLACE-FLAG-HIDES-OFFERS-024 | Profil vendeur / marketplace | `playlist_marketplace` était désactivé globalement à 0 %, et le même flag contrôlait l'affichage : une offre active réelle pouvait donc être invisible sur le profil du vendeur. | Séparer visibilité publique des offres et autorisation de checkout : offres visibles dès qu'un backend Supabase est présent ; paiement web reste derrière le flag. | Supabase production 24/09/2026 : flag `playlist_marketplace=false/0%` alors qu'une offre active `adel4A`, 5 titres, 3,00 EUR existe. Commit `494227f3`. | FIXED_UNVERIFIED |
 | ERR-MARKETPLACE-SALE-COLOR-025 | Profil visité / design | Les cartes verrouillées utilisaient un dégradé `primaryDark → backgroundCard`, trop sombre pour différencier visuellement une collection en vente du reste du profil. | Ajouter une palette dédiée EN VENTE vive (rose/violet/orange/bleu), garder cadenas/prix et halo animé, sans utiliser la vraie pochette payante. | Commit `2c5db926`; contrat `426f1ce2`; CI/390×844 à confirmer. | FIXED_UNVERIFIED |
+
+## ERR-MARKETPLACE-FREE-CONSTRAINT-015 — FREE bloqué par les anciennes contraintes €
+- **Statut :** corrigé 24/09/2026.
+- **Cause :** `playlist_sale_offers_price_cents_check` et `playlist_sale_offers_price_preset` imposaient encore un prix monétaire positif, donc une collection `payment_mode='FREE'` avec `price_cents=0` était impossible.
+- **Correction :** migration `20260924163120_playlist_sale_free_mode.sql` supprime ces contraintes, impose € ou FREE de façon cohérente, minimum 2 morceaux, et 1 débit FREE pour toute la collection.
+- **Garde-fou :** `PlaylistSaleOwnershipLock.contract.test.ts`.
+
+## ERR-RUNTIME-BATTLE-GUEST-016 — 401 keep_battle_credit_status en démo/invité
+- **Statut :** corrigé 24/09/2026.
+- **Cause :** un utilisateur de démo pouvait posséder un objet utilisateur local sans session Supabase permanente ; deux effets lançaient malgré tout le RPC Battle authentifié.
+- **Correction :** `ProfilePublicScreen.tsx` et `KeepBattleMobileGameV3.tsx` bloquent le RPC pour `isDemoMode` et `isLocalGuest`.
+- **Garde-fou :** `DemoKeepProfileExperience.contract.test.ts` + Real Browser Audit.
+
+## ERR-GUARD-BIRTHDATE-017 — contrôle date 390×844 ciblait le texte interne
+- **Statut :** corrigé 24/09/2026.
+- **Cause :** le Guardian cliquait le `Text` “Choisir une date” au lieu du vrai `TouchableOpacity`, puis pouvait confondre le libellé de fond avec la modale.
+- **Correction :** le sélecteur et la validation ont des labels d’accessibilité dédiés ; le Guardian cible ces vrais contrôles.
+- **Garde-fou :** Mobile + Desktop Guardian 390×844.
+
+## ERR-SECURITY-FREE-LEDGER-018 — droits hérités trop larges sur le journal FREE
+- **Statut :** corrigé 24/09/2026.
+- **Cause :** les grants par défaut de la nouvelle table donnaient à `anon` des privilèges inutiles ; les anonymous sign-ins partagent en plus le rôle `authenticated`.
+- **Correction :** migrations `20260924163533_playlist_sale_free_transfer_access_hardening.sql` et `20260924163615_playlist_sale_free_permanent_user_only.sql`; lecture uniquement par le vendeur/acheteur permanent concerné. Index propriétaire ajoutés par `20260924163717_playlist_sale_free_transfer_indexes.sql`.
