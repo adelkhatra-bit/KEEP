@@ -25,9 +25,9 @@ describe('MyMusicScreen — principe produit (Adel, 21/09/2026) : "on ne cache j
   });
 
   it('the "Créer une collection exclusive" banner is locked-visible instead of only appearing once unlocked', () => {
-    const idx = source.indexOf('title="Créer une collection exclusive"');
+    const idx = source.indexOf('lockedTeaser={<View style={styles.selectionStartButton}');
     expect(idx).toBeGreaterThan(-1);
-    const block = source.slice(idx - 400, idx + 900);
+    const block = source.slice(idx - 700, idx + 700);
     expect(block).toContain('unlocked={Boolean(saleAccess?.unlocked)}');
     expect(block).toContain('🔒 CRÉER UNE COLLECTION EXCLUSIVE');
   });
