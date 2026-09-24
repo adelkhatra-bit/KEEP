@@ -185,3 +185,27 @@ Le relais canonique est `keep-ai-relay` + `public.ai_relay_messages`. Ne créer 
 Utiliser `scripts/agent-lock.cjs` avant de toucher les mêmes fichiers qu'un autre agent. Une IA ne doit jamais supposer le nom d'une table, d'une route ou d'une branche : vérifier le dépôt et le schéma réel.
 
 La source de vérité est le code de cette branche + le schéma Supabase réel + les preuves CI de cette branche. Jamais une ancienne conversation, une ancienne capture, un ancien déploiement ou un ancien dossier.
+
+
+## 🔴 RÈGLE ABSOLUE — ÉTAT LOCAL ≠ REMOTE ≠ TESTÉ ≠ DÉPLOYÉ
+
+Cette règle est permanente et s'applique à tous les agents.
+
+Statuts autorisés pour décrire un changement :
+- `LOCAL_ONLY` : présent uniquement dans le clone local ;
+- `COMMITTED_LOCAL` : commit local créé mais non visible sur GitHub ;
+- `PUSHED_REMOTE` : SHA visible sur `adelkhatra-bit/KEEP`, branche `reconcile/claude-main-20260825` ;
+- `TESTED_REMOTE` : commit distant + tests/CI ciblés réellement vérifiés ;
+- `DEPLOYED` : version réellement publiée et contrôlée sur la cible.
+
+Avant d'annoncer `PUSHED_REMOTE` ou plus, l'agent doit :
+1. vérifier le repository et la branche exacts ;
+2. relire le HEAD distant ;
+3. vérifier que le contenu distant du fichier contient réellement la modification ;
+4. pour un workflow, vérifier le YAML distant ;
+5. pour une CI, citer le run réel et son résultat ;
+6. pour un déploiement, vérifier la cible réelle.
+
+Si une permission empêche le push, écrire explicitement `LOCAL_ONLY — PUSH BLOQUÉ` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`. Il est interdit de dire « poussé », « intégré », « testé » ou « déployé » sans preuve correspondante.
+
+Toute erreur trouvée doit être inscrite dans `docs/ERROR_LEDGER.md` et ne jamais être supprimée : elle passe à `VERIFIED` uniquement avec SHA + test/preuve.
