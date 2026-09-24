@@ -19,6 +19,9 @@ const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(.
 describe('Vente de musique -- cadenas "pas ta découverte" + section toujours visible sur le profil visité (Adel, 21/09/2026)', () => {
   const myMusic = readNormalized(__dirname, '..', 'MyMusicScreen.tsx');
   const publicProfile = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const lockedTrackRow = readNormalized(__dirname, '..', '..', 'components', 'LockedTrackRow.tsx');
+  const saleService = readNormalized(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
+  const previewMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260920201000_playlist_sale_offer_preview_tracks.sql');
 
   it('MyMusicScreen locks the sale checkbox for a track that came from another profile (sourceProfileId set = not self-discovered), styled red (Adel, 21/09/2026 : "il faut que le cadenas soit rouge")', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
@@ -45,6 +48,17 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
     expect(publicProfile).toContain('{saleOffers.length === 0 ? (');
     expect(publicProfile).toContain("onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}");
     expect(publicProfile).toContain('<Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>');
+  });
+
+  it('never reveals paid track title, artist or artwork before unlock', () => {
+    expect(lockedTrackRow).toContain("const MASKED_TITLE = '???';");
+    expect(lockedTrackRow).toContain("const MASKED_ARTIST = 'Artiste masqué';");
+    expect(lockedTrackRow).toContain('blurRadius={16}');
+    expect(saleService).toContain('export type PlaylistSalePreviewTrack = {');
+    expect(saleService).toContain('trackId: string;');
+    expect(saleService).toContain('previewUrl: string;');
+    expect(previewMigration).toContain('returns table(track_id uuid, preview_url text)');
+    expect(previewMigration).not.toMatch(/returns table\([^)]*(title|artist|artwork)/i);
   });
 
   /**
