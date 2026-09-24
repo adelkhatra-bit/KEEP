@@ -1667,3 +1667,46 @@ Je vois ton audit `780e011`, mais **aucun commit UI d'intégration post-handoff 
 - Même règle pour tout guard/test corrigé localement : indiquer explicitement `LOCAL ONLY` tant que le fichier n'est pas visible sur la branche distante.
 - Règle produit déjà répétée par Adel : **rien ne doit disparaître**. Donc pour l'arbitrage marketplace, retenir la voie **B** : restaurer les fonctions protégées par les tests (section `Découvertes à débloquer` + empty-state `Pas encore de musique en vente`) **sans casser la nouvelle architecture Styles**. Les intégrer comme éléments compacts/cohérents avec la maquette, pas revenir à l'ancienne longue structure.
 - Continuer uniquement sur `reconcile/claude-main-20260825`, relire HEAD avant chaque fichier, un commit par étape, puis tsc + jest + source-of-truth + 390×844 avant de déclarer intégré.
+
+
+## [Adel → TOUS LES AGENTS] 2026-09-24 — RÈGLE PERMANENTE : NE PLUS CONFONDRE LOCAL / REMOTE / DÉPLOYÉ
+
+Cette règle est définitive et doit être appliquée à chaque tâche, chaque correctif et chaque rapport.
+
+### Interdiction absolue
+Un agent ne doit **jamais** écrire ou dire :
+- « poussé » si le changement existe seulement dans son clone local ;
+- « intégré » si le fichier n'est pas visible sur la branche distante ;
+- « testé » si seul le code a été modifié sans exécuter le test ;
+- « déployé » si aucun déploiement réel n'a été vérifié ;
+- « corrigé » si la CI ciblée reste rouge à cause de ce même changement.
+
+### Statuts obligatoires à utiliser
+Chaque changement doit être classé explicitement avec l'un de ces statuts :
+1. `LOCAL_ONLY` — modifié uniquement dans le clone local ;
+2. `COMMITTED_LOCAL` — commit local créé mais non visible sur GitHub ;
+3. `PUSHED_REMOTE` — SHA visible sur `adelkhatra-bit/KEEP` / `reconcile/claude-main-20260825` ;
+4. `TESTED_REMOTE` — commit distant + tests/CI ciblés vérifiés ;
+5. `DEPLOYED` — version réellement publiée et contrôlée sur la cible.
+
+### Vérification obligatoire avant tout rapport
+Avant d'annoncer `PUSHED_REMOTE` ou plus :
+- vérifier le repository exact : `adelkhatra-bit/KEEP` ;
+- vérifier la branche exacte : `reconcile/claude-main-20260825` ;
+- relire le HEAD distant ;
+- vérifier que le fichier modifié contient réellement le changement sur le remote ;
+- pour un workflow, vérifier le contenu distant du YAML ;
+- pour une CI, citer le run réel et son résultat ;
+- pour un déploiement, vérifier la cible réelle.
+
+### Si une permission bloque
+Écrire exactement `LOCAL_ONLY — PUSH BLOQUÉ` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`, avec la cause. Ne jamais présenter le correctif comme intégré.
+
+### Branche
+Aucun correctif produit ne doit être intégré sur `main`. La branche unique reste `reconcile/claude-main-20260825` jusqu'à décision explicite d'Adel.
+
+### Mémoire des erreurs
+Toute erreur trouvée doit être ajoutée à `docs/ERROR_LEDGER.md` avec cause racine, correctif, prévention, SHA et preuve. Une erreur corrigée ne doit jamais être effacée du registre.
+
+### Coordination
+Avant chaque modification significative : lire `AGENTS.md`, `CLAUDE.md`, `PROJECT_STATE.md`, `docs/CODE_GPS.md`, `docs/ERROR_LEDGER.md`, `docs/INTEGRATION_CHECKLIST.md` et les derniers messages de ce journal. Vérifier le HEAD juste avant d'écrire pour éviter d'écraser un autre agent.
