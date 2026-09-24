@@ -73,7 +73,129 @@ echo "== Application des migrations (dans l'ordre) =="
 for f in "$MIGRATIONS_DIR"/*.sql; do
   name=$(basename "$f")
   echo "  -> $name"
-  pg -d "$DB" -f "$f" >/dev/null
+
+  # pg_cron existe sur Supabase managé mais pas dans l'image PostgreSQL 16
+  # générique utilisée par ce CI. On valide tout le corps métier de cette
+  # migration et on omet uniquement l'installation/planification cron quand
+  # l'extension n'est pas disponible localement. La production conserve la
+  # migration originale intacte.
+  if [ "$name" = "20260829235600_keep_system_auto_repair_guardian.sql" ] \
+     && ! pg -d "$DB" -Atqc "select 1 from pg_available_extensions where name='pg_cron'" | grep -q '^1
+
+echo "== Droits applicatifs (équivalent du rôle 'authenticated' Supabase) =="
+pg -d "$DB" <<'SQL' >/dev/null
+grant usage on schema public to app_user;
+grant select, insert, update, delete on all tables in schema public to app_user;
+grant usage, select on all sequences in schema public to app_user;
+SQL
+
+echo "== Assertions métier (triggers + RLS réelle) =="
+pg -d "$DB" <<'SQL'
+\set ON_ERROR_STOP on
+do $$
+declare
+  user_a uuid := gen_random_uuid();
+  user_b uuid := gen_random_uuid();
+  admin_id uuid := gen_random_uuid();
+  price_id uuid;
+  target_plan_id uuid;
+  sub_id uuid;
+  is_adult_result boolean;
+begin
+  insert into auth.users (id) values (user_a), (user_b);
+  insert into profiles (id, username) values (user_a, 'alice'), (user_b, 'bob');
+
+  insert into auth.users (id) values (admin_id);
+  insert into admin_users (id, role) values (admin_id, 'SUPER_ADMIN');
+
+  insert into profile_private_info (profile_id, birth_date) values (user_a, (current_date - interval '20 years')::date);
+  select is_adult into is_adult_result from profiles where id = user_a;
+  if is_adult_result is not true then
+    raise exception 'FAIL is_adult (20 ans) attendu true, obtenu %', is_adult_result;
+  end if;
+  raise notice 'OK is_adult (20 ans) = true';
+
+  insert into profile_private_info (profile_id, birth_date) values (user_b, (current_date - interval '10 years')::date);
+  select is_adult into is_adult_result from profiles where id = user_b;
+  if is_adult_result is not false then
+    raise exception 'FAIL is_adult (10 ans) attendu false, obtenu %', is_adult_result;
+  end if;
+  raise notice 'OK is_adult (10 ans) = false';
+
+  select id, plan_id into price_id, target_plan_id from plan_prices where currency_code = 'EUR' limit 1;
+  if price_id is null then
+    raise exception 'FAIL aucun plan_price EUR trouvé (seed manquant ?)';
+  end if;
+  insert into subscriptions (id, profile_id, plan_id, plan_price_id, channel, status, country_code, currency_code)
+    values (gen_random_uuid(), user_a, target_plan_id, price_id, 'WEB', 'ACTIVE', 'FR', 'EUR')
+    returning id into sub_id;
+  raise notice 'OK souscription EUR/EUR acceptée';
+
+  begin
+    insert into subscriptions (id, profile_id, plan_id, plan_price_id, channel, status, country_code, currency_code)
+      values (gen_random_uuid(), user_a, target_plan_id, price_id, 'WEB', 'ACTIVE', 'FR', 'AED');
+    raise exception 'FAIL le mélange de devise EUR/AED aurait dû être rejeté par le trigger';
+  exception when others then
+    if sqlerrm like '%doit correspondre%' then
+      raise notice 'OK mélange de devise EUR/AED rejeté par le trigger (%)', sqlerrm;
+    else
+      raise;
+    end if;
+  end;
+end;
+$$;
+SQL
+
+echo "== RLS réelle (rôle non-superuser, deux identités simulées) =="
+pg -d "$DB" <<'SQL'
+set role app_user;
+select set_config('request.jwt.claim.sub', (select id::text from profiles where username = 'alice'), true);
+do $$
+begin
+  if not exists (select 1 from profiles where username = 'alice') then
+    raise exception 'FAIL Alice ne voit pas son propre profil (RLS trop restrictive)';
+  end if;
+  raise notice 'OK Alice voit son propre profil';
+end;
+$$;
+do $$
+declare
+  bob_id uuid;
+  leaked_rows int;
+begin
+  select id into bob_id from profiles where username = 'bob';
+  select count(*) into leaked_rows from profile_private_info where profile_id = bob_id;
+  if leaked_rows > 0 then
+    raise exception 'FAIL fuite RLS : Alice voit % ligne(s) de profile_private_info de Bob', leaked_rows;
+  end if;
+  raise notice 'OK Alice ne voit pas les infos privées de Bob (0 ligne, RLS effective)';
+end;
+$$;
+do $$
+declare
+  visible int;
+begin
+  select count(*) into visible from admin_users;
+  if visible > 0 then
+    raise exception 'FAIL admin_users visible via un rôle applicatif (% lignes) -- policy admin_users_none inopérante', visible;
+  end if;
+  raise notice 'OK admin_users invisible via le rôle applicatif (policy admin_users_none effective)';
+end;
+$$;
+reset role;
+SQL
+
+echo ""
+echo "TOUTES LES ASSERTIONS ONT RÉUSSI (voir 'OK ...' ci-dessus) -- migrations + triggers + RLS vérifiés contre un vrai PostgreSQL 16."
+; then
+    sed \
+      -e '/^create extension if not exists pg_cron /d' \
+      -e "/^select cron\.unschedule(jobid) from cron\.job where jobname='keep-system-auto-repair';$/d" \
+      -e "/^select cron\.schedule('keep-system-auto-repair'/d" \
+      "$f" | pg -d "$DB" >/dev/null
+  else
+    pg -d "$DB" -f "$f" >/dev/null
+  fi
 done
 
 echo "== Droits applicatifs (équivalent du rôle 'authenticated' Supabase) =="
