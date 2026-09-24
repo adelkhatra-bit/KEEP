@@ -149,7 +149,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const tracksLoading = tracks === null;
   const tracksUnavailable = tracks !== null && tracks.length === 0;
   const trackCountLabel = offer.trackCount || tracks?.length || 0;
-  const priceLabel = offer.paymentMode === 'FREE'
+  const freeAccess = offer.paymentMode === 'FREE';
+  const priceLabel = freeAccess
     ? `${offer.freePrice ?? 0} FREE`
     : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
   const styleMixLabel = offer.genres?.length ? offer.genres.slice(0, 4).join(' · ') : 'Mix musical secret';
@@ -212,7 +213,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               encart avertissement acheteur" -- fonctionnement manuel tant
               que l'API PayPal réelle n'est pas intégrée. Encart permanent,
               pas seulement l'Alert transitoire après ouverture du lien. */}
-          {purchaseEnabled ? (
+          {purchaseEnabled && !freeAccess ? (
             <View style={s.manualNotice}>
               <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du créateur de la collection (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le créateur confirme l'avoir reçu.</Text>
             </View>
@@ -220,9 +221,19 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           {purchaseEnabled ? (
             <>
-              <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
+              <TouchableOpacity
+                style={s.waiverRow}
+                onPress={() => setWaiverAccepted((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: waiverAccepted }}
+                accessibilityLabel={freeAccess ? `Confirmer l'utilisation de ${priceLabel} pour toute la collection` : 'Renonciation au droit de rétractation'}
+              >
                 <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
-                <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le créateur de la collection et je renonce expressément à mon droit de rétractation de 14 jours dès le déblocage du contenu dans mon Loki Music.</Text>
+                <Text style={s.waiverText}>
+                  {freeAccess
+                    ? `Je confirme utiliser ${priceLabel} pour débloquer les ${trackCountLabel} morceau${trackCountLabel > 1 ? 'x' : ''} de cette collection en une seule fois.`
+                    : 'Je demande l’accès numérique dès confirmation du paiement par le créateur de la collection et je renonce expressément à mon droit de rétractation de 14 jours dès le déblocage du contenu dans mon Loki Music.'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -233,7 +244,11 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               >
                 <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `DÉBLOQUER LA COLLECTION · ${priceLabel}`}</Text>
               </TouchableOpacity>
-              <Text style={s.noRefund}>Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.</Text>
+              <Text style={s.noRefund}>
+                {freeAccess
+                  ? `Un seul débit de ${priceLabel} débloque toute la collection. Aucun débit n’est effectué morceau par morceau.`
+                  : 'Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.'}
+              </Text>
             </>
           ) : (
             <View style={s.nativePreviewNotice}>
