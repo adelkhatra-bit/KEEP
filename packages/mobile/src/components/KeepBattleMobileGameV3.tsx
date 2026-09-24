@@ -1134,7 +1134,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // Le RPC de crédit est authentifié. En mode visiteur/demo, ne jamais
     // l'appeler : cela provoquait un 401 toutes les 4 s et faisait échouer
     // l'audit navigateur alors que le Battle invité doit rester consultable.
-    if (!useUserStore.getState().user?.id) {
+    const userState = useUserStore.getState();
+    if (!userState.user?.id || userState.isLocalGuest || userState.isDemoMode) {
       setMyCreditStatus(null);
       return undefined;
     }
