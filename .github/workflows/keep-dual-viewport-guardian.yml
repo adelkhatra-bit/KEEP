@@ -238,9 +238,12 @@ jobs:
             await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText(/Position trouvée/i).last().waitFor({state:'visible',timeout:15000});
 
-            await clickRobust(page,page.getByText('Choisir une date',{exact:true}).last(),'Choose birth date');
-            await page.getByText('Date de naissance',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await clickRobust(page,page.getByText('Valider la date',{exact:true}).last(),'Validate birth date');
+            const birthDateSelector=page.getByLabel(/Date de naissance\s*:\s*/i).last();
+            await birthDateSelector.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,birthDateSelector,'Choose birth date');
+            const validateBirthDate=page.getByLabel('Valider la date de naissance').last();
+            await validateBirthDate.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,validateBirthDate,'Validate birth date');
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
 
