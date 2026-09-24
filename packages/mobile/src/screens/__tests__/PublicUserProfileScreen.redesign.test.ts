@@ -30,9 +30,9 @@ describe('PublicUserProfileScreen redesign (Adel, 23/09/2026 : plan revalidé --
     expect(socialHub).toBeGreaterThan(tabsRow);
   });
 
-  it('exposes exactly two collection tabs, Musiques and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
+  it('exposes exactly two collection tabs, Styles and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
     expect(source).toContain("type ProfileTab = 'TRACKS' | 'ARTISTS';");
-    expect(source).toContain("{ key: 'TRACKS', label: 'Musiques' }, { key: 'ARTISTS', label: 'Artistes' },");
+    expect(source).toContain("{ key: 'TRACKS', label: 'Styles' }, { key: 'ARTISTS', label: 'Artistes' },");
     expect(source).not.toMatch(/label:\s*'Vibes'/);
   });
 

@@ -24,7 +24,7 @@ function assertIncludes(source, marker, label) {
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
   '{user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}',
-  'accessibilityLabel="Partager mon profil"',
+  'accessibilityLabel="Inviter ou partager mon profil"',
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
   '<View style={s.communitySection}>',
@@ -35,10 +35,10 @@ assertOrdered(owner, [
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
 ], 'Owner profile collective hierarchy');
 
-if ((owner.match(/accessibilityLabel="Partager mon profil"/g) || []).length !== 1) {
+if ((owner.match(/accessibilityLabel="Inviter ou partager mon profil"/g) || []).length !== 1) {
   throw new Error('Owner profile must expose exactly one PARTAGER action');
 }
-if ((owner.match(/accessibilityLabel="Prévisualiser ma collection en Swipe"/g) || []).length !== 1) {
+if ((owner.match(/accessibilityLabel="Prévisualiser mon univers en Swipe"/g) || []).length !== 1) {
   throw new Error('Owner profile must expose exactly one SWIPE action');
 }
 
@@ -51,6 +51,7 @@ assertOrdered(visitor, [
   "{ value: followerCount, label: 'Abonnés'",
   '<CommunityConnectionsPanel userId={profile.id}',
   "{ value: directKeepCount, label: 'Morceaux' }",
+  '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
