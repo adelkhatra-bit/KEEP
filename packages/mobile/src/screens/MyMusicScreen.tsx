@@ -11,8 +11,8 @@ import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
-import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, removeTrackFromOffer, SALE_PRESET_PRICES_CENTS, setPlaylistSalePrice, setPlaylistSalePriceForSelection, updateOfferPrice } from '../services/playlistSaleService';
-import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
+import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
+import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
@@ -166,7 +166,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // chaque focus de l'écran, comme refreshLibrary juste en dessous.
   useEffect(() => {
     let live = true;
-    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
+    const check = () => { isPlaylistMarketplaceVisible().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
     check();
     const unsubscribe = navigation?.addListener?.('focus', check);
     return () => { live = false; unsubscribe?.(); };
@@ -181,7 +181,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
     | { kind: 'selection'; key: string; name: string; trackIds: string[]; coverUrl?: string | null }
     | null
   >(null);
+  const [sellPaymentMode, setSellPaymentMode] = useState<PlaylistSalePaymentMode>('MONEY');
   const [sellPriceCents, setSellPriceCents] = useState<number | null>(null);
+  const [sellFreePrice, setSellFreePrice] = useState<number | null>(null);
   const [sellBusy, setSellBusy] = useState(false);
   const [saleSelectionMode, setSaleSelectionMode] = useState(false);
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
@@ -721,32 +723,39 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
     setSellTarget(target);
     const existingKey = target?.kind === 'playlist' ? target.playlist.id : target?.key;
-    setSellPriceCents(existingKey && myOffers[existingKey] ? myOffers[existingKey].priceCents : null);
+    const existing = existingKey ? myOffers[existingKey] : undefined;
+    const mode: PlaylistSalePaymentMode = existing?.paymentMode === 'FREE' ? 'FREE' : 'MONEY';
+    setSellPaymentMode(mode);
+    setSellPriceCents(existing?.priceCents || null);
+    setSellFreePrice(existing?.freePrice ?? null);
   };
 
   const saveSellPrice = async () => {
-    if (!sellTarget || !sellPriceCents) { Alert.alert('Prix requis', 'Choisis un prix dans la liste.'); return; }
-    // Adel : vendre un morceau ou un album n'a pas de vraie playlist
-    // serveur -- le RPC génère son propre id (keep-selection:<uuid>),
-    // différent de la clé stable côté écran (id du morceau/groupe). On
-    // indexe donc myOffers par la clé STABLE (pas offer.playlistId), pour
-    // que le badge "déjà en vente" retrouve le bon morceau/groupe.
+    if (!sellTarget) return;
+    const amount = sellPaymentMode === 'FREE' ? sellFreePrice : sellPriceCents;
+    if (!amount) {
+      Alert.alert('Montant requis', sellPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant en euros.');
+      return;
+    }
     const stableKey = sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key;
     setSellBusy(true);
     try {
-      const offer = sellTarget.kind === 'playlist'
-        ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents)
-        : await setPlaylistSalePriceForSelection(sellTarget.trackIds, sellTarget.name, sellPriceCents, 'EUR', sellTarget.coverUrl);
+      const offer = sellTarget.kind === 'selection'
+        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR')
+        : sellPaymentMode === 'MONEY'
+          ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents ?? 0)
+          : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();
       setMyOffers((prev) => ({ ...prev, [stableKey]: offer }));
-      // L'offre est créée côté serveur avec son vrai playlist_id. Recharge
-      // immédiatement l'état marketplace afin que cadenas/badges et mapping
-      // des morceaux reflètent la base sans obliger l'utilisateur à refresh.
       await refreshSaleState();
       if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) cancelSaleSelection();
       closeSellModal();
     } catch (e: any) {
       const raw = String(e?.message || e || '');
-      Alert.alert('Collection', resolveSaleSaveError(raw, saleAccess?.followers, saleAccess?.threshold));
+      if (raw.includes('FREE_REQUIRES_MULTI_TRACK_SELECTION')) {
+        Alert.alert('Collection exclusive', 'Pour utiliser les FREE, crée une collection depuis la sélection multiple de morceaux.');
+      } else {
+        Alert.alert('Collection', resolveSaleSaveError(raw, saleAccess?.followers, saleAccess?.threshold));
+      }
     } finally {
       setSellBusy(false);
     }
@@ -1281,6 +1290,24 @@ export default function MyMusicScreen({ navigation, route }: any) {
             placeholderTextColor={colors.textMuted}
             accessibilityLabel="Nom de la collection exclusive"
           /> : null}
+          {sellTarget?.kind === 'selection' ? (
+            <View style={styles.priceChipsRow}>
+              <TouchableOpacity
+                style={[styles.priceChip, sellPaymentMode === 'MONEY' && styles.priceChipOn]}
+                onPress={() => setSellPaymentMode('MONEY')}
+                accessibilityLabel="Choisir un déblocage en euros"
+              >
+                <Text style={[styles.priceChipText, sellPaymentMode === 'MONEY' && styles.priceChipTextOn]}>€ EUROS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.priceChip, sellPaymentMode === 'FREE' && styles.priceChipOn]}
+                onPress={() => setSellPaymentMode('FREE')}
+                accessibilityLabel="Choisir un déblocage en FREE"
+              >
+                <Text style={[styles.priceChipText, sellPaymentMode === 'FREE' && styles.priceChipTextOn]}>⚡ FREE</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           <View style={styles.salePriceHeader}>
             <Text style={styles.salePriceLabel}>ACCÈS À TOUTE LA COLLECTION</Text>
             <Text style={styles.salePriceExplain}>
@@ -1289,17 +1316,36 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 : 'Ce montant débloque toute la collection — jamais chaque morceau séparément.'}
             </Text>
           </View>
-          <View style={styles.priceChipsRow}>
-            {SALE_PRESET_PRICES_CENTS.map((cents) => (
-              <TouchableOpacity key={cents} style={[styles.priceChip, sellPriceCents === cents && styles.priceChipOn]} onPress={() => setSellPriceCents(cents)}>
-                <Text style={[styles.priceChipText, sellPriceCents === cents && styles.priceChipTextOn]}>{(cents / 100).toFixed(2).replace('.', ',')}€</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {sellPriceCents ? <Text style={styles.salePriceSummary}>
-            TOTAL À PAYER · {(sellPriceCents / 100).toFixed(2).replace('.', ',')}€ {sellTarget?.kind === 'selection' ? `pour ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'pour toute la playlist'}
+          {sellPaymentMode === 'MONEY' ? (
+            <View style={styles.priceChipsRow}>
+              {SALE_PRESET_PRICES_CENTS.map((cents) => (
+                <TouchableOpacity key={cents} style={[styles.priceChip, sellPriceCents === cents && styles.priceChipOn]} onPress={() => setSellPriceCents(cents)}>
+                  <Text style={[styles.priceChipText, sellPriceCents === cents && styles.priceChipTextOn]}>{(cents / 100).toFixed(2).replace('.', ',')}€</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.priceChipsRow}>
+              {SALE_PRESET_FREE.map((free) => (
+                <TouchableOpacity key={free} style={[styles.priceChip, sellFreePrice === free && styles.priceChipOn]} onPress={() => setSellFreePrice(free)}>
+                  <Text style={[styles.priceChipText, sellFreePrice === free && styles.priceChipTextOn]}>{free} FREE</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          {sellPaymentMode === 'MONEY' && sellPriceCents ? <Text style={styles.salePriceSummary}>
+            DÉBLOCAGE COMPLET · {(sellPriceCents / 100).toFixed(2).replace('.', ',')}€ {sellTarget?.kind === 'selection' ? `pour ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'pour toute la collection'}
           </Text> : null}
-          <TouchableOpacity style={styles.saveButton} onPress={() => void saveSellPrice()} disabled={sellBusy || !sellPriceCents}>{sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}</TouchableOpacity>
+          {sellPaymentMode === 'FREE' && sellFreePrice ? <Text style={styles.salePriceSummary}>
+            DÉBLOCAGE COMPLET · {sellFreePrice} FREE pour {sellTarget?.kind === 'selection' ? `${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'toute la collection'}
+          </Text> : null}
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={() => void saveSellPrice()}
+            disabled={sellBusy || (sellPaymentMode === 'MONEY' ? !sellPriceCents : !sellFreePrice)}
+          >
+            {sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}
+          </TouchableOpacity>
           {sellTarget && myOffers[sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key] ? (
             <TouchableOpacity style={styles.cancelButton} onPress={() => void removeSellPrice()} disabled={sellBusy}><Text style={[styles.cancelText, { color: colors.danger }]}>RETIRER DU PROFIL</Text></TouchableOpacity>
           ) : null}
