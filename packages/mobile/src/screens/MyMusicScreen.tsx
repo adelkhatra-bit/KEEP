@@ -43,7 +43,7 @@ type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[]
 // même chose qu'Artistes, avec le même bloc d'affichage.
 type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES';
 const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
-  { key: 'MUSIQUES', label: 'Musiques' }, { key: 'VIBES', label: 'Vibes' },
+  { key: 'VIBES', label: 'Styles' }, { key: 'MUSIQUES', label: 'Playlists' },
   { key: 'ARTISTES', label: 'Artistes' },
 ];
 const ARTIST_ID_PREFIX = 'keep-artist:';
@@ -57,10 +57,10 @@ function trackIdentity(track: CanonicalTrack) {
 }
 
 function sortGateLabel(access: QuotaAccess | null) {
-  if (!access) return 'VIBES Loki Music';
-  if (access.unlimited) return 'VIBES AUTO · ILLIMITÉ';
-  if (access.allowed && (access.remaining ?? 0) > 0) return `TESTER VIBES AUTO · ${access.remaining} RESTANT${access.remaining === 1 ? '' : 'S'}`;
-  return '🔒 VIBES AUTOMATIQUES';
+  if (!access) return 'STYLES Loki Music';
+  if (access.unlimited) return 'STYLES AUTO · ILLIMITÉ';
+  if (access.allowed && (access.remaining ?? 0) > 0) return `TESTER LE TRI PAR STYLES · ${access.remaining} RESTANT${access.remaining === 1 ? '' : 'S'}`;
+  return '🔒 STYLES AUTOMATIQUES';
 }
 
 // Adel : le serveur (RPC keep_playlist_sale_set_price_for_selection_v2) lève des
@@ -123,7 +123,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const [bulkVisibilityBusy, setBulkVisibilityBusy] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
   const [trackVisibilityBusy, setTrackVisibilityBusy] = useState<string | null>(null);
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<LibraryTab>('MUSIQUES');
+  const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
@@ -365,7 +365,15 @@ export default function MyMusicScreen({ navigation }: any) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [localKeptTracks]);
 
-  const tabPlaylists = activeTab === 'ARTISTES' ? artistPlaylists : displayPlaylists;
+  const stylePlaylists = useMemo(
+    () => displayPlaylists.filter((playlist) => isSmartAlbumUiId(playlist.id)),
+    [displayPlaylists],
+  );
+  const regularPlaylists = useMemo(
+    () => displayPlaylists.filter((playlist) => !isSmartAlbumUiId(playlist.id)),
+    [displayPlaylists],
+  );
+  const tabPlaylists = activeTab === 'ARTISTES' ? artistPlaylists : stylePlaylists;
 
   const loadProviderTracks = async (playlist: ProviderPlaylist): Promise<CanonicalTrack[]> => {
     if (tracksByPlaylist[playlist.id]) return tracksByPlaylist[playlist.id];
@@ -1005,7 +1013,7 @@ export default function MyMusicScreen({ navigation }: any) {
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Mes musiques</Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>Loki Music · Vibes · services</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>Styles · Playlists · Artistes</Text>
         </View>
         <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux"><Text style={styles.servicesButtonText}>＋ Services</Text></TouchableOpacity>
       </View>
@@ -1090,7 +1098,7 @@ export default function MyMusicScreen({ navigation }: any) {
             ))}
           </View>
         ) : null}
-        <Text style={styles.analysisHelp}>Loki Music crée les Vibes par style sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
+        <Text style={styles.analysisHelp}>Loki Music crée les Styles automatiquement sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
 
       {activeTab === 'MUSIQUES' ? (
@@ -1101,6 +1109,13 @@ export default function MyMusicScreen({ navigation }: any) {
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
           ListHeaderComponent={<>
+            {regularPlaylists.length ? (
+              <View style={styles.playlistFoldersIntro}>
+                <Text style={styles.playlistFoldersTitle}>MES PLAYLISTS</Text>
+                <Text style={styles.playlistFoldersHint}>Tes collections complètes restent accessibles ici. Tes Styles automatiques sont dans l’onglet Styles.</Text>
+                {regularPlaylists.map((playlist) => <View key={`manual:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
+              </View>
+            ) : null}
             {marketplaceEnabled && localKeptTracks.length && !saleSelectionMode ? <View style={styles.selectionToolbar}>
               <LockedFeatureCard
                 unlocked={Boolean(saleAccess?.unlocked)}
@@ -1145,7 +1160,7 @@ export default function MyMusicScreen({ navigation }: any) {
               <View key={`social:${trackIdentity(track)}`}>{renderTrack(track)}</View>
             ))}</View> : null}
           </View> : null}
-          ListEmptyComponent={socialRepriseEntries.length ? null : <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+          ListEmptyComponent={socialRepriseEntries.length ? null : <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Aucune musique gardée</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Styles automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
           contentContainerStyle={[styles.list, saleSelectionMode && styles.listWithStickyFooter]}
         />
       ) : (
@@ -1302,6 +1317,7 @@ const styles = StyleSheet.create({
   listWithStickyFooter:{paddingBottom:96},
   stickySelectionFooter:{position:'absolute',left:12,right:12,bottom:12,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',gap:8,shadowColor:'#000',shadowOpacity:0.3,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:6},
   stickySelectionActions:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},
+  playlistFoldersIntro:{marginBottom:14},playlistFoldersTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},playlistFoldersHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4,marginBottom:8},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},
   // Adel (21/09/2026) : hauteur fixe (56, plus compacte que les cartes de
