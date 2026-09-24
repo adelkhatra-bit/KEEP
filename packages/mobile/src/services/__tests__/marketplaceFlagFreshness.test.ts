@@ -26,15 +26,19 @@ describe('marketplaceEnabled se recalcule à chaque focus d\'écran, pas seuleme
     ['PlaylistSalePanel.tsx', path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx')],
   ] as const;
 
-  it.each(files)('%s re-checks isPlaylistMarketplaceEnabled on every navigation focus, not just on mount', (_name, filePath) => {
+  it.each(files)('%s re-checks marketplace state on every navigation focus, not just on mount', (_name, filePath) => {
     const source = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-    expect(source).toContain("navigation?.addListener?.('focus', check)");
-    // La dépendance ne doit plus être un tableau vide (montage seul) --
-    // navigation doit apparaître dans le tableau de dépendances de CET
-    // effet précis, pas ailleurs dans le fichier.
-    const effectStart = source.indexOf('const check = () => { isPlaylistMarketplaceEnabled()');
+    expect(source).toContain("navigation?.addListener?.('focus'");
+    // La visibilité et/ou la transaction peuvent désormais être vérifiées
+    // séparément, mais l'effet doit toujours être dépendant de navigation
+    // et relancé au focus de l'écran.
+    expect(source).toMatch(/isPlaylistMarketplace(?:Visible|Enabled)\(\)/);
+    const effectStart = Math.max(
+      source.indexOf('const check = () => { isPlaylistMarketplace'),
+      source.indexOf('const check = async () => {'),
+    );
     expect(effectStart).toBeGreaterThan(-1);
-    const effectBlock = source.slice(effectStart, effectStart + 300);
+    const effectBlock = source.slice(effectStart, effectStart + 700);
     expect(effectBlock).toContain('}, [navigation]);');
   });
 });
