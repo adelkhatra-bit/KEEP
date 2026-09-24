@@ -53,6 +53,8 @@ Chaque nouvelle entrée doit contenir :
 | ERR-WEB-ROUTE-TEST-001 | GitHub Pages | Le navigateur de test traitait la redirection canonique `/Main/ → /Main/Listen` comme une perte de route. | Le test accepte explicitement la redirection canonique. Commit `c98681af`. | À vérifier sur le prochain run Pages vert. | FIXED_UNVERIFIED |
 | ERR-WEB-PLAYLIST-AUDIT-001 | Web runtime audit | Le test cherchait `Toute ma musique` alors que l'écran Playlists ouvre désormais l'onglet Styles par défaut. | Le test ouvre d'abord l'onglet interne `Playlists`, puis exécute la boucle de suppression. Commit `7d1a79f0`. | À vérifier sur le prochain run Real Browser vert. | FIXED_UNVERIFIED |
 
+| ERR-PROFILE-MOTION-GUARD-002 | Profil/tests | Le guard de hiérarchie cherchait encore `<View style={styles.publicMusicSection}>` après remplacement par `ProfileMotionReveal`, faisant échouer Mobile CI alors que la structure restait présente. | Aligner le guard sur le wrapper animé réel sans affaiblir l’ordre des sections ; ne pas supprimer le contrôle de hiérarchie. | Run `35992953615` : échec unique `missing marker` sur `publicMusicSection`; correctif `5e960546`. | FIXED_UNVERIFIED |
+
 ## Erreurs interdites à réintroduire
 
 1. `saleOffers[0]` comme source universelle d'une collection payante.
