@@ -146,7 +146,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
   };
 
   const handleClearPrice = async (playlistId: string) => {
-    Alert.alert('Retirer la collection', 'La collection ne sera plus proposée. Les personnes qui l'ont déjà débloquée garderont leur accès.', [
+    Alert.alert('Retirer la collection', "La collection ne sera plus proposée. Les personnes qui l'ont déjà débloquée garderont leur accès.", [
       { text: 'Annuler', onPress: () => {} },
       {
         text: 'Désactiver',
