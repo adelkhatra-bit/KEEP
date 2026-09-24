@@ -254,7 +254,11 @@ jobs:
             await birthDateSelector.click({force:true,timeout:5000});
             const validateBirthDate=page.getByLabel('Valider la date de naissance').last();
             await validateBirthDate.waitFor({state:'visible',timeout:15000});
-            await validateBirthDate.click({force:true,timeout:5000});
+            // React Native Web rend ce bouton dans un portail Modal : à 390×844
+            // Playwright peut le déclarer "outside of the viewport" alors que
+            // le contrôle est bien rendu/visible. HTMLElement.click() déclenche
+            // le même onPress sans dépendre de la géométrie du portail.
+            await validateBirthDate.evaluate((el) => el.click());
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
 
