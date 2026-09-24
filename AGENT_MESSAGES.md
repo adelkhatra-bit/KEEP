@@ -1543,3 +1543,48 @@ Vérifié dans le code réel (`PublicUserProfileScreen.tsx`, `PlaylistSaleImmers
   - correction : dossier verrouillé relié à sa vraie offre, plus de proxy global `saleOffers[0]` pour le prix des dossiers.
 - **Audit CI avant suite** : Source-of-truth rouge sur `playlist-sale` dans `.github/workflows/web-preview-pages.yml`, Android rouge sur ressource notification invalide `keep-money`, EAS iOS rouge sur auth Apple Team ID. Ces sujets sont laissés au périmètre CI/App Store de l'autre agent, pas mélangés à la refonte UI.
 - Je m'arrête après cette étape de coordination/audit et attends le prochain `continue` d'Adel avant l'étape d'intégration suivante.
+
+
+## [ChatGPT Sol → Loki Music Agent / Abacus-Claude] 2026-09-24 — HANDOFF DESIGN + INTÉGRATION À PRENDRE
+
+**BRANCHE UNIQUE OBLIGATOIRE :** `reconcile/claude-main-20260825`  
+**NE PAS travailler sur `main`.** Toujours relire le HEAD de cette branche avant chaque modification.
+
+Adel demande maintenant que **Loki Music Agent / Abacus-Claude fasse l’intégration UI** pour éviter deux intégrateurs concurrents. ChatGPT Sol se retire du code UI tant que ce handoff est actif.
+
+### Références design à suivre exactement
+- Spécification validée : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`
+- Maquette validée propriétaire + visiteur : `docs/mockups/ProfileStylesMarketplace.html`
+- Audit UX complet : `docs/audit/AUDIT_UX_FUNNEL_20260924.md`
+
+### Code déjà intégré à conserver / auditer, ne pas réécrire aveuglément
+- `654ed54107febd0a7fb61e6c5a9a9fb1f9154a77` — profil visité : Styles prioritaires.
+- `ca41db86a5ce0ff372c3c52ac6dac7d43243f362` — profil propriétaire : Styles + `INVITER / PARTAGER` + `GÉRER MES VENTES` dans le hero.
+- `a9ddb5312108ad7dafc8a92e2742d09785b3ed64` — correction : dossiers verrouillés liés à leur vraie offre, pas de `saleOffers[0]` comme prix global.
+
+### Ordre d’intégration demandé
+1. **Audit d’abord** du HEAD et des tests existants.
+2. **Profil visiteur** : vérifier que la vue principale est bien par Styles, que la longue liste est secondaire, que gratuit/payant/débloqué sont compréhensibles en 1 tap.
+3. **Profil propriétaire** : conserver tous les blocs existants ; accès direct `INVITER / PARTAGER` + `VENDRE / GÉRER MES VENTES` ; Styles en premier ; longue liste secondaire.
+4. **MyMusicScreen.tsx** : passer la hiérarchie vers `Styles / Playlists / Artistes` sans supprimer les fonctions ; garder la séparation réelle `Mes découvertes` / `Reprises d'autres utilisateurs` ; réutiliser Smart Albums/Vibes existants, ne pas créer un deuxième moteur.
+5. **PlaylistSalePanel.tsx** : remplacer les couleurs hardcodées par les tokens du Design System ; aucune régression vente/historique/paiement/livraison.
+6. **Onboarding / inscription** : seulement après profils/playlists stables ; expliquer que Loki classe automatiquement les découvertes par styles, sans promettre de revenu garanti.
+7. **Super Admin** : vérifier les flags/règles déjà existants ; ne pas dupliquer les réglages.
+8. Tests 390×844 + web avant tout nouveau build natif.
+
+### Invariants — rien ne doit disparaître
+- Loki DNA, bio, avatar, ville/pays, réseaux, site web, compteurs, suivre, partager, reprises, attribution `Découvert par`, 1er Gardé, visibilité Public/Privé, Battle/progression, artistes, soirées, réglages et actions existantes.
+- Contenu payant avant achat : **aucun titre/artiste/jaquette réel** ; preview audio protégée seulement.
+- Après achat : déverrouillage immédiat sans refresh.
+- Une Smart Album/Vibe mise en vente ne doit jamais rester accessible gratuitement par un autre chemin.
+- Ne pas toucher `packages/mobile/App.tsx`, `Navigation.tsx` ni la barre des 5 onglets pour cette refonte.
+
+### CI / Apple — périmètre séparé
+Les rouges actuels connus ne doivent pas être mélangés avec la refonte UI :
+- source-of-truth Pages réclame encore `playlist-sale` ;
+- Android : ressource notification invalide `keep-money` ;
+- EAS iOS : auth Apple Team ID/credentials ;
+- ces sujets restent dans le chantier CI/App Store.
+
+### Règle de coordination
+Avant chaque push UI : relire `AGENT_MESSAGES.md`, vérifier le HEAD, puis modifier un seul écran/périmètre à la fois avec un commit dédié. Si un autre agent vient de toucher le même fichier, rebase/relire avant de continuer. Ne jamais écraser un changement récent.
