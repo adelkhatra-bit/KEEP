@@ -59,7 +59,8 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
   });
 
   it('is wired into the public profile boutique instead of buying directly on card tap', () => {
-    expect(profile).toContain('onPress={() => openSaleFolder(offer)}');\n    expect(profile).toContain('setImmersivePreviewOffer(offer);');
+    expect(profile).toContain('onPress={() => openSaleFolder(offer)}');
+    expect(profile).toContain('setImmersivePreviewOffer(offer);');
     expect(profile).not.toMatch(/onPress=\{\(\) => void buyPlaylistOffer\(offer\)\}[^]*?accessibilityLabel=\{`Acheter/);
     expect(profile).toContain('onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}');
   });
