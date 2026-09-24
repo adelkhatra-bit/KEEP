@@ -26,7 +26,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -579,11 +579,47 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
-    if (!marketplacePurchaseEnabled) {
-      Alert.alert('Aperçu disponible', 'Tu peux écouter les extraits anonymes et voir les collections verrouillées. L’achat externe n’est pas activé dans cette version mobile.');
+    if (purchaseBusyId) return;
+    if (!viewer || isLocalGuest || isDemoMode) {
+      goToOwnProfile();
       return;
     }
-    if (purchaseBusyId) return;
+
+    // FREE = monnaie interne Loki Music : le déblocage est atomique et
+    // immédiat, y compris sur mobile. Un seul débit débloque TOUTE la
+    // collection, jamais morceau par morceau.
+    if (offer.paymentMode === 'FREE') {
+      setPurchaseBusyId(offer.offerId);
+      try {
+        const result = await purchasePlaylistOfferWithFree(offer.offerId);
+        setSaleUnlocks((current) => ({
+          ...current,
+          [offer.offerId]: { offerId: offer.offerId, deliveredPlaylistId: result.playlistId },
+        }));
+        setImmersivePreviewOffer(null);
+        Alert.alert(
+          result.alreadyUnlocked ? 'Déjà débloquée' : 'Collection débloquée',
+          result.alreadyUnlocked
+            ? 'Cette collection est déjà dans ton Loki Music.'
+            : `Les ${result.trackCount} morceaux sont maintenant dans ton Loki Music. Il te reste ${result.remainingFree} FREE.`,
+        );
+      } catch (e: any) {
+        const message = String(e?.message || '');
+        const match = message.match(/NOT_ENOUGH_FREE:(\d+):(\d+)/);
+        if (match) Alert.alert('Pas assez de FREE', `Tu as ${match[1]} FREE, cette collection en demande ${match[2]}.`);
+        else if (message.includes('authentication_required')) goToOwnProfile();
+        else Alert.alert('Collection', 'Impossible de débloquer cette collection en FREE pour le moment.');
+      } finally {
+        setPurchaseBusyId(null);
+      }
+      return;
+    }
+
+    if (!marketplacePurchaseEnabled) {
+      Alert.alert('Aperçu disponible', 'Tu peux écouter les extraits anonymes et voir les collections verrouillées. Le paiement externe n’est pas activé dans cette version mobile.');
+      return;
+    }
+
     setPurchaseBusyId(offer.offerId);
     try {
       // La RPC attend l'UUID de l'offre, jamais l'identifiant technique de
@@ -1337,7 +1373,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             busy={purchaseBusyId === immersivePreviewOffer.offerId}
             onClose={() => setImmersivePreviewOffer(null)}
             onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
-            purchaseEnabled={marketplacePurchaseEnabled}
+            purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
           />
         ) : null}
 
