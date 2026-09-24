@@ -19,6 +19,7 @@ import LockedTrackRow from '../components/LockedTrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
+import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
@@ -847,7 +848,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <TouchableOpacity style={styles.shareTopButton} onPress={() => void shareThisProfile()} accessibilityLabel="Partager ce profil"><Text style={styles.shareTopText}>↗</Text></TouchableOpacity>
         </View>
 
-        <View style={styles.hero}>
+        <ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>
           <View style={styles.identity}>
             {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{(profile.username || 'K').replace(/^@/, '').slice(0, 1).toUpperCase()}</Text></View>}
             <View style={styles.identityText}>
@@ -889,7 +890,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               {battleInviteBusy ? <ActivityIndicator color={colors.textPrimary} size="small" /> : <Text style={styles.visitorBattleButtonText}>⚡ DÉFIER EN BATTLE</Text>}
             </TouchableOpacity>
           ) : null}
-        </View>
+        </ProfileMotionReveal>
 
         {/* DESIGN_SYSTEM v3 (21/09/2026) : ordre validé par Adel -- identité,
             puis compteurs regroupés en UN SEUL bloc (avant : Abonnés/Reprises
@@ -909,7 +910,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         </View>
 
         {marketplaceEnabled ? (
-          <View style={styles.marketplaceSection}>
+          <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <Text style={styles.marketplaceKicker}>BOUTIQUE DE @{profile.username.replace(/^@/, '')}</Text>
             <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
             <Text style={styles.marketplaceHint}>Écoute les extraits avant de débloquer. Les titres, artistes et pochettes restent masqués avant achat.</Text>
@@ -953,7 +954,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 {saleOffers.length > 3 ? <Text style={styles.marketplaceMore}>+ {saleOffers.length - 3} autre{saleOffers.length - 3 > 1 ? 's' : ''} collection{saleOffers.length - 3 > 1 ? 's' : ''} dans ses Styles</Text> : null}
               </View>
             )}
-          </View>
+          </ProfileMotionReveal>
         ) : null}
 
         <View style={styles.collectionHeader}>
@@ -985,7 +986,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         </Modal>
 
         {activeTab === 'TRACKS' ? (
-          <View style={styles.publicMusicSection}>
+          <ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>
             <Text style={styles.styleIntro}>Choisis un style et écoute directement l’univers de @{profile.username}. Les collections payantes restent masquées jusqu’au déblocage.</Text>
             <View style={styles.styleGrid}>
               {(visiblePublicVibes.length > 0 ? visiblePublicVibes : []).map((vibe) => (
@@ -1171,7 +1172,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                           <View style={styles.folderPrice}><Text style={styles.folderPriceText}>{`🔒 ${priceLabel}`}</Text></View>
                         </TouchableOpacity>
                         {open ? (
-                          <View style={styles.lockedFolderTracks}>
+                          <ProfileMotionReveal motionKey={`visitor-sale-style:${folderKey}`} compact style={styles.lockedFolderTracks}>
                             {folder.tracks.map((track) => (
                               <LockedTrackRow
                                 key={`locked:${track.id}`}
@@ -1181,7 +1182,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                                 onUnlockPress={() => setImmersivePreviewOffer(offer)}
                               />
                             ))}
-                          </View>
+                          </ProfileMotionReveal>
                         ) : null}
                       </View>
                     );
@@ -1190,9 +1191,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </View>
             ) : null}
             </> : null}
-          </View>
+          </ProfileMotionReveal>
         ) : (
-          <View style={styles.publicMusicSection}>
+          <ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>
             {/* (21/09/2026) : onglet Artistes -- remplace le bouton "PAR
                 ARTISTE" + sa modale (même liste artistGroups, même action
                 Swipe filtré, pour ne pas dupliquer la fonction). */}
@@ -1207,7 +1208,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </TouchableOpacity>;
               })}</View>
             )}
-          </View>
+          </ProfileMotionReveal>
         )}
 
         <View style={styles.dna}>
