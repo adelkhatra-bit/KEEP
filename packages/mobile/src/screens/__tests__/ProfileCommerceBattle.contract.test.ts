@@ -32,7 +32,8 @@ describe('Profile commerce + Battle contract', () => {
     expect(publicProfile).toContain("import { sendBattleChallenge } from '../services/keepBattleLiveService';");
     expect(publicProfile).toContain("await sendBattleChallenge(profile.id, 'MIX', 8);");
     expect(publicProfile).toContain('accessibilityLabel={`Défier ${profile.username} en Battle`}');
-    expect(publicProfile).toContain('⚡ DÉFIER EN BATTLE');
+    expect(publicProfile).toContain('icon="⚡"');
+    expect(publicProfile).toContain("title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}");
   });
 
   it('keeps Battle safety gates and clear failure feedback', () => {
