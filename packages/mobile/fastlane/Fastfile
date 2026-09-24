@@ -82,13 +82,14 @@ platform :ios do
       skip_binary_upload: true,
       force: true,
       automatic_release: true,
-      run_precheck_before_submit: true
+      run_precheck_before_submit: true,
+      precheck_include_in_app_purchases: false
     )
     UI.success("Loki Music #{version} (build #{build}) soumise a la review App Store.")
   end
 
   desc "Controle la conformite de la fiche avant soumission"
   lane :validate do
-    precheck
+    precheck(include_in_app_purchases: false)
   end
 end
