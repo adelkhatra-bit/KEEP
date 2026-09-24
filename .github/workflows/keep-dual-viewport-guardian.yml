@@ -148,7 +148,7 @@ jobs:
               const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1});
               const page=await context.newPage();
               await openKeep(page);
-              await page.getByText('Profil',{exact:true}).last().click();
+              await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Desktop Profil tab');
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               await assertNoOverflow(page,'desktop-1440x900');
               await page.screenshot({path:'artifacts/dual-viewport/desktop-1440x900-profile.png',fullPage:true});
@@ -181,12 +181,12 @@ jobs:
 
             const start=page.getByLabel('Démarrer une écoute').last();
             await start.waitFor({state:'visible',timeout:15000});
-            await start.click();
+            await clickRobust(page,start,'Listen start');
             await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000});
             const stop=page.getByText(/Terminer la session|Arrêter|End session/i).last();
             await stop.waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/02-listen-active.png',fullPage:true});
-            await stop.click();
+            await clickRobust(page,stop,'Listen stop');
             await start.waitFor({state:'visible',timeout:15000});
 
             await clickRobust(page,page.getByText('Découvertes',{exact:true}).last(),'Découvertes tab');
@@ -195,14 +195,14 @@ jobs:
             await clickRobust(page,page.getByText('Soirées',{exact:true}).last(),'Soirées tab');
             const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
             await openSalon.waitFor({state:'visible',timeout:15000});
-            await openSalon.click();
+            await clickRobust(page,openSalon,'Open Battle salon');
             await page.getByText('KEEP BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('10 secondes réelles d’écoute · 3 choix · aucun swipe',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('JOUER SOLO',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('BATTLE EN LIGNE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'battle-390x844');
             await page.screenshot({path:'artifacts/dual-viewport/03-battle-v3.png',fullPage:true});
-            await page.getByText('‹',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('‹',{exact:true}).last(),'Close Battle');
             await page.getByText('Soirées',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
             await openEdit(page);
@@ -213,7 +213,7 @@ jobs:
             const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
             const locate=page.getByText('⌖ Utiliser ma position',{exact:true}).last();
             await locate.waitFor({state:'visible',timeout:15000});
-            await locate.click();
+            await clickRobust(page,locate,'Use my location');
             await page.waitForFunction((expected) => {
               const field=[...document.querySelectorAll('input,textarea')].find(el=>el.getAttribute('placeholder')==='Commence à saisir une ville');
               return Boolean(field && String(field.value || '')===expected);
@@ -222,17 +222,17 @@ jobs:
             await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText(/Position trouvée/i).last().waitFor({state:'visible',timeout:15000});
 
-            await page.getByText('Choisir une date',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Choisir une date',{exact:true}).last(),'Choose birth date');
             await page.getByText('Date de naissance',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Valider la date',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Valider la date',{exact:true}).last(),'Validate birth date');
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
 
             const save=page.getByText('Enregistrer sur cet appareil',{exact:true}).last();
             await save.waitFor({state:'visible',timeout:15000});
-            await save.click();
+            await clickRobust(page,save,'Save profile');
             await page.getByText('✓ Profil enregistré',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Retour au profil').last().click();
+            await clickRobust(page,page.getByLabel('Retour au profil').last(),'Back to profile');
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
             await openEdit(page);
@@ -241,27 +241,27 @@ jobs:
             const instagram=page.getByPlaceholder('Lien Instagram').last();
             await instagram.waitFor({state:'visible',timeout:15000});
             await instagram.fill(INSTAGRAM);
-            await page.getByPlaceholder('Lien Instagram').last().locator('xpath=..').getByText('Enregistrer',{exact:true}).click();
+            await clickRobust(page,page.getByPlaceholder('Lien Instagram').last().locator('xpath=..').getByText('Enregistrer',{exact:true}),'Save Instagram');
             await page.getByText('Connecté au profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('‹ Menu',{exact:true}).last().click();
-            await page.getByText('Fermer',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('‹ Menu',{exact:true}).last(),'Back to profile menu');
+            await clickRobust(page,page.getByText('Fermer',{exact:true}).last(),'Close profile menu');
             await openEdit(page);
-            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
             await page.reload({waitUntil:'networkidle',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
-            if(await tryFree.isVisible().catch(()=>false)) await tryFree.click();
+            if(await tryFree.isVisible().catch(()=>false)) await clickRobust(page,tryFree,'Guest trial after reload');
             await openEdit(page);
             await assertProfileForm(page);
             await openPublicProfileSettings(page);
             const instagramReload=page.getByPlaceholder('Lien Instagram').last();
             await instagramReload.waitFor({state:'visible',timeout:15000});
             if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
-            await page.getByText('‹ Menu',{exact:true}).last().click();
-            await page.getByText('Fermer',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('‹ Menu',{exact:true}).last(),'Back to profile menu');
+            await clickRobust(page,page.getByText('Fermer',{exact:true}).last(),'Close profile menu');
             await openEdit(page);
-            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
             await assertNoOverflow(page,'mobile-390x844');

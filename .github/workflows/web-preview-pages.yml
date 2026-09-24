@@ -311,13 +311,14 @@ jobs:
           const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');
           const normalizePath = value => {
             const url = new URL(value, BASE);
-            return url.pathname
+            const normalized = url.pathname
               .replace(/\/KEEP\/KEEP(?=\/|$)/, '/KEEP')
-              .replace(/\/index\.html$/, '/')
-              .replace(/\/+$/, '/');
+              .replace(/\/index\.html$/, '')
+              .replace(/\/+$/, '');
+            return normalized || '/';
           };
           const expectedPathForRoute = route => {
-            if (route === '/') return '/KEEP/Main/Listen/';
+            if (route === '/') return '/KEEP/Main/Listen';
             if (route === '/superadmin/') return '/KEEP/admin-preview/';
             if (route.startsWith('/share-profile/')) return '/KEEP/share-profile/';
             return normalizePath(`/KEEP${route}`);

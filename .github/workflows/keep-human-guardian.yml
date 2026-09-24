@@ -90,13 +90,13 @@ jobs:
 
             const start=page.getByLabel('Démarrer une écoute').last();
             await inViewport(start,'Listen start');
-            await start.click();
+            await clickRobust(start,'Listen start');
             await t(/MICRO · (?:ANALYSE|ACTIF)/i).waitFor({state:'visible',timeout:15000});
             await inViewport(t(/Partager/i),'Listen share');
             const end=t(/Terminer la session|Arrêter|End session/i);
             await inViewport(end,'Listen stop');
             await shot('02-listen-active');
-            await end.click();
+            await clickRobust(end,'Listen stop');
             await start.waitFor({state:'visible',timeout:15000});
 
             // Découvertes : aucun profil ne doit apparaître à l'ouverture.
@@ -116,13 +116,13 @@ jobs:
             await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
             const world=page.getByLabel('Rayon Monde').last();
             await world.waitFor({state:'visible',timeout:15000});
-            await world.click();
+            await clickRobust(world,'Discover world radius');
             // Le changement de distance doit lui aussi vider les anciens
             // résultats jusqu'au prochain clic sur RECHERCHER.
             if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover kept a stale profile after radius change');
             const search=page.getByLabel('Rechercher des profils autour de moi').last();
             await inViewport(search,'Discover search');
-            await search.click();
+            await clickRobust(search,'Discover search');
             const seeProfile=page.getByLabel('Voir le profil').last();
             await seeProfile.waitFor({state:'visible',timeout:15000});
             await inViewport(page.getByLabel('Passer ce profil').last(),'Discover pass');
