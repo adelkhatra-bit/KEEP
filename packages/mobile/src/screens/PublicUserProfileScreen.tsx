@@ -24,7 +24,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -59,7 +59,7 @@ type SocialPlatform = SocialLink['platform'];
 // une vraie source de données publique.
 type ProfileTab = 'TRACKS' | 'ARTISTS';
 const TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'TRACKS', label: 'Musiques' }, { key: 'ARTISTS', label: 'Artistes' },
+  { key: 'TRACKS', label: 'Styles' }, { key: 'ARTISTS', label: 'Artistes' },
 ];
 
 const SOCIALS: { platform: SocialPlatform; label: string }[] = [
@@ -147,6 +147,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  const [saleOfferByTrackId, setSaleOfferByTrackId] = useState<Record<string, PublicPlaylistSaleOffer>>({});
   const [publicVibes, setPublicVibes] = useState<SmartAlbumRecord[]>([]);
   const [saleUnlocks, setSaleUnlocks] = useState<Record<string, { offerId: string; deliveredPlaylistId: string }>>({});
   const [folderSwipeTracks, setFolderSwipeTracks] = useState<CanonicalTrack[]>([]);
@@ -174,6 +175,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
     return () => { live = false; };
   }, [marketplaceEnabled, profile?.id]);
+  useEffect(() => {
+    if (!marketplaceEnabled || saleOffers.length === 0) { setSaleOfferByTrackId({}); return undefined; }
+    let live = true;
+    Promise.all(saleOffers.map(async (offer) => {
+      const rows = await loadPlaylistSaleOfferPreviewTracks(offer.playlistId).catch(() => []);
+      return rows.map((row) => [row.trackId, offer] as const);
+    })).then((groups) => {
+      if (!live) return;
+      setSaleOfferByTrackId(Object.fromEntries(groups.flat()));
+    }).catch(() => { if (live) setSaleOfferByTrackId({}); });
+    return () => { live = false; };
+  }, [marketplaceEnabled, saleOffers]);
   useEffect(() => {
     if (!profile?.id) { setPublicVibes([]); return undefined; }
     let live = true;
@@ -380,6 +393,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // compact + dérouleur), plus un mur de puces qui grossit avec la taille
   // de la collection.
   const [styleModalOpen, setStyleModalOpen] = useState(false);
+  // Refonte 24/09/2026 : les Styles sont la vue principale. La liste détaillée
+  // reste disponible en un tap, sans supprimer aucune action existante.
+  const [showAllTracks, setShowAllTracks] = useState(false);
   // (21/09/2026) refonte collection -- "PAR ARTISTE" (bouton + modale)
   // retiré : l'onglet Artistes ci-dessous ouvre exactement la même liste,
   // avec la même action (Swipe filtré). Ne pas garder les deux, même
@@ -406,22 +422,21 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // titre/artiste/jaquette) : le regrouper ne trahit pas le modèle Anti-Shazam.
   // Un morceau sans genre tombe dans "Sans genre". Aucune donnée retirée.
   const lockedGenreFolders = useMemo(() => {
-    const map = new Map<string, PublicKeepTrack[]>();
-    const push = (rawGenre: string, track: PublicKeepTrack) => {
-      const clean = rawGenre.trim() || 'Sans genre';
-      const arr = map.get(clean) ?? [];
-      arr.push(track);
-      map.set(clean, arr);
-    };
+    const map = new Map<string, { genre: string; offer: PublicPlaylistSaleOffer; tracks: PublicKeepTrack[] }>();
     for (const track of lockedSaleTracks) {
+      const offer = saleOfferByTrackId[track.trackId];
+      if (!offer) continue;
       const genres = (track.genres ?? []).map((g) => g.trim()).filter(Boolean);
-      if (genres.length) genres.forEach((g) => push(g, track));
-      else push('Sans genre', track);
+      const labels = genres.length ? genres : ['Sans genre'];
+      for (const genre of labels) {
+        const key = `${offer.offerId}:${genre}`;
+        const current = map.get(key) ?? { genre, offer, tracks: [] };
+        current.tracks.push(track);
+        map.set(key, current);
+      }
     }
-    return Array.from(map.entries())
-      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-      .map(([genre, lockedTracks]) => ({ genre, tracks: lockedTracks }));
-  }, [lockedSaleTracks]);
+    return Array.from(map.values()).sort((a, b) => b.tracks.length - a.tracks.length || a.genre.localeCompare(b.genre));
+  }, [lockedSaleTracks, saleOfferByTrackId]);
   const artistGroups = useMemo(() => groupTracksByArtist(swipeTracks), [swipeTracks]);
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- même enrichissement en tâche de fond que le propre
@@ -849,67 +864,23 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
-        {/* Vitrine « En vente » remontee en haut du profil (Adel, 23/09/2026) :
-            les produits en vente doivent etre mis en valeur des l'ouverture du
-            profil visite, pas enfouis en bas de page. Section relocalisee +
-            accent visuel (bordure violette Design System). Rien supprime : meme
-            logique d'apercu immersif, meme achat via la modale. Reste gate par
-            le flag Super Admin 'playlist_marketplace' (conformite Apple IAP). */}
-        {marketplaceEnabled ? (
-          <View style={styles.saleShowcase}>
-            <View style={styles.saleShowcaseHead}>
-              <Text style={styles.saleShowcaseEyebrow}>★ EN VENTE</Text>
-              {saleOffers.length > 0 ? <Text style={styles.saleShowcaseCount}>{saleOffers.length} pack{saleOffers.length > 1 ? 's' : ''}</Text> : null}
+        {marketplaceEnabled && saleOffers.length > 0 ? (
+          <TouchableOpacity
+            style={styles.saleShowcaseCompact}
+            onPress={() => openSaleFolder(saleOffers[0])}
+            accessibilityRole="button"
+            accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} à débloquer, ouvrir un aperçu`}
+          >
+            <View>
+              <Text style={styles.saleShowcaseEyebrow}>★ COLLECTIONS À DÉBLOQUER</Text>
+              <Text style={styles.saleShowcaseCompactText}>{saleOffers.length} sélection{saleOffers.length > 1 ? 's' : ''} · préécoute disponible · titres masqués avant achat</Text>
             </View>
-            <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
-            <Text style={styles.marketplaceHint}>Des sélections complètes à écouter en aperçu avant de les débloquer. Titres et jaquettes restent masqués jusqu'à l'achat.</Text>
-            {saleOffers.length === 0 ? (
-              <TouchableOpacity
-                style={styles.marketplaceEmpty}
-                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
-                accessibilityRole="button"
-                accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
-              >
-                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.marketplaceList}>
-                {saleOffers.map((offer) => {
-                  const ownerViewingSelf = Boolean(viewer?.id && viewer.id === profile.id);
-                  const unlocked = ownerViewingSelf || Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId);
-                  const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                  return (
-                    <View key={`sale:${offer.offerId}`} style={styles.marketplaceCard}>
-                      <View style={styles.marketplaceCardTop}>
-                        {unlocked && offer.coverUrl
-                          ? <Image source={{ uri: offer.coverUrl }} style={styles.marketplaceCover} />
-                          : <View style={[styles.marketplaceCover, styles.marketplaceCoverFallback]}><Text style={styles.marketplaceCoverIcon}>{unlocked ? '✓' : '🔒'}</Text></View>}
-                        <View style={styles.marketplaceCopy}>
-                          <Text style={styles.marketplaceTitle} numberOfLines={1}>{offer.playlistName}</Text>
-                          <Text style={styles.marketplaceMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''} · {unlocked ? '✓ Débloqué · écoute complète' : '🔒 Titres et pochettes cachés'}</Text>
-                        </View>
-                        <View style={styles.marketplacePriceButton}>
-                          <Text style={styles.marketplacePriceText}>{unlocked ? '✓' : priceLabel}</Text>
-                        </View>
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.immersiveLaunchButton, !unlocked && styles.immersiveLaunchButtonHot]}
-                        onPress={() => setImmersivePreviewOffer(offer)}
-                        accessibilityRole="button"
-                        accessibilityLabel={unlocked ? `Rouvrir l'écoute de ${offer.playlistName}` : `Écouter gratuitement un extrait de ${offer.playlistName} avant d'acheter, ${priceLabel}`}
-                      >
-                        <Text style={[styles.immersiveLaunchText, !unlocked && styles.immersiveLaunchTextHot]}>{unlocked ? '▶ Rouvrir l\'écoute' : '▶ Écouter gratuitement'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
         ) : null}
 
         <View style={styles.collectionHeader}>
-          <Text style={styles.collectionTitle}>Ma collection</Text>
+          <Text style={styles.collectionTitle}>Ses styles</Text>
           <Text style={styles.collectionCount}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''}</Text>
         </View>
         <View style={styles.tabsRow}>
@@ -997,6 +968,42 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {activeTab === 'TRACKS' ? (
           <View style={styles.publicMusicSection}>
+            <Text style={styles.styleIntro}>Choisis un style et écoute directement l’univers de @${profile.username}. Les collections payantes restent masquées jusqu’au déblocage.</Text>
+            <View style={styles.styleGrid}>
+              {(visiblePublicVibes.length > 0 ? visiblePublicVibes : []).map((vibe) => (
+                <TouchableOpacity key={`vibe:${vibe.id}`} style={styles.styleTile} onPress={() => openPublicVibe(vibe)} accessibilityLabel={`Écouter le style ${vibe.name}, ${vibe.trackCount} morceaux`}>
+                  <View style={styles.styleTileBadge}><Text style={styles.styleTileBadgeText}>PUBLIC</Text></View>
+                  <Text style={styles.styleTileName} numberOfLines={1}>{vibe.name}</Text>
+                  <Text style={styles.styleTileMeta}>{vibe.trackCount} morceau{vibe.trackCount > 1 ? 'x' : ''}</Text>
+                  <View style={styles.styleTilePlay}><Text style={styles.styleTilePlayText}>▶</Text></View>
+                </TouchableOpacity>
+              ))}
+              {visiblePublicVibes.length === 0 ? genreOptions.map(({ genre, count }) => (
+                <TouchableOpacity key={`genre:${genre}`} style={styles.styleTile} onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })} accessibilityLabel={`Écouter le style ${genre}, ${count} morceaux`}>
+                  <View style={styles.styleTileBadge}><Text style={styles.styleTileBadgeText}>PUBLIC</Text></View>
+                  <Text style={styles.styleTileName} numberOfLines={1}>{genre}</Text>
+                  <Text style={styles.styleTileMeta}>{count} morceau{count > 1 ? 'x' : ''}</Text>
+                  <View style={styles.styleTilePlay}><Text style={styles.styleTilePlayText}>▶</Text></View>
+                </TouchableOpacity>
+              )) : null}
+              {marketplaceEnabled ? saleOffers.map((offer) => {
+                const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
+                const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+                return (
+                  <TouchableOpacity key={`sale-style:${offer.offerId}`} style={[styles.styleTile, unlocked ? styles.styleTileUnlocked : styles.styleTileLocked]} onPress={() => openSaleFolder(offer)} accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}, débloqué` : `Préécouter ${offer.playlistName}, ${priceLabel}`}>
+                    <View style={[styles.styleTileBadge, unlocked ? styles.styleTileBadgeUnlocked : styles.styleTileBadgeLocked]}><Text style={[styles.styleTileBadgeText, unlocked ? styles.styleTileBadgeUnlockedText : styles.styleTileBadgeLockedText]}>{unlocked ? '✓ DÉBLOQUÉ' : `🔒 ${priceLabel}`}</Text></View>
+                    <Text style={styles.styleTileName} numberOfLines={1}>{offer.playlistName}</Text>
+                    <Text style={styles.styleTileMeta}>{offer.trackCount} découverte{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'écoute complète' : 'aperçu audio'}</Text>
+                    <View style={styles.styleTilePlay}><Text style={styles.styleTilePlayText}>▶</Text></View>
+                  </TouchableOpacity>
+                );
+              }) : null}
+            </View>
+            <TouchableOpacity style={styles.allTracksToggle} onPress={() => setShowAllTracks((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showAllTracks }} accessibilityLabel={showAllTracks ? 'Masquer tous les morceaux' : 'Voir tous les morceaux'}>
+              <Text style={styles.allTracksToggleText}>{showAllTracks ? 'MASQUER LES MORCEAUX' : `VOIR TOUS LES MORCEAUX · ${tracks.length + lockedSaleTracks.length}`}</Text>
+              <Text style={styles.chevron}>{showAllTracks ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+            {showAllTracks ? <>
             {/* (21/09/2026, Adel) : "c'est une aberration pour une
                 plateforme musicale" -- la liste était repliée par défaut
                 derrière un chevron. Toujours visible immédiatement
@@ -1123,11 +1130,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     sélection. */}
                 <View style={styles.folderGrid}>
                   {lockedGenreFolders.map((folder) => {
-                    const offer = saleOffers[0];
+                    const offer = folder.offer;
                     const open = expandedLockedGenre === folder.genre;
                     const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
                     return (
-                      <View key={`locked-genre:${folder.genre}`}>
+                      <View key={`locked-genre:${folder.offer.offerId}:${folder.genre}`}>
                         <TouchableOpacity
                           style={[styles.folderCard, styles.folderCardSale]}
                           onPress={() => setExpandedLockedGenre(open ? null : folder.genre)}
@@ -1164,6 +1171,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               </View>
             ) : null}
+            </> : null}
           </View>
         ) : (
           <View style={styles.publicMusicSection}>
@@ -1340,6 +1348,25 @@ const styles = StyleSheet.create({
   collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},
+  styleIntro:{color:colors.textMutedGrey,fontSize:12,lineHeight:17,marginBottom:10},
+  styleGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},
+  styleTile:{width:'48%',minHeight:116,marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'flex-end',position:'relative'},
+  styleTileLocked:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},
+  styleTileUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},
+  styleTileBadge:{position:'absolute',left:10,top:10,minHeight:22,paddingHorizontal:7,borderRadius:11,backgroundColor:'rgba(45,225,194,.12)',borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},
+  styleTileBadgeLocked:{backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primaryLight},
+  styleTileBadgeUnlocked:{backgroundColor:'rgba(45,225,194,.18)',borderColor:colors.success},
+  styleTileBadgeText:{color:colors.success,fontSize:9,fontWeight:'900',letterSpacing:.5},
+  styleTileBadgeLockedText:{color:colors.primaryLight},
+  styleTileBadgeUnlockedText:{color:colors.success},
+  styleTileName:{color:colors.textPrimary,fontSize:16,fontWeight:'900',paddingRight:34},
+  styleTileMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:4,paddingRight:26},
+  styleTilePlay:{position:'absolute',right:10,bottom:10,width:32,height:32,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  styleTilePlayText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
+  allTracksToggle:{minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,marginTop:2,marginBottom:12},
+  allTracksToggleText:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.3},
+  saleShowcaseCompact:{marginHorizontal:18,marginTop:12,minHeight:58,paddingHorizontal:14,paddingVertical:10,borderRadius:16,backgroundColor:'rgba(124,92,252,.09)',borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
+  saleShowcaseCompactText:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},
   publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},lockedTracksBlock:{marginTop:16},lockedTracksHeader:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:0.5,marginBottom:8},lockedFolderTitleRow:{flexDirection:'row',alignItems:'center',gap:6},lockedFolderBadge:{flexShrink:0,paddingHorizontal:6,paddingVertical:2,borderRadius:8,backgroundColor:colors.dangerSoft,borderWidth:1,borderColor:colors.danger},lockedFolderBadgeText:{color:colors.danger,fontSize:9,fontWeight:'900',letterSpacing:0.5},lockedFolderTracks:{gap:8,marginTop:8,marginBottom:4,paddingLeft:6},
   // Adel (21/09/2026, maquette interactive validée) : la grille de la liste
   // de morceaux (hauteur fixe, carrés, chevron, panneau) vit désormais dans
