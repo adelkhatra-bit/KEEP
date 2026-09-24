@@ -32,4 +32,12 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).not.toContain('style={s.ownOffersStatus}');
     expect(source).not.toContain('Gérer mes découvertes en vente');
   });
+  it('keeps style actions directly under the row that was tapped', () => {
+    expect(source).toContain("const rowFolders = genreFolders.slice(rowIndex * 2, rowIndex * 2 + 2);");
+    expect(source).toContain("const expandedInRow = rowFolders.find((folder) => expandedGenreFolder === folder.genre) ?? null;");
+    expect(source).toContain("▶ ÉCOUTER");
+    expect(source).toContain("🏷️ VENDRE");
+    expect(source).toContain("preselectSaleGenre: expandedInRow.genre");
+  });
+
 });
