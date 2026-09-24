@@ -197,8 +197,10 @@ jobs:
             const openSalon=page.getByLabel('Ouvrir le Salon Loki Music Battle').last();
             await openSalon.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,openSalon,'Open Battle salon');
-            await page.getByText('KEEP BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('10 secondes réelles d’écoute · 3 choix · aucun swipe',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            // Le Guardian valide les capacités Battle actuelles, pas un ancien wording.
+            await page.getByText('LOKI MUSIC BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('FORMAT DU BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByText('10 s / titre',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('JOUER SOLO',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('BATTLE EN LIGNE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'battle-390x844');
