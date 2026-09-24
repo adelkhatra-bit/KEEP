@@ -35,8 +35,15 @@ describe('PublicUserProfileScreen redesign (Adel, 24/09/2026 : les produits EN V
     expect(source).toContain('??? titre');
     expect(source).toContain('artiste masqué');
     expect(source).toContain('pochette masquée');
-    expect(source).toContain('▶ TESTER LA COLLECTION');
+    expect(source).toContain("'TESTER LA COLLECTION'");
     expect(source).toContain('Le vrai contenu reste secret jusqu’au déblocage.');
+  });
+
+  it('uses animated premium CTAs for visitor Swipe, Battle and protected sale previews', () => {
+    expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
+    expect(source).toContain('title="SWIPE"');
+    expect(source).toContain("title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}");
+    expect(source).toContain("subtitle={unlocked ? 'Accès complet débloqué.' : 'Extrait anonyme, sans titre, artiste ni pochette.'}");
   });
 
   it('exposes exactly two collection tabs, Styles and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
