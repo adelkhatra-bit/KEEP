@@ -24,6 +24,7 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
   const previewMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260920201000_playlist_sale_offer_preview_tracks.sql');
   const featureFlags = readNormalized(__dirname, '..', '..', 'services', 'featureFlagService.ts');
   const immersivePreview = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx');
+  const salePanel = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
 
   it('MyMusicScreen locks the sale checkbox for a track that came from another profile (sourceProfileId set = not self-discovered), styled red (Adel, 21/09/2026 : "il faut que le cadenas soit rouge")', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
@@ -72,6 +73,17 @@ describe('Vente de musique -- cadenas "pas ta découverte" + section toujours vi
     expect(publicProfile).toContain('purchaseEnabled={marketplacePurchaseEnabled}');
     expect(immersivePreview).toContain('APERÇU MOBILE ACTIF');
     expect(immersivePreview).toContain('L’achat n’est pas activé dans cette version mobile.');
+  });
+
+  it('keeps seller catalog management available on native without exposing native payment operations', () => {
+    expect(salePanel).toContain('isPlaylistMarketplaceVisible()');
+    expect(salePanel).toContain('setMarketplaceTransactionEnabled(transactionEnabled)');
+    expect(salePanel).toContain('GESTION MOBILE ACTIVE');
+    expect(salePanel).toContain('♫ Morceaux');
+    expect(salePanel).toContain('€ Prix');
+    expect(salePanel).toContain('✕ Retirer');
+    expect(salePanel).toContain("marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'PENDING').length > 0");
+    expect(salePanel).toContain('marketplaceTransactionEnabled && purchases.length > 0');
   });
 
   it('keeps ordinary shared music directly listenable while locked sale tracks use the anonymous unlock row', () => {
