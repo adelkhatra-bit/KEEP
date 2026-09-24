@@ -6,7 +6,7 @@ describe('profile persistence contract', () => {
   const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PublicProfilePanel.tsx'), 'utf8');
   const avatarService = fs.readFileSync(path.resolve(__dirname, '..', 'avatarService.ts'), 'utf8');
   const migration = fs.readFileSync(
-    path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924131500_social_link_label_persistence.sql'),
+    path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924141648_social_link_label_persistence.sql'),
     'utf8',
   );
 
