@@ -53,8 +53,9 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
     expect(source).toContain('Loki Music ne voit ni ne garantit ce paiement');
   });
 
-  it('uses the exact persistent purchase wording from the mission spec, never green', () => {
-    expect(source).toContain('Acheter et ajouter à mon Loki Music');
+  it('uses the collection-unlock wording, never a generic purchase CTA or green button', () => {
+    expect(source).toContain('DÉBLOQUER LA COLLECTION · ${priceLabel}');
+    expect(source).not.toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);
   });
 
