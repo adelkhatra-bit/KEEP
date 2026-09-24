@@ -1289,7 +1289,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         icon="♫"
         title="GÉRER MES MUSIQUES"
         subtitle="Modifier Public/Privé, supprimer, classer et préparer tes collections."
-        onPress={() => navigation.navigate('Main', { screen: 'MyMusic' })}
+        onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { openManageMusic: true } })}
         accessibilityLabel="Gérer mes musiques dans Playlists"
         tone="secondary"
         compact
