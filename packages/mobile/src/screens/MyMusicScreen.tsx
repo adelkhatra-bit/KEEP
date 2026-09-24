@@ -190,6 +190,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [saleEditOfferTarget, setSaleEditOfferTarget] = useState<{ offerId: string; playlistName: string } | null>(null);
 
   useEffect(() => {
+    if (!route?.params?.openManageMusic) return;
+    setActiveTab('MUSIQUES');
+    setOriginFilter('LISTEN');
+    setSaleSelectionMode(false);
+    setSaleEditOfferTarget(null);
+    navigation?.setParams?.({ openManageMusic: undefined });
+  }, [navigation, route?.params?.openManageMusic]);
+
+  useEffect(() => {
     const offerId = String(route?.params?.manageSaleOfferId || '').trim();
     if (!offerId) return;
     const playlistName = String(route?.params?.manageSaleOfferName || 'Collection publiée').trim() || 'Collection publiée';
@@ -1081,6 +1090,16 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </TouchableOpacity>
       ))}</View>
 
+      {activeTab === 'MUSIQUES' ? (
+        <View style={styles.manageGuide}>
+          <View style={styles.manageGuideIcon}><Text style={styles.manageGuideIconText}>♫</Text></View>
+          <View style={styles.manageGuideCopy}>
+            <Text style={styles.manageGuideTitle}>GÉRER MES MUSIQUES</Text>
+            <Text style={styles.manageGuideText}>Touche une musique pour afficher PUBLIC / PRIVÉ, SUPPRIMER ou l’ajouter à une collection exclusive.</Text>
+          </View>
+        </View>
+      ) : null}
+
       {activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
         <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'Loki Music RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
         <Text style={styles.vibeArrow}>{sortAccess?.allowed || sortAccess?.unlimited ? '✦' : '🔒'}</Text>
@@ -1409,6 +1428,12 @@ const styles = StyleSheet.create({
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
+  manageGuide:{marginHorizontal:12,marginTop:10,padding:12,borderRadius:18,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10},
+  manageGuideIcon:{width:38,height:38,borderRadius:19,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  manageGuideIconText:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
+  manageGuideCopy:{flex:1,minWidth:0},
+  manageGuideTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},
+  manageGuideText:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},
   libraryStrip:{marginHorizontal:14,marginTop:6,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:68,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:44,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   originSummary:{marginHorizontal:14,marginTop:7,alignItems:'center'},originSummaryText:{color:colors.textMuted,fontSize:11,fontWeight:'800'},originOwnCount:{color:colors.keep},originSocialCount:{color:colors.primaryLight},originTotalCount:{color:colors.textPrimary},
   originFilters:{width:'100%',flexDirection:'row',gap:6,marginTop:8},originFilterButton:{flex:1,minHeight:44,paddingHorizontal:5,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},originFilterButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},originFilterText:{color:colors.textMuted,fontSize:8,fontWeight:'900',textAlign:'center'},originFilterTextOn:{color:colors.textPrimary},
