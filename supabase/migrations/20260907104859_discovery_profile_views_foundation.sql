@@ -18,4 +18,4 @@ on public.discovery_profile_views;
 create policy "discovery_profile_views_select_own"
 on public.discovery_profile_views
 for select
-using (profile_id = auth.uid());
+using (profile_id = (select auth.uid()));
