@@ -245,6 +245,21 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
   const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
+  useEffect(() => {
+    const genre = String(route?.params?.preselectSaleGenre || '').trim();
+    if (!genre) return;
+    const normalizedGenre = genre.toLocaleLowerCase('fr-FR');
+    const trackIds = localKeptTracks
+      .filter((track) => (track.genres ?? []).some((value) => value.trim().toLocaleLowerCase('fr-FR') === normalizedGenre))
+      .map((track) => track.id);
+    setActiveTab('MUSIQUES');
+    setOriginFilter('LISTEN');
+    setSaleEditOfferTarget(null);
+    setSelectedSaleTrackIds(new Set(trackIds));
+    setSaleSelectionMode(true);
+    navigation?.setParams?.({ preselectSaleGenre: undefined });
+    if (!trackIds.length) Alert.alert('Vendre ce style', `Aucun morceau ${genre} n’est disponible dans ta bibliothèque pour le moment.`);
+  }, [localKeptTracks, navigation, route?.params?.preselectSaleGenre]);
   const publicKeepCount = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PUBLIC').length, [localKeptEntries]);
   const privateKeepCount = localKeptEntries.length - publicKeepCount;
   const providerId = musicEngine.musicProvider.providerId || 'Loki Music';
