@@ -14,12 +14,13 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(saleService).toContain("offerId: String(row.offer_id ?? row.offerId ?? '')");
   });
 
-  it('lets a seller create and name a multi-track offer with preset prices', () => {
-    expect(myMusic).toContain('CRÉER UNE PLAYLIST À VENDRE');
+  it('lets a creator build and name a multi-track exclusive collection with preset prices', () => {
+    expect(myMusic).toContain('CRÉER UNE COLLECTION EXCLUSIVE');
     expect(myMusic).toContain('selectedSaleTrackIds');
-    expect(myMusic).toContain('Nom de la playlist à vendre');
+    expect(myMusic).toContain('Nom de la collection exclusive');
     expect(myMusic).toContain('SALE_PRESET_PRICES_CENTS.map');
     expect(salePanel).toContain('PRICE_PRESETS.map');
+    expect(myMusic).toContain('if (tracks.length < 2)');
   });
 
   it('delivers to Loki Music first, then requests connected-provider synchronization', () => {
