@@ -4,7 +4,7 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('TrackActionRow — badge de statut (Adel, 21/09/2026, Partie 3, Problème 2 : "le morceau en vente doit rester visible dans la liste avec un badge, il ne doit pas être caché")', () => {
+describe('TrackActionRow — badge de collection exclusive', () => {
   const component = readNormalized(__dirname, '..', 'TrackActionRow.tsx');
   const myMusic = readNormalized(__dirname, '..', '..', 'screens', 'MyMusicScreen.tsx');
 
@@ -20,7 +20,8 @@ describe('TrackActionRow — badge de statut (Adel, 21/09/2026, Partie 3, Probl�
     expect(component).toContain("badge: { flexShrink: 0,");
   });
 
-  it('MyMusicScreen shows the sale price as a badge directly in the row (not hidden behind the chevron), tappable to manage the offer', () => {
-    expect(myMusic).toContain('badge={offered ? { label: `🏷️ ${(offered.priceCents / 100).toFixed(2)}€`, onPress: () => editExistingTrackOffer(track) } : undefined}');
+  it('MyMusicScreen shows collection membership directly in the row, tappable to manage the whole collection', () => {
+    expect(myMusic).toContain('badge={offered ? { label: `◆ Dans collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}');
+    expect(myMusic).not.toContain('badge={offered ? { label: `🏷️ ${(offered.priceCents / 100).toFixed(2)}€`');
   });
 });
