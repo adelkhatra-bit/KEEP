@@ -1325,7 +1325,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           // honnête, sans inventer d'avantage qui n'existe pas encore.
           <TouchableOpacity style={[s.growthPanel, s.sectionMargin]} onPress={() => Alert.alert(
             '🏆 Audience Pro débloquée',
-            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers la vente de playlists (déblocage séparé, par abonnés) quand tu en as assez.`,
+            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers les collections exclusives (déblocage séparé, par abonnés) quand tu en as assez.`,
           )}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text><Text style={[s.growthText, { textAlign: 'center', marginTop: 4 }]}>Toucher pour voir les avantages ⓘ</Text></TouchableOpacity>
         ) : growthStatus.nextFollowerGoal ? (
           <View style={[s.growthPanel, s.sectionMargin]}>
