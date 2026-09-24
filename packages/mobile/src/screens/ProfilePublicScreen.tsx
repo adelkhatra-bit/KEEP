@@ -1283,8 +1283,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       <View style={s.collectionHeader}>
         <Text style={s.collectionTitle}>Mes styles</Text>
-        <Text style={s.collectionCount}>{profileTotalKeepCount} {profileTotalKeepCount > 1 ? 'morceaux' : 'morceau'}</Text>
+        <Text style={s.collectionCount}>{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau{profileTotalKeepCount > 1 ? 'x' : ''}</Text>
       </View>
+      <MotionActionButton
+        icon="♫"
+        title="GÉRER MES MUSIQUES"
+        subtitle="Modifier Public/Privé, supprimer, classer et préparer tes collections."
+        onPress={() => navigation.navigate('Main', { screen: 'MyMusic' })}
+        accessibilityLabel="Gérer mes musiques dans Playlists"
+        tone="secondary"
+        compact
+        style={s.manageMusicButton}
+      />
       <View style={s.tabsRow}>
         <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
         {activeTab === 'TRACKS' && trackGenreOptions.length > 0 ? (
@@ -1360,7 +1370,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
           l'explication ne s'affiche plus que sur demande via le ⓘ. */}
       {dnaFeatureEnabled && (
         <View style={s.dna}>
-          <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki Music DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
+          <View style={s.dnaHeader}>
+            <View>
+              <Text style={s.dnaEyebrow}>Loki Music DNA</Text>
+              <Text style={s.dnaTitle}>Tes styles dominants</Text>
+              <Text style={s.dnaCountHint}>{Math.min(4, dna.topGenres.length)} affiché{Math.min(4, dna.topGenres.length) > 1 ? 's' : ''} sur {genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}</Text>
+            </View>
+            <Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text>
+          </View>
           {/* Mission C (23/09/2026) : grille 2 colonnes des styles dominants
               (remplace l'affichage en chips en ligne — même données
               dna.topGenres, même action openSelectionSwipe ; rien ne
@@ -1372,6 +1389,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <TouchableOpacity key={g.genre} style={s.genreTile} onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((genre) => genre.trim() === g.genre)) })} accessibilityLabel={`Swiper tes morceaux ${g.genre}`}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text>{typeof match.count === 'number' ? <Text style={s.genreTileCount}>{match.count} morceau{match.count > 1 ? 'x' : ''}</Text> : null}</TouchableOpacity>
             ) : <View key={g.genre} style={s.genreTile}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text></View>;
           })}</View> : <Text style={s.muted}>Commence une session Loki Music pour construire ton ADN musical.</Text>}
+          {genreFolders.length > 4 ? (
+            <TouchableOpacity
+              style={s.dnaSeeAll}
+              onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
+              accessibilityLabel={`Voir mes ${genreFolders.length} styles musicaux`}
+            >
+              <Text style={s.dnaSeeAllText}>VOIR MES {genreFolders.length} STYLES</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       )}
 
@@ -1628,6 +1654,10 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   ownerEmptyKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},
   ownerEmptyTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
   ownerEmptyText:{color:colors.textMutedGrey,fontSize:12,lineHeight:17,marginBottom:4},
+  manageMusicButton:{marginHorizontal:18,marginTop:10},
+  dnaCountHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:2},
+  dnaSeeAll:{marginTop:10,minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:14},
+  dnaSeeAllText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.6},
   collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},
