@@ -157,7 +157,6 @@ export type PlaylistPurchaseRequest = {
 export type PlaylistOfferDetails = {
   playlistId: string;
   trackCount: number;
-  topArtists: string[];
   genres: string[];
   duration: number;
 };
@@ -169,8 +168,7 @@ export async function loadPlaylistSaleOfferDetails(playlistId: string): Promise<
   return {
     playlistId: String(row?.playlistId ?? playlistId),
     trackCount: Number(row?.trackCount ?? 0),
-    topArtists: Array.isArray(row?.topArtists) ? row.topArtists.map(String).slice(0, 5) : [],
-    genres: Array.isArray(row?.genres) ? row.genres.map(String).slice(0, 3) : [],
+    genres: normalizeSaleGenres(row?.genres).slice(0, 3),
     duration: Number(row?.duration ?? 0),
   };
 }
