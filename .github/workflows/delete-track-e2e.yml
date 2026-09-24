@@ -120,7 +120,7 @@ jobs:
             await page.getByText('Musiques de mes écoutes', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
             await page.waitForTimeout(300);
 
-            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
+            const deleteButtons = page.getByLabel('Supprimer ce morceau de Loki Music');
             const before = await deleteButtons.count();
             if (before < 1) throw new Error('SUPPRIMER absent après avoir gardé un morceau');
             const deleteButton = deleteButtons.first();
@@ -135,7 +135,7 @@ jobs:
             // listener dialog ci-dessus clique réellement sur confirmer.
             await deleteButton.click();
             await page.waitForTimeout(800);
-            const after = await page.getByLabel('Supprimer ce morceau de KEEP').count();
+            const after = await page.getByLabel('Supprimer ce morceau de Loki Music').count();
             if (after !== before - 1) throw new Error(`SUPPRIMER n'a pas retiré la ligne: ${before} -> ${after}`);
             await shot('04-after-delete');
 
