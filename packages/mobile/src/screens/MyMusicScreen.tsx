@@ -70,11 +70,11 @@ function sortGateLabel(access: QuotaAccess | null) {
 const SALE_SAVE_ERROR_MESSAGES: Record<string, string> = {
   authentication_required: 'Ta session a expiré, reconnecte-toi puis réessaie.',
   TRACK_SELECTION_REQUIRED: 'Sélectionne au moins un titre.',
-  TRACK_SELECTION_TOO_LARGE: 'Maximum 200 titres par vente.',
+  TRACK_SELECTION_TOO_LARGE: 'Maximum 200 titres par collection.',
   PRICE_MUST_BE_A_PRESET_AMOUNT: 'Choisis un des prix proposés ou saisis un montant valide.',
   PLAYLIST_NAME_TOO_LONG: 'Le nom de la playlist est trop long (100 caractères max).',
   COVER_URL_MUST_BE_HTTPS: "L'image de couverture doit être en HTTPS.",
-  TRACK_SELECTION_NOT_OWNED: "Tu ne peux vendre que les morceaux que tu as toi-même découverts. Un ou plusieurs titres de ta sélection viennent d'autres profils — retire-les.",
+  TRACK_SELECTION_NOT_OWNED: "Tu peux publier uniquement les morceaux que tu as toi-même découverts. Un ou plusieurs titres viennent d'autres profils — retire-les de cette collection.",
   OFFER_NOT_FOUND_OR_NOT_YOURS: "Cette offre est introuvable ou ne t'appartient pas.",
   OFFER_NOT_ACTIVE: "Cette offre n'est plus active.",
   TRACK_NOT_IN_OFFER: "Ce morceau ne fait pas partie de l'offre.",
@@ -87,7 +87,7 @@ const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?
     const required = Number(lockedMatch[1] ?? threshold ?? 100);
     const current = Number(followers ?? 0);
     const missing = Math.max(required - current, 0);
-    return `Il te faut au moins ${required} abonnés pour vendre` + (missing > 0 ? ` (il t'en manque ${missing}).` : '.');
+    return `Il te faut au moins ${required} abonnés pour publier une collection exclusive` + (missing > 0 ? ` (il t'en manque ${missing}).` : '.');
   }
   for (const code of Object.keys(SALE_SAVE_ERROR_MESSAGES)) {
     if (msg.includes(code)) return SALE_SAVE_ERROR_MESSAGES[code];
@@ -258,7 +258,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setSelectedSaleTrackIds(new Set(trackIds));
     setSaleSelectionMode(true);
     navigation?.setParams?.({ preselectSaleGenre: undefined });
-    if (!trackIds.length) Alert.alert('Vendre ce style', `Aucun morceau ${genre} n’est disponible dans ta bibliothèque pour le moment.`);
+    if (!trackIds.length) Alert.alert('Créer une collection', `Aucun morceau ${genre} n’est disponible dans ta bibliothèque pour le moment.`);
   }, [localKeptTracks, navigation, route?.params?.preselectSaleGenre]);
   const publicKeepCount = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PUBLIC').length, [localKeptEntries]);
   const privateKeepCount = localKeptEntries.length - publicKeepCount;
@@ -602,7 +602,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setSelectedSaleTrackIds(new Set());
       await refreshSaleState();
     } catch {
-      Alert.alert('Vendre', 'Impossible d’ajouter ces morceaux à l’offre pour le moment.');
+      Alert.alert('Collection', 'Impossible d’ajouter ces morceaux à la collection pour le moment.');
     }
   };
 
@@ -668,7 +668,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               await removeTrackFromOffer(offered.offerId, track.id);
               setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
             } catch {
-              Alert.alert('Vendre', 'Impossible de retirer ce morceau de l’offre pour le moment.');
+              Alert.alert('Collection', 'Impossible de retirer ce morceau de la collection pour le moment.');
             }
           },
         },
@@ -680,7 +680,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               await persistOwnTrackVisibility(track, 'PRIVATE');
               setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
             } catch {
-              Alert.alert('Vendre', 'Impossible de retirer ce morceau de l’offre pour le moment.');
+              Alert.alert('Collection', 'Impossible de retirer ce morceau de la collection pour le moment.');
             }
           },
         },
@@ -698,7 +698,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                       await updateOfferPrice(offered.offerId, cents);
                       setMyOfferedTrackIds((prev) => ({ ...prev, [track.id]: { ...offered, priceCents: cents } }));
                     } catch {
-                      Alert.alert('Vendre', 'Impossible de changer le prix pour le moment.');
+                      Alert.alert('Collection', 'Impossible de changer le prix pour le moment.');
                     }
                   },
                 })),
@@ -713,7 +713,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const openSellModal = (target: typeof sellTarget) => {
     if (!saleAccess?.unlocked) {
-      Alert.alert('💶 Vendre', `Réservé à partir de ${saleAccess?.threshold ?? 100} abonnés. Tu en as ${saleAccess?.followers ?? 0} pour l'instant.`);
+      Alert.alert('◆ Collection exclusive', `Réservé à partir de ${saleAccess?.threshold ?? 100} abonnés. Tu en as ${saleAccess?.followers ?? 0} pour l'instant.`);
       return;
     }
     setSellTarget(target);
@@ -743,7 +743,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       closeSellModal();
     } catch (e: any) {
       const raw = String(e?.message || e || '');
-      Alert.alert('Vendre', resolveSaleSaveError(raw, saleAccess?.followers, saleAccess?.threshold));
+      Alert.alert('Collection', resolveSaleSaveError(raw, saleAccess?.followers, saleAccess?.threshold));
     } finally {
       setSellBusy(false);
     }
@@ -762,7 +762,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setMyOffers((prev) => { const next = { ...prev }; delete next[stableKey]; return next; });
       closeSellModal();
     } catch {
-      Alert.alert('Vendre', 'Impossible de retirer ce prix pour le moment.');
+      Alert.alert('Collection', 'Impossible de retirer cette collection pour le moment.');
     } finally {
       setSellBusy(false);
     }
@@ -886,7 +886,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         {saleSelectionMode && localEntry ? <TouchableOpacity
           style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled, notOwnDiscovery && styles.selectionCheckLocked]}
           onPress={() => notOwnDiscovery
-            ? Alert.alert('Pas à vendre', `"${track.title}" ne peut pas être vendue : elle vient d'un autre utilisateur. Il doit l'avoir gardée depuis sa propre écoute pour pouvoir la vendre.`)
+            ? Alert.alert('Non éligible', `"${track.title}" ne peut pas rejoindre une collection exclusive : elle vient d'un autre utilisateur. Il doit l'avoir gardée depuis sa propre écoute pour pouvoir la vendre.`)
             : toggleSaleTrack(track.id)}
           disabled={Boolean(offered)}
           accessibilityRole="checkbox"
@@ -958,21 +958,21 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 ) : (
                   <LockedFeatureCard
                     unlocked={Boolean(saleAccess?.unlocked)}
-                    title="Vendre des morceaux"
+                    title="Créer une collection exclusive"
                     requirementLabel="abonnés"
                     current={saleAccess?.followers ?? 0}
                     required={saleAccess?.threshold ?? 100}
-                    benefit="Vends tes découvertes, reçois les paiements directement sur ton lien perso, et suis tes ventes dans ton historique."
+                    benefit="Compose une collection avec tes découvertes, fixe € / FREE, publie-la et suis chaque déblocage dans ton historique."
                     actionLabel="Voir mon profil"
                     onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                    lockedTeaser={<View style={styles.sellTrackButton}><Text style={styles.sellTrackText}>🔒 VENDRE</Text></View>}
+                    lockedTeaser={<View style={styles.sellTrackButton}><Text style={styles.sellTrackText}>🔒 COLLECTION</Text></View>}
                   >
                     <TouchableOpacity
                       style={styles.sellTrackButton}
                       onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
-                      accessibilityLabel={`Vendre ${track.title}`}
+                      accessibilityLabel={`Ajouter ${track.title} à une collection exclusive`}
                     >
-                      <Text style={styles.sellTrackText}>💶 VENDRE</Text>
+                      <Text style={styles.sellTrackText}>◆ COLLECTION</Text>
                     </TouchableOpacity>
                   </LockedFeatureCard>
                 )
@@ -1025,20 +1025,20 @@ export default function MyMusicScreen({ navigation, route }: any) {
             ) : (
               <LockedFeatureCard
                 unlocked={Boolean(saleAccess?.unlocked)}
-                title={isGroupView ? 'Vendre cet album' : 'Vendre cette playlist'}
+                title={isGroupView ? 'Créer une collection avec cet album' : 'Créer une collection avec cette playlist'}
                 requirementLabel="abonnés"
                 current={saleAccess?.followers ?? 0}
                 required={saleAccess?.threshold ?? 100}
-                benefit="Vends tes découvertes, reçois les paiements directement sur ton lien perso, et suis tes ventes dans ton historique."
+                benefit="Compose une collection avec tes découvertes, fixe € / FREE, publie-la et suis chaque déblocage dans ton historique."
                 actionLabel="Voir mon profil"
                 onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                lockedTeaser={<View style={styles.sellMini}><Text style={styles.sellMiniText}>🔒 VENDRE</Text></View>}
+                lockedTeaser={<View style={styles.sellMini}><Text style={styles.sellMiniText}>🔒 COLLECTION</Text></View>}
               >
                 <TouchableOpacity style={styles.sellMini} onPress={() => {
                   if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null });
                   else openSellModal({ kind: 'playlist', playlist: item });
                 }}>
-                  <Text style={styles.sellMiniText}>{isGroupView ? '💶 VENDRE CET ALBUM' : '💶 VENDRE'}</Text>
+                  <Text style={styles.sellMiniText}>{isGroupView ? '◆ CRÉER AVEC CET ALBUM' : '◆ CRÉER UNE COLLECTION'}</Text>
                 </TouchableOpacity>
               </LockedFeatureCard>
             )
@@ -1163,12 +1163,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 requirementLabel="abonnés"
                 current={saleAccess?.followers ?? 0}
                 required={saleAccess?.threshold ?? 100}
-                benefit="Sélectionne plusieurs morceaux et vends-les groupés comme une découverte musicale, à ton prix."
+                benefit="Sélectionne plusieurs morceaux, mélange les styles si tu veux, puis publie-les comme une collection exclusive avec un prix en € ou en FREE."
                 actionLabel="Voir mon profil"
                 onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE PLAYLIST À VENDRE</Text></View>}
+                lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE COLLECTION EXCLUSIVE</Text></View>}
               >
-                <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une playlist à vendre"><Text style={styles.selectionStartText}>＋ CRÉER UNE PLAYLIST À VENDRE</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une collection exclusive"><Text style={styles.selectionStartText}>＋ CRÉER UNE COLLECTION EXCLUSIVE</Text></TouchableOpacity>
               </LockedFeatureCard>
             </View> : null}
             {localKeptEntries.length ? <View style={[styles.originSection, originFilter === 'USERS' ? styles.originSectionSocial : styles.originSectionOwn]}>
@@ -1263,23 +1263,23 @@ export default function MyMusicScreen({ navigation, route }: any) {
           vendu. */}
       <Modal visible={!!sellTarget} transparent animationType="fade" onRequestClose={closeSellModal}>
         <View style={styles.modalBackdrop}><View style={styles.editCard}>
-          <Text style={styles.editTitle}>Vendre {sellTarget?.kind === 'playlist' ? sellTarget.playlist.name : sellTarget?.name}</Text>
+          <Text style={styles.editTitle}>Créer la collection · {sellTarget?.kind === 'playlist' ? sellTarget.playlist.name : sellTarget?.name}</Text>
           <Text style={styles.editHint}>L'acheteur paiera directement sur ton lien de paiement personnel (Réglages &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text>
           {sellTarget?.kind === 'selection' ? <TextInput
             style={styles.input}
             value={sellTarget.name}
             maxLength={100}
             onChangeText={(name) => setSellTarget((current) => current?.kind === 'selection' ? { ...current, name } : current)}
-            placeholder="Nom de la playlist"
+            placeholder="Nom de la collection"
             placeholderTextColor={colors.textMuted}
-            accessibilityLabel="Nom de la playlist à vendre"
+            accessibilityLabel="Nom de la collection exclusive"
           /> : null}
           <View style={styles.salePriceHeader}>
-            <Text style={styles.salePriceLabel}>PRIX TOTAL DE LA SÉLECTION</Text>
+            <Text style={styles.salePriceLabel}>ACCÈS À TOUTE LA COLLECTION</Text>
             <Text style={styles.salePriceExplain}>
               {sellTarget?.kind === 'selection'
-                ? `Ce prix couvre les ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''} ensemble — jamais par morceau.`
-                : 'Ce prix couvre toute la playlist — jamais chaque morceau séparément.'}
+                ? `Ce montant débloque les ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''} ensemble — jamais morceau par morceau.`
+                : 'Ce montant débloque toute la collection — jamais chaque morceau séparément.'}
             </Text>
           </View>
           <View style={styles.priceChipsRow}>
