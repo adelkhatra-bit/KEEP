@@ -193,9 +193,10 @@ jobs:
             await page.waitForTimeout(300);
 
             let detailsButton = page.getByLabel('Voir les détails').first();
-            if (await detailsButton.count() === 0) {
+            const detailsVisible = await detailsButton.isVisible().catch(() => false);
+            if (!detailsVisible) {
               const socialToggle = page.getByLabel("Afficher ou masquer les musiques reprises d'autres utilisateurs").first();
-              if (await socialToggle.count() > 0) {
+              if (await socialToggle.isVisible().catch(() => false)) {
                 await clickRobust(socialToggle, 'Expand social reprises for delete fixture');
                 await page.waitForTimeout(350);
                 detailsButton = page.getByLabel('Voir les détails').first();
