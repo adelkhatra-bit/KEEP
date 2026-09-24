@@ -105,12 +105,12 @@ jobs:
             const menu=page.getByLabel('Menu du profil').last();
             await menu.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,menu,'Profile menu');
-            let edit=page.getByText('Réglages du profil',{exact:true}).last();
+            let edit=page.getByText('👤 Réglages du profil',{exact:true}).last();
             if (!await edit.isVisible().catch(()=>false)) {
               const backToMenu=page.getByText('‹ Menu',{exact:true}).last();
               if (await backToMenu.isVisible().catch(()=>false)) {
                 await clickRobust(page,backToMenu,'Reset profile menu');
-                edit=page.getByText('Réglages du profil',{exact:true}).last();
+                edit=page.getByText('👤 Réglages du profil',{exact:true}).last();
               }
             }
             await edit.waitFor({state:'visible',timeout:15000});
