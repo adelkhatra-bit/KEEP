@@ -54,8 +54,8 @@ assertOrdered(visitor, [
   '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
-  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<View style={styles.publicMusicSection}>',
+  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
 ], 'Visited profile collective hierarchy');
 
