@@ -1481,3 +1481,22 @@ Vérifié dans le code réel (`PublicUserProfileScreen.tsx`, `PlaylistSaleImmers
 - Décision UX : propriétaire = bouton direct `INVITER / PARTAGER` + `GÉRER MES VENTES` dans le hero ; visiteur = grille Styles gratuits + payants ; `Voir tous les morceaux` reste accessible.
 - Correctif structurel obligatoire : chaque dossier payant doit être lié à sa **vraie offre** ; ne jamais utiliser `saleOffers[0]` comme offre universelle.
 - Intégration progressive : profil visité → profil propriétaire → Playlists → Onboarding/Super Admin, sans toucher App.tsx/Navigation.tsx/barre 5 onglets.
+
+
+## [2026-09-24T00:00:00.000Z] abacus-claude
+
+**Mission : Préparation publication App Store autonome — déblocage CI workflows**
+
+**Contexte** : Le PAT  (loki-ia-bote) était en metadata=read uniquement (403 sur tout push). Le connecteur GitHub (App abacusai) peut lire/écrire des fichiers réguliers mais pas  (permission Workflows absente). Build 312 v1.0.0 déjà sur TestFlight « Prêt à soumettre ».
+
+**Travaux réalisés** :
+1. **** — workflow complet créé et commité localement (), stocké en patch . Attend un PAT avec  +  pour être poussé sur la branche.
+2. **** — entrée  insérée (HTTP 201, , en attente du nouveau token). La table existait déjà avec 17 entrées (structure : , , , , , , ).
+3. **** — section « Débloquer CI avec le nouveau PAT » ajoutée, section Secrets mise à jour avec .
+4. **** — cette entrée.
+5. **Audit permissions** : GitHub App (abacusai) = ne peut pas push  · PAT ancien = metadata=read seulement.
+
+**Commande exacte à exécuter avec le nouveau PAT** :
+
+
+**État final** : Tests locaux non exécutés (workflow non poussable). INDEX.md et AGENT_MESSAGES.md mis à jour via connecteur GitHub (fichiers réguliers). Commit  (app-store-submit.yml) en attente de push avec le bon PAT.
