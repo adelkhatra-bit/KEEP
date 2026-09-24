@@ -92,9 +92,8 @@ export default function MusicSwipeDeckModal({
   const current = deckTracks[index];
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
-  // Le Swipe social est le seul mode interactif qui boucle par défaut et demande
-  // Public/Privé. On le prépare avant toute lecture pour ne proposer que les
-  // morceaux que le visiteur n'a pas déjà dans sa collection.
+  // Le Swipe social boucle par défaut et demande Public/Privé. Tous les
+  // morceaux publics restent écoutables, même déjà présents chez le visiteur.
   const socialDiscoveryMode = !previewOnly && askVisibilityOnKeep && loop;
 
   const advanceIndex = useCallback(() => {
@@ -134,23 +133,15 @@ export default function MusicSwipeDeckModal({
 
     const prepare = async () => {
       const inputTracks = [...tracksRef.current];
-      if (!socialDiscoveryMode) {
-        preparedTracksRef.current = inputTracks;
-        setDeckTracks(loop ? shuffle(inputTracks) : inputTracks);
-        setRound((value) => value + 1);
-        return;
-      }
 
-      // Important : deck vide pendant ce contrôle. Aucun extrait ne peut donc
-      // démarrer avant que la bibliothèque du visiteur ait été comparée.
-      setPreparingDeck(true);
-      setDeckTracks([]);
-      const result = await filterSocialSwipeAgainstOwnKeep(inputTracks);
-      if (!alive) return;
-      preparedTracksRef.current = result.tracks;
-      setPrefilterRemovedCount(result.removedCount);
-      setPrefilterVerified(result.verified);
-      setDeckTracks(shuffle(result.tracks));
+      // Règle produit 24/09/2026 : un morceau déjà présent chez l'auditeur
+      // reste écoutable. On ne retire donc PLUS rien de la file sociale.
+      // La détection anti-doublon reste faite morceau par morceau via
+      // checkOwnKeepLibrary() : le CTA devient "DÉJÀ" mais l'audio continue.
+      preparedTracksRef.current = inputTracks;
+      setPrefilterRemovedCount(0);
+      setPrefilterVerified(false);
+      setDeckTracks(loop ? shuffle(inputTracks) : inputTracks);
       setRound((value) => value + 1);
       setPreparingDeck(false);
     };
@@ -451,7 +442,7 @@ export default function MusicSwipeDeckModal({
       </View>
 
       <View style={s.body}>
-        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music retire d’abord les morceaux déjà présents dans tes musiques.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
+        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text><TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
