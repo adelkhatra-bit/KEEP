@@ -37,6 +37,22 @@ export type PlaylistSaleOffer = {
   updatedAt: string;
 };
 
+function normalizeSaleGenres(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of value) {
+    const label = String(raw ?? '').trim();
+    if (!label) continue;
+    const key = label.toLocaleLowerCase('fr-FR');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(label);
+    if (result.length >= 6) break;
+  }
+  return result;
+}
+
 function client() {
   if (!supabase) throw new Error('SUPABASE_NOT_CONFIGURED');
   return supabase;
@@ -109,7 +125,7 @@ export async function loadPlaylistSaleOffersForProfile(profileId: string): Promi
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
     coverUrl: null,
     trackCount: Number(row.track_count ?? row.trackCount ?? 0),
-    genres: Array.isArray(row.genres) ? row.genres.map(String).filter(Boolean).slice(0, 6) : [],
+    genres: normalizeSaleGenres(row.genres),
   })).filter((row) => row.offerId && row.playlistId);
 }
 
@@ -491,7 +507,7 @@ export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
     coverUrl: null,
     trackCount: Number(row.track_count ?? row.trackCount ?? 0),
-    genres: Array.isArray(row.genres) ? row.genres.map(String).filter(Boolean).slice(0, 6) : [],
+    genres: normalizeSaleGenres(row.genres),
     isActive: Boolean(row.is_active ?? row.isActive),
     updatedAt: String(row.updated_at ?? row.updatedAt ?? ''),
   })).filter((row) => row.playlistId);
