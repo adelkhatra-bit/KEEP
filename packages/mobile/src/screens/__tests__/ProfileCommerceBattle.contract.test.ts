@@ -19,13 +19,13 @@ describe('Profile commerce + Battle contract', () => {
     expect(myMusic).toContain("const offerId = String(route?.params?.manageSaleOfferId || '').trim();");
     expect(myMusic).toContain('setSaleEditOfferTarget({ offerId, playlistName });');
     expect(myMusic).toContain('setSaleSelectionMode(true);');
-    expect(myMusic).toContain("Pour en retirer un déjà vendu, touche son badge prix puis “Retirer de la vente”.");
+    expect(myMusic).toContain('Sélectionne de nouveaux morceaux. Pour en retirer un déjà inclus, touche son badge collection puis “Retirer de la collection”.');
   });
 
-  it('keeps price editing separate from track-content editing', () => {
-    expect(salePanel).toContain('accessibilityLabel={`Changer le prix de ${item.playlistName}`}');
+  it('keeps access-mode editing separate from track-content editing', () => {
+    expect(salePanel).toContain('accessibilityLabel={`Modifier le mode d’accès de ${item.playlistName}`}');
     expect(salePanel).toContain('<Text style={s.manageTracksBtnText}>♫ Morceaux</Text>');
-    expect(salePanel).toContain('<Text style={s.editBtnText}>€ Prix</Text>');
+    expect(salePanel).toContain('<Text style={s.editBtnText}>€ / FREE</Text>');
   });
 
   it('lets a signed-in visitor challenge the viewed profile directly to a Battle', () => {
