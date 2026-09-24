@@ -880,30 +880,47 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
         {tracksGrouping === 'GENRE' ? (
           genreFolders.length ? <View>
-            <View style={s.genreFolderGrid}>
-              {genreFolders.map((folder) => {
-                const open = expandedGenreFolder === folder.genre;
-                return <TouchableOpacity key={folder.genre} style={[s.genreFolderTile, open && s.genreFolderTileOn]} onPress={() => setExpandedGenreFolder(open ? null : folder.genre)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`Dossier ${folder.genre}, ${folder.entries.length} morceau${folder.entries.length > 1 ? 'x' : ''}`}>
-                  <Text style={s.genreFolderIcon}>{open ? '📂' : '📁'}</Text>
-                  <Text style={s.genreFolderName} numberOfLines={1}>{folder.genre}</Text>
-                  <Text style={s.genreFolderCount}>{folder.entries.length} morceau{folder.entries.length > 1 ? 'x' : ''}</Text>
-                </TouchableOpacity>;
-              })}
-            </View>
-            {expandedGenreFolder ? (() => {
-              const folder = genreFolders.find((f) => f.genre === expandedGenreFolder);
-              if (!folder) return null;
-              return <View style={s.genreFolderPanel}>
-                <View style={s.genreFolderPanelHead}>
-                  <Text style={s.genreFolderPanelTitle} numberOfLines={1}>{folder.genre} · {folder.entries.length} morceau{folder.entries.length > 1 ? 'x' : ''}</Text>
-                  {/* Mission C : "Mettre en vente" par dossier -- ouvre l'écran
-                      de vente existant (PlaylistSalePanel), jamais un raccourci
-                      qui court-circuite le tunnel de prix/renonciation. */}
-                  {marketplaceEnabled ? <TouchableOpacity style={s.genreFolderSellButton} onPress={() => navigation.navigate('PlaylistSale', { preselectGenre: folder.genre })} accessibilityLabel={`Mettre en vente le dossier ${folder.genre}`}><Text style={s.genreFolderSellText}>🏷️ Mettre en vente</Text></TouchableOpacity> : null}
+            {Array.from({ length: Math.ceil(genreFolders.length / 2) }, (_, rowIndex) => {
+              const rowFolders = genreFolders.slice(rowIndex * 2, rowIndex * 2 + 2);
+              const expandedInRow = rowFolders.find((folder) => expandedGenreFolder === folder.genre) ?? null;
+              return <View key={`genre-row-${rowIndex}`} style={s.genreFolderRowBlock}>
+                <View style={s.genreFolderRow}>
+                  {rowFolders.map((folder) => {
+                    const open = expandedGenreFolder === folder.genre;
+                    return <TouchableOpacity key={folder.genre} style={[s.genreFolderTile, open && s.genreFolderTileOn]} onPress={() => setExpandedGenreFolder(open ? null : folder.genre)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`Dossier ${folder.genre}, ${folder.entries.length} morceau${folder.entries.length > 1 ? 'x' : ''}`}>
+                      <Text style={s.genreFolderIcon}>{open ? '📂' : '📁'}</Text>
+                      <Text style={s.genreFolderName} numberOfLines={1}>{folder.genre}</Text>
+                      <Text style={s.genreFolderCount}>{folder.entries.length} morceau{folder.entries.length > 1 ? 'x' : ''}</Text>
+                    </TouchableOpacity>;
+                  })}
+                  {rowFolders.length === 1 ? <View style={s.genreFolderSpacer} /> : null}
                 </View>
-                {folder.entries.map((entry) => renderCompactTrack(entry.track, `genre-${folder.genre}-${entry.id}`, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, entry.visibility === 'PRIVATE'))}
+                {expandedInRow ? (
+                  <View style={s.genreFolderPanel}>
+                    <Text style={s.genreFolderPanelTitle} numberOfLines={1}>{expandedInRow.genre} · {expandedInRow.entries.length} morceau{expandedInRow.entries.length > 1 ? 'x' : ''}</Text>
+                    <View style={s.genreFolderPanelActions}>
+                      <TouchableOpacity
+                        style={s.genreFolderPlayButton}
+                        onPress={() => openSelectionSwipe({ title: expandedInRow.genre, subtitle: `Tes morceaux ${expandedInRow.genre} dans ta collection.`, tracks: expandedInRow.entries.map((entry) => entry.track) })}
+                        accessibilityLabel={`Écouter le dossier ${expandedInRow.genre}`}
+                      >
+                        <Text style={s.genreFolderPlayText}>▶ ÉCOUTER</Text>
+                      </TouchableOpacity>
+                      {marketplaceEnabled ? (
+                        <TouchableOpacity
+                          style={s.genreFolderSellButton}
+                          onPress={() => navigation.navigate('Main', { screen: 'Playlists', params: { preselectSaleGenre: expandedInRow.genre } })}
+                          accessibilityLabel={`Mettre en vente le dossier ${expandedInRow.genre}`}
+                        >
+                          <Text style={s.genreFolderSellText}>🏷️ VENDRE</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    {expandedInRow.entries.map((entry) => renderCompactTrack(entry.track, `genre-${expandedInRow.genre}-${entry.id}`, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, entry.visibility === 'PRIVATE'))}
+                  </View>
+                ) : null}
               </View>;
-            })() : null}
+            })}
           </View> : <Text style={s.muted}>Aucun genre détecté pour l’instant. Loki Music enrichit tes morceaux en arrière-plan — reviens dans un instant.</Text>
         ) : (
           <>
@@ -1488,8 +1505,8 @@ const s=StyleSheet.create({
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},genreGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:8},genreTile:{width:'48%',minHeight:56,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreTileText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreTileCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},muted:{color:colors.textPrimary,fontSize:13,lineHeight:18},
   groupingToggle:{flexDirection:'row',gap:8,marginBottom:4},groupingChip:{minHeight:30,paddingHorizontal:14,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},groupingChipOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},groupingChipText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},groupingChipTextOn:{color:'#FFFFFF'},
-  genreFolderGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:6},genreFolderTile:{width:'48%',minHeight:72,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreFolderTileOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},genreFolderIcon:{fontSize:18,marginBottom:4},genreFolderName:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreFolderCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},
-  genreFolderPanel:{marginTop:2,marginBottom:6,padding:10,borderRadius:radius.md,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,gap:7},genreFolderPanelHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:2},genreFolderPanelTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',flex:1,minWidth:0},genreFolderSellButton:{minHeight:30,paddingHorizontal:12,borderRadius:radius.pill,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},genreFolderSellText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
+  genreFolderGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:6},genreFolderRowBlock:{marginTop:6},genreFolderRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'stretch'},genreFolderTile:{width:'48%',minHeight:72,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreFolderSpacer:{width:'48%'},genreFolderTileOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},genreFolderIcon:{fontSize:18,marginBottom:4},genreFolderName:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreFolderCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},
+  genreFolderPanel:{marginTop:0,marginBottom:10,padding:10,borderRadius:radius.md,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,gap:7},genreFolderPanelHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:2},genreFolderPanelTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',flex:1,minWidth:0},genreFolderPanelActions:{flexDirection:'row',gap:8,marginBottom:2},genreFolderPlayButton:{flex:1,minHeight:34,paddingHorizontal:12,borderRadius:radius.pill,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},genreFolderPlayText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},genreFolderSellButton:{flex:1,minHeight:34,paddingHorizontal:12,borderRadius:radius.pill,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},genreFolderSellText:{color:colors.success,fontSize:12,fontWeight:'900'},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
