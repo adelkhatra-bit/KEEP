@@ -245,7 +245,7 @@ export default function DiscoverScreen({ navigation }: any) {
     return ranked.map((item) => item.profile);
   }, [profiles, searchedProfiles, committedQuery, radiusKm, searchPosition, hasSearched]);
 
-  const currentProfile = filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
+  const currentProfile = (hasSearched || committedQuery.trim().length > 0) && filteredProfiles.length ? filteredProfiles[profileIndex % filteredProfiles.length] : null;
 
   useEffect(() => {
     let live = true;
