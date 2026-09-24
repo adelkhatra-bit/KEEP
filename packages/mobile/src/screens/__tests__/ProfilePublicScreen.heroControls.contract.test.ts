@@ -43,12 +43,12 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).not.toContain('style={s.ownOffersStatus}');
     expect(source).not.toContain('Gérer mes découvertes en vente');
   });
-  it('keeps style actions directly under the row that was tapped', () => {
-    expect(source).toContain("const rowFolders = genreFolders.slice(rowIndex * 2, rowIndex * 2 + 2);");
-    expect(source).toContain("const expandedInRow = rowFolders.find((folder) => expandedGenreFolder === folder.genre) ?? null;");
-    expect(source).toContain("▶ ÉCOUTER");
-    expect(source).toContain("🏷️ VENDRE");
-    expect(source).toContain("preselectSaleGenre: expandedInRow.genre");
+  it('keeps style listening and selling directly on the immersive card', () => {
+    expect(source).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
+    expect(source).toContain("onPress={() => openSelectionSwipe({ title: folder.genre");
+    expect(source).toContain("actionLabel={marketplaceEnabled ? 'VENDRE' : undefined}");
+    expect(source).toContain("preselectSaleGenre: folder.genre");
+    expect(source).toContain("fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}");
   });
 
 });
