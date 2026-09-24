@@ -24,6 +24,8 @@ type Props = {
   tracks: CanonicalTrack[];
   title?: string;
   subtitle?: string;
+  sourceUsername?: string;
+  sourceAvatarUrl?: string | null;
   emptyTitle?: string;
   backLabel?: string;
   loop?: boolean;
@@ -43,6 +45,8 @@ export default function MusicSwipeDeckModal({
   tracks,
   title = 'Découverte musicale',
   subtitle,
+  sourceUsername,
+  sourceAvatarUrl,
   emptyTitle = 'Aucun morceau à découvrir.',
   backLabel,
   loop = true,
@@ -408,7 +412,20 @@ export default function MusicSwipeDeckModal({
   return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <View style={s.headerText}><Text style={s.eyebrow}>Loki Music SWIPE</Text><Text style={s.title}>{title}</Text>{resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}</View>
+        <View style={s.headerText}>
+          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+          <Text style={s.title}>{title}</Text>
+          {sourceUsername ? (
+            <View style={s.sourceIdentity}>
+              {sourceAvatarUrl ? <Image source={{ uri: sourceAvatarUrl }} style={s.sourceAvatar} /> : <View style={s.sourceAvatarFallback}><Text style={s.sourceAvatarText}>{sourceUsername.replace(/^@/, '').slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.sourceIdentityCopy}>
+                <Text style={s.sourceIdentityKicker}>TU ÉCOUTES L’UNIVERS DE</Text>
+                <Text style={s.sourceIdentityName}>@{sourceUsername.replace(/^@/, '')}</Text>
+              </View>
+            </View>
+          ) : null}
+          {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
+        </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
 
@@ -426,6 +443,7 @@ export default function MusicSwipeDeckModal({
             >
               <View style={s.card}>
                 {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                {sourceUsername ? <View style={s.sourceOverlay}><Text style={s.sourceOverlayText}>@{sourceUsername.replace(/^@/, '')}</Text></View> : null}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
                   {autoplayBlocked && resolvedPreviewUrl ? (
@@ -529,8 +547,11 @@ const s = StyleSheet.create({
   container:{flex:1,backgroundColor:'#090610'},
   header:{minHeight:78,paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:12,marginTop:3},
+  sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+  sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},
   body:{flex:1,paddingHorizontal:18},deckArea:{flex:1,justifyContent:'center',paddingBottom:10},
+  sourceOverlay:{position:'absolute',left:12,top:12,zIndex:4,minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'rgba(4,3,10,.76)',borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   card:{height:500,maxHeight:'70%',borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},manualPlayButton:{alignSelf:'flex-start',minHeight:34,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
