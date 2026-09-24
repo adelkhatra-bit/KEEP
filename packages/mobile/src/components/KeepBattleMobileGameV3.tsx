@@ -9,6 +9,16 @@ import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTr
 // pause après réponse) et par le premier essai de lecture de la manche, pour
 // que les deux se rencontrent et évitent un rechargement réseau redondant.
 const soloRoundPreviewKey = (trackId: string, roundIndex: number) => `solo:${trackId}:${roundIndex}`;
+
+function canLoadAuthenticatedBattleCredit(): boolean {
+  const state = useUserStore.getState();
+  return Boolean(state.user?.id && !state.isLocalGuest && !state.isDemoMode);
+}
+
+async function loadBattleCreditStatusIfAuthenticated(): Promise<KeepBattleCreditStatus | null> {
+  if (!canLoadAuthenticatedBattleCredit()) return null;
+  return loadMyKeepBattleCreditStatus().catch(() => null);
+}
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
@@ -896,9 +906,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     soloStartedAtRef.current = 0; setSoloStartedAt(0); setAudioReady(false);
     // Charger le Free avant la partie SOLO (première manche uniquement)
     if (soloIndex === 0 && soloBefore === null) {
-      loadMyKeepBattleCreditStatus().then((status) => {
-        if (alive && 'remainingFree' in status) setSoloBefore(Number(status.remainingFree ?? 0));
-      }).catch(() => {});
+      void loadBattleCreditStatusIfAuthenticated().then((status) => {
+        if (alive && status && 'remainingFree' in status) setSoloBefore(Number(status.remainingFree ?? 0));
+      });
     }
     const start = async () => {
       // Adel : "Battle solo, il n'y a pas de son" -- playVerified() épuise 4
@@ -1061,8 +1071,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           const reportErr = await reportSoloBattleResult(soloScore, solo.rounds.length).catch((e) => ({ error: e }));
           if (reportErr && 'error' in reportErr && reportErr.error) console.error('[SOLO] report_result failed:', reportErr.error);
           // Étape 3: charger le solde APRÈS que le crédit soit appliqué
-          const status = await loadMyKeepBattleCreditStatus();
-          if ('remainingFree' in status) {
+          const status = await loadBattleCreditStatusIfAuthenticated();
+          if (status && 'remainingFree' in status) {
             const freeAfter = Number(status.remainingFree ?? 0);
             setSoloAfter(freeAfter);
             // (20/09/2026) BUG RÉEL : n'annoncer "Tu as gagné" que si le
@@ -1140,7 +1150,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       return undefined;
     }
     let live = true;
-    const load = () => { loadMyKeepBattleCreditStatus().then((v) => { if (live) setMyCreditStatus(v); }).catch(() => {}); };
+    const load = () => { void loadBattleCreditStatusIfAuthenticated().then((v) => { if (live && v) setMyCreditStatus(v); }); };
     load();
     const id = setInterval(load, 4000);
     return () => { live = false; clearInterval(id); };
@@ -1329,7 +1339,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const [players, credit] = await Promise.all([
         loadLiveSoloPlayers(20, roundCount),
         account.user?.id && !account.isLocalGuest && !account.isDemoMode
-          ? loadMyKeepBattleCreditStatus().catch(() => null)
+          ? loadBattleCreditStatusIfAuthenticated()
           : Promise.resolve(null),
       ]);
       if (mountedRef.current) {
@@ -1360,7 +1370,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const challenge = async (player: KeepBattleLivePlayer): Promise<boolean> => {
     if (challengeBusyId) return false;
-    const freshCredit = await loadMyKeepBattleCreditStatus().catch(() => myCreditStatus);
+    const freshCredit = canLoadAuthenticatedBattleCredit()
+      ? await loadBattleCreditStatusIfAuthenticated().then((value) => value ?? myCreditStatus)
+      : myCreditStatus;
     if (freshCredit) setMyCreditStatus(freshCredit);
     const senderShort = freshCredit
       ? freshCredit.hasPaidBattleAccess !== true && freshCredit.remainingFree < stakeForRounds(roundCount)
