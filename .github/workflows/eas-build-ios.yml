@@ -8,13 +8,8 @@ name: KEEP — Build iOS (EAS) + TestFlight
 # Aucun identifiant Apple factice n'est conservé dans le repo.
 
 on:
-  push:
-    branches: ['reconcile/claude-main-20260825']
-    paths:
-      - "packages/mobile/**"
-      - "packages/music/**"
-      - "scripts/verify-app-store-readiness.cjs"
-      - ".github/workflows/eas-build-ios.yml"
+  # Secours EAS Cloud uniquement. Le build production automatique gratuit
+  # est auto-eas-build.yml sur runner macOS GitHub.
   workflow_dispatch:
     inputs:
       profile:
@@ -172,8 +167,7 @@ jobs:
           else
             echo 'Build EAS armé sans auto-submit TestFlight.'
           fi
-          env -u EXPO_ASC_API_KEY_PATH -u EXPO_ASC_KEY_ID -u EXPO_ASC_ISSUER_ID -u EXPO_APPLE_TEAM_ID -u EXPO_APPLE_ID \
-            eas "${args[@]}"
+          eas "${args[@]}"
 
       - name: Résumé pipeline Apple
         if: always()
