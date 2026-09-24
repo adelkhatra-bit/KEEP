@@ -247,12 +247,14 @@ jobs:
 
             const birthDateSelector=page.getByLabel(/Date de naissance\s*:\s*/i).last();
             await birthDateSelector.waitFor({state:'visible',timeout:15000});
-            await clickRobust(page,birthDateSelector,'Choose birth date');
+            // Flux modal : aucun Escape avant ouverture/validation. Le helper
+            // générique clickRobust ferme les modales et pouvait rendre ce
+            // test aléatoire sur 390×844.
+            await birthDateSelector.scrollIntoViewIfNeeded();
+            await birthDateSelector.click({force:true,timeout:5000});
             const validateBirthDate=page.getByLabel('Valider la date de naissance').last();
             await validateBirthDate.waitFor({state:'visible',timeout:15000});
-            // Ne pas utiliser clickRobust ici : ce helper envoie Escape avant
-            // le clic, ce qui ferme précisément la modale de date.
-            await validateBirthDate.click({timeout:5000});
+            await validateBirthDate.click({force:true,timeout:5000});
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
 
