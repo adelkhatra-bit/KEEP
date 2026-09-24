@@ -95,7 +95,7 @@ const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?
   return `Une erreur inattendue est survenue${msg ? ` (${msg})` : ''}. Réessaie ou contacte le support.`;
 };
 
-export default function MyMusicScreen({ navigation }: any) {
+export default function MyMusicScreen({ navigation, route }: any) {
   const { t } = useTranslation();
   const { playlists, isLoading, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
@@ -185,6 +185,19 @@ export default function MyMusicScreen({ navigation }: any) {
   const [sellBusy, setSellBusy] = useState(false);
   const [saleSelectionMode, setSaleSelectionMode] = useState(false);
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
+  const [saleEditOfferTarget, setSaleEditOfferTarget] = useState<{ offerId: string; playlistName: string } | null>(null);
+
+  useEffect(() => {
+    const offerId = String(route?.params?.manageSaleOfferId || '').trim();
+    if (!offerId) return;
+    const playlistName = String(route?.params?.manageSaleOfferName || 'Offre en vente').trim() || 'Offre en vente';
+    setActiveTab('MUSIQUES');
+    setOriginFilter('LISTEN');
+    setSelectedSaleTrackIds(new Set());
+    setSaleEditOfferTarget({ offerId, playlistName });
+    setSaleSelectionMode(true);
+    navigation?.setParams?.({ manageSaleOfferId: undefined, manageSaleOfferName: undefined });
+  }, [navigation, route?.params?.manageSaleOfferId, route?.params?.manageSaleOfferName]);
 
   const localKeptEntries = useMemo(() => {
     // Source canonique = Supabase. L'historique de sessions reste utile pour
@@ -533,6 +546,7 @@ export default function MyMusicScreen({ navigation }: any) {
   const cancelSaleSelection = () => {
     setSaleSelectionMode(false);
     setSelectedSaleTrackIds(new Set());
+    setSaleEditOfferTarget(null);
   };
 
   const createSaleSelection = () => {
@@ -561,29 +575,40 @@ export default function MyMusicScreen({ navigation }: any) {
     return Array.from(byOfferId.values());
   }, [myOfferedTrackIds]);
 
+  const addSelectedTracksToOffer = async (offerId: string) => {
+    const trackIds = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
+    if (!trackIds.length) {
+      Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà en vente.');
+      return;
+    }
+    try {
+      const result = await addTracksToOffer(offerId, trackIds);
+      Alert.alert('Offre mise à jour', `${result.addedCount} morceau${result.addedCount > 1 ? 'x' : ''} ajouté${result.addedCount > 1 ? 's' : ''} (${result.trackCount} au total).`);
+      setSelectedSaleTrackIds(new Set());
+      await refreshSaleState();
+    } catch {
+      Alert.alert('Vendre', 'Impossible d’ajouter ces morceaux à l’offre pour le moment.');
+    }
+  };
+
   const addSelectionToExistingOffer = () => {
     const trackIds = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
     if (!trackIds.length) return Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà en vente.');
-
-    const runAdd = async (offerId: string) => {
-      try {
-        const result = await addTracksToOffer(offerId, trackIds);
-        Alert.alert('Ajouté', `${result.addedCount} morceau${result.addedCount > 1 ? 'x' : ''} ajouté${result.addedCount > 1 ? 's' : ''} à l’offre (${result.trackCount} au total).`);
-        cancelSaleSelection();
-        await refreshSaleState();
-      } catch {
-        Alert.alert('Vendre', 'Impossible d’ajouter ces morceaux à l’offre pour le moment.');
-      }
-    };
-
-    if (existingOffersForAdd.length === 1) { void runAdd(existingOffersForAdd[0].offerId); return; }
+    if (saleEditOfferTarget) {
+      void addSelectedTracksToOffer(saleEditOfferTarget.offerId);
+      return;
+    }
+    if (existingOffersForAdd.length === 1) {
+      void addSelectedTracksToOffer(existingOffersForAdd[0].offerId);
+      return;
+    }
     Alert.alert(
       'Ajouter à quelle offre ?',
       undefined,
       [
         ...existingOffersForAdd.map((offer) => ({
           text: `${offer.playlistName} · ${(offer.priceCents / 100).toFixed(2)}€`,
-          onPress: () => void runAdd(offer.offerId),
+          onPress: () => void addSelectedTracksToOffer(offer.offerId),
         })),
         { text: 'Annuler', style: 'cancel' as const },
       ],
@@ -1181,13 +1206,24 @@ export default function MyMusicScreen({ navigation }: any) {
           au lieu de rester en haut de la liste (ListHeaderComponent). */}
       {activeTab === 'MUSIQUES' && saleSelectionMode ? (
         <View style={styles.stickySelectionFooter}>
-          <View style={styles.selectionToolbarCopy}><Text style={styles.selectionToolbarTitle}>{selectedSaleTrackIds.size} morceau{selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text><Text style={styles.selectionToolbarHint}>Appuie sur les ronds, puis crée ta playlist.</Text></View>
+          <View style={styles.selectionToolbarCopy}>
+            <Text style={styles.selectionToolbarTitle}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `${selectedSaleTrackIds.size} morceau${selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
+            <Text style={styles.selectionToolbarHint}>{saleEditOfferTarget ? 'Sélectionne de nouveaux morceaux. Pour en retirer un déjà vendu, touche son badge prix puis “Retirer de la vente”.' : 'Appuie sur les ronds, puis crée ta playlist.'}</Text>
+          </View>
           <View style={styles.stickySelectionActions}>
-            <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>ANNULER</Text></TouchableOpacity>
-            {existingOffersForAdd.length ? (
-              <TouchableOpacity style={styles.selectionAddButton} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}><Text style={styles.selectionAddText}>＋ OFFRE EXISTANTE</Text></TouchableOpacity>
-            ) : null}
-            <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
+            {saleEditOfferTarget ? (
+              <TouchableOpacity style={[styles.selectionAddButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}>
+                <Text style={styles.selectionAddText}>＋ AJOUTER ({selectedSaleTrackIds.size})</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                {existingOffersForAdd.length ? (
+                  <TouchableOpacity style={styles.selectionAddButton} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}><Text style={styles.selectionAddText}>＋ OFFRE EXISTANTE</Text></TouchableOpacity>
+                ) : null}
+                <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       ) : null}

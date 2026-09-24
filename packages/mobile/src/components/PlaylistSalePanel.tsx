@@ -260,6 +260,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
             {offers.length > 0 && (
               <View style={s.offersSection}>
                 <Text style={s.sectionTitle}>MES OFFRES ACTIVES ({offers.length})</Text>
+                <Text style={s.sectionHint}>Prix et contenu se gèrent séparément : ajoute ou retire des morceaux sans recréer l’offre ni perdre son historique.</Text>
                 <FlatList
                   scrollEnabled={false}
                   data={offers}
@@ -280,16 +281,32 @@ export default function PlaylistSalePanel({ navigation }: any) {
                       <Text style={s.offerDate}>Mise à jour: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
                       <View style={s.offerActions}>
                         <TouchableOpacity
+                          style={s.manageTracksBtn}
+                          disabled={busy}
+                          onPress={() => navigation.navigate('Main', {
+                            screen: 'Playlists',
+                            params: {
+                              manageSaleOfferId: item.offerId || item.playlistId,
+                              manageSaleOfferName: item.playlistName,
+                            },
+                          })}
+                          accessibilityLabel={`Modifier les morceaux de ${item.playlistName}`}
+                        >
+                          <Text style={s.manageTracksBtnText}>♫ Morceaux</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
                           style={s.editBtn}
                           disabled={busy}
                           onPress={() => setEditing({ playlistId: item.playlistId, playlistName: item.playlistName, priceCents: item.priceCents })}
+                          accessibilityLabel={`Changer le prix de ${item.playlistName}`}
                         >
-                          <Text style={s.editBtnText}>✎ Modifier</Text>
+                          <Text style={s.editBtnText}>€ Prix</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={s.removeBtn}
                           disabled={busy}
                           onPress={() => void handleClearPrice(item.playlistId)}
+                          accessibilityLabel={`Retirer ${item.playlistName} de la vente`}
                         >
                           <Text style={s.removeBtnText}>✕ Retirer</Text>
                         </TouchableOpacity>
@@ -452,6 +469,7 @@ const s = StyleSheet.create({
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
   offersSection: { marginTop: spacing.lg },
   sectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.md },
+  sectionHint: { color: colors.textMutedGrey, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: spacing.md },
   offerCard: { borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md },
   offerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
   offerInfo: { flex: 1 },
@@ -461,6 +479,8 @@ const s = StyleSheet.create({
   offerBadgeText: { color: colors.background, fontSize: 9, fontWeight: '900' },
   offerDate: { color: colors.textMuted, fontSize: 10, fontWeight: '700', marginBottom: spacing.md },
   offerActions: { flexDirection: 'row', gap: spacing.sm },
+  manageTracksBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center' },
+  manageTracksBtnText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
   editBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center' },
   editBtnText: { color: colors.white, fontSize: 11, fontWeight: '900' },
   removeBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.pass, alignItems: 'center' },
