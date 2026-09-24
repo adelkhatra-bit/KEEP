@@ -96,6 +96,27 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(ownerProfile).toContain("navigation.navigate('Main', { screen: 'Listen' })");
   });
 
+  it('plays public style audio inline without forcing navigation', () => {
+    expect(profile).toContain('const playInlinePublicTrack = async');
+    expect(profile).toContain('toggleTrackPreview(');
+    expect(profile).toContain('resolveTrackPreviewUrl(track)');
+    expect(profile).toContain('Tu peux quand même l’écouter ici.');
+    expect(profile).toContain('onPlayPress={() => void playInlinePublicTrack');
+  });
+
+  it('plays locked sale previews anonymously on the same profile', () => {
+    expect(profile).toContain('const playInlineSalePreview = async');
+    expect(profile).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
+    expect(profile).toContain('onPlayPress={unlocked ? () => openSaleFolder(offer) : () => void playInlineSalePreview(offer)}');
+  });
+
+  it('renders locked sale cards with a vivid dedicated palette', () => {
+    expect(styleCard).toContain('const SALE_GRADIENTS');
+    expect(styleCard).toContain("['#FF2D78', '#7A00FF']");
+    expect(styleCard).toContain('colors={locked ? salePalette');
+    expect(styleCard).toContain('onPlayPress?: () => void;');
+  });
+
   it('keeps sold tracks out of the free Swipe source', () => {
     expect(profile).toContain('const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;');
     expect(profile).toContain('setTracks(visible);');
