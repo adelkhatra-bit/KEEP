@@ -4,6 +4,7 @@ import path from 'path';
 describe('profile persistence contract', () => {
   const service = fs.readFileSync(path.resolve(__dirname, '..', 'profileService.ts'), 'utf8');
   const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PublicProfilePanel.tsx'), 'utf8');
+  const avatarService = fs.readFileSync(path.resolve(__dirname, '..', 'avatarService.ts'), 'utf8');
   const migration = fs.readFileSync(
     path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924131500_social_link_label_persistence.sql'),
     'utf8',
@@ -20,10 +21,10 @@ describe('profile persistence contract', () => {
       'gender,',
       "from('profile_private_info')",
       "from('social_links')",
-      "storage.from('avatars')",
     ]) {
       expect(service).toContain(marker);
     }
+    expect(avatarService).toContain("storage.from('avatars')");
   });
 
   it('persists the website button label without breaking pre-migration clients', () => {
