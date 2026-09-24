@@ -27,7 +27,7 @@ import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenre
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
-import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
@@ -162,6 +162,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // numérique déverrouillé dans l'app. Code intact, juste masqué tant que
   // le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  const [marketplacePurchaseEnabled, setMarketplacePurchaseEnabled] = useState(false);
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
   const [battleInviteBusy, setBattleInviteBusy] = useState(false);
   useEffect(() => {
@@ -175,9 +176,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // aussi à chaque focus.
   useEffect(() => {
     let live = true;
-    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
-    check();
-    const unsubscribe = navigation?.addListener?.('focus', check);
+    const check = async () => {
+      const [visible, purchaseEnabled] = await Promise.all([
+        isPlaylistMarketplaceVisible(),
+        isPlaylistMarketplaceEnabled(),
+      ]);
+      if (!live) return;
+      setMarketplaceEnabled(visible);
+      setMarketplacePurchaseEnabled(purchaseEnabled);
+    };
+    void check();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void check(); });
     return () => { live = false; unsubscribe?.(); };
   }, [navigation]);
   useEffect(() => {
@@ -530,6 +539,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
+    if (!marketplacePurchaseEnabled) {
+      Alert.alert('Aperçu disponible', 'Tu peux écouter les extraits anonymes et voir les collections verrouillées. L’achat externe n’est pas activé dans cette version mobile.');
+      return;
+    }
     if (purchaseBusyId) return;
     setPurchaseBusyId(offer.offerId);
     try {
@@ -1322,6 +1335,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             busy={purchaseBusyId === immersivePreviewOffer.offerId}
             onClose={() => setImmersivePreviewOffer(null)}
             onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
+            purchaseEnabled={marketplacePurchaseEnabled}
           />
         ) : null}
 
