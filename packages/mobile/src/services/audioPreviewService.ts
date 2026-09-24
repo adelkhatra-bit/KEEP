@@ -208,6 +208,7 @@ async function playWebSegment(
   durationMillis: number,
   onStateChange?: (playing: boolean) => void,
   onEnded?: () => void,
+  defaultToBattleOffset = true,
 ): Promise<void> {
   const element = getWebAudio();
   if (!element) throw new Error('WEB_AUDIO_UNAVAILABLE');
@@ -232,7 +233,7 @@ async function playWebSegment(
   await waitForPlayable(element);
   if (webAudioKey !== key) return;
 
-  const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+  const effectivePosition = positionMillis > 0 ? positionMillis : defaultToBattleOffset ? 9000 : 0;
   try {
     if (Number.isFinite(element.duration) && element.duration > 0) {
       element.currentTime = Math.min(effectivePosition / 1000, Math.max(0, element.duration - 0.25));
@@ -298,7 +299,9 @@ export async function toggleTrackPreview(
         await stopWebAudio();
         return;
       }
-      await playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded);
+      // Écoute normale profil/Swipe : démarrer au début du preview.
+      // Le décalage 9 s est réservé aux segments Battle protégés.
+      await playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded, false);
       return;
     }
 
