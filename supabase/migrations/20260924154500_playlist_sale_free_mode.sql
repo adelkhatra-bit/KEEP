@@ -271,7 +271,8 @@ returns table(
   free_price integer,
   currency_code text,
   cover_url text,
-  track_count integer
+  track_count integer,
+  genres text[]
 )
 language sql
 stable
@@ -287,7 +288,17 @@ as $function$
     o.free_price,
     o.currency_code::text,
     null::text,
-    cardinality(public.keep_playlist_sale_track_ids(o.seller_id,o.playlist_id))::integer
+    cardinality(public.keep_playlist_sale_track_ids(o.seller_id,o.playlist_id))::integer,
+    coalesce(
+      (
+        select array_agg(distinct g order by g)
+        from unnest(public.keep_playlist_sale_track_ids(o.seller_id,o.playlist_id)) tid
+        join public.tracks t on t.id=tid
+        cross join lateral unnest(coalesce(t.genres,array[]::text[])) g
+        where nullif(trim(g),'') is not null
+      ),
+      array[]::text[]
+    )
   from public.playlist_sale_offers o
   where o.seller_id=p_profile_id and o.is_active=true
   order by o.updated_at desc;
@@ -306,7 +317,8 @@ returns table(
   currency_code text,
   is_active boolean,
   updated_at timestamptz,
-  track_count integer
+  track_count integer,
+  genres text[]
 )
 language sql
 stable
@@ -316,12 +328,76 @@ as $function$
   select
     o.id,o.playlist_id,o.playlist_name,o.payment_mode,o.price_cents,o.free_price,o.currency_code::text,
     o.is_active,o.updated_at,
-    cardinality(public.keep_playlist_sale_track_ids(o.seller_id,o.playlist_id))::integer
+    cardinality(public.keep_playlist_sale_track_ids(o.seller_id,o.playlist_id))::integer,
+    coalesce(
+      (
+        select array_agg(distinct g order by g)
+        from unnest(public.keep_playlist_sale_track_ids(o.seller_id,o.playlist_id)) tid
+        join public.tracks t on t.id=tid
+        cross join lateral unnest(coalesce(t.genres,array[]::text[])) g
+        where nullif(trim(g),'') is not null
+      ),
+      array[]::text[]
+    )
   from public.playlist_sale_offers o
   where o.seller_id=auth.uid()
   order by o.updated_at desc;
 $function$;
 grant execute on function public.keep_playlist_sale_my_offers() to authenticated;
+
+create or replace function public.keep_playlist_sale_update_payment_mode(
+  p_offer_id uuid,
+  p_payment_mode text,
+  p_price_cents integer default null,
+  p_free_price integer default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path='public','auth'
+as $function$
+declare
+  uid uuid := auth.uid();
+  v_mode text := upper(coalesce(nullif(trim(p_payment_mode),''),'MONEY'));
+  v_money integer := coalesce(p_price_cents,0);
+  v_free integer := p_free_price;
+  v_offer public.playlist_sale_offers%rowtype;
+begin
+  if uid is null then raise exception 'authentication_required'; end if;
+  select * into v_offer
+  from public.playlist_sale_offers
+  where id=p_offer_id and seller_id=uid
+  for update;
+  if v_offer.id is null then raise exception 'OFFER_NOT_FOUND_OR_NOT_YOURS'; end if;
+
+  if v_mode='MONEY' then
+    if v_money not in (50,100,200,300,500,1000) then raise exception 'PRICE_MUST_BE_A_PRESET_AMOUNT'; end if;
+    v_free := null;
+  elsif v_mode='FREE' then
+    if v_free is null or v_free not in (1,3,5,10,20,50,100) then raise exception 'FREE_PRICE_MUST_BE_A_PRESET_AMOUNT'; end if;
+    v_money := 0;
+  else
+    raise exception 'PAYMENT_MODE_INVALID';
+  end if;
+
+  update public.playlist_sale_offers
+  set payment_mode=v_mode,
+      price_cents=v_money,
+      free_price=v_free,
+      updated_at=now()
+  where id=v_offer.id
+  returning * into v_offer;
+
+  return jsonb_build_object(
+    'offerId',v_offer.id,
+    'paymentMode',v_offer.payment_mode,
+    'priceCents',v_offer.price_cents,
+    'freePrice',v_offer.free_price,
+    'currencyCode',v_offer.currency_code
+  );
+end;
+$function$;
+grant execute on function public.keep_playlist_sale_update_payment_mode(uuid,text,integer,integer) to authenticated;
 
 -- Livraison partagée, sans décision de paiement : appelée uniquement par les wrappers autorisés.
 create or replace function public.keep_playlist_sale_deliver_payment_core(p_payment_id uuid)
