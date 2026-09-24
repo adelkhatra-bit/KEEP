@@ -135,7 +135,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
       await setPlaylistSalePrice(playlistId, playlistName, priceCents);
       await loadData();
       setEditing(null);
-      Alert.alert('Succès', `Playlist en vente pour ${(priceCents / 100).toFixed(2).replace('.', ',')}€.`);
+      Alert.alert('Succès', `Collection publiée à ${(priceCents / 100).toFixed(2).replace('.', ',')}€.`);
     } catch (e: any) {
       Alert.alert('Erreur', e?.message || 'Impossible de fixer le prix.');
     } finally {
@@ -144,7 +144,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
   };
 
   const handleClearPrice = async (playlistId: string) => {
-    Alert.alert('Désactiver la vente', 'La playlist ne sera plus en vente. Les acheteurs passés auront toujours accès.', [
+    Alert.alert('Retirer la collection', 'La collection ne sera plus proposée. Les personnes qui l'ont déjà débloquée garderont leur accès.', [
       { text: 'Annuler', onPress: () => {} },
       {
         text: 'Désactiver',
@@ -153,7 +153,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
           try {
             await clearPlaylistSalePrice(playlistId);
             await loadData();
-            Alert.alert('Succès', 'Playlist retirée de la vente.');
+            Alert.alert('Succès', 'Collection retirée du profil.');
           } catch (e: any) {
             Alert.alert('Erreur', e?.message || 'Impossible de désactiver.');
           } finally {
@@ -178,7 +178,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.empty}>
-          <Text style={s.emptyText}>Crée un compte Loki Music pour vendre tes playlists.</Text>
+          <Text style={s.emptyText}>Crée un compte Loki Music pour publier tes collections exclusives.</Text>
         </View>
       </SafeAreaView>
     );
@@ -188,7 +188,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.empty}>
-          <Text style={s.emptyText}>Mode invité : connexion requise pour vendre.</Text>
+          <Text style={s.emptyText}>Mode invité : connecte-toi pour publier une collection exclusive.</Text>
         </View>
       </SafeAreaView>
     );
@@ -201,12 +201,12 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <Text style={s.back}>‹</Text>
         </TouchableOpacity>
         <View style={s.headerText}>
-          <Text style={s.title}>💰 Vendre mes playlists</Text>
-          <Text style={s.subtitle}>Fixe tes prix, gagne avec ta sélection</Text>
+          <Text style={s.title}>◆ Mes collections exclusives</Text>
+          <Text style={s.subtitle}>Compose, fixe € / FREE, publie ton univers</Text>
         </View>
         {/* Adel (21/09/2026, mission 3/3) : "Écran historique des ventes"
             -- lecture seule, séparé de ce panneau de gestion. */}
-        <TouchableOpacity style={s.historyLink} onPress={() => navigation.navigate('PlaylistSaleHistory')} accessibilityLabel="Voir l'historique complet des ventes">
+        <TouchableOpacity style={s.historyLink} onPress={() => navigation.navigate('PlaylistSaleHistory')} accessibilityLabel="Voir l'historique complet des collections débloquées">
           <Text style={s.historyLinkText}>Historique</Text>
         </TouchableOpacity>
       </View>
@@ -250,7 +250,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
               {!access.unlocked && (
                 <Text style={s.accessHint}>
-                  Atteins {access.threshold - access.followers} abonné{access.threshold - access.followers > 1 ? 's' : ''} de plus pour déverrouiller la vente.
+                  Atteins {access.threshold - access.followers} abonné{access.threshold - access.followers > 1 ? 's' : ''} de plus pour publier tes collections.
                 </Text>
               )}
             </View>
@@ -322,7 +322,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                           style={s.removeBtn}
                           disabled={busy}
                           onPress={() => void handleClearPrice(item.playlistId)}
-                          accessibilityLabel={`Retirer ${item.playlistName} de la vente`}
+                          accessibilityLabel={`Retirer ${item.playlistName} des collections publiées`}
                         >
                           <Text style={s.removeBtnText}>✕ Retirer</Text>
                         </TouchableOpacity>
@@ -358,9 +358,9 @@ export default function PlaylistSalePanel({ navigation }: any) {
             {/* Message si verrouillé */}
             {!access.unlocked && (
               <View style={s.lockedBox}>
-                <Text style={s.lockedTitle}>🔒 Vente verrouillée</Text>
+                <Text style={s.lockedTitle}>🔒 Collections verrouillées</Text>
                 <Text style={s.lockedText}>
-                  Tu dois avoir au moins {access.threshold} abonnés pour vendre tes playlists. Partage ton profil et gagne des abonnés !
+                  Tu dois avoir au moins {access.threshold} abonnés pour publier des collections exclusives. Partage ton profil et développe ta communauté !
                 </Text>
               </View>
             )}
@@ -368,14 +368,14 @@ export default function PlaylistSalePanel({ navigation }: any) {
             {/* Message si accès mais pas d'offres */}
             {access.unlocked && offers.length === 0 && (
               <View style={s.emptyBox}>
-                <Text style={s.emptyBoxTitle}>Aucune playlist en vente</Text>
-                <Text style={s.emptyBoxText}>Tu peux commencer à en vendre en sélectionnant une playlist dans ton profil.</Text>
+                <Text style={s.emptyBoxTitle}>Aucune collection exclusive publiée</Text>
+                <Text style={s.emptyBoxText}>Commence par sélectionner plusieurs morceaux et crée ta première collection exclusive.</Text>
               </View>
             )}
 
             {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'COMPLETED').length > 0 && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>VENTES CONFIRMÉES ({sales.filter((s2) => s2.status === 'COMPLETED').length})</Text>
+                <Text style={s.sectionTitle}>COLLECTIONS DÉBLOQUÉES ({sales.filter((s2) => s2.status === 'COMPLETED').length})</Text>
                 {sales.filter((s2) => s2.status === 'COMPLETED').map((sale) => (
                   <View key={sale.id} style={s.offerCard}>
                     <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
