@@ -566,13 +566,16 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const createSaleSelection = () => {
     const tracks = localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id));
-    if (!tracks.length) return Alert.alert('Sélection', 'Choisis au moins un morceau.');
+    if (tracks.length < 2) {
+      Alert.alert('Collection exclusive', 'Choisis au moins 2 morceaux. Une collection représente ton univers musical, jamais un morceau isolé.');
+      return;
+    }
     openSellModal({
       kind: 'selection',
       key: `selection:${Date.now()}`,
-      name: tracks.length === 1 ? tracks[0].title : `Ma sélection · ${tracks.length} titres`,
+      name: `Ma collection · ${tracks.length} titres`,
       trackIds: tracks.map((track) => track.id),
-      coverUrl: tracks.find((track) => Boolean(track.artworkUrl))?.artworkUrl ?? null,
+      coverUrl: null,
     });
   };
 
@@ -593,12 +596,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const addSelectedTracksToOffer = async (offerId: string) => {
     const trackIds = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
     if (!trackIds.length) {
-      Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà en vente.');
+      Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà inclus dans une collection publiée.');
       return;
     }
     try {
       const result = await addTracksToOffer(offerId, trackIds);
-      Alert.alert('Offre mise à jour', `${result.addedCount} morceau${result.addedCount > 1 ? 'x' : ''} ajouté${result.addedCount > 1 ? 's' : ''} (${result.trackCount} au total).`);
+      Alert.alert('Collection mise à jour', `${result.addedCount} morceau${result.addedCount > 1 ? 'x' : ''} ajouté${result.addedCount > 1 ? 's' : ''} (${result.trackCount} au total).`);
       setSelectedSaleTrackIds(new Set());
       await refreshSaleState();
     } catch {
@@ -608,7 +611,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const addSelectionToExistingOffer = () => {
     const trackIds = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
-    if (!trackIds.length) return Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà en vente.');
+    if (!trackIds.length) return Alert.alert('Sélection', 'Choisis au moins un morceau qui n’est pas déjà inclus dans une collection publiée.');
     if (saleEditOfferTarget) {
       void addSelectedTracksToOffer(saleEditOfferTarget.offerId);
       return;
@@ -618,7 +621,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       return;
     }
     Alert.alert(
-      'Ajouter à quelle offre ?',
+      'Ajouter à quelle collection ?',
       undefined,
       [
         ...existingOffersForAdd.map((offer) => ({
@@ -657,12 +660,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const offered = myOfferedTrackIds[track.id];
     if (!offered) return;
     Alert.alert(
-      'Modifier cette offre',
-      `« ${track.title} » est en vente à ${(offered.priceCents / 100).toFixed(2)}€. Que veux-tu faire ?`,
+      'Gérer cette collection',
+      `« ${track.title} » fait déjà partie de « ${offered.playlistName} ». Que veux-tu faire ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Retirer de la vente (état d’origine)',
+          text: 'Retirer de la collection',
           onPress: async () => {
             try {
               await removeTrackFromOffer(offered.offerId, track.id);
@@ -673,7 +676,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           },
         },
         {
-          text: 'Retirer et garder masqué',
+          text: 'Retirer et garder privé',
           onPress: async () => {
             try {
               await removeTrackFromOffer(offered.offerId, track.id);
@@ -951,9 +954,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
                   <TouchableOpacity
                     style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}
                     onPress={() => editExistingTrackOffer(track)}
-                    accessibilityLabel={`Modifier l'offre de ${track.title}, en vente à ${(offered.priceCents / 100).toFixed(2)} euros`}
+                    accessibilityLabel={`Gérer la collection contenant ${track.title}`}
                   >
-                    <Text style={[styles.sellTrackText, styles.sellTrackTextOffered]}>{`🏷️ En vente · ${(offered.priceCents / 100).toFixed(2)}€`}</Text>
+                    <Text style={[styles.sellTrackText, styles.sellTrackTextOffered]}>{`◆ Dans collection · ${offered.playlistName}`}</Text>
                   </TouchableOpacity>
                 ) : (
                   <LockedFeatureCard
@@ -969,10 +972,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
                   >
                     <TouchableOpacity
                       style={styles.sellTrackButton}
-                      onPress={() => openSellModal({ kind: 'selection', key: `track:${track.id}`, name: track.title, trackIds: [track.id], coverUrl: track.artworkUrl })}
-                      accessibilityLabel={`Ajouter ${track.title} à une collection exclusive`}
+                      onPress={() => {
+                        setOriginFilter('LISTEN');
+                        setSelectedSaleTrackIds((current) => new Set(current).add(track.id));
+                        setSaleSelectionMode(true);
+                      }}
+                      accessibilityLabel={`Sélectionner ${track.title} pour une collection exclusive`}
                     >
-                      <Text style={styles.sellTrackText}>◆ COLLECTION</Text>
+                      <Text style={styles.sellTrackText}>＋ COLLECTION</Text>
                     </TouchableOpacity>
                   </LockedFeatureCard>
                 )
@@ -1159,7 +1166,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             {marketplaceEnabled && localKeptTracks.length && !saleSelectionMode ? <View style={styles.selectionToolbar}>
               <LockedFeatureCard
                 unlocked={Boolean(saleAccess?.unlocked)}
-                title="Créer une playlist à vendre"
+                title="Créer une collection exclusive"
                 requirementLabel="abonnés"
                 current={saleAccess?.followers ?? 0}
                 required={saleAccess?.threshold ?? 100}
@@ -1223,7 +1230,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <View style={styles.stickySelectionFooter}>
           <View style={styles.selectionToolbarCopy}>
             <Text style={styles.selectionToolbarTitle}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `${selectedSaleTrackIds.size} morceau${selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
-            <Text style={styles.selectionToolbarHint}>{saleEditOfferTarget ? 'Sélectionne de nouveaux morceaux. Pour en retirer un déjà vendu, touche son badge prix puis “Retirer de la vente”.' : 'Appuie sur les ronds, puis crée ta playlist.'}</Text>
+            <Text style={styles.selectionToolbarHint}>{saleEditOfferTarget ? 'Sélectionne de nouveaux morceaux. Pour en retirer un déjà inclus, touche son badge collection puis “Retirer de la collection”.' : 'Appuie sur les ronds, puis crée ta collection exclusive.'}</Text>
           </View>
           <View style={styles.stickySelectionActions}>
             <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
@@ -1234,9 +1241,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
             ) : (
               <>
                 {existingOffersForAdd.length ? (
-                  <TouchableOpacity style={styles.selectionAddButton} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}><Text style={styles.selectionAddText}>＋ OFFRE EXISTANTE</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.selectionAddButton} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}><Text style={styles.selectionAddText}>＋ COLLECTION EXISTANTE</Text></TouchableOpacity>
                 ) : null}
-                <TouchableOpacity style={[styles.selectionCreateButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.selectionCreateButton, selectedSaleTrackIds.size < 2 && styles.selectionCreateDisabled]} disabled={selectedSaleTrackIds.size < 2} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER LA COLLECTION ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
               </>
             )}
           </View>
@@ -1292,9 +1299,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
           {sellPriceCents ? <Text style={styles.salePriceSummary}>
             TOTAL À PAYER · {(sellPriceCents / 100).toFixed(2).replace('.', ',')}€ {sellTarget?.kind === 'selection' ? `pour ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'pour toute la playlist'}
           </Text> : null}
-          <TouchableOpacity style={styles.saveButton} onPress={() => void saveSellPrice()} disabled={sellBusy || !sellPriceCents}>{sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>METTRE EN VENTE</Text>}</TouchableOpacity>
+          <TouchableOpacity style={styles.saveButton} onPress={() => void saveSellPrice()} disabled={sellBusy || !sellPriceCents}>{sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}</TouchableOpacity>
           {sellTarget && myOffers[sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key] ? (
-            <TouchableOpacity style={styles.cancelButton} onPress={() => void removeSellPrice()} disabled={sellBusy}><Text style={[styles.cancelText, { color: colors.danger }]}>Retirer de la vente</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => void removeSellPrice()} disabled={sellBusy}><Text style={[styles.cancelText, { color: colors.danger }]}>RETIRER DU PROFIL</Text></TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.cancelButton} onPress={closeSellModal}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
         </View></View>
