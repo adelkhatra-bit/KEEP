@@ -188,6 +188,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [saleSelectionMode, setSaleSelectionMode] = useState(false);
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
   const [saleEditOfferTarget, setSaleEditOfferTarget] = useState<{ offerId: string; playlistName: string } | null>(null);
+  const [manageMusicMode, setManageMusicMode] = useState(false);
 
   useEffect(() => {
     if (!route?.params?.openManageMusic) return;
@@ -195,6 +196,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setOriginFilter('LISTEN');
     setSaleSelectionMode(false);
     setSaleEditOfferTarget(null);
+    setManageMusicMode(true);
     navigation?.setParams?.({ openManageMusic: undefined });
   }, [navigation, route?.params?.openManageMusic]);
 
@@ -502,18 +504,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
   };
 
-  const allKnownTracks = useMemo(() => {
-    const map = new Map<string, CanonicalTrack>();
-    for (const track of localKeptTracks) map.set(trackIdentity(track), track);
-    for (const tracks of Object.values(tracksByPlaylist)) for (const track of tracks) map.set(trackIdentity(track), track);
-    return Array.from(map.values());
-  }, [localKeptTracks, tracksByPlaylist]);
-
+  // Même source que le profil : uniquement les morceaux réellement GARDÉS.
+  // Les pistes d'une playlist fournisseur chargée à l'écran ne doivent pas
+  // gonfler artificiellement le nombre de Styles de l'utilisateur.
   const genreSummary = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const track of allKnownTracks) for (const genre of track.genres ?? []) counts.set(genre, (counts.get(genre) ?? 0) + 1);
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [allKnownTracks]);
+    for (const track of localKeptTracks) {
+      for (const rawGenre of track.genres ?? []) {
+        const genre = rawGenre.trim();
+        if (genre) counts.set(genre, (counts.get(genre) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [localKeptTracks]);
   const topGenres = useMemo(() => genreSummary.slice(0, 5), [genreSummary]);
 
   const analysisMessage = analysis
@@ -931,9 +934,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
             } : undefined}
             playSlot={<TrackPreviewButton trackKey={track.id} previewUrl={track.previewUrl} square />}
             actions={[]}
-            expandable={Boolean(localEntry)}
-            expanded={expanded}
-            onToggleExpand={() => toggleTrackExpanded(key)}
+            expandable={!manageMusicMode && Boolean(localEntry)}
+            expanded={manageMusicMode || expanded}
+            onToggleExpand={manageMusicMode ? undefined : () => toggleTrackExpanded(key)}
           >
             {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
               <Text style={styles.trackSourceLabel}>Donné par</Text>
@@ -1091,12 +1094,26 @@ export default function MyMusicScreen({ navigation, route }: any) {
       ))}</View>
 
       {activeTab === 'MUSIQUES' ? (
-        <View style={styles.manageGuide}>
-          <View style={styles.manageGuideIcon}><Text style={styles.manageGuideIconText}>♫</Text></View>
+        <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
+          <View style={styles.manageGuideIcon}><Text style={styles.manageGuideIconText}>{manageMusicMode ? '✓' : '♫'}</Text></View>
           <View style={styles.manageGuideCopy}>
-            <Text style={styles.manageGuideTitle}>GÉRER MES MUSIQUES</Text>
-            <Text style={styles.manageGuideText}>Touche une musique pour afficher PUBLIC / PRIVÉ, SUPPRIMER ou l’ajouter à une collection exclusive.</Text>
+            <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODE GESTION ACTIF' : 'GÉRER MES MUSIQUES'}</Text>
+            <Text style={styles.manageGuideText}>
+              {manageMusicMode
+                ? 'Toutes les commandes sont ouvertes : PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION.'
+                : 'Touche une musique pour afficher PUBLIC / PRIVÉ, SUPPRIMER ou l’ajouter à une collection exclusive.'}
+            </Text>
           </View>
+          <TouchableOpacity
+            style={[styles.manageModeButton, manageMusicMode && styles.manageModeButtonActive]}
+            onPress={() => setManageMusicMode((value) => !value)}
+            accessibilityRole="button"
+            accessibilityLabel={manageMusicMode ? 'Terminer la gestion des musiques' : 'Ouvrir toutes les commandes de gestion'}
+          >
+            <Text style={[styles.manageModeButtonText, manageMusicMode && styles.manageModeButtonTextActive]}>
+              {manageMusicMode ? 'TERMINER' : 'TOUT GÉRER'}
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
