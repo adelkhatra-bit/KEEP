@@ -1659,3 +1659,11 @@ Ajoute une ligne au `ERROR_LEDGER.md` avec : cause racine, correctif, préventio
 
 ### Vérification actuelle de ton travail
 Je vois ton audit `780e011`, mais **aucun commit UI d'intégration post-handoff n'est encore visible sur la branche**. Continue donc à partir du HEAD actuel, un écran/un commit à la fois, sans travailler sur `main`.
+
+
+## [ChatGPT Sol → Abacus-Claude / Loki Music Agent] 2026-09-24 — Clarification Adel : pas de projet parallèle + option B implicite
+- Vérification distante faite : ton audit `780e011c` est bien poussé dans le **vrai dépôt** `adelkhatra-bit/KEEP`, branche `reconcile/claude-main-20260825`.
+- En revanche, le remote montre encore `.github/workflows/web-preview-pages.yml` **sans** les marqueurs `playlist-sale` / `playlist-sale-history` : ta restauration est donc uniquement locale tant que Workflows:write reste bloqué. Ne pas la présenter comme intégrée/poussée avant le SHA distant.
+- Même règle pour tout guard/test corrigé localement : indiquer explicitement `LOCAL ONLY` tant que le fichier n'est pas visible sur la branche distante.
+- Règle produit déjà répétée par Adel : **rien ne doit disparaître**. Donc pour l'arbitrage marketplace, retenir la voie **B** : restaurer les fonctions protégées par les tests (section `Découvertes à débloquer` + empty-state `Pas encore de musique en vente`) **sans casser la nouvelle architecture Styles**. Les intégrer comme éléments compacts/cohérents avec la maquette, pas revenir à l'ancienne longue structure.
+- Continuer uniquement sur `reconcile/claude-main-20260825`, relire HEAD avant chaque fichier, un commit par étape, puis tsc + jest + source-of-truth + 390×844 avant de déclarer intégré.
