@@ -299,14 +299,14 @@ jobs:
             const instagramReload=page.getByPlaceholder('Lien Instagram').last();
             await instagramReload.waitFor({state:'visible',timeout:15000});
             if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
-            const backMenuAfterSocial=page.getByText('‹ Menu',{exact:true}).last();
-            if (await backMenuAfterSocial.isVisible().catch(()=>false)) {
-              await backMenuAfterSocial.click({force:true});
+            const backMenuAfterReload=page.getByText('‹ Menu',{exact:true}).last();
+            if (await backMenuAfterReload.isVisible().catch(()=>false)) {
+              await backMenuAfterReload.click({force:true});
               await page.waitForTimeout(120);
             }
-            const closeMenuAfterSocial=page.getByText('Fermer',{exact:true}).last();
-            if (await closeMenuAfterSocial.isVisible().catch(()=>false)) {
-              await closeMenuAfterSocial.click({force:true});
+            const closeMenuAfterReload=page.getByText('Fermer',{exact:true}).last();
+            if (await closeMenuAfterReload.isVisible().catch(()=>false)) {
+              await closeMenuAfterReload.click({force:true});
             }
             await openEdit(page);
             await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
