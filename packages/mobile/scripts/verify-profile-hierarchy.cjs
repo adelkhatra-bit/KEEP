@@ -54,13 +54,15 @@ assertOrdered(visitor, [
   '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
-  '<View style={styles.publicMusicSection}>',
+  '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
   '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
 assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2}', 'Visited unified counter frame');
+assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
+assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
 assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
