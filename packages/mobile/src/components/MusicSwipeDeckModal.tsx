@@ -5,6 +5,7 @@ import SwipeDeck from './SwipeDeck';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { checkOwnKeepLibrary, filterSocialSwipeAgainstOwnKeep } from '../services/connectedMusicLibrary';
+import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
 
 function shuffle<T>(input: T[]): T[] {
@@ -26,6 +27,7 @@ type Props = {
   subtitle?: string;
   sourceUsername?: string;
   sourceAvatarUrl?: string | null;
+  sourceProfileId?: string;
   emptyTitle?: string;
   backLabel?: string;
   loop?: boolean;
@@ -47,6 +49,7 @@ export default function MusicSwipeDeckModal({
   subtitle,
   sourceUsername,
   sourceAvatarUrl,
+  sourceProfileId,
   emptyTitle = 'Aucun morceau à découvrir.',
   backLabel,
   loop = true,
@@ -206,7 +209,11 @@ export default function MusicSwipeDeckModal({
           await toggleTrackPreview(
             playbackKey,
             previewUrl,
-            () => {},
+            (playing) => {
+              if (playing && sourceProfileId) {
+                void recordProfileSwipeListen(sourceProfileId, current.id);
+              }
+            },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
               // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
@@ -241,7 +248,11 @@ export default function MusicSwipeDeckModal({
       await toggleTrackPreview(
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
-        () => {},
+        (playing) => {
+          if (playing && sourceProfileId) {
+            void recordProfileSwipeListen(sourceProfileId, current.id);
+          }
+        },
         () => { if (!actionInFlight.current && loop) advanceIndex(); },
       );
       setAutoplayBlocked(false);
