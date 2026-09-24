@@ -179,6 +179,112 @@ async function validateMusicApiClientId(value: string) {
   }
 }
 
+type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string };
+
+function validateStructuredIntegrationValue(key: string, value: string): GenericIntegrationValidation | null {
+  const clean = value.trim();
+
+  if (key === "BREVO_SENDER_EMAIL") {
+    return /^\S+@\S+\.\S+$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Adresse expéditeur valide." }
+      : { valid: false, status: "ERROR", message: "Adresse e-mail expéditeur invalide." };
+  }
+
+  if (key === "APPLE_MUSICKIT_TEAM_ID" || key === "APPLE_MUSICKIT_KEY_ID" || key === "APPLE_IAP_KEY_ID") {
+    return /^[A-Z0-9]{10}$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Identifiant Apple au format attendu." }
+      : { valid: false, status: "ERROR", message: "Identifiant Apple invalide : 10 caractères alphanumériques majuscules attendus." };
+  }
+
+  if (key === "APPLE_MUSICKIT_PRIVATE_KEY" || key === "APPLE_IAP_PRIVATE_KEY") {
+    const looksLikePem = /^-----BEGIN (?:EC |)PRIVATE KEY-----[\s\S]+-----END (?:EC |)PRIVATE KEY-----$/.test(clean);
+    return looksLikePem && clean.length > 120
+      ? { valid: true, status: "ACTIVE", message: "Clé privée Apple PEM reconnue." }
+      : { valid: false, status: "ERROR", message: "Clé privée Apple invalide : colle le fichier .p8 complet, BEGIN/END inclus." };
+  }
+
+  if (key === "GOOGLE_PLAY_PACKAGE_NAME") {
+    return /^[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Nom de package Android valide." }
+      : { valid: false, status: "ERROR", message: "Nom de package Google Play invalide (ex. com.adelkhatra.keep)." };
+  }
+
+  if (key === "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON") {
+    try {
+      const payload = JSON.parse(clean);
+      const valid = payload?.type === "service_account"
+        && typeof payload?.client_email === "string"
+        && payload.client_email.includes("@")
+        && typeof payload?.private_key === "string"
+        && payload.private_key.includes("PRIVATE KEY");
+      return valid
+        ? { valid: true, status: "ACTIVE", message: "JSON Service Account Google reconnu." }
+        : { valid: false, status: "ERROR", message: "JSON Google Play incomplet : service_account, client_email et private_key requis." };
+    } catch {
+      return { valid: false, status: "ERROR", message: "JSON Google Play invalide : colle le fichier JSON complet sans le modifier." };
+    }
+  }
+
+  if (key === "STRIPE_WEBHOOK_SECRET") {
+    return /^whsec_[A-Za-z0-9_\-]+$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Secret webhook Stripe au format attendu." }
+      : { valid: false, status: "ERROR", message: "Secret webhook Stripe invalide : il doit commencer par whsec_." };
+  }
+
+  return null;
+}
+
+async function validateBrevoApiKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const response = await fetch("https://api.brevo.com/v3/account", {
+      headers: { "api-key": value.trim(), accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé Brevo vérifiée par le fournisseur." };
+    if (response.status === 401 || response.status === 403) {
+      return { valid: false, status: "ERROR", message: "Brevo refuse cette clé API. Rien n'a été enregistré." };
+    }
+    return { valid: false, status: "ERROR", message: `Brevo n'a pas confirmé la clé (HTTP ${response.status}). Rien n'a été enregistré.` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre Brevo pour vérifier la clé. Rien n'a été enregistré." };
+  }
+}
+
+async function validateYouTubeApiKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const url = "https://www.googleapis.com/youtube/v3/videos?part=id&id=dQw4w9WgXcQ&key=" + encodeURIComponent(value.trim());
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const payload = await response.json().catch(() => null);
+    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé YouTube Data API vérifiée." };
+    const reason = String(payload?.error?.errors?.[0]?.reason || "");
+    if (/quota|dailyLimit|rateLimit/i.test(reason)) {
+      return { valid: true, status: "EXHAUSTED", message: "Clé YouTube reconnue, mais quota fournisseur épuisé ou limité." };
+    }
+    if (/accessNotConfigured|serviceDisabled/i.test(reason)) {
+      return { valid: true, status: "ERROR", message: "Clé Google reconnue, mais YouTube Data API n'est pas activée sur ce projet." };
+    }
+    return { valid: false, status: "ERROR", message: `YouTube refuse cette clé (${reason || "HTTP " + response.status}). Rien n'a été enregistré.` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre YouTube pour vérifier la clé. Rien n'a été enregistré." };
+  }
+}
+
+async function validateStripeSecretKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const response = await fetch("https://api.stripe.com/v1/account", {
+      headers: { Authorization: `Bearer ${value.trim()}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé serveur Stripe vérifiée." };
+    if (response.status === 401) return { valid: false, status: "ERROR", message: "Stripe refuse cette clé serveur. Rien n'a été enregistré." };
+    if (response.status === 429) return { valid: true, status: "EXHAUSTED", message: "Clé Stripe reconnue, mais limite temporaire atteinte." };
+    return { valid: false, status: "ERROR", message: `Stripe n'a pas confirmé la clé (HTTP ${response.status}). Rien n'a été enregistré.` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre Stripe pour vérifier la clé. Rien n'a été enregistré." };
+  }
+}
+
+
 async function validatePipedreamCredentials(clientId: string, clientSecret: string, projectId: string) {
   try {
     const response = await fetch("https://api.pipedream.com/v1/oauth/token", {
@@ -541,6 +647,21 @@ Deno.serve(async (req) => {
       if (key === "STRIPE_PUBLISHABLE_KEY" && !/^pk_(test_|live_)/.test(value)) {
         return json(400, { error: "invalid_stripe_publishable_key", message: "Stripe Publishable Key doit commencer par pk_test_ ou pk_live_." });
       }
+
+      const structuredValidation = validateStructuredIntegrationValue(key, value);
+      if (structuredValidation && !structuredValidation.valid) {
+        return json(400, { error: "invalid_integration_value", message: structuredValidation.message, validation: structuredValidation });
+      }
+
+      const directProviderValidation =
+        key === "BREVO_API_KEY" ? await validateBrevoApiKey(value) :
+        key === "YOUTUBE_API_KEY" ? await validateYouTubeApiKey(value) :
+        key === "STRIPE_SECRET_KEY" ? await validateStripeSecretKey(value) :
+        null;
+      if (directProviderValidation && !directProviderValidation.valid) {
+        return json(400, { error: "provider_rejected_key", message: directProviderValidation.message, validation: directProviderValidation });
+      }
+
       const providerValidation = key === "AUDD_API_KEY" ? await validateAuddToken(value) : null;
       if (providerValidation && !providerValidation.valid) {
         await resetIntegrationRuntimeStatus(key, false);
@@ -611,7 +732,7 @@ Deno.serve(async (req) => {
       } else {
         await resetIntegrationRuntimeStatus(key, true);
       }
-      const validation = providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation;
+      const validation = providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation ?? directProviderValidation ?? structuredValidation;
       await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint, validation });
       return json(200, { ok: true, key, configured: true, hint: valueHint, validation, recognitionReady: key.startsWith("ACRCLOUD_") ? Boolean(acrValidation?.valid) : undefined });
     }
