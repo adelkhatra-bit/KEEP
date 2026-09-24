@@ -871,7 +871,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const tabContent = () => {
     if (activeTab === 'TRACKS') {
-      if (!publicKeptTracks.length && !privateKeptTracks.length) return <Empty text="Tes morceaux apparaîtront ici." />;
+      if (!publicKeptTracks.length && !privateKeptTracks.length) return (
+        <View style={s.ownerEmptyUniverse}>
+          <Text style={s.ownerEmptyKicker}>TON UNIVERS COMMENCE ICI</Text>
+          <Text style={s.ownerEmptyTitle}>Garde ta première découverte.</Text>
+          <Text style={s.ownerEmptyText}>Chaque Garder construit automatiquement tes styles. Tu choisiras Public ou Privé avant chaque ajout.</Text>
+          <MotionActionButton
+            icon="◉"
+            title="ÉCOUTER MAINTENANT"
+            subtitle="Lance le micro et découvre un morceau."
+            onPress={() => navigation.navigate('Main', { screen: 'Listen' })}
+            accessibilityLabel="Aller à Écouter pour découvrir une musique"
+            tone="primary"
+          />
+        </View>
+      );
       return <View style={s.keepList}>
         <Text style={s.ownerKeepHint}>Loki Music construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
         {/* Mission C (23/09/2026) : bascule "Tout / Par genre". "Tout" garde
@@ -1209,6 +1223,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
         ) : null}
       </ProfileMotionReveal>
 
+      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
+        <TouchableOpacity
+          style={s.ownerCommerceStrip}
+          onPress={() => navigation.navigate('PlaylistSale')}
+          accessibilityRole="button"
+          accessibilityLabel={`Boutique active, ${playlistSaleOffers.length} offre${playlistSaleOffers.length > 1 ? 's' : ''} en vente`}
+        >
+          <View style={s.ownerCommercePulse}><Text style={s.ownerCommercePulseText}>◆</Text></View>
+          <View style={s.ownerCommerceCopy}>
+            <Text style={s.ownerCommerceKicker}>BOUTIQUE ACTIVE</Text>
+            <Text style={s.ownerCommerceTitle}>{playlistSaleOffers.length} collection{playlistSaleOffers.length > 1 ? 's' : ''} actuellement en vente</Text>
+            <Text style={s.ownerCommerceMeta}>Gère les morceaux, le prix et l’état de chaque offre.</Text>
+          </View>
+          <Text style={s.ownerCommerceArrow}>›</Text>
+        </TouchableOpacity>
+      ) : null}
+
       <View style={s.collectionHeader}>
         <Text style={s.collectionTitle}>Mes styles</Text>
         <Text style={s.collectionCount}>{profileTotalKeepCount} {profileTotalKeepCount > 1 ? 'morceaux' : 'morceau'}</Text>
@@ -1532,6 +1563,18 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   communitySection:{marginHorizontal:18,gap:2},
+  ownerCommerceStrip:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
+  ownerCommercePulse:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  ownerCommercePulseText:{color:colors.keep,fontSize:17,fontWeight:'900'},
+  ownerCommerceCopy:{flex:1,minWidth:0},
+  ownerCommerceKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.9},
+  ownerCommerceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:2},
+  ownerCommerceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
+  ownerCommerceArrow:{color:colors.keep,fontSize:26,fontWeight:'700'},
+  ownerEmptyUniverse:{marginHorizontal:18,marginTop:14,padding:16,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,gap:8},
+  ownerEmptyKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},
+  ownerEmptyTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
+  ownerEmptyText:{color:colors.textMutedGrey,fontSize:12,lineHeight:17,marginBottom:4},
   collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},
