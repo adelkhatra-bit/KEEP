@@ -344,27 +344,17 @@ export default function HomeScreenCompact({ navigation }: any) {
     setKeepBusy(false);
   };
 
-  // 1-tap keep (23/09/2026, GO Adel) : GARDER en 1 clic avec valeur par
-  // defaut intelligente = PUBLIC. Le choix Public/Prive n'est PAS supprime :
-  // il reste accessible via appui long / bouton reglages sur la carte, et via
-  // le lien "Modifier" du bandeau de confirmation ci-dessous.
+  // Règle produit 24/09/2026 : aucune décision de visibilité implicite.
+  // GARDER, tap ou swipe, ouvre toujours le choix PUBLIC / PRIVÉ avant tout
+  // enregistrement. Le snackbar reste utilisé après une décision explicite.
   const showKeepSnackbar = (entryId: string, visibility: KeepVisibility) => {
     if (snackTimer.current) clearTimeout(snackTimer.current);
     setKeepSnackbar({ entryId, visibility });
     snackTimer.current = setTimeout(() => setKeepSnackbar(null), 6000);
   };
 
-  const quickKeep = async () => {
-    if (!current || alreadySaved || !pending || keepBusy) return;
-    if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
-    const entryId = current.id;
-    const playlistId = current.recommendations?.[0]?.playlistId || playlists[0]?.id;
-    await doKeep(entryId, playlistId, 'PUBLIC');
-    showKeepSnackbar(entryId, 'PUBLIC');
-  };
-
-  // Action secondaire : ouvre le choix complet Public/Prive (+ destination)
-  // AVANT de garder. Declenchee par appui long ou bouton reglages sur la carte.
+  // Action GARDER unique : ouvre le choix Public/Privé (+ destination)
+  // AVANT toute écriture. Utilisée par le bouton et le swipe droit.
   const openKeepChooser = () => {
     if (!current || alreadySaved || !pending || keepBusy) return;
     if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
@@ -548,10 +538,10 @@ export default function HomeScreenCompact({ navigation }: any) {
             resetKey={current.id}
             enabled={Boolean(pending && !keepBusy)}
             onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
-            onSwipeRight={() => { void quickKeep(); }}
+            onSwipeRight={openKeepChooser}
             leftLabel="PASSER"
             rightLabel="GARDER"
-            hint="Swipe facultatif : ← passer · garder → (public) · ⚙︎ pour choisir"
+            hint="Swipe facultatif : ← passer · garder → puis choisis Public ou Privé"
           >
             <View style={s.trackCard}>
               <View style={s.trackHead}>
@@ -585,12 +575,9 @@ export default function HomeScreenCompact({ navigation }: any) {
                   {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
                   <View style={s.actions}>
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Passer ce morceau" style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Garder ce morceau en 1 clic (public par défaut)" accessibilityHint="Appui long pour choisir public ou privé" style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={() => { void quickKeep(); }} onLongPress={openKeepChooser} delayLongPress={280} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
-                    {!insufficientCredit ? (
-                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choisir public ou privé avant de garder" style={[s.keepOptionsBtn, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={s.keepOptionsBtnText}>⚙︎</Text></TouchableOpacity>
-                    ) : null}
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Garder ce morceau" accessibilityHint="Choisir Public ou Privé avant de garder" style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
                   </View>
-                  {!insufficientCredit ? <Text style={s.keepHint}>1 clic = gardé en public · ⚙︎ ou appui long pour choisir</Text> : null}
+                  {!insufficientCredit ? <Text style={s.keepHint}>Choisis Public ou Privé avant chaque ajout.</Text> : null}
                 </>
               )}
             </View>
