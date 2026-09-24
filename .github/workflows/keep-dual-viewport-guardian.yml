@@ -277,8 +277,15 @@ jobs:
             await instagram.fill(INSTAGRAM);
             await clickRobust(page,page.getByPlaceholder('Lien Instagram').last().locator('xpath=..').getByText('Enregistrer',{exact:true}),'Save Instagram');
             await page.getByText('Connecté au profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await clickRobust(page,page.getByText('‹ Menu',{exact:true}).last(),'Back to profile menu');
-            await clickRobust(page,page.getByText('Fermer',{exact:true}).last(),'Close profile menu');
+            const backMenuAfterSocial=page.getByText('‹ Menu',{exact:true}).last();
+            if (await backMenuAfterSocial.isVisible().catch(()=>false)) {
+              await backMenuAfterSocial.click({force:true});
+              await page.waitForTimeout(120);
+            }
+            const closeMenuAfterSocial=page.getByText('Fermer',{exact:true}).last();
+            if (await closeMenuAfterSocial.isVisible().catch(()=>false)) {
+              await closeMenuAfterSocial.click({force:true});
+            }
             await openEdit(page);
             await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
@@ -292,8 +299,15 @@ jobs:
             const instagramReload=page.getByPlaceholder('Lien Instagram').last();
             await instagramReload.waitFor({state:'visible',timeout:15000});
             if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
-            await clickRobust(page,page.getByText('‹ Menu',{exact:true}).last(),'Back to profile menu');
-            await clickRobust(page,page.getByText('Fermer',{exact:true}).last(),'Close profile menu');
+            const backMenuAfterSocial=page.getByText('‹ Menu',{exact:true}).last();
+            if (await backMenuAfterSocial.isVisible().catch(()=>false)) {
+              await backMenuAfterSocial.click({force:true});
+              await page.waitForTimeout(120);
+            }
+            const closeMenuAfterSocial=page.getByText('Fermer',{exact:true}).last();
+            if (await closeMenuAfterSocial.isVisible().catch(()=>false)) {
+              await closeMenuAfterSocial.click({force:true});
+            }
             await openEdit(page);
             await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
