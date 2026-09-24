@@ -24,6 +24,14 @@
 
 > ⚠️ Le fichier `.p8` (contenu de la clé ASC) n'est téléchargeable **qu'une seule fois** à la création — il n'est **jamais** dans le repo ni Supabase. Seuls les identifiants ci-dessus le sont.
 
+## 🧭 GPS du code + mémoire des erreurs
+Avant toute intégration ou correction :
+- `docs/CODE_GPS.md` — où modifier quoi, flux critiques, fichiers propriétaires.
+- `docs/ERROR_LEDGER.md` — registre permanent des erreurs, causes, fixes et preuves anti-régression.
+- `docs/INTEGRATION_CHECKLIST.md` — protocole obligatoire avant/après chaque intégration.
+
+**Règle : une erreur trouvée n'est jamais oubliée.** Elle reste dans `ERROR_LEDGER.md` et ne passe à `VERIFIED` qu'avec preuve/test.
+
 ## 📁 Fichiers clés du projet (chemins vérifiés)
 | Sujet | Rôle | Chemin exact |
 |---|---|---|
