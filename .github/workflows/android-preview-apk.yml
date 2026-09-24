@@ -74,6 +74,8 @@ jobs:
           retention-days: 14
 
       - name: Publish public GitHub release
+        id: public_release
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -85,3 +87,12 @@ jobs:
             --title "KEEP ${GITHUB_REF_NAME} Android Test ${GITHUB_RUN_NUMBER}" \
             --notes "APK de test construit depuis ${GITHUB_REF_NAME} @ ${GITHUB_SHA}. Relié au vrai projet Supabase KEEP." \
             --prerelease
+
+      - name: Android delivery summary
+        if: always()
+        run: |
+          echo "APK build: OK"
+          echo "GitHub Actions artifact: KEEP-Android-Preview"
+          if [ "${{ steps.public_release.outcome }}" != "success" ]; then
+            echo "::warning::GitHub Release public non publié (permission GitHub). L'APK reste disponible gratuitement comme artifact du workflow."
+          fi
