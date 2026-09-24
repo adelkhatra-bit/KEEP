@@ -15,7 +15,6 @@ import { radius, spacing, typography } from '../theme/spacing';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import TrackActionRow from '../components/TrackActionRow';
-import LockedTrackRow from '../components/LockedTrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
@@ -96,10 +95,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [profile, setProfile] = useState<User | null>(null);
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
-  // Mission C (23/09/2026) : morceaux d'une offre active, autrefois retirés de
-  // la liste, désormais conservés pour être rendus en LockedTrackRow (visibles,
-  // verrouillés). Les compteurs restent calculés sur la liste `visible`.
-  const [lockedSaleTracks, setLockedSaleTracks] = useState<PublicKeepTrack[]>([]);
   const [directKeepCount, setDirectKeepCount] = useState(0);
   const [socialKeepCount, setSocialKeepCount] = useState(0);
   const [discoveryImpacts, setDiscoveryImpacts] = useState<Record<string, DiscoveryImpact>>({});
@@ -112,8 +107,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // badge 1er KEEP, l'attribution et Partager ne changent plus jamais la
   // hauteur de la carte -- ils vivent dans ce panneau, replié par défaut.
   const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());
-  // Mission C (23/09/2026) : dossier-genre verrouillé actuellement déplié.
-  const [expandedLockedGenre, setExpandedLockedGenre] = useState<string | null>(null);
   const toggleTrackExpanded = (key: string) => setExpandedTrackKeys((prev) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -154,7 +147,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
-  const [saleOfferByTrackId, setSaleOfferByTrackId] = useState<Record<string, PublicPlaylistSaleOffer>>({});
   const [publicVibes, setPublicVibes] = useState<SmartAlbumRecord[]>([]);
   const [saleUnlocks, setSaleUnlocks] = useState<Record<string, { offerId: string; deliveredPlaylistId: string }>>({});
   const [folderSwipeTracks, setFolderSwipeTracks] = useState<CanonicalTrack[]>([]);
@@ -198,18 +190,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
     return () => { live = false; };
   }, [marketplaceEnabled, profile?.id]);
-  useEffect(() => {
-    if (!marketplaceEnabled || saleOffers.length === 0) { setSaleOfferByTrackId({}); return undefined; }
-    let live = true;
-    Promise.all(saleOffers.map(async (offer) => {
-      const rows = await loadPlaylistSaleOfferPreviewTracks(offer.playlistId).catch(() => []);
-      return rows.map((row) => [row.trackId, offer] as const);
-    })).then((groups) => {
-      if (!live) return;
-      setSaleOfferByTrackId(Object.fromEntries(groups.flat()));
-    }).catch(() => { if (live) setSaleOfferByTrackId({}); });
-    return () => { live = false; };
-  }, [marketplaceEnabled, saleOffers]);
   useEffect(() => {
     if (!profile?.id) { setPublicVibes([]); return undefined; }
     let live = true;
@@ -320,10 +300,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         if (cancelled) return;
         const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;
         setTracks(visible);
-        // Mission C (23/09/2026) : au lieu de disparaître, les morceaux masqués
-        // (offre en vente active) sont conservés pour être affichés verrouillés
-        // (LockedTrackRow) sous la liste publique. Jamais pour le propriétaire.
-        setLockedSaleTracks(maskedIds.length ? normalized.filter((t) => maskedIds.includes(t.trackId)) : []);
         const impacts = await impactPromise;
         if (cancelled) return;
         setDiscoveryImpacts(impacts);
@@ -465,29 +441,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // ils permettent d'afficher le nombre exact déjà présent chez le visiteur.
   // Les Vibes restent le fallback quand aucun genre exploitable n'est connu.
   const freeStyleCardCount = genreOptions.length > 0 ? genreOptions.length : visiblePublicVibes.length;
-  const visibleSaleCardCount = marketplaceEnabled ? saleOffers.length : 0;
-  const totalStyleCardCount = freeStyleCardCount + visibleSaleCardCount;
-  // Mission C (23/09/2026, maquette ProfileGenreFolders.html section B) : les
-  // morceaux en vente (verrouillés) sont désormais VISIBLES, rangés en dossiers
-  // par genre. Le genre n'est pas une donnée identifiante (contrairement au
-  // titre/artiste/jaquette) : le regrouper ne trahit pas le modèle Anti-Shazam.
-  // Un morceau sans genre tombe dans "Sans genre". Aucune donnée retirée.
-  const lockedGenreFolders = useMemo(() => {
-    const map = new Map<string, { genre: string; offer: PublicPlaylistSaleOffer; tracks: PublicKeepTrack[] }>();
-    for (const track of lockedSaleTracks) {
-      const offer = saleOfferByTrackId[track.trackId];
-      if (!offer) continue;
-      const genres = (track.genres ?? []).map((g) => g.trim()).filter(Boolean);
-      const labels = genres.length ? genres : ['Sans genre'];
-      for (const genre of labels) {
-        const key = `${offer.offerId}:${genre}`;
-        const current = map.get(key) ?? { genre, offer, tracks: [] };
-        current.tracks.push(track);
-        map.set(key, current);
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => b.tracks.length - a.tracks.length || a.genre.localeCompare(b.genre));
-  }, [lockedSaleTracks, saleOfferByTrackId]);
+  const totalStyleCardCount = freeStyleCardCount;
   const artistGroups = useMemo(() => groupTracksByArtist(swipeTracks), [swipeTracks]);
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- même enrichissement en tâche de fond que le propre
@@ -1034,81 +988,63 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>EXCLUSIVITÉS DE @{profile.username.replace(/^@/, '')}</Text>
-                <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
+                <Text style={styles.marketplaceKicker}>SON GOÛT MUSICAL · SES COLLECTIONS</Text>
+                <Text style={styles.sectionTitle}>À débloquer</Text>
               </View>
               {saleOffers.length > 0 ? (
                 <View style={styles.marketplaceCountPill}>
-                  <Text style={styles.marketplaceCountText}>{saleOffers.length} EN VENTE</Text>
+                  <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
                 </View>
               ) : null}
             </View>
-            <Text style={styles.marketplaceHint}>Ici, tu ne vois jamais les vrais morceaux avant déblocage : titres, artistes et pochettes restent masqués. Tu peux seulement tester des extraits audio protégés.</Text>
+            <Text style={styles.marketplaceHint}>Les Styles publics restent gratuits plus bas. Ici, chaque carte est un lot séparé : plusieurs styles peuvent être mélangés, mais les vrais titres, artistes et pochettes restent secrets.</Text>
             {saleOffers.length === 0 ? (
-              <TouchableOpacity
-                style={styles.marketplaceEmpty}
-                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
-                accessibilityRole="button"
-                accessibilityLabel="Aucune musique en vente pour le moment"
-              >
-                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.marketplaceFeaturedList}>
-                {saleOffers.slice(0, 3).map((offer, index) => {
-                  const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
-                  const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                  return (
-                    <View
-                      key={`featured-sale:${offer.offerId}`}
-                      style={[
-                        styles.marketplaceFeaturedCard,
-                        index === 0 && styles.marketplaceFeaturedCardHero,
-                        unlocked && styles.marketplaceFeaturedCardUnlocked,
-                      ]}
-                    >
-                      <View style={styles.marketplaceFeaturedTop}>
-                        <View style={styles.marketplaceSecretCover}>
-                          <Text style={styles.marketplaceSecretIcon}>{unlocked ? '✓' : '🔒'}</Text>
-                          <Text style={styles.marketplaceSecretCoverText}>{unlocked ? 'OUVERT' : 'SECRET'}</Text>
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.marketplaceFeaturedBadge}>{unlocked ? '✓ DÉBLOQUÉ' : '🔒 EN VENTE · CONTENU MASQUÉ'}</Text>
-                          <Text style={styles.marketplaceFeaturedTitle} numberOfLines={2}>{offer.playlistName}</Text>
-                          <Text style={styles.marketplaceFeaturedMeta}>{offer.trackCount} découverte{offer.trackCount > 1 ? 's' : ''} {unlocked ? '· écoute complète' : 'secrète'}</Text>
-                        </View>
-                        <View style={[styles.marketplaceFeaturedPrice, unlocked && styles.marketplaceFeaturedPriceUnlocked]}>
-                          <Text style={[styles.marketplaceFeaturedPriceText, unlocked && styles.marketplaceFeaturedPriceTextUnlocked]}>{unlocked ? 'OUVERT' : priceLabel}</Text>
-                        </View>
-                      </View>
-                      {!unlocked ? (
-                        <View style={styles.marketplaceTrustRow}>
-                          <Text style={styles.marketplaceTrustText}>??? titre</Text>
-                          <Text style={styles.marketplaceTrustDot}>•</Text>
-                          <Text style={styles.marketplaceTrustText}>artiste masqué</Text>
-                          <Text style={styles.marketplaceTrustDot}>•</Text>
-                          <Text style={styles.marketplaceTrustText}>pochette masquée</Text>
-                        </View>
-                      ) : null}
-                      <MotionActionButton
-                        icon={unlocked ? "▶" : "◉"}
-                        title={unlocked ? 'ÉCOUTER LA COLLECTION' : index === 0 ? 'TESTER LA COLLECTION' : 'APERÇU PROTÉGÉ'}
-                        subtitle={unlocked ? 'Accès complet débloqué.' : 'Extrait anonyme, sans titre, artiste ni pochette.'}
-                        trailingText={unlocked ? 'OUVERT' : priceLabel}
-                        onPress={() => openSaleFolder(offer)}
-                        accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}` : `Écouter un aperçu protégé de ${offer.playlistName}, ${priceLabel}`}
-                        tone={unlocked ? 'success' : 'primary'}
-                        compact
-                        style={styles.marketplaceFeaturedMotion}
-                      />
-                      {!unlocked && index === 0 ? (
-                        <Text style={styles.marketplaceReassurance}>Le vrai contenu reste secret jusqu’au déblocage. L’accès arrive après confirmation du paiement.</Text>
-                      ) : null}
-                    </View>
-                  );
-                })}
-                {saleOffers.length > 3 ? <Text style={styles.marketplaceMore}>+ {saleOffers.length - 3} autre{saleOffers.length - 3 > 1 ? 's' : ''} collection{saleOffers.length - 3 > 1 ? 's' : ''} exclusive{saleOffers.length - 3 > 1 ? 's' : ''}</Text> : null}
+              <View style={styles.marketplaceEmpty}>
+                <Text style={styles.marketplaceEmptyText}>Aucune collection exclusive pour le moment</Text>
               </View>
+            ) : (
+              <>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.saleCarouselContent}
+                  snapToInterval={272}
+                  decelerationRate="fast"
+                  accessibilityLabel="Collections musicales à débloquer"
+                >
+                  {saleOffers.map((offer, index) => {
+                    const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
+                    const priceLabel = offer.paymentMode === 'FREE'
+                      ? `${offer.freePrice ?? 0} FREE`
+                      : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+                    const styleLabel = offer.genres?.length
+                      ? offer.genres.slice(0, 3).join(' · ')
+                      : 'Mix musical secret';
+                    return (
+                      <ProfileStyleCard
+                        key={`sale-carousel:${offer.offerId}`}
+                        title={offer.playlistName || `Collection #${index + 1}`}
+                        subtitle={unlocked
+                          ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
+                          : `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel} · extraits anonymes`}
+                        mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
+                        badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '🔒 COLLECTION SECRÈTE'}
+                        priceLabel={unlocked ? undefined : priceLabel}
+                        onPress={() => openSaleFolder(offer)}
+                        accessibilityLabel={unlocked
+                          ? `Ouvrir la collection ${offer.playlistName}`
+                          : `Tester la collection secrète ${offer.playlistName}, ${offer.trackCount} morceaux, ${priceLabel}`}
+                        onPlayPress={() => openSaleFolder(offer)}
+                        playAccessibilityLabel={unlocked
+                          ? `Écouter la collection ${offer.playlistName}`
+                          : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}`}
+                        style={styles.saleCarouselCard}
+                      />
+                    );
+                  })}
+                </ScrollView>
+                <Text style={styles.saleCarouselHint}>← Fais défiler · touche une collection pour écouter ses extraits anonymes →</Text>
+              </>
             )}
           </ProfileMotionReveal>
         ) : null}
@@ -1171,7 +1107,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     mode="PUBLIC"
                     badgeLabel={allOwned ? '✓ DÉJÀ CHEZ TOI' : alreadyOwned ? `PUBLIC · ${alreadyOwned} DÉJÀ` : 'PUBLIC'}
                     artworkUrl={genreArtwork[genre]}
-                    fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
+                    fullWidth={totalStyleCardCount % 2 === 1 && index === freeStyleCardCount - 1}
                     onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
                     accessibilityLabel={`Ouvrir le Swipe ${genre}, ${count} morceaux${alreadyOwned ? `, dont ${alreadyOwned} déjà dans ta collection` : ''}`}
                     onPlayPress={() => void playInlinePublicTrack(genre, swipeTracks.filter((track) => (track.genres ?? []).some((value) => value.trim() === genre)))}
@@ -1190,7 +1126,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     subtitle={`${vibe.trackCount} morceau${vibe.trackCount > 1 ? 'x' : ''} · Écoute en Swipe`}
                     mode="VIBE"
                     artworkUrl={artworkUrl}
-                    fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
+                    fullWidth={totalStyleCardCount % 2 === 1 && index === freeStyleCardCount - 1}
                     onPress={() => openPublicVibe(vibe)}
                     accessibilityLabel={`Ouvrir le Swipe ${vibe.name}, ${vibe.trackCount} morceaux`}
                     onPlayPress={() => void playInlinePublicTrack(vibe.name, swipeTracks.filter((track) => (track.genres ?? []).some((genre) => vibe.matchedGenres.includes(genre))))}
@@ -1198,30 +1134,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   />
                 );
               })}
-              {marketplaceEnabled ? saleOffers.map((offer, index) => {
-                const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
-                const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                return (
-                  <ProfileStyleCard
-                    key={`sale-style:${offer.offerId}`}
-                    title={offer.playlistName}
-                    subtitle={unlocked
-                      ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · Écoute complète`
-                      : `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · Extraits anonymes`}
-                    mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
-                    priceLabel={unlocked ? undefined : priceLabel}
-                    fullWidth={totalStyleCardCount % 2 === 1 && index === saleOffers.length - 1}
-                    onPress={() => openSaleFolder(offer)}
-                    accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}, débloqué` : `Ouvrir la collection verrouillée ${offer.playlistName}, ${priceLabel}`}
-                    onPlayPress={unlocked ? () => openSaleFolder(offer) : () => void playInlineSalePreview(offer)}
-                    playAccessibilityLabel={unlocked ? `Écouter ${offer.playlistName}` : `Écouter un extrait anonyme de ${offer.playlistName} sans quitter le profil`}
-                    playing={inlineStylePlayingKey?.startsWith(`visitor-sale-inline:${offer.offerId}:`) === true}
-                  />
-                );
-              }) : null}
             </View>
             <TouchableOpacity style={styles.allTracksToggle} onPress={() => setShowAllTracks((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showAllTracks }} accessibilityLabel={showAllTracks ? 'Masquer tous les morceaux' : 'Voir tous les morceaux'}>
-              <Text style={styles.allTracksToggleText}>{showAllTracks ? 'MASQUER LES MORCEAUX' : `VOIR TOUS LES MORCEAUX · ${tracks.length + lockedSaleTracks.length}`}</Text>
+              <Text style={styles.allTracksToggleText}>{showAllTracks ? 'MASQUER LES MORCEAUX' : `VOIR TOUS LES MORCEAUX · ${tracks.length}`}</Text>
               <Text style={styles.chevron}>{showAllTracks ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {showAllTracks ? <>
@@ -1334,63 +1249,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   </TrackActionRow>
                 );
               })}</View>
-            ) : null}
-            {/* Mission C (23/09/2026) : morceaux verrouillés (offre en vente).
-                Titre, artiste et jaquette réels restent masqués (modèle
-                Anti-Shazam) — libellés génériques ici. Le clic ouvre l'aperçu
-                immersif (waveform + « Débloquer »). Attaché à la première offre
-                active du profil ; chaque dossier détaillé est maintenant relié à sa vraie offre. */}
-            {marketplaceEnabled && lockedSaleTracks.length > 0 && saleOffers.length > 0 ? (
-              <View style={styles.lockedTracksBlock}>
-                <Text style={styles.lockedTracksHeader}>🔒 À débloquer</Text>
-                {/* Mission C (23/09/2026) : dossiers par genre. Chaque dossier
-                    porte le cadenas 🔒, un badge EN VENTE et le prix ; on le
-                    déplie pour voir les LockedTrackRow (titre/artiste/jaquette
-                    masqués). Chaque dossier est relié à l'offre qui contient réellement
-                    ses morceaux ; aucun prix n'est pris depuis une offre globale. */}
-                <View style={styles.folderGrid}>
-                  {lockedGenreFolders.map((folder) => {
-                    const offer = folder.offer;
-                    const folderKey = `${folder.offer.offerId}:${folder.genre}`;
-                    const open = expandedLockedGenre === folderKey;
-                    const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                    return (
-                      <View key={`locked-genre:${folder.offer.offerId}:${folder.genre}`}>
-                        <TouchableOpacity
-                          style={[styles.folderCard, styles.folderCardSale]}
-                          onPress={() => setExpandedLockedGenre(open ? null : folderKey)}
-                          accessibilityRole="button"
-                          accessibilityState={{ expanded: open }}
-                          accessibilityLabel={`Dossier ${folder.genre} en vente, ${folder.tracks.length} morceau${folder.tracks.length > 1 ? 'x' : ''}, ${priceLabel}`}
-                        >
-                          <View style={[styles.folderIcon, styles.folderIconSale]}><Text style={styles.folderIconText}>🔒</Text></View>
-                          <View style={styles.folderCopy}>
-                            <View style={styles.lockedFolderTitleRow}>
-                              <Text style={styles.folderTitle} numberOfLines={1}>{folder.genre}</Text>
-                              <View style={styles.lockedFolderBadge}><Text style={styles.lockedFolderBadgeText}>EN VENTE</Text></View>
-                            </View>
-                            <Text style={styles.folderMeta}>{folder.tracks.length} titre{folder.tracks.length > 1 ? 's' : ''} · Audio uniquement · titres et jaquettes masqués</Text>
-                          </View>
-                          <View style={styles.folderPrice}><Text style={styles.folderPriceText}>{`🔒 ${priceLabel}`}</Text></View>
-                        </TouchableOpacity>
-                        {open ? (
-                          <ProfileMotionReveal motionKey={`visitor-sale-style:${folderKey}`} compact style={styles.lockedFolderTracks}>
-                            {folder.tracks.map((track) => (
-                              <LockedTrackRow
-                                key={`locked:${track.id}`}
-                                track={{ id: track.trackId }}
-                                priceCents={offer.priceCents}
-                                currencyCode={offer.currencyCode}
-                                onUnlockPress={() => setImmersivePreviewOffer(offer)}
-                              />
-                            ))}
-                          </ProfileMotionReveal>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
             ) : null}
             </> : null}
           </ProfileMotionReveal>
@@ -1635,7 +1493,10 @@ const styles = StyleSheet.create({
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
   marketplaceCountPill:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
   marketplaceCountText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.5},
-  marketplaceFeaturedList:{gap:10,marginTop:12},
+  saleCarouselContent:{gap:12,paddingTop:12,paddingRight:14},
+  saleCarouselCard:{width:260,marginBottom:0},
+  saleCarouselHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:10},
+    marketplaceFeaturedList:{gap:10,marginTop:12},
   marketplaceFeaturedCard:{padding:14,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},
   marketplaceFeaturedCardHero:{paddingVertical:16,borderWidth:2},
   marketplaceFeaturedCardUnlocked:{borderColor:colors.success},
