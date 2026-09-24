@@ -358,8 +358,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setMyPreferredThemes((rows) => {
       if (code === 'MIX') return ['MIX'];
       const real = rows.filter((item) => item !== 'MIX');
-      if (!real.includes(code) && real.length >= 3) {
-        Alert.alert('3 styles Battle maximum', 'Ton profil peut contenir davantage de styles. Ici, tu choisis seulement jusqu’à 3 styles acceptés pour les Battles.');
+      if (!real.includes(code) && real.length >= 12) {
+        Alert.alert('12 styles Battle maximum', 'Tu peux reprendre jusqu’à 12 styles de ton univers pour les Battles.');
         return rows;
       }
       const has = rows.includes(code);
