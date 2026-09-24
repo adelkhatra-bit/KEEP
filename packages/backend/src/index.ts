@@ -11,6 +11,7 @@
 // premier vrai appel (TypeError: Cannot read properties of null (reading 'verify')).
 // Fix reel : charger dotenv en tout premier import, avant toute route.
 import 'dotenv/config';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 import express from 'express';
 import cors from 'cors';
 import musicRoutes from './routes/music';
@@ -22,6 +23,9 @@ import { processExpoPushReceipts, processPendingPushNotifications } from './lib/
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize Vercel Speed Insights
+injectSpeedInsights();
 
 app.use(cors());
 app.use(express.json());
