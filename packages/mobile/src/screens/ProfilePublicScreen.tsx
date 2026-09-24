@@ -367,15 +367,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setCreditRemaining(null);
         setCreditUnlimited(false);
       }
-      try {
-        const battleStatus = await loadMyKeepBattleCreditStatus();
-        if (!live) return;
-        setFreeBalance(battleStatus.remainingFree);
-        setFreeWon(battleStatus.won);
-        setFreeLost(battleStatus.lost);
-      } catch {
-        if (!live) return;
-        setFreeBalance(null);
+      if (!isLocalGuest && !isDemoMode) {
+        try {
+          const battleStatus = await loadMyKeepBattleCreditStatus();
+          if (!live) return;
+          setFreeBalance(battleStatus.remainingFree);
+          setFreeWon(battleStatus.won);
+          setFreeLost(battleStatus.lost);
+        } catch {
+          if (!live) return;
+          setFreeBalance(null);
+        }
+      } else if (live) {
+        // Le solde d'essai local reste affichable via getDownloadCreditStatus,
+        // mais aucun RPC Battle authentifié ne doit partir sans session réelle.
+        setFreeWon(0);
+        setFreeLost(0);
       }
       try {
         const rules = await getCommercialRules();
@@ -388,7 +395,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     void refreshCredits();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCredits(); });
     return () => { live = false; unsubscribe?.(); };
-  }, [accountRequired, navigation, sessions.length, user?.id]);
+  }, [accountRequired, isDemoMode, isLocalGuest, navigation, sessions.length, user?.id]);
 
   useEffect(() => {
     const refresh = () => { void refreshPlaylists().catch(() => {}); };
