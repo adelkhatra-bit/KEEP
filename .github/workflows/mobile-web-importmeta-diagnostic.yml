@@ -156,16 +156,16 @@ jobs:
             // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
             // v3 a volontairement supprimé Albums et renommé KEEP en Musiques :
             // le test doit suivre le contrat produit réel, pas un ancien layout.
-            const musicTab = page.getByLabel('Profil Musiques');
-            const vibesTab = page.getByLabel('Profil Vibes');
+            const musicTab = page.getByLabel('Profil Styles');
+            const vibesTab = page.getByLabel('Profil Playlists');
             const artistsTab = page.getByLabel('Profil Artistes');
             if (await musicTab.count() === 0 || await vibesTab.count() === 0 || await artistsTab.count() === 0) throw new Error('Profile music tabs not found');
 
             const vibesBefore = await vibesTab.innerHTML();
-            await clickRobust(vibesTab, 'Profile Vibes tab');
+            await clickRobust(vibesTab, 'Profile Playlists tab');
             await page.waitForTimeout(250);
             const vibesAfter = await vibesTab.innerHTML();
-            if (vibesAfter === vibesBefore) throw new Error('Vibes tab did not visibly change state after click');
+            if (vibesAfter === vibesBefore) throw new Error('Playlists tab did not visibly change state after click');
 
             const artistsBefore = await artistsTab.innerHTML();
             await clickRobust(artistsTab, 'Profile Artists tab');
@@ -174,10 +174,10 @@ jobs:
             if (artistsAfter === artistsBefore) throw new Error('Artists tab did not visibly change state after click');
 
             const musicBefore = await musicTab.innerHTML();
-            await clickRobust(musicTab, 'Profile Music tab');
+            await clickRobust(musicTab, 'Profile Styles tab');
             await page.waitForTimeout(250);
             const musicAfter = await musicTab.innerHTML();
-            if (musicAfter === musicBefore) throw new Error('Musiques tab did not remount immediately; browser refresh would still be required');
+            if (musicAfter === musicBefore) throw new Error('Styles tab did not remount immediately; browser refresh would still be required');
 
             await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
