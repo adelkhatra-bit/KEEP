@@ -11,6 +11,8 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   const saleService = readNormalized(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
   const previewMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260920201000_playlist_sale_offer_preview_tracks.sql');
   const freeMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163120_playlist_sale_free_mode.sql');
+  const freeAccessMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163533_playlist_sale_free_transfer_access_hardening.sql');
+  const permanentUserMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163615_playlist_sale_free_permanent_user_only.sql');
   const featureFlags = readNormalized(__dirname, '..', '..', 'services', 'featureFlagService.ts');
   const immersivePreview = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx');
   const salePanel = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
@@ -69,6 +71,13 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(freeMigration).toContain('set is_active = false');
     expect(freeMigration).toContain('drop constraint if exists playlist_sale_offers_price_cents_check');
     expect(freeMigration).toContain('drop constraint if exists playlist_sale_offers_price_preset');
+  });
+
+  it('blocks Supabase anonymous sign-ins from the FREE transfer ledger', () => {
+    expect(freeAccessMigration).toContain('revoke all on table public.playlist_sale_free_transfers from anon, authenticated;');
+    expect(freeAccessMigration).toContain('grant select on table public.playlist_sale_free_transfers to authenticated;');
+    expect(permanentUserMigration).toContain("(auth.jwt()->>'is_anonymous')::boolean");
+    expect(permanentUserMigration).toContain('is false');
   });
 
   it('keeps the FREE transfer adjustment helper inaccessible to app clients', () => {
