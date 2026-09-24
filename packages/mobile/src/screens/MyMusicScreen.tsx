@@ -47,6 +47,7 @@ const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
   { key: 'ARTISTES', label: 'Artistes' },
 ];
 const ARTIST_ID_PREFIX = 'keep-artist:';
+const STYLE_ID_PREFIX = 'keep-style:';
 
 function trackIdentity(track: CanonicalTrack) {
   const isrc = track.isrc?.trim().toUpperCase();
@@ -406,7 +407,35 @@ export default function MyMusicScreen({ navigation, route }: any) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [localKeptTracks]);
 
-  const stylePlaylists = useMemo(
+  // Source unique des Styles : mêmes morceaux gardés que le profil.
+  // Les Vibes automatiques restent distinctes et sont rendues séparément
+  // pour éviter de confondre "3 Vibes Auto" avec "X styles musicaux".
+  const profileStyleGroups = useMemo(() => {
+    const map = new Map<string, CanonicalTrack[]>();
+    for (const track of localKeptTracks) {
+      const genres = (track.genres ?? []).map((genre) => genre.trim()).filter(Boolean);
+      const labels = genres.length ? genres : ['Sans genre'];
+      for (const genre of labels) {
+        const rows = map.get(genre) ?? [];
+        rows.push(track);
+        map.set(genre, rows);
+      }
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+      .map(([genre, tracks]) => ({ genre, tracks }));
+  }, [localKeptTracks]);
+
+  const stylePlaylists = useMemo<ProviderPlaylist[]>(
+    () => profileStyleGroups.map(({ genre, tracks }) => ({
+      id: `${STYLE_ID_PREFIX}${encodeURIComponent(genre)}`,
+      name: genre,
+      trackCount: tracks.length,
+      isKeepManaged: true,
+    })),
+    [profileStyleGroups],
+  );
+  const automaticStylePlaylists = useMemo(
     () => displayPlaylists.filter((playlist) => isSmartAlbumUiId(playlist.id)),
     [displayPlaylists],
   );
@@ -432,6 +461,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
     if (playlist.id.startsWith(ARTIST_ID_PREFIX)) {
       const key = playlist.id.slice(ARTIST_ID_PREFIX.length);
       const tracks = localKeptTracks.filter((track) => canonicalArtistIdentity(track) === key);
+      setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
+      return tracks;
+    }
+    if (playlist.id.startsWith(STYLE_ID_PREFIX)) {
+      const genre = decodeURIComponent(playlist.id.slice(STYLE_ID_PREFIX.length));
+      const tracks = localKeptTracks.filter((track) => {
+        const genres = (track.genres ?? []).map((value) => value.trim()).filter(Boolean);
+        return genre === 'Sans genre' ? genres.length === 0 : genres.includes(genre);
+      });
       setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
       return tracks;
     }
@@ -504,19 +542,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
   };
 
-  // Même source que le profil : uniquement les morceaux réellement GARDÉS.
-  // Les pistes d'une playlist fournisseur chargée à l'écran ne doivent pas
-  // gonfler artificiellement le nombre de Styles de l'utilisateur.
-  const genreSummary = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const track of localKeptTracks) {
-      for (const rawGenre of track.genres ?? []) {
-        const genre = rawGenre.trim();
-        if (genre) counts.set(genre, (counts.get(genre) ?? 0) + 1);
-      }
-    }
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  }, [localKeptTracks]);
+  // Même source que le profil ET que les cartes de l'onglet Styles.
+  const genreSummary = useMemo(
+    () => profileStyleGroups.map(({ genre, tracks }) => [genre, tracks.length] as [string, number]),
+    [profileStyleGroups],
+  );
   const topGenres = useMemo(() => genreSummary.slice(0, 5), [genreSummary]);
 
   const analysisMessage = analysis
@@ -1014,7 +1044,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const renderPlaylist = ({ item }: { item: ProviderPlaylist }) => {
     const isAllKeepView = item.id === ALL_KEEP_VIEW_ID;
-    const isGroupView = item.id.startsWith(ARTIST_ID_PREFIX);
+    const isArtistGroup = item.id.startsWith(ARTIST_ID_PREFIX);
+    const isStyleGroup = item.id.startsWith(STYLE_ID_PREFIX);
+    const isGroupView = isArtistGroup || isStyleGroup;
     const isSmart = isSmartAlbumUiId(item.id);
     const pref = isAllKeepView || isGroupView ? null : preferenceFor(preferences, providerId, item.id);
     const expanded = expandedId === item.id;
@@ -1263,6 +1295,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
           contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
+          ListHeaderComponent={activeTab === 'VIBES' ? (
+            <View style={styles.styleCountHeader}>
+              <Text style={styles.styleCountTitle}>MES STYLES · {stylePlaylists.length}</Text>
+              <Text style={styles.styleCountHint}>Même compteur que ton profil · calculé uniquement avec tes morceaux gardés.</Text>
+            </View>
+          ) : null}
+          ListFooterComponent={activeTab === 'VIBES' && automaticStylePlaylists.length ? (
+            <View style={styles.autoVibesSection}>
+              <Text style={styles.autoVibesTitle}>VIBES AUTO · {automaticStylePlaylists.length}</Text>
+              <Text style={styles.autoVibesHint}>Classements intelligents séparés de tes Styles musicaux.</Text>
+              {automaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
+            </View>
+          ) : null}
           ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
         />
       )}
@@ -1445,6 +1490,12 @@ const styles = StyleSheet.create({
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
+  styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
+  styleCountTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.5},
+  styleCountHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},
+  autoVibesSection:{marginTop:14,paddingTop:12,borderTopWidth:1,borderTopColor:colors.border},
+  autoVibesTitle:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.7,marginBottom:2},
+  autoVibesHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginBottom:8},
   manageGuide:{marginHorizontal:12,marginTop:10,padding:12,borderRadius:18,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10},
   manageGuideActive:{borderColor:colors.keep,backgroundColor:colors.successFaint},
   manageModeButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
