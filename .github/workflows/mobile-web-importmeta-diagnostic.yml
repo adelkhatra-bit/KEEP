@@ -192,8 +192,12 @@ jobs:
             await clickRobust(playlistsLibraryTab, 'Playlists library tab');
             await page.waitForTimeout(300);
 
-            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
-            await deleteButtons.first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+            const detailsButton = page.getByLabel('Voir les détails').first();
+            await detailsButton.waitFor({ state: 'visible', timeout: 15000 });
+            await clickRobust(detailsButton, 'Open first track details');
+
+            const deleteButtons = page.getByLabel('Supprimer ce morceau de Loki Music');
+            await deleteButtons.first().waitFor({ state: 'visible', timeout: 15000 });
 
             const beforeDeleteCount = await deleteButtons.count();
             if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
@@ -205,7 +209,7 @@ jobs:
 
             await deleteButton.click();
             await page.waitForTimeout(800);
-            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de KEEP').count();
+            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de Loki Music').count();
             if (afterDeleteCount !== beforeDeleteCount - 1) throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
             if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
 
