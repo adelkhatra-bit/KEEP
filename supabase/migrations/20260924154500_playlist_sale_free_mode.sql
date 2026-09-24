@@ -14,46 +14,30 @@ alter table public.playlist_sale_offers
   drop constraint if exists playlist_sale_offers_price_cents_check,
   drop constraint if exists playlist_sale_offers_price_preset;
 
-do $
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid='public.playlist_sale_offers'::regclass
-      and conname='playlist_sale_offers_payment_mode_check'
-  ) then
-    alter table public.playlist_sale_offers
-      add constraint playlist_sale_offers_payment_mode_check
-      check (payment_mode in ('MONEY','FREE'));
-  end if;
+alter table public.playlist_sale_offers
+  drop constraint if exists playlist_sale_offers_payment_mode_check,
+  drop constraint if exists playlist_sale_offers_free_price_check;
 
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid='public.playlist_sale_offers'::regclass
-      and conname='playlist_sale_offers_free_price_check'
-  ) then
-    alter table public.playlist_sale_offers
-      add constraint playlist_sale_offers_free_price_check
-      check (
-        (payment_mode='MONEY'
-          and free_price is null
-          and price_cents in (50,100,200,300,500,1000))
-        or
-        (payment_mode='FREE'
-          and free_price between 1 and 500
-          and price_cents = 0)
-      );
-  end if;
+alter table public.playlist_sale_offers
+  add constraint playlist_sale_offers_payment_mode_check
+    check (payment_mode in ('MONEY','FREE')),
+  add constraint playlist_sale_offers_free_price_check
+    check (
+      (payment_mode='MONEY'
+        and free_price is null
+        and price_cents in (50,100,200,300,500,1000))
+      or
+      (payment_mode='FREE'
+        and free_price between 1 and 500
+        and price_cents = 0)
+    );
 
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid='public.playlist_sale_payments'::regclass
-      and conname='playlist_sale_payments_amount_free_check'
-  ) then
-    alter table public.playlist_sale_payments
-      add constraint playlist_sale_payments_amount_free_check
-      check (amount_free >= 0);
-  end if;
-end $$;
+alter table public.playlist_sale_payments
+  drop constraint if exists playlist_sale_payments_amount_free_check;
+
+alter table public.playlist_sale_payments
+  add constraint playlist_sale_payments_amount_free_check
+    check (amount_free >= 0);
 
 create table if not exists public.playlist_sale_free_transfers (
   id uuid primary key default gen_random_uuid(),
