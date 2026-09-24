@@ -28,9 +28,9 @@ const MARKETING_LINES = [
 ];
 
 const EXPLAINER_LINES = [
-  'Après l’achat, cette découverte est liée directement à ton profil Loki Music.',
+  'Après déblocage, cette découverte est liée directement à ton profil Loki Music.',
   'Tu choisis ensuite de la rendre publique ou de la garder pour toi.',
-  'Aucun titre ni artiste n’est jamais dévoilé avant l’achat.',
+  'Aucun titre ni artiste n’est jamais dévoilé avant le déblocage.',
 ];
 
 const ROTATE_MS = 4200;
@@ -203,9 +203,11 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               encart avertissement acheteur" -- fonctionnement manuel tant
               que l'API PayPal réelle n'est pas intégrée. Encart permanent,
               pas seulement l'Alert transitoire après ouverture du lien. */}
-          <View style={s.manualNotice}>
-            <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
-          </View>
+          {purchaseEnabled ? (
+            <View style={s.manualNotice}>
+              <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
+            </View>
+          ) : null}
 
           {purchaseEnabled ? (
             <>
