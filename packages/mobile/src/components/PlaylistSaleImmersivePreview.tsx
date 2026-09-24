@@ -213,7 +213,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <>
               <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
                 <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
-                <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le vendeur et je reconnais que le contenu pourra alors être débloqué dans mon Loki Music.</Text>
+                <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le vendeur et je renonce expressément à mon droit de rétractation de 14 jours dès le déblocage du contenu dans mon Loki Music.</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -224,7 +224,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               >
                 <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
               </TouchableOpacity>
-              <Text style={s.noRefund}>Le déblocage intervient après confirmation du paiement par le vendeur. Les conditions applicables restent celles affichées avant validation.</Text>
+              <Text style={s.noRefund}>Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.</Text>
             </>
           ) : (
             <View style={s.nativePreviewNotice}>
