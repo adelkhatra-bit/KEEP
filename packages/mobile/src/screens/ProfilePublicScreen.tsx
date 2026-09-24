@@ -1092,7 +1092,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.bell}>🔔</Text>
             {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
           </TouchableOpacity>
-          <TouchableOpacity style={s.menuButton} onPress={() => setMenuOpen(true)} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
+          <TouchableOpacity style={s.menuButton} onPress={() => { setExpandedMenuItem(null); setMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
         </View>
       </View>
 
