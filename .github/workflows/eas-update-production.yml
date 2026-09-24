@@ -1,17 +1,8 @@
 name: KEEP — OTA Production Update
 
 on:
-  push:
-    branches: ['reconcile/claude-main-20260825']
-    paths:
-      - 'packages/mobile/src/**'
-      - 'packages/mobile/App.tsx'
-      - 'packages/mobile/index.js'
-      - 'packages/mobile/assets/**'
-      - 'packages/music/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/eas-update-production.yml'
+  # Production est volontaire : aucune modification UI/JS ne doit partir
+  # automatiquement avant les tests de la branche d'intégration.
   workflow_dispatch:
 
 concurrency:
