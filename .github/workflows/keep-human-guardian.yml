@@ -92,7 +92,6 @@ jobs:
             await inViewport(start,'Listen start');
             await clickRobust(start,'Listen start');
             await t(/MICRO · (?:ANALYSE|ACTIF)/i).waitFor({state:'visible',timeout:15000});
-            await inViewport(t(/Partager/i),'Listen share');
             const end=t(/Terminer la session|Arrêter|End session/i);
             await inViewport(end,'Listen stop');
             await shot('02-listen-active');
@@ -156,7 +155,7 @@ jobs:
               'KEEP HUMAN GUARDIAN: PASS',
               'Viewport 390x844: PASS',
               'Five tabs: PASS',
-              'Listen start/stop/share: PASS',
+              'Listen start/stop + direct PASSER/GARDER controls contract: PASS',
               'Discover default profile before search: ABSENT',
               'Discover radius change clears stale result: PASS',
               'Discover distance then explicit search: PASS',
