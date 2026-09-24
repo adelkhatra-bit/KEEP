@@ -3,14 +3,12 @@ import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
+import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSalePaymentMode, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, updateOfferPaymentMode } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 
-const PRICE_PRESETS = [50, 100, 200, 300, 500, 1000] as const;
-
-type PriceEditState = { playlistId: string; playlistName: string; priceCents: number } | null;
+type PriceEditState = { offerId: string; playlistId: string; playlistName: string; paymentMode: PlaylistSalePaymentMode; priceCents: number; freePrice: number | null } | null;
 
 export default function PlaylistSalePanel({ navigation }: any) {
   const user = useUserStore((s) => s.user);
@@ -125,19 +123,23 @@ export default function PlaylistSalePanel({ navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation]);
 
-  const handleSetPrice = async (playlistId: string, playlistName: string, priceCents: number) => {
-    if (!PRICE_PRESETS.includes(priceCents as (typeof PRICE_PRESETS)[number])) {
-      Alert.alert('Prix invalide', 'Choisis un des prix proposés.');
+  const handleUpdateAccess = async () => {
+    if (!editing) return;
+    const amount = editing.paymentMode === 'FREE' ? editing.freePrice : editing.priceCents;
+    if (!amount) {
+      Alert.alert('Montant requis', editing.paymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant en euros.');
       return;
     }
     setBusy(true);
     try {
-      await setPlaylistSalePrice(playlistId, playlistName, priceCents);
+      await updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount);
       await loadData();
       setEditing(null);
-      Alert.alert('Succès', `Collection publiée à ${(priceCents / 100).toFixed(2).replace('.', ',')}€.`);
+      Alert.alert('Collection mise à jour', editing.paymentMode === 'FREE'
+        ? `Accès fixé à ${amount} FREE pour toute la collection.`
+        : `Accès fixé à ${(amount / 100).toFixed(2).replace('.', ',')}€ pour toute la collection.`);
     } catch (e: any) {
-      Alert.alert('Erreur', e?.message || 'Impossible de fixer le prix.');
+      Alert.alert('Collection', e?.message || 'Impossible de modifier le mode d’accès.');
     } finally {
       setBusy(false);
     }
@@ -275,8 +277,8 @@ export default function PlaylistSalePanel({ navigation }: any) {
             {/* Offres Actives */}
             {offers.length > 0 && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>MES OFFRES ACTIVES ({offers.length})</Text>
-                <Text style={s.sectionHint}>Prix et contenu se gèrent séparément : ajoute ou retire des morceaux sans recréer l’offre ni perdre son historique.</Text>
+                <Text style={s.sectionTitle}>MES COLLECTIONS PUBLIÉES ({offers.length})</Text>
+                <Text style={s.sectionHint}>Chaque carte est un lot complet. Modifie les morceaux, puis choisis € ou FREE sans recréer la collection ni perdre son historique.</Text>
                 <FlatList
                   scrollEnabled={false}
                   data={offers}
@@ -287,8 +289,12 @@ export default function PlaylistSalePanel({ navigation }: any) {
                         <View style={s.offerInfo}>
                           <Text style={s.offerName}>{item.playlistName}</Text>
                           <Text style={s.offerPrice}>
-                            {(item.priceCents / 100).toFixed(2).replace('.', ',')}€ {item.currencyCode}
+                            {item.paymentMode === 'FREE'
+                              ? `${item.freePrice ?? 0} FREE`
+                              : `${(item.priceCents / 100).toFixed(2).replace('.', ',')}€ ${item.currencyCode}`}
                           </Text>
+                          {item.genres?.length ? <Text style={s.offerDate}>{item.genres.slice(0, 4).join(' · ')}</Text> : null}
+                          <Text style={s.offerDate}>{item.trackCount ?? 0} morceau{(item.trackCount ?? 0) > 1 ? 'x' : ''} dans ce lot</Text>
                         </View>
                         <View style={s.offerBadge}>
                           <Text style={s.offerBadgeText}>PUBLIÉE</Text>
@@ -313,10 +319,17 @@ export default function PlaylistSalePanel({ navigation }: any) {
                         <TouchableOpacity
                           style={s.editBtn}
                           disabled={busy}
-                          onPress={() => setEditing({ playlistId: item.playlistId, playlistName: item.playlistName, priceCents: item.priceCents })}
-                          accessibilityLabel={`Changer le prix de ${item.playlistName}`}
+                          onPress={() => setEditing({
+                            offerId: item.offerId || '',
+                            playlistId: item.playlistId,
+                            playlistName: item.playlistName,
+                            paymentMode: item.paymentMode === 'FREE' ? 'FREE' : 'MONEY',
+                            priceCents: item.priceCents,
+                            freePrice: item.freePrice ?? null,
+                          })}
+                          accessibilityLabel={`Modifier le mode d’accès de ${item.playlistName}`}
                         >
-                          <Text style={s.editBtnText}>€ Prix</Text>
+                          <Text style={s.editBtnText}>€ / FREE</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={s.removeBtn}
@@ -406,20 +419,39 @@ export default function PlaylistSalePanel({ navigation }: any) {
         <View style={s.modal}>
           <TouchableOpacity style={s.modalOverlay} onPress={() => setEditing(null)} />
           <View style={s.modalContent}>
-            <Text style={s.modalTitle}>Modifier le prix</Text>
+            <Text style={s.modalTitle}>Mode de déblocage</Text>
             <Text style={s.modalSubtitle}>{editing.playlistName}</Text>
+            <Text style={s.sectionHint}>Un seul montant débloque tous les morceaux de cette collection.</Text>
             <View style={s.pricePresetGrid}>
-              {PRICE_PRESETS.map((priceCents) => {
-                const selected = editing.priceCents === priceCents;
+              <TouchableOpacity
+                style={[s.pricePreset, editing.paymentMode === 'MONEY' && s.pricePresetSelected]}
+                disabled={busy}
+                onPress={() => setEditing({ ...editing, paymentMode: 'MONEY' })}
+              >
+                <Text style={[s.pricePresetText, editing.paymentMode === 'MONEY' && s.pricePresetTextSelected]}>€ EUROS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.pricePreset, editing.paymentMode === 'FREE' && s.pricePresetSelected]}
+                disabled={busy}
+                onPress={() => setEditing({ ...editing, paymentMode: 'FREE' })}
+              >
+                <Text style={[s.pricePresetText, editing.paymentMode === 'FREE' && s.pricePresetTextSelected]}>⚡ FREE</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={s.pricePresetGrid}>
+              {(editing.paymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map((amount) => {
+                const selected = editing.paymentMode === 'FREE' ? editing.freePrice === amount : editing.priceCents === amount;
                 return (
                   <TouchableOpacity
-                    key={priceCents}
+                    key={`${editing.paymentMode}:${amount}`}
                     style={[s.pricePreset, selected && s.pricePresetSelected]}
                     disabled={busy}
-                    onPress={() => setEditing({ ...editing, priceCents })}
+                    onPress={() => setEditing(editing.paymentMode === 'FREE'
+                      ? { ...editing, freePrice: amount }
+                      : { ...editing, priceCents: amount })}
                   >
                     <Text style={[s.pricePresetText, selected && s.pricePresetTextSelected]}>
-                      {(priceCents / 100).toFixed(2).replace('.', ',')} €
+                      {editing.paymentMode === 'FREE' ? `${amount} FREE` : `${(amount / 100).toFixed(2).replace('.', ',')} €`}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -435,10 +467,10 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={s.modalSaveBtn}
-                disabled={busy}
-                onPress={() => void handleSetPrice(editing.playlistId, editing.playlistName, editing.priceCents)}
+                disabled={busy || (editing.paymentMode === 'FREE' ? !editing.freePrice : !editing.priceCents)}
+                onPress={() => void handleUpdateAccess()}
               >
-                {busy ? <ActivityIndicator color={colors.white} /> : <Text style={s.modalSaveBtnText}>Valider</Text>}
+                {busy ? <ActivityIndicator color={colors.white} /> : <Text style={s.modalSaveBtnText}>ENREGISTRER</Text>}
               </TouchableOpacity>
             </View>
           </View>
