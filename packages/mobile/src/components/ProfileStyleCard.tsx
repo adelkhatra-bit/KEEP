@@ -27,6 +27,9 @@ type Props = {
   actionLabel?: string;
   onActionPress?: () => void;
   actionAccessibilityLabel?: string;
+  onPlayPress?: () => void;
+  playAccessibilityLabel?: string;
+  playing?: boolean;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -39,6 +42,18 @@ const PUBLIC_GRADIENTS: [string, string][] = [
   ['#43CBFF', '#9708CC'],
   ['#FAD961', '#F76B1C'],
 ];
+
+const SALE_GRADIENTS: [string, string][] = [
+  ['#FF2D78', '#7A00FF'],
+  ['#FF8A00', '#FF2D78'],
+  ['#00C6FF', '#7A00FF'],
+  ['#FF4D6D', '#C9184A'],
+];
+
+function salePaletteFor(title: string): [string, string] {
+  const seed = Array.from(title).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return SALE_GRADIENTS[seed % SALE_GRADIENTS.length];
+}
 
 function paletteFor(title: string): [string, string] {
   const seed = Array.from(title).reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -61,6 +76,9 @@ export default function ProfileStyleCard({
   actionLabel,
   onActionPress,
   actionAccessibilityLabel,
+  onPlayPress,
+  playAccessibilityLabel,
+  playing = false,
   fullWidth = false,
   style,
 }: Props) {
@@ -70,6 +88,7 @@ export default function ProfileStyleCard({
   const locked = mode === 'LOCKED';
   const unlocked = mode === 'UNLOCKED';
   const palette = paletteFor(title);
+  const salePalette = salePaletteFor(title);
   const resolvedBadge = badgeLabel ?? (locked ? '🔒 EN VENTE' : unlocked ? '✓ DÉBLOQUÉ' : mode === 'VIBE' ? 'VIBE' : 'PUBLIC');
 
   useEffect(() => {
@@ -123,9 +142,7 @@ export default function ProfileStyleCard({
       <View style={s.bottom}>
         <Text style={s.title} numberOfLines={1}>{title}</Text>
         <Text style={s.subtitle} numberOfLines={2}>{subtitle}</Text>
-        <View style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked]}>
-          <Text style={s.playText}>{locked ? '◉' : '▶'}</Text>
-        </View>
+        <View style={s.playSpacer} />
       </View>
     </>
   );
@@ -167,7 +184,7 @@ export default function ProfileStyleCard({
           </ImageBackground>
         ) : (
           <LinearGradient
-            colors={locked ? [colors.primaryDark, colors.backgroundCard] : unlocked ? [colors.keepPressed, colors.primaryDark] : palette}
+            colors={locked ? salePalette : unlocked ? [colors.keepPressed, colors.primaryDark] : palette}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={s.visual}
@@ -185,6 +202,20 @@ export default function ProfileStyleCard({
           </LinearGradient>
         )}
       </Pressable>
+      {onPlayPress ? (
+        <Pressable
+          onPress={onPlayPress}
+          accessibilityRole="button"
+          accessibilityLabel={playAccessibilityLabel ?? `Écouter ${title}`}
+          style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked, playing && s.playActive]}
+        >
+          <Text style={s.playText}>{playing ? 'Ⅱ' : locked ? '◉' : '▶'}</Text>
+        </Pressable>
+      ) : (
+        <View pointerEvents="none" style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked]}>
+          <Text style={s.playText}>{locked ? '◉' : '▶'}</Text>
+        </View>
+      )}
       {actionLabel && onActionPress ? (
         <Pressable
           onPress={onActionPress}
@@ -262,6 +293,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(4,3,10,.72)',
   },
   bottom: { minHeight: 64, justifyContent: 'flex-end', paddingRight: 38 },
+  playSpacer: { width: 34, height: 34 },
   title: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
   subtitle: { color: colors.textPrimary, opacity: 0.88, fontSize: 10, lineHeight: 14, marginTop: 3 },
   play: {
@@ -279,6 +311,7 @@ const s = StyleSheet.create({
   },
   playLocked: { borderColor: colors.primaryLight },
   playUnlocked: { borderColor: colors.keep },
+  playActive: { transform: [{ scale: 1.06 }], backgroundColor: colors.primary },
   playText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   wave: {
     ...StyleSheet.absoluteFillObject,
