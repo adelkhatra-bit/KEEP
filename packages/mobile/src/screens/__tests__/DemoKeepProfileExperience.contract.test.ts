@@ -134,10 +134,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(ownerProfile).toContain('sourceUsername={user.username}');
   });
 
-  it('labels the three-style cap as Battle-only, never as the profile style count', () => {
-    expect(battle).toContain('STYLES BATTLE · 3 MAX');
-    expect(battle).toContain('Ton profil peut afficher tous tes styles musicaux');
-    expect(battle).toContain('3 styles Battle maximum');
+  it('removes the obsolete three-style Battle cap and allows the profile universe to extend to twelve styles', () => {
+    expect(battle).toContain('real.length >= 12');
+    expect(battle).toContain('12 styles Battle maximum');
+    expect(battle).not.toContain('3 styles Battle maximum');
   });
 
   it('never calls the authenticated Battle credit RPC for demo or local guests', () => {
@@ -185,6 +185,12 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain("setDeckTracks(loop ? shuffle(inputTracks) : inputTracks)");
     expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
     expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
+  });
+
+  it('waits for the Swipe deck to be ready before starting audio, preventing the first-preview cut', () => {
+    expect(swipe).toContain('setPreparingDeck(true)');
+    expect(swipe).toContain('if (!visible || preparingDeck || !current)');
+    expect(swipe).toContain('[visible, preparingDeck, current?.id');
   });
 
   it('does not shorten normal profile previews with the Battle 9-second offset', () => {
