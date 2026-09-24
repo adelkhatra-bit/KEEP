@@ -1818,3 +1818,9 @@ Un autre agent peut auditer mais ne doit pas corriger l'UI en parallèle. S'il t
 - Événements : rappels et invitations utilisent le même système persistant, sans messagerie.
 - Vente : produit visible + prix + cadenas + préécoute masquée ; aucun dialogue privé acheteur/vendeur.
 - Référence mise à jour : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md` section 16.
+
+
+## 2026-09-24 — Coordination refonte
+ChatGPT Sol garde temporairement l'intégration de `ProfilePublicScreen.tsx`, `PublicUserProfileScreen.tsx` et `ProfileMotionReveal.tsx`.
+Les autres agents peuvent avancer en parallèle sur : onboarding/inscription, Super Admin/API, CI/App Store/EAS et tests hors profils.
+Branche unique : `reconcile/claude-main-20260825`. Relire le HEAD avant chaque modification. Ne pas toucher aux deux écrans Profil pendant l'intégration animée. Toute erreur trouvée sur le profil doit être notée dans `docs/ERROR_LEDGER.md` sans éditer le fichier. Ne pas annoncer poussé/testé/déployé sans preuve distante.
