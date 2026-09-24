@@ -120,6 +120,15 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(styleCard).toContain('onPlayPress?: () => void;');
   });
 
+  it('identifies the listened profile inside Swipe for the whole playback session', () => {
+    expect(swipe).toContain('sourceUsername?: string;');
+    expect(swipe).toContain('TU ÉCOUTES L’UNIVERS DE');
+    expect(swipe).toContain('@{sourceUsername.replace(/^@/, \'\')}');
+    expect(profile).toContain('sourceUsername={profile.username}');
+    expect(profile).toContain('sourceAvatarUrl={profile.avatarUrl}');
+    expect(ownerProfile).toContain('sourceUsername={user.username}');
+  });
+
   it('keeps sold tracks out of the free Swipe source', () => {
     expect(profile).toContain('const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;');
     expect(profile).toContain('setTracks(visible);');
