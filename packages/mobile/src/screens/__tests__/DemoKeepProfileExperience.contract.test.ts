@@ -12,6 +12,8 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   const ownerProfile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const styleCard = read(__dirname, '..', '..', 'components', 'ProfileStyleCard.tsx');
   const featureFlags = read(__dirname, '..', '..', 'services', 'featureFlagService.ts');
+  const battle = read(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx');
+  const profileSettings = read(__dirname, '..', 'ProfileSettingsMobileScreen.tsx');
 
   it('never chooses PUBLIC implicitly when account/demo state requires attention', () => {
     expect(swipe).not.toContain("try { await onKeep?.(current, 'PUBLIC'); }");
@@ -127,6 +129,17 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('sourceUsername={profile.username}');
     expect(profile).toContain('sourceAvatarUrl={profile.avatar}');
     expect(ownerProfile).toContain('sourceUsername={user.username}');
+  });
+
+  it('never calls the authenticated Battle credit RPC for demo or local guests', () => {
+    expect(ownerProfile).toContain('if (!isLocalGuest && !isDemoMode) {');
+    expect(battle).toContain('userState.isLocalGuest || userState.isDemoMode');
+    expect(battle).toContain('setMyCreditStatus(null);');
+  });
+
+  it('exposes real accessible birth-date controls for the 390x844 guardian', () => {
+    expect(profileSettings).toContain('accessibilityLabel={`${label} : ${value}`}');
+    expect(profileSettings).toContain('accessibilityLabel="Valider la date de naissance"');
   });
 
   it('keeps sold tracks out of the free Swipe source', () => {
