@@ -61,7 +61,7 @@ const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'notifications', icon: '🔔', label: 'Notifications' },
   { key: 'music', icon: '🎧', label: 'Services musicaux' },
   { key: 'offers', icon: '💳', label: 'Offres & crédits' },
-  { key: 'sellPlaylists', icon: '💰', label: 'Vendre mes musiques' },
+  { key: 'sellPlaylists', icon: '◆', label: 'Mes collections exclusives' },
   { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web' },
   { key: 'creator', icon: '🪪', label: 'Type de profil & outils créateur' },
   { key: 'help', icon: '🆘', label: 'Aide, légal & comptes bloqués' },
@@ -918,9 +918,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
                     fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}
                     onPress={() => openSelectionSwipe({ title: folder.genre, subtitle: `Ton univers ${folder.genre} en Swipe.`, tracks: folder.entries.map((entry) => entry.track) })}
                     accessibilityLabel={`Écouter le style ${folder.genre}, ${folder.entries.length} morceaux en Swipe`}
-                    actionLabel={marketplaceEnabled ? 'VENDRE' : undefined}
+                    actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}
                     onActionPress={marketplaceEnabled ? () => navigation.navigate('Main', { screen: 'Playlists', params: { preselectSaleGenre: folder.genre } }) : undefined}
-                    actionAccessibilityLabel={`Mettre en vente le style ${folder.genre}`}
+                    actionAccessibilityLabel={`Créer une collection exclusive à partir du style ${folder.genre}`}
                   />
                 );
               })}
@@ -1058,9 +1058,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
     </>;
 
     if (key === 'sellPlaylists') return <>
-      <Text style={s.shareTitle}>Vendre mes playlists</Text>
-      <Text style={s.shareSubtitle}>Depuis l'onglet Playlists, appuie sur "VENDRE" sur une playlist, un album (groupe par artiste) ou un seul morceau -- prix fixe entre 0,50€ et 10€, à choisir dans une liste, rien à écrire. L'acheteur paie directement sur ton lien de paiement personnel, Loki Music ne touche jamais cet argent. Débloqué à partir d'un certain nombre d'abonnés. Retrouve ici toutes tes ventes en cours et les paiements à confirmer.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES VENTES</Text></TouchableOpacity>
+      <Text style={s.shareTitle}>Mes collections exclusives</Text>
+      <Text style={s.shareSubtitle}>Crée une collection exclusive avec plusieurs morceaux de ton univers, mélange les styles si tu veux, puis choisis un prix en € ou en FREE. Les visiteurs voient une collection verrouillée et peuvent la préécouter sans titre, artiste ni vraie pochette. Retrouve ici toutes tes collections publiées et leur statut.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES COLLECTIONS</Text></TouchableOpacity>
     </>;
 
     if (key === 'publicProfile') return <>
@@ -1173,10 +1173,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
           {marketplaceEnabled ? (
             <MotionActionButton
               icon="◆"
-              title={playlistSaleOffers.length > 0 ? 'GÉRER MES VENTES' : 'VENDRE'}
-              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} offre${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Créer une collection à débloquer'}
+              title={playlistSaleOffers.length > 0 ? 'GÉRER MES COLLECTIONS' : 'CRÉER UNE COLLECTION'}
+              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Sélectionne plusieurs morceaux et publie ton univers'}
               onPress={() => navigation.navigate('PlaylistSale')}
-              accessibilityLabel="Vendre ou gérer mes ventes"
+              accessibilityLabel="Créer ou gérer mes collections exclusives"
               tone="success"
               compact
               style={s.ownerQuickActionMotion}
@@ -1228,13 +1228,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
           style={s.ownerCommerceStrip}
           onPress={() => navigation.navigate('PlaylistSale')}
           accessibilityRole="button"
-          accessibilityLabel={`Boutique active, ${playlistSaleOffers.length} offre${playlistSaleOffers.length > 1 ? 's' : ''} en vente`}
+          accessibilityLabel={`Collections exclusives actives, ${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} publiée${playlistSaleOffers.length > 1 ? 's' : ''}`}
         >
           <View style={s.ownerCommercePulse}><Text style={s.ownerCommercePulseText}>◆</Text></View>
           <View style={s.ownerCommerceCopy}>
             <Text style={s.ownerCommerceKicker}>BOUTIQUE ACTIVE</Text>
-            <Text style={s.ownerCommerceTitle}>{playlistSaleOffers.length} collection{playlistSaleOffers.length > 1 ? 's' : ''} actuellement en vente</Text>
-            <Text style={s.ownerCommerceMeta}>Gère les morceaux, le prix et l’état de chaque offre.</Text>
+            <Text style={s.ownerCommerceTitle}>{playlistSaleOffers.length} collection{playlistSaleOffers.length > 1 ? 's' : ''} exclusive{playlistSaleOffers.length > 1 ? 's' : ''} publiée{playlistSaleOffers.length > 1 ? 's' : ''}</Text>
+            <Text style={s.ownerCommerceMeta}>Gère les morceaux, le prix € / FREE et l’état de chaque collection.</Text>
           </View>
           <Text style={s.ownerCommerceArrow}>›</Text>
         </TouchableOpacity>
