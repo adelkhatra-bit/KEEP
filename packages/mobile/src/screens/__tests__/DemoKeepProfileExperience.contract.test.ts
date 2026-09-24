@@ -170,8 +170,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('uses the kept library as the single source for the Styles count', () => {
+    expect(myMusic).toContain("const STYLE_ID_PREFIX = 'keep-style:'");
     expect(myMusic).toContain('const profileStyleGroups = useMemo(() => {');
     expect(myMusic).toContain('for (const track of localKeptTracks)');
+    expect(myMusic).toContain("if (playlist.id.startsWith(STYLE_ID_PREFIX))");
     expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
     expect(myMusic).toContain('VIBES AUTO · {automaticStylePlaylists.length}');
     expect(myMusic).not.toContain('for (const track of allKnownTracks)');
