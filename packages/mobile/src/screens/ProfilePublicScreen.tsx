@@ -1391,7 +1391,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       tracks={publicSwipeTracks}
       title="Ma collection publique"
       sourceUsername={user.username}
-      sourceAvatarUrl={user.avatarUrl}
+      sourceAvatarUrl={user.avatar}
       subtitle="Aperçu exact du Swipe proposé à tes abonnés."
       emptyTitle="Aucun morceau public à prévisualiser."
       backLabel="REVENIR AU PROFIL"
@@ -1446,7 +1446,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       tracks={selectionSwipe?.tracks ?? []}
       title={selectionSwipe?.title ?? 'Vibe Loki Music'}
       sourceUsername={user.username}
-      sourceAvatarUrl={user.avatarUrl}
+      sourceAvatarUrl={user.avatar}
       subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"
