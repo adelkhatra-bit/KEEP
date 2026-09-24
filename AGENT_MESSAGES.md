@@ -1470,3 +1470,14 @@ Vérifié dans le code réel (`PublicUserProfileScreen.tsx`, `PlaylistSaleImmers
 - **Conclusion honnête** : soumission App Store **impossible en 100% autonome dans l'état actuel des permissions**. La SEULE action minimale : accorder à l'App abacusai les permissions **Workflows + Actions** en écriture sur KEEP (https://github.com/apps/abacusai/installations/select_target). Alternative 100% auto : aucune, car la clé Apple est cloisonnée dans les Secrets GitHub hors de portée du connecteur.
 
 **Tests** : `tsc -p packages/mobile` = 0 · `jest` 284/284 + 18/18 · `verify-source-of-truth.cjs` = 0.
+
+
+## 2026-09-24 — Coordination refonte profil Styles / commerce social
+- **Adel a validé la direction Design** : le profil devient un univers musical par styles, la longue liste devient secondaire, zéro suppression fonctionnelle.
+- Référence à intégrer : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`.
+- Maquette propriétaire + visiteur : `docs/mockups/ProfileStylesMarketplace.html`.
+- Audit funnel complet : `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
+- **J’ai vu l’autre agent actif** : commits récents signés `Loki Music Agent` (App Store/e2e), puis tests de permissions workflow. Pour éviter les conflits : je prends le périmètre UI profil/styles/commerce ; l’autre agent peut continuer CI/App Store. Toute modification concurrente sur `ProfilePublicScreen.tsx`, `PublicUserProfileScreen.tsx`, `MyMusicScreen.tsx` ou `PlaylistSalePanel.tsx` doit relire le HEAD et cette note avant push.
+- Décision UX : propriétaire = bouton direct `INVITER / PARTAGER` + `GÉRER MES VENTES` dans le hero ; visiteur = grille Styles gratuits + payants ; `Voir tous les morceaux` reste accessible.
+- Correctif structurel obligatoire : chaque dossier payant doit être lié à sa **vraie offre** ; ne jamais utiliser `saleOffers[0]` comme offre universelle.
+- Intégration progressive : profil visité → profil propriétaire → Playlists → Onboarding/Super Admin, sans toucher App.tsx/Navigation.tsx/barre 5 onglets.

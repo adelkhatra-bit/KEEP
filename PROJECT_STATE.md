@@ -289,3 +289,15 @@ fait.
 - **État** : build 312 v1.0.0 déjà sur TestFlight (« Prêt à soumettre »). Non soumis — reste 1 action de 30 s (mot de passe spécifique app OU Chemin B). Lien : https://appstoreconnect.apple.com/apps/6812393589/appstore
 - **Marketplace v1** : flag `playlist_marketplace` OFF (achat lien externe = rejet Apple 3.1.1). Statut : codé, non déployé (attente Apple IAP/StoreKit). Rien supprimé.
 - **Audit profil vente** : préécoute protégée ✅, titres masqués ✅, anti-Shazam ✅, envie d'achat ✅. Vitrine « En vente » remontée en haut du profil (`bb89c56f`).
+
+
+## Loki — design profil Styles / commerce social (24/09/2026)
+- **VALIDÉ** : profil propriétaire et profil visité centrés sur des dossiers par style, longue liste secondaire seulement.
+- Référence : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`.
+- Maquette : `docs/mockups/ProfileStylesMarketplace.html`.
+- Audit complet Écouter/Découvertes/Playlists/Soirées/Profil/Inscription/Super Admin : `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
+- Owner hero : accès direct `INVITER/PARTAGER` et `GÉRER MES VENTES`.
+- Visitor : styles gratuits ouvrent Swipe ; styles payants = cadenas + quantité + prix + preview masquée.
+- Rien ne disparaît : `Voir tous les morceaux` conserve la vue détaillée et toutes les actions sociales.
+- Point technique à corriger : dossiers payants reliés à leur vraie offre, pas à `saleOffers[0]`.
+- Statut : design poussé ; intégration code démarrée ensuite sur la branche unique.

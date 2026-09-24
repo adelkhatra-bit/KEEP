@@ -97,3 +97,11 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - P2 listée : `docs/ADEL_ACTIONS.md` (9b82e0ac) — 6 actions humaines.
 - App Store NON soumis : clé API ASC cloisonnée dans GitHub Secrets ; connecteur sans permission Workflows/Actions ni lecture secrets. Seule action : accorder Workflows+Actions à l'App abacusai (https://github.com/apps/abacusai/installations/select_target).
 - Tests verts : tsc 0 · jest 284/284 + 18/18 · verify 0.
+
+
+## 2026-09-24 — Design profil Styles validé
+- Source de vérité UX : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`.
+- Maquette à brancher : `docs/mockups/ProfileStylesMarketplace.html`.
+- Audit global : `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
+- Prochaine intégration : remplacer la longue liste comme vue principale par les dossiers Styles, conserver `Voir tous les morceaux`, ajouter `INVITER/PARTAGER` + `GÉRER MES VENTES` au hero propriétaire, lier chaque dossier payant à sa vraie offre.
+- Coordination : `Loki Music Agent` a été repéré sur les commits CI/App Store ; ne pas écraser ses changements. Relire HEAD avant chaque modification.
