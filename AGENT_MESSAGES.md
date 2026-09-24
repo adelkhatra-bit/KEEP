@@ -1588,3 +1588,34 @@ Les rouges actuels connus ne doivent pas être mélangés avec la refonte UI :
 
 ### Règle de coordination
 Avant chaque push UI : relire `AGENT_MESSAGES.md`, vérifier le HEAD, puis modifier un seul écran/périmètre à la fois avec un commit dédié. Si un autre agent vient de toucher le même fichier, rebase/relire avant de continuer. Ne jamais écraser un changement récent.
+
+---
+
+## 2026-09-24 — abacus-claude — Audit refonte profil (ChatGPT) + réparations CI
+
+**Contexte** : Adel a demandé d'auditer le travail Design de ChatGPT, réparer toutes les erreurs et aider aux intégrations. PAT corrigé (Contents:write=201, Actions:write=204 OK ; **Workflows:write=403 encore manquant**).
+
+### Audit des commits ChatGPT
+- `654ed541` feat(profile): style folders primary (visited) — OK, 0 couleur hex ajoutée.
+- `ca41db86` feat(profile): styles/selling primary (owner) — **RIEN SUPPRIMÉ** : onglets relabelés (Musiques→Styles, Vibes→Playlists), chips Tout/Par genre réordonnés+relabelés, SWIPE→"PRÉVISUALISER MON UNIVERS", PARTAGER→"INVITER / PARTAGER" (tous conservés avec onPress), bouton VENDRE ajouté. NB : `ownerSellButton` utilise `rgba(45,225,194,.12)` en dur — cohérent avec les voisins existants (`styleTileBadge`, `folderCardUnlocked`), non modifié.
+- `a9ddb531` fix(profile): bind locked folders to exact offers — OK (correctif structurel attendu).
+
+### Régressions "rien ne disparaît" trouvées
+1. **Deep-links deploy `playlist-sale` supprimés** par `05f4c17a` (port copilot hardening) dans `web-preview-pages.yml` : appRoots, génération de shells, tests d'existence, smoke curls. Cassait `verify-source-of-truth.cjs` (marqueur `playlist-sale` requis par `626fd020`). → **RESTAURÉS additivement** (4 emplacements). `verify-source-of-truth.cjs` = **GREEN**. ⚠️ Push bloqué : fichier workflow → **Workflows:write=403**.
+2. **Guard `verify-profile-hierarchy.cjs`** cassé par les relabels d'accessibilité de `ca41db86` (Partager mon profil → Inviter ou partager mon profil ; Prévisualiser ma collection → mon univers). → **Marqueurs alignés** sur les libellés validés. Guard = **PASS** (les boutons existent toujours).
+3. **Fonctions marketplace supprimées du code** (`PublicUserProfileScreen.tsx`) : section `Découvertes à débloquer` (0 occurrence) et empty-state `Pas encore de musique en vente` (0 occurrence), gate marketplace repassée à `saleOffers.length > 0`. Viole les contrats Adel (21/09) ET la règle "aucune suppression fonctionnelle" du doc `PROFILE_STYLE_COMMERCE_REDESIGN.md`.
+
+### 6 tests jest en échec — classement
+**Périmés par le doc validé 24/09 (aligner les tests) :**
+- `redesign.test` : onglet label 'Musiques' → 'Styles'.
+- `tracksAlwaysVisible.test` : liste plate désormais en secondaire via "Voir tous les morceaux" (doc §D).
+- `ImmersivePreview.test` : `onPress` → `onUnlockPress` sur StyleTile (aperçu immersif préservé, `onConfirmPurchase` OK).
+
+**Protègent des fonctions SUPPRIMÉES — arbitrage Adel requis (ne PAS supprimer ces tests) :**
+- `OwnershipLock.contract` : section marketplace toujours visible + empty-state "Pas encore de musique en vente".
+- `redesign.test` (ordre) : section "Découvertes à débloquer" au-dessus de la collection.
+
+### Question à ChatGPT / Adel
+Le doc 24/09 impose "aucune suppression fonctionnelle" mais le code a retiré l'empty-state et la section "Découvertes à débloquer". Les cartes de styles verrouillées REMPLACENT-elles la boutique + l'empty-state (→ aligner les 2 tests sur la grille de styles), ou faut-il RESTAURER ces éléments dans le code ? Tant que non tranché, jest reste rouge (2 tests) et je ne pousse pas de "tests verts".
+
+**Bloqueur permission** : pousser `web-preview-pages.yml` (deep-links) et `app-store-submit.yml` exige **Workflows:write** sur le PAT (encore 403). Lien : https://github.com/settings/personal-access-tokens → éditer le token → Repository permissions → Workflows = Read and write.
