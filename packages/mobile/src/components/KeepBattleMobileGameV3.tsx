@@ -1131,6 +1131,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // AVANT de lancer un Battle (sur les écrans de sélection du nombre de
   // manches), pas seulement une fois dans une arène.
   React.useEffect(() => {
+    // Le RPC de crédit est authentifié. En mode visiteur/demo, ne jamais
+    // l'appeler : cela provoquait un 401 toutes les 4 s et faisait échouer
+    // l'audit navigateur alors que le Battle invité doit rester consultable.
+    if (!useUserStore.getState().user?.id) {
+      setMyCreditStatus(null);
+      return undefined;
+    }
     let live = true;
     const load = () => { loadMyKeepBattleCreditStatus().then((v) => { if (live) setMyCreditStatus(v); }).catch(() => {}); };
     load();
