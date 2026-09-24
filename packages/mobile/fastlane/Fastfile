@@ -20,7 +20,7 @@
 # Lanes :
 #   fastlane ios listing   -> remplit la fiche SANS soumettre (verif)
 #   fastlane ios submit    -> remplit la fiche ET soumet a la review (autonome)
-#   fastlane ios precheck  -> controle la conformite de la fiche
+#   fastlane ios validate  -> controle la conformite de la fiche
 ########################################################################
 
 default_platform(:ios)
@@ -88,7 +88,7 @@ platform :ios do
   end
 
   desc "Controle la conformite de la fiche avant soumission"
-  lane :precheck do
+  lane :validate do
     precheck
   end
 end
