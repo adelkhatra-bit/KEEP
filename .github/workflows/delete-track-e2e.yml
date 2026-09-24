@@ -97,7 +97,14 @@ jobs:
             // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
             await exact('Écouter').click({ force: true });
             const start = page.getByLabel('Démarrer une écoute').last();
-            if (await start.isVisible().catch(() => false)) await start.click();
+            if (await start.isVisible().catch(() => false)) {
+              await start.click({ timeout: 3000 }).catch(async () => {
+                // Ce workflow teste la suppression, pas le z-index de l'écran
+                // Écouter. Une couche décorative web peut intercepter le pointer
+                // alors que le vrai bouton est visible/actif : repli ciblé.
+                await start.click({ force: true, timeout: 3000 });
+              });
+            }
 
             const keep = page.getByLabel('Garder ce morceau').last();
             await keep.waitFor({ state: 'visible', timeout: 15000 });
