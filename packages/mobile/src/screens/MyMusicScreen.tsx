@@ -194,7 +194,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
   useEffect(() => {
     if (!route?.params?.openManageMusic) return;
     setActiveTab('MUSIQUES');
-    setOriginFilter('LISTEN');
+    setOriginFilter('ALL');
+    setSocialSectionExpanded(true);
     setSaleSelectionMode(false);
     setSaleEditOfferTarget(null);
     setManageMusicMode(true);
@@ -1138,7 +1139,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </View>
           <TouchableOpacity
             style={[styles.manageModeButton, manageMusicMode && styles.manageModeButtonActive]}
-            onPress={() => setManageMusicMode((value) => !value)}
+            onPress={() => setManageMusicMode((value) => {
+              const next = !value;
+              if (next) {
+                setOriginFilter('ALL');
+                setSocialSectionExpanded(true);
+              }
+              return next;
+            })}
             accessibilityRole="button"
             accessibilityLabel={manageMusicMode ? 'Terminer la gestion des musiques' : 'Ouvrir toutes les commandes de gestion'}
           >
