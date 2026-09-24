@@ -134,6 +134,12 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(ownerProfile).toContain('sourceUsername={user.username}');
   });
 
+  it('labels the three-style cap as Battle-only, never as the profile style count', () => {
+    expect(battle).toContain('STYLES BATTLE · 3 MAX');
+    expect(battle).toContain('Ton profil peut afficher tous tes styles musicaux');
+    expect(battle).toContain('3 styles Battle maximum');
+  });
+
   it('never calls the authenticated Battle credit RPC for demo or local guests', () => {
     expect(ownerProfile).toContain('if (!isLocalGuest && !isDemoMode) {');
     expect(battle).toContain('userState.isLocalGuest || userState.isDemoMode');
@@ -156,13 +162,18 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
     expect(myMusic).toContain("setActiveTab('MUSIQUES')");
     expect(myMusic).toContain('GÉRER MES MUSIQUES');
+    expect(myMusic).toContain("setOriginFilter('ALL')");
+    expect(myMusic).toContain('setSocialSectionExpanded(true)');
     expect(myMusic).toContain('setManageMusicMode(true)');
     expect(myMusic).toContain('expanded={manageMusicMode || expanded}');
     expect(myMusic).toContain('PUBLIC / PRIVÉ, SUPPRIMER');
   });
 
   it('uses the kept library as the single source for the Styles count', () => {
+    expect(myMusic).toContain('const profileStyleGroups = useMemo(() => {');
     expect(myMusic).toContain('for (const track of localKeptTracks)');
+    expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
+    expect(myMusic).toContain('VIBES AUTO · {automaticStylePlaylists.length}');
     expect(myMusic).not.toContain('for (const track of allKnownTracks)');
     expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}");
   });
