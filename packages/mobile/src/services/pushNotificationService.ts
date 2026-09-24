@@ -265,7 +265,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
       name: `${APP_NAME} · Paiements reçus`,
       description: 'Ventes et paiements reçus par le propriétaire du profil',
       importance: Notifications.AndroidImportance.MAX,
-      sound: 'keep-money.wav',
+      sound: 'keep_money.wav',
       vibrationPattern: [0, 120, 70, 140],
     });
   }

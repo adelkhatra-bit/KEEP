@@ -28,10 +28,10 @@ ok('Supabase Edge push worker exists', worker.includes('EXPO_PUSH_URL') && worke
 ok('Supabase Cron invokes Edge worker', cron.includes('cron.schedule') && cron.includes('keep-push-worker'));
 ok('Cron secret comes from Vault', cron.includes('vault.decrypted_secrets'));
 ok('Render push loop is fallback only', backend.includes("process.env.KEEP_PUSH_WORKER_FALLBACK === '1'"));
-ok('money sound is generated before native builds', mobilePackage.includes('generate-notification-sounds.cjs') && soundGenerator.includes('keep-money.wav'));
-ok('Expo bundles the money notification sound', appConfig.includes('keep-money.wav'));
-ok('mobile registers a dedicated money notification channel', service.includes("setNotificationChannelAsync('money'") && service.includes("sound: 'keep-money.wav'"));
-ok('Edge worker selects the money sound from notification metadata', worker.includes('isMoneyNotification') && worker.includes('keep-money.wav') && worker.includes('channelId: money ? "money" : "default"'));
+ok('money sound is generated before native builds', mobilePackage.includes('generate-notification-sounds.cjs') && soundGenerator.includes('keep_money.wav'));
+ok('Expo bundles the money notification sound', appConfig.includes('keep_money.wav'));
+ok('mobile registers a dedicated money notification channel', service.includes("setNotificationChannelAsync('money'") && service.includes("sound: 'keep_money.wav'"));
+ok('Edge worker selects the money sound from notification metadata', worker.includes('isMoneyNotification') && worker.includes('keep_money.wav') && worker.includes('channelId: money ? "money" : "default"'));
 ok('invalid APNs environment tokens are pruned', worker.includes('BadEnvironmentKeyInToken'));
 
 console.log('KEEP direct Supabase push architecture: PASS');

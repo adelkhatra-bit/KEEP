@@ -110,7 +110,7 @@ async function processPending() {
         title: notification.title,
         body: notification.body || "",
         data: notification.data || {},
-        sound: money ? "keep-money.wav" : "default",
+        sound: money ? "keep_money.wav" : "default",
         priority: "high",
         channelId: money ? "money" : "default",
       }));

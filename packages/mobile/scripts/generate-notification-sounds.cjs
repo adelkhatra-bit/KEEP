@@ -46,7 +46,7 @@ header.write('data', 36);
 header.writeUInt32LE(dataSize, 40);
 
 const outDir = path.resolve(__dirname, '..', 'assets');
-const outPath = path.join(outDir, 'keep-money.wav');
+const outPath = path.join(outDir, 'keep_money.wav');
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(outPath, Buffer.concat([header, pcm]));
 console.log('Generated Loki money notification sound:', path.relative(process.cwd(), outPath));
