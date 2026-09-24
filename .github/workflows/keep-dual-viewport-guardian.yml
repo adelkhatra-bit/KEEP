@@ -105,7 +105,7 @@ jobs:
             const menu=page.getByLabel('Menu du profil').last();
             await menu.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,menu,'Profile menu');
-            const edit=page.getByText('Modifier le profil',{exact:true}).last();
+            const edit=page.getByText('Réglages du profil',{exact:true}).last();
             await edit.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,edit,'Edit profile');
             await page.getByPlaceholder('tonpseudo').last().waitFor({state:'visible',timeout:15000});
