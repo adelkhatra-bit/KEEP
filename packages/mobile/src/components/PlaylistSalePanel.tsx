@@ -263,12 +263,12 @@ export default function PlaylistSalePanel({ navigation }: any) {
             {marketplaceTransactionEnabled ? (
               <View style={s.manualNotice}>
                 <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
-                <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
+                <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements externes. Confirme « Paiement reçu » uniquement après avoir réellement reçu l'argent sur ton lien personnel : cette confirmation débloque toute la collection pour l'acheteur.</Text>
               </View>
             ) : (
               <View style={s.manualNotice}>
-                <Text style={s.manualNoticeTitle}>GESTION MOBILE ACTIVE</Text>
-                <Text style={s.manualNoticeText}>Tu peux créer et organiser tes offres, modifier les morceaux et les prix. Les opérations de paiement ne sont pas activées dans cette version mobile.</Text>
+                <Text style={s.manualNoticeTitle}>GESTION DES COLLECTIONS ACTIVE</Text>
+                <Text style={s.manualNoticeText}>Tu peux créer et organiser tes collections, modifier les morceaux et choisir € / FREE. Les paiements externes restent désactivés dans cette version mobile.</Text>
               </View>
             )}
 
