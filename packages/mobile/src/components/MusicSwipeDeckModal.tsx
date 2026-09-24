@@ -123,6 +123,7 @@ export default function MusicSwipeDeckModal({
     }
     if (wasVisible.current) return () => { alive = false; };
     wasVisible.current = true;
+    setPreparingDeck(true);
     actionInFlight.current = false;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
@@ -181,7 +182,7 @@ export default function MusicSwipeDeckModal({
     setPreviewEnded(false);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
-    if (!visible || !current) {
+    if (!visible || preparingDeck || !current) {
       setPreviewResolving(false);
       void stopTrackPreview();
       return () => { alive = false; };
@@ -235,7 +236,7 @@ export default function MusicSwipeDeckModal({
       if (playbackGeneration.current === generation) playbackGeneration.current += 1;
       if (playbackKey) void stopTrackPreview(playbackKey);
     };
-  }, [visible, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
+  }, [visible, preparingDeck, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
