@@ -192,12 +192,9 @@ jobs:
             await clickRobust(playlistsLibraryTab, 'Playlists library tab');
             await page.waitForTimeout(300);
 
-            const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
-            if (await allMusic.count() === 0) throw new Error('Delete audit fixture missing: Toute ma musique');
-            await allMusic.click();
-            await page.waitForTimeout(400);
-
             const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
+            await deleteButtons.first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+
             const beforeDeleteCount = await deleteButtons.count();
             if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
             const deleteButton = deleteButtons.first();
