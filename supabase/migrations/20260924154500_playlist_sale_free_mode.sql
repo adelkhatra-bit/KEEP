@@ -78,8 +78,10 @@ as $function$
     coalesce((select sum(amount_free)::integer from public.playlist_sale_free_transfers where buyer_id=p_uid),0);
 $function$;
 
-revoke all on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) from public;
-grant execute on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) to authenticated;
+revoke all on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) from public, anon, authenticated;
+-- Fonction interne uniquement : keep_theoretical_free_credit_remaining_for_profile
+-- l'appelle sous son propriétaire SECURITY DEFINER. Aucun client n'a besoin
+-- d'interroger directement l'ajustement d'un autre profil.
 
 create or replace function public.keep_theoretical_free_credit_remaining_for_profile(p_uid uuid)
 returns integer
