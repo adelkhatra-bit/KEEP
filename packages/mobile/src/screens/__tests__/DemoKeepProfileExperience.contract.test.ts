@@ -86,7 +86,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(ownerProfile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
     expect(ownerProfile).toContain('style={s.ownerStyleGrid}');
     expect(ownerProfile).toContain("actionLabel={marketplaceEnabled ? 'VENDRE' : undefined}");
-    expect(ownerProfile).toContain("title="JOUER EN SOLO"");
+    expect(ownerProfile).toContain('title="JOUER EN SOLO"');
     expect(ownerProfile).toContain('BOUTIQUE ACTIVE');
   });
 
