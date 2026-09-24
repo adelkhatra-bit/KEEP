@@ -130,10 +130,11 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(childrenBlock).toContain('sellTrackButton');
     });
 
-    it('expandable is only true when there is a real local entry, and toggled through the same expandedTrackKeys state as before', () => {
+    it('keeps normal rows toggleable while management mode opens every real local row without removing the existing state', () => {
       expect(myMusic).toContain('const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());');
-      expect(myMusic).toContain('expandable={Boolean(localEntry)}');
-      expect(myMusic).toContain('onToggleExpand={() => toggleTrackExpanded(key)}');
+      expect(myMusic).toContain('expandable={!manageMusicMode && Boolean(localEntry)}');
+      expect(myMusic).toContain('expanded={manageMusicMode || expanded}');
+      expect(myMusic).toContain('onToggleExpand={manageMusicMode ? undefined : () => toggleTrackExpanded(key)}');
     });
   });
 });
