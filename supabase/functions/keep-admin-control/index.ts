@@ -502,7 +502,8 @@ async function getSecret(key: string): Promise<string | null> {
 
 async function resetIntegrationRuntimeStatus(key: string, configured: boolean) {
   const runtimeKey = key.startsWith("ACRCLOUD_") ? "ACRCLOUD" : key;
-  if (runtimeKey !== "AUDD_API_KEY" && runtimeKey !== "ACRCLOUD") return;
+  const tracked = new Set(["AUDD_API_KEY", "ACRCLOUD", "BREVO_API_KEY", "YOUTUBE_API_KEY", "STRIPE_SECRET_KEY", "MUSICAPI_CLIENT_ID", "PIPEDREAM_CONNECT"]);
+  if (!tracked.has(runtimeKey)) return;
   const now = new Date().toISOString();
   await admin.from("integration_runtime_status").upsert({
     key: runtimeKey,
@@ -719,6 +720,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
       if (key === "AUDD_API_KEY" && providerValidation) {
         await setRecognitionRuntimeStatus("AUDD_API_KEY", providerValidation.status, providerValidation.message);
+      } else if (directProviderValidation) {
+        await setRecognitionRuntimeStatus(key, directProviderValidation.status, directProviderValidation.message);
       } else if (key.startsWith("ACRCLOUD_") && acrValidation) {
         await setRecognitionRuntimeStatus("ACRCLOUD", acrValidation.status, acrValidation.message);
       } else if (key.startsWith("ACRCLOUD_") && !acrBundleComplete) {
