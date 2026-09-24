@@ -98,7 +98,8 @@ describe('Loki Music Battle mobile style selector', () => {
   });
 
   it('makes the match style explicit before the challenge is accepted', () => {
-    expect(source).toContain('MES STYLES ACCEPTÉS');
+    expect(source).toContain('STYLES BATTLE · 3 MAX');
+    expect(source).toContain('Ton profil peut afficher tous tes styles musicaux');
     expect(source).toContain('⚡ {themeLabel(incoming[0].themeCode)}');
     // (21/09/2026) : le libellé "BATTLE · style · N" par joueur a été retiré
     // -- ce n'est plus un bouton d'action mais un badge de statut en lecture
