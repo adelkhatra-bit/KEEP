@@ -27,6 +27,10 @@ alter table public.events
 update public.events set photo_status = 'APPROVED', text_status = 'APPROVED' where moderation_status = 'APPROVED';
 update public.events set photo_status = 'REJECTED', text_status = 'REJECTED' where moderation_status = 'REJECTED';
 
+-- PostgreSQL n'autorise pas CREATE OR REPLACE quand la signature OUT change.
+-- Sur un replay propre, la version précédente existe déjà avec moins de colonnes.
+drop function if exists public.admin_event_moderation_queue();
+
 create or replace function public.admin_event_moderation_queue()
 returns table(
   id uuid,
