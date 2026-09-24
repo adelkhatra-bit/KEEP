@@ -73,9 +73,11 @@ create role app_user nosuperuser nobypassrls login;
 -- permettent simplement d'exécuter le SQL métier qui les entoure.
 create schema if not exists extensions;
 create or replace function extensions.gen_random_bytes(p_len integer)
-returns bytea language sql volatile as $ select public.gen_random_bytes(p_len) $;
+returns bytea language sql volatile
+as 'select public.gen_random_bytes(p_len)';
 create or replace function extensions.digest(p_data bytea, p_type text)
-returns bytea language sql immutable as $ select public.digest(p_data,p_type) $;
+returns bytea language sql immutable
+as 'select public.digest(p_data,p_type)';
 
 create schema if not exists vault;
 create table if not exists vault.decrypted_secrets(
@@ -90,16 +92,11 @@ create or replace function vault.create_secret(
   p_metadata jsonb default null
 )
 returns uuid
-language plpgsql
-as $
-declare v_id uuid := gen_random_uuid();
-begin
-  insert into vault.decrypted_secrets(id,name,decrypted_secret)
-  values(v_id,p_name,p_secret)
-  on conflict(name) do update set decrypted_secret=excluded.decrypted_secret;
-  return v_id;
-end;
-$;
+language sql
+as 'insert into vault.decrypted_secrets(id,name,decrypted_secret)
+    values(gen_random_uuid(),p_name,p_secret)
+    on conflict(name) do update set decrypted_secret=excluded.decrypted_secret
+    returning id';
 
 create schema if not exists cron;
 create table if not exists cron.job(
@@ -107,22 +104,15 @@ create table if not exists cron.job(
   jobname text not null unique
 );
 create or replace function cron.unschedule(p_jobid bigint)
-returns boolean language plpgsql as $
-begin
-  delete from cron.job where jobid=p_jobid;
-  return true;
-end;
-$;
+returns boolean
+language sql
+as 'delete from cron.job where jobid=p_jobid returning true';
 create or replace function cron.schedule(p_jobname text,p_schedule text,p_command text)
-returns bigint language plpgsql as $
-declare v_jobid bigint;
-begin
-  insert into cron.job(jobname) values(p_jobname)
-  on conflict(jobname) do update set jobname=excluded.jobname
-  returning jobid into v_jobid;
-  return v_jobid;
-end;
-$;
+returns bigint
+language sql
+as 'insert into cron.job(jobname) values(p_jobname)
+    on conflict(jobname) do update set jobname=excluded.jobname
+    returning jobid';
 SQL
 
 echo "== Application des migrations (dans l'ordre) =="
