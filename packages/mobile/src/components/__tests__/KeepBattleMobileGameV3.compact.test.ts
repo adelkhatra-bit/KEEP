@@ -343,7 +343,9 @@ describe('Loki Music Battle credit gating from SOLO invite rail (audit 22/09/202
   });
 
   it('rechecks the sender credit before any challenge leaves the device', () => {
-    expect(battle).toContain('const freshCredit = await loadMyKeepBattleCreditStatus().catch(() => myCreditStatus);');
+    expect(battle).toContain('const freshCredit = canLoadAuthenticatedBattleCredit()');
+    expect(battle).toContain('loadBattleCreditStatusIfAuthenticated().then((value) => value ?? myCreditStatus)');
+    expect(battle).toContain('return Boolean(state.user?.id && !state.isLocalGuest && !state.isDemoMode);');
     expect(battle).toContain('const senderShort = freshCredit');
     expect(battle).toContain('if (senderShort) {');
     expect(battle).toContain('return false;');
@@ -448,7 +450,9 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).toContain('battleSetupCard: {');
     expect(battle).toContain('battleModes: {');
     expect(battle).toContain('lobbySummary: {');
-    expect(battle).toContain('const freshCredit = await loadMyKeepBattleCreditStatus().catch(() => myCreditStatus);');
+    expect(battle).toContain('const freshCredit = canLoadAuthenticatedBattleCredit()');
+    expect(battle).toContain('loadBattleCreditStatusIfAuthenticated().then((value) => value ?? myCreditStatus)');
+    expect(battle).toContain('return Boolean(state.user?.id && !state.isLocalGuest && !state.isDemoMode);');
     expect(battle).toContain('VÉRIFICATION…');
     expect(battle).toContain('FREE INSUFFISANTS');
   });
