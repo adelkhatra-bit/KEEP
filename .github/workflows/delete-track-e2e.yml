@@ -97,14 +97,13 @@ jobs:
             // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
             await exact('Écouter').click({ force: true });
             const start = page.getByLabel('Démarrer une écoute').last();
-            if (await start.isVisible().catch(() => false)) {
-              await start.click({ timeout: 3000 }).catch(async () => {
-                // Ce workflow teste la suppression, pas le z-index de l'écran
-                // Écouter. Une couche décorative web peut intercepter le pointer
-                // alors que le vrai bouton est visible/actif : repli ciblé.
-                await start.click({ force: true, timeout: 3000 });
-              });
-            }
+            await start.waitFor({ state: 'visible', timeout: 15000 });
+            await start.click({ timeout: 3000 }).catch(async () => {
+              // Ce workflow teste la suppression, pas le z-index de l'écran
+              // Écouter. Une couche décorative web peut intercepter le pointer
+              // alors que le vrai bouton est visible/actif : repli ciblé.
+              await start.click({ force: true, timeout: 3000 });
+            });
 
             // La reconnaissance démo passe par le même resolver/enrichissement
             // que l'app réelle. Sur un runner froid, la première résolution catalogue
