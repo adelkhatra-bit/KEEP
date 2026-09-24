@@ -135,12 +135,7 @@ create table if not exists storage.objects(
 create or replace function storage.foldername(p_name text)
 returns text[]
 language sql immutable
-as $
-  select case
-    when p_name is null or p_name = '' then array[]::text[]
-    else string_to_array(p_name, '/')
-  end
-$;
+as 'select case when p_name is null or p_name = '''' then array[]::text[] else string_to_array(p_name, ''/'') end';
 SQL
 
 echo "== Application des migrations (dans l'ordre) =="
