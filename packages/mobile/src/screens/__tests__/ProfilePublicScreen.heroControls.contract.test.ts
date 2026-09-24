@@ -10,7 +10,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   it('keeps preview, invite/share, sales and Battle controls before the collection', () => {
     const preview = source.indexOf('title="PRÉVISUALISER MON UNIVERS"');
     const invite = source.indexOf('title="INVITER / PARTAGER"');
-    const sales = source.indexOf("title={playlistSaleOffers.length > 0 ? 'GÉRER MES VENTES' : 'VENDRE'}");
+    const sales = source.indexOf("title={playlistSaleOffers.length > 0 ? 'GÉRER MES COLLECTIONS' : 'CRÉER UNE COLLECTION'}");
     const battle = source.indexOf('⚡ BATTLE · {battleAvailable');
     const solo = source.indexOf('title="JOUER EN SOLO"');
     const collection = source.indexOf('<View style={s.collectionHeader}>');
@@ -24,7 +24,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   });
 
   it('keeps offer status and Battle help local to their controls', () => {
-    expect(source).toContain("`${playlistSaleOffers.length} offre${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}`");
+    expect(source).toContain("`${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}`");
     expect(source).toContain("Les autres peuvent t’inviter maintenant.");
     expect(source).toContain("Active pour recevoir des défis.");
     expect(source).toContain("utilise JOUER EN SOLO ici ou visite le profil d’un joueur disponible");
@@ -43,10 +43,18 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).not.toContain('style={s.ownOffersStatus}');
     expect(source).not.toContain('Gérer mes découvertes en vente');
   });
-  it('keeps style listening and selling directly on the immersive card', () => {
+
+  it('shows published collections as an unlocked horizontal rail on the owner profile', () => {
+    expect(source).toContain('style={s.ownerCollectionRail}');
+    expect(source).toContain('Mes collections exclusives');
+    expect(source).toContain('horizontal');
+    expect(source).toContain('badgeLabel="✓ PUBLIÉE"');
+    expect(source).toContain('€ / FREE');
+  });
+  it('keeps style listening and collection creation directly on the immersive card', () => {
     expect(source).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
     expect(source).toContain("onPress={() => openSelectionSwipe({ title: folder.genre");
-    expect(source).toContain("actionLabel={marketplaceEnabled ? 'VENDRE' : undefined}");
+    expect(source).toContain("actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}");
     expect(source).toContain("preselectSaleGenre: folder.genre");
     expect(source).toContain("fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}");
   });
