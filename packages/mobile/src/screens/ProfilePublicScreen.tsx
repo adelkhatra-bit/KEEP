@@ -552,21 +552,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // présentation des mêmes entrées que renderCompactTrack sait déjà afficher.
   const genreFolders = useMemo(() => {
     type FolderEntry = (typeof profileKeptTracks)[number];
-    const map = new Map<string, FolderEntry[]>();
+    const map = new Map<string, { label: string; entries: FolderEntry[] }>();
     const push = (rawGenre: string, entry: FolderEntry) => {
       const clean = rawGenre.trim() || 'Sans genre';
-      const arr = map.get(clean) ?? [];
-      arr.push(entry);
-      map.set(clean, arr);
+      const key = clean.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+      const current = map.get(key) ?? { label: clean, entries: [] };
+      if (!current.entries.some((row) => row.id === entry.id)) current.entries.push(entry);
+      map.set(key, current);
     };
     for (const entry of profileKeptTracks) {
       const genres = (entry.track.genres ?? []).map((g) => g.trim()).filter(Boolean);
       if (genres.length) genres.forEach((g) => push(g, entry));
       else push('Sans genre', entry);
     }
-    return Array.from(map.entries())
-      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-      .map(([genre, entries]) => ({ genre, entries }));
+    return Array.from(map.values())
+      .sort((a, b) => b.entries.length - a.entries.length || a.label.localeCompare(b.label))
+      .map(({ label, entries }) => ({ genre: label, entries }));
   }, [profileKeptTracks]);
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- la détection de genre existait déjà mais restait
