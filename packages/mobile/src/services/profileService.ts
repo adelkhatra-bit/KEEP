@@ -92,14 +92,14 @@ async function loadSocialLinks(client: SupabaseClient, profileId: string, public
   };
 
   const withLabel = await run('platform, url, visibility, label');
-  if (!withLabel.error) return (withLabel.data ?? []) as SocialLink[];
+  if (!withLabel.error) return (withLabel.data ?? []) as unknown as SocialLink[];
   if (!isMissingSocialLabelColumn(withLabel.error)) throw withLabel.error;
 
   // Compatibilité pendant le déploiement : tant que la migration n'est pas
   // appliquée, les anciennes lignes restent lisibles et l'app ne casse pas.
   const legacy = await run('platform, url, visibility');
   if (legacy.error) throw legacy.error;
-  return (legacy.data ?? []) as SocialLink[];
+  return (legacy.data ?? []) as unknown as SocialLink[];
 }
 
 async function persistLocalAvatar(client: SupabaseClient, profileId: string, avatar: string): Promise<string> {
