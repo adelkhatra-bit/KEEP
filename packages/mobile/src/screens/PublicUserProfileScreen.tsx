@@ -29,6 +29,8 @@ import { isFeatureEnabled } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
+import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
+import { sendBattleChallenge } from '../services/keepBattleLiveService';
 
 type PublicKeepTrack = {
   id: string;
@@ -158,6 +160,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // numérique déverrouillé dans l'app. Code intact, juste masqué tant que
   // le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
+  const [battleInviteBusy, setBattleInviteBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    isKeepBattleEnabled().then((enabled) => { if (live) setBattleFeatureEnabled(enabled); }).catch(() => { if (live) setBattleFeatureEnabled(false); });
+    return () => { live = false; };
+  }, []);
   // (21/09/2026) BUG RÉEL corrigé : ce check ne tournait qu'au montage --
   // un changement de flag/bypass fait dans Super Admin pendant que l'écran
   // était déjà ouvert n'était jamais relu sans relancer l'app. Recalculé
@@ -554,6 +563,31 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     catch { Alert.alert('Partage', 'Impossible d’ouvrir le partage pour le moment.'); }
   };
 
+  const challengeProfileToBattle = async () => {
+    if (!profile || battleInviteBusy || viewer?.id === profile.id) return;
+    if (!viewer || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour défier cette personne en Battle.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('login') },
+      ]);
+      return;
+    }
+    setBattleInviteBusy(true);
+    try {
+      await sendBattleChallenge(profile.id, 'MIX', 8);
+      Alert.alert('Invitation envoyée', `@${profile.username.replace(/^@/, '')} a reçu ton défi Battle.`);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `@${profile.username.replace(/^@/, '')} n’a pas assez de Free pour jouer maintenant.`);
+      else if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) Alert.alert('Battle', 'Il te faut assez de Free pour lancer ce Battle.');
+      else if (message.includes('BATTLE_DECLINE_THROTTLED')) Alert.alert('Battle', 'Les invitations vers cette personne sont temporairement limitées après plusieurs refus.');
+      else if (message.includes('BATTLE_TARGET_NOT_AVAILABLE')) Alert.alert('Battle', 'Cette personne n’est pas disponible pour un Battle maintenant.');
+      else Alert.alert('Battle', 'Impossible d’envoyer le défi pour le moment.');
+    } finally {
+      setBattleInviteBusy(false);
+    }
+  };
+
   const openSocial = async (platform: SocialPlatform) => {
     if (!profile) return;
     const link = profile.socialLinks.find((item) => item.platform === platform && item.url.trim());
@@ -845,6 +879,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               <Text style={styles.visitorSwipeButtonText}>▶ SWIPE</Text>
             </TouchableOpacity>
           ) : null}
+          {battleFeatureEnabled && viewer?.id !== profile.id ? (
+            <TouchableOpacity
+              style={styles.visitorBattleButton}
+              onPress={() => void challengeProfileToBattle()}
+              disabled={battleInviteBusy}
+              accessibilityLabel={`Défier ${profile.username} en Battle`}
+            >
+              {battleInviteBusy ? <ActivityIndicator color={colors.textPrimary} size="small" /> : <Text style={styles.visitorBattleButtonText}>⚡ DÉFIER EN BATTLE</Text>}
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* DESIGN_SYSTEM v3 (21/09/2026) : ordre validé par Adel -- identité,
@@ -864,19 +908,33 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
-        {marketplaceEnabled && saleOffers.length > 0 ? (
-          <TouchableOpacity
-            style={styles.saleShowcaseCompact}
-            onPress={() => setActiveTab('TRACKS')}
-            accessibilityRole="button"
-            accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} à débloquer, ouvrir un aperçu`}
-          >
-            <View>
-              <Text style={styles.saleShowcaseEyebrow}>★ COLLECTIONS À DÉBLOQUER</Text>
-              <Text style={styles.saleShowcaseCompactText}>{saleOffers.length} sélection{saleOffers.length > 1 ? 's' : ''} · préécoute disponible · titres masqués avant achat</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
+        {marketplaceEnabled ? (
+          <View style={styles.marketplaceSection}>
+            <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
+            {saleOffers.length === 0 ? (
+              <TouchableOpacity
+                style={styles.marketplaceEmpty}
+                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
+                accessibilityRole="button"
+                accessibilityLabel="Aucune musique en vente pour le moment"
+              >
+                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.saleShowcaseCompact}
+                onPress={() => setActiveTab('TRACKS')}
+                accessibilityRole="button"
+                accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} à débloquer, ouvrir un aperçu`}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.saleShowcaseEyebrow}>★ COLLECTIONS À DÉBLOQUER</Text>
+                  <Text style={styles.saleShowcaseCompactText}>{saleOffers.length} sélection{saleOffers.length > 1 ? 's' : ''} · préécoute disponible · titres masqués avant achat</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         ) : null}
 
         <View style={styles.collectionHeader}>
@@ -1334,14 +1392,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
-  followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},followButtonTextActive:{color:colors.textPrimary},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},
+  followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},followButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},followButtonTextActive:{color:colors.textPrimary},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},visitorBattleButton:{minHeight:46,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,width:'100%'},visitorBattleButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
 
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-    marketplaceSection:{marginTop:22},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchButtonHot:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},immersiveLaunchTextHot:{color:colors.keep,fontSize:13,fontWeight:'900'},
+    marketplaceSection:{marginHorizontal:18,marginTop:14},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:8,minHeight:38,borderRadius:19,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},immersiveLaunchButtonHot:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},immersiveLaunchTextHot:{color:colors.keep,fontSize:13,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
   unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2},
@@ -1365,7 +1423,7 @@ const styles = StyleSheet.create({
   styleTilePlayText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
   allTracksToggle:{minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,marginTop:2,marginBottom:12},
   allTracksToggleText:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.3},
-  saleShowcaseCompact:{marginHorizontal:18,marginTop:12,minHeight:58,paddingHorizontal:14,paddingVertical:10,borderRadius:16,backgroundColor:'rgba(124,92,252,.09)',borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
+  saleShowcaseCompact:{marginTop:8,minHeight:58,paddingHorizontal:14,paddingVertical:10,borderRadius:16,backgroundColor:'rgba(124,92,252,.09)',borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
   saleShowcaseCompactText:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},
   publicMusicSection:{paddingHorizontal:18,marginTop:10},musicSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:spacing.md},publicCount:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},emptyMusic:{alignItems:'center',paddingVertical:spacing.xxl,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},emptyMusicIcon:{color:colors.primaryLight,fontSize:28,marginBottom:spacing.sm},musicList:{gap:8},lockedTracksBlock:{marginTop:16},lockedTracksHeader:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:0.5,marginBottom:8},lockedFolderTitleRow:{flexDirection:'row',alignItems:'center',gap:6},lockedFolderBadge:{flexShrink:0,paddingHorizontal:6,paddingVertical:2,borderRadius:8,backgroundColor:colors.dangerSoft,borderWidth:1,borderColor:colors.danger},lockedFolderBadgeText:{color:colors.danger,fontSize:9,fontWeight:'900',letterSpacing:0.5},lockedFolderTracks:{gap:8,marginTop:8,marginBottom:4,paddingLeft:6},
   // Adel (21/09/2026, maquette interactive validée) : la grille de la liste
