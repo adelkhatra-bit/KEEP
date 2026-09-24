@@ -55,6 +55,10 @@ Chaque nouvelle entrée doit contenir :
 
 | ERR-PROFILE-MOTION-GUARD-002 | Profil/tests | Le guard de hiérarchie cherchait encore `<View style={styles.publicMusicSection}>` après remplacement par `ProfileMotionReveal`, faisant échouer Mobile CI alors que la structure restait présente. | Aligner le guard sur le wrapper animé réel sans affaiblir l’ordre des sections ; ne pas supprimer le contrôle de hiérarchie. | Run `35992953615` : échec unique `missing marker` sur `publicMusicSection`; correctif `5e960546`. | FIXED_UNVERIFIED |
 
+| ERR-ANDROID-SOUND-002 | Android | `expo-notifications` référençait `keep-money.wav`, fichier absent et nom avec tiret invalide pour une ressource Android. | Ressource réelle ajoutée sous `keep_money.wav` + `app.json` aligné. Les builds natifs sont désormais déclenchés uniquement via `.android-build-trigger` après validation Web/CI. | SHA `3b5a0b7017722b3bf39bcd332aee1e7ca26dfb2f`; APK natif à revalider après CI Web verte. | FIXED_UNVERIFIED |
+| ERR-ADMIN-API-002 | Super Admin | L'utilisateur pouvait croire qu'une clé API était “acceptée” ou “cassée” sans retour fournisseur clair. | `keep-admin-control` valide AudD/ACRCloud/MusicAPI/Brevo/YouTube/Stripe avant activation et persiste `ACTIVE/EXHAUSTED/ERROR`; UI affiche le retour. | Fonction Supabase active v36 = contenu GitHub exact ; endpoint authentifié répond en production. | VERIFIED |
+| ERR-RELEASE-GATE-001 | Release | Un simple changement UI/config pouvait déclencher un build natif coûteux/production avant fin des tests. | iOS et Android natifs déclenchés par fichiers sentinelles explicites seulement ; Web/CI d'abord, natif ensuite. | SHAs `b041012d` et `a2288634`. | VERIFIED |
+
 ## Erreurs interdites à réintroduire
 
 1. `saleOffers[0]` comme source universelle d'une collection payante.
