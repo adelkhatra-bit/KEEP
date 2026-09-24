@@ -53,8 +53,11 @@ jobs:
             precheck|listing|submit) ;;
             *) echo "::error::Lane invalide: $lane"; exit 1 ;;
           esac
-          echo "lane=$lane" >> "$GITHUB_OUTPUT"
-          echo "Lane App Store: $lane"
+          resolved_lane="$lane"
+          if [ "$lane" = "precheck" ]; then resolved_lane="validate"; fi
+          echo "requested_lane=$lane" >> "$GITHUB_OUTPUT"
+          echo "lane=$resolved_lane" >> "$GITHUB_OUTPUT"
+          echo "Lane App Store: $lane -> fastlane ios $resolved_lane"
 
       - name: Verify Apple API secrets
         shell: bash
