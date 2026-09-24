@@ -1073,32 +1073,50 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>
             <Text style={styles.styleIntro}>Choisis un style et écoute directement l’univers de @{profile.username}. Les collections payantes restent masquées jusqu’au déblocage.</Text>
             <View style={styles.styleGrid}>
-              {(visiblePublicVibes.length > 0 ? visiblePublicVibes : []).map((vibe) => (
-                <TouchableOpacity key={`vibe:${vibe.id}`} style={styles.styleTile} onPress={() => openPublicVibe(vibe)} accessibilityLabel={`Écouter le style ${vibe.name}, ${vibe.trackCount} morceaux`}>
-                  <View style={styles.styleTileBadge}><Text style={styles.styleTileBadgeText}>PUBLIC</Text></View>
-                  <Text style={styles.styleTileName} numberOfLines={1}>{vibe.name}</Text>
-                  <Text style={styles.styleTileMeta}>{vibe.trackCount} morceau{vibe.trackCount > 1 ? 'x' : ''}</Text>
-                  <View style={styles.styleTilePlay}><Text style={styles.styleTilePlayText}>▶</Text></View>
-                </TouchableOpacity>
+              {visiblePublicVibes.length > 0 ? visiblePublicVibes.map((vibe, index) => {
+                const artworkUrl = vibe.matchedGenres
+                  .map((genre) => genreArtwork[genre])
+                  .find((value): value is string => Boolean(value));
+                return (
+                  <ProfileStyleCard
+                    key={`vibe:${vibe.id}`}
+                    title={vibe.name}
+                    subtitle={`${vibe.trackCount} morceau${vibe.trackCount > 1 ? 'x' : ''} · Écoute en Swipe`}
+                    mode="VIBE"
+                    artworkUrl={artworkUrl}
+                    fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
+                    onPress={() => openPublicVibe(vibe)}
+                    accessibilityLabel={`Écouter le style ${vibe.name}, ${vibe.trackCount} morceaux en Swipe`}
+                  />
+                );
+              }) : genreOptions.map(({ genre, count }, index) => (
+                <ProfileStyleCard
+                  key={`genre:${genre}`}
+                  title={genre}
+                  subtitle={`${count} morceau${count > 1 ? 'x' : ''} · Écoute en Swipe`}
+                  mode="PUBLIC"
+                  artworkUrl={genreArtwork[genre]}
+                  fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
+                  onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
+                  accessibilityLabel={`Écouter le style ${genre}, ${count} morceaux en Swipe`}
+                />
               ))}
-              {visiblePublicVibes.length === 0 ? genreOptions.map(({ genre, count }) => (
-                <TouchableOpacity key={`genre:${genre}`} style={styles.styleTile} onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })} accessibilityLabel={`Écouter le style ${genre}, ${count} morceaux`}>
-                  <View style={styles.styleTileBadge}><Text style={styles.styleTileBadgeText}>PUBLIC</Text></View>
-                  <Text style={styles.styleTileName} numberOfLines={1}>{genre}</Text>
-                  <Text style={styles.styleTileMeta}>{count} morceau{count > 1 ? 'x' : ''}</Text>
-                  <View style={styles.styleTilePlay}><Text style={styles.styleTilePlayText}>▶</Text></View>
-                </TouchableOpacity>
-              )) : null}
-              {marketplaceEnabled ? saleOffers.map((offer) => {
+              {marketplaceEnabled ? saleOffers.map((offer, index) => {
                 const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
                 const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
                 return (
-                  <TouchableOpacity key={`sale-style:${offer.offerId}`} style={[styles.styleTile, unlocked ? styles.styleTileUnlocked : styles.styleTileLocked]} onPress={() => openSaleFolder(offer)} accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}, débloqué` : `Préécouter ${offer.playlistName}, ${priceLabel}`}>
-                    <View style={[styles.styleTileBadge, unlocked ? styles.styleTileBadgeUnlocked : styles.styleTileBadgeLocked]}><Text style={[styles.styleTileBadgeText, unlocked ? styles.styleTileBadgeUnlockedText : styles.styleTileBadgeLockedText]}>{unlocked ? '✓ DÉBLOQUÉ' : `🔒 ${priceLabel}`}</Text></View>
-                    <Text style={styles.styleTileName} numberOfLines={1}>{offer.playlistName}</Text>
-                    <Text style={styles.styleTileMeta}>{offer.trackCount} découverte{offer.trackCount > 1 ? 's' : ''} · {unlocked ? 'écoute complète' : 'aperçu audio'}</Text>
-                    <View style={styles.styleTilePlay}><Text style={styles.styleTilePlayText}>▶</Text></View>
-                  </TouchableOpacity>
+                  <ProfileStyleCard
+                    key={`sale-style:${offer.offerId}`}
+                    title={offer.playlistName}
+                    subtitle={unlocked
+                      ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · Écoute complète`
+                      : `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · Extraits anonymes`}
+                    mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
+                    priceLabel={unlocked ? undefined : priceLabel}
+                    fullWidth={totalStyleCardCount % 2 === 1 && index === saleOffers.length - 1}
+                    onPress={() => openSaleFolder(offer)}
+                    accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}, débloqué` : `Préécouter la collection verrouillée ${offer.playlistName}, ${priceLabel}`}
+                  />
                 );
               }) : null}
             </View>
