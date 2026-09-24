@@ -19,15 +19,20 @@ export type PlaylistSaleAccess = {
 // éviter les bugs ... ça peut se vendre maximum 10 euros" -- plus de
 // saisie libre, une liste fixe seulement (imposée aussi côté serveur).
 export const SALE_PRESET_PRICES_CENTS = [50, 100, 200, 300, 500, 1000] as const;
+export const SALE_PRESET_FREE = [1, 3, 5, 10, 20, 50, 100] as const;
+export type PlaylistSalePaymentMode = 'MONEY' | 'FREE';
 
 export type PlaylistSaleOffer = {
   offerId?: string;
   playlistId: string;
   playlistName: string;
+  paymentMode?: PlaylistSalePaymentMode;
   priceCents: number;
+  freePrice?: number | null;
   currencyCode: string;
   coverUrl?: string | null;
   trackCount?: number;
+  genres?: string[];
   isActive: boolean;
   updatedAt: string;
 };
@@ -77,10 +82,13 @@ export type PublicPlaylistSaleOffer = {
   offerId: string;
   playlistId: string;
   playlistName: string;
+  paymentMode: PlaylistSalePaymentMode;
   priceCents: number;
+  freePrice: number | null;
   currencyCode: string;
   coverUrl: string | null;
   trackCount: number;
+  genres: string[];
 };
 
 // Adel (14/09/2026) : "sur le profil utilisateur, fait pareil quand on va
@@ -95,10 +103,13 @@ export async function loadPlaylistSaleOffersForProfile(profileId: string): Promi
     offerId: String(row.offer_id ?? row.offerId ?? ''),
     playlistId: String(row.playlist_id ?? row.playlistId ?? ''),
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
+    paymentMode: String(row.payment_mode ?? row.paymentMode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY',
     priceCents: Number(row.price_cents ?? row.priceCents ?? 0),
+    freePrice: row.free_price == null && row.freePrice == null ? null : Number(row.free_price ?? row.freePrice),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
-    coverUrl: row.cover_url ?? row.coverUrl ?? null,
+    coverUrl: null,
     trackCount: Number(row.track_count ?? row.trackCount ?? 0),
+    genres: Array.isArray(row.genres) ? row.genres.map(String).filter(Boolean).slice(0, 6) : [],
   })).filter((row) => row.offerId && row.playlistId);
 }
 
@@ -342,13 +353,22 @@ export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction
 // autre choix), distincte d'une playlist nommée entière. Même
 // infrastructure de masquage/paiement, juste une autre façon de désigner
 // ce qui est vendu.
-export async function setPlaylistSalePriceForSelection(trackIds: string[], name: string, priceCents: number, currencyCode = 'EUR', coverUrl?: string | null): Promise<PlaylistSaleOffer> {
-  const { data, error } = await client().rpc('keep_playlist_sale_set_price_for_selection_v2', {
+export async function setPlaylistSaleOfferForSelection(
+  trackIds: string[],
+  name: string,
+  paymentMode: PlaylistSalePaymentMode,
+  amount: number,
+  currencyCode = 'EUR',
+): Promise<PlaylistSaleOffer> {
+  const mode: PlaylistSalePaymentMode = paymentMode === 'FREE' ? 'FREE' : 'MONEY';
+  const { data, error } = await client().rpc('keep_playlist_sale_set_offer_for_selection_v3', {
     p_track_ids: trackIds,
     p_name: name,
-    p_price_cents: Math.round(priceCents),
+    p_payment_mode: mode,
+    p_price_cents: mode === 'MONEY' ? Math.round(amount) : null,
+    p_free_price: mode === 'FREE' ? Math.round(amount) : null,
     p_currency_code: currencyCode,
-    p_cover_url: coverUrl ?? null,
+    p_cover_url: null,
   });
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_SELECTION_FAILED'));
   const row = data as any;
@@ -356,13 +376,20 @@ export async function setPlaylistSalePriceForSelection(trackIds: string[], name:
     offerId: String(row?.offerId ?? row?.id ?? ''),
     playlistId: String(row?.playlistId ?? ''),
     playlistName: String(row?.playlistName ?? name),
-    priceCents: Number(row?.priceCents ?? priceCents),
+    paymentMode: String(row?.paymentMode ?? mode).toUpperCase() === 'FREE' ? 'FREE' : 'MONEY',
+    priceCents: Number(row?.priceCents ?? (mode === 'MONEY' ? amount : 0)),
+    freePrice: row?.freePrice == null ? (mode === 'FREE' ? Math.round(amount) : null) : Number(row.freePrice),
     currencyCode: String(row?.currencyCode ?? currencyCode),
-    coverUrl: row?.coverUrl ?? coverUrl ?? null,
+    coverUrl: null,
     trackCount: Number(row?.trackCount ?? trackIds.length),
+    genres: [],
     isActive: true,
     updatedAt: new Date().toISOString(),
   };
+}
+
+export async function setPlaylistSalePriceForSelection(trackIds: string[], name: string, priceCents: number, currencyCode = 'EUR', _coverUrl?: string | null): Promise<PlaylistSaleOffer> {
+  return setPlaylistSaleOfferForSelection(trackIds, name, 'MONEY', priceCents, currencyCode);
 }
 
 // Adel/BACKLOG.md priorité 1 : "Pré-écoute de 15 secondes masquée" -- ne
@@ -458,10 +485,13 @@ export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
     offerId: String(row.offer_id ?? row.offerId ?? ''),
     playlistId: String(row.playlist_id ?? row.playlistId ?? ''),
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
+    paymentMode: String(row.payment_mode ?? row.paymentMode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY',
     priceCents: Number(row.price_cents ?? row.priceCents ?? 0),
+    freePrice: row.free_price == null && row.freePrice == null ? null : Number(row.free_price ?? row.freePrice),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
-    coverUrl: row.cover_url ?? row.coverUrl ?? null,
+    coverUrl: null,
     trackCount: Number(row.track_count ?? row.trackCount ?? 0),
+    genres: Array.isArray(row.genres) ? row.genres.map(String).filter(Boolean).slice(0, 6) : [],
     isActive: Boolean(row.is_active ?? row.isActive),
     updatedAt: String(row.updated_at ?? row.updatedAt ?? ''),
   })).filter((row) => row.playlistId);
@@ -503,4 +533,36 @@ export async function removeTrackFromOffer(offerId: string, trackId: string): Pr
 export async function updateOfferPrice(offerId: string, priceCents: number): Promise<void> {
   const { error } = await client().rpc('keep_playlist_sale_update_price', { p_offer_id: offerId, p_price_cents: Math.round(priceCents) });
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_UPDATE_PRICE_FAILED'));
+}
+
+export async function purchasePlaylistOfferWithFree(offerId: string): Promise<PlaylistDeliveryResult & { freePrice: number; remainingFree: number; alreadyUnlocked: boolean }> {
+  const { data, error } = await client().rpc('keep_playlist_sale_purchase_with_free', { p_offer_id: offerId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_FREE_PURCHASE_FAILED'));
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? ''),
+    buyerId: String(row?.buyerId ?? ''),
+    playlistId: String(row?.playlistId ?? ''),
+    playlistName: String(row?.playlistName ?? ''),
+    trackCount: Number(row?.trackCount ?? 0),
+    deliveredAt: String(row?.deliveredAt ?? new Date().toISOString()),
+    freePrice: Number(row?.freePrice ?? 0),
+    remainingFree: Number(row?.remainingFree ?? 0),
+    alreadyUnlocked: Boolean(row?.alreadyUnlocked),
+  };
+}
+
+export async function updateOfferPaymentMode(
+  offerId: string,
+  paymentMode: PlaylistSalePaymentMode,
+  amount: number,
+): Promise<void> {
+  const mode: PlaylistSalePaymentMode = paymentMode === 'FREE' ? 'FREE' : 'MONEY';
+  const { error } = await client().rpc('keep_playlist_sale_update_payment_mode', {
+    p_offer_id: offerId,
+    p_payment_mode: mode,
+    p_price_cents: mode === 'MONEY' ? Math.round(amount) : null,
+    p_free_price: mode === 'FREE' ? Math.round(amount) : null,
+  });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_UPDATE_PAYMENT_MODE_FAILED'));
 }
