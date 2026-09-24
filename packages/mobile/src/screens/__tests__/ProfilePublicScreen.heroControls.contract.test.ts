@@ -12,20 +12,24 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     const invite = source.indexOf('↗ INVITER / PARTAGER');
     const sales = source.indexOf("playlistSaleOffers.length > 0 ? '💰 GÉRER MES VENTES' : '💰 VENDRE'");
     const battle = source.indexOf('⚡ BATTLE · {battleAvailable');
+    const solo = source.indexOf('⚡ JOUER EN SOLO');
     const collection = source.indexOf('<View style={s.collectionHeader}>');
 
     expect(preview).toBeGreaterThanOrEqual(0);
     expect(invite).toBeGreaterThan(preview);
     expect(sales).toBeGreaterThan(invite);
     expect(battle).toBeGreaterThan(sales);
-    expect(collection).toBeGreaterThan(battle);
+    expect(solo).toBeGreaterThan(battle);
+    expect(collection).toBeGreaterThan(solo);
   });
 
   it('keeps offer status and Battle help local to their controls', () => {
     expect(source).toContain("{playlistSaleOffers.length} offre{playlistSaleOffers.length > 1 ? 's' : ''} active");
     expect(source).toContain("Les autres peuvent t’inviter maintenant.");
     expect(source).toContain("Active pour recevoir des défis.");
-    expect(source).toContain("visite le profil d’un joueur disponible ou ouvre Soirées → Loki Music BATTLE");
+    expect(source).toContain("utilise JOUER EN SOLO ici ou visite le profil d’un joueur disponible");
+    expect(source).toContain("navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })");
+    expect(source).toContain('accessibilityLabel="Jouer un Battle solo"');
   });
 
   it('does not reintroduce the old duplicate sales status block below the hero', () => {
