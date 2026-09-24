@@ -40,11 +40,21 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
 
 
 /**
- * Marketplace de découvertes : web uniquement pour la première publication.
- * Le flag Super Admin reste nécessaire sur le web, mais ne peut pas réactiver
- * le paiement externe dans une build native iOS/Android par erreur.
+ * Visibilité marketplace : les profils et produits restent visibles sur
+ * toutes les plateformes quand le flag est actif. Le natif peut ainsi montrer
+ * les collections verrouillées et leurs aperçus anonymes sans lancer de
+ * paiement externe.
+ */
+export async function isPlaylistMarketplaceVisible(): Promise<boolean> {
+  return isFeatureEnabled('playlist_marketplace');
+}
+
+/**
+ * Transaction marketplace : web uniquement pour la première publication.
+ * Sur iOS/Android on affiche les produits et previews, mais jamais le lien
+ * de paiement externe dans l'app native.
  */
 export async function isPlaylistMarketplaceEnabled(): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
-  return isFeatureEnabled('playlist_marketplace');
+  return isPlaylistMarketplaceVisible();
 }
