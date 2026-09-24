@@ -204,7 +204,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <Text style={s.title}>◆ Mes collections exclusives</Text>
           <Text style={s.subtitle}>Compose, fixe € / FREE, publie ton univers</Text>
         </View>
-        {/* Adel (21/09/2026, mission 3/3) : "Écran historique des ventes"
+        {/* Adel (21/09/2026, mission 3/3) : "Écran historique des déblocages"
             -- lecture seule, séparé de ce panneau de gestion. */}
         <TouchableOpacity style={s.historyLink} onPress={() => navigation.navigate('PlaylistSaleHistory')} accessibilityLabel="Voir l'historique complet des collections débloquées">
           <Text style={s.historyLinkText}>Historique</Text>
@@ -231,7 +231,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
           <>
             {/* Accès */}
             <View style={[s.accessCard, access.unlocked && s.accessCardUnlocked]}>
-              <Text style={s.accessEyebrow}>ACCÈS VENTE</Text>
+              <Text style={s.accessEyebrow}>ACCÈS COLLECTIONS</Text>
               <View style={s.accessRow}>
                 <View style={s.accessStat}>
                   <Text style={s.accessValue}>{access.followers}</Text>
@@ -258,7 +258,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
             {/* Adel (21/09/2026, décision 2) : encart permanent -- le
                 fonctionnement reste manuel tant que l'API de paiement
                 réelle n'est pas intégrée. Le vendeur doit comprendre AVANT
-                de confirmer une vente que c'est lui, et lui seul, qui
+                de confirmer un déblocage que c'est lui, et lui seul, qui
                 certifie avoir reçu l'argent. */}
             {marketplaceTransactionEnabled ? (
               <View style={s.manualNotice}>
@@ -291,7 +291,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                           </Text>
                         </View>
                         <View style={s.offerBadge}>
-                          <Text style={s.offerBadgeText}>EN VENTE</Text>
+                          <Text style={s.offerBadgeText}>PUBLIÉE</Text>
                         </View>
                       </View>
                       <Text style={s.offerDate}>Mise à jour: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
@@ -337,7 +337,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
                 Acheter (payé ou en train de payer sur le lien du vendeur) */}
             {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>VENTES EN ATTENTE ({sales.filter((s2) => s2.status === 'PENDING').length})</Text>
+                <Text style={s.sectionTitle}>DÉBLOCAGES EN ATTENTE ({sales.filter((s2) => s2.status === 'PENDING').length})</Text>
                 {sales.filter((s2) => s2.status === 'PENDING').map((sale) => (
                   <View key={sale.id} style={s.offerCard}>
                     <View style={s.offerTop}>
