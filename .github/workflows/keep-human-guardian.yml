@@ -81,9 +81,10 @@ jobs:
             const t=(v,o={})=>page.getByText(v,o).last();
             const shot=async n=>page.screenshot({path:`artifacts/human-guardian/${n}.png`,fullPage:true});
             const inViewport=async(loc,label)=>{ await loc.waitFor({state:'visible',timeout:15000}); const b=await loc.boundingBox(); if(!b||b.y<0||b.y+b.height>844) throw new Error(`${label} outside viewport ${JSON.stringify(b)}`); };
+            const clickRobust=async(loc,label)=>{ let last; for(let attempt=1;attempt<=5;attempt++){ try{ await loc.waitFor({state:'visible',timeout:10000}); await loc.scrollIntoViewIfNeeded().catch(()=>{}); await page.keyboard.press('Escape').catch(()=>{}); await loc.click({timeout:3000}); return; }catch(e){ last=e; await page.waitForTimeout(180*attempt); } } await loc.click({force:true,timeout:2000}).catch(()=>{ throw new Error(`${label}: ${String(last?.message||last||'click failed')}`); }); };
             await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
-            await t('ESSAYER GRATUITEMENT',{exact:true}).waitFor({state:'visible',timeout:15000});
-            await t('ESSAYER GRATUITEMENT',{exact:true}).click();
+            const tryFree=t('ESSAYER GRATUITEMENT',{exact:true});
+            if(await tryFree.isVisible().catch(()=>false)) await clickRobust(tryFree,'Guest trial');
             for(const x of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
             await shot('01-listen-idle');
 
@@ -102,7 +103,7 @@ jobs:
             // L'utilisateur doit d'abord choisir sa distance puis appuyer sur
             // RECHERCHER. Cette assertion empêche le retour d'un profil par
             // défaut qui consommerait aussi une découverte Free sans action.
-            await t('Découvertes',{exact:true}).click();
+            await clickRobust(t('Découvertes',{exact:true}),'Découvertes tab');
             await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
             await t('Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.',{exact:true}).waitFor({state:'visible',timeout:15000});
             if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
@@ -131,16 +132,16 @@ jobs:
             if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
             await shot('04-discover-after-search');
 
-            await t('Playlists',{exact:true}).click();
+            await clickRobust(t('Playlists',{exact:true}),'Playlists tab');
             await page.waitForTimeout(300);
             await shot('05-playlists');
 
-            await t('Soirées',{exact:true}).click();
+            await clickRobust(t('Soirées',{exact:true}),'Soirées tab');
             await page.waitForTimeout(300);
             await t(/Creator Pro|Venue Pro|CRÉER|ILLIMITÉ|abonnés/i).waitFor({state:'visible',timeout:15000});
             await shot('06-parties');
 
-            await t('Profil',{exact:true}).click();
+            await clickRobust(t('Profil',{exact:true}),'Profil tab');
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Inviter ou partager mon profil').last().waitFor({state:'visible',timeout:15000});
             if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');

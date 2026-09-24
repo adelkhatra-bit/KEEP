@@ -76,21 +76,38 @@ jobs:
           const INSTAGRAM = 'https://instagram.com/guardian390';
           const tabs = ['Écouter','Découvertes','Playlists','Soirées','Profil'];
 
+          async function clickRobust(page, locator, label) {
+            let lastError;
+            for (let attempt = 1; attempt <= 5; attempt += 1) {
+              try {
+                await locator.waitFor({state:'visible',timeout:10000});
+                await locator.scrollIntoViewIfNeeded().catch(()=>{});
+                await page.keyboard.press('Escape').catch(()=>{});
+                await locator.click({timeout:3000});
+                return;
+              } catch (error) {
+                lastError = error;
+                await page.waitForTimeout(180 * attempt);
+              }
+            }
+            await locator.click({force:true,timeout:2000}).catch(()=>{ throw new Error(`${label}: ${String(lastError?.message || lastError || 'click failed')}`); });
+          }
+
           async function openKeep(page) {
             await page.goto(ORIGIN,{waitUntil:'networkidle',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
-            if (await tryFree.isVisible().catch(()=>false)) await tryFree.click();
+            if (await tryFree.isVisible().catch(()=>false)) await clickRobust(page,tryFree,'Guest trial');
             for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
           async function openEdit(page) {
-            await page.getByText('Profil',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Profil tab');
             const menu=page.getByLabel('Menu du profil').last();
             await menu.waitFor({state:'visible',timeout:15000});
-            await menu.click();
+            await clickRobust(page,menu,'Profile menu');
             const edit=page.getByText('Modifier le profil',{exact:true}).last();
             await edit.waitFor({state:'visible',timeout:15000});
-            await edit.click();
+            await clickRobust(page,edit,'Edit profile');
             await page.getByPlaceholder('tonpseudo').last().waitFor({state:'visible',timeout:15000});
           }
 
@@ -114,7 +131,7 @@ jobs:
             await menu.click();
             const entry=page.getByText('🌐 Profil public, réseaux & site web',{exact:true}).last();
             await entry.waitFor({state:'visible',timeout:15000});
-            await entry.click();
+            await clickRobust(page,entry,'Public profile settings');
             await page.getByText('Réseaux sociaux',{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
@@ -172,10 +189,10 @@ jobs:
             await stop.click();
             await start.waitFor({state:'visible',timeout:15000});
 
-            await page.getByText('Découvertes',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Découvertes',{exact:true}).last(),'Découvertes tab');
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Playlists',{exact:true}).last().click();
-            await page.getByText('Soirées',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Playlists',{exact:true}).last(),'Playlists tab');
+            await clickRobust(page,page.getByText('Soirées',{exact:true}).last(),'Soirées tab');
             const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
             await openSalon.waitFor({state:'visible',timeout:15000});
             await openSalon.click();

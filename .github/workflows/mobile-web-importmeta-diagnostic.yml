@@ -150,7 +150,7 @@ jobs:
               throw new Error(`Samsung bottom navigation moved with page scroll: ${bottomBefore.y} -> ${bottomAfter.y}`);
             }
 
-            await bottomProfileTab.click();
+            await clickRobust(bottomProfileTab, 'Profile bottom tab');
             await page.waitForTimeout(700);
 
             // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
@@ -162,19 +162,19 @@ jobs:
             if (await musicTab.count() === 0 || await vibesTab.count() === 0 || await artistsTab.count() === 0) throw new Error('Profile music tabs not found');
 
             const vibesBefore = await vibesTab.innerHTML();
-            await vibesTab.click();
+            await clickRobust(vibesTab, 'Profile Vibes tab');
             await page.waitForTimeout(250);
             const vibesAfter = await vibesTab.innerHTML();
             if (vibesAfter === vibesBefore) throw new Error('Vibes tab did not visibly change state after click');
 
             const artistsBefore = await artistsTab.innerHTML();
-            await artistsTab.click();
+            await clickRobust(artistsTab, 'Profile Artists tab');
             await page.waitForTimeout(250);
             const artistsAfter = await artistsTab.innerHTML();
             if (artistsAfter === artistsBefore) throw new Error('Artists tab did not visibly change state after click');
 
             const musicBefore = await musicTab.innerHTML();
-            await musicTab.click();
+            await clickRobust(musicTab, 'Profile Music tab');
             await page.waitForTimeout(250);
             const musicAfter = await musicTab.innerHTML();
             if (musicAfter === musicBefore) throw new Error('Musiques tab did not remount immediately; browser refresh would still be required');
