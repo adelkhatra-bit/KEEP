@@ -4,12 +4,8 @@ on:
   push:
     branches: ['reconcile/claude-main-20260825']
     paths:
+      # Déclencheur volontaire après validation Web/CI.
       - 'packages/mobile/.android-build-trigger'
-      - 'packages/mobile/app.json'
-      - 'packages/mobile/package.json'
-      - 'packages/mobile/modules/**'
-      - 'package-lock.json'
-      - '.github/workflows/android-preview-apk.yml'
   workflow_dispatch:
 
 permissions:
