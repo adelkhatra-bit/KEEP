@@ -575,7 +575,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
   // directement ... KEEP encaisse rien" -- Acheter ouvre le lien de
   // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
-  // notée pour que le vendeur sache qui débloquer une fois vraiment payé.
+  // notée pour que le créateur sache qui débloquer une fois vraiment payé.
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
@@ -625,7 +625,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       // La RPC attend l'UUID de l'offre, jamais l'identifiant technique de
       // playlist (qui peut être "keep-selection:...").
       const request = await requestPlaylistPurchase(offer.offerId);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce vendeur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
+      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce créateur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
       const checkoutUrl = buildPayoutCheckoutUrl(request.payoutLink, request.amountCents, request.currencyCode);
       const provider = payoutProviderLabel(request.payoutLink);
       const amount = (request.amountCents / 100).toFixed(2).replace('.', ',');
@@ -634,15 +634,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       Alert.alert(
         `${provider} ouvert`,
         provider === 'PayPal'
-          ? `Le prix total de ${amount} ${request.currencyCode} est prérempli dans PayPal. Il ne reste qu'à valider le paiement. L'accès sera débloqué dès que ${request.sellerUsername || 'le vendeur'} confirme la réception.`
-          : `Paie le prix total de ${amount} ${request.currencyCode} sur le lien qui vient de s'ouvrir. L'accès sera débloqué dès que ${request.sellerUsername || 'le vendeur'} confirme la réception.`,
+          ? `Le prix total de ${amount} ${request.currencyCode} est prérempli dans PayPal. Il ne reste qu'à valider le paiement. L'accès sera débloqué dès que ${request.sellerUsername || 'le créateur'} confirme la réception.`
+          : `Paie le prix total de ${amount} ${request.currencyCode} sur le lien qui vient de s'ouvrir. L'accès sera débloqué dès que ${request.sellerUsername || 'le créateur'} confirme la réception.`,
       );
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
-      else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${profile?.username || 'Ce vendeur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
-      else if (message.includes('SELLER_PAYOUT_LINK_INSECURE')) Alert.alert('Paiement temporairement indisponible', 'Le vendeur doit enregistrer un lien de paiement sécurisé avant de pouvoir vendre cette sélection.');
-      else Alert.alert('Erreur', 'Impossible de lancer l’achat pour le moment.');
+      else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${profile?.username || 'Ce créateur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
+      else if (message.includes('SELLER_PAYOUT_LINK_INSECURE')) Alert.alert('Paiement temporairement indisponible', 'Le créateur doit enregistrer un lien de paiement sécurisé avant de pouvoir proposer cette collection.');
+      else Alert.alert('Erreur', 'Impossible de lancer le déblocage pour le moment.');
     } finally {
       setPurchaseBusyId(null);
     }
@@ -978,7 +978,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               style={styles.sellerSignal}
               onPress={() => openSaleFolder(saleOffers[0])}
               accessibilityRole="button"
-              accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} en vente sur ce profil`}
+              accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} exclusive${saleOffers.length > 1 ? 's' : ''} sur ce profil`}
             >
               <View style={styles.sellerSignalIcon}><Text style={styles.sellerSignalIconText}>◆</Text></View>
               <View style={styles.sellerSignalCopy}>
