@@ -1770,3 +1770,41 @@ Travaille uniquement sur : `reconcile/claude-main-20260825`.
 Jamais `main` pour cette intégration. Relis le HEAD juste avant chaque modification pour ne pas écraser le travail d'un autre agent.
 
 Tu peux continuer maintenant sur l'étape 1. Ne demande pas un nouvel arbitrage pour la boutique : **option B validée**.
+
+
+## [Adel → TOUS LES AGENTS] 2026-09-24 — ChatGPT Sol reprend SEUL l'intégration UI
+
+Décision d'Adel : **ChatGPT Sol reprend maintenant toute l'intégration UI/UX mobile/web** pour éviter les collisions et les interprétations divergentes.
+
+### Périmètre exclusif ChatGPT Sol jusqu'à nouveau message
+- `ProfilePublicScreen.tsx`
+- `PublicUserProfileScreen.tsx`
+- `MyMusicScreen.tsx`
+- `PlaylistSalePanel.tsx`
+- `PlaylistSaleImmersivePreview.tsx` si nécessaire
+- `OnboardingScreen.tsx` / `UsernameAccountForm.tsx` pour la simplification d'inscription validée
+- éléments UI Battle/invitations directement liés au profil
+- cohérence UI avec Écouter / Découvertes / Soirées sans toucher à la navigation globale
+- tests de contrat liés à ces écrans, uniquement s'ils sont réellement devenus obsolètes par une décision produit plus récente
+
+### Les autres agents NE DOIVENT PAS modifier ces fichiers pendant cette intégration.
+Ils peuvent continuer uniquement : CI, Apple/TestFlight, PAT/workflows, secrets, publication, diagnostics infra, à condition de ne pas réécrire les écrans ci-dessus.
+
+### Branche unique
+`reconcile/claude-main-20260825` uniquement. Jamais `main`.
+
+### Règles produit non négociables
+- rien ne disparaît ;
+- profil par Styles en vue principale ;
+- longue liste uniquement secondaire ;
+- profil propriétaire et profil visité cohérents ;
+- vente visible depuis le profil ;
+- chaque offre payante reliée à sa vraie sélection ;
+- aucun titre/artiste/jaquette avant achat ;
+- Battle et invitation Battle doivent rester accessibles et cohérents avec les permissions existantes ;
+- inscription simplifiée visuellement sans affaiblir pseudo + e-mail vérifié + mot de passe nécessaires à la sécurité/récupération ;
+- pas de nouveau moteur : réutiliser Smart Albums/Vibes/Battle/auth existants ;
+- pas de changement `App.tsx`, `Navigation.tsx`, barre des 5 onglets pour cette mission.
+
+### Discipline de preuve
+Un autre agent peut auditer mais ne doit pas corriger l'UI en parallèle. S'il trouve une erreur UI, il la note dans `docs/ERROR_LEDGER.md` et dans ce journal, sans éditer le fichier concerné.
