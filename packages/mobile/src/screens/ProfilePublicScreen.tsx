@@ -23,6 +23,7 @@ import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
+import { loadMyPlaylistSaleOffers, PlaylistSaleOffer } from '../services/playlistSaleService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -177,7 +178,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // même fenêtre -- devenu faux dès que l'admin change la valeur. Chargé
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
-  const [playlistSaleOffers, setPlaylistSaleOffers] = useState<any[]>([]);
+  const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
   // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
   // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
   // paramètres" -- la pastille ouvrait les Réglages avancés au lieu d'un
@@ -632,25 +633,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [accountRequired, profileFollowerCount]);
 
   useEffect(() => {
-    if (!marketplaceEnabled || !user || !supabase) { setPlaylistSaleOffers([]); return undefined; }
+    if (!marketplaceEnabled || !user || accountRequired) { setPlaylistSaleOffers([]); return undefined; }
     let live = true;
-    const loadOffers = async () => {
-      try {
-        const { data, error } = await supabase!
-          .from('playlist_sale_offers')
-          .select('*')
-          .eq('seller_id', user.id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
-        if (live && !error) setPlaylistSaleOffers(data || []);
-        else if (live) setPlaylistSaleOffers([]);
-      } catch {
-        if (live) setPlaylistSaleOffers([]);
-      }
-    };
-    void loadOffers();
+    loadMyPlaylistSaleOffers()
+      .then((rows) => { if (live) setPlaylistSaleOffers(rows.filter((row) => row.isActive)); })
+      .catch(() => { if (live) setPlaylistSaleOffers([]); });
     return () => { live = false; };
-  }, [marketplaceEnabled, user?.id, supabase]);
+  }, [marketplaceEnabled, user?.id, accountRequired]);
 
   const fallbackCertification: ProfileCertificationTier = accountRequired
     ? 'UNVERIFIED'
@@ -1240,6 +1229,51 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
+      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
+        <ProfileMotionReveal motionKey={`owner-collections:${playlistSaleOffers.length}`} compact style={s.ownerCollectionRail}>
+          <View style={s.ownerCollectionRailHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.ownerCollectionRailKicker}>MON UNIVERS PREMIUM</Text>
+              <Text style={s.ownerCollectionRailTitle}>Mes collections exclusives</Text>
+            </View>
+            <Text style={s.ownerCollectionRailCount}>{playlistSaleOffers.length}</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.ownerCollectionRailContent}
+            snapToInterval={272}
+            decelerationRate="fast"
+            accessibilityLabel="Mes collections exclusives publiées"
+          >
+            {playlistSaleOffers.map((offer, index) => {
+              const priceLabel = offer.paymentMode === 'FREE'
+                ? `${offer.freePrice ?? 0} FREE`
+                : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+              const styleLabel = offer.genres?.length ? offer.genres.slice(0, 3).join(' · ') : 'Mix musical';
+              return (
+                <ProfileStyleCard
+                  key={offer.offerId || offer.playlistId || `owner-offer-${index}`}
+                  title={offer.playlistName || `Collection #${index + 1}`}
+                  subtitle={`${offer.trackCount ?? 0} morceau${(offer.trackCount ?? 0) > 1 ? 'x' : ''} · ${styleLabel}`}
+                  mode="UNLOCKED"
+                  badgeLabel="✓ PUBLIÉE"
+                  priceLabel={priceLabel}
+                  fullWidth={false}
+                  onPress={() => Alert.alert('Collection exclusive', `${offer.playlistName}\n${offer.trackCount ?? 0} morceaux · ${styleLabel}\nAccès : ${priceLabel}`)}
+                  accessibilityLabel={`Collection ${offer.playlistName}, ${offer.trackCount ?? 0} morceaux, ${priceLabel}`}
+                  actionLabel="GÉRER"
+                  onActionPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}
+                  actionAccessibilityLabel={`Gérer la collection ${offer.playlistName}`}
+                  style={s.ownerCollectionRailCard}
+                />
+              );
+            })}
+          </ScrollView>
+          <Text style={s.ownerCollectionRailHint}>← Fais défiler · chaque carte représente une collection complète →</Text>
+        </ProfileMotionReveal>
+      ) : null}
+
       <View style={s.collectionHeader}>
         <Text style={s.collectionTitle}>Mes styles</Text>
         <Text style={s.collectionCount}>{profileTotalKeepCount} {profileTotalKeepCount > 1 ? 'morceaux' : 'morceau'}</Text>
@@ -1567,6 +1601,14 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   communitySection:{marginHorizontal:18,gap:2},
+  ownerCollectionRail:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+  ownerCollectionRailHeader:{flexDirection:'row',alignItems:'center',gap:10},
+  ownerCollectionRailKicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.9},
+  ownerCollectionRailTitle:{color:colors.textPrimary,fontSize:17,fontWeight:'900',marginTop:2},
+  ownerCollectionRailCount:{minWidth:30,height:30,borderRadius:15,backgroundColor:colors.primary,overflow:'hidden',color:colors.textPrimary,textAlign:'center',textAlignVertical:'center',fontSize:11,fontWeight:'900',paddingTop:7},
+  ownerCollectionRailContent:{gap:12,paddingTop:12,paddingRight:14},
+  ownerCollectionRailCard:{width:260,marginBottom:0},
+  ownerCollectionRailHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:10},
   ownerCommerceStrip:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
   ownerCommercePulse:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
   ownerCommercePulseText:{color:colors.keep,fontSize:17,fontWeight:'900'},
