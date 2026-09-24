@@ -10,7 +10,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   const publicProfile = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
   const saleService = readNormalized(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
   const previewMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260920201000_playlist_sale_offer_preview_tracks.sql');
-  const freeMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924154500_playlist_sale_free_mode.sql');
+  const freeMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163120_playlist_sale_free_mode.sql');
   const featureFlags = readNormalized(__dirname, '..', '..', 'services', 'featureFlagService.ts');
   const immersivePreview = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx');
   const salePanel = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
@@ -61,6 +61,14 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(freeMigration).toContain('keep_playlist_sale_purchase_with_free');
     expect(freeMigration).toContain('keep_playlist_sale_deliver_payment_core');
     expect(freeMigration).toContain('unique (offer_id, buyer_id)');
+  });
+
+  it('enforces collection-only products on the server, never one-track offers', () => {
+    expect(freeMigration).toContain("raise exception 'COLLECTION_MIN_TWO_TRACKS'");
+    expect(freeMigration).toContain('if v_remaining < 2 then');
+    expect(freeMigration).toContain('set is_active = false');
+    expect(freeMigration).toContain('drop constraint if exists playlist_sale_offers_price_cents_check');
+    expect(freeMigration).toContain('drop constraint if exists playlist_sale_offers_price_preset');
   });
 
   it('keeps the FREE transfer adjustment helper inaccessible to app clients', () => {
