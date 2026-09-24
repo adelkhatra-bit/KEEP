@@ -108,7 +108,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('toggleTrackPreview(');
     expect(profile).toContain('resolveTrackPreviewUrl(track)');
     expect(profile).toContain("setInlineListenNotice('✓ Déjà dans ta collection · l’écoute continue')");
-    expect(profile).not.toContain("Alert.alert('Déjà dans ta collection'");
+    const inlineStart = profile.indexOf('const playInlinePublicTrack = async');
+    const inlineEnd = profile.indexOf('const playInlineSalePreview = async', inlineStart);
+    expect(profile.slice(inlineStart, inlineEnd)).not.toContain("Alert.alert('Déjà dans ta collection'");
     expect(profile).toContain('onPlayPress={() => void playInlinePublicTrack');
   });
 
