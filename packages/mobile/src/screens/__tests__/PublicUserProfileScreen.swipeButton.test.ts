@@ -12,16 +12,19 @@ describe('PublicUserProfileScreen — bouton SWIPE aussi visible que sur le prof
     expect(source).toContain("import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';");
   });
 
-  it('is a full-width primary (violet) button, same visual weight as the owner profile\'s ownerSwipeButton', () => {
-    expect(source).toContain("visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'}");
-    expect(source).toContain('<Text style={styles.visitorSwipeButtonText}>▶ SWIPE</Text>');
+  it('is a full-width animated primary action with the same visual hierarchy as the owner profile', () => {
+    expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
+    expect(source).toContain('title="SWIPE"');
+    expect(source).toContain('tone="primary"');
+    expect(source).toContain('style={styles.visitorSwipeMotion}');
   });
 
   it('is placed right after identity/bio, before the collection section, not buried in a small pill next to Follow', () => {
     const bioIdx = source.indexOf('{!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}');
-    const swipeIdx = source.indexOf('visitorSwipeButton} onPress={() => openBrowseSwipe(null)}');
+    const swipeIdx = source.indexOf('title="SWIPE"');
+    const collectionIdx = source.indexOf('style={styles.marketplaceSection}');
     expect(bioIdx).toBeGreaterThan(-1);
     expect(swipeIdx).toBeGreaterThan(bioIdx);
-    expect(swipeIdx - bioIdx).toBeLessThan(700);
+    expect(collectionIdx).toBeGreaterThan(swipeIdx);
   });
 });
