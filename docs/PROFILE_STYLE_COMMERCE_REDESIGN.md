@@ -263,3 +263,26 @@ Aucun secret dans le client.
 - Vente et invitation accessibles directement depuis le profil.
 - Toutes les fonctions historiques restent accessibles.
 - Aucun refresh nécessaire après mutation.
+
+
+## 16. Interactions sociales sans messagerie
+
+Décision produit validée le 24/09/2026 : **aucune messagerie utilisateur-à-utilisateur** dans Loki Music. Les interactions sociales doivent rester instantanées, publiques ou semi-publiques, sans conversation privée.
+
+### Remplacement des emplacements “Message / Contacter”
+- Aucun bouton Message/DM ne doit être ajouté au profil mobile.
+- Si une maquette contient un emplacement Message, il devient **❤️ J’AIME TON UNIVERS**.
+- Le like est un toggle simple, sans texte libre, qui déclenche une notification sociale au propriétaire.
+- Le profil visité garde aussi : **+ SUIVRE**, **⚡ DÉFIER EN BATTLE**, **↗ PARTAGER**, **▶ ÉCOUTER SON UNIVERS**.
+
+### Notifications virales
+- À l’arrivée d’une nouvelle notification : toast/ruban court visible immédiatement.
+- Tant qu’il reste au moins une notification non lue : badge rouge sur la cloche + ruban compact **🔔 X nouveautés · Voir**.
+- Le ruban persistant disparaît seulement quand les notifications concernées sont lues/supprimées.
+- Les rappels événementiels peuvent remplacer le texte générique par **🎉 Soirée ce soir · Voir** ou le libellé de l’événement.
+- Le centre existant conserve : lire une notification, tout marquer comme lu, supprimer une notification, tout supprimer.
+
+### Commerce
+- Une offre en vente est un produit visible : nom de collection/style, quantité, prix, cadenas, CTA **▶ ÉCOUTER UN APERÇU**.
+- Un aperçu ne révèle jamais titre/artiste/jaquette avant achat.
+- Les événements sociaux autour d’une offre (mise en vente, déblocage, achat confirmé selon conformité plateforme) alimentent les notifications, sans ouvrir de chat.
