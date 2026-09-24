@@ -12,7 +12,7 @@ describe('PublicUserProfileScreen redesign (Adel, 23/09/2026 : plan revalidé --
   const source = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
   it('orders the top-level sections: identity < unified counters < boutique EN VENTE < collection header < tabs < socials', () => {
-    const hero = source.indexOf('<View style={styles.hero}>');
+    const hero = source.indexOf('<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>');
     const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
