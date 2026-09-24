@@ -6,6 +6,10 @@ Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne cré
 
 Adel est francophone. Toute réponse, tout message, toute mise à jour à destination d'Adel doit être écrite **en français**, sans exception, y compris les messages courts, les confirmations et les résumés de fin de tâche. Ne jamais basculer en anglais au milieu d'une conversation.
 
+## 🧭 GPS DU CODE + ERREURS À NE PLUS RÉINTRODUIRE
+
+Avant tout code, lire obligatoirement : `docs/CODE_GPS.md`, `docs/ERROR_LEDGER.md` et `docs/INTEGRATION_CHECKLIST.md`. Le GPS indique le fichier propriétaire de chaque fonction ; le ledger conserve chaque erreur avec sa cause et sa preuve. Toute nouvelle erreur doit être enregistrée avant/dans le même commit que le fix et ne doit jamais être effacée du registre.
+
 ## 🧠 MÉMOIRE PARTAGÉE
 
 - **Avant toute session, lire `PROJECT_STATE.md`** (racine du repo) : tableau de bord unique (état git, fonctionnalités actives, points ouverts, APIs) qui articule tous les fichiers de mémoire ci-dessous sans les dupliquer.
