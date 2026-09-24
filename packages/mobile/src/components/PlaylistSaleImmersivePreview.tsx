@@ -214,7 +214,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               pas seulement l'Alert transitoire après ouverture du lien. */}
           {purchaseEnabled ? (
             <View style={s.manualNotice}>
-              <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du vendeur (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le vendeur confirme l'avoir reçu.</Text>
+              <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du créateur de la collection (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le créateur confirme l'avoir reçu.</Text>
             </View>
           ) : null}
 
@@ -222,7 +222,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <>
               <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
                 <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
-                <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le vendeur et je renonce expressément à mon droit de rétractation de 14 jours dès le déblocage du contenu dans mon Loki Music.</Text>
+                <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le créateur de la collection et je renonce expressément à mon droit de rétractation de 14 jours dès le déblocage du contenu dans mon Loki Music.</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
