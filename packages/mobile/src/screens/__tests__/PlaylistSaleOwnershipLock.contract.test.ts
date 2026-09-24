@@ -63,6 +63,13 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(freeMigration).toContain('unique (offer_id, buyer_id)');
   });
 
+  it('requires an explicit confirmation before debiting FREE for a collection', () => {
+    expect(immersivePreview).toContain("const freeAccess = offer.paymentMode === 'FREE';");
+    expect(immersivePreview).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
+    expect(immersivePreview).toContain("Je confirme utiliser ${priceLabel} pour débloquer les ${trackCountLabel} morceau");
+    expect(immersivePreview).toContain('Aucun débit n’est effectué morceau par morceau.');
+  });
+
   it('lets the owner switch an existing collection between euro and FREE without rebuilding it', () => {
     expect(saleService).toContain('updateOfferPaymentMode');
     expect(salePanel).toContain('Mode de déblocage');
