@@ -9,7 +9,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   const swipe = read(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx');
   const listen = read(__dirname, '..', '..', 'components', 'TrackListenControls.tsx');
   const profile = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const ownerProfile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const styleCard = read(__dirname, '..', '..', 'components', 'ProfileStyleCard.tsx');
+  const featureFlags = read(__dirname, '..', '..', 'services', 'featureFlagService.ts');
 
   it('never chooses PUBLIC implicitly when account/demo state requires attention', () => {
     expect(swipe).not.toContain("try { await onKeep?.(current, 'PUBLIC'); }");
@@ -58,6 +60,40 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(saleCard).not.toContain('artworkUrl=');
     expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && index === saleOffers.length - 1}');
     expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}');
+  });
+
+  it('never hides active sale products behind the checkout feature flag', () => {
+    expect(featureFlags).toContain('export async function isPlaylistMarketplaceVisible(): Promise<boolean>');
+    expect(featureFlags).toContain('return Boolean(supabase);');
+    expect(featureFlags).toContain("if (Platform.OS !== 'web') return false;");
+    expect(featureFlags).toContain("return isFeatureEnabled('playlist_marketplace');");
+  });
+
+  it('makes a seller unmistakable as soon as the visited profile opens', () => {
+    expect(profile).toContain('BOUTIQUE MUSICALE ACTIVE');
+    expect(profile).toContain("collection{saleOffers.length > 1 ? 's' : ''} exclusive");
+    expect(profile).toContain('Extraits anonymes · vrais titres masqués avant déblocage');
+    expect(profile).toContain('EXCLUSIVITÉS DE @{profile.username.replace(/^@/, \'\')}');
+  });
+
+  it('shows already-owned counts directly on public style cards', () => {
+    expect(profile).toContain('const genreAlreadyOwnedCounts = useMemo(() => {');
+    expect(profile).toContain('déjà chez toi');
+    expect(profile).toContain("badgeLabel={allOwned ? '✓ DÉJÀ CHEZ TOI'");
+  });
+
+  it('uses the same immersive visual system on the owner profile without file-folder UI as the primary styles view', () => {
+    expect(ownerProfile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
+    expect(ownerProfile).toContain('style={s.ownerStyleGrid}');
+    expect(ownerProfile).toContain("actionLabel={marketplaceEnabled ? 'VENDRE' : undefined}");
+    expect(ownerProfile).toContain("title="JOUER EN SOLO"");
+    expect(ownerProfile).toContain('BOUTIQUE ACTIVE');
+  });
+
+  it('gives a newly registered empty profile a real first action instead of a dead empty state', () => {
+    expect(ownerProfile).toContain('TON UNIVERS COMMENCE ICI');
+    expect(ownerProfile).toContain('Garde ta première découverte.');
+    expect(ownerProfile).toContain("navigation.navigate('Main', { screen: 'Listen' })");
   });
 
   it('keeps sold tracks out of the free Swipe source', () => {
