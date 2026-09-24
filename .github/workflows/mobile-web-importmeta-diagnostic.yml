@@ -192,7 +192,15 @@ jobs:
             await clickRobust(playlistsLibraryTab, 'Playlists library tab');
             await page.waitForTimeout(300);
 
-            const detailsButton = page.getByLabel('Voir les détails').first();
+            let detailsButton = page.getByLabel('Voir les détails').first();
+            if (await detailsButton.count() === 0) {
+              const socialToggle = page.getByLabel("Afficher ou masquer les musiques reprises d'autres utilisateurs").first();
+              if (await socialToggle.count() > 0) {
+                await clickRobust(socialToggle, 'Expand social reprises for delete fixture');
+                await page.waitForTimeout(350);
+                detailsButton = page.getByLabel('Voir les détails').first();
+              }
+            }
             await detailsButton.waitFor({ state: 'visible', timeout: 15000 });
             await clickRobust(detailsButton, 'Open first track details');
 
