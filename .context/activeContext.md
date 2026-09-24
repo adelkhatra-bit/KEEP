@@ -105,3 +105,11 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Audit global : `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
 - Prochaine intégration : remplacer la longue liste comme vue principale par les dossiers Styles, conserver `Voir tous les morceaux`, ajouter `INVITER/PARTAGER` + `GÉRER MES VENTES` au hero propriétaire, lier chaque dossier payant à sa vraie offre.
 - Coordination : `Loki Music Agent` a été repéré sur les commits CI/App Store ; ne pas écraser ses changements. Relire HEAD avant chaque modification.
+
+
+## 2026-09-24 — Handoff intégration UI vers Loki Music Agent / Abacus-Claude
+- Branche unique : `reconcile/claude-main-20260825` ; ne jamais intégrer cette refonte sur `main`.
+- Adel demande un seul intégrateur UI pour éviter les collisions : Loki Music Agent / Abacus-Claude prend l’intégration ; ChatGPT Sol se retire du code UI pendant ce handoff.
+- Lire avant action : `AGENT_MESSAGES.md`, `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`, `docs/mockups/ProfileStylesMarketplace.html`, `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
+- Conserver les commits UI déjà présents : `654ed541`, `ca41db86`, `a9ddb531` ; les auditer avant toute réécriture.
+- Ordre : profil visité → profil propriétaire → MyMusic → PlaylistSalePanel → onboarding → Super Admin → tests 390×844/web.
