@@ -110,5 +110,30 @@
 
 ## 🔐 Secrets (où ils SONT, jamais leur contenu)
 - **GitHub Secrets** : `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_API_KEY_P8_BASE64`, `APPLE_TEAM_ID`, `ASC_APP_ID`, `EXPO_TOKEN` — utilisés par `.github/workflows/auto-eas-build.yml` et `eas-build-ios.yml`.
-- **Supabase `integration_secrets`** : ACRCloud, Spotify, YouTube, Brevo, Stripe, AI relay, Pipedream (17 entrées).
+- **Supabase `integration_secrets`** : ACRCloud, Spotify, YouTube, Brevo, Stripe, AI relay, Pipedream + **`GITHUB_PERSONAL_ACCESS_TOKEN`** (en attente de régénération `Contents:Read+Write` + `Workflows:Read+Write`, `is_configured=false`). Total 18 entrées.
 - **Le `.p8` App Store** : à télécharger UNE seule fois à la création de la clé (jamais dans le repo).
+
+## 🔑 Débloquer le push de workflows CI (PAT requis)
+> Le connecteur GitHub (App abacusai) ne peut pas pousser `.github/workflows/**`.
+> Un PAT personnel avec **`Contents:Read+Write`** + **`Workflows:Read+Write`** est requis.
+> Le workflow `app-store-submit.yml` est commité localement et stocké en patch `docs/ci/app-store-submit-workflow.patch`.
+
+```bash
+# 1. Configurer le nouveau PAT
+export GH_TOKEN="github_pat_NOUVEAU_READ_WRITE"
+git remote set-url origin "https://adelkhatra-bit:${GH_TOKEN}@github.com/adelkhatra-bit/KEEP.git"
+
+# 2. Appliquer le patch (si le workflow n'est pas encore dans la branche locale)
+git apply docs/ci/app-store-submit-workflow.patch
+git add .github/workflows/app-store-submit.yml
+git commit -m "ci: add App Store autonomous submit workflow (Loki Music v1.0.0 build 312)"
+
+# 3. Pousser + déclencher
+git push origin reconcile/claude-main-20260825
+gh workflow run app-store-submit.yml \
+  --repo adelkhatra-bit/KEEP \
+  --ref reconcile/claude-main-20260825 \
+  --field lane=submit
+```
+
+> Le workflow utilise les secrets GitHub existants (`ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`) — aucun `.p8` à fournir manuellement.
