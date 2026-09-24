@@ -47,11 +47,12 @@ assertIncludes(owner, 'communitySection:{marginHorizontal:18,gap:2}', 'Owner com
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
+  '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
+  '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
   '<View style={styles.unifiedCounters}>',
   "{ value: followerCount, label: 'Abonnés'",
   '<CommunityConnectionsPanel userId={profile.id}',
   "{ value: directKeepCount, label: 'Morceaux' }",
-  '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
@@ -62,6 +63,9 @@ assertOrdered(visitor, [
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
 assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2}', 'Visited unified counter frame');
 assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
+assertIncludes(visitor, "title=\"SWIPE\"", 'Visited animated Swipe action');
+assertIncludes(visitor, "title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}", 'Visited animated Battle action');
+assertIncludes(owner, "title=\"JOUER EN SOLO\"", 'Owner animated solo Battle action');
 assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
