@@ -31,7 +31,7 @@ assertOrdered(owner, [
   "{ value: profileFollowerCount, label: 'Abonnés',",
   '<CommunityConnectionsPanel userId={user.id}',
   "{ value: profileTotalKeepCount, label: 'Morceaux'",
-  '<Text style={s.dnaTitle}>Ton empreinte musicale</Text>',
+  '<Text style={s.dnaTitle}>Tes styles dominants</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
 ], 'Owner profile collective hierarchy');
 
