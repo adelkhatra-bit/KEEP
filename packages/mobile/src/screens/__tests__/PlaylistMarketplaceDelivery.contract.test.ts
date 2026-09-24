@@ -19,7 +19,9 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(myMusic).toContain('selectedSaleTrackIds');
     expect(myMusic).toContain('Nom de la collection exclusive');
     expect(myMusic).toContain('SALE_PRESET_PRICES_CENTS.map');
-    expect(salePanel).toContain('PRICE_PRESETS.map');
+    expect(salePanel).toContain('SALE_PRESET_PRICES_CENTS');
+    expect(salePanel).toContain('SALE_PRESET_FREE');
+    expect(salePanel).toContain('updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount)');
     expect(myMusic).toContain('if (tracks.length < 2)');
   });
 
