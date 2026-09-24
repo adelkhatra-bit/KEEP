@@ -23,6 +23,7 @@ type Props = {
   accessibilityLabel: string;
   artworkUrl?: string | null;
   priceLabel?: string;
+  badgeLabel?: string;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -53,6 +54,7 @@ export default function ProfileStyleCard({
   accessibilityLabel,
   artworkUrl,
   priceLabel,
+  badgeLabel,
   fullWidth = false,
   style,
 }: Props) {
@@ -62,6 +64,7 @@ export default function ProfileStyleCard({
   const locked = mode === 'LOCKED';
   const unlocked = mode === 'UNLOCKED';
   const palette = paletteFor(title);
+  const resolvedBadge = badgeLabel ?? (locked ? '🔒 EN VENTE' : unlocked ? '✓ DÉBLOQUÉ' : mode === 'VIBE' ? 'VIBE' : 'PUBLIC');
 
   useEffect(() => {
     let live = true;
@@ -106,7 +109,7 @@ export default function ProfileStyleCard({
       <View style={s.topRow}>
         <View style={[s.badge, locked && s.badgeLocked, unlocked && s.badgeUnlocked]}>
           <Text style={[s.badgeText, locked && s.badgeTextLocked, unlocked && s.badgeTextUnlocked]}>
-            {locked ? '🔒 EN VENTE' : unlocked ? '✓ DÉBLOQUÉ' : mode === 'VIBE' ? 'VIBE' : 'PUBLIC'}
+            {resolvedBadge}
           </Text>
         </View>
         {priceLabel ? <Text style={s.price}>{priceLabel}</Text> : null}
