@@ -412,19 +412,20 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // Les Vibes automatiques restent distinctes et sont rendues séparément
   // pour éviter de confondre "3 Vibes Auto" avec "X styles musicaux".
   const profileStyleGroups = useMemo(() => {
-    const map = new Map<string, CanonicalTrack[]>();
+    const map = new Map<string, { label: string; tracks: CanonicalTrack[] }>();
     for (const track of localKeptTracks) {
       const genres = (track.genres ?? []).map((genre) => genre.trim()).filter(Boolean);
       const labels = genres.length ? genres : ['Sans genre'];
       for (const genre of labels) {
-        const rows = map.get(genre) ?? [];
-        rows.push(track);
-        map.set(genre, rows);
+        const key = genre.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+        const current = map.get(key) ?? { label: genre, tracks: [] };
+        if (!current.tracks.some((row) => row.id === track.id)) current.tracks.push(track);
+        map.set(key, current);
       }
     }
-    return Array.from(map.entries())
-      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-      .map(([genre, tracks]) => ({ genre, tracks }));
+    return Array.from(map.values())
+      .sort((a, b) => b.tracks.length - a.tracks.length || a.label.localeCompare(b.label))
+      .map(({ label, tracks }) => ({ genre: label, tracks }));
   }, [localKeptTracks]);
 
   const stylePlaylists = useMemo<ProviderPlaylist[]>(
@@ -467,9 +468,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
     if (playlist.id.startsWith(STYLE_ID_PREFIX)) {
       const genre = decodeURIComponent(playlist.id.slice(STYLE_ID_PREFIX.length));
+      const genreKey = genre.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
       const tracks = localKeptTracks.filter((track) => {
         const genres = (track.genres ?? []).map((value) => value.trim()).filter(Boolean);
-        return genre === 'Sans genre' ? genres.length === 0 : genres.includes(genre);
+        return genre === 'Sans genre'
+          ? genres.length === 0
+          : genres.some((value) => value.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ') === genreKey);
       });
       setTracksByPlaylist((state) => ({ ...state, [playlist.id]: tracks }));
       return tracks;
