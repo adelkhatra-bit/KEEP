@@ -29,20 +29,24 @@ describe('Onboarding -- Architecture B "zéro friction" (Adel, 22/09/2026, maque
     expect(onboarding).toContain('followUsername: (params.get(\'__keep_follow\') || \'\').trim()');
   });
 
-  it('le choix manuel (Essayer gratuitement + Se connecter/Créer un compte) reste intégralement rendu en repli -- rien supprimé', () => {
+  it('le choix manuel reste disponible en repli, avec une entrée explicite pour les comptes existants -- rien supprimé', () => {
     expect(onboarding).toContain('onPress={handleGuestPress}');
     expect(onboarding).toContain('ESSAYER GRATUITEMENT');
     expect(onboarding).toContain('3 téléchargements sans inscription');
-    expect(onboarding).toContain("Se connecter / Créer mon compte");
+    expect(onboarding).toContain('J’AI DÉJÀ UN COMPTE');
+    expect(onboarding).toContain('Créer mon compte');
+    expect(onboarding).toContain("setAccountMode('login'); setAccountOpen(true)");
+    expect(onboarding).toContain("setAccountMode('create'); setAccountOpen(true)");
     expect(onboarding).toContain('CONTINUER SANS INSCRIPTION');
     expect(onboarding).toContain("Mode démo");
     expect(onboarding).toContain("legalNotice");
   });
 
-  it('le CTA "Se connecter / Créer un compte" est maintenant un lien fantôme (1 seul CTA plein par écran), pas un second bouton plein', () => {
+  it('les entrées compte restent secondaires (1 seul CTA plein par écran), avec connexion prioritaire pour quelqu’un qui a déjà un mot de passe', () => {
     expect(onboarding).toContain('style={styles.accountGhostButton}');
+    expect(onboarding).toContain('style={styles.accountCreateLink}');
     expect(onboarding).not.toContain('style={[styles.button, styles.accountButton]}');
-    expect(onboarding).toContain("accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center'}");
+    expect(onboarding).toContain("accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12}");
   });
 
   it('"CONTINUER SANS INSCRIPTION" (repli dans le formulaire) garde son style de bouton plein original -- non touché par ce changement', () => {
