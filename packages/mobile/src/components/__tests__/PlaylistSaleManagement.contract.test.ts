@@ -51,4 +51,11 @@ describe('Playlist sale management contract — owner can edit offer content wit
     expect(service).not.toMatch(/export type PlaylistSalePreviewTrack\s*=\s*\{[^}]*artist:/s);
     expect(service).not.toMatch(/export type PlaylistSalePreviewTrack\s*=\s*\{[^}]*artwork/s);
   });
+  it('preselects a profile style when the owner starts a sale from that folder', () => {
+    expect(myMusic).toContain("route?.params?.preselectSaleGenre");
+    expect(myMusic).toContain("setSelectedSaleTrackIds(new Set(trackIds))");
+    expect(myMusic).toContain("setSaleSelectionMode(true)");
+    expect(myMusic).toContain("preselectSaleGenre: undefined");
+  });
+
 });
