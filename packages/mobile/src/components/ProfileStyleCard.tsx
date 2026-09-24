@@ -24,6 +24,9 @@ type Props = {
   artworkUrl?: string | null;
   priceLabel?: string;
   badgeLabel?: string;
+  actionLabel?: string;
+  onActionPress?: () => void;
+  actionAccessibilityLabel?: string;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -55,6 +58,9 @@ export default function ProfileStyleCard({
   artworkUrl,
   priceLabel,
   badgeLabel,
+  actionLabel,
+  onActionPress,
+  actionAccessibilityLabel,
   fullWidth = false,
   style,
 }: Props) {
@@ -179,6 +185,16 @@ export default function ProfileStyleCard({
           </LinearGradient>
         )}
       </Pressable>
+      {actionLabel && onActionPress ? (
+        <Pressable
+          onPress={onActionPress}
+          accessibilityRole="button"
+          accessibilityLabel={actionAccessibilityLabel ?? actionLabel}
+          style={s.cardAction}
+        >
+          <Text style={s.cardActionText}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
     </Animated.View>
   );
 }
@@ -220,6 +236,21 @@ const s = StyleSheet.create({
   badgeText: { color: colors.success, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   badgeTextLocked: { color: colors.primaryLight },
   badgeTextUnlocked: { color: colors.keep },
+  cardAction: {
+    position: 'absolute',
+    right: 10,
+    top: 44,
+    zIndex: 4,
+    minHeight: 28,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: colors.backgroundCard,
+    borderWidth: 1,
+    borderColor: colors.keep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardActionText: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   price: {
     color: colors.textPrimary,
     fontSize: 11,
