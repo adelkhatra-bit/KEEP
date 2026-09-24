@@ -999,9 +999,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {/* DESIGN_SYSTEM v3 (24/09/2026) : identité, vitrine commerciale
             immédiatement visible, puis compteurs regroupés et collection. */}
-            puis compteurs regroupés en UN SEUL bloc (avant : Abonnés/Reprises
-            dans hero, Morceaux/Abonnements plus bas séparés par Réseaux/DNA/
-            Boutique entre les deux), puis "Ma collection". */}
         <View style={styles.unifiedCounters}>
           <ProfileCounterRow kind="connections" items={[
             { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
