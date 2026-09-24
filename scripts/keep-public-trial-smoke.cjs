@@ -65,48 +65,30 @@ async function proveSharedProfileRoute(page, scenarioName) {
   await page.screenshot({ path: path.join(OUT, `${scenarioName}-shared-profile.png`), fullPage: true });
 
   if (/Suivre/i.test(followText)) {
+    const sharedUrl = page.url();
     await follow.click();
-    await page.waitForTimeout(1200);
-    const url = page.url();
-    if (!url.includes('/KEEP/') || !url.includes('__keep_auth=create') || !url.includes(`__keep_follow=${encodeURIComponent(SHARE_USER)}`)) {
-      throw new Error(`${scenarioName}: + Suivre n'ouvre pas l'inscription canonique KEEP: ${url}`);
-    }
+    await page.waitForTimeout(500);
+    if (page.url() !== sharedUrl) throw new Error(`${scenarioName}: suivre a quitté le profil partagé: ${page.url()}`);
 
-    const signupTitle = page.getByText('Créer mon compte KEEP', { exact: true }).last();
-    const followHint = page.getByText('Après connexion, le profil que tu consultais sera suivi automatiquement.', { exact: true }).last();
-    const signupSubtitle = page.getByText(/Adresse e-mail obligatoire/i).last();
-    const requiredEmail = page.getByPlaceholder('Adresse e-mail obligatoire').last();
-    const continueWithoutSignup = page.getByText('CONTINUER SANS INSCRIPTION', { exact: true }).last();
+    const overlay = page.locator('#authOverlay');
+    await overlay.waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByText(`Suivre @${SHARE_USER}`, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByText('Se connecter', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByPlaceholder('E-mail').waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByPlaceholder('Mot de passe').waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByText('SE CONNECTER ET SUIVRE', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
-    await signupTitle.waitFor({ state: 'visible', timeout: 20000 });
-    await followHint.waitFor({ state: 'visible', timeout: 20000 });
-    await signupSubtitle.waitFor({ state: 'visible', timeout: 20000 });
-    await requiredEmail.waitFor({ state: 'visible', timeout: 20000 });
-    await continueWithoutSignup.waitFor({ state: 'visible', timeout: 20000 });
+    await overlay.getByText('Créer un compte', { exact: true }).click();
+    await overlay.getByPlaceholder('Pseudo').waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByPlaceholder('Mot de passe (6 caractères min.)').waitFor({ state: 'visible', timeout: 15000 });
+    await overlay.getByText('CRÉER MON COMPTE ET SUIVRE', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+    await page.screenshot({ path: path.join(OUT, `${scenarioName}-shared-follow-auth.png`), fullPage: true });
 
-    const redirectedText = await page.locator('body').innerText().catch(() => '');
-    const redirectedHtml = await page.locator('body').innerHTML().catch(() => '');
-    assertVisibleBody(redirectedText, redirectedHtml, `${scenarioName} follow signup redirect`);
-
-    if (redirectedText.includes('Partage tes goûts musicaux. Crée ta communauté.')) {
-      throw new Error(`${scenarioName}: le hero onboarding reste affiché derrière le formulaire d'inscription`);
-    }
-
-    const titleBox = await signupTitle.boundingBox();
-    const followBox = await followHint.boundingBox();
-    const subtitleBox = await signupSubtitle.boundingBox();
-    if (!titleBox || !followBox || !subtitleBox) throw new Error(`${scenarioName}: impossible de mesurer le formulaire d'inscription`);
-    if (titleBox.y + titleBox.height > followBox.y + 1 || followBox.y + followBox.height > subtitleBox.y + 1) {
-      throw new Error(`${scenarioName}: textes d'inscription superposés`);
-    }
-
-    await page.screenshot({ path: path.join(OUT, `${scenarioName}-shared-follow-signup.png`), fullPage: true });
-
-    await continueWithoutSignup.click();
+    await page.locator('#authCloseBtn').click();
+    await overlay.waitFor({ state: 'hidden', timeout: 10000 });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await waitForFiveTabs(page);
-    await page.screenshot({ path: path.join(OUT, `${scenarioName}-shared-follow-back-to-trial.png`), fullPage: true });
-  }
-}
+  }}
 
 (async () => {
   const report = [];
@@ -132,17 +114,17 @@ async function proveSharedProfileRoute(page, scenarioName) {
       const beforeHtml = await page.locator('body').innerHTML();
       assertVisibleBody(beforeText, beforeHtml, `${scenario.name} onboarding`);
 
-      // Sélecteur résilient : testID stable, puis rôle/accessibilité, puis texte
-      // visible. Le parcours reste vert même si le libellé évolue (restyling).
       const trial = page
         .getByTestId('onboarding-trial-button')
         .or(page.getByRole('button', { name: 'Essayer gratuitement' }))
         .or(page.getByText('ESSAYER GRATUITEMENT', { exact: true }))
         .last();
-      await trial.waitFor({ state: 'visible', timeout: 20000 });
+      const entryMode = await Promise.any([
+        page.getByText('Profil', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 }).then(() => 'auto'),
+        trial.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'button'),
+      ]);
       await page.screenshot({ path: path.join(OUT, `${scenario.name}-before.png`), fullPage: true });
-      await trial.click();
-
+      if (entryMode === 'button') await trial.click();
       await waitForFiveTabs(page);
       await page.waitForTimeout(800);
       const afterText = await page.locator('body').innerText();

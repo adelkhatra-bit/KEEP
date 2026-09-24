@@ -34,11 +34,11 @@ describe('Loki runtime regression contract — mic, popups, push money sound', (
     const push = readMobile('src/services/pushNotificationService.ts');
     const worker = readRepo('supabase/functions/keep-push-worker/index.ts');
     const generator = readMobile('scripts/generate-notification-sounds.cjs');
-    expect(app).toContain('keep-money.wav');
+    expect(app).toContain('keep_money.wav');
     expect(push).toContain("setNotificationChannelAsync('money'");
-    expect(push).toContain("sound: 'keep-money.wav'");
+    expect(push).toContain("sound: 'keep_money.wav'");
     expect(worker).toContain('isMoneyNotification');
-    expect(worker).toContain('keep-money.wav');
+    expect(worker).toContain('keep_money.wav');
     expect(generator).toContain("header.write('RIFF'");
     expect(generator).toContain("header.write('WAVE'");
   });

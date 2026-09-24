@@ -317,6 +317,7 @@ jobs:
               .replace(/\/+$/, '/');
           };
           const expectedPathForRoute = route => {
+            if (route === '/') return '/KEEP/Main/Listen';
             if (route === '/superadmin/') return '/KEEP/admin-preview/';
             if (route.startsWith('/share-profile/')) return '/KEEP/share-profile/';
             return normalizePath(`/KEEP${route}`);
