@@ -58,13 +58,19 @@ platform :ios do
 
   desc "Remplit la fiche App Store (metadonnees + screenshots) SANS soumettre"
   lane :listing do
+    # La fiche publique et les captures peuvent être publiées sans créer
+    # l'objet App Review Contact. Celui-ci exige un vrai téléphone/e-mail
+    # et reste volontairement séparé jusqu'à la soumission finale.
+    listing_metadata = "/tmp/loki-appstore-metadata-listing"
+    sh("rm -rf '#{listing_metadata}' && cp -R fastlane/metadata '#{listing_metadata}' && rm -rf '#{listing_metadata}/review_information'")
     deliver(
       submit_for_review: false,
       skip_binary_upload: true,
       force: true,
-      run_precheck_before_submit: false
+      run_precheck_before_submit: false,
+      metadata_path: listing_metadata
     )
-    UI.success("Fiche App Store mise a jour. Verifie dans App Store Connect, puis lance `fastlane ios submit`.")
+    UI.success("Fiche App Store et captures mises a jour sans modifier les coordonnees App Review.")
   end
 
   desc "Remplit la fiche ET soumet le dernier build TestFlight de la v1.0.0 a la review Apple"
