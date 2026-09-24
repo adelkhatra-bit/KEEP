@@ -7,6 +7,15 @@ toute tâche, jamais de doublon, jamais PASS sans preuve réelle). Ce fichier
 source unique et ajoute uniquement ce qui est spécifique à un agent qui travaille
 dans ce dossier EN PARALLÈLE de Claude Code.
 
+## 🧭 GPS DU CODE + MÉMOIRE ANTI-RÉGRESSION
+
+Avant toute modification, lire aussi :
+- `docs/CODE_GPS.md` — carte des dossiers, propriétaires fonctionnels et flux critiques ;
+- `docs/ERROR_LEDGER.md` — erreurs connues, causes racines, statut et preuve ;
+- `docs/INTEGRATION_CHECKLIST.md` — checklist obligatoire d'intégration.
+
+Toute nouvelle erreur réelle doit être ajoutée à `docs/ERROR_LEDGER.md` avant ou dans le même commit que son correctif. **Ne jamais supprimer une erreur du registre** : la passer à `VERIFIED` uniquement avec SHA + test/preuve. Toute refonte qui rend un test obsolète doit expliquer pourquoi et conserver les assertions de sécurité/fonction qui restent vraies.
+
 ## 🧠 MÉMOIRE PARTAGÉE
 
 - **Avant toute session, lire `PROJECT_STATE.md`** (racine du repo) : tableau de bord unique (état git, fonctionnalités actives, points ouverts, APIs).
