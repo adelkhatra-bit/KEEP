@@ -12,6 +12,15 @@ type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CON
 // directement dans le navigateur d'Adel au clic : ni Claude ni aucun
 // serveur ne la voit avant qu'il clique "Enregistrer".
 const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY']); // redeploy-force 2026-09-20
+const MULTILINE_KEYS = new Set([
+  'APPLE_MUSICKIT_PRIVATE_KEY',
+  'APPLE_IAP_PRIVATE_KEY',
+  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+]);
+const WHITESPACE_ALLOWED_KEYS = new Set([
+  ...MULTILINE_KEYS,
+  'BREVO_SENDER_NAME',
+]);
 function generateRandomKey(bytes = 32): string {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
@@ -138,7 +147,7 @@ export default function Integrations() {
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
     if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
-    if (/\s/.test(value)) return setError(`${row.label} : cette valeur contient un espace -- vérifie que tu n'as pas copié un caractère en trop.`);
+    if (!WHITESPACE_ALLOWED_KEYS.has(row.key) && /\s/.test(value)) return setError(`${row.label} : cette valeur contient un espace -- vérifie que tu n'as pas copié un caractère en trop.`);
     if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return setError(`${row.label} : cette valeur ressemble à un exemple/placeholder, pas à une vraie clé. Colle la vraie valeur du fournisseur.`);
     setBusy(row.key); setError(null); setMessage(null);
     try {
@@ -351,14 +360,25 @@ export default function Integrations() {
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative', flex: '1 1 360px' }}>
-                    <input
-                      type={row.secret && !revealed[row.key] ? 'password' : 'text'}
-                      placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
-                      value={values[row.key] ?? ''}
-                      onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                      style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
-                    />
-                    {row.secret && (
+                    {MULTILINE_KEYS.has(row.key) ? (
+                      <textarea
+                        rows={6}
+                        placeholder={row.configured ? 'Nouvelle valeur complète pour remplacer…' : 'Colle la valeur complète ici…'}
+                        value={values[row.key] ?? ''}
+                        onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                        spellCheck={false}
+                        style={{ width: '100%', minHeight: 132, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
+                      />
+                    ) : (
+                      <input
+                        type={row.secret && !revealed[row.key] ? 'password' : 'text'}
+                        placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
+                        value={values[row.key] ?? ''}
+                        onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
+                      />
+                    )}
+                    {row.secret && !MULTILINE_KEYS.has(row.key) && (
                       <button
                         type="button"
                         onClick={() => setRevealed((prev) => ({ ...prev, [row.key]: !prev[row.key] }))}
