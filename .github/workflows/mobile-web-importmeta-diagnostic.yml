@@ -181,8 +181,23 @@ jobs:
 
             await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
-            // Boucle complète SUPPRIMER : Playlists -> bouton -> confirmation ->
-            // disparition -> Profil -> reload -> toujours absent.
+            // Boucle complète SUPPRIMER : créer d'abord une vraie piste via le
+            // flux utilisateur Écouter -> Garder. Le test ne dépend ainsi jamais
+            // d'une bibliothèque préexistante ou d'un fixture caché.
+            const listenBottomTab = page.getByText('Écouter', { exact: true }).last();
+            await clickRobust(listenBottomTab, 'Listen tab before delete fixture');
+            const startListen = page.getByLabel('Démarrer une écoute').last();
+            if (await startListen.isVisible().catch(() => false)) await clickRobust(startListen, 'Start listen for delete fixture');
+            const keepFixture = page.getByLabel('Garder ce morceau').last();
+            await keepFixture.waitFor({ state: 'visible', timeout: 15000 });
+            await clickRobust(keepFixture, 'Keep track for delete fixture');
+            const publicChoice = page.getByText('PUBLIC SUR MON PROFIL', { exact: true }).last();
+            await publicChoice.waitFor({ state: 'visible', timeout: 10000 });
+            await clickRobust(publicChoice, 'Keep fixture public');
+            await page.getByText('✓ Gardé', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+            const stopFixture = page.getByText(/Terminer la session|Arrêter|End session/i).last();
+            if (await stopFixture.isVisible().catch(() => false)) await clickRobust(stopFixture, 'Stop listen after delete fixture');
+
             const playlistsBottomTab = page.getByText('Playlists', { exact: true }).last();
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
             await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
