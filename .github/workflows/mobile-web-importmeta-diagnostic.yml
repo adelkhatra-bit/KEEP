@@ -181,23 +181,10 @@ jobs:
 
             await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
-            // Boucle complète SUPPRIMER : créer d'abord une vraie piste via le
-            // flux utilisateur Écouter -> Garder. Le test ne dépend ainsi jamais
-            // d'une bibliothèque préexistante ou d'un fixture caché.
-            const listenBottomTab = page.getByText('Écouter', { exact: true }).last();
-            await clickRobust(listenBottomTab, 'Listen tab before delete fixture');
-            const startListen = page.getByLabel('Démarrer une écoute').last();
-            if (await startListen.isVisible().catch(() => false)) await clickRobust(startListen, 'Start listen for delete fixture');
-            const keepFixture = page.getByLabel('Garder ce morceau').last();
-            await keepFixture.waitFor({ state: 'visible', timeout: 15000 });
-            await clickRobust(keepFixture, 'Keep track for delete fixture');
-            const publicChoice = page.getByText('PUBLIC SUR MON PROFIL', { exact: true }).last();
-            await publicChoice.waitFor({ state: 'visible', timeout: 10000 });
-            await clickRobust(publicChoice, 'Keep fixture public');
-            await page.getByText('✓ Gardé', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
-            const stopFixture = page.getByText(/Terminer la session|Arrêter|End session/i).last();
-            if (await stopFixture.isVisible().catch(() => false)) await clickRobust(stopFixture, 'Stop listen after delete fixture');
-
+            // Ce workflow vérifie le runtime global et la navigation Playlists.
+            // La boucle destructive Écouter -> Garder -> Supprimer -> Profil -> reload
+            // est couverte séparément par delete-track-e2e.yml avec son propre fixture,
+            // afin que ce smoke runtime ne dépende jamais d'un morceau préexistant.
             const playlistsBottomTab = page.getByText('Playlists', { exact: true }).last();
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
             await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
@@ -206,63 +193,7 @@ jobs:
             if (await playlistsLibraryTab.count() === 0) throw new Error('Playlists library tab not found');
             await clickRobust(playlistsLibraryTab, 'Playlists library tab');
             await page.waitForTimeout(300);
-
-            let detailsButton = page.getByLabel('Voir les détails').first();
-            if (!await detailsButton.isVisible().catch(() => false)) {
-              const discoveryFilter = page.getByLabel(/^DÉCOUVERTES · [1-9]/).first();
-              const repriseFilter = page.getByLabel(/^REPRISES · [1-9]/).first();
-              if (await discoveryFilter.isVisible().catch(() => false)) {
-                await clickRobust(discoveryFilter, 'Open discovery tracks for delete fixture');
-                await page.waitForTimeout(350);
-                detailsButton = page.getByLabel('Voir les détails').first();
-              }
-              if (!await detailsButton.isVisible().catch(() => false) && await repriseFilter.isVisible().catch(() => false)) {
-                await clickRobust(repriseFilter, 'Open reprise tracks for delete fixture');
-                await page.waitForTimeout(350);
-                detailsButton = page.getByLabel('Voir les détails').first();
-              }
-              if (!await detailsButton.isVisible().catch(() => false)) {
-                const socialToggle = page.getByLabel("Afficher ou masquer les musiques reprises d'autres utilisateurs").first();
-                if (await socialToggle.isVisible().catch(() => false)) {
-                  await clickRobust(socialToggle, 'Expand social reprises for delete fixture');
-                  await page.waitForTimeout(350);
-                  detailsButton = page.getByLabel('Voir les détails').first();
-                }
-              }
-            }
-            await detailsButton.waitFor({ state: 'visible', timeout: 15000 });
-            await clickRobust(detailsButton, 'Open first track details');
-
-            const deleteButtons = page.getByLabel('Supprimer ce morceau de Loki Music');
-            await deleteButtons.first().waitFor({ state: 'visible', timeout: 15000 });
-
-            const beforeDeleteCount = await deleteButtons.count();
-            if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
-            const deleteButton = deleteButtons.first();
-            const trackBody = deleteButton.locator('xpath=../..');
-            const trackBodyText = (await trackBody.innerText()).trim();
-            const deletedTitle = trackBodyText.split('\n').map(v => v.trim()).find(Boolean) || '';
-            if (!deletedTitle) throw new Error('Unable to identify track title before delete');
-
-            await deleteButton.click();
-            await page.waitForTimeout(800);
-            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de Loki Music').count();
-            if (afterDeleteCount !== beforeDeleteCount - 1) throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
-
-            await clickRobust(page.getByText('Profil', { exact: true }).last(), 'Profile tab after delete');
-            await page.waitForTimeout(500);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
-
-            await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
-            await page.waitForTimeout(900);
-            const profileAfterReload = page.getByText('Profil', { exact: true }).last();
-            if (await profileAfterReload.count() === 0) throw new Error('Profile tab missing after reload');
-            await clickRobust(profileAfterReload, 'Profile tab after reload');
-            await page.waitForTimeout(400);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track returned after full reload: ${deletedTitle}`);
-
-            await page.screenshot({ path: 'artifacts/real-browser/keep-delete-loop-390x844.png', fullPage: true });
+            await page.screenshot({ path: 'artifacts/real-browser/keep-playlists-390x844.png', fullPage: true });
 
             const report = [
               `URL: ${page.url()}`,
@@ -272,8 +203,8 @@ jobs:
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
               'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
-              `DELETE_TRACK: ${deletedTitle}`,
-              'DELETE_PLAYLIST_TO_PROFILE_TO_RELOAD: PASS',
+              'PLAYLISTS_TAB_RUNTIME: PASS',
+              'DELETE_E2E: delegated to KEEP — Suppression morceau E2E 390x844',
               `ERROR_COUNT: ${errors.length}`,
               `HTTP_FAILURE_COUNT: ${httpFailures.length}`,
               '',
