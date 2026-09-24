@@ -4,7 +4,7 @@ import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { checkOwnKeepLibrary, filterSocialSwipeAgainstOwnKeep } from '../services/connectedMusicLibrary';
+import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
 
