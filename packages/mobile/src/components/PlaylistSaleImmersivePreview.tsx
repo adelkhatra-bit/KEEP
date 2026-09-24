@@ -22,9 +22,9 @@ import { playAntiShazamPreviewSegment, stopAntiShazamPreview } from '../services
  * que l'achat n'est pas confirmé.
  */
 const MARKETING_LINES = [
-  'Écoute les extraits avant de choisir.',
-  'Cette collection a été préparée par ce profil Loki Music.',
-  'Débloque la sélection pour découvrir tous ses morceaux.',
+  'Teste le goût musical de ce profil sans révéler sa sélection.',
+  'Une collection privée, curatée morceau par morceau.',
+  'Débloque seulement si les extraits te donnent envie d’aller plus loin.',
 ];
 
 const EXPLAINER_LINES = [
@@ -151,9 +151,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
         <View style={s.card}>
           <TouchableOpacity style={s.closeBtn} onPress={onClose} accessibilityLabel="Fermer l'aperçu"><Text style={s.closeBtnText}>✕</Text></TouchableOpacity>
 
-          <Text style={s.eyebrow}>DÉCOUVERTE À DÉBLOQUER</Text>
+          <Text style={s.eyebrow}>COLLECTION EXCLUSIVE · CONTENU SECRET</Text>
           <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
-          <Text style={s.meta}>{trackCountLabel} titre{trackCountLabel > 1 ? 's' : ''} · masqués jusqu'à l'achat</Text>
+          <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · titres, artistes et pochettes masqués</Text>
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>PRIX TOTAL</Text><Text style={s.totalPriceValue}>{(offer.priceCents / 100).toFixed(2).replace('.', ',')}{offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}</Text></View>
 
           <Text style={s.marketing}>{MARKETING_LINES[marketingIndex]}</Text>
@@ -208,7 +208,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           <TouchableOpacity style={s.waiverRow} onPress={() => setWaiverAccepted((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: waiverAccepted }} accessibilityLabel="Renonciation au droit de rétractation">
             <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
-            <Text style={s.waiverText}>Je reconnais que l'accès à cette découverte musicale est fourni immédiatement après paiement et je renonce expressément à mon droit de rétractation de 14 jours.</Text>
+            <Text style={s.waiverText}>Je demande l’accès numérique dès confirmation du paiement par le vendeur et je reconnais que le contenu pourra alors être débloqué dans mon Loki Music.</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -219,7 +219,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           >
             <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
           </TouchableOpacity>
-          <Text style={s.noRefund}>Accès numérique immédiat : aucun remboursement possible une fois la renonciation validée.</Text>
+          <Text style={s.noRefund}>Le déblocage intervient après confirmation du paiement par le vendeur. Les conditions applicables restent celles affichées avant validation.</Text>
         </View>
       </View>
     </Modal>
