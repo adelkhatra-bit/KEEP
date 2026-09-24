@@ -114,8 +114,14 @@ jobs:
               }
             }
             await edit.waitFor({state:'visible',timeout:15000});
-            await clickRobust(page,edit,'Edit profile');
-            await page.getByPlaceholder('tonpseudo').last().waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,edit,'Edit profile menu item');
+            const usernameField=page.getByPlaceholder('tonpseudo').last();
+            if (!await usernameField.isVisible().catch(()=>false)) {
+              const openSettings=page.getByText('OUVRIR LES RÉGLAGES',{exact:true}).last();
+              await openSettings.waitFor({state:'visible',timeout:15000});
+              await clickRobust(page,openSettings,'Open profile settings');
+            }
+            await usernameField.waitFor({state:'visible',timeout:15000});
           }
 
           async function assertProfileForm(page) {
