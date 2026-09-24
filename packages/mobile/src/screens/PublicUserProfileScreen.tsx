@@ -867,7 +867,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         {marketplaceEnabled && saleOffers.length > 0 ? (
           <TouchableOpacity
             style={styles.saleShowcaseCompact}
-            onPress={() => openSaleFolder(saleOffers[0])}
+            onPress={() => setActiveTab('TRACKS')}
             accessibilityRole="button"
             accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} à débloquer, ouvrir un aperçu`}
           >
@@ -968,7 +968,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         {activeTab === 'TRACKS' ? (
           <View style={styles.publicMusicSection}>
-            <Text style={styles.styleIntro}>Choisis un style et écoute directement l’univers de @${profile.username}. Les collections payantes restent masquées jusqu’au déblocage.</Text>
+            <Text style={styles.styleIntro}>Choisis un style et écoute directement l’univers de @{profile.username}. Les collections payantes restent masquées jusqu’au déblocage.</Text>
             <View style={styles.styleGrid}>
               {(visiblePublicVibes.length > 0 ? visiblePublicVibes : []).map((vibe) => (
                 <TouchableOpacity key={`vibe:${vibe.id}`} style={styles.styleTile} onPress={() => openPublicVibe(vibe)} accessibilityLabel={`Écouter le style ${vibe.name}, ${vibe.trackCount} morceaux`}>
@@ -1118,26 +1118,26 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 Titre, artiste et jaquette réels restent masqués (modèle
                 Anti-Shazam) — libellés génériques ici. Le clic ouvre l'aperçu
                 immersif (waveform + « Débloquer »). Attaché à la première offre
-                active du profil ; l'achat porte sur toute la sélection. */}
+                active du profil ; chaque dossier détaillé est maintenant relié à sa vraie offre. */}
             {marketplaceEnabled && lockedSaleTracks.length > 0 && saleOffers.length > 0 ? (
               <View style={styles.lockedTracksBlock}>
                 <Text style={styles.lockedTracksHeader}>🔒 À débloquer</Text>
                 {/* Mission C (23/09/2026) : dossiers par genre. Chaque dossier
                     porte le cadenas 🔒, un badge EN VENTE et le prix ; on le
                     déplie pour voir les LockedTrackRow (titre/artiste/jaquette
-                    masqués). Le clic (dossier ou ligne) ouvre l'aperçu immersif
-                    de la première offre active — l'achat porte sur toute la
-                    sélection. */}
+                    masqués). Chaque dossier est relié à l'offre qui contient réellement
+                    ses morceaux ; aucun prix n'est pris depuis une offre globale. */}
                 <View style={styles.folderGrid}>
                   {lockedGenreFolders.map((folder) => {
                     const offer = folder.offer;
-                    const open = expandedLockedGenre === folder.genre;
+                    const folderKey = `${folder.offer.offerId}:${folder.genre}`;
+                    const open = expandedLockedGenre === folderKey;
                     const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
                     return (
                       <View key={`locked-genre:${folder.offer.offerId}:${folder.genre}`}>
                         <TouchableOpacity
                           style={[styles.folderCard, styles.folderCardSale]}
-                          onPress={() => setExpandedLockedGenre(open ? null : folder.genre)}
+                          onPress={() => setExpandedLockedGenre(open ? null : folderKey)}
                           accessibilityRole="button"
                           accessibilityState={{ expanded: open }}
                           accessibilityLabel={`Dossier ${folder.genre} en vente, ${folder.tracks.length} morceau${folder.tracks.length > 1 ? 'x' : ''}, ${priceLabel}`}
