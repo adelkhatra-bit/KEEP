@@ -1146,6 +1146,50 @@ export default function ProfilePublicScreen({ navigation }: any) {
           progression Creator Pro, 12) Battle & présence, 13) Loki DNA, 14)
           liens & réseaux. Zéro suppression : chaque bloc ci-dessous existait
           déjà plus haut dans l'écran, seul l'ordre d'affichage change. */}
+      {/* Monétisation + Battle restent visibles immédiatement sous le hero :
+          pas besoin de traverser toute la collection pour trouver ces actions. */}
+      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
+        <View style={s.ownOffersStatus}>
+          <Text style={s.ownOffersStatusText}>
+            🏷️ {playlistSaleOffers.length} découverte{playlistSaleOffers.length > 1 ? 's' : ''} musicale{playlistSaleOffers.length > 1 ? 's' : ''} en vente
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes découvertes en vente">
+            <Text style={s.ownOffersManageLink}>Gérer</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {battleFeatureEnabled && !accountRequired ? (
+        <View style={s.sectionMargin}>
+          <View style={[s.battleAvailabilityRow, battleAvailable && s.battleAvailabilityRowOn]}>
+            <TouchableOpacity
+              style={s.battleAvailabilityMain}
+              disabled={battleAvailabilityBusy}
+              onPress={() => { void setBattleAvailable(!battleAvailable); }}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: battleAvailable }}
+              accessibilityLabel="Disponible pour un Battle"
+            >
+              <PresenceDot online={battleAvailable} />
+              <Text style={s.battleAvailabilityTitle}>{battleAvailable ? 'Disponible' : 'Indisponible'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={() => setBattleAvailabilityInfoOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="Comment marche la disponibilité Battle">
+              <Text style={s.battleAvailabilityInfoIcon}>ⓘ</Text>
+            </TouchableOpacity>
+          </View>
+          {battleAvailabilityInfoOpen ? (
+            <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki Music, sans jouer en solo. Pour lancer un défi : Soirées → Loki Music BATTLE.</Text>
+          ) : null}
+          {/* DESIGN_SYSTEM v3 (21/09/2026) : victoires/rang/partie en cours --
+              lus depuis Supabase (keep_battle_my_stats, keep_battle_global_
+              leaderboard, arène active) ; rien ne s'affiche tant que ces
+              appels n'ont pas répondu, jamais un chiffre par défaut inventé. */}
+          {battleStats ? (
+            <Text style={s.battlePresenceLine}>🏆 {battleStats.wins} victoire{battleStats.wins > 1 ? 's' : ''}{battleInProgress ? ' · ⚡ Partie en cours' : ''} · {battleRank ? `Rang #${battleRank}` : 'Non classé'}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={s.collectionHeader}>
         <Text style={s.collectionTitle}>Mes styles</Text>
         <Text style={s.collectionCount}>{profileTotalKeepCount} {profileTotalKeepCount > 1 ? 'morceaux' : 'morceau'}</Text>
@@ -1167,17 +1211,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           Un vendeur ne doit jamais voir un CTA d'achat sur sa propre offre ;
           la gestion (modifier/retirer) vit déjà dans le menu "Vendre mes
           playlists" (PlaylistSalePanel). Remplacé par un simple statut. */}
-      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
-        <View style={s.ownOffersStatus}>
-          <Text style={s.ownOffersStatusText}>
-            🏷️ {playlistSaleOffers.length} découverte{playlistSaleOffers.length > 1 ? 's' : ''} musicale{playlistSaleOffers.length > 1 ? 's' : ''} en vente
-          </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes découvertes en vente">
-            <Text style={s.ownOffersManageLink}>Gérer</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       <View style={s.communitySection}>
         {/* Adel (09/09/2026) : "abonnement on devrait le descendre a la
             place du bouton reprise et reprise le remonter a la place de
@@ -1232,37 +1265,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           un tout petit peu plus petit ... mettre un petit bouton info pour
           comprendre" -- ligne compacte (juste Disponible/Indisponible),
           l'explication ne s'affiche plus que sur demande via le ⓘ. */}
-      {battleFeatureEnabled && !accountRequired ? (
-        <View style={s.sectionMargin}>
-          <View style={[s.battleAvailabilityRow, battleAvailable && s.battleAvailabilityRowOn]}>
-            <TouchableOpacity
-              style={s.battleAvailabilityMain}
-              disabled={battleAvailabilityBusy}
-              onPress={() => { void setBattleAvailable(!battleAvailable); }}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: battleAvailable }}
-              accessibilityLabel="Disponible pour un Battle"
-            >
-              <PresenceDot online={battleAvailable} />
-              <Text style={s.battleAvailabilityTitle}>{battleAvailable ? 'Disponible' : 'Indisponible'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity hitSlop={8} onPress={() => setBattleAvailabilityInfoOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="Comment marche la disponibilité Battle">
-              <Text style={s.battleAvailabilityInfoIcon}>ⓘ</Text>
-            </TouchableOpacity>
-          </View>
-          {battleAvailabilityInfoOpen ? (
-            <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki Music, sans jouer en solo. Pour lancer un défi : Soirées → Loki Music BATTLE.</Text>
-          ) : null}
-          {/* DESIGN_SYSTEM v3 (21/09/2026) : victoires/rang/partie en cours --
-              lus depuis Supabase (keep_battle_my_stats, keep_battle_global_
-              leaderboard, arène active) ; rien ne s'affiche tant que ces
-              appels n'ont pas répondu, jamais un chiffre par défaut inventé. */}
-          {battleStats ? (
-            <Text style={s.battlePresenceLine}>🏆 {battleStats.wins} victoire{battleStats.wins > 1 ? 's' : ''}{battleInProgress ? ' · ⚡ Partie en cours' : ''} · {battleRank ? `Rang #${battleRank}` : 'Non classé'}</Text>
-          ) : null}
-        </View>
-      ) : null}
-
       {dnaFeatureEnabled && (
         <View style={s.dna}>
           <View style={s.dnaHeader}><View><Text style={s.dnaEyebrow}>Loki Music DNA</Text><Text style={s.dnaTitle}>Ton empreinte musicale</Text></View><Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text></View>
@@ -1498,7 +1500,7 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',gap:8,marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:'rgba(45,225,194,.12)',borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900'},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:colors.textPrimary,fontSize:13,lineHeight:18,marginTop:3},
+  hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',gap:8,marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900'},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:colors.textPrimary,fontSize:13,lineHeight:18,marginTop:3},
   sectionMargin:{marginHorizontal:18,marginTop:10},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},genreGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:8},genreTile:{width:'48%',minHeight:56,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreTileText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreTileCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},muted:{color:colors.textPrimary,fontSize:13,lineHeight:18},
