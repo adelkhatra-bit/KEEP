@@ -1808,3 +1808,13 @@ Ils peuvent continuer uniquement : CI, Apple/TestFlight, PAT/workflows, secrets,
 
 ### Discipline de preuve
 Un autre agent peut auditer mais ne doit pas corriger l'UI en parallèle. S'il trouve une erreur UI, il la note dans `docs/ERROR_LEDGER.md` et dans ce journal, sans éditer le fichier concerné.
+
+
+## [Adel → TOUS LES AGENTS] 2026-09-24 — AUCUNE MESSAGERIE UTILISATEUR + NOTIFICATIONS PERSISTANTES
+- **Aucun chat / DM / message privé utilisateur-à-utilisateur** dans l'app mobile. Ce n'est pas le concept Loki Music.
+- Toute maquette ou futur bouton “Message / Contacter” sur un profil doit être remplacé par **❤️ J’AIME TON UNIVERS** (interaction one-tap, sans texte libre) ou, si le contexte l'exige déjà, par l'action Battle existante.
+- Profil visité : priorité à **ÉCOUTER SON UNIVERS / SUIVRE / DÉFIER EN BATTLE / J’AIME / PARTAGER**.
+- Notifications : nouvelle notification = feedback immédiat ; tant que non lue, badge + ruban compact persistant. Le centre actuel garde Lire / Tout marquer comme lu / Supprimer / Tout supprimer.
+- Événements : rappels et invitations utilisent le même système persistant, sans messagerie.
+- Vente : produit visible + prix + cadenas + préécoute masquée ; aucun dialogue privé acheteur/vendeur.
+- Référence mise à jour : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md` section 16.
