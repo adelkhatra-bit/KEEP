@@ -8,11 +8,11 @@ const source = fs
 
 describe('ProfilePublicScreen — owner actions stay together in the hero', () => {
   it('keeps preview, invite/share, sales and Battle controls before the collection', () => {
-    const preview = source.indexOf('▶ PRÉVISUALISER MON UNIVERS');
-    const invite = source.indexOf('↗ INVITER / PARTAGER');
-    const sales = source.indexOf("playlistSaleOffers.length > 0 ? '💰 GÉRER MES VENTES' : '💰 VENDRE'");
+    const preview = source.indexOf('title="PRÉVISUALISER MON UNIVERS"');
+    const invite = source.indexOf('title="INVITER / PARTAGER"');
+    const sales = source.indexOf("title={playlistSaleOffers.length > 0 ? 'GÉRER MES VENTES' : 'VENDRE'}");
     const battle = source.indexOf('⚡ BATTLE · {battleAvailable');
-    const solo = source.indexOf('⚡ JOUER EN SOLO');
+    const solo = source.indexOf('title="JOUER EN SOLO"');
     const collection = source.indexOf('<View style={s.collectionHeader}>');
 
     expect(preview).toBeGreaterThanOrEqual(0);
@@ -24,12 +24,19 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   });
 
   it('keeps offer status and Battle help local to their controls', () => {
-    expect(source).toContain("{playlistSaleOffers.length} offre{playlistSaleOffers.length > 1 ? 's' : ''} active");
+    expect(source).toContain("`${playlistSaleOffers.length} offre${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}`");
     expect(source).toContain("Les autres peuvent t’inviter maintenant.");
     expect(source).toContain("Active pour recevoir des défis.");
     expect(source).toContain("utilise JOUER EN SOLO ici ou visite le profil d’un joueur disponible");
     expect(source).toContain("navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })");
     expect(source).toContain('accessibilityLabel="Jouer un Battle solo"');
+  });
+
+  it('uses animated premium actions for preview, sharing, sales and solo Battle', () => {
+    expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
+    expect(source.match(/<MotionActionButton/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(source).toContain('tone="battle"');
+    expect(source).toContain('tone="success"');
   });
 
   it('does not reintroduce the old duplicate sales status block below the hero', () => {
