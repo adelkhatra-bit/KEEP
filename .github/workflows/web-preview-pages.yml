@@ -319,8 +319,8 @@ jobs:
           };
           const expectedPathForRoute = route => {
             if (route === '/' || route === '/Main/') return '/KEEP/Main/Listen';
-            if (route === '/superadmin/') return '/KEEP/admin-preview/';
-            if (route.startsWith('/share-profile/')) return '/KEEP/share-profile/';
+            if (route === '/superadmin/') return '/KEEP/admin-preview';
+            if (route.startsWith('/share-profile/')) return '/KEEP/share-profile';
             return normalizePath(`/KEEP${route}`);
           };
           const assertRoutePreserved = (currentUrl, route, label) => {
