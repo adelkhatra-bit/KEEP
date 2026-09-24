@@ -1413,6 +1413,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         title={folderSwipeTracks.length ? folderSwipeTitle : browseFilter ? `${profile.username} · ${browseFilter.label}` : `La collection de ${profile.username}`}
         sourceUsername={profile.username}
         sourceAvatarUrl={profile.avatar}
+        sourceProfileId={profile.id}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         requiresAccount={!viewer || isLocalGuest}
