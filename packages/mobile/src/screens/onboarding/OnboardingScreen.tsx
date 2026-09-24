@@ -232,9 +232,14 @@ export default function OnboardingScreen() {
           </>}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.accountGhostButton} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
-          <Text style={styles.accountGhostText}>Se connecter / Créer mon compte</Text>
-        </TouchableOpacity>
+        <View style={styles.accountChoiceRow}>
+          <TouchableOpacity style={styles.accountGhostButton} onPress={() => { setAccountMode('login'); setAccountOpen(true); }} disabled={busy} accessibilityRole="button" accessibilityLabel="J’ai déjà un compte">
+            <Text style={styles.accountGhostText}>J’AI DÉJÀ UN COMPTE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.accountCreateLink} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy} accessibilityRole="button" accessibilityLabel="Créer mon compte">
+            <Text style={styles.accountCreateText}>Créer mon compte</Text>
+          </TouchableOpacity>
+        </View>
 
         {showDemo ? (
           <TouchableOpacity style={styles.demoButton} onPress={() => enterDemoMode()} accessibilityRole="button" accessibilityLabel="Entrer en mode démo" testID="onboarding-demo-button">
@@ -264,8 +269,11 @@ const styles = StyleSheet.create({
   // Maquette validée (22/09/2026, architecture B) : un seul CTA dominant sur
   // l'écran d'accueil -- Essayer gratuitement reste le bouton plein, celui-ci
   // devient un lien discret sans fond ni bordure.
-  accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center'},
-  accountGhostText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
+  accountChoiceRow:{alignItems:'center',justifyContent:'center',gap:2},
+  accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
+  accountGhostText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},
+  accountCreateLink:{minHeight:36,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
+  accountCreateText:{color:colors.textMuted,fontSize:12,fontWeight:'700',textDecorationLine:'underline'},
   accountScroll:{flex:1},
   accountScrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl,paddingVertical:spacing.xl},
   accountCard:{width:'100%',maxWidth:520,alignSelf:'center',gap:spacing.sm},
