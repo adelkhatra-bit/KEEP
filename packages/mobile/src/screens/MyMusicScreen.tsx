@@ -192,7 +192,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   useEffect(() => {
     const offerId = String(route?.params?.manageSaleOfferId || '').trim();
     if (!offerId) return;
-    const playlistName = String(route?.params?.manageSaleOfferName || 'Offre en vente').trim() || 'Offre en vente';
+    const playlistName = String(route?.params?.manageSaleOfferName || 'Collection publiée').trim() || 'Collection publiée';
     setActiveTab('MUSIQUES');
     setOriginFilter('LISTEN');
     setSelectedSaleTrackIds(new Set());
@@ -898,12 +898,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
         {saleSelectionMode && localEntry ? <TouchableOpacity
           style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled, notOwnDiscovery && styles.selectionCheckLocked]}
           onPress={() => notOwnDiscovery
-            ? Alert.alert('Non éligible', `"${track.title}" ne peut pas rejoindre une collection exclusive : elle vient d'un autre utilisateur. Il doit l'avoir gardée depuis sa propre écoute pour pouvoir la vendre.`)
+            ? Alert.alert('Non éligible', `« ${track.title} » ne peut pas rejoindre cette collection : elle vient d’un autre utilisateur. Seul son découvreur d’origine peut l’intégrer à une collection exclusive.`)
             : toggleSaleTrack(track.id)}
           disabled={Boolean(offered)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered || notOwnDiscovery) }}
-          accessibilityLabel={notOwnDiscovery ? `${track.title} pas à vendre, appartient à un autre utilisateur` : offered ? `${track.title} déjà en vente, modifie l'offre existante pour la changer` : `Sélectionner ${track.title}`}
+          accessibilityLabel={notOwnDiscovery ? `${track.title} non éligible à une collection exclusive, découverte par un autre utilisateur` : offered ? `${track.title} déjà dans une collection publiée, ouvre cette collection pour la modifier` : `Sélectionner ${track.title}`}
         ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
         <View style={styles.trackRowGrid}>
           <TrackActionRow
@@ -1363,7 +1363,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <View style={styles.modalBackdrop}><View style={styles.editCard}>
           <Text style={styles.editTitle}>🎉 Découverte débloquée</Text>
           <Text style={styles.editHint}>
-            {pendingVisibilityChoice ? `${pendingVisibilityChoice.trackCount} titre${pendingVisibilityChoice.trackCount > 1 ? 's' : ''} de la sélection de ${pendingVisibilityChoice.sellerUsername ? `@${pendingVisibilityChoice.sellerUsername}` : 'ce vendeur'} ${pendingVisibilityChoice.trackCount > 1 ? 'ont rejoint' : 'a rejoint'} ton Loki Music, avec le badge « 🥇 1er Gardé ». Veux-tu rendre cette playlist publique sur ton profil, ou la garder masquée pour toi ?` : ''}
+            {pendingVisibilityChoice ? `${pendingVisibilityChoice.trackCount} titre${pendingVisibilityChoice.trackCount > 1 ? 's' : ''} de la sélection de ${pendingVisibilityChoice.sellerUsername ? `@${pendingVisibilityChoice.sellerUsername}` : 'ce profil'} ${pendingVisibilityChoice.trackCount > 1 ? 'ont rejoint' : 'a rejoint'} ton Loki Music, avec le badge « 🥇 1er Gardé ». Veux-tu rendre cette playlist publique sur ton profil, ou la garder masquée pour toi ?` : ''}
           </Text>
           <TouchableOpacity
             style={styles.saveButton}
