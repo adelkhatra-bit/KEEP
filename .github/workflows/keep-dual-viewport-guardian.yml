@@ -138,10 +138,17 @@ jobs:
           }
 
           async function openPublicProfileSettings(page) {
-            await page.getByText('Profil',{exact:true}).last().click();
+            // Depuis Réglages du profil, l'onglet bas "Profil" existe encore
+            // dans le DOM mais il est caché derrière l'écran courant. Revenir
+            // par le vrai bouton de navigation évite de cliquer un doublon
+            // invisible.
+            const backToProfile=page.getByLabel('Retour au profil').last();
+            if (await backToProfile.isVisible().catch(()=>false)) {
+              await clickRobust(page,backToProfile,'Back to profile before public settings');
+            }
             const menu=page.getByLabel('Menu du profil').last();
             await menu.waitFor({state:'visible',timeout:15000});
-            await menu.click();
+            await clickRobust(page,menu,'Open profile menu for public settings');
             const entry=page.getByText('🌐 Profil public, réseaux & site web',{exact:true}).last();
             await entry.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,entry,'Public profile settings');
