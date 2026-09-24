@@ -142,7 +142,7 @@ jobs:
 
             await t('Profil',{exact:true}).click();
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
-            await t('PARTAGER',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Inviter ou partager mon profil').last().waitFor({state:'visible',timeout:15000});
             if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
             await page.getByLabel('Notifications').last().waitFor({state:'visible',timeout:15000});
             await shot('07-profile');
