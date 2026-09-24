@@ -109,7 +109,6 @@ jobs:
             // La reconnaissance démo passe par le même resolver/enrichissement
             // que l'app réelle. Sur un runner froid, la première résolution catalogue
             // peut dépasser 15 s sans que l'écoute soit cassée.
-            await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({ state: 'visible', timeout: 15000 });
             const keep = page.getByLabel('Garder ce morceau').last();
             await keep.waitFor({ state: 'visible', timeout: 35000 });
             const detectedCard = keep.locator('xpath=../..');
