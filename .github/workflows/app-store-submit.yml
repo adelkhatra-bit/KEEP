@@ -38,7 +38,7 @@ jobs:
       ASC_APP_VERSION: '1.0.0'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Resolve lane
         id: lane
@@ -69,7 +69,7 @@ jobs:
           [ "$missing" = "0" ]
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1
         with:
           ruby-version: '3.2'
           bundler-cache: false
