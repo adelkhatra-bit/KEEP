@@ -8,7 +8,13 @@ alter table public.playlist_sale_offers
 alter table public.playlist_sale_payments
   add column if not exists amount_free integer not null default 0;
 
-do $$
+-- Les anciennes contraintes supposaient qu'une offre était toujours payée en
+-- argent. Elles bloqueraient toute collection FREE (price_cents = 0).
+alter table public.playlist_sale_offers
+  drop constraint if exists playlist_sale_offers_price_cents_check,
+  drop constraint if exists playlist_sale_offers_price_preset;
+
+do $
 begin
   if not exists (
     select 1 from pg_constraint
@@ -28,9 +34,13 @@ begin
     alter table public.playlist_sale_offers
       add constraint playlist_sale_offers_free_price_check
       check (
-        (payment_mode='MONEY' and free_price is null and price_cents >= 0)
+        (payment_mode='MONEY'
+          and free_price is null
+          and price_cents in (50,100,200,300,500,1000))
         or
-        (payment_mode='FREE' and free_price between 1 and 500 and price_cents = 0)
+        (payment_mode='FREE'
+          and free_price between 1 and 500
+          and price_cents = 0)
       );
   end if;
 
@@ -212,6 +222,10 @@ begin
     raise exception 'TRACK_SELECTION_NOT_OWNED';
   end if;
 
+  if cardinality(clean_ids) < 2 then
+    raise exception 'COLLECTION_MIN_TWO_TRACKS';
+  end if;
+
   insert into public.playlist_sale_offers(
     id,seller_id,playlist_id,playlist_name,price_cents,currency_code,cover_url,payment_mode,free_price
   )
@@ -260,6 +274,7 @@ begin
   );
 end;
 $function$;
+revoke all on function public.keep_playlist_sale_set_offer_for_selection_v3(uuid[],text,text,integer,integer,text,text) from public, anon;
 grant execute on function public.keep_playlist_sale_set_offer_for_selection_v3(uuid[],text,text,integer,integer,text,text) to authenticated;
 
 drop function if exists public.keep_playlist_sale_offers_for_profile(uuid);
@@ -345,6 +360,7 @@ as $function$
   where o.seller_id=auth.uid()
   order by o.updated_at desc;
 $function$;
+revoke all on function public.keep_playlist_sale_my_offers() from public, anon;
 grant execute on function public.keep_playlist_sale_my_offers() to authenticated;
 
 create or replace function public.keep_playlist_sale_update_payment_mode(
@@ -399,7 +415,60 @@ begin
   );
 end;
 $function$;
+revoke all on function public.keep_playlist_sale_update_payment_mode(uuid,text,integer,integer) from public, anon;
 grant execute on function public.keep_playlist_sale_update_payment_mode(uuid,text,integer,integer) to authenticated;
+
+-- Une collection exclusive ne doit jamais se transformer en produit mono-morceau.
+create or replace function public.keep_playlist_sale_remove_track(p_offer_id uuid, p_track_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public', 'auth'
+as $function$
+declare
+  uid uuid := auth.uid();
+  v_offer public.playlist_sale_offers%rowtype;
+  v_remaining integer;
+  v_closed boolean := false;
+begin
+  if uid is null then raise exception 'authentication_required'; end if;
+
+  select * into v_offer
+  from public.playlist_sale_offers
+  where id = p_offer_id and seller_id = uid
+  for update;
+
+  if v_offer.id is null then raise exception 'OFFER_NOT_FOUND_OR_NOT_YOURS'; end if;
+
+  delete from public.playlist_sale_offer_tracks
+  where offer_id = p_offer_id and track_id = p_track_id;
+
+  if not found then raise exception 'TRACK_NOT_IN_OFFER'; end if;
+
+  select count(*) into v_remaining
+  from public.playlist_sale_offer_tracks
+  where offer_id = p_offer_id;
+
+  if v_remaining < 2 then
+    update public.playlist_sale_offers
+    set is_active = false, updated_at = now()
+    where id = p_offer_id;
+    v_closed := true;
+  else
+    update public.playlist_sale_offers
+    set updated_at = now()
+    where id = p_offer_id;
+  end if;
+
+  return jsonb_build_object(
+    'offerId', p_offer_id,
+    'trackCount', v_remaining,
+    'offerClosed', v_closed
+  );
+end;
+$function$;
+revoke all on function public.keep_playlist_sale_remove_track(uuid,uuid) from public, anon;
+grant execute on function public.keep_playlist_sale_remove_track(uuid,uuid) to authenticated;
 
 -- Livraison partagée, sans décision de paiement : appelée uniquement par les wrappers autorisés.
 create or replace function public.keep_playlist_sale_deliver_payment_core(p_payment_id uuid)
@@ -611,4 +680,5 @@ begin
   );
 end;
 $function$;
+revoke all on function public.keep_playlist_sale_purchase_with_free(uuid) from public, anon;
 grant execute on function public.keep_playlist_sale_purchase_with_free(uuid) to authenticated;
