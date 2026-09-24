@@ -3,16 +3,17 @@
 -- sans atomicité → deux threads peuvent insérer deux fois la même commande
 -- Solution : Ajouter UNIQUE constraint partielle + convertir à UPSERT
 
--- Pour artist_track_orders : empêcher doublon (track, buyer) dans PENDING/COMPLETED
-alter table public.artist_track_orders
-add constraint unique_artist_track_pending_completed
-unique (track_id, buyer_id)
+-- Pour artist_track_orders : empêcher doublon (track, buyer) dans PENDING/COMPLETED.
+-- Une contrainte UNIQUE ne peut pas porter de prédicat WHERE en PostgreSQL :
+-- la primitive correcte est un index unique partiel, également compatible
+-- avec ON CONFLICT (... ) WHERE ... ci-dessous.
+create unique index if not exists unique_artist_track_pending_completed
+on public.artist_track_orders(track_id, buyer_id)
 where status in ('PENDING', 'COMPLETED');
 
--- Pour playlist_sale_payments : empêcher doublon (offer, buyer) dans PENDING/COMPLETED
-alter table public.playlist_sale_payments
-add constraint unique_playlist_pending_completed
-unique (offer_id, buyer_id)
+-- Pour playlist_sale_payments : même règle atomique, sous forme d'index partiel.
+create unique index if not exists unique_playlist_pending_completed
+on public.playlist_sale_payments(offer_id, buyer_id)
 where status in ('PENDING', 'COMPLETED');
 
 -- Mise à jour : keep_artist_track_request_purchase
