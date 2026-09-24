@@ -448,7 +448,21 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     return map;
   }, [swipeTracks]);
-  const freeStyleCardCount = visiblePublicVibes.length > 0 ? visiblePublicVibes.length : genreOptions.length;
+  const genreAlreadyOwnedCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const track of swipeTracks) {
+      if (!viewerKeepTrackIds.has(track.id)) continue;
+      for (const rawGenre of track.genres ?? []) {
+        const genre = rawGenre.trim();
+        if (genre) counts[genre] = (counts[genre] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [swipeTracks, viewerKeepTrackIds]);
+  // Priorité visuelle aux vrais styles calculés depuis les morceaux publics :
+  // ils permettent d'afficher le nombre exact déjà présent chez le visiteur.
+  // Les Vibes restent le fallback quand aucun genre exploitable n'est connu.
+  const freeStyleCardCount = genreOptions.length > 0 ? genreOptions.length : visiblePublicVibes.length;
   const visibleSaleCardCount = marketplaceEnabled ? saleOffers.length : 0;
   const totalStyleCardCount = freeStyleCardCount + visibleSaleCardCount;
   // Mission C (23/09/2026, maquette ProfileGenreFolders.html section B) : les
@@ -912,6 +926,22 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
           </View>
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+          {saleOffers.length > 0 && viewer?.id !== profile.id ? (
+            <TouchableOpacity
+              style={styles.sellerSignal}
+              onPress={() => openSaleFolder(saleOffers[0])}
+              accessibilityRole="button"
+              accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} en vente sur ce profil`}
+            >
+              <View style={styles.sellerSignalIcon}><Text style={styles.sellerSignalIconText}>◆</Text></View>
+              <View style={styles.sellerSignalCopy}>
+                <Text style={styles.sellerSignalKicker}>BOUTIQUE MUSICALE ACTIVE</Text>
+                <Text style={styles.sellerSignalTitle}>{saleOffers.length} collection{saleOffers.length > 1 ? 's' : ''} exclusive{saleOffers.length > 1 ? 's' : ''} à débloquer</Text>
+                <Text style={styles.sellerSignalMeta}>Extraits anonymes · vrais titres masqués avant déblocage</Text>
+              </View>
+              <Text style={styles.sellerSignalArrow}>›</Text>
+            </TouchableOpacity>
+          ) : null}
           {/* Adel (21/09/2026) : "il faut un bouton SWIPE principal, visible,
               en haut de la collection ... aussi visible que le bouton SWIPE
               du profil personnel." Le bouton existait déjà (openBrowseSwipe,
@@ -1073,7 +1103,23 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>
             <Text style={styles.styleIntro}>Choisis un style et écoute directement l’univers de @{profile.username}. Les collections payantes restent masquées jusqu’au déblocage.</Text>
             <View style={styles.styleGrid}>
-              {visiblePublicVibes.length > 0 ? visiblePublicVibes.map((vibe, index) => {
+              {genreOptions.length > 0 ? genreOptions.map(({ genre, count }, index) => {
+                const alreadyOwned = genreAlreadyOwnedCounts[genre] ?? 0;
+                const allOwned = alreadyOwned > 0 && alreadyOwned >= count;
+                return (
+                  <ProfileStyleCard
+                    key={`genre:${genre}`}
+                    title={genre}
+                    subtitle={`${count} morceau${count > 1 ? 'x' : ''}${alreadyOwned ? ` · ${alreadyOwned} déjà chez toi` : ''} · Swipe`}
+                    mode="PUBLIC"
+                    badgeLabel={allOwned ? '✓ DÉJÀ CHEZ TOI' : alreadyOwned ? `PUBLIC · ${alreadyOwned} DÉJÀ` : 'PUBLIC'}
+                    artworkUrl={genreArtwork[genre]}
+                    fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
+                    onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
+                    accessibilityLabel={`Écouter le style ${genre}, ${count} morceaux en Swipe${alreadyOwned ? `, dont ${alreadyOwned} déjà dans ta collection` : ''}`}
+                  />
+                );
+              }) : visiblePublicVibes.map((vibe, index) => {
                 const artworkUrl = vibe.matchedGenres
                   .map((genre) => genreArtwork[genre])
                   .find((value): value is string => Boolean(value));
@@ -1089,18 +1135,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     accessibilityLabel={`Écouter le style ${vibe.name}, ${vibe.trackCount} morceaux en Swipe`}
                   />
                 );
-              }) : genreOptions.map(({ genre, count }, index) => (
-                <ProfileStyleCard
-                  key={`genre:${genre}`}
-                  title={genre}
-                  subtitle={`${count} morceau${count > 1 ? 'x' : ''} · Écoute en Swipe`}
-                  mode="PUBLIC"
-                  artworkUrl={genreArtwork[genre]}
-                  fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
-                  onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
-                  accessibilityLabel={`Écouter le style ${genre}, ${count} morceaux en Swipe`}
-                />
-              ))}
+              })}
               {marketplaceEnabled ? saleOffers.map((offer, index) => {
                 const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
                 const priceLabel = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
@@ -1522,7 +1557,15 @@ const styles = StyleSheet.create({
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-    marketplaceSection:{marginHorizontal:18,marginTop:14,padding:14,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+    sellerSignal:{minHeight:74,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
+  sellerSignalIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  sellerSignalIconText:{color:colors.keep,fontSize:18,fontWeight:'900'},
+  sellerSignalCopy:{flex:1,minWidth:0},
+  sellerSignalKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.9},
+  sellerSignalTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:2},
+  sellerSignalMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
+  sellerSignalArrow:{color:colors.keep,fontSize:26,fontWeight:'700'},
+  marketplaceSection:{marginHorizontal:18,marginTop:14,padding:14,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:10},
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
   marketplaceCountPill:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
