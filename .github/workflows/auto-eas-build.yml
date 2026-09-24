@@ -16,9 +16,10 @@ on:
     branches:
       - reconcile/claude-main-20260825
     paths:
-      - 'packages/mobile/**'
-      - 'packages/music/**'
-      - 'package.json'
+      # Build natif volontaire : les changements JS/UI sont d'abord validés gratuitement sur Web/OTA.
+      - 'packages/mobile/.eas-build-trigger'
+      - 'packages/mobile/app.json'
+      - 'packages/mobile/eas.json'
       - 'package-lock.json'
       - 'scripts/verify-app-store-readiness.cjs'
       - '.github/workflows/auto-eas-build.yml'
@@ -241,8 +242,11 @@ jobs:
         run: |
           set -euo pipefail
           profile="${{ inputs.profile || 'production' }}"
-          env -u EXPO_ASC_API_KEY_PATH -u EXPO_ASC_KEY_ID -u EXPO_ASC_ISSUER_ID -u EXPO_APPLE_TEAM_ID \
-            eas build --local --platform ios --profile "$profile" --non-interactive --freeze-credentials --output "$RUNNER_TEMP/loki.ipa"
+          # Conserver EXPO_ASC_* + EXPO_APPLE_TEAM_ID : ils authentifient
+          # précisément la validation Apple non interactive. Les retirer
+          # forçait EAS à retomber sur sa clé distante incomplète et à demander
+          # "Apple Team ID" sur stdin.
+          eas build --local --platform ios --profile "$profile" --non-interactive --freeze-credentials --clear-cache --output "$RUNNER_TEMP/loki.ipa"
 
       - name: 📤 Soumettre a TestFlight
         if: ${{ (inputs.profile || 'production') == 'production' }}
