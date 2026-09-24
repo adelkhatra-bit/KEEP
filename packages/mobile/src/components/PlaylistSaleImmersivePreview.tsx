@@ -22,15 +22,19 @@ import { playAntiShazamPreviewSegment, stopAntiShazamPreview } from '../services
  * que l'achat n'est pas confirmé.
  */
 const MARKETING_LINES = [
-  'Teste le goût musical de ce profil sans révéler sa sélection.',
-  'Une collection privée, curatée morceau par morceau.',
-  'Débloque seulement si les extraits te donnent envie d’aller plus loin.',
+  'Tu connais son univers. Maintenant, fais confiance à son oreille.',
+  'Pas de titre. Pas de pochette. Juste le son.',
+  'Chaque extrait est une pièce de sa sélection secrète.',
+  'Funk, Techno, Pop… le mélange reste secret jusqu’au déblocage.',
+  'Le prochain extrait peut être celui que tu cherchais sans le savoir.',
+  'Si ton oreille dit oui, débloque toute la collection.',
 ];
 
 const EXPLAINER_LINES = [
-  'Après déblocage, cette découverte est liée directement à ton profil Loki Music.',
-  'Tu choisis ensuite de la rendre publique ou de la garder pour toi.',
-  'Aucun titre ni artiste n’est jamais dévoilé avant le déblocage.',
+  'Tous les extraits de cette collection défilent ici, sans révéler leur identité.',
+  'Après déblocage, la collection rejoint ton Loki Music en privé par défaut.',
+  'Tu pourras ensuite choisir de la rendre publique ou de la garder pour toi.',
+  'Aucun titre, artiste ni vraie jaquette n’est envoyé à cet écran avant le déblocage.',
 ];
 
 const ROTATE_MS = 4200;
@@ -145,6 +149,10 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const tracksLoading = tracks === null;
   const tracksUnavailable = tracks !== null && tracks.length === 0;
   const trackCountLabel = offer.trackCount || tracks?.length || 0;
+  const priceLabel = offer.paymentMode === 'FREE'
+    ? `${offer.freePrice ?? 0} FREE`
+    : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
+  const styleMixLabel = offer.genres?.length ? offer.genres.slice(0, 4).join(' · ') : 'Mix musical secret';
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -154,8 +162,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           <Text style={s.eyebrow}>COLLECTION EXCLUSIVE · CONTENU SECRET</Text>
           <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
-          <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · titres, artistes et pochettes masqués</Text>
-          <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>PRIX TOTAL</Text><Text style={s.totalPriceValue}>{(offer.priceCents / 100).toFixed(2).replace('.', ',')}{offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}</Text></View>
+          <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel}</Text>
+          <Text style={s.secretMeta}>Titres, artistes et vraies pochettes masqués jusqu’au déblocage</Text>
+          <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
           <Text style={s.marketing}>{MARKETING_LINES[marketingIndex]}</Text>
 
@@ -166,7 +175,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             onSwipeRight={() => playTrackAt(trackIndex + 1)}
             leftLabel="◀ EXTRAIT PRÉCÉDENT"
             rightLabel="EXTRAIT SUIVANT ▶"
-            hint={tracksUnavailable ? '' : 'Glisse pour changer d’extrait -- titre, artiste et jaquette restent masqués jusqu’à l’achat'}
+            hint={tracksUnavailable ? '' : 'Glisse pour parcourir toute la collection · aucune identité musicale révélée'}
           >
             <TouchableOpacity
               style={s.swipeCard}
@@ -185,14 +194,14 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                   ? 'Chargement des extraits...'
                   : tracksUnavailable
                     ? 'Aperçu indisponible pour le moment'
-                    : `Extrait masqué ${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · en pause'}`}
+                    : `Écoute secrète ${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · en pause'}`}
               </Text>
             </TouchableOpacity>
           </SwipeDeck>
 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={s.protectionBadge}>
-              <Text style={s.protectionBadgeText}>🛡️ Extrait protégé · décalage aléatoire · hauteur modifiée · voix off Loki Music</Text>
+              <Text style={s.protectionBadgeText}>🛡️ Préécoute protégée · extraits courts · identité masquée · lecture séquentielle</Text>
             </View>
           ) : null}
 
@@ -220,9 +229,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
                 disabled={!waiverAccepted || busy}
                 onPress={() => onConfirmPurchase(offer)}
-                accessibilityLabel={`Acheter et ajouter à mon Loki Music, prix total ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode}`}
+                accessibilityLabel={`Débloquer et ajouter à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `Acheter et ajouter à mon Loki Music · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`}</Text>
+                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `DÉBLOQUER LA COLLECTION · ${priceLabel}`}</Text>
               </TouchableOpacity>
               <Text style={s.noRefund}>Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.</Text>
             </>
@@ -246,6 +255,7 @@ const s = StyleSheet.create({
   eyebrow: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 6 },
   playlistName: { color: colors.textPrimary, fontSize: 19, fontWeight: '800', marginTop: 4 },
   meta: { color: colors.textMutedGrey, fontSize: 12, marginTop: 2 },
+  secretMeta: { color: colors.primaryLight, fontSize: 10, lineHeight: 14, marginTop: 4, fontWeight: '800' },
   totalPricePill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
   totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
   totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
