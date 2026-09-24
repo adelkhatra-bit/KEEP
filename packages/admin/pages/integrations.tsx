@@ -159,6 +159,8 @@ export default function Integrations() {
         setMessage(`ACRCloud vérifié par le fournisseur : Host + Access Key + Access Secret sont compatibles. État : ${result.validation.status}. Le fallback est actif immédiatement.`);
       } else if (row.key.startsWith('ACRCLOUD_')) {
         setMessage(`${row.label} enregistré. ACRCloud sera automatiquement testé dès que Host + Access Key + Access Secret seront tous renseignés.`);
+      } else if (result?.validation?.valid) {
+        setMessage(`${row.label} — ${result.validation.message || 'valeur vérifiée avant sauvegarde.'} État : ${result.validation.status}.`);
       } else {
         setMessage(`${row.label} enregistré dans Supabase Vault. La valeur précédente est remplacée sans être affichée.`);
       }
@@ -336,10 +338,11 @@ export default function Integrations() {
                   </div>
                 </div>
                 {row.configurationIssue && <div style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ff9aa8', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}><strong>Configuration incorrecte :</strong> {row.configurationIssue}</div>}
-                {row.category === 'recognition' && (
+                {(row.category === 'recognition' || (row.runtimeStatus && row.runtimeStatus !== 'UNKNOWN' && row.runtimeStatus !== 'NOT_CONFIGURED')) && (
                   <div style={{ color: STATUS_COLORS[row.runtimeStatus ?? 'UNKNOWN'], fontSize: 12, marginBottom: 8 }}>
                     ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
                     {row.lastCheckedAt ? ` · contrôle ${new Date(row.lastCheckedAt).toLocaleString('fr-FR')}` : ''}
+                    {row.lastError ? ` · ${row.lastError}` : ''}
                   </div>
                 )}
                 {/* Adel (08/09/2026) : "un bouton ... pour que j'active et
