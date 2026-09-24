@@ -21,6 +21,7 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
+import ProfileStyleCard from '../components/ProfileStyleCard';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
@@ -436,6 +437,20 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [swipeTracks]);
+  const genreArtwork = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const track of swipeTracks) {
+      if (!track.artworkUrl) continue;
+      for (const rawGenre of track.genres ?? []) {
+        const genre = rawGenre.trim();
+        if (genre && !map[genre]) map[genre] = track.artworkUrl;
+      }
+    }
+    return map;
+  }, [swipeTracks]);
+  const freeStyleCardCount = visiblePublicVibes.length > 0 ? visiblePublicVibes.length : genreOptions.length;
+  const visibleSaleCardCount = marketplaceEnabled ? saleOffers.length : 0;
+  const totalStyleCardCount = freeStyleCardCount + visibleSaleCardCount;
   // Mission C (23/09/2026, maquette ProfileGenreFolders.html section B) : les
   // morceaux en vente (verrouillés) sont désormais VISIBLES, rangés en dossiers
   // par genre. Le genre n'est pas une donnée identifiante (contrairement au
@@ -760,8 +775,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
-    if (!viewer || isLocalGuest || isDemoMode) {
-      setSwipeOpen(false);
+    if (!viewer || isLocalGuest) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
@@ -775,6 +789,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile_swipe', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(canonical.id));
+      if (isDemoMode) {
+        Alert.alert('Mode démo', `Morceau gardé temporairement en ${visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'}. Rien n’est envoyé sur un compte réel.`);
+      }
       return true;
     } catch (e: any) {
       if (e?.message === 'CREDITS_EXHAUSTED') {
@@ -790,7 +807,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const openKeepPrompt = (track: PublicKeepTrack) => {
-    if (!viewer || isLocalGuest || isDemoMode) {
+    if (!viewer) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
@@ -806,6 +823,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const addToMyKeep = async (track: PublicKeepTrack, visibility: KeepVisibility) => {
+    if (!viewer || isLocalGuest) {
+      setKeepPromptTrack(null);
+      Alert.alert('Compte Loki Music requis', 'Ton choix de visibilité est bien pris en compte, mais crée ou connecte ton compte pour enregistrer réellement ce morceau.', [
+        { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return;
+    }
     const canonical: CanonicalTrack = {
       id: track.trackId,
       isrc: track.isrc,
@@ -824,7 +848,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));
-      Alert.alert('Ajouté à ta collection', `« ${track.title} » est maintenant dans tes musiques.`);
+      Alert.alert(
+        isDemoMode ? 'Mode démo' : 'Ajouté à ta collection',
+        isDemoMode
+          ? `« ${track.title} » est gardé temporairement en ${visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'} pour la démonstration.`
+          : `« ${track.title} » est maintenant dans tes musiques.`,
+      );
     } catch (e: any) {
       if (e?.message === 'CREDITS_EXHAUSTED') {
         Alert.alert('Crédits gratuits utilisés', 'Tu peux toujours écouter les extraits et continuer tes sessions. Passe à Premium pour débloquer les fonctions payantes.', [
@@ -1372,7 +1401,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         title={folderSwipeTracks.length ? folderSwipeTitle : browseFilter ? `${profile.username} · ${browseFilter.label}` : `La collection de ${profile.username}`}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
-        requiresAccount={!viewer || isLocalGuest || isDemoMode}
+        requiresAccount={!viewer || isLocalGuest}
         onClose={() => { setSwipeOpen(false); setBrowseFilter(null); setFolderSwipeTracks([]); setFolderSwipeTitle(''); }}
         onKeep={addCanonicalToMyKeep}
       />
