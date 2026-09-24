@@ -910,7 +910,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             coverUrl={track.artworkUrl}
             title={track.title}
             artist={track.artist}
-            badge={offered ? { label: `🏷️ ${(offered.priceCents / 100).toFixed(2)}€`, onPress: () => editExistingTrackOffer(track) } : undefined}
+            badge={offered ? { label: `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}
             originBadge={localEntry ? {
               label: localEntry.sourceProfileId
                 ? `UTILISATEUR${localEntry.sourceUsername ? ` · @${localEntry.sourceUsername.replace(/^@+/, '')}` : ''}`
