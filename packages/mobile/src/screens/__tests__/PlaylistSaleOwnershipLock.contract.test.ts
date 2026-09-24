@@ -63,6 +63,11 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(freeMigration).toContain('unique (offer_id, buyer_id)');
   });
 
+  it('keeps the FREE transfer adjustment helper inaccessible to app clients', () => {
+    expect(freeMigration).toContain('revoke all on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) from public, anon, authenticated;');
+    expect(freeMigration).not.toContain('grant execute on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) to authenticated;');
+  });
+
   it('requires an explicit confirmation before debiting FREE for a collection', () => {
     expect(immersivePreview).toContain("const freeAccess = offer.paymentMode === 'FREE';");
     expect(immersivePreview).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
