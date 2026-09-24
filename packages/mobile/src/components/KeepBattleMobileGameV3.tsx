@@ -359,7 +359,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (code === 'MIX') return ['MIX'];
       const real = rows.filter((item) => item !== 'MIX');
       if (!real.includes(code) && real.length >= 3) {
-        Alert.alert('3 styles maximum', 'Retire un style avant d’en sélectionner un autre.');
+        Alert.alert('3 styles Battle maximum', 'Ton profil peut contenir davantage de styles. Ici, tu choisis seulement jusqu’à 3 styles acceptés pour les Battles.');
         return rows;
       }
       const has = rows.includes(code);
@@ -1542,7 +1542,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     <>
       <TouchableOpacity style={s.prefsSummaryButton} onPress={() => setPrefsPickerOpen(true)}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.prefsSummaryLabel}>MES STYLES ACCEPTÉS</Text>
+          <Text style={s.prefsSummaryLabel}>STYLES BATTLE · 3 MAX</Text>
           <Text numberOfLines={1} style={s.prefsSummaryValue}>{prefsSaving ? 'Enregistrement…' : myPreferredThemesLabel()}</Text>
           {myPreferredThemes.filter((c) => c !== 'MIX').length > 1 ? (
             <Text numberOfLines={1} style={s.prefsSummaryHint}>Mix aléatoire de tes styles sélectionnés</Text>
@@ -1554,8 +1554,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
             <TouchableOpacity style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
-            <Text style={s.statsUsername}>Styles acceptés</Text>
-            <Text style={s.prefsPickerHint}>Choisis jusqu’à 3 styles. Mix remplace les styles précis. Les autres joueurs les verront quand tu es disponible.</Text>
+            <Text style={s.statsUsername}>Styles Battle</Text>
+            <Text style={s.prefsPickerHint}>Ton profil peut afficher tous tes styles musicaux. Ici seulement, choisis jusqu’à 3 styles acceptés pour les Battles. Mix remplace les styles précis.</Text>
             <ScrollView style={s.prefsPickerScroll}>
               {themes.map((t) => {
                 const checked = myPreferredThemes.includes(t.code);
