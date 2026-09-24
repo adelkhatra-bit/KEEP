@@ -243,7 +243,9 @@ jobs:
             await clickRobust(page,birthDateSelector,'Choose birth date');
             const validateBirthDate=page.getByLabel('Valider la date de naissance').last();
             await validateBirthDate.waitFor({state:'visible',timeout:15000});
-            await clickRobust(page,validateBirthDate,'Validate birth date');
+            // Ne pas utiliser clickRobust ici : ce helper envoie Escape avant
+            // le clic, ce qui ferme précisément la modale de date.
+            await validateBirthDate.click({timeout:5000});
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
 
