@@ -269,4 +269,7 @@ const s = StyleSheet.create({
   buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   buyButtonTextDisabled: { color: colors.textMuted },
   noRefund: { color: colors.textMuted, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 8 },
+  nativePreviewNotice: { marginTop: 14, padding: 12, borderRadius: 16, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.primary },
+  nativePreviewTitle: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  nativePreviewText: { color: colors.textPrimary, fontSize: 11, lineHeight: 16, marginTop: 4 },
 });
