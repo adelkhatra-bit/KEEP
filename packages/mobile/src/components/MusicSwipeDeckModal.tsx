@@ -29,11 +29,9 @@ type Props = {
   loop?: boolean;
   askVisibilityOnKeep?: boolean;
   previewOnly?: boolean;
-  // Adel (08/09/2026) : "on ne peut pas garder de musique tant que le compte
-  // n'est pas reconnu ... sinon on va se retrouver avec des faux comptes" --
-  // un invité/démo ne doit jamais voir le choix Public/Privé (ça donne
-  // l'impression que l'ajout a déjà réussi) : GARDER doit immédiatement
-  // déclencher l'alerte "Compte Loki requis" existante d'onKeep.
+  // Un compte peut être requis pour finaliser l'action, mais ce verrou ne doit
+  // jamais court-circuiter le choix Public/Privé : la confirmation de visibilité
+  // reste toujours affichée avant toute tentative de GARDER.
   requiresAccount?: boolean;
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
@@ -277,13 +275,6 @@ export default function MusicSwipeDeckModal({
 
   const requestKeep = async () => {
     if (!current || processing) return;
-    if (requiresAccount) {
-      actionInFlight.current = true;
-      setProcessing(true);
-      try { await onKeep?.(current, 'PUBLIC'); }
-      finally { actionInFlight.current = false; setProcessing(false); }
-      return;
-    }
     if (previewOnly) {
       actionInFlight.current = true;
       setPreviewInfoOpen(true);
@@ -298,7 +289,7 @@ export default function MusicSwipeDeckModal({
     // Si l'utilisateur touche GARDER avant la fin du contrôle asynchrone,
     // on refait une vérification synchrone du scénario critique. Un doublon ne
     // peut donc jamais atteindre le choix Public/Privé ni onKeep().
-    if (alreadyKeptState === 'checking') {
+    if (alreadyKeptState === 'checking' && !requiresAccount) {
       setProcessing(true);
       actionInFlight.current = true;
       try {
@@ -316,12 +307,25 @@ export default function MusicSwipeDeckModal({
       }
     }
 
-    if (!askVisibilityOnKeep) {
-      void confirmKeep('PRIVATE');
+    // Règle produit 24/09/2026 : aucune décision de visibilité implicite.
+    // Même en démo/invité, on demande d'abord Public ou Privé. Si un compte
+    // réel est ensuite nécessaire, le parent ouvre le parcours compte APRÈS
+    // ce choix, sans avoir sauvegardé quoi que ce soit.
+    if (askVisibilityOnKeep) {
+      actionInFlight.current = true;
+      setKeepPromptOpen(true);
       return;
     }
-    actionInFlight.current = true;
-    setKeepPromptOpen(true);
+
+    if (requiresAccount) {
+      actionInFlight.current = true;
+      setProcessing(true);
+      try { await onKeep?.(current, 'PRIVATE'); }
+      finally { actionInFlight.current = false; setProcessing(false); }
+      return;
+    }
+
+    void confirmKeep('PRIVATE');
   };
 
   const cancelKeep = () => {
