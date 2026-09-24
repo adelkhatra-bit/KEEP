@@ -16,13 +16,9 @@ on:
     branches:
       - reconcile/claude-main-20260825
     paths:
-      # Build natif volontaire : les changements JS/UI sont d'abord validés gratuitement sur Web/OTA.
+      # Déclencheur volontaire : aucun changement UI/config ne part en production
+      # avant validation. ChatGPT/CI touche ce fichier uniquement après les tests.
       - 'packages/mobile/.eas-build-trigger'
-      - 'packages/mobile/app.json'
-      - 'packages/mobile/eas.json'
-      - 'package-lock.json'
-      - 'scripts/verify-app-store-readiness.cjs'
-      - '.github/workflows/auto-eas-build.yml'
 
 concurrency:
   group: loki-ios-signing-${{ github.ref }}
