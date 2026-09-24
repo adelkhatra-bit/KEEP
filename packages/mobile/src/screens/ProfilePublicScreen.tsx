@@ -35,6 +35,7 @@ import CommunityConnectionsPanel, { CommunityMode } from '../components/Communit
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import PresenceDot from '../components/PresenceDot';
+import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
@@ -896,7 +897,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   {rowFolders.length === 1 ? <View style={s.genreFolderSpacer} /> : null}
                 </View>
                 {expandedInRow ? (
-                  <View style={s.genreFolderPanel}>
+                  <ProfileMotionReveal motionKey={`owner-style:${expandedInRow.genre}`} compact style={s.genreFolderPanel}>
                     <Text style={s.genreFolderPanelTitle} numberOfLines={1}>{expandedInRow.genre} · {expandedInRow.entries.length} morceau{expandedInRow.entries.length > 1 ? 'x' : ''}</Text>
                     <View style={s.genreFolderPanelActions}>
                       <TouchableOpacity
@@ -917,7 +918,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                       ) : null}
                     </View>
                     {expandedInRow.entries.map((entry) => renderCompactTrack(entry.track, `genre-${expandedInRow.genre}-${entry.id}`, entry.sourceUsername ?? null, entry.creditSource === 'SOCIAL' || !!entry.sourceProfileId ? 'SOCIAL' : 'SELF', 'sourceCertificationTier' in entry ? entry.sourceCertificationTier : undefined, 'sourceIsFollowing' in entry ? entry.sourceIsFollowing : undefined, entry.detectedAt, entry.visibility === 'PRIVATE'))}
-                  </View>
+                  </ProfileMotionReveal>
                 ) : null}
               </View>;
             })}
@@ -1095,7 +1096,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
 
-      <View style={s.hero}>
+      <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
           {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
           <View style={s.identityText}>
@@ -1188,7 +1189,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             ) : null}
           </View>
         ) : null}
-      </View>
+      </ProfileMotionReveal>
 
       <View style={s.collectionHeader}>
         <Text style={s.collectionTitle}>Mes styles</Text>
@@ -1202,7 +1203,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </TouchableOpacity>
         ) : null}
       </View>
-      <View key={`profile-tab-${activeTab}`}>{tabContent()}</View>
+      <ProfileMotionReveal motionKey={`owner-tab:${activeTab}`} compact>
+        <View key={`profile-tab-${activeTab}`}>{tabContent()}</View>
+      </ProfileMotionReveal>
 
       {/* (21/09/2026) Adel a signalé un bouton "ACHETER" vert sur le
           profil -- c'était CE bloc : il s'affichait sur son PROPRE profil
