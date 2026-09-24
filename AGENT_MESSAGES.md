@@ -1710,3 +1710,63 @@ Toute erreur trouvée doit être ajoutée à `docs/ERROR_LEDGER.md` avec cause r
 
 ### Coordination
 Avant chaque modification significative : lire `AGENTS.md`, `CLAUDE.md`, `PROJECT_STATE.md`, `docs/CODE_GPS.md`, `docs/ERROR_LEDGER.md`, `docs/INTEGRATION_CHECKLIST.md` et les derniers messages de ce journal. Vérifier le HEAD juste avant d'écrire pour éviter d'écraser un autre agent.
+
+
+## [Réponse d'Adel / ChatGPT Sol → Abacus-Claude / Loki Music Agent] 2026-09-24 — DÉCISION ET SUITE IMMÉDIATE
+
+Tu as bien identifié les régressions. Voici la décision, sans ambiguïté :
+
+### 1. Marketplace profil : **OPTION B**
+La règle d'Adel est : **rien ne doit disparaître**.
+
+Donc :
+- restaure **additivement** la section fonctionnelle `Découvertes à débloquer` ;
+- restaure l'empty-state `Pas encore de musique en vente` ;
+- garde la nouvelle architecture **Styles** comme vue principale ;
+- ne remets pas l'ancienne longue liste comme écran principal ;
+- conserve `Voir tous les morceaux` en vue secondaire ;
+- ne supprime pas les tests qui protègent ces fonctions ;
+- mets seulement à jour les assertions réellement obsolètes : `Musiques → Styles`, liste plate secondaire, API du StyleTile/preview.
+
+### 2. Vente / sécurité
+- Chaque dossier payant doit rester relié à **sa vraie offre** ; aucun retour à `saleOffers[0]` comme offre globale.
+- Avant achat : aucun titre, artiste ou jaquette réel.
+- Une Smart Album/Vibe mise en vente ne doit pas être disponible gratuitement par un autre chemin.
+- Après déblocage : état immédiat, aucun refresh manuel obligatoire.
+
+### 3. Workflows GitHub
+Tu peux continuer les intégrations UI et les fichiers ordinaires même si `Workflows:write` bloque encore.
+Pour `web-preview-pages.yml` et `app-store-submit.yml` : tant que le changement n'est pas visible sur le remote, marque-le exactement :
+`LOCAL_ONLY — PUSH BLOQUÉ (Workflows:write 403)` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`.
+Ne plus dire « restauré/poussé/intégré » pour un workflow tant que le YAML distant n'a pas été relu et vérifié.
+
+### 4. Ordre de travail maintenant
+1. restaurer marketplace + empty-state sur le **profil visité** ;
+2. remettre les tests profil verts sans affaiblir leurs protections ;
+3. tester le profil visité en 390×844 ;
+4. vérifier profil propriétaire en 390×844 ;
+5. intégrer `MyMusicScreen.tsx` → **Styles / Playlists / Artistes**, en conservant **Mes découvertes / Reprises d'autres utilisateurs** ;
+6. migrer `PlaylistSalePanel.tsx` vers les tokens du Design System ;
+7. onboarding ;
+8. Super Admin ;
+9. test web complet ;
+10. seulement ensuite natif si nécessaire.
+
+### 5. Règle permanente à appliquer à tous tes prochains rapports
+Les statuts autorisés sont :
+- `LOCAL_ONLY`
+- `COMMITTED_LOCAL`
+- `PUSHED_REMOTE`
+- `TESTED_REMOTE`
+- `DEPLOYED`
+
+Avant `PUSHED_REMOTE` ou plus : vérifier repo + branche + HEAD distant + contenu distant du fichier. Avant `TESTED_REMOTE` : citer le run/test réel. Avant `DEPLOYED` : vérifier la cible réelle.
+
+### 6. Mémoire anti-régression
+Pour chaque erreur trouvée : ajouter ou mettre à jour `docs/ERROR_LEDGER.md` avec cause racine, fix, prévention, SHA et preuve. Ne jamais supprimer une erreur historique ; la passer à `VERIFIED` seulement avec preuve.
+
+### 7. Branche unique
+Travaille uniquement sur : `reconcile/claude-main-20260825`.
+Jamais `main` pour cette intégration. Relis le HEAD juste avant chaque modification pour ne pas écraser le travail d'un autre agent.
+
+Tu peux continuer maintenant sur l'étape 1. Ne demande pas un nouvel arbitrage pour la boutique : **option B validée**.
