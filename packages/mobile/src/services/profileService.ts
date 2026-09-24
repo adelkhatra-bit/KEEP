@@ -80,6 +80,28 @@ function mergeSocialLinks(remote: SocialLink[], local: SocialLink[], allowCleari
   return Array.from(byPlatform.values());
 }
 
+function isMissingSocialLabelColumn(error: any): boolean {
+  const value = `${error?.code ?? ''} ${error?.message ?? ''} ${error?.details ?? ''}`;
+  return /label/i.test(value) && /(PGRST204|column|schema cache)/i.test(value);
+}
+
+async function loadSocialLinks(client: SupabaseClient, profileId: string, publicOnly = false): Promise<SocialLink[]> {
+  const run = async (columns: string) => {
+    const base = client.from('social_links').select(columns).eq('profile_id', profileId);
+    return publicOnly ? await base.eq('visibility', 'PUBLIC') : await base;
+  };
+
+  const withLabel = await run('platform, url, visibility, label');
+  if (!withLabel.error) return (withLabel.data ?? []) as SocialLink[];
+  if (!isMissingSocialLabelColumn(withLabel.error)) throw withLabel.error;
+
+  // Compatibilité pendant le déploiement : tant que la migration n'est pas
+  // appliquée, les anciennes lignes restent lisibles et l'app ne casse pas.
+  const legacy = await run('platform, url, visibility');
+  if (legacy.error) throw legacy.error;
+  return (legacy.data ?? []) as SocialLink[];
+}
+
 async function persistLocalAvatar(client: SupabaseClient, profileId: string, avatar: string): Promise<string> {
   if (isRemoteAvatar(avatar)) return avatar || '';
 
@@ -149,15 +171,14 @@ export function createProfileService(client: SupabaseClient) {
         return fallback;
       }
 
-      const [{ data: privateInfo, error: privateError }, { data: socialLinks, error: socialError }, followersResult, followingResult] = await Promise.all([
+      const [{ data: privateInfo, error: privateError }, socialLinks, followersResult, followingResult] = await Promise.all([
         client.from('profile_private_info').select('birth_date, gender').eq('profile_id', session.userId).maybeSingle(),
-        client.from('social_links').select('platform, url, visibility').eq('profile_id', session.userId),
+        loadSocialLinks(client, session.userId),
         client.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', session.userId),
         client.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', session.userId),
       ]);
 
       if (privateError) throw privateError;
-      if (socialError) throw socialError;
       if (followersResult.error) throw followersResult.error;
       if (followingResult.error) throw followingResult.error;
 
@@ -212,17 +233,12 @@ export function createProfileService(client: SupabaseClient) {
 
       if (!profile) return null;
 
-      const [{ data: socialLinks, error: socialError }, followersResult, followingResult] = await Promise.all([
-        client
-          .from('social_links')
-          .select('platform, url, visibility')
-          .eq('profile_id', profile.id)
-          .eq('visibility', 'PUBLIC'),
+      const [socialLinks, followersResult, followingResult] = await Promise.all([
+        loadSocialLinks(client, profile.id, true),
         client.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', profile.id),
         client.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
       ]);
 
-      if (socialError) throw socialError;
       if (followersResult.error) throw followersResult.error;
       if (followingResult.error) throw followingResult.error;
 
@@ -262,18 +278,16 @@ export function createProfileService(client: SupabaseClient) {
       // sont déclenchées par plusieurs changements du store (GPS, notifications,
       // refresh de session). Elles ne doivent JAMAIS transformer un profil déjà
       // complet en profil vide après une mise à jour de l'application.
-      const [profileResult, privateResult, socialResult] = await Promise.all([
+      const [profileResult, privateResult, existingSocialLinks] = await Promise.all([
         client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         client.from('profile_private_info').select('birth_date, gender').eq('profile_id', user.id).maybeSingle(),
-        client.from('social_links').select('platform, url, visibility').eq('profile_id', user.id),
+        loadSocialLinks(client, user.id),
       ]);
       if (profileResult.error) throw profileResult.error;
       if (privateResult.error) throw privateResult.error;
-      if (socialResult.error) throw socialResult.error;
 
       const existingProfile = profileResult.data as any | null;
       const existingPrivate = privateResult.data as any | null;
-      const existingSocialLinks = (socialResult.data ?? []) as SocialLink[];
 
       // Lors du passage essai local -> vrai compte, l'avatar peut encore être
       // un blob:/file: local. On le transforme ici, sous la session authentifiée
@@ -316,15 +330,33 @@ export function createProfileService(client: SupabaseClient) {
       // utilisateur explicitement destructive.
       const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, allowClearing);
       if (desiredSocialLinks.length > 0) {
-        const { error: socialError } = await client.from('social_links').upsert(
-          desiredSocialLinks.map((link) => ({
-            profile_id: user.id,
-            platform: link.platform,
-            url: link.url,
-            visibility: link.visibility,
-          })),
+        const rowsWithLabel = desiredSocialLinks.map((link) => ({
+          profile_id: user.id,
+          platform: link.platform,
+          url: link.url,
+          visibility: link.visibility,
+          label: link.label ?? null,
+        }));
+        let { error: socialError } = await client.from('social_links').upsert(
+          rowsWithLabel,
           { onConflict: 'profile_id,platform' }
         );
+
+        // Déploiement progressif : si le schéma distant n'a pas encore la
+        // colonne label, conserver la sauvegarde URL/visibilité au lieu de
+        // faire échouer tout le profil. Après migration, le libellé persiste.
+        if (socialError && isMissingSocialLabelColumn(socialError)) {
+          const legacy = await client.from('social_links').upsert(
+            desiredSocialLinks.map((link) => ({
+              profile_id: user.id,
+              platform: link.platform,
+              url: link.url,
+              visibility: link.visibility,
+            })),
+            { onConflict: 'profile_id,platform' }
+          );
+          socialError = legacy.error;
+        }
         if (socialError) throw socialError;
       }
 
