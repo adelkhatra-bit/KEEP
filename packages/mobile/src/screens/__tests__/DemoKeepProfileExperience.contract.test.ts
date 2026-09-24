@@ -14,6 +14,8 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   const featureFlags = read(__dirname, '..', '..', 'services', 'featureFlagService.ts');
   const battle = read(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx');
   const profileSettings = read(__dirname, '..', 'ProfileSettingsMobileScreen.tsx');
+  const myMusic = read(__dirname, '..', 'MyMusicScreen.tsx');
+  const audioPreview = read(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
   it('never chooses PUBLIC implicitly when account/demo state requires attention', () => {
     expect(swipe).not.toContain("try { await onKeep?.(current, 'PUBLIC'); }");
@@ -140,6 +142,32 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('exposes real accessible birth-date controls for the 390x844 guardian', () => {
     expect(profileSettings).toContain('accessibilityLabel={`${label} : ${value}`}');
     expect(profileSettings).toContain('accessibilityLabel="Valider la date de naissance"');
+  });
+
+  it('shows the real number of styles separately from the number of tracks', () => {
+    expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau");
+    expect(ownerProfile).toContain('Tes styles dominants');
+    expect(ownerProfile).toContain('VOIR MES {genreFolders.length} STYLES');
+  });
+
+  it('opens the real music-management mode directly from the profile', () => {
+    expect(ownerProfile).toContain("screen: 'MyMusic', params: { openManageMusic: true }");
+    expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
+    expect(myMusic).toContain("setActiveTab('MUSIQUES')");
+    expect(myMusic).toContain('GÉRER MES MUSIQUES');
+    expect(myMusic).toContain('PUBLIC / PRIVÉ, SUPPRIMER');
+  });
+
+  it('does not shorten normal profile previews with the Battle 9-second offset', () => {
+    expect(audioPreview).toContain('defaultToBattleOffset = true');
+    expect(audioPreview).toContain('defaultToBattleOffset ? 9000 : 0');
+    expect(audioPreview).toContain('playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded, false)');
+  });
+
+  it('keeps the social Swipe card visible when an excerpt ends and allows replay', () => {
+    expect(swipe).toContain('if (socialDiscoveryMode || !loop) return;');
+    expect(swipe).toContain('Extrait terminé · tu peux réécouter');
+    expect(swipe).toContain('↻ RÉÉCOUTER');
   });
 
   it('keeps sold tracks out of the free Swipe source', () => {
