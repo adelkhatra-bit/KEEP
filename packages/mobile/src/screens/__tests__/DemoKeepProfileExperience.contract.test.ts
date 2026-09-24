@@ -125,7 +125,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain('TU ÉCOUTES L’UNIVERS DE');
     expect(swipe).toContain('@{sourceUsername.replace(/^@/, \'\')}');
     expect(profile).toContain('sourceUsername={profile.username}');
-    expect(profile).toContain('sourceAvatarUrl={profile.avatarUrl}');
+    expect(profile).toContain('sourceAvatarUrl={profile.avatar}');
     expect(ownerProfile).toContain('sourceUsername={user.username}');
   });
 
