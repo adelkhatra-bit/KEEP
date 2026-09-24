@@ -48,7 +48,7 @@ assertIncludes(owner, 'communitySection:{marginHorizontal:18,gap:2}', 'Owner com
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
   '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
-  '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
+  '<Text style={styles.sectionTitle}>À débloquer</Text>',
   '<View style={styles.unifiedCounters}>',
   "{ value: followerCount, label: 'Abonnés'",
   '<CommunityConnectionsPanel userId={profile.id}',
