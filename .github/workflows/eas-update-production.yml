@@ -1,8 +1,12 @@
 name: KEEP — OTA Production Update
 
 on:
-  # Production est volontaire : aucune modification UI/JS ne doit partir
-  # automatiquement avant les tests de la branche d'intégration.
+  # Production est volontaire : aucune modification UI/JS ne part avant les
+  # tests. Une fois les gardiens verts, l'agent touche ce fichier sentinelle.
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/.ota-production-trigger'
   workflow_dispatch:
 
 concurrency:
