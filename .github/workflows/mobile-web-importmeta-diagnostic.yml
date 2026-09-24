@@ -187,6 +187,10 @@ jobs:
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
             await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
             await page.waitForTimeout(500);
+            const playlistsLibraryTab = page.getByRole('tab', { name: 'Playlists' }).last();
+            if (await playlistsLibraryTab.count() === 0) throw new Error('Playlists library tab not found');
+            await clickRobust(playlistsLibraryTab, 'Playlists library tab');
+            await page.waitForTimeout(300);
 
             const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
             if (await allMusic.count() === 0) throw new Error('Delete audit fixture missing: Toute ma musique');
