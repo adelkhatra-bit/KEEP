@@ -30,7 +30,8 @@ import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS,
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
-import { unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
@@ -129,6 +130,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [followBusy, setFollowBusy] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [swipeOpen, setSwipeOpen] = useState(false);
+  const [inlineStylePlayingKey, setInlineStylePlayingKey] = useState<string | null>(null);
   // Adel (14/09/2026) : "j'ai une liste complete ... je trouve que ce n'est
   // pas utile et ca bouffe toute la place" -- avait ete repliee par defaut.
   // Adel (21/09/2026) : "c'est une aberration pour une plateforme musicale
@@ -559,6 +561,61 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     unlockWebAudioForGesture();
     setBrowseFilter(filter);
     setSwipeOpen(true);
+  };
+
+  const playInlinePublicTrack = async (label: string, candidates: CanonicalTrack[]) => {
+    const track = candidates.find((item) => item.previewUrl) ?? candidates[0];
+    if (!track) {
+      Alert.alert('Écoute', `Aucun extrait disponible dans ${label} pour le moment.`);
+      return;
+    }
+    const key = `visitor-inline:${profile?.id ?? username ?? 'profile'}:${track.id}`;
+    const wasPlaying = inlineStylePlayingKey === key;
+
+    // Le tap sur ▶ est un vrai geste utilisateur : on débloque l'audio avant
+    // toute résolution asynchrone pour rester sur CET écran, y compris Safari.
+    unlockWebAudioForGesture();
+    try {
+      const previewUrl = track.previewUrl || await resolveTrackPreviewUrl(track);
+      if (!previewUrl) {
+        Alert.alert('Extrait indisponible', 'Ce morceau n’a pas encore d’extrait audio jouable.');
+        return;
+      }
+      await toggleTrackPreview(
+        key,
+        previewUrl,
+        (playing) => setInlineStylePlayingKey((current) => playing ? key : current === key ? null : current),
+        () => setInlineStylePlayingKey((current) => current === key ? null : current),
+      );
+      if (!wasPlaying && alreadyInMyKeep(track.id)) {
+        Alert.alert('Déjà dans ta collection', `« ${track.title} » est déjà chez toi. Tu peux quand même l’écouter ici.`);
+      }
+    } catch {
+      setInlineStylePlayingKey((current) => current === key ? null : current);
+      Alert.alert('Écoute', 'Impossible de lancer cet extrait pour le moment.');
+    }
+  };
+
+  const playInlineSalePreview = async (offer: PublicPlaylistSaleOffer) => {
+    const keyPrefix = `visitor-sale-inline:${offer.offerId}`;
+    unlockWebAudioForGesture();
+    try {
+      const rows = await loadPlaylistSaleOfferPreviewTracks(offer.playlistId);
+      const preview = rows.find((row) => !!row.previewUrl);
+      if (!preview?.previewUrl) {
+        Alert.alert('Aperçu protégé', 'Aucun extrait anonyme n’est disponible pour cette collection.');
+        return;
+      }
+      const key = `${keyPrefix}:${preview.trackId}`;
+      await toggleTrackPreview(
+        key,
+        preview.previewUrl,
+        (playing) => setInlineStylePlayingKey((current) => playing ? key : current === key ? null : current),
+        () => setInlineStylePlayingKey((current) => current === key ? null : current),
+      );
+    } catch {
+      Alert.alert('Aperçu protégé', 'Impossible de lancer cet extrait anonyme pour le moment.');
+    }
   };
 
   // Adel (16-17/09/2026) : "l'idéal c'est que l'utilisateur se fait payer
@@ -1116,7 +1173,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     artworkUrl={genreArtwork[genre]}
                     fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
                     onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
-                    accessibilityLabel={`Écouter le style ${genre}, ${count} morceaux en Swipe${alreadyOwned ? `, dont ${alreadyOwned} déjà dans ta collection` : ''}`}
+                    accessibilityLabel={`Ouvrir le Swipe ${genre}, ${count} morceaux${alreadyOwned ? `, dont ${alreadyOwned} déjà dans ta collection` : ''}`}
+                    onPlayPress={() => void playInlinePublicTrack(genre, swipeTracks.filter((track) => (track.genres ?? []).some((value) => value.trim() === genre)))}
+                    playAccessibilityLabel={`Écouter maintenant un morceau ${genre} sans quitter le profil`}
+                    playing={inlineStylePlayingKey?.startsWith(`visitor-inline:${profile.id}:`) === true && swipeTracks.filter((track) => (track.genres ?? []).some((value) => value.trim() === genre)).some((track) => inlineStylePlayingKey?.endsWith(`:${track.id}`))}
                   />
                 );
               }) : visiblePublicVibes.map((vibe, index) => {
@@ -1132,7 +1192,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     artworkUrl={artworkUrl}
                     fullWidth={totalStyleCardCount % 2 === 1 && visibleSaleCardCount === 0 && index === freeStyleCardCount - 1}
                     onPress={() => openPublicVibe(vibe)}
-                    accessibilityLabel={`Écouter le style ${vibe.name}, ${vibe.trackCount} morceaux en Swipe`}
+                    accessibilityLabel={`Ouvrir le Swipe ${vibe.name}, ${vibe.trackCount} morceaux`}
+                    onPlayPress={() => void playInlinePublicTrack(vibe.name, swipeTracks.filter((track) => (track.genres ?? []).some((genre) => vibe.matchedGenres.includes(genre))))}
+                    playAccessibilityLabel={`Écouter maintenant un morceau ${vibe.name} sans quitter le profil`}
                   />
                 );
               })}
@@ -1150,7 +1212,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     priceLabel={unlocked ? undefined : priceLabel}
                     fullWidth={totalStyleCardCount % 2 === 1 && index === saleOffers.length - 1}
                     onPress={() => openSaleFolder(offer)}
-                    accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}, débloqué` : `Préécouter la collection verrouillée ${offer.playlistName}, ${priceLabel}`}
+                    accessibilityLabel={unlocked ? `Écouter ${offer.playlistName}, débloqué` : `Ouvrir la collection verrouillée ${offer.playlistName}, ${priceLabel}`}
+                    onPlayPress={unlocked ? () => openSaleFolder(offer) : () => void playInlineSalePreview(offer)}
+                    playAccessibilityLabel={unlocked ? `Écouter ${offer.playlistName}` : `Écouter un extrait anonyme de ${offer.playlistName} sans quitter le profil`}
+                    playing={inlineStylePlayingKey?.startsWith(`visitor-sale-inline:${offer.offerId}:`) === true}
                   />
                 );
               }) : null}
