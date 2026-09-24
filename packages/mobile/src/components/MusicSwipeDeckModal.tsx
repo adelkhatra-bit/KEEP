@@ -82,6 +82,7 @@ export default function MusicSwipeDeckModal({
   // maintenant "pas d'extrait" de "extrait trouvé mais lecture auto bloquée",
   // avec un vrai bouton pour relancer via un tap direct (jamais bloqué).
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [previewEnded, setPreviewEnded] = useState(false);
   const actionInFlight = useRef(false);
   const playbackGeneration = useRef(0);
   const wasVisible = useRef(false);
@@ -186,6 +187,7 @@ export default function MusicSwipeDeckModal({
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setAutoplayBlocked(false);
+    setPreviewEnded(false);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
     if (!visible || !current) {
@@ -216,9 +218,11 @@ export default function MusicSwipeDeckModal({
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
-              // Dans une session à trier, la fin de l'extrait ne constitue JAMAIS
-              // une décision. Le morceau reste affiché jusqu'à PASSER ou GARDER.
-              if (!loop) return;
+              setPreviewEnded(true);
+              // Sur un profil visité, la fin naturelle de l'extrait ne doit
+              // jamais faire disparaître la carte sous les doigts : le visiteur
+              // choisit explicitement PASSER ou GARDER. Il peut aussi réécouter.
+              if (socialDiscoveryMode || !loop) return;
               advanceIndex();
             },
           );
@@ -253,9 +257,13 @@ export default function MusicSwipeDeckModal({
             void recordProfileSwipeListen(sourceProfileId, current.id);
           }
         },
-        () => { if (!actionInFlight.current && loop) advanceIndex(); },
+        () => {
+          setPreviewEnded(true);
+          if (!actionInFlight.current && loop && !socialDiscoveryMode) advanceIndex();
+        },
       );
       setAutoplayBlocked(false);
+      setPreviewEnded(false);
     } catch {
       // Un vrai tap qui échoue encore indique un souci réseau/format, pas une
       // histoire de geste utilisateur -- on laisse le bandeau "bloqué" affiché.
@@ -400,7 +408,9 @@ export default function MusicSwipeDeckModal({
       ? 'Extrait indisponible'
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
-        : 'Lecture automatique';
+        : previewEnded
+          ? 'Extrait terminé · tu peux réécouter'
+          : 'Lecture automatique';
 
   const swipeHint = previewOnly
     ? 'Aperçu exact de ce que verront tes abonnés · glisse ← pour passer · → pour garder'
@@ -457,9 +467,9 @@ export default function MusicSwipeDeckModal({
                 {sourceUsername ? <View style={s.sourceOverlay}><Text style={s.sourceOverlayText}>@{sourceUsername.replace(/^@/, '')}</Text></View> : null}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
-                  {autoplayBlocked && resolvedPreviewUrl ? (
-                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { void manualPlay(); }} accessibilityLabel="Lancer l’extrait">
-                      <Text style={s.manualPlayText}>▶ ÉCOUTER L’EXTRAIT</Text>
+                  {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
+                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
+                      <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
                   <Text style={s.trackTitle} numberOfLines={2}>{current.title}</Text>
