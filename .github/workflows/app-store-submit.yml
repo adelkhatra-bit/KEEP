@@ -1,0 +1,90 @@
+name: App Store — fiche, precheck et soumission
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'precheck, listing ou submit'
+        required: true
+        default: 'precheck'
+        type: choice
+        options:
+          - precheck
+          - listing
+          - submit
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'packages/mobile/.app-store-submit-trigger'
+
+concurrency:
+  group: app-store-submit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  app-store:
+    runs-on: macos-14
+    timeout-minutes: 40
+    env:
+      ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+      ASC_APP_VERSION: '1.0.0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve lane
+        id: lane
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            lane="${{ github.event.inputs.lane }}"
+          else
+            lane="$(tr -d '[:space:]' < packages/mobile/.app-store-submit-trigger)"
+          fi
+          case "$lane" in
+            precheck|listing|submit) ;;
+            *) echo "::error::Lane invalide: $lane"; exit 1 ;;
+          esac
+          echo "lane=$lane" >> "$GITHUB_OUTPUT"
+          echo "Lane App Store: $lane"
+
+      - name: Verify Apple API secrets
+        shell: bash
+        run: |
+          missing=0
+          for v in ASC_API_KEY_P8_BASE64 ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID ASC_APP_ID; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Secret manquant: $v"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ]
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Run App Store lane
+        working-directory: packages/mobile
+        run: fastlane ios "${{ steps.lane.outputs.lane }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Loki Music — App Store" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Lane: ${{ steps.lane.outputs.lane }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: $ASC_APP_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

@@ -1,11 +1,10 @@
 ########################################################################
 # Fastfile — Loki Music
 #
-# Objectif : publier la FICHE App Store et soumettre la v1.0.0 (build 312,
-# deja sur TestFlight) de facon 100% AUTONOME, sans aucune action manuelle.
+# Objectif : publier la FICHE App Store et soumettre la v1.0.0 (dernier build TestFlight disponible) de facon 100% AUTONOME, sans aucune action manuelle.
 #
 # Auth par CLÉ API App Store Connect (JWT), le meme secret qui a deja produit
-# le build 312 : ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID.
+# un build TestFlight : ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID.
 # Aucun mot de passe d'app, aucun clic, aucune session interactive.
 #
 # Variables d'environnement attendues (fournies par les GitHub Secrets) :
@@ -68,16 +67,24 @@ platform :ios do
     UI.success("Fiche App Store mise a jour. Verifie dans App Store Connect, puis lance `fastlane ios submit`.")
   end
 
-  desc "Remplit la fiche ET soumet la v1.0.0 (build 312) a la review Apple"
+  desc "Remplit la fiche ET soumet le dernier build TestFlight de la v1.0.0 a la review Apple"
   lane :submit do
+    version = ENV["ASC_APP_VERSION"].to_s.empty? ? "1.0.0" : ENV["ASC_APP_VERSION"]
+    build = latest_testflight_build_number(
+      version: version,
+      initial_build_number: 1
+    )
+    UI.message("Soumission du dernier build TestFlight disponible : #{version} (#{build})")
     deliver(
+      app_version: version,
+      build_number: build,
       submit_for_review: true,
       skip_binary_upload: true,
       force: true,
       automatic_release: true,
       run_precheck_before_submit: true
     )
-    UI.success("Loki Music v1.0.0 (build 312) soumise a la review App Store.")
+    UI.success("Loki Music #{version} (build #{build}) soumise a la review App Store.")
   end
 
   desc "Controle la conformite de la fiche avant soumission"
