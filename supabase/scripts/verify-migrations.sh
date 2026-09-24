@@ -75,12 +75,22 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
   echo "  -> $name"
 
   # pg_cron existe sur Supabase managé mais pas dans l'image PostgreSQL 16
-  # générique utilisée par ce CI. On valide tout le corps métier de cette
-  # migration et on omet uniquement l'installation/planification cron quand
-  # l'extension n'est pas disponible localement. La production conserve la
-  # migration originale intacte.
-  if [ "$name" = "20260829235600_keep_system_auto_repair_guardian.sql" ] \
-     && ! pg -d "$DB" -Atqc "select 1 from pg_available_extensions where name='pg_cron'" | grep -q '^1
+  # générique utilisée par ce CI. Valider le corps métier sans modifier
+  # la migration de production ni prétendre tester le scheduler managé.
+  if [ "$name" = "20260829235600_keep_system_auto_repair_guardian.sql" ]; then
+    cron_available=$(pg -d "$DB" -Atqc "select count(*) from pg_available_extensions where name='pg_cron'")
+    if [ "$cron_available" = "0" ]; then
+      sed \
+        -e '/^create extension if not exists pg_cron /d' \
+        -e "/^select cron\.unschedule(jobid) from cron\.job where jobname='keep-system-auto-repair';$/d" \
+        -e "/^select cron\.schedule('keep-system-auto-repair'/d" \
+        "$f" | pg -d "$DB" >/dev/null
+      continue
+    fi
+  fi
+
+  pg -d "$DB" -f "$f" >/dev/null
+done
 
 echo "== Droits applicatifs (équivalent du rôle 'authenticated' Supabase) =="
 pg -d "$DB" <<'SQL' >/dev/null
