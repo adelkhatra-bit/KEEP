@@ -1325,9 +1325,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         rows.forEach((row, index) => { map[row.profileId] = index + 1; });
         setLeaderboardRank(map);
       }).catch(() => {});
+      const account = useUserStore.getState();
       const [players, credit] = await Promise.all([
         loadLiveSoloPlayers(20, roundCount),
-        loadMyKeepBattleCreditStatus().catch(() => null),
+        account.user?.id && !account.isLocalGuest && !account.isDemoMode
+          ? loadMyKeepBattleCreditStatus().catch(() => null)
+          : Promise.resolve(null),
       ]);
       if (mountedRef.current) {
         setLivePlayers(players);
