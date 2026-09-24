@@ -6,7 +6,7 @@ import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, setPlaylistSalePrice, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSaleTransaction } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
-import { isFeatureEnabled, isPlaylistMarketplaceEnabled } from '../services/featureFlagService';
+import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 
 const PRICE_PRESETS = [50, 100, 200, 300, 500, 1000] as const;
 
@@ -30,15 +30,24 @@ export default function PlaylistSalePanel({ navigation }: any) {
   // au cas où le point d'entrée menu serait contourné -- le flag Super
   // Admin 'playlist_marketplace' reste la seule source de vérité.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState<boolean | null>(null);
+  const [marketplaceTransactionEnabled, setMarketplaceTransactionEnabled] = useState(false);
   // (21/09/2026) BUG RÉEL corrigé : ce check ne tournait qu'au montage --
   // un changement de flag/bypass fait dans Super Admin pendant que l'écran
   // était déjà ouvert n'était jamais relu sans relancer l'app. Recalculé
   // aussi à chaque focus.
   useEffect(() => {
     let live = true;
-    const check = () => { isPlaylistMarketplaceEnabled().then((enabled) => { if (live) setMarketplaceEnabled(enabled); }); };
-    check();
-    const unsubscribe = navigation?.addListener?.('focus', check);
+    const check = async () => {
+      const [visible, transactionEnabled] = await Promise.all([
+        isPlaylistMarketplaceVisible(),
+        isPlaylistMarketplaceEnabled(),
+      ]);
+      if (!live) return;
+      setMarketplaceEnabled(visible);
+      setMarketplaceTransactionEnabled(transactionEnabled);
+    };
+    void check();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void check(); });
     return () => { live = false; unsubscribe?.(); };
   }, [navigation]);
 
@@ -251,10 +260,17 @@ export default function PlaylistSalePanel({ navigation }: any) {
                 réelle n'est pas intégrée. Le vendeur doit comprendre AVANT
                 de confirmer une vente que c'est lui, et lui seul, qui
                 certifie avoir reçu l'argent. */}
-            <View style={s.manualNotice}>
-              <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
-              <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
-            </View>
+            {marketplaceTransactionEnabled ? (
+              <View style={s.manualNotice}>
+                <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
+                <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements. C'est à toi de confirmer "J'ai bien été payé" uniquement après avoir réellement reçu l'argent sur ton lien personnel -- cette confirmation débloque l'accès pour l'acheteur de façon définitive.</Text>
+              </View>
+            ) : (
+              <View style={s.manualNotice}>
+                <Text style={s.manualNoticeTitle}>GESTION MOBILE ACTIVE</Text>
+                <Text style={s.manualNoticeText}>Tu peux créer et organiser tes offres, modifier les morceaux et les prix. Les opérations de paiement ne sont pas activées dans cette version mobile.</Text>
+              </View>
+            )}
 
             {/* Offres Actives */}
             {offers.length > 0 && (
@@ -319,7 +335,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
 
             {/* Ventes en attente de confirmation -- l'acheteur a déjà cliqué
                 Acheter (payé ou en train de payer sur le lien du vendeur) */}
-            {sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
+            {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
               <View style={s.offersSection}>
                 <Text style={s.sectionTitle}>VENTES EN ATTENTE ({sales.filter((s2) => s2.status === 'PENDING').length})</Text>
                 {sales.filter((s2) => s2.status === 'PENDING').map((sale) => (
@@ -357,7 +373,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
             )}
 
-            {sales.filter((s2) => s2.status === 'COMPLETED').length > 0 && (
+            {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'COMPLETED').length > 0 && (
               <View style={s.offersSection}>
                 <Text style={s.sectionTitle}>VENTES CONFIRMÉES ({sales.filter((s2) => s2.status === 'COMPLETED').length})</Text>
                 {sales.filter((s2) => s2.status === 'COMPLETED').map((sale) => (
@@ -369,7 +385,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
             )}
 
-            {purchases.length > 0 && (
+            {marketplaceTransactionEnabled && purchases.length > 0 && (
               <View style={s.offersSection}>
                 <Text style={s.sectionTitle}>MES ACHATS ({purchases.length})</Text>
                 {purchases.map((purchase) => (
