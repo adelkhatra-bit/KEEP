@@ -21,7 +21,7 @@ describe('TrackActionRow — badge de collection exclusive', () => {
   });
 
   it('MyMusicScreen shows collection membership directly in the row, tappable to manage the whole collection', () => {
-    expect(myMusic).toContain('badge={offered ? { label: `◆ Dans collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}');
+    expect(myMusic).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}');
     expect(myMusic).not.toContain('badge={offered ? { label: `🏷️ ${(offered.priceCents / 100).toFixed(2)}€`');
   });
 });
