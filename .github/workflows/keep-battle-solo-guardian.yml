@@ -5,6 +5,7 @@ on:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/src/components/KeepBattleArenaPanel.tsx'
+      - 'packages/mobile/src/screens/PartiesScreen.tsx'
       - 'packages/mobile/src/services/keepBattleExperienceService.ts'
       - '.github/workflows/keep-battle-solo-guardian.yml'
   pull_request:
@@ -68,7 +69,7 @@ jobs:
             const tryFree = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
             if (await tryFree.isVisible().catch(() => false)) await tryFree.click();
             await page.getByText('Soirées', { exact: true }).last().click();
-            const openSalon = page.getByLabel('Ouvrir le Salon KEEP Battle').last();
+            const openSalon = page.getByLabel('Ouvrir le Salon Loki Music Battle').last();
             await openSalon.waitFor({ state: 'visible', timeout: 15000 });
             await openSalon.click();
             await page.getByText('KEEP BATTLE · SALONS UTILISATEURS', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });

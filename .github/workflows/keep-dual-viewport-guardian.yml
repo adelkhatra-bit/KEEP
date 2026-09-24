@@ -193,7 +193,7 @@ jobs:
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await clickRobust(page,page.getByText('Playlists',{exact:true}).last(),'Playlists tab');
             await clickRobust(page,page.getByText('Soirées',{exact:true}).last(),'Soirées tab');
-            const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
+            const openSalon=page.getByLabel('Ouvrir le Salon Loki Music Battle').last();
             await openSalon.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,openSalon,'Open Battle salon');
             await page.getByText('KEEP BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
