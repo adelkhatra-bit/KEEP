@@ -480,4 +480,18 @@ describe('Loki Music Battle "Joueurs disponibles" multi-select redesign (Adel, 2
     expect(battle).toContain('loadLiveSoloPlayers(30, arena.roundCount)');
   });
 
+
+  it('keeps active Solo and Battle gameplay fixed with four answers before multiplayer standings', () => {
+    expect(source).toContain('<ScrollView scrollEnabled={false} bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>');
+    expect(source).toContain("scrollEnabled={arena.status !== 'ACTIVE'} bounces={arena.status !== 'ACTIVE'}");
+    expect(source).toContain('const [groupStandingsOpen, setGroupStandingsOpen] = React.useState(false);');
+    expect(source).toContain('accessibilityState={{ expanded: groupStandingsOpen }}');
+    const arenaQuestion = source.lastIndexOf('<Text style={s.question}>QUI CHANTE ?</Text>');
+    const arenaAnswers = source.indexOf('<View style={s.answers}>', arenaQuestion);
+    const standings = source.indexOf('CLASSEMENT · {players.length} JOUEURS', arenaAnswers);
+    expect(arenaQuestion).toBeGreaterThan(-1);
+    expect(arenaAnswers).toBeGreaterThan(arenaQuestion);
+    expect(standings).toBeGreaterThan(arenaAnswers);
+  });
+
 });
