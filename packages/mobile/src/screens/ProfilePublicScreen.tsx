@@ -1180,64 +1180,40 @@ export default function ProfilePublicScreen({ navigation }: any) {
             action secondaire (grise), conformément à la hiérarchie des
             couleurs v3 (violet = actions principales uniquement). */}
         <View style={s.ownerQuickActions}>
-          <MotionActionButton
-            icon="▶"
-            title="APERÇU"
-            subtitle="Voir mon profil public."
-            onPress={openProfileSwipe}
-            accessibilityLabel="Voir mon profil public comme un visiteur"
-            tone="primary"
-            compact
-            style={s.ownerQuickActionMotion}
-          />
+          <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipPrimary]} onPress={openProfileSwipe} accessibilityLabel="Voir mon profil public">
+            <Text style={s.ownerActionChipIcon}>▶</Text><Text style={s.ownerActionChipText}>APERÇU</Text>
+          </TouchableOpacity>
           {marketplaceEnabled ? (
-            <MotionActionButton
-              icon="◆"
-              title="SÉLECTIONS"
-              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} publiée${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Créer une sélection musicale.'}
-              onPress={() => navigation.navigate('PlaylistSale')}
-              accessibilityLabel="Créer ou gérer mes collections exclusives"
-              tone="success"
-              compact
-              style={s.ownerQuickActionMotion}
-            />
-          ) : null}
+            <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipSuccess]} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Créer ou gérer mes pépites">
+              <Text style={s.ownerActionChipIcon}>◆</Text><Text style={s.ownerActionChipText}>PÉPITES</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={s.ownerActionChip} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer">
+              <Text style={s.ownerActionChipIcon}>⚡</Text><Text style={s.ownerActionChipText}>JOUER</Text>
+            </TouchableOpacity>
+          )}
+          {battleFeatureEnabled && !accountRequired ? (
+            <TouchableOpacity
+              style={[s.ownerActionChip, battleAvailable && s.ownerActionChipBattleOn]}
+              disabled={battleAvailabilityBusy}
+              onPress={() => { void setBattleAvailable(!battleAvailable); }}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: battleAvailable }}
+              accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
+            >
+              <PresenceDot online={battleAvailable} />
+              <Text style={s.ownerActionChipText}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={s.ownerActionChip} onPress={() => navigation.navigate('Parties')} accessibilityLabel="Ouvrir les soirées">
+              <Text style={s.ownerActionChipIcon}>♬</Text><Text style={s.ownerActionChipText}>JOUER</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {battleFeatureEnabled && !accountRequired ? (
-          <View style={s.ownerBattleCard}>
-            <View style={[s.battleAvailabilityRow, battleAvailable && s.battleAvailabilityRowOn]}>
-              <TouchableOpacity
-                style={s.battleAvailabilityMain}
-                disabled={battleAvailabilityBusy}
-                onPress={() => { void setBattleAvailable(!battleAvailable); }}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: battleAvailable }}
-                accessibilityLabel="Disponible pour un Battle"
-              >
-                <PresenceDot online={battleAvailable} />
-                <View style={s.ownerBattleCopy}>
-                  <Text style={s.battleAvailabilityTitle}>⚡ BATTLE · {battleAvailable ? 'Disponible' : 'Indisponible'}</Text>
-                     </View>
-              </TouchableOpacity>
-              <TouchableOpacity hitSlop={8} onPress={() => setBattleAvailabilityInfoOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="Comment marche la disponibilité Battle">
-                <Text style={s.battleAvailabilityInfoIcon}>ⓘ</Text>
-              </TouchableOpacity>
-            </View>
-            <MotionActionButton
-              icon="⚡"
-              title="SOLO"
-              onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })}
-              accessibilityLabel="Jouer un Battle solo"
-              tone="battle"
-              style={s.ownerSoloBattleMotion}
-            />
-            {battleAvailabilityInfoOpen ? (
-              <Text style={s.battleAvailabilityHint}>Reçois des invitations Battle même ailleurs dans Loki Music. Pour lancer toi-même un défi, utilise JOUER EN SOLO ici ou visite le profil d’un joueur disponible.</Text>
-            ) : null}
-            {battleStats ? (
-              <Text style={s.battlePresenceLine}>🏆 {battleStats.wins} victoire{battleStats.wins > 1 ? 's' : ''}{battleInProgress ? ' · ⚡ Partie en cours' : ''} · {battleRank ? `Rang #${battleRank}` : 'Non classé'}</Text>
-            ) : null}
-          </View>
+        {battleFeatureEnabled && !accountRequired && battleStats ? (
+          <TouchableOpacity style={s.ownerBattleSummary} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Ouvrir Battle">
+            <Text style={s.ownerBattleSummaryText}>⚡ JOUER · 🏆 {battleStats.wins}{battleInProgress ? ' · PARTIE EN COURS' : ''}{battleRank ? ` · #${battleRank}` : ''}</Text>
+          </TouchableOpacity>
         ) : null}
       </ProfileMotionReveal>
 
@@ -1645,7 +1621,16 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',gap:8,marginTop:8},ownerQuickActionMotion:{flex:1},ownerSwipeMotion:{marginTop:12},ownerSoloBattleMotion:{marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:54,borderRadius:14,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center',paddingHorizontal:8},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900',textAlign:'center'},ownerSellCount:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:2},ownerBattleCard:{marginTop:8},ownerBattleCopy:{flex:1,minWidth:0},ownerBattleSub:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:colors.textPrimary,fontSize:13,lineHeight:18,marginTop:3},
+  hero:{paddingHorizontal:18,paddingBottom:10},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:6},location:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:9},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',gap:8,marginTop:8},
+ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
+ownerActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
+ownerActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
+ownerActionChipBattleOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},
+ownerActionChipIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
+ownerActionChipText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
+ownerBattleSummary:{minHeight:32,marginTop:6,borderRadius:10,alignItems:'center',justifyContent:'center'},
+ownerBattleSummaryText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',letterSpacing:.3},
+ownerQuickActionMotion:{flex:1},ownerSwipeMotion:{marginTop:12},ownerSoloBattleMotion:{marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:54,borderRadius:14,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center',paddingHorizontal:8},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900',textAlign:'center'},ownerSellCount:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:2},ownerBattleCard:{marginTop:8},ownerBattleCopy:{flex:1,minWidth:0},ownerBattleSub:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:colors.textPrimary,fontSize:13,lineHeight:18,marginTop:3},
   sectionMargin:{marginHorizontal:18,marginTop:10},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},ownerSoloBattleButton:{minHeight:54,marginTop:8,paddingHorizontal:12,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,flexDirection:'row',alignItems:'center',gap:10},ownerSoloBattleCopy:{flex:1,minWidth:0},ownerSoloBattleTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},ownerSoloBattleSub:{color:colors.textPrimary,fontSize:10,lineHeight:14,marginTop:2},ownerSoloBattleArrow:{color:colors.textPrimary,fontSize:26,fontWeight:'700'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},genreGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:8},genreTile:{width:'48%',minHeight:56,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreTileText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreTileCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},muted:{color:colors.textPrimary,fontSize:13,lineHeight:18},
