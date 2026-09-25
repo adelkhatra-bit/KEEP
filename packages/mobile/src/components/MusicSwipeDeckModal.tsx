@@ -466,7 +466,7 @@ export default function MusicSwipeDeckModal({
               {sourceAvatarUrl ? <Image source={{ uri: sourceAvatarUrl }} style={s.sourceAvatar} /> : <View style={s.sourceAvatarFallback}><Text style={s.sourceAvatarText}>{sourceUsername.replace(/^@/, '').slice(0,1).toUpperCase()}</Text></View>}
               <View style={s.sourceIdentityCopy}>
                 <Text style={s.sourceIdentityKicker}>TU ÉCOUTES L’UNIVERS DE</Text>
-                <Text style={s.sourceIdentityName}>@{sourceUsername.replace(/^@/, '')}</Text>
+                <Text style={s.sourceIdentityName}>{sourceUsername.replace(/^@/, '')}</Text>
               </View>
             </View>
           ) : null}
@@ -489,7 +489,7 @@ export default function MusicSwipeDeckModal({
             >
               <View style={s.card}>
                 {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
-                {sourceUsername ? <View style={s.sourceOverlay}><Text style={s.sourceOverlayText}>@{sourceUsername.replace(/^@/, '')}</Text></View> : null}
+                {sourceUsername ? <View style={s.sourceOverlay}><Text style={s.sourceOverlayText}>Découvert par {sourceUsername.replace(/^@/, '')}</Text></View> : null}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
                   {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
