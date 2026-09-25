@@ -94,7 +94,8 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
   it('uses the KEEP violet token for "+ Suivre" (primary action), never the legacy red hex', () => {
     expect(source).toContain("followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primary");
     expect(source).not.toMatch(/followButton:\{[^}]*#FF5F83/);
-    expect(source).toContain('followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border}');
+    expect(source).toContain('followButtonActive:{backgroundColor:`${colors.success}22`,borderColor:colors.success}');
+    expect(source).toContain('followButtonTextActive:{color:colors.success}');
   });
 
   it('uses the KEEP violet token for the marketplace price button, not green (Design System: green is reserved for success/validation)', () => {
