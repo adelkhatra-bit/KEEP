@@ -1135,7 +1135,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ) : null}
             </View>
-            <Text style={styles.marketplaceHint}>Écoute les extraits secrets. Les titres, artistes et pochettes restent masqués jusqu’au déblocage.</Text>
+            <Text style={styles.marketplaceHint}>Écoute sans indice. Le reste se révèle au déblocage.</Text>
             {saleOffers.length === 0 ? (
               <View style={styles.marketplaceEmpty}>
                 <Text style={styles.marketplaceEmptyText}>Aucune collection exclusive pour le moment</Text>
@@ -1164,7 +1164,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                         title={offer.playlistName || `Collection #${index + 1}`}
                         subtitle={unlocked
                           ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
-                          : `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel} · extraits anonymes`}
+                          : `${offer.trackCount} sons secrets · ${styleLabel}`}
                         mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
                         badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '🔒 COLLECTION SECRÈTE'}
                         priceLabel={unlocked ? undefined : priceLabel}
