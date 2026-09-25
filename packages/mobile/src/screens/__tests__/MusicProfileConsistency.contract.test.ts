@@ -10,6 +10,7 @@ describe('Music profile consistency', () => {
   const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const myMusic = read(__dirname, '..', 'MyMusicScreen.tsx');
   const visitor = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const audio = read(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
   it('uses PUBLIC + PRIVATE keeps for the owner profile style source', () => {
     expect(profileService).toContain("return loadPagedKeeps('keep_own_profile_tracks', {});");
@@ -38,11 +39,19 @@ describe('Music profile consistency', () => {
     expect(myMusic).toContain("manageSaleOfferName: offered.playlistName");
   });
 
+  it('preloads actual media for the next visitor track on web and native', () => {
+    expect(audio).toContain('export async function preloadTrackPreview(previewUrl: string)');
+    expect(audio).toContain('profilePreloadedSound');
+    expect(audio).toContain("element.preload = 'auto'");
+    expect(audio).toContain('profilePreloadedUrl === previewUrl');
+  });
+
   it('pre-resolves the next visitor preview to avoid gaps between tracks', () => {
     expect(visitor).toContain('inlinePreviewUrlCacheRef');
     expect(visitor).toContain('const resolveInlinePreview = async');
     expect(visitor).toContain('const nextCandidate = candidates[index + 1]');
-    expect(visitor).toContain('void resolveInlinePreview(nextCandidate)');
+    expect(visitor).toContain('void resolveInlinePreview(nextCandidate).then((nextUrl) => {');
+    expect(visitor).toContain('void preloadTrackPreview(nextUrl)');
     expect(visitor).toContain('void playInlineQueueItem(label, candidates, nextIndex, generation)');
   });
 });
