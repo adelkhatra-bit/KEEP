@@ -189,9 +189,9 @@ jobs:
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
             await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
             await page.waitForTimeout(500);
-            const playlistsLibraryTab = page.getByRole('tab', { name: 'Playlists' }).last();
-            if (await playlistsLibraryTab.count() === 0) throw new Error('Playlists library tab not found');
-            await clickRobust(playlistsLibraryTab, 'Playlists library tab');
+            const musicLibraryTab = page.getByRole('tab', { name: 'Musiques' }).last();
+            if (await musicLibraryTab.count() === 0) throw new Error('Musiques library tab not found');
+            await clickRobust(musicLibraryTab, 'Musiques library tab');
             await page.waitForTimeout(300);
             await page.screenshot({ path: 'artifacts/real-browser/keep-playlists-390x844.png', fullPage: true });
 
