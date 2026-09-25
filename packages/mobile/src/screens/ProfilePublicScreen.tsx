@@ -1302,7 +1302,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <MotionActionButton
         icon="♫"
         title="GÉRER MES MUSIQUES"
-        subtitle="Modifier Public/Privé, supprimer, classer et préparer tes collections."
+        subtitle="Tout modifier au même endroit : Public/Privé, supprimer, classer, ajouter/retirer des morceaux et préparer tes collections."
         onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { openManageMusic: true } })}
         accessibilityLabel="Gérer mes musiques"
         tone="secondary"
