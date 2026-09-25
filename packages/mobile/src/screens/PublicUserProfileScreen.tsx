@@ -127,6 +127,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [inlineStylePlayingKey, setInlineStylePlayingKey] = useState<string | null>(null);
   const [inlineListenNotice, setInlineListenNotice] = useState<string | null>(null);
   const inlineQueueGenerationRef = useRef(0);
+  const inlinePreviewUrlCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!inlineListenNotice) return undefined;
@@ -526,6 +527,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setSwipeOpen(true);
   };
 
+  const resolveInlinePreview = async (track: CanonicalTrack): Promise<string | null> => {
+    const cached = inlinePreviewUrlCacheRef.current.get(track.id);
+    if (cached) return cached;
+    const resolved = track.previewUrl || await resolveTrackPreviewUrl(track).catch(() => null);
+    if (resolved) inlinePreviewUrlCacheRef.current.set(track.id, resolved);
+    return resolved;
+  };
+
   const playInlineQueueItem = async (
     label: string,
     candidates: CanonicalTrack[],
@@ -541,7 +550,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     let previewUrl: string | null = null;
     while (index < candidates.length && generation === inlineQueueGenerationRef.current) {
       const candidate = candidates[index];
-      const resolved = candidate.previewUrl || await resolveTrackPreviewUrl(candidate).catch(() => null);
+      const resolved = await resolveInlinePreview(candidate);
       if (resolved) {
         track = candidate;
         previewUrl = resolved;
@@ -558,6 +567,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
 
     const key = `visitor-inline:${profile?.id ?? username ?? 'profile'}:${track.id}`;
+
+    // Prépare l'URL du titre suivant pendant que le morceau courant joue.
+    // Cela supprime le blanc créé auparavant par la résolution réseau APRÈS
+    // la fin naturelle de l'extrait.
+    const nextCandidate = candidates[index + 1];
+    if (nextCandidate && !inlinePreviewUrlCacheRef.current.has(nextCandidate.id)) {
+      void resolveInlinePreview(nextCandidate);
+    }
+
     try {
       await toggleTrackPreview(
         key,
