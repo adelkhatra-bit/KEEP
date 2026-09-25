@@ -1183,18 +1183,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipPrimary]} onPress={openProfileSwipe} accessibilityLabel="Voir mon profil public">
             <Text style={s.ownerActionChipIcon}>▶</Text><Text style={s.ownerActionChipText}>APERÇU</Text>
           </TouchableOpacity>
-          {marketplaceEnabled ? (
-            <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipSuccess]} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Créer ou gérer mes pépites">
-              <Text style={s.ownerActionChipIcon}>◆</Text><Text style={s.ownerActionChipText}>PÉPITES</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={s.ownerActionChip} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer">
-              <Text style={s.ownerActionChipIcon}>⚡</Text><Text style={s.ownerActionChipText}>JOUER</Text>
-            </TouchableOpacity>
-          )}
-          {battleFeatureEnabled && !accountRequired ? (
+          <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipSuccess]} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Créer ou gérer mes pépites">
+            <Text style={s.ownerActionChipIcon}>◆</Text><Text style={s.ownerActionChipText}>PÉPITES</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.ownerActionChip} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer un Battle">
+            <Text style={s.ownerActionChipIcon}>⚡</Text><Text style={s.ownerActionChipText}>BATTLE</Text>
+          </TouchableOpacity>
+        </View>
+        {battleFeatureEnabled && !accountRequired ? (
+          <View style={s.ownerBattleMicroRow}>
             <TouchableOpacity
-              style={[s.ownerActionChip, battleAvailable && s.ownerActionChipBattleOn]}
+              style={[s.ownerBattleMicroSwitch, battleAvailable && s.ownerBattleMicroSwitchOn]}
               disabled={battleAvailabilityBusy}
               onPress={() => { void setBattleAvailable(!battleAvailable); }}
               accessibilityRole="switch"
@@ -1202,18 +1201,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
               accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
             >
               <PresenceDot online={battleAvailable} />
-              <Text style={s.ownerActionChipText}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
+              <Text style={[s.ownerBattleMicroText, battleAvailable && s.ownerBattleMicroTextOn]}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={s.ownerActionChip} onPress={() => navigation.navigate('Parties')} accessibilityLabel="Ouvrir les soirées">
-              <Text style={s.ownerActionChipIcon}>♬</Text><Text style={s.ownerActionChipText}>JOUER</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        {battleFeatureEnabled && !accountRequired && battleStats ? (
-          <TouchableOpacity style={s.ownerBattleSummary} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Ouvrir Battle">
-            <Text style={s.ownerBattleSummaryText}>⚡ JOUER · 🏆 {battleStats.wins}{battleInProgress ? ' · PARTIE EN COURS' : ''}{battleRank ? ` · #${battleRank}` : ''}</Text>
-          </TouchableOpacity>
+            {battleStats ? <Text style={s.ownerBattleSummaryText}>🏆 {battleStats.wins}{battleRank ? ` · #${battleRank}` : ''}{battleInProgress ? ' · EN COURS' : ''}</Text> : null}
+          </View>
         ) : null}
       </ProfileMotionReveal>
 
@@ -1630,6 +1621,12 @@ ownerActionChipIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
 ownerActionChipText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
 ownerBattleSummary:{minHeight:32,marginTop:6,borderRadius:10,alignItems:'center',justifyContent:'center'},
 ownerBattleSummaryText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',letterSpacing:.3},
+ownerBattleMicroRow:{minHeight:28,marginTop:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
+ownerBattleMicroSwitch:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:8,paddingVertical:4,borderRadius:999,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},
+ownerBattleMicroSwitchOn:{borderColor:colors.success,backgroundColor:`${colors.success}18`},
+ownerBattleMicroText:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.45},
+ownerBattleMicroTextOn:{color:colors.success},
+
 ownerQuickActionMotion:{flex:1},ownerSwipeMotion:{marginTop:12},ownerSoloBattleMotion:{marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:54,borderRadius:14,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center',paddingHorizontal:8},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900',textAlign:'center'},ownerSellCount:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:2},ownerBattleCard:{marginTop:8},ownerBattleCopy:{flex:1,minWidth:0},ownerBattleSub:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},accountBanner:{marginTop:12,padding:12,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},accountBannerTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},accountBannerText:{color:colors.textPrimary,fontSize:13,lineHeight:18,marginTop:3},
   sectionMargin:{marginHorizontal:18,marginTop:10},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:7,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},ownerSoloBattleButton:{minHeight:54,marginTop:8,paddingHorizontal:12,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,flexDirection:'row',alignItems:'center',gap:10},ownerSoloBattleCopy:{flex:1,minWidth:0},ownerSoloBattleTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},ownerSoloBattleSub:{color:colors.textPrimary,fontSize:10,lineHeight:14,marginTop:2},ownerSoloBattleArrow:{color:colors.textPrimary,fontSize:26,fontWeight:'700'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
