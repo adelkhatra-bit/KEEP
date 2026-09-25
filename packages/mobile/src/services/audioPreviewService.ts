@@ -18,6 +18,14 @@ let operation = Promise.resolve();
 let preloadedSound: Audio.Sound | null = null;
 let preloadedKey: string | null = null;
 
+// Préchargement séparé pour l'écoute profil/Swipe. Ne réutilise jamais le
+// slot Battle ci-dessus : une prélecture sociale ne doit pas pouvoir évincer
+// la manche Battle N+1 et inversement.
+let profilePreloadedSound: Audio.Sound | null = null;
+let profilePreloadedUrl: string | null = null;
+let webProfilePreload: any = null;
+let webProfilePreloadUrl: string | null = null;
+
 // Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
 // deux manches. Sur le web, Loki Battle réutilise donc le même HTMLAudioElement
 // pendant toute la session. L'élément est seulement mis en pause entre les titres ;
@@ -86,6 +94,15 @@ async function discardPreloaded() {
   const stale = preloadedSound;
   preloadedSound = null;
   preloadedKey = null;
+  if (!stale) return;
+  try { await stale.stopAsync(); } catch {}
+  try { await stale.unloadAsync(); } catch {}
+}
+
+async function discardProfilePreloaded() {
+  const stale = profilePreloadedSound;
+  profilePreloadedSound = null;
+  profilePreloadedUrl = null;
   if (!stale) return;
   try { await stale.stopAsync(); } catch {}
   try { await stale.unloadAsync(); } catch {}
@@ -310,10 +327,7 @@ export async function toggleTrackPreview(
       return;
     }
 
-    await unloadActive();
-    await configurePreviewAudio();
-
-    const createdSound = await createSoundWithRetry(previewUrl, 0, (status, sound) => {
+    const onStatus = (status: AVPlaybackStatus, sound: Audio.Sound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
@@ -324,12 +338,68 @@ export async function toggleTrackPreview(
           onEnded?.();
         });
       }
-    });
+    };
+
+    let createdSound: Audio.Sound;
+    if (profilePreloadedSound && profilePreloadedUrl === previewUrl) {
+      const ready = profilePreloadedSound;
+      profilePreloadedSound = null;
+      profilePreloadedUrl = null;
+      await unloadActive();
+      await configurePreviewAudio();
+      ready.setOnPlaybackStatusUpdate((status) => onStatus(status, ready));
+      try { await ready.setPositionAsync(0); } catch {}
+      await ensurePlaying(ready);
+      createdSound = ready;
+    } else {
+      await unloadActive();
+      await configurePreviewAudio();
+      createdSound = await createSoundWithRetry(previewUrl, 0, onStatus);
+    }
 
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange;
     onStateChange(true);
+  });
+}
+
+/**
+ * Précharge le prochain extrait d'une écoute profil/Swipe sans le jouer.
+ *
+ * Web : un second HTMLAudioElement ne joue jamais ; il remplit uniquement le
+ * cache média du navigateur pendant que l'élément partagé continue le titre N.
+ * Natif : un Audio.Sound distinct est chargé avec shouldPlay:false puis
+ * consommé par toggleTrackPreview lorsque N+1 démarre.
+ */
+export async function preloadTrackPreview(previewUrl: string): Promise<void> {
+  if (!previewUrl) return;
+
+  if (canUseWebAudio()) {
+    try {
+      if (webProfilePreload && webProfilePreloadUrl === previewUrl) return;
+      const HtmlAudio = (globalThis as any).Audio;
+      const element = new HtmlAudio();
+      element.preload = 'auto';
+      element.playsInline = true;
+      element.src = previewUrl;
+      try { element.load(); } catch {}
+      webProfilePreload = element;
+      webProfilePreloadUrl = previewUrl;
+    } catch {}
+    return;
+  }
+
+  return serialize(async () => {
+    if (profilePreloadedSound && profilePreloadedUrl === previewUrl) return;
+    await discardProfilePreloaded();
+    try {
+      const sound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
+      profilePreloadedSound = sound;
+      profilePreloadedUrl = previewUrl;
+    } catch {
+      await discardProfilePreloaded();
+    }
   });
 }
 
