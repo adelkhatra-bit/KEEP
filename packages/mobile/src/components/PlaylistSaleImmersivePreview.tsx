@@ -56,8 +56,7 @@ interface Props {
 }
 
 export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true }: Props) {
-  const [marketingIndex, setMarketingIndex] = useState(0);
-  const [explainerIndex, setExplainerIndex] = useState(0);
+  const [explainerIndex] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [teaserIndex, setTeaserIndex] = useState(0);
   const teaserOpacity = useRef(new Animated.Value(1)).current;
@@ -105,7 +104,6 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   // pré-cochée, jamais un vieux jeu d'extraits d'une offre précédente.
   useEffect(() => {
     if (!visible) {
-      clearInterval(teaserTimer);
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
       return undefined;
@@ -121,7 +119,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       if (!live) return;
       setTracks(loaded);
       tracksRef.current = loaded;
-      if (loaded.length > 0) playTrackAt(0);
+      // Ne jamais lancer l'audio à l'ouverture : sur iOS/Safari il faut un
+      // vrai geste utilisateur. On préserve aussi le contrôle total de l'écoute.
     }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; } });
     // La carte reste stable, mais une seule accroche courte tourne doucement
     // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
@@ -134,6 +133,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     }, ROTATE_MS);
     return () => {
       live = false;
+      clearInterval(teaserTimer);
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
     };
@@ -210,8 +210,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
             resetKey={trackIndex}
-            onSwipeLeft={() => playTrackAt(trackIndex - 1)}
-            onSwipeRight={() => playTrackAt(trackIndex + 1)}
+            onSwipeLeft={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}
+            onSwipeRight={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}
             leftLabel="◀ EXTRAIT PRÉCÉDENT"
             rightLabel="EXTRAIT SUIVANT ▶"
             hint={tracksUnavailable ? '' : 'Même geste que Swipe · tu changes d’extrait quand TU le décides'}
@@ -243,9 +243,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={s.previewControls}>
-              <TouchableOpacity style={s.previewControlButton} onPress={() => playTrackAt(trackIndex - 1)}><Text style={s.previewControlText}>‹ PRÉCÉDENT</Text></TouchableOpacity>
+              <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}><Text style={s.previewControlText}>‹ PRÉCÉDENT</Text></TouchableOpacity>
               <TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ PAUSE' : '▶ ÉCOUTER'}</Text></TouchableOpacity>
-              <TouchableOpacity style={s.previewControlButton} onPress={() => playTrackAt(trackIndex + 1)}><Text style={s.previewControlText}>SUIVANT ›</Text></TouchableOpacity>
+              <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}><Text style={s.previewControlText}>SUIVANT ›</Text></TouchableOpacity>
             </View>
           ) : null}
 
