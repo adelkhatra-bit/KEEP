@@ -1075,50 +1075,22 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
           </View>
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-          {saleOffers.length > 0 && viewer?.id !== profile.id ? (
-            <TouchableOpacity
-              style={styles.sellerSignal}
-              onPress={() => openSaleFolder(saleOffers[0])}
-              accessibilityRole="button"
-              accessibilityLabel={`${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''} exclusive${saleOffers.length > 1 ? 's' : ''} sur ce profil`}
-            >
-              <View style={styles.sellerSignalIcon}><Text style={styles.sellerSignalIconText}>◆</Text></View>
-              <View style={styles.sellerSignalCopy}>
-                <Text style={styles.sellerSignalKicker}>BOUTIQUE MUSICALE ACTIVE</Text>
-                <Text style={styles.sellerSignalTitle}>{saleOffers.length} collection{saleOffers.length > 1 ? 's' : ''} exclusive{saleOffers.length > 1 ? 's' : ''} à débloquer</Text>
-                <Text style={styles.sellerSignalMeta}>Extraits anonymes · vrais titres masqués avant déblocage</Text>
-              </View>
-              <Text style={styles.sellerSignalArrow}>›</Text>
-            </TouchableOpacity>
-          ) : null}
-          {/* Adel (21/09/2026) : "il faut un bouton SWIPE principal, visible,
-              en haut de la collection ... aussi visible que le bouton SWIPE
-              du profil personnel." Le bouton existait déjà (openBrowseSwipe,
-              MusicSwipeDeckModal réutilisé tel quel) mais en petite pastille
-              à côté de +Suivre -- remonté en pleine largeur, même poids
-              visuel que ownerSwipeButton sur le propre profil. */}
-          {tracks.length > 0 && viewer?.id !== profile.id ? (
-            <MotionActionButton
-              icon="▶"
-              title="SWIPE"
-              subtitle="Écoute ses découvertes publiques sans quitter son profil."
-              onPress={() => openBrowseSwipe(null)}
-              accessibilityLabel={`Swiper la collection de ${profile.username}`}
-              tone="primary"
-              style={styles.visitorSwipeMotion}
-            />
-          ) : null}
-          {battleFeatureEnabled && viewer?.id !== profile.id ? (
-            <MotionActionButton
-              icon="⚡"
-              title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}
-              subtitle="Envoie un défi direct à ce profil."
-              onPress={() => void challengeProfileToBattle()}
-              disabled={battleInviteBusy}
-              accessibilityLabel={`Défier ${profile.username} en Battle`}
-              tone="battle"
-              style={styles.visitorBattleMotion}
-            />
+          {viewer?.id !== profile.id ? (
+            <View style={styles.visitorActionRow}>
+              {tracks.length > 0 ? (
+                <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipPrimary]} onPress={() => openBrowseSwipe(null)} accessibilityLabel={`Swiper les découvertes de ${profile.username}`}>
+                  <Text style={styles.visitorActionIcon}>▶</Text><Text style={styles.visitorActionLabel}>SWIPE</Text>
+                </TouchableOpacity>
+              ) : <View style={styles.visitorActionChipPlaceholder} />}
+              {battleFeatureEnabled ? (
+                <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipBattle]} onPress={() => void challengeProfileToBattle()} disabled={battleInviteBusy} accessibilityLabel={`Défier ${profile.username} en Battle`}>
+                  <Text style={styles.visitorActionIcon}>⚡</Text><Text style={styles.visitorActionLabel}>{battleInviteBusy ? 'ENVOI…' : 'BATTLE'}</Text>
+                </TouchableOpacity>
+              ) : <View style={styles.visitorActionChipPlaceholder} />}
+              <TouchableOpacity style={styles.visitorActionChip} onPress={() => void shareThisProfile()} accessibilityLabel="Partager ce profil">
+                <Text style={styles.visitorActionIcon}>↗</Text><Text style={styles.visitorActionLabel}>PARTAGER</Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
         </ProfileMotionReveal>
 
@@ -1126,8 +1098,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>SON GOÛT MUSICAL · SES COLLECTIONS</Text>
-                <Text style={styles.sectionTitle}>À débloquer</Text>
+                <Text style={styles.marketplaceKicker}>SES PÉPITES · CHOISIES À L’OREILLE</Text>
+                <Text style={styles.sectionTitle}>À découvrir</Text>
               </View>
               {saleOffers.length > 0 ? (
                 <View style={styles.marketplaceCountPill}>
@@ -1135,10 +1107,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ) : null}
             </View>
-            <Text style={styles.marketplaceHint}>Écoute sans indice. Le reste se révèle au déblocage.</Text>
+            <Text style={styles.marketplaceHint}>Fais confiance à son oreille. Écoute une pépite avant de la révéler.</Text>
             {saleOffers.length === 0 ? (
               <View style={styles.marketplaceEmpty}>
-                <Text style={styles.marketplaceEmptyText}>Aucune collection exclusive pour le moment</Text>
+                <Text style={styles.marketplaceEmptyText}>Aucune pépite à révéler pour le moment</Text>
               </View>
             ) : (
               <>
@@ -1164,14 +1136,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                         title={offer.playlistName || `Collection #${index + 1}`}
                         subtitle={unlocked
                           ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
-                          : `${offer.trackCount} sons secrets · ${styleLabel}`}
+                          : `${offer.trackCount} pépite${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`}
                         mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
-                        badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '🔒 COLLECTION SECRÈTE'}
+                        badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '✦ PÉPITES À RÉVÉLER'}
                         priceLabel={unlocked ? undefined : priceLabel}
                         onPress={() => openSaleFolder(offer)}
                         accessibilityLabel={unlocked
                           ? `Ouvrir la collection ${offer.playlistName}`
-                          : `Tester la collection secrète ${offer.playlistName}, ${offer.trackCount} morceaux, ${priceLabel}`}
+                          : `Écouter les pépites ${offer.playlistName}, ${offer.trackCount} morceaux, ${priceLabel}`}
                         onPlayPress={() => openSaleFolder(offer)}
                         playAccessibilityLabel={unlocked
                           ? `Écouter la collection ${offer.playlistName}`
@@ -1181,7 +1153,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     );
                   })}
                 </ScrollView>
-                <Text style={styles.saleCarouselHint}>← Fais défiler · touche une collection pour écouter ses extraits anonymes →</Text>
+                <Text style={styles.saleCarouselHint}>← Explore ses pépites · touche une carte pour écouter →</Text>
               </>
             )}
           </ProfileMotionReveal>
@@ -1623,7 +1595,14 @@ const styles = StyleSheet.create({
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-    sellerSignal:{minHeight:74,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
+    visitorActionRow:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:12},
+  visitorActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
+  visitorActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
+  visitorActionChipBattle:{backgroundColor:'rgba(255,184,77,.08)',borderColor:'rgba(255,184,77,.45)'},
+  visitorActionChipPlaceholder:{flex:1,minWidth:0},
+  visitorActionIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
+  visitorActionLabel:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.55,textAlign:'center'},
+  sellerSignal:{minHeight:74,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
   sellerSignalIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
   sellerSignalIconText:{color:colors.keep,fontSize:18,fontWeight:'900'},
   sellerSignalCopy:{flex:1,minWidth:0},
