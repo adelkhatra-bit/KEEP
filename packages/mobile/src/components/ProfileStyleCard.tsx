@@ -88,6 +88,7 @@ export default function ProfileStyleCard({
 }: Props) {
   const scale = useRef(new Animated.Value(1)).current;
   const pulse = useRef(new Animated.Value(0)).current;
+  const waveMotion = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
   const locked = mode === 'LOCKED';
   const unlocked = mode === 'UNLOCKED';
@@ -116,8 +117,10 @@ export default function ProfileStyleCard({
       ]),
     );
     loop.start();
-    return () => loop.stop();
-  }, [locked, pulse, reduceMotion]);
+    const waveLoop = Animated.loop(Animated.timing(waveMotion, { toValue: 1, duration: 3600, useNativeDriver: true }));
+    waveLoop.start();
+    return () => { loop.stop(); waveLoop.stop(); };
+  }, [locked, pulse, reduceMotion, waveMotion]);
 
   const pressTo = (value: number) => {
     if (reduceMotion) {
@@ -212,11 +215,11 @@ export default function ProfileStyleCard({
             style={s.visual}
           >
             {locked ? (
-              <View pointerEvents="none" style={s.wave}>
+              <Animated.View pointerEvents="none" style={[s.wave, { transform: [{ translateX: waveMotion.interpolate({ inputRange: [0, 1], outputRange: [-18, 18] }) }] }]}>
                 {[20, 34, 54, 72, 46, 64, 30, 50, 24].map((height, index) => (
                   <View key={index} style={[s.waveBar, { height }]} />
                 ))}
-              </View>
+              </Animated.View>
             ) : null}
             <LinearGradient colors={['rgba(4,3,10,.06)', 'rgba(4,3,10,.88)']} style={s.overlay}>
               {foreground}
@@ -231,11 +234,11 @@ export default function ProfileStyleCard({
           accessibilityLabel={playAccessibilityLabel ?? `Écouter ${title}`}
           style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked, playing && s.playActive]}
         >
-          <Text style={s.playText}>{playing ? 'Ⅱ' : locked ? '◉' : '▶'}</Text>
+          <Text style={s.playText}>{playing ? 'Ⅱ' : '▶'}</Text>
         </Pressable>
       ) : (
         <View pointerEvents="none" style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked]}>
-          <Text style={s.playText}>{locked ? '◉' : '▶'}</Text>
+          <Text style={s.playText}>▶</Text>
         </View>
       )}
     </Animated.View>
