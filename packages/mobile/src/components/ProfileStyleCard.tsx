@@ -24,6 +24,8 @@ type Props = {
   artworkUrl?: string | null;
   priceLabel?: string;
   badgeLabel?: string;
+  badgeAccessibilityLabel?: string;
+  onBadgePress?: () => void;
   actionLabel?: string;
   onActionPress?: () => void;
   actionAccessibilityLabel?: string;
@@ -73,6 +75,8 @@ export default function ProfileStyleCard({
   artworkUrl,
   priceLabel,
   badgeLabel,
+  badgeAccessibilityLabel,
+  onBadgePress,
   actionLabel,
   onActionPress,
   actionAccessibilityLabel,
@@ -132,11 +136,17 @@ export default function ProfileStyleCard({
   const foreground = (
     <>
       <View style={s.topRow}>
-        <View style={[s.badge, locked && s.badgeLocked, unlocked && s.badgeUnlocked]}>
+        <Pressable
+          style={[s.badge, locked && s.badgeLocked, unlocked && s.badgeUnlocked]}
+          onPress={onBadgePress}
+          disabled={!onBadgePress}
+          accessibilityRole={onBadgePress ? 'button' : undefined}
+          accessibilityLabel={badgeAccessibilityLabel ?? resolvedBadge}
+        >
           <Text style={[s.badgeText, locked && s.badgeTextLocked, unlocked && s.badgeTextUnlocked]}>
             {resolvedBadge}
           </Text>
-        </View>
+        </Pressable>
         {priceLabel ? <Text style={s.price}>{priceLabel}</Text> : null}
       </View>
       <View style={s.bottom}>
