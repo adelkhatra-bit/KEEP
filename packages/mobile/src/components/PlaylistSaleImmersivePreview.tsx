@@ -51,6 +51,7 @@ interface Props {
 export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true }: Props) {
   const [marketingIndex, setMarketingIndex] = useState(0);
   const [explainerIndex, setExplainerIndex] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -82,7 +83,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       previewKeyRef.current,
       available[safeIdx].previewUrl,
       (isPlaying) => setPlaying(isPlaying),
-      () => { clearCountdown(); playTrackAt(safeIdx + 1); },
+      () => { clearCountdown(); setPlaying(false); setSecondsLeft(0); },
     ).then((durationMs) => {
       setSecondsLeft(Math.round(durationMs / 1000));
       countdownRef.current = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
@@ -98,6 +99,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       return undefined;
     }
     setWaiverAccepted(false);
+    setDetailsOpen(false);
     setTracks(null);
     tracksRef.current = null;
     setTrackIndex(0);
@@ -167,7 +169,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <Text style={s.secretMeta}>Titres, artistes et vraies pochettes masqués jusqu’au déblocage</Text>
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <Text style={s.marketing}>{MARKETING_LINES[marketingIndex]}</Text>
+          <Text style={s.marketing}>Écoute. Si la sélection te plaît, débloque-la.</Text>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -176,7 +178,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             onSwipeRight={() => playTrackAt(trackIndex + 1)}
             leftLabel="◀ EXTRAIT PRÉCÉDENT"
             rightLabel="EXTRAIT SUIVANT ▶"
-            hint={tracksUnavailable ? '' : 'Glisse pour parcourir toute la collection · aucune identité musicale révélée'}
+            hint={tracksUnavailable ? '' : 'Même geste que Swipe · tu changes d’extrait quand TU le décides'}
           >
             <TouchableOpacity
               style={s.swipeCard}
@@ -201,12 +203,23 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           </SwipeDeck>
 
           {!tracksLoading && !tracksUnavailable ? (
+            <View style={s.previewControls}>
+              <TouchableOpacity style={s.previewControlButton} onPress={() => playTrackAt(trackIndex - 1)}><Text style={s.previewControlText}>‹ PRÉCÉDENT</Text></TouchableOpacity>
+              <TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ PAUSE' : '▶ ÉCOUTER'}</Text></TouchableOpacity>
+              <TouchableOpacity style={s.previewControlButton} onPress={() => playTrackAt(trackIndex + 1)}><Text style={s.previewControlText}>SUIVANT ›</Text></TouchableOpacity>
+            </View>
+          ) : null}
+
+          {!tracksLoading && !tracksUnavailable ? (
             <View style={s.protectionBadge}>
               <Text style={s.protectionBadgeText}>🛡️ Préécoute protégée · extraits courts · identité masquée · lecture séquentielle</Text>
             </View>
           ) : null}
 
-          <Text style={s.explainer}>{EXPLAINER_LINES[explainerIndex]}</Text>
+          <TouchableOpacity style={s.detailsToggle} onPress={() => setDetailsOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }}>
+            <Text style={s.detailsToggleText}>{detailsOpen ? 'Moins d’infos' : 'En savoir plus'}</Text><Text style={s.detailsChevron}>{detailsOpen ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          {detailsOpen ? <Text style={s.explainer}>{EXPLAINER_LINES[explainerIndex]}</Text> : null}
 
           {/* Adel (21/09/2026, décision 2) : "documente clairement dans
               l'UI que le vendeur doit confirmer réception, et prévois un
@@ -279,7 +292,15 @@ const s = StyleSheet.create({
   visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72 },
   bar: { width: 8, borderRadius: 4, backgroundColor: colors.primary },
   trackStatus: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 10 },
-  explainer: { color: colors.textMuted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 10, minHeight: 32 },
+  explainer: { color: colors.textMuted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 8 },
+  detailsToggle: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingVertical: 5, paddingHorizontal: 10 },
+  detailsToggleText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
+  detailsChevron: { color: colors.primaryLight, fontSize: 14, fontWeight: '900' },
+  previewControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
+  previewControlButton: { flex: 1, minHeight: 42, borderRadius: 21, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
+  previewControlText: { color: colors.textMuted, fontSize: 10, fontWeight: '900' },
+  previewPlayButton: { flex: 1.15, minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  previewPlayText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   protectionBadge: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, alignSelf: 'center' },
   protectionBadgeText: { color: colors.primaryLight, fontSize: 10, fontWeight: '700', textAlign: 'center' },
   manualNotice: { marginTop: 4, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
