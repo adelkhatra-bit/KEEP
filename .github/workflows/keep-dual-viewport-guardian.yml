@@ -134,7 +134,10 @@ jobs:
             if(await city.inputValue()!==CITY) throw new Error(`city not persisted: ${await city.inputValue()}`);
             if(await website.inputValue()!==WEBSITE) throw new Error(`website not persisted: ${await website.inputValue()}`);
             await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            // La date est désormais rendue par un Selector accessible et non
+            // par un simple Text isolé : tester le vrai contrôle évite un
+            // faux négatif tout en vérifiant exactement la valeur persistée.
+            await page.getByLabel('Date de naissance : 1990-01-01').last().waitFor({state:'visible',timeout:15000});
           }
 
           async function openPublicProfileSettings(page) {
