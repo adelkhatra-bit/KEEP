@@ -29,7 +29,7 @@ import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS,
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
-import { stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
@@ -572,8 +572,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // Cela supprime le blanc créé auparavant par la résolution réseau APRÈS
     // la fin naturelle de l'extrait.
     const nextCandidate = candidates[index + 1];
-    if (nextCandidate && !inlinePreviewUrlCacheRef.current.has(nextCandidate.id)) {
-      void resolveInlinePreview(nextCandidate);
+    if (nextCandidate) {
+      void resolveInlinePreview(nextCandidate).then((nextUrl) => {
+        if (nextUrl && generation === inlineQueueGenerationRef.current) {
+          void preloadTrackPreview(nextUrl);
+        }
+      });
     }
 
     try {
