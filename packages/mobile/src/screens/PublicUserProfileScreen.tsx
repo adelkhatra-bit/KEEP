@@ -511,6 +511,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       void openFolderSwipe(offer.playlistName, () => loadDeliveredPlaylistSaleTracks(unlock.deliveredPlaylistId), `sale:${offer.offerId}`);
       return;
     }
+    // Le tap sur la carte est le geste utilisateur requis par Safari/iOS :
+    // déverrouille l'audio ici pour que l'aperçu puisse partir dès l'ouverture,
+    // sans imposer un second bouton "Écouter".
+    unlockWebAudioForGesture();
     setImmersivePreviewOffer(offer);
   };
 
