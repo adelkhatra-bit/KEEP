@@ -106,7 +106,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('plays public style audio inline without forcing navigation', () => {
     expect(profile).toContain('const playInlinePublicTrack = async');
     expect(profile).toContain('toggleTrackPreview(');
-    expect(profile).toContain('resolveTrackPreviewUrl(track)');
+    expect(profile).toContain('resolveTrackPreviewUrl(candidate)');
     expect(profile).toContain("setInlineListenNotice('✓ Déjà dans ta collection · l’écoute continue')");
     const inlineStart = profile.indexOf('const playInlinePublicTrack = async');
     const inlineEnd = profile.indexOf('const playInlineSalePreview = async', inlineStart);
@@ -201,9 +201,11 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(audioPreview).toContain('playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded, false)');
   });
 
-  it('keeps the social Swipe card visible when an excerpt ends and allows replay', () => {
-    expect(swipe).toContain('if (socialDiscoveryMode || !loop) return;');
-    expect(swipe).toContain('Extrait terminé · tu peux réécouter');
+  it('keeps social Swipe listening continuous after an excerpt ends', () => {
+    expect(swipe).toContain('if (socialDiscoveryMode) {');
+    expect(swipe).toContain('endAdvanceTimer.current = setTimeout(() => {');
+    expect(swipe).toContain('advanceIndex();');
+    expect(swipe).toContain('}, 900);');
     expect(swipe).toContain('↻ RÉÉCOUTER');
   });
 
