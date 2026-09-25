@@ -106,7 +106,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('plays public style audio inline without forcing navigation', () => {
     expect(profile).toContain('const playInlinePublicTrack = async');
     expect(profile).toContain('toggleTrackPreview(');
-    expect(profile).toContain('resolveTrackPreviewUrl(candidate)');
+    expect(profile).toContain('const resolveInlinePreview = async');
+    expect(profile).toContain('resolveTrackPreviewUrl(track)');
+    expect(profile).toContain('inlinePreviewUrlCacheRef');
     expect(profile).toContain("setInlineListenNotice('✓ Déjà dans ta collection · l’écoute continue')");
     const inlineStart = profile.indexOf('const playInlinePublicTrack = async');
     const inlineEnd = profile.indexOf('const playInlineSalePreview = async', inlineStart);
@@ -177,7 +179,8 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(myMusic).toContain('for (const track of localKeptTracks)');
     expect(myMusic).toContain("if (playlist.id.startsWith(STYLE_ID_PREFIX))");
     expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
-    expect(myMusic).toContain('VIBES AUTO · {automaticStylePlaylists.length}');
+    expect(myMusic).toContain('SUGGESTIONS AUTO · {automaticStylePlaylists.length}');
+    expect(myMusic).toContain('ne sont PAS comptées dans tes {stylePlaylists.length} Styles');
     expect(myMusic).not.toContain('for (const track of allKnownTracks)');
     expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}");
   });
