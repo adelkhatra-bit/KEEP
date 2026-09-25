@@ -43,7 +43,7 @@ type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[]
 // même chose qu'Artistes, avec le même bloc d'affichage.
 type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES';
 const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
-  { key: 'VIBES', label: 'Styles' }, { key: 'MUSIQUES', label: 'Playlists' },
+  { key: 'VIBES', label: 'Styles' }, { key: 'MUSIQUES', label: 'Musiques' },
   { key: 'ARTISTES', label: 'Artistes' },
 ];
 const ARTIST_ID_PREFIX = 'keep-artist:';
@@ -1137,8 +1137,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
             <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODE GESTION ACTIF' : 'GÉRER MES MUSIQUES'}</Text>
             <Text style={styles.manageGuideText}>
               {manageMusicMode
-                ? 'Toutes les commandes sont ouvertes : PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION.'
-                : 'Touche une musique pour afficher PUBLIC / PRIVÉ, SUPPRIMER ou l’ajouter à une collection exclusive.'}
+                ? 'Toutes les commandes sont ouvertes sous chaque morceau : PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION. Le bouton ▶ reste uniquement pour écouter.'
+                : 'Touche TOUT GÉRER : chaque morceau affichera immédiatement PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION, sans chercher dans un sous-menu.'}
             </Text>
           </View>
           <TouchableOpacity
