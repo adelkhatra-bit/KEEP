@@ -559,7 +559,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       ? 'Aucun morceau à analyser pour le moment.'
       : analysis.totalTracks === 1
         ? '1 morceau trouvé · Loki Music attend davantage de matière.'
-        : `${analysis.totalTracks} morceaux analysés · ${smartAlbums.length} Vibe${smartAlbums.length > 1 ? 's' : ''} Loki Music disponible${smartAlbums.length > 1 ? 's' : ''}.`
+        : `${analysis.totalTracks} morceaux analysés · ${stylePlaylists.length} Style${stylePlaylists.length > 1 ? 's' : ''} musical${stylePlaylists.length > 1 ? 'aux' : ''} détecté${stylePlaylists.length > 1 ? 's' : ''}.`
     : null;
 
   const openEdit = (playlist: ProviderPlaylist) => {
@@ -1132,8 +1132,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
             <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODE GESTION ACTIF' : 'GÉRER MES MUSIQUES'}</Text>
             <Text style={styles.manageGuideText}>
               {manageMusicMode
-                ? 'Toutes les commandes sont ouvertes sous chaque morceau : PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION. Le bouton ▶ reste uniquement pour écouter.'
-                : 'Touche TOUT GÉRER : chaque morceau affichera immédiatement PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION, sans chercher dans un sous-menu.'}
+                ? 'Sous chaque morceau : PUBLIC / PRIVÉ, SUPPRIMER, AJOUTER À UNE COLLECTION ou GÉRER SA COLLECTION. Le bouton ▶ sert uniquement à écouter.'
+                : 'Touche TOUT GÉRER : tu modifies immédiatement la visibilité, tu supprimes, ou tu ajoutes/retires un morceau d’une collection, sans sous-menu.'}
             </Text>
           </View>
           <TouchableOpacity
@@ -1310,8 +1310,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
           ) : null}
           ListFooterComponent={activeTab === 'VIBES' && automaticStylePlaylists.length ? (
             <View style={styles.autoVibesSection}>
-              <Text style={styles.autoVibesTitle}>VIBES AUTO · {automaticStylePlaylists.length}</Text>
-              <Text style={styles.autoVibesHint}>Classements intelligents séparés de tes Styles musicaux.</Text>
+              <Text style={styles.autoVibesTitle}>SUGGESTIONS AUTO · {automaticStylePlaylists.length}</Text>
+              <Text style={styles.autoVibesHint}>Ces suggestions ne sont PAS comptées dans tes {stylePlaylists.length} Styles musicaux affichés sur ton profil.</Text>
               {automaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
             </View>
           ) : null}
