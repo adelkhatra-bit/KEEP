@@ -537,13 +537,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // Musiques existante : un style ouvre juste un Swipe limité à ces
   // morceaux, via le même mécanisme que le SWIPE par artiste/Vibe déjà là.
   const trackGenreOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const entry of publicKeptTracks) for (const genre of entry.track.genres ?? []) {
-      const clean = genre.trim();
-      if (clean) counts.set(clean, (counts.get(clean) ?? 0) + 1);
+    const map = new Map<string, { genre: string; trackIds: Set<string> }>();
+    for (const entry of profileKeptTracks) {
+      const genres = (entry.track.genres ?? []).map((genre) => genre.trim()).filter(Boolean);
+      const labels = genres.length ? genres : ['Sans genre'];
+      for (const genre of labels) {
+        const key = genre.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+        const current = map.get(key) ?? { genre, trackIds: new Set<string>() };
+        current.trackIds.add(entry.track.id);
+        map.set(key, current);
+      }
     }
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
-  }, [publicKeptTracks]);
+    return Array.from(map.values())
+      .map(({ genre, trackIds }) => ({ genre, count: trackIds.size }))
+      .sort((a, b) => b.count - a.count || a.genre.localeCompare(b.genre));
+  }, [profileKeptTracks]);
   // Mission C (23/09/2026) : mêmes morceaux, rangés en dossiers par genre pour
   // la vue "Par genre" de l'onglet Musiques. On regroupe TOUTE la collection
   // du propriétaire (publics + privés, comme la liste plate) ; un morceau
@@ -578,12 +586,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // jamais spammer le catalogue gratuit à chaque ouverture d'écran.
   useEffect(() => {
     if (accountRequired) return undefined;
-    const missing = publicKeptTracks.map((entry) => entry.track).filter((t) => !t.genres || t.genres.length === 0).slice(0, 15).map((t) => ({ id: t.id, title: t.title, artist: t.artist, genres: [] as string[] }));
+    const missing = profileKeptTracks.map((entry) => entry.track).filter((t) => !t.genres || t.genres.length === 0).slice(0, 15).map((t) => ({ id: t.id, title: t.title, artist: t.artist, genres: [] as string[] }));
     if (!missing.length) return undefined;
     let live = true;
     enrichMissingGenres(missing).then((enriched) => { if (live) void persistEnrichedGenres(enriched); }).catch(() => {});
     return () => { live = false; };
-  }, [accountRequired, publicKeptTracks]);
+  }, [accountRequired, profileKeptTracks]);
   const displayPlaylists = useMemo<ProviderPlaylist[]>(() => {
     const result: ProviderPlaylist[] = smartAlbums.map(smartAlbumAsProviderPlaylist);
     if (providerPlaylists.length) result.push(...providerPlaylists);
@@ -1387,7 +1395,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           {dna.topGenres.length ? <View style={s.genreGrid}>{dna.topGenres.slice(0,4).map((g)=>{
             const match = trackGenreOptions.find((row) => row.genre === g.genre);
             return match ? (
-              <TouchableOpacity key={g.genre} style={s.genreTile} onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((genre) => genre.trim() === g.genre)) })} accessibilityLabel={`Swiper tes morceaux ${g.genre}`}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text>{typeof match.count === 'number' ? <Text style={s.genreTileCount}>{match.count} morceau{match.count > 1 ? 'x' : ''}</Text> : null}</TouchableOpacity>
+              <TouchableOpacity key={g.genre} style={s.genreTile} onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: genreFolders.find((folder) => folder.genre === g.genre)?.entries.map((entry) => entry.track) ?? [] })} accessibilityLabel={`Swiper tes morceaux ${g.genre}`}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text>{typeof match.count === 'number' ? <Text style={s.genreTileCount}>{match.count} morceau{match.count > 1 ? 'x' : ''}</Text> : null}</TouchableOpacity>
             ) : <View key={g.genre} style={s.genreTile}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text></View>;
           })}</View> : <Text style={s.muted}>Commence une session Loki Music pour construire ton ADN musical.</Text>}
           {genreFolders.length > 4 ? (
@@ -1465,7 +1473,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.shareTitle}>Parcourir par style</Text>
         <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
           {trackGenreOptions.map(({ genre, count }) => (
-            <TouchableOpacity key={genre} style={s.listRow} onPress={() => { setStyleModalOpen(false); openSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: publicSwipeTracks.filter((track) => (track.genres ?? []).some((g) => g.trim() === genre)) }); }}>
+            <TouchableOpacity key={genre} style={s.listRow} onPress={() => { setStyleModalOpen(false); openSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: genreFolders.find((folder) => folder.genre === genre)?.entries.map((entry) => entry.track) ?? [] }); }}>
               <Text style={[s.listText, { flex: 1 }]}>{genre}</Text>
               <Text style={s.playlistCount}>{count}</Text>
             </TouchableOpacity>
