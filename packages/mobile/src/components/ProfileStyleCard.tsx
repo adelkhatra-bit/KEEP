@@ -147,7 +147,19 @@ export default function ProfileStyleCard({
             {resolvedBadge}
           </Text>
         </Pressable>
-        {priceLabel ? <Text style={s.price}>{priceLabel}</Text> : null}
+        <View style={s.topRight}>
+          {actionLabel && onActionPress ? (
+            <Pressable
+              onPress={onActionPress}
+              accessibilityRole="button"
+              accessibilityLabel={actionAccessibilityLabel ?? actionLabel}
+              style={[s.badge, s.sourceBadge]}
+            >
+              <Text style={[s.badgeText, s.sourceBadgeText]} numberOfLines={1}>{actionLabel}</Text>
+            </Pressable>
+          ) : null}
+          {priceLabel ? <Text style={s.price}>{priceLabel}</Text> : null}
+        </View>
       </View>
       <View style={s.bottom}>
         <Text style={s.title} numberOfLines={1}>{title}</Text>
@@ -226,16 +238,6 @@ export default function ProfileStyleCard({
           <Text style={s.playText}>{locked ? '◉' : '▶'}</Text>
         </View>
       )}
-      {actionLabel && onActionPress ? (
-        <Pressable
-          onPress={onActionPress}
-          accessibilityRole="button"
-          accessibilityLabel={actionAccessibilityLabel ?? actionLabel}
-          style={s.cardAction}
-        >
-          <Text style={s.cardActionText}>{actionLabel}</Text>
-        </Pressable>
-      ) : null}
     </Animated.View>
   );
 }
@@ -277,6 +279,9 @@ const s = StyleSheet.create({
   badgeText: { color: colors.success, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   badgeTextLocked: { color: colors.primaryLight },
   badgeTextUnlocked: { color: colors.keep },
+  topRight: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexShrink: 1 },
+  sourceBadge: { maxWidth: 104, borderColor: colors.keep },
+  sourceBadgeText: { color: colors.keep },
   cardAction: {
     position: 'absolute',
     right: 10,
