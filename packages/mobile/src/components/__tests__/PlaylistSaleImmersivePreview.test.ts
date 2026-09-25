@@ -13,8 +13,8 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
     expect(source).toContain("import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';");
     expect(source).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
     expect(source).toContain('<SwipeDeck');
-    expect(source).toContain('onSwipeLeft={() => playTrackAt(trackIndex - 1)}');
-    expect(source).toContain('onSwipeRight={() => playTrackAt(trackIndex + 1)}');
+    expect(source).toContain('onSwipeLeft={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}');
+    expect(source).toContain('onSwipeRight={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}');
   });
 
   it('stays on the current masked track when an extract ends until the listener decides', () => {
@@ -39,7 +39,8 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
     expect(source).toContain('teaserOpacity');
   });
 
-  it('unlocks shared web audio synchronously from the listen tap', () => {
+  it('never autoplays on modal open and unlocks shared web audio from explicit listening gestures', () => {
+    expect(source).not.toContain('if (loaded.length > 0) playTrackAt(0);');
     expect(source).toContain("import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture }");
     expect(source).toContain('function togglePlayPause()');
     expect(source).toContain('unlockWebAudioForGesture();');
