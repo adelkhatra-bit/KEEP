@@ -540,7 +540,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 vérité, plus jamais un texte à mettre à jour à la main
                 quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l'adversaire. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l'adversaire. Sans-faute (ex. 8/8) : Loki ajoute +{battleRules.perfectDuelBonusFree} Free offerts par la plateforme. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
               <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu'à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
           </View>
@@ -551,7 +551,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.battleDetails}>
             <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
             <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d'abonnés, plus Loki Music t'offre de Free.</Text>
-            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne contre d'autres joueurs.</Text>
+            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne : en duel, un sans-faute ajoute +{battleRules.perfectDuelBonusFree} Free offerts par Loki.</Text>
             <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
             <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
           </View>
