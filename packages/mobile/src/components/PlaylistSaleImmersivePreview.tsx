@@ -39,11 +39,11 @@ const EXPLAINER_LINES = [
 
 const ROTATE_MS = 4200;
 const TEASER_LINES = [
-  'Tu n’as encore rien vu.',
-  'Un extrait. Zéro indice.',
-  'Ton prochain coup de cœur est peut-être ici.',
-  'Ose écouter sans regarder.',
-  'La sélection ne se révèle qu’aux curieux.',
+  'Des pépites choisies à l’oreille.',
+  'Écoute d’abord. Découvre ensuite.',
+  'Une pépite peut tout changer.',
+  'Sors des recommandations habituelles.',
+  'Son univers. Ses pépites. À toi de les révéler.',
 ];
 
 interface Props {
@@ -195,16 +195,16 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <Animated.View style={[s.secretHero, { transform: [{ scale: secretPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }]}>
             <View style={s.secretVinyl}><Text style={s.secretVinylNote}>♪</Text></View>
             <View style={s.secretHeroCopy}>
-              <Text style={s.eyebrow}>SÉLECTION SECRÈTE</Text>
+              <Text style={s.eyebrow}>PÉPITES À DÉCOUVRIR</Text>
               <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
-              <Text style={s.secretHook}>Et si ton prochain coup de cœur était juste derrière ?</Text>
+              <Text style={s.secretHook}>Et si ta prochaine pépite était ici ?</Text>
             </View>
           </Animated.View>
           <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel}</Text>
-          <Text style={s.secretMeta}>Écoute sans voir. Laisse ton oreille décider.</Text>
+          <Text style={s.secretMeta}>Pas d’algorithme à convaincre. Juste ton oreille.</Text>
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <View style={s.promiseBox}><Text style={s.promiseKicker}>UNE PORTE VERS UN AUTRE UNIVERS</Text><Animated.Text style={[s.marketing, { opacity: teaserOpacity }]}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
+          <View style={s.promiseBox}><Text style={s.promiseKicker}>DES PÉPITES CHOISIES PAR UN HUMAIN</Text><Animated.Text style={[s.marketing, { opacity: teaserOpacity }]}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -229,7 +229,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                   <Animated.View key={i} style={[s.bar, { height: bar.interpolate({ inputRange: [0, 1], outputRange: [16, 64] }) }]} />
                 ))}
               </View>
-              {!tracksLoading && !tracksUnavailable ? <Text style={s.mysteryCaption}>MORCEAU {trackIndex + 1} · IDENTITÉ VERROUILLÉE</Text> : null}
+              {!tracksLoading && !tracksUnavailable ? <Text style={s.mysteryCaption}>PÉPITE {trackIndex + 1} · À RÉVÉLER</Text> : null}
               <Text style={s.trackStatus}>
                 {tracksLoading
                   ? 'Chargement des extraits...'
@@ -294,7 +294,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 onPress={() => onConfirmPurchase(offer)}
                 accessibilityLabel={`Débloquer et ajouter à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `RÉVÉLER LA SÉLECTION · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `DÉBLOQUER LES PÉPITES · ${priceLabel}`}</Text>
               </TouchableOpacity>
               </Animated.View>
               <Text style={s.noRefund}>
