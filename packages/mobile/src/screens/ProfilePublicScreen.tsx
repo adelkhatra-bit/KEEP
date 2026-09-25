@@ -60,6 +60,7 @@ const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'free', icon: '💛', label: 'Mon solde Free' },
   { key: 'profile', icon: '👤', label: 'Réglages du profil' },
   { key: 'notifications', icon: '🔔', label: 'Notifications' },
+  { key: 'share', icon: '↗', label: 'Inviter / partager mon profil' },
   { key: 'music', icon: '🎧', label: 'Services musicaux' },
   { key: 'offers', icon: '💳', label: 'Offres & crédits' },
   { key: 'sellPlaylists', icon: '◆', label: 'Mes collections exclusives' },
@@ -1060,6 +1061,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ProfileSettings')}><Text style={s.shareActionPrimaryText}>OUVRIR LES RÉGLAGES</Text></TouchableOpacity>
     </>;
 
+    if (key === 'share') return <>
+      <Text style={s.shareTitle}>Inviter / partager</Text>
+      <Text style={s.shareSubtitle}>Fais découvrir ton profil Loki Music sans encombrer ton écran principal.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); openShare(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
+    </>;
+
     if (key === 'notifications') return <>
       <Text style={s.shareTitle}>Notifications</Text>
       <Text style={s.shareSubtitle}>{unreadCount > 0 ? `${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}.` : 'Tu es à jour, aucune notification en attente.'} Nouveaux abonnés, reprises de tes découvertes, réponses à tes soirées : tout arrive ici.</Text>
@@ -1172,30 +1179,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
             (violet, principale) juste sous l'identité ; PARTAGER redescend en
             action secondaire (grise), conformément à la hiérarchie des
             couleurs v3 (violet = actions principales uniquement). */}
-        <MotionActionButton
-          icon="▶"
-          title="PRÉVISUALISER MON UNIVERS"
-          subtitle="Vois ton profil exactement comme un visiteur."
-          onPress={openProfileSwipe}
-          accessibilityLabel="Prévisualiser mon univers en Swipe"
-          tone="primary"
-          style={s.ownerSwipeMotion}
-        />
         <View style={s.ownerQuickActions}>
           <MotionActionButton
-            icon="↗"
-            title="INVITER / PARTAGER"
-            onPress={openShare}
-            accessibilityLabel="Inviter ou partager mon profil"
-            tone="secondary"
+            icon="▶"
+            title="VOIR MON PROFIL PUBLIC"
+            subtitle="Exactement comme le voient les autres."
+            onPress={openProfileSwipe}
+            accessibilityLabel="Voir mon profil public comme un visiteur"
+            tone="primary"
             compact
             style={s.ownerQuickActionMotion}
           />
           {marketplaceEnabled ? (
             <MotionActionButton
               icon="◆"
-              title={playlistSaleOffers.length > 0 ? 'GÉRER MES COLLECTIONS' : 'CRÉER UNE COLLECTION'}
-              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Sélectionne plusieurs morceaux et publie ton univers'}
+              title={playlistSaleOffers.length > 0 ? 'MES COLLECTIONS' : 'CRÉER UNE COLLECTION'}
+              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} publiée${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Regroupe des titres et propose la sélection en € ou FREE'}
               onPress={() => navigation.navigate('PlaylistSale')}
               accessibilityLabel="Créer ou gérer mes collections exclusives"
               tone="success"
