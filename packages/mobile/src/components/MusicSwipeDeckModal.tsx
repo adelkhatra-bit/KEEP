@@ -85,6 +85,7 @@ export default function MusicSwipeDeckModal({
   const [previewEnded, setPreviewEnded] = useState(false);
   const actionInFlight = useRef(false);
   const playbackGeneration = useRef(0);
+  const endAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
@@ -211,10 +212,19 @@ export default function MusicSwipeDeckModal({
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
               setPreviewEnded(true);
-              // Sur un profil visité, la fin naturelle de l'extrait ne doit
-              // jamais faire disparaître la carte sous les doigts : le visiteur
-              // choisit explicitement PASSER ou GARDER. Il peut aussi réécouter.
-              if (socialDiscoveryMode || !loop) return;
+              if (socialDiscoveryMode) {
+                // Un profil visité doit s'écouter comme une vraie file musicale :
+                // pas de silence après chaque preview. On laisse 900 ms pour
+                // toucher GARDER/PASSER, puis on enchaîne automatiquement.
+                if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+                endAdvanceTimer.current = setTimeout(() => {
+                  endAdvanceTimer.current = null;
+                  if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
+                  advanceIndex();
+                }, 900);
+                return;
+              }
+              if (!loop) return;
               advanceIndex();
             },
           );
@@ -233,6 +243,10 @@ export default function MusicSwipeDeckModal({
 
     return () => {
       alive = false;
+      if (endAdvanceTimer.current) {
+        clearTimeout(endAdvanceTimer.current);
+        endAdvanceTimer.current = null;
+      }
       if (playbackGeneration.current === generation) playbackGeneration.current += 1;
       if (playbackKey) void stopTrackPreview(playbackKey);
     };
@@ -251,7 +265,15 @@ export default function MusicSwipeDeckModal({
         },
         () => {
           setPreviewEnded(true);
-          if (!actionInFlight.current && loop && !socialDiscoveryMode) advanceIndex();
+          if (socialDiscoveryMode) {
+            if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+            endAdvanceTimer.current = setTimeout(() => {
+              endAdvanceTimer.current = null;
+              if (!actionInFlight.current) advanceIndex();
+            }, 900);
+          } else if (!actionInFlight.current && loop) {
+            advanceIndex();
+          }
         },
       );
       setAutoplayBlocked(false);
@@ -263,6 +285,10 @@ export default function MusicSwipeDeckModal({
   };
 
   const advance = async () => {
+    if (endAdvanceTimer.current) {
+      clearTimeout(endAdvanceTimer.current);
+      endAdvanceTimer.current = null;
+    }
     playbackGeneration.current += 1;
     await stopTrackPreview();
     advanceIndex();
