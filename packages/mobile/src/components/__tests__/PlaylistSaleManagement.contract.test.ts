@@ -38,9 +38,11 @@ describe('Playlist sale management contract — owner can edit offer content wit
     expect(service).toContain('offerClosed');
   });
 
-  it('changes the offer price without rebuilding its composition', () => {
-    expect(myMusic).toContain('await updateOfferPrice(offered.offerId, cents)');
-    expect(service).toContain("rpc('keep_playlist_sale_update_price'");
+  it('routes quick per-track management to the full collection editor without rebuilding its composition', () => {
+    expect(myMusic).toContain("text: 'Gérer la collection'");
+    expect(myMusic).toContain("manageSaleOfferId: offered.offerId");
+    expect(myMusic).toContain("manageSaleOfferName: offered.playlistName");
+    expect(service).toContain("rpc('keep_playlist_sale_update_payment_mode'");
   });
 
   it('keeps pre-purchase identity masking in the sale service', () => {
