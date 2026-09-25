@@ -223,15 +223,9 @@ export default function MusicSwipeDeckModal({
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
               setPreviewEnded(true);
               if (socialDiscoveryMode) {
-                // Un profil visité doit s'écouter comme une vraie file musicale :
-                // pas de silence artificiel après chaque preview. N+1 est préchargé et
-                // s'enchaîne presque immédiatement ; GARDER/PASSER restent disponibles.
-                if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-                endAdvanceTimer.current = setTimeout(() => {
-                  endAdvanceTimer.current = null;
-                  if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
-                  advanceIndex();
-                }, 120);
+                // Sur le profil d'un autre utilisateur, la fin d'un extrait reste
+                // sur le morceau courant : l'auditeur choisit Réécouter, Passer ou
+                // Garder. Ne jamais faire défiler automatiquement une collection.
                 return;
               }
               if (!loop) return;
