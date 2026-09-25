@@ -1209,28 +1209,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </ProfileMotionReveal>
 
       {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
-        <TouchableOpacity
-          style={s.ownerCommerceStrip}
-          onPress={() => navigation.navigate('PlaylistSale')}
-          accessibilityRole="button"
-          accessibilityLabel={`Collections exclusives actives, ${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} publiée${playlistSaleOffers.length > 1 ? 's' : ''}`}
-        >
-          <View style={s.ownerCommercePulse}><Text style={s.ownerCommercePulseText}>◆</Text></View>
-          <View style={s.ownerCommerceCopy}>
-            <Text style={s.ownerCommerceKicker}>BOUTIQUE ACTIVE</Text>
-            <Text style={s.ownerCommerceTitle}>{playlistSaleOffers.length} collection{playlistSaleOffers.length > 1 ? 's' : ''} exclusive{playlistSaleOffers.length > 1 ? 's' : ''} publiée{playlistSaleOffers.length > 1 ? 's' : ''}</Text>
-            <Text style={s.ownerCommerceMeta}>Gère les morceaux, le prix € / FREE et l’état de chaque collection.</Text>
-          </View>
-          <Text style={s.ownerCommerceArrow}>›</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
         <ProfileMotionReveal motionKey={`owner-collections:${playlistSaleOffers.length}`} compact style={s.ownerCollectionRail}>
           <View style={s.ownerCollectionRailHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={s.ownerCollectionRailKicker}>MON UNIVERS PREMIUM</Text>
-              <Text style={s.ownerCollectionRailTitle}>Mes collections exclusives</Text>
+              <Text style={s.ownerCollectionRailKicker}>PÉPITES</Text>
+              <Text style={s.ownerCollectionRailTitle}>Mes sélections</Text>
             </View>
             <Text style={s.ownerCollectionRailCount}>{playlistSaleOffers.length}</Text>
           </View>
@@ -1266,7 +1249,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               );
             })}
           </ScrollView>
-          <Text style={s.ownerCollectionRailHint}>← Fais défiler · chaque carte représente une collection complète →</Text>
+          <Text style={s.ownerCollectionRailHint}>← Glisse pour gérer →</Text>
         </ProfileMotionReveal>
       ) : null}
 
