@@ -944,7 +944,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             badge={offered ? { label: `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}
             originBadge={localEntry ? {
               label: localEntry.sourceProfileId
-                ? `UTILISATEUR${localEntry.sourceUsername ? ` · @${localEntry.sourceUsername.replace(/^@+/, '')}` : ''}`
+                ? `${localEntry.sourceUsername ? `DÉCOUVERT PAR ${localEntry.sourceUsername.replace(/^@+/, '')}` : 'UTILISATEUR'}`
                 : 'ÉCOUTE',
               tone: localEntry.sourceProfileId ? 'social' : 'listen',
               onPress: localEntry.sourceProfileId && localEntry.sourceUsername
@@ -958,7 +958,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             onToggleExpand={manageMusicMode ? undefined : () => toggleTrackExpanded(key)}
           >
             {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
-              <Text style={styles.trackSourceLabel}>Donné par</Text>
+              <Text style={styles.trackSourceLabel}>Découvert par</Text>
               <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de ${localEntry.sourceUsername}`}>
                 <Text style={styles.trackSourceLink}>{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
               </TouchableOpacity>
