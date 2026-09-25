@@ -479,9 +479,9 @@ export default function DiscoverScreen({ navigation }: any) {
             ))}</View>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
             <View style={styles.cardActions}>
-              <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={nextProfile} accessibilityLabel="Passer au profil suivant"><Text style={styles.passIcon}>✕</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.superButton]} onPress={openCurrentProfile} accessibilityLabel="Ouvrir le profil complet"><Text style={styles.superIcon}>⭐</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.keepButton, isFollowing && styles.keepButtonOn]} onPress={() => { void toggleFollow(); }} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre ce profil' : 'Suivre ce profil'}><Text style={styles.keepIcon}>{followBusy ? '…' : isFollowing ? '✓' : '♥'}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, styles.superButton, { flex: 1 }]} onPress={openCurrentProfile} accessibilityLabel="Voir le profil">
+                <Text style={styles.superIcon}>VOIR LE PROFIL</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
