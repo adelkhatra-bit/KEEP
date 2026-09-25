@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, Easing, Modal, Text, TouchableOpacity, Vie
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
-import { playAntiShazamPreviewSegment, stopAntiShazamPreview } from '../services/audioPreviewService';
+import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -38,6 +38,13 @@ const EXPLAINER_LINES = [
 ];
 
 const ROTATE_MS = 4200;
+const TEASER_LINES = [
+  'Tu n’as encore rien vu.',
+  'Un extrait. Zéro indice.',
+  'Ton prochain coup de cœur est peut-être ici.',
+  'Ose écouter sans regarder.',
+  'La sélection ne se révèle qu’aux curieux.',
+];
 
 interface Props {
   offer: PublicPlaylistSaleOffer;
@@ -52,6 +59,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [marketingIndex, setMarketingIndex] = useState(0);
   const [explainerIndex, setExplainerIndex] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [teaserIndex, setTeaserIndex] = useState(0);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -96,6 +104,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   // pré-cochée, jamais un vieux jeu d'extraits d'une offre précédente.
   useEffect(() => {
     if (!visible) {
+      clearInterval(teaserTimer);
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
       return undefined;
@@ -113,8 +122,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       tracksRef.current = loaded;
       if (loaded.length > 0) playTrackAt(0);
     }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; } });
-    // Écran stable : aucun texte ne défile pendant que l'utilisateur écoute.
-    // Les détails restent derrière « En savoir plus ».
+    // La carte reste stable, mais une seule accroche courte tourne doucement
+    // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
+    const teaserTimer = setInterval(() => setTeaserIndex((i) => (i + 1) % TEASER_LINES.length), ROTATE_MS);
     return () => {
       live = false;
       clearCountdown();
@@ -149,6 +159,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   }, [visible, bars, secretPulse, revealGlow]);
 
   function togglePlayPause() {
+    // Le déverrouillage web doit se produire synchroniquement dans le tap.
+    // Sans cela Safari/iOS peut refuser le premier play après le chargement async.
+    unlockWebAudioForGesture();
     if (playing) {
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
@@ -185,7 +198,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <Text style={s.secretMeta}>Écoute sans voir. Laisse ton oreille décider.</Text>
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <View style={s.promiseBox}><Text style={s.promiseKicker}>UNE PORTE VERS UN AUTRE UNIVERS</Text><Text style={s.marketing}>Quelques secondes pour t’évader. Le reste se découvre derrière.</Text></View>
+          <View style={s.promiseBox}><Text style={s.promiseKicker}>UNE PORTE VERS UN AUTRE UNIVERS</Text><Animated.Text key={teaserIndex} style={s.marketing}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -315,7 +328,8 @@ const s = StyleSheet.create({
   totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
   promiseBox: { marginTop: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.border },
   promiseKicker: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, textAlign: 'center' },
-  marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3 },
+  marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3, minHeight: 18 },
+  teaserDots: { color: colors.primaryLight, fontSize: 10, textAlign: 'center', marginTop: 2, letterSpacing: 1 },
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
   visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 92, position: 'relative', overflow: 'hidden', borderRadius: 18 },
   mysteryGlow: { position: 'absolute', width: 116, height: 116, borderRadius: 58, backgroundColor: colors.primary, top: -12 },
