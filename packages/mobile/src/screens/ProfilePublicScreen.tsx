@@ -613,7 +613,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     try { await Linking.openURL(url); } catch { Alert.alert('Lien indisponible', 'Impossible d’ouvrir ce site pour le moment.'); }
   };
   const publicProfileLink = affiliatedProfileLink || buildPublicProfileLink(user.username);
-  const identityGenres = user.favoriteGenres.length ? user.favoriteGenres.slice(0, 4) : dna.topGenres.slice(0, 4).map((g) => g.genre);
+  // Une seule source de vérité pour le nombre de styles du profil :
+  // les dossiers réellement construits à partir des morceaux. Les goûts
+  // déclaratifs (favoriteGenres) restent utiles à l'identité, mais ne doivent
+  // jamais faire croire qu'il n'existe que 3/4 styles quand la bibliothèque en contient plus.
+  const identityGenres = trackGenreOptions.map((g) => g.genre);
+  const identityGenrePreview = identityGenres.slice(0, 4);
   const creditsExhausted = !creditUnlimited && creditRemaining === 0;
   // Adel (04/09/2026) : "le nombre de Free disponibles pour tout le monde
   // sur le profil" -- affiché quel que soit le plan désormais (avant : les
@@ -1597,7 +1602,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               </View>
             </View>
             {user.bio ? <Text style={s.qrBio} numberOfLines={3}>{user.bio}</Text> : <Text style={s.qrBio}>Mon univers musical, mes découvertes, mon identité.</Text>}
-            {identityGenres.length ? <View style={s.qrGenres}>{identityGenres.map((genre) => <View key={genre} style={s.qrGenre}><Text style={s.qrGenreText}>{genre}</Text></View>)}</View> : null}
+            {identityGenrePreview.length ? <View style={s.qrGenres}>{identityGenrePreview.map((genre) => <View key={genre} style={s.qrGenre}><Text style={s.qrGenreText}>{genre}</Text></View>)}</View> : null}
             <View style={s.qrStats}>
               <View style={s.qrStat}><Text style={s.qrStatValue}>{profileTotalKeepCount}</Text><Text style={s.qrStatLabel}>KEEPS</Text></View>
               <View style={s.qrStatDivider}/>
