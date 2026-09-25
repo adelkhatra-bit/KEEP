@@ -17,8 +17,11 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
     expect(source).toContain('onSwipeRight={() => playTrackAt(trackIndex + 1)}');
   });
 
-  it('auto-advances to the next masked track when a 15s extract ends, instead of stopping', () => {
-    expect(source).toContain('() => { clearCountdown(); playTrackAt(safeIdx + 1); }');
+  it('stays on the current masked track when an extract ends until the listener decides', () => {
+    expect(source).toContain('() => { clearCountdown(); setPlaying(false); setSecondsLeft(0); }');
+    expect(source).not.toContain('() => { clearCountdown(); playTrackAt(safeIdx + 1); }');
+    expect(source).toContain('▶ ÉCOUTER');
+    expect(source).toContain('SUIVANT ›');
   });
 
   it('never renders track-level title/artist/artwork before purchase', () => {
@@ -26,11 +29,12 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
     expect(source).not.toContain('coverUrl');
   });
 
-  it('rotates marketing and explainer copy automatically', () => {
-    expect(source).toContain('const MARKETING_LINES = [');
+  it('keeps the screen stable and hides long explanations behind En savoir plus', () => {
     expect(source).toContain('const EXPLAINER_LINES = [');
-    expect(source).toContain('setInterval(() => setMarketingIndex');
-    expect(source).toContain('setInterval(() => setExplainerIndex');
+    expect(source).toContain("const [detailsOpen, setDetailsOpen] = useState(false);");
+    expect(source).toContain("detailsOpen ? 'Moins d’infos' : 'En savoir plus'");
+    expect(source).not.toContain('setInterval(() => setMarketingIndex');
+    expect(source).not.toContain('setInterval(() => setExplainerIndex');
   });
 
   it('respects Reduce Motion instead of forcing the waveform animation', () => {
