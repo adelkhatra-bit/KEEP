@@ -737,27 +737,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
           },
         },
         {
-          text: 'Changer le prix',
-          onPress: () => {
-            Alert.alert(
-              'Nouveau prix',
-              `Prix actuel : ${(offered.priceCents / 100).toFixed(2)}€`,
-              [
-                ...SALE_PRESET_PRICES_CENTS.map((cents) => ({
-                  text: `${(cents / 100).toFixed(2)}€`,
-                  onPress: async () => {
-                    try {
-                      await updateOfferPrice(offered.offerId, cents);
-                      setMyOfferedTrackIds((prev) => ({ ...prev, [track.id]: { ...offered, priceCents: cents } }));
-                    } catch {
-                      Alert.alert('Collection', 'Impossible de changer le prix pour le moment.');
-                    }
-                  },
-                })),
-                { text: 'Annuler', style: 'cancel' },
-              ],
-            );
-          },
+          text: 'Gérer la collection',
+          onPress: () => navigation.navigate('PlaylistSale', {
+            manageSaleOfferId: offered.offerId,
+            manageSaleOfferName: offered.playlistName,
+          }),
         },
       ],
     );
