@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@keep/music';
@@ -29,8 +29,9 @@ import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS,
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
-import { toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
@@ -125,6 +126,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [inlineStylePlayingKey, setInlineStylePlayingKey] = useState<string | null>(null);
   const [inlineListenNotice, setInlineListenNotice] = useState<string | null>(null);
+  const inlineQueueGenerationRef = useRef(0);
 
   useEffect(() => {
     if (!inlineListenNotice) return undefined;
@@ -524,41 +526,103 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setSwipeOpen(true);
   };
 
-  const playInlinePublicTrack = async (label: string, candidates: CanonicalTrack[]) => {
-    const track = candidates.find((item) => item.previewUrl) ?? candidates[0];
-    if (!track) {
-      Alert.alert('Écoute', `Aucun extrait disponible dans ${label} pour le moment.`);
+  const playInlineQueueItem = async (
+    label: string,
+    candidates: CanonicalTrack[],
+    startIndex: number,
+    generation: number,
+  ): Promise<void> => {
+    if (generation !== inlineQueueGenerationRef.current || !candidates.length) return;
+
+    // Cherche le prochain morceau réellement jouable sans casser toute la file
+    // si un catalogue ne fournit plus l'extrait d'un titre précis.
+    let index = startIndex;
+    let track: CanonicalTrack | null = null;
+    let previewUrl: string | null = null;
+    while (index < candidates.length && generation === inlineQueueGenerationRef.current) {
+      const candidate = candidates[index];
+      const resolved = candidate.previewUrl || await resolveTrackPreviewUrl(candidate).catch(() => null);
+      if (resolved) {
+        track = candidate;
+        previewUrl = resolved;
+        break;
+      }
+      index += 1;
+    }
+
+    if (!track || !previewUrl || generation !== inlineQueueGenerationRef.current) {
+      setInlineStylePlayingKey(null);
+      if (startIndex === 0) Alert.alert('Écoute', `Aucun extrait disponible dans ${label} pour le moment.`);
+      else setInlineListenNotice(`Fin de l’écoute · ${label}`);
       return;
     }
-    const key = `visitor-inline:${profile?.id ?? username ?? 'profile'}:${track.id}`;
-    const wasPlaying = inlineStylePlayingKey === key;
 
-    // Le tap sur ▶ est un vrai geste utilisateur : on débloque l'audio avant
-    // toute résolution asynchrone pour rester sur CET écran, y compris Safari.
-    unlockWebAudioForGesture();
+    const key = `visitor-inline:${profile?.id ?? username ?? 'profile'}:${track.id}`;
     try {
-      const previewUrl = track.previewUrl || await resolveTrackPreviewUrl(track);
-      if (!previewUrl) {
-        Alert.alert('Extrait indisponible', 'Ce morceau n’a pas encore d’extrait audio jouable.');
-        return;
-      }
       await toggleTrackPreview(
         key,
         previewUrl,
-        (playing) => setInlineStylePlayingKey((current) => playing ? key : current === key ? null : current),
-        () => setInlineStylePlayingKey((current) => current === key ? null : current),
+        (playing) => {
+          if (generation !== inlineQueueGenerationRef.current) return;
+          setInlineStylePlayingKey((current) => playing ? key : current === key ? null : current);
+          if (playing && profile?.id) void recordProfileSwipeListen(profile.id, track!.id);
+        },
+        () => {
+          if (generation !== inlineQueueGenerationRef.current) return;
+          setInlineStylePlayingKey((current) => current === key ? null : current);
+          const nextIndex = index + 1;
+          if (nextIndex < candidates.length) {
+            // Même écran, même lecteur partagé : l'extrait suivant démarre
+            // automatiquement au lieu de laisser un silence brutal.
+            void playInlineQueueItem(label, candidates, nextIndex, generation);
+          } else {
+            setInlineListenNotice(`Fin de l’écoute · ${label}`);
+          }
+        },
       );
-      if (!wasPlaying && alreadyInMyKeep(track.id)) {
-        // Ne jamais ouvrir un Alert natif après avoir lancé l'audio :
-        // iOS/Android peuvent suspendre la lecture quand la fenêtre système
-        // prend le focus. Le message reste visible dans le profil sans
-        // interrompre l'extrait.
+      if (alreadyInMyKeep(track.id)) {
         setInlineListenNotice('✓ Déjà dans ta collection · l’écoute continue');
+      } else {
+        setInlineListenNotice(`▶ ${label} · ${index + 1}/${candidates.length}`);
       }
     } catch {
-      setInlineStylePlayingKey((current) => current === key ? null : current);
-      Alert.alert('Écoute', 'Impossible de lancer cet extrait pour le moment.');
+      if (generation !== inlineQueueGenerationRef.current) return;
+      const nextIndex = index + 1;
+      if (nextIndex < candidates.length) {
+        void playInlineQueueItem(label, candidates, nextIndex, generation);
+      } else {
+        setInlineStylePlayingKey(null);
+        Alert.alert('Écoute', 'Impossible de lancer les extraits de ce style pour le moment.');
+      }
     }
+  };
+
+  const playInlinePublicTrack = async (label: string, candidates: CanonicalTrack[]) => {
+    if (!candidates.length) {
+      Alert.alert('Écoute', `Aucun extrait disponible dans ${label} pour le moment.`);
+      return;
+    }
+
+    const candidateIds = new Set(candidates.map((track) => track.id));
+    const activeTrackId = inlineStylePlayingKey?.split(':').pop() ?? '';
+    if (inlineStylePlayingKey && candidateIds.has(activeTrackId)) {
+      inlineQueueGenerationRef.current += 1;
+      await stopTrackPreview(inlineStylePlayingKey).catch(() => {});
+      setInlineStylePlayingKey(null);
+      setInlineListenNotice(`Pause · ${label}`);
+      return;
+    }
+
+    inlineQueueGenerationRef.current += 1;
+    const generation = inlineQueueGenerationRef.current;
+    if (inlineStylePlayingKey) await stopTrackPreview(inlineStylePlayingKey).catch(() => {});
+    setInlineStylePlayingKey(null);
+
+    // Le tap sur ▶ est le geste utilisateur qui déverrouille Safari/iOS.
+    // Les titres suivants réutilisent le même élément audio et restent donc
+    // dans la même interface sans redirection.
+    unlockWebAudioForGesture();
+    void playInlineQueueItem(label, candidates, 0, generation);
   };
 
   const playInlineSalePreview = async (offer: PublicPlaylistSaleOffer) => {
