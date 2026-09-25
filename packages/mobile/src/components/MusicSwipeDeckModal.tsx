@@ -248,9 +248,12 @@ export default function MusicSwipeDeckModal({
         endAdvanceTimer.current = null;
       }
       if (playbackGeneration.current === generation) playbackGeneration.current += 1;
-      if (playbackKey) void stopTrackPreview(playbackKey);
+      // Ne coupe l'audio que lorsqu'on quitte réellement cette carte / ce modal.
+      // Un simple changement de callback ou de métadonnée ne doit jamais
+      // interrompre l'écoute d'un autre compte en plein extrait.
+      if (playbackKey && (!visible || current?.id !== deckTracks[index]?.id)) void stopTrackPreview(playbackKey);
     };
-  }, [visible, preparingDeck, current?.id, current?.previewUrl, current?.title, current?.artist, index, advanceIndex, loop, round]);
+  }, [visible, preparingDeck, current?.id, current?.previewUrl, index]);
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
