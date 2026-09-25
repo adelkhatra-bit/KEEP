@@ -58,7 +58,7 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
   });
 
   it('uses the collection-unlock wording, never a generic purchase CTA or green button', () => {
-    expect(source).toContain('DÉBLOQUER LA COLLECTION · ${priceLabel}');
+    expect(source).toContain('RÉVÉLER LA SÉLECTION · ${priceLabel}');
     expect(source).not.toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);
   });
