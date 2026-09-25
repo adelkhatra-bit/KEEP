@@ -53,6 +53,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
   free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
   battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
+  battle_duel_perfect_bonus_free: 'Bonus plateforme · victoire parfaite en Battle à 2 (Free)',
   // Adel (04/09/2026) : "c'est deloyal qui perdent tous ... le premier
   // gagne un truc, le deuxieme peut gagner un truc aussi" -- a partir de 3
   // joueurs dans un Battle collectif, le pot des perdants (3e place et
