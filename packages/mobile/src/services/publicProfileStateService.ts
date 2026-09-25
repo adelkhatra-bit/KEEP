@@ -266,11 +266,12 @@ export async function loadProfileReprisers(profileId: string): Promise<ProfileRe
 }
 
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {
-  // Le RPC propriétaire conserve PUBLIC + PRIVATE pour l'identité canonique et
-  // l'anti-doublon. Cette couche est exclusivement destinée à l'écran Profil :
-  // elle ne doit jamais lui livrer une décision privée à rendre visuellement.
-  const rows = await loadPagedKeeps('keep_own_profile_tracks', {});
-  return rows.filter((row) => row.visibility === 'PUBLIC');
+  // Le RPC propriétaire est la source canonique du propriétaire : PUBLIC +
+  // PRIVATE. Les morceaux privés restent visibles uniquement sur SON écran
+  // avec leur état PRIVÉ ; ils ne passent jamais par les RPC publiques.
+  // Ne pas les filtrer ici, sinon "Mon profil" et "Mes musiques" calculent
+  // des nombres de Styles différents à partir du même compte.
+  return loadPagedKeeps('keep_own_profile_tracks', {});
 }
 
 export async function loadProfileDiscoveryImpacts(profileId: string): Promise<Record<string, DiscoveryImpact>> {
