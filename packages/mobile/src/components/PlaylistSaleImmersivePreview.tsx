@@ -111,12 +111,10 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       tracksRef.current = loaded;
       if (loaded.length > 0) playTrackAt(0);
     }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; } });
-    const marketingTimer = setInterval(() => setMarketingIndex((i) => (i + 1) % MARKETING_LINES.length), ROTATE_MS);
-    const explainerTimer = setInterval(() => setExplainerIndex((i) => (i + 1) % EXPLAINER_LINES.length), ROTATE_MS + 900);
+    // Écran stable : aucun texte ne défile pendant que l'utilisateur écoute.
+    // Les détails restent derrière « En savoir plus ».
     return () => {
       live = false;
-      clearInterval(marketingTimer);
-      clearInterval(explainerTimer);
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
     };
