@@ -1087,7 +1087,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               ) : <View style={styles.visitorActionChipPlaceholder} />}
               {battleFeatureEnabled ? (
-                <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipBattle]} onPress={() => void challengeProfileToBattle()} disabled={battleInviteBusy} accessibilityLabel={`Défier ${profile.username} en Battle`}>
+                <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipNeutral]} onPress={() => void challengeProfileToBattle()} disabled={battleInviteBusy} accessibilityLabel={`Défier ${profile.username} en Battle`}>
                   <Text style={styles.visitorActionIcon}>⚡</Text><Text style={styles.visitorActionLabel}>{battleInviteBusy ? 'ENVOI…' : 'BATTLE'}</Text>
                 </TouchableOpacity>
               ) : <View style={styles.visitorActionChipPlaceholder} />}
@@ -1608,6 +1608,8 @@ const styles = StyleSheet.create({
     visitorActionRow:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:12},
   visitorActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
   visitorActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
+  visitorActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
+  visitorActionChipNeutral:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},
   visitorActionChipBattle:{backgroundColor:'rgba(255,184,77,.08)',borderColor:'rgba(255,184,77,.45)'},
   visitorActionChipFollowing:{backgroundColor:`${colors.success}22`,borderColor:colors.success},
   visitorActionChipPlaceholder:{flex:1,minWidth:0},
