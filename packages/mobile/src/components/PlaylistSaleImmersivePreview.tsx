@@ -22,28 +22,21 @@ import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForG
  * que l'achat n'est pas confirmé.
  */
 const MARKETING_LINES = [
-  'Tu connais son univers. Maintenant, fais confiance à son oreille.',
-  'Pas de titre. Pas de pochette. Juste le son.',
-  'Chaque extrait est une pièce de sa sélection secrète.',
-  'Funk, Techno, Pop… le mélange reste secret jusqu’au déblocage.',
-  'Le prochain extrait peut être celui que tu cherchais sans le savoir.',
-  'Si ton oreille dit oui, débloque toute la collection.',
+  'Écoute. Ressens. Révèle.',
+  'Pas de titre. Juste le son.',
+  'Choisi à l’oreille.',
 ];
 
 const EXPLAINER_LINES = [
-  'Tous les extraits de cette collection défilent ici, sans révéler leur identité.',
-  'Après déblocage, la collection rejoint ton Loki Music en privé par défaut.',
-  'Tu pourras ensuite choisir de la rendre publique ou de la garder pour toi.',
-  'Aucun titre, artiste ni vraie jaquette n’est envoyé à cet écran avant le déblocage.',
+  'Les extraits restent anonymes jusqu’au déblocage.',
+  'Après déblocage, les pépites rejoignent ton Loki Music.',
 ];
 
 const ROTATE_MS = 4200;
 const TEASER_LINES = [
-  'Des pépites choisies à l’oreille.',
-  'Écoute d’abord. Découvre ensuite.',
-  'Une pépite peut tout changer.',
-  'Sors des recommandations habituelles.',
-  'Son univers. Ses pépites. À toi de les révéler.',
+  'CHOISI À L’OREILLE',
+  'ÉCOUTE AVANT DE SAVOIR',
+  'TA PROCHAINE PÉPITE ?',
 ];
 
 interface Props {
@@ -118,8 +111,10 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       if (!live) return;
       setTracks(loaded);
       tracksRef.current = loaded;
-      // Ne jamais lancer l'audio à l'ouverture : sur iOS/Safari il faut un
-      // vrai geste utilisateur. On préserve aussi le contrôle total de l'écoute.
+      // Le tap sur la carte a déjà déverrouillé l'audio dans le profil.
+      // On lance donc immédiatement la première pépite dès que la RPC masquée
+      // a livré les previews, sans imposer un deuxième tap « Écouter ».
+      if (loaded.length > 0) playTrackAt(0);
     }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; } });
     // La carte reste stable, mais une seule accroche courte tourne doucement
     // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
@@ -197,14 +192,14 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <View style={s.secretHeroCopy}>
               <Text style={s.eyebrow}>PÉPITES À DÉCOUVRIR</Text>
               <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
-              <Text style={s.secretHook}>Et si ta prochaine pépite était ici ?</Text>
+              <Text style={s.secretHook}>Écoute avant de savoir.</Text>
             </View>
           </Animated.View>
           <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel}</Text>
-          <Text style={s.secretMeta}>Pas d’algorithme à convaincre. Juste ton oreille.</Text>
+          
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <View style={s.promiseBox}><Text style={s.promiseKicker}>DES PÉPITES CHOISIES PAR UN HUMAIN</Text><Animated.Text style={[s.marketing, { opacity: teaserOpacity }]}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
+          <View style={s.promiseBox}><Animated.Text style={[s.marketing, { opacity: teaserOpacity }]}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -213,7 +208,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             onSwipeRight={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}
             leftLabel="◀ EXTRAIT PRÉCÉDENT"
             rightLabel="EXTRAIT SUIVANT ▶"
-            hint={tracksUnavailable ? '' : 'Même geste que Swipe · tu changes d’extrait quand TU le décides'}
+            hint={tracksUnavailable ? '' : 'Glisse pour changer de pépite'}
           >
             <TouchableOpacity
               style={s.swipeCard}
@@ -235,7 +230,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                   ? 'Chargement des extraits...'
                   : tracksUnavailable
                     ? 'Aperçu indisponible pour le moment'
-                    : `Écoute secrète ${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · en pause'}`}
+                    : `${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · pause'}`}
               </Text>
             </TouchableOpacity>
           </SwipeDeck>
@@ -243,14 +238,14 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={s.previewControls}>
               <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}><Text style={s.previewControlText}>‹ PRÉCÉDENT</Text></TouchableOpacity>
-              <TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ PAUSE' : '▶ ÉCOUTER'}</Text></TouchableOpacity>
+              <TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ' : '▶'}</Text></TouchableOpacity>
               <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}><Text style={s.previewControlText}>SUIVANT ›</Text></TouchableOpacity>
             </View>
           ) : null}
 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={s.protectionBadge}>
-              <Text style={s.protectionBadgeText}>🛡️ Préécoute protégée · 12 s · identité masquée · lecture à ton rythme</Text>
+              <Text style={s.protectionBadgeText}>12 s · identité masquée</Text>
             </View>
           ) : null}
 
