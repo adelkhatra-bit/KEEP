@@ -1289,7 +1289,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           ListHeaderComponent={activeTab === 'VIBES' ? (
             <View style={styles.styleCountHeader}>
               <Text style={styles.styleCountTitle}>MES STYLES · {stylePlaylists.length}</Text>
-              <Text style={styles.styleCountHint}>Même compteur que ton profil · calculé uniquement avec tes morceaux gardés.</Text>
+              <Text style={styles.styleCountHint}>{localKeptTracks.length} morceaux analysés · même source Supabase que ton profil. Tous les styles détectés sont listés ci-dessous, sans limite à 3.</Text>
             </View>
           ) : null}
           ListFooterComponent={activeTab === 'VIBES' && automaticStylePlaylists.length ? (
