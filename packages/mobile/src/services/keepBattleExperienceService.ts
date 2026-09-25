@@ -9,6 +9,7 @@ export type KeepBattleArenaRules = {
   answerLockedOnTap: boolean;
   ranking: string;
   fullArenaNetPrize: number;
+  perfectDuelBonusFree: number;
   ruleText?: string;
 };
 
@@ -46,6 +47,7 @@ const FALLBACK_RULES: KeepBattleArenaRules = {
   answerLockedOnTap: true,
   ranking: 'CORRECT_ANSWERS_THEN_SPEED',
   fullArenaNetPrize: 27,
+  perfectDuelBonusFree: 3,
   ruleText: 'Bonnes réponses puis vitesse. Un seul gagnant.',
 };
 
@@ -70,6 +72,7 @@ export async function loadKeepBattleArenaRules(): Promise<KeepBattleArenaRules> 
       answerLockedOnTap: raw.answerLockedOnTap !== false,
       ranking: String(raw.ranking || FALLBACK_RULES.ranking),
       fullArenaNetPrize: Number(raw.fullArenaNetPrize ?? Math.max(0, maxPlayers - 1) * stakeFree),
+      perfectDuelBonusFree: Number(raw.perfectDuelBonusFree ?? FALLBACK_RULES.perfectDuelBonusFree),
       ruleText: raw.ruleText ? String(raw.ruleText) : FALLBACK_RULES.ruleText,
     };
   } catch {
