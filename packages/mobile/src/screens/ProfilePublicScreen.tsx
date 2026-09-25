@@ -1182,8 +1182,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.ownerQuickActions}>
           <MotionActionButton
             icon="▶"
-            title="VOIR MON PROFIL PUBLIC"
-            subtitle="Exactement comme le voient les autres."
+            title="APERÇU"
+            subtitle="Voir mon profil public."
             onPress={openProfileSwipe}
             accessibilityLabel="Voir mon profil public comme un visiteur"
             tone="primary"
@@ -1193,8 +1193,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
           {marketplaceEnabled ? (
             <MotionActionButton
               icon="◆"
-              title={playlistSaleOffers.length > 0 ? 'MES COLLECTIONS' : 'CRÉER UNE COLLECTION'}
-              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} publiée${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Regroupe des titres et propose la sélection en € ou FREE'}
+              title="SÉLECTIONS"
+              subtitle={playlistSaleOffers.length > 0 ? `${playlistSaleOffers.length} publiée${playlistSaleOffers.length > 1 ? 's' : ''}` : 'Créer une sélection musicale.'}
               onPress={() => navigation.navigate('PlaylistSale')}
               accessibilityLabel="Créer ou gérer mes collections exclusives"
               tone="success"
@@ -1217,8 +1217,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 <PresenceDot online={battleAvailable} />
                 <View style={s.ownerBattleCopy}>
                   <Text style={s.battleAvailabilityTitle}>⚡ BATTLE · {battleAvailable ? 'Disponible' : 'Indisponible'}</Text>
-                  <Text style={s.ownerBattleSub}>{battleAvailable ? 'Les autres peuvent t’inviter maintenant.' : 'Active pour recevoir des défis.'}</Text>
-                </View>
+                     </View>
               </TouchableOpacity>
               <TouchableOpacity hitSlop={8} onPress={() => setBattleAvailabilityInfoOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="Comment marche la disponibilité Battle">
                 <Text style={s.battleAvailabilityInfoIcon}>ⓘ</Text>
@@ -1226,8 +1225,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
             <MotionActionButton
               icon="⚡"
-              title="JOUER EN SOLO"
-              subtitle="Choisis tes styles et lance une partie immédiatement."
+              title="SOLO"
               onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })}
               accessibilityLabel="Jouer un Battle solo"
               tone="battle"
