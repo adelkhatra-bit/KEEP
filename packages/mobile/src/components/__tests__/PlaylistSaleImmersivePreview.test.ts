@@ -29,12 +29,20 @@ describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux 
     expect(source).not.toContain('coverUrl');
   });
 
-  it('keeps the screen stable and hides long explanations behind En savoir plus', () => {
+  it('keeps the music controls stable, rotates only short mystery hooks, and hides long explanations behind En savoir plus', () => {
     expect(source).toContain('const EXPLAINER_LINES = [');
     expect(source).toContain("const [detailsOpen, setDetailsOpen] = useState(false);");
     expect(source).toContain("detailsOpen ? 'Moins d’infos' : 'En savoir plus'");
     expect(source).not.toContain('setInterval(() => setMarketingIndex');
     expect(source).not.toContain('setInterval(() => setExplainerIndex');
+    expect(source).toContain('const TEASER_LINES = [');
+    expect(source).toContain('teaserOpacity');
+  });
+
+  it('unlocks shared web audio synchronously from the listen tap', () => {
+    expect(source).toContain("import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture }");
+    expect(source).toContain('function togglePlayPause()');
+    expect(source).toContain('unlockWebAudioForGesture();');
   });
 
   it('respects Reduce Motion instead of forcing the waveform animation', () => {
