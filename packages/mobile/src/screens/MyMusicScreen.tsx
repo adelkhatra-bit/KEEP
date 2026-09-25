@@ -996,15 +996,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
               >
                 {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
               </TouchableOpacity>
-              {/* Adel (16-17/09/2026) : "un bouton 'Vendre cette musique'" --
-                  vendre UN morceau précis, même popup de prix que pour une
-                  playlist ou un album entier.
-                  (21/09/2026) Principe produit : "on n'efface jamais une
-                  fonctionnalité parce que le palier n'est pas atteint -- on la
-                  montre toujours, verrouillée." Une offre déjà créée reste
-                  directement gérable (le seuil était forcément atteint au
-                  moment de la mise en vente) ; seule l'ENTRÉE "VENDRE" pour un
-                  morceau pas encore mis en vente passe par le verrou visible. */}
+              {/* Règle produit 25/09/2026 : jamais de produit morceau par
+                  morceau. Ce bouton sélectionne uniquement ce titre pour
+                  composer une collection exclusive de plusieurs morceaux.
+                  Une collection déjà publiée reste gérable depuis son badge. */}
               {marketplaceEnabled ? (
                 offered ? (
                   <TouchableOpacity
