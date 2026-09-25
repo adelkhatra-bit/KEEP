@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
+import { isTrackPreviewActive, preloadTrackPreview, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
@@ -195,6 +195,16 @@ export default function MusicSwipeDeckModal({
         if (!alive) return;
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
+
+        // Précharge le morceau suivant pendant l'écoute courante : sur un
+        // profil visité, la file doit s'enchaîner sans trou réseau perceptible.
+        const nextTrack = deckTracks[index + 1];
+        if (nextTrack) {
+          void resolveTrackPreviewUrl(nextTrack)
+            .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
+            .catch(() => {});
+        }
+
         await stopTrackPreview();
         if (!alive || playbackGeneration.current !== generation || !previewUrl || !playbackKey) return;
         try {
@@ -214,14 +224,14 @@ export default function MusicSwipeDeckModal({
               setPreviewEnded(true);
               if (socialDiscoveryMode) {
                 // Un profil visité doit s'écouter comme une vraie file musicale :
-                // pas de silence après chaque preview. On laisse 900 ms pour
-                // toucher GARDER/PASSER, puis on enchaîne automatiquement.
+                // pas de silence artificiel après chaque preview. N+1 est préchargé et
+                // s'enchaîne presque immédiatement ; GARDER/PASSER restent disponibles.
                 if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
                 endAdvanceTimer.current = setTimeout(() => {
                   endAdvanceTimer.current = null;
                   if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
                   advanceIndex();
-                }, 900);
+                }, 120);
                 return;
               }
               if (!loop) return;
@@ -273,7 +283,7 @@ export default function MusicSwipeDeckModal({
             endAdvanceTimer.current = setTimeout(() => {
               endAdvanceTimer.current = null;
               if (!actionInFlight.current) advanceIndex();
-            }, 900);
+            }, 120);
           } else if (!actionInFlight.current && loop) {
             advanceIndex();
           }
