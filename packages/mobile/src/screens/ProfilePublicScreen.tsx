@@ -937,9 +937,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
                     fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}
                     onPress={() => openSelectionSwipe({ title: folder.genre, subtitle: `Ton univers ${folder.genre} en Swipe.`, tracks: folder.entries.map((entry) => entry.track) })}
                     accessibilityLabel={`Écouter le style ${folder.genre}, ${folder.entries.length} morceaux en Swipe`}
-                    actionLabel={marketplaceEnabled ? 'COLLECTION' : undefined}
-                    onActionPress={marketplaceEnabled ? () => navigation.navigate('Main', { screen: 'Playlists', params: { preselectSaleGenre: folder.genre } }) : undefined}
-                    actionAccessibilityLabel={`Créer ou gérer une collection à partir du style ${folder.genre}`}
                   />
                 );
               })}
