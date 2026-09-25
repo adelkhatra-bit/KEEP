@@ -59,6 +59,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [secondsLeft, setSecondsLeft] = useState(0);
   const bars = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0.3))).current;
   const secretPulse = useRef(new Animated.Value(0)).current;
+  const revealGlow = useRef(new Animated.Value(0)).current;
   const reduceMotionRef = useRef(false);
   const previewKeyRef = useRef(`playlist-sale-immersive:${offer.playlistId}`);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -139,8 +140,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       Animated.timing(secretPulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     pulse.start();
-    return () => { cancelled = true; loops.forEach((l) => l.stop()); pulse.stop(); };
-  }, [visible, bars, secretPulse]);
+    const glow = Animated.loop(Animated.sequence([
+      Animated.timing(revealGlow, { toValue: 1, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(revealGlow, { toValue: 0, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    glow.start();
+    return () => { cancelled = true; loops.forEach((l) => l.stop()); pulse.stop(); glow.stop(); };
+  }, [visible, bars, secretPulse, revealGlow]);
 
   function togglePlayPause() {
     if (playing) {
@@ -198,10 +204,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               accessibilityLabel="Extrait masqué, appuie pour lire ou mettre en pause"
             >
               <View style={s.visual}>
+                <Animated.View pointerEvents="none" style={[s.mysteryGlow, { opacity: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.42] }), transform: [{ scale: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.08] }) }] }]} />
+                <View style={s.mysteryLock}><Text style={s.mysteryLockText}>?</Text></View>
                 {bars.map((bar, i) => (
                   <Animated.View key={i} style={[s.bar, { height: bar.interpolate({ inputRange: [0, 1], outputRange: [16, 64] }) }]} />
                 ))}
               </View>
+              {!tracksLoading && !tracksUnavailable ? <Text style={s.mysteryCaption}>MORCEAU {trackIndex + 1} · IDENTITÉ VERROUILLÉE</Text> : null}
               <Text style={s.trackStatus}>
                 {tracksLoading
                   ? 'Chargement des extraits...'
@@ -259,14 +268,16 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 </Text>
               </TouchableOpacity>
 
+              <Animated.View style={{ transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }}>
               <TouchableOpacity
                 style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
                 disabled={!waiverAccepted || busy}
                 onPress={() => onConfirmPurchase(offer)}
                 accessibilityLabel={`Débloquer et ajouter à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `DÉBLOQUER LA COLLECTION · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, !waiverAccepted && s.buyButtonTextDisabled]}>{busy ? '…' : `RÉVÉLER LA SÉLECTION · ${priceLabel}`}</Text>
               </TouchableOpacity>
+              </Animated.View>
               <Text style={s.noRefund}>
                 {freeAccess
                   ? `Un seul débit de ${priceLabel} débloque toute la collection. Aucun débit n’est effectué morceau par morceau.`
@@ -306,7 +317,11 @@ const s = StyleSheet.create({
   promiseKicker: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, textAlign: 'center' },
   marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3 },
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
-  visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72 },
+  visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 92, position: 'relative', overflow: 'hidden', borderRadius: 18 },
+  mysteryGlow: { position: 'absolute', width: 116, height: 116, borderRadius: 58, backgroundColor: colors.primary, top: -12 },
+  mysteryLock: { position: 'absolute', top: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  mysteryLockText: { color: colors.primaryLight, fontSize: 24, fontWeight: '900' },
+  mysteryCaption: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 7 },
   bar: { width: 8, borderRadius: 4, backgroundColor: colors.primary },
   trackStatus: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 10 },
   explainer: { color: colors.textMuted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 8 },
@@ -329,7 +344,7 @@ const s = StyleSheet.create({
   waiverText: { flex: 1, color: colors.textPrimary, fontSize: 11.5, lineHeight: 16 },
   buyButton: { minHeight: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   buyButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
-  buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', letterSpacing: 0.25 },
   buyButtonTextDisabled: { color: colors.textMuted },
   noRefund: { color: colors.textMuted, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 8 },
   nativePreviewNotice: { marginTop: 14, padding: 12, borderRadius: 16, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.primary },
