@@ -924,13 +924,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
                     subtitle={`${folder.entries.length} morceau${folder.entries.length > 1 ? 'x' : ''} · ${publicCount} public${publicCount > 1 ? 's' : ''}${privateCount ? ` · ${privateCount} privé${privateCount > 1 ? 's' : ''}` : ''}`}
                     mode="PUBLIC"
                     badgeLabel={badgeLabel}
+                    onBadgePress={() => Alert.alert(
+                      badgeLabel === 'PUBLIC' ? 'Style public' : badgeLabel === 'PRIVÉ' ? 'Style privé' : 'Style mixte',
+                      badgeLabel === 'PUBLIC'
+                        ? `Tous les morceaux de ce style sont visibles par les visiteurs du profil de @${user.username}.`
+                        : badgeLabel === 'PRIVÉ'
+                          ? `Tous les morceaux de ce style sont privés : seul @${user.username} les voit.`
+                          : `Ce style mélange des morceaux publics et privés. Les visiteurs voient uniquement les morceaux publics ; @${user.username} voit l’ensemble.`,
+                    )}
+                    badgeAccessibilityLabel={`${badgeLabel}. Appuyer pour comprendre la visibilité de ce style`}
                     artworkUrl={artworkUrl}
                     fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}
                     onPress={() => openSelectionSwipe({ title: folder.genre, subtitle: `Ton univers ${folder.genre} en Swipe.`, tracks: folder.entries.map((entry) => entry.track) })}
                     accessibilityLabel={`Écouter le style ${folder.genre}, ${folder.entries.length} morceaux en Swipe`}
-                    actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}
+                    actionLabel={marketplaceEnabled ? 'COLLECTION' : undefined}
                     onActionPress={marketplaceEnabled ? () => navigation.navigate('Main', { screen: 'Playlists', params: { preselectSaleGenre: folder.genre } }) : undefined}
-                    actionAccessibilityLabel={`Créer une collection exclusive à partir du style ${folder.genre}`}
+                    actionAccessibilityLabel={`Créer ou gérer une collection à partir du style ${folder.genre}`}
                   />
                 );
               })}
