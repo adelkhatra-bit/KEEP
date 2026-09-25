@@ -60,6 +60,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [explainerIndex, setExplainerIndex] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [teaserIndex, setTeaserIndex] = useState(0);
+  const teaserOpacity = useRef(new Animated.Value(1)).current;
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -124,7 +125,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; } });
     // La carte reste stable, mais une seule accroche courte tourne doucement
     // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
-    const teaserTimer = setInterval(() => setTeaserIndex((i) => (i + 1) % TEASER_LINES.length), ROTATE_MS);
+    const teaserTimer = setInterval(() => {
+      if (reduceMotionRef.current) { setTeaserIndex((i) => (i + 1) % TEASER_LINES.length); return; }
+      Animated.timing(teaserOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+        setTeaserIndex((i) => (i + 1) % TEASER_LINES.length);
+        Animated.timing(teaserOpacity, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+      });
+    }, ROTATE_MS);
     return () => {
       live = false;
       clearCountdown();
@@ -198,7 +205,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <Text style={s.secretMeta}>Écoute sans voir. Laisse ton oreille décider.</Text>
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <View style={s.promiseBox}><Text style={s.promiseKicker}>UNE PORTE VERS UN AUTRE UNIVERS</Text><Animated.Text key={teaserIndex} style={s.marketing}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
+          <View style={s.promiseBox}><Text style={s.promiseKicker}>UNE PORTE VERS UN AUTRE UNIVERS</Text><Animated.Text style={[s.marketing, { opacity: teaserOpacity }]}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
