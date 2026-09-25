@@ -28,7 +28,9 @@ describe('MyMusicScreen marketplace selection — BUG fix (Adel, 21/09/2026, pro
   it('offers a way to edit or remove the existing offer instead of leaving it unreachable', () => {
     expect(source).toContain('const editExistingTrackOffer = (track: CanonicalTrack) => {');
     expect(source).toContain("'Retirer de la collection'");
-    expect(source).toContain("'Changer le prix'");
+    expect(source).toContain("'Gérer la collection'");
+    expect(source).toContain('manageSaleOfferId: offered.offerId');
+    expect(source).toContain('manageSaleOfferName: offered.playlistName');
   });
 
   it('offers an explicit private choice on removal, reusing the existing visibility service (no new system)', () => {
