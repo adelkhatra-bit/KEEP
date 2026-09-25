@@ -24,7 +24,7 @@ describe('Profile music management and listening continuity', () => {
   it('opens an explicit music management mode instead of hiding controls under Playlists', () => {
     expect(myMusic).toContain("{ key: 'MUSIQUES', label: 'Musiques' }");
     expect(myMusic).toContain('MODE GESTION ACTIF');
-    expect(myMusic).toContain('PUBLIC / PRIVÉ, SUPPRIMER et COLLECTION');
+    expect(myMusic).toContain('PUBLIC / PRIVÉ, SUPPRIMER, AJOUTER À UNE COLLECTION ou GÉRER SA COLLECTION');
     expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
     expect(myMusic).toContain("setActiveTab('MUSIQUES');");
   });
