@@ -1108,7 +1108,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>SES PÉPITES · CHOISIES À L’OREILLE</Text>
+                <Text style={styles.marketplaceKicker}>PÉPITES</Text>
                 <Text style={styles.sectionTitle}>À découvrir</Text>
               </View>
               {saleOffers.length > 0 ? (
@@ -1117,7 +1117,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ) : null}
             </View>
-            <Text style={styles.marketplaceHint}>Fais confiance à son oreille. Écoute une pépite avant de la révéler.</Text>
+            <Text style={styles.marketplaceHint}>Écoute avant de savoir.</Text>
             {saleOffers.length === 0 ? (
               <View style={styles.marketplaceEmpty}>
                 <Text style={styles.marketplaceEmptyText}>Aucune pépite à révéler pour le moment</Text>
@@ -1163,7 +1163,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     );
                   })}
                 </ScrollView>
-                <Text style={styles.saleCarouselHint}>← Explore ses pépites · touche une carte pour écouter →</Text>
+                <Text style={styles.saleCarouselHint}>← Glisse · touche · écoute →</Text>
               </>
             )}
           </ProfileMotionReveal>
