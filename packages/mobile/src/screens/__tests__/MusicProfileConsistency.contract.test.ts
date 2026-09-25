@@ -32,6 +32,12 @@ describe('Music profile consistency', () => {
     expect(myMusic).toContain('AJOUTER À UNE COLLECTION');
   });
 
+  it('routes collection members to full collection management instead of a price-only shortcut', () => {
+    expect(myMusic).toContain("text: 'Gérer la collection'");
+    expect(myMusic).toContain("manageSaleOfferId: offered.offerId");
+    expect(myMusic).toContain("manageSaleOfferName: offered.playlistName");
+  });
+
   it('pre-resolves the next visitor preview to avoid gaps between tracks', () => {
     expect(visitor).toContain('inlinePreviewUrlCacheRef');
     expect(visitor).toContain('const resolveInlinePreview = async');
