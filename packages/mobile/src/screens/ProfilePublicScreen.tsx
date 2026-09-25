@@ -912,6 +912,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 const publicCount = folder.entries.filter((entry) => entry.visibility === 'PUBLIC').length;
                 const privateCount = folder.entries.length - publicCount;
                 const artworkUrl = folder.entries.map((entry) => entry.track.artworkUrl).find((value): value is string => Boolean(value));
+                const socialSource = folder.entries.find((entry) => 'sourceUsername' in entry && entry.sourceUsername && entry.sourceUsername !== user.username);
+                const sourceUsername = socialSource && 'sourceUsername' in socialSource ? socialSource.sourceUsername : null;
                 const badgeLabel = privateCount === 0
                   ? 'PUBLIC'
                   : publicCount === 0
@@ -933,6 +935,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
                           : `Ce style mélange des morceaux publics et privés. Les visiteurs voient uniquement les morceaux publics ; @${user.username} voit l’ensemble.`,
                     )}
                     badgeAccessibilityLabel={`${badgeLabel}. Appuyer pour comprendre la visibilité de ce style`}
+                    actionLabel={sourceUsername ? `@${sourceUsername}` : undefined}
+                    onActionPress={sourceUsername ? () => openSourceProfile(sourceUsername) : undefined}
+                    actionAccessibilityLabel={sourceUsername ? `Voir le profil de @${sourceUsername}, source d’une musique de ce style` : undefined}
                     artworkUrl={artworkUrl}
                     fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}
                     onPress={() => openSelectionSwipe({ title: folder.genre, subtitle: `Ton univers ${folder.genre} en Swipe.`, tracks: folder.entries.map((entry) => entry.track) })}
