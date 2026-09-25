@@ -1135,7 +1135,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ) : null}
             </View>
-            <Text style={styles.marketplaceHint}>Les Styles publics restent gratuits plus bas. Ici, chaque carte est un lot séparé : plusieurs styles peuvent être mélangés, mais les vrais titres, artistes et pochettes restent secrets.</Text>
+            <Text style={styles.marketplaceHint}>Écoute les extraits secrets. Les titres, artistes et pochettes restent masqués jusqu’au déblocage.</Text>
             {saleOffers.length === 0 ? (
               <View style={styles.marketplaceEmpty}>
                 <Text style={styles.marketplaceEmptyText}>Aucune collection exclusive pour le moment</Text>
