@@ -1057,7 +1057,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'profile') return <>
       <Text style={s.shareTitle}>Réglages du profil</Text>
-      <Text style={s.shareSubtitle}>@{user.username} · modifie ta photo, ta bio, ton pseudo, et retrouve le bouton pour te déconnecter.</Text>
+      <Text style={s.shareSubtitle}>@{user.username} · modifie ta photo, ta bio, ton pseudo et tes informations de profil.</Text>
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ProfileSettings')}><Text style={s.shareActionPrimaryText}>OUVRIR LES RÉGLAGES</Text></TouchableOpacity>
     </>;
 
