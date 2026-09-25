@@ -58,6 +58,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [playing, setPlaying] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const bars = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0.3))).current;
+  const secretPulse = useRef(new Animated.Value(0)).current;
   const reduceMotionRef = useRef(false);
   const previewKeyRef = useRef(`playlist-sale-immersive:${offer.playlistId}`);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -133,8 +134,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       ]),
     ));
     loops.forEach((l) => l.start());
-    return () => { cancelled = true; loops.forEach((l) => l.stop()); };
-  }, [visible, bars]);
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(secretPulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(secretPulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    pulse.start();
+    return () => { cancelled = true; loops.forEach((l) => l.stop()); pulse.stop(); };
+  }, [visible, bars, secretPulse]);
 
   function togglePlayPause() {
     if (playing) {
@@ -161,13 +167,19 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
         <View style={s.card}>
           <TouchableOpacity style={s.closeBtn} onPress={onClose} accessibilityLabel="Fermer l'aperçu"><Text style={s.closeBtnText}>✕</Text></TouchableOpacity>
 
-          <Text style={s.eyebrow}>COLLECTION EXCLUSIVE · CONTENU SECRET</Text>
-          <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
+          <Animated.View style={[s.secretHero, { transform: [{ scale: secretPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }]}>
+            <View style={s.secretVinyl}><Text style={s.secretVinylNote}>♪</Text></View>
+            <View style={s.secretHeroCopy}>
+              <Text style={s.eyebrow}>SÉLECTION SECRÈTE</Text>
+              <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
+              <Text style={s.secretHook}>Et si ton prochain coup de cœur était juste derrière ?</Text>
+            </View>
+          </Animated.View>
           <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel}</Text>
-          <Text style={s.secretMeta}>Titres, artistes et vraies pochettes masqués jusqu’au déblocage</Text>
+          <Text style={s.secretMeta}>Écoute sans voir. Laisse ton oreille décider.</Text>
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <Text style={s.marketing}>Écoute. Si la sélection te plaît, débloque-la.</Text>
+          <View style={s.promiseBox}><Text style={s.promiseKicker}>UNE PORTE VERS UN AUTRE UNIVERS</Text><Text style={s.marketing}>Quelques secondes pour t’évader. Le reste se découvre derrière.</Text></View>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -278,14 +290,21 @@ const s = StyleSheet.create({
   card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundElevated, borderRadius: 26, borderWidth: 1, borderColor: colors.border, padding: 20, position: 'relative' },
   closeBtn: { position: 'absolute', right: 12, top: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', zIndex: 5 },
   closeBtnText: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
-  eyebrow: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 6 },
-  playlistName: { color: colors.textPrimary, fontSize: 19, fontWeight: '800', marginTop: 4 },
+  secretHero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 6, padding: 12, borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary },
+  secretVinyl: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#09090D', borderWidth: 5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  secretVinylNote: { color: colors.primaryLight, fontSize: 28, fontWeight: '900' },
+  secretHeroCopy: { flex: 1 },
+  eyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  playlistName: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', marginTop: 3 },
+  secretHook: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 5 },
   meta: { color: colors.textMutedGrey, fontSize: 12, marginTop: 2 },
   secretMeta: { color: colors.primaryLight, fontSize: 10, lineHeight: 14, marginTop: 4, fontWeight: '800' },
   totalPricePill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
   totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
   totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
-  marketing: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 20 },
+  promiseBox: { marginTop: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.border },
+  promiseKicker: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, textAlign: 'center' },
+  marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3 },
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
   visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72 },
   bar: { width: 8, borderRadius: 4, backgroundColor: colors.primary },
