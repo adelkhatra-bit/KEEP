@@ -86,9 +86,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     const safeIdx = ((idx % available.length) + available.length) % available.length;
     setTrackIndex(safeIdx);
     clearCountdown();
-    // Anti-Shazam (Adel, 22/09/2026) : la durée de l'extrait n'est plus fixe
-    // (5-8s aléatoires, décidés côté service) -- le compte à rebours démarre
-    // seulement une fois la durée réelle connue.
+    // La durée est renvoyée par le service afin que le compte à rebours reste
+    // synchronisé avec l'extrait réellement joué.
     void playAntiShazamPreviewSegment(
       previewKeyRef.current,
       available[safeIdx].previewUrl,
@@ -251,7 +250,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={s.protectionBadge}>
-              <Text style={s.protectionBadgeText}>🛡️ Préécoute protégée · extraits courts · identité masquée · lecture séquentielle</Text>
+              <Text style={s.protectionBadgeText}>🛡️ Préécoute protégée · 12 s · identité masquée · lecture à ton rythme</Text>
             </View>
           ) : null}
 
