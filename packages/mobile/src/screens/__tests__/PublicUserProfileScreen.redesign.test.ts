@@ -92,10 +92,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
   });
 
   it('uses the KEEP violet token for "+ Suivre" (primary action), never the legacy red hex', () => {
-    expect(source).toContain("followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primary");
     expect(source).not.toMatch(/followButton:\{[^}]*#FF5F83/);
-    expect(source).toContain('followButtonActive:{backgroundColor:`${colors.success}22`,borderColor:colors.success}');
-    expect(source).toContain('followButtonTextActive:{color:colors.success}');
   });
 
   it('uses the KEEP violet token for the marketplace price button, not green (Design System: green is reserved for success/validation)', () => {
@@ -120,4 +117,13 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).toContain("shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary");
     expect(source).toContain("socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22");
   });
+  it('keeps visitor follow as a single compact action and counters on one row', () => {
+    expect(source).toContain('styles.visitorActionRow');
+    expect(source).toContain("label: 'Abonnés'");
+    expect(source).toContain("label: 'Reprises'");
+    expect(source).toContain("label: 'Morceaux'");
+    expect(source).toContain("label: 'Abonnements'");
+    expect(source).not.toContain('styles.followButton');
+  });
+
 });
