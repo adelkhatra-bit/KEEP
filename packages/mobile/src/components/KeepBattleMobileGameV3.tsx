@@ -1286,9 +1286,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
     const soloLimitMarker = 'BATTLESOLODAILYLIMITREACHED';
     if (compactMessage.includes(soloLimitMarker) || normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-      const compactTail = compactMessage.split(soloLimitMarker)[1] || '';
-      const normalizedTail = normalizedMessage.split('BATTLE_SOLO_DAILY_LIMIT_REACHED')[1] || '';
-      const limit = Number((compactTail || normalizedTail).match(/(\d+)/)?.[1] || 0);
+      // Ne jamais extraire le premier nombre de toute la réponse PostgREST
+      // (code HTTP, position SQL, etc.). Seul un nombre accolé explicitement
+      // au marqueur métier peut représenter la limite quotidienne.
+      const explicitLimit = rawMessage.toUpperCase().match(/BATTLE[_\\s-]*SOLO[_\\s-]*DAILY[_\\s-]*LIMIT[_\\s-]*REACHED\\s*[:=_-]?\\s*(\\d+)/)?.[1];
+      const limit = Number(explicitLimit || 0);
       Alert.alert(
         'Solo terminé pour aujourd’hui',
         limit > 0
