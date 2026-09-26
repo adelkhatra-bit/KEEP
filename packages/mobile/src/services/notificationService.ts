@@ -17,6 +17,14 @@ export type NotificationPreferences = {
   socialEnabled: boolean;
   marketingEnabled: boolean;
   eventsEnabled: boolean;
+  moneyEnabled: boolean;
+  battleEnabled: boolean;
+  musicEnabled: boolean;
+  moneySound: 'MONEY' | 'DEFAULT' | 'SILENT';
+  socialSound: 'DEFAULT' | 'SILENT';
+  battleSound: 'DEFAULT' | 'SILENT';
+  musicSound: 'DEFAULT' | 'SILENT';
+  eventsSound: 'DEFAULT' | 'SILENT';
 };
 
 // Adel (03/09/2026) : "le Marketing devrait tout le temps rester activé,
@@ -32,6 +40,10 @@ const DEFAULT_PREFS: NotificationPreferences = {
   socialEnabled: true,
   marketingEnabled: true,
   eventsEnabled: true,
+  moneyEnabled: true,
+  battleEnabled: true,
+  musicEnabled: true,
+  moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT',
 };
 
 function mapNotificationRow(row: any): KeepNotification {
@@ -183,7 +195,7 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
   if (!supabase) return DEFAULT_PREFS;
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('system_enabled,dj_enabled,social_enabled,marketing_enabled,events_enabled')
+    .select('system_enabled,dj_enabled,social_enabled,marketing_enabled,events_enabled,money_enabled,battle_enabled,music_enabled,money_sound,social_sound,battle_sound,music_sound,events_sound')
     .eq('profile_id', profileId)
     .maybeSingle();
   if (error) throw error;
@@ -195,6 +207,8 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
       social_enabled: DEFAULT_PREFS.socialEnabled,
       marketing_enabled: DEFAULT_PREFS.marketingEnabled,
       events_enabled: DEFAULT_PREFS.eventsEnabled,
+      money_enabled: DEFAULT_PREFS.moneyEnabled, battle_enabled: DEFAULT_PREFS.battleEnabled, music_enabled: DEFAULT_PREFS.musicEnabled,
+      money_sound: DEFAULT_PREFS.moneySound, social_sound: DEFAULT_PREFS.socialSound, battle_sound: DEFAULT_PREFS.battleSound, music_sound: DEFAULT_PREFS.musicSound, events_sound: DEFAULT_PREFS.eventsSound,
     });
     if (insertError) throw insertError;
     return DEFAULT_PREFS;
@@ -205,6 +219,8 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
     socialEnabled: data.social_enabled,
     marketingEnabled: data.marketing_enabled,
     eventsEnabled: data.events_enabled ?? true,
+    moneyEnabled: data.money_enabled ?? true, battleEnabled: data.battle_enabled ?? true, musicEnabled: data.music_enabled ?? true,
+    moneySound: data.money_sound ?? 'MONEY', socialSound: data.social_sound ?? 'DEFAULT', battleSound: data.battle_sound ?? 'DEFAULT', musicSound: data.music_sound ?? 'DEFAULT', eventsSound: data.events_sound ?? 'DEFAULT',
   };
 }
 
@@ -217,6 +233,8 @@ export async function saveNotificationPreferences(profileId: string, prefs: Noti
     social_enabled: prefs.socialEnabled,
     marketing_enabled: prefs.marketingEnabled,
     events_enabled: prefs.eventsEnabled,
+    money_enabled: prefs.moneyEnabled, battle_enabled: prefs.battleEnabled, music_enabled: prefs.musicEnabled,
+    money_sound: prefs.moneySound, social_sound: prefs.socialSound, battle_sound: prefs.battleSound, music_sound: prefs.musicSound, events_sound: prefs.eventsSound,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'profile_id' });
   if (error) throw error;
