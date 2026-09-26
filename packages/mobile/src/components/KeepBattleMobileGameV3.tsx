@@ -1276,9 +1276,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // guillemets, antislashs ou ponctuations différentes. On ne montre
     // jamais ce code technique au joueur : la présence du marqueur suffit.
     const normalizedMessage = rawMessage.replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
-    if (normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-      const tail = normalizedMessage.split('BATTLE_SOLO_DAILY_LIMIT_REACHED')[1] || '';
-      const limit = Number(tail.match(/(\d+)/)?.[1] || 0);
+    const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const soloLimitMarker = 'BATTLESOLODAILYLIMITREACHED';
+    if (compactMessage.includes(soloLimitMarker) || normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+      const compactTail = compactMessage.split(soloLimitMarker)[1] || '';
+      const normalizedTail = normalizedMessage.split('BATTLE_SOLO_DAILY_LIMIT_REACHED')[1] || '';
+      const limit = Number((compactTail || normalizedTail).match(/(\d+)/)?.[1] || 0);
       Alert.alert(
         'Solo terminé pour aujourd’hui',
         limit > 0
