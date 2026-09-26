@@ -1322,7 +1322,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       void updateSoloPresenceTheme(themeCode).catch(() => {});
     } catch (e: any) {
       showSoloStartError(e);
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   };
 
   // Adel (01/09/2026) : "souhaitez-vous ... enregistrer dans la session le
