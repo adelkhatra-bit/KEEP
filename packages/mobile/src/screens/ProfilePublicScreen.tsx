@@ -1290,16 +1290,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.collectionTitle}>Ma musique</Text>
         <Text style={s.collectionCount}>{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau{profileTotalKeepCount > 1 ? 'x' : ''}</Text>
       </View>
-      <MotionActionButton
-        icon="♫"
-        title="GÉRER MES MUSIQUES"
-        subtitle="Tout modifier au même endroit : Public/Privé, supprimer, classer, ajouter/retirer des morceaux et préparer tes collections."
-        onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { openManageMusic: true } })}
-        accessibilityLabel="Gérer mes musiques"
-        tone="secondary"
-        compact
-        style={s.manageMusicButton}
-      />
       <View style={s.tabsRow}>
         <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
         {activeTab === 'TRACKS' && trackGenreOptions.length > 0 ? (
@@ -1347,6 +1337,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.growthBarTrack}><View style={[s.growthBarFill, { width: `${Math.min(100, Math.round((growthStatus.followers / growthStatus.nextFollowerGoal) * 100))}%` }]} /></View>
           </View>
         ) : null
+      ) : null}
+
+      {!accountRequired ? (
+        <MotionActionButton
+          icon="♫"
+          title="GÉRER MES MUSIQUES"
+          subtitle="Public/Privé, supprimer, classer et préparer tes collections."
+          onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { openManageMusic: true } })}
+          accessibilityLabel="Gérer mes musiques"
+          tone="secondary"
+          compact
+          style={s.manageMusicButton}
+        />
       ) : null}
 
       {!accountRequired ? (
