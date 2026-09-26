@@ -6,11 +6,12 @@ import type { ProfileSaleSuggestion } from '../services/profileSaleSuggestionSer
 type Props = {
   suggestion?: ProfileSaleSuggestion | null;
   onSuggestionPress?: () => void;
+  onListenPress?: () => void;
   onParticipatePress: () => void;
   onOffersPress: () => void;
 };
 
-export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, onParticipatePress, onOffersPress }: Props) {
+export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, onListenPress, onParticipatePress, onOffersPress }: Props) {
   const drift = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const [tipIndex, setTipIndex] = React.useState(0);
@@ -45,7 +46,8 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
         <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ POUR TON OREILLE</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
         {suggestion ? <View style={s.personRow}>{suggestion.sellerAvatarUrl ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar} /> : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{suggestion.sellerUsername.slice(0,1).toUpperCase()}</Text></View>}<View style={s.personText}><Text style={s.title} numberOfLines={1}>{suggestion.playlistName}</Text><Text style={s.meta} numberOfLines={1}>{suggestion.sellerUsername} · {suggestion.trackCount} pépite{suggestion.trackCount > 1 ? 's' : ''}</Text></View></View> : <Text style={s.title}>Ton prochain univers arrive…</Text>}
-        <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion?.matchScore ? `MATCH GOÛTS · ${genres} · ÉCOUTE →` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
+        <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion ? `${suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`} · ${genres} · À DÉBLOQUER` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
+        {suggestion ? <View style={s.saleActions}><TouchableOpacity style={s.listen} onPress={(event) => { event.stopPropagation?.(); (onListenPress ?? onSuggestionPress)?.(); }} accessibilityLabel="Écouter un extrait"><Text style={s.listenText}>▶ ÉCOUTER</Text></TouchableOpacity><View style={s.saleTag}><Text style={s.saleTagText}>{suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`}</Text></View></View> : null}
       </TouchableOpacity>
 
       <TouchableOpacity style={[s.card, s.participate]} onPress={tipIndex === 0 ? onParticipatePress : tipIndex === 1 ? onParticipatePress : onOffersPress} accessibilityLabel={tip.title}>
@@ -60,7 +62,7 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
 
 const s=StyleSheet.create({
   rail:{paddingHorizontal:18,paddingVertical:8,gap:10},
-  card:{width:276,minHeight:118,borderRadius:18,padding:12,borderWidth:1,overflow:'hidden'},
+  card:{width:276,minHeight:132,borderRadius:18,padding:12,borderWidth:1,overflow:'hidden'},
   suggestion:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
   aura:{position:'absolute',right:-30,top:-55,width:160,height:160,borderRadius:80,backgroundColor:colors.primaryLight},
   participate:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},
@@ -76,7 +78,7 @@ const s=StyleSheet.create({
   meta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
   marqueeClip:{overflow:'hidden',marginTop:7},
   marquee:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8,width:330},
-  body:{color:colors.textMuted,fontSize:9,lineHeight:12,fontWeight:'700',marginTop:5},
+  saleActions:{marginTop:8,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},listen:{minHeight:32,paddingHorizontal:11,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},listenText:{color:'#fff',fontSize:9,fontWeight:'900'},saleTag:{minHeight:30,paddingHorizontal:9,borderRadius:11,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.success},saleTagText:{color:colors.success,fontSize:9,fontWeight:'900'},body:{color:colors.textMuted,fontSize:9,lineHeight:12,fontWeight:'700',marginTop:5},
   actions:{flexDirection:'row',gap:7,marginTop:7},
   primary:{paddingHorizontal:10,paddingVertical:7,borderRadius:12,backgroundColor:colors.primary},
   primaryText:{color:'#fff',fontSize:9,fontWeight:'900'},
