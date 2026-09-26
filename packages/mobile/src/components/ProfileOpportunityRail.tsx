@@ -42,11 +42,14 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
 
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
+  const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
         <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ À ÉCOUTER · À DÉBLOQUER</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
+        {suggestion ? <View style={s.saleLine}><Text style={s.saleBadge}>SÉLECTION EXCLUSIVE</Text><Text style={s.price}>{price}</Text></View> : null}
         {suggestion ? <View style={s.personRow}>{suggestion.sellerAvatarUrl ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar} /> : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{suggestion.sellerUsername.slice(0,1).toUpperCase()}</Text></View>}<View style={s.personText}><Text style={s.title} numberOfLines={1}>{suggestion.playlistName}</Text><Text style={s.meta} numberOfLines={1}>{suggestion.sellerUsername} · {suggestion.trackCount} pépite{suggestion.trackCount > 1 ? 's' : ''}</Text></View></View> : <Text style={s.title}>Ton prochain univers arrive…</Text>}
+        {suggestion ? <View style={s.ctaRow}><View style={s.listenCta}><Text style={s.listenCtaText}>▶ ÉCOUTER</Text></View><Text style={s.ctaHint}>Découvre avant de débloquer</Text></View> : null}
         <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion ? `${suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`} · ${genres} · À DÉBLOQUER` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
         {suggestion ? <View style={s.saleActions}><TouchableOpacity style={s.listen} onPress={(event) => { event.stopPropagation?.(); (onListenPress ?? onSuggestionPress)?.(); }} accessibilityLabel="Écouter un extrait"><Text style={s.listenText}>▶ ÉCOUTER</Text></TouchableOpacity><View style={s.saleTag}><Text style={s.saleTagText}>{suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`}</Text></View></View> : null}
       </TouchableOpacity>
@@ -70,14 +73,14 @@ const s=StyleSheet.create({
   top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   kicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   liveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.success},
-  personRow:{flexDirection:'row',alignItems:'center',gap:9,marginTop:7},
+  saleLine:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:6,marginTop:6},saleBadge:{color:colors.success,fontSize:8,fontWeight:'900',letterSpacing:.6},price:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},personRow:{flexDirection:'row',alignItems:'center',gap:9,marginTop:5},
   avatar:{width:32,height:32,borderRadius:16},
   avatarFallback:{width:32,height:32,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},
   avatarLetter:{color:'#fff',fontSize:15,fontWeight:'900'},
   personText:{flex:1,minWidth:0},
   title:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:6},
   meta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
-  marqueeClip:{overflow:'hidden',marginTop:7},
+  ctaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:7},listenCta:{paddingHorizontal:9,paddingVertical:6,borderRadius:10,backgroundColor:colors.primary},listenCtaText:{color:'#fff',fontSize:9,fontWeight:'900'},ctaHint:{flex:1,color:colors.textMuted,fontSize:8,fontWeight:'700'},marqueeClip:{overflow:'hidden',marginTop:6},
   marquee:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8,width:330},
   saleActions:{marginTop:8,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},listen:{minHeight:32,paddingHorizontal:11,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},listenText:{color:'#fff',fontSize:9,fontWeight:'900'},saleTag:{minHeight:30,paddingHorizontal:9,borderRadius:11,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.success},saleTagText:{color:colors.success,fontSize:9,fontWeight:'900'},body:{color:colors.textMuted,fontSize:9,lineHeight:12,fontWeight:'700',marginTop:5},
   tipFooter:{marginTop:9,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tipDots:{flexDirection:'row',gap:4},tipDot:{width:5,height:5,borderRadius:3,backgroundColor:colors.border},tipDotOn:{width:13,backgroundColor:colors.primaryLight},tipCta:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.5},
