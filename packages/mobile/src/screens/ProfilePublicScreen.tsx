@@ -39,6 +39,8 @@ import PresenceDot from '../components/PresenceDot';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
+import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
+import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
@@ -180,11 +182,25 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
+  const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
+  const [profileSaleSuggestionIndex, setProfileSaleSuggestionIndex] = useState(0);
   // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
   // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
   // paramètres" -- la pastille ouvrait les Réglages avancés au lieu d'un
   // choix direct sur place. Popup immédiat, même logique que
   // CreatorToolsPanel (changeKind).
+  useEffect(() => {
+    if (accountRequired || !user?.id) return undefined;
+    let live = true;
+    loadProfileSaleSuggestions(8).then((rows) => { if (live) { setProfileSaleSuggestions(rows); setProfileSaleSuggestionIndex(0); } }).catch(() => { if (live) setProfileSaleSuggestions([]); });
+    return () => { live = false; };
+  }, [accountRequired, user?.id]);
+  useEffect(() => {
+    if (profileSaleSuggestions.length < 2) return undefined;
+    const timer = setInterval(() => setProfileSaleSuggestionIndex((value) => (value + 1) % profileSaleSuggestions.length), 6500);
+    return () => clearInterval(timer);
+  }, [profileSaleSuggestions.length]);
+
   const [kindPickerOpen, setKindPickerOpen] = useState(false);
   const [kindChangeBusy, setKindChangeBusy] = useState(false);
   // Adel (07/09/2026) : liste de qui a repris les morceaux de ce profil,
@@ -1207,6 +1223,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </View>
         ) : null}
       </ProfileMotionReveal>
+
+      {marketplaceEnabled && !accountRequired ? (
+        <ProfileOpportunityRail
+          suggestion={profileSaleSuggestions[profileSaleSuggestionIndex] ?? null}
+          onSuggestionPress={profileSaleSuggestions[profileSaleSuggestionIndex] ? () => navigation.navigate('PublicUserProfile', { username: profileSaleSuggestions[profileSaleSuggestionIndex].sellerUsername }) : undefined}
+          onParticipatePress={() => navigation.navigate('PlaylistSale')}
+          onOffersPress={() => navigation.navigate('Offers')}
+        />
+      ) : null}
 
       {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
         <ProfileMotionReveal motionKey={`owner-collections:${playlistSaleOffers.length}`} compact style={s.ownerCollectionRail}>
