@@ -947,7 +947,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     return <SafeAreaView style={styles.container}>
       <View style={styles.battleFullscreen}>
         <KeepBattleArenaPanel
-          enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
+          enabled={Boolean(user && !isLocalGuest && !isDemoMode && !isAnonymous)}
           initialArenaId={pendingArenaId}
           onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
           onRequireAccount={() => Alert.alert(
