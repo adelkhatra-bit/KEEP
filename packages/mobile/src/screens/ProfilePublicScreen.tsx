@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+  metricPanelHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4,paddingBottom:4},metricPanelTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},metricPanelClose:{color:colors.textMuted,fontSize:24,fontWeight:'700'},
 import { Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
@@ -1143,16 +1144,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
 
-      <View style={s.topMetricsBar}>
-        <TouchableOpacity style={[s.topMetricItem, s.topMetricFree]} onPress={() => { setMenuOpen(true); setExpandedMenuItem('free'); }} accessibilityLabel={`${freeBalance ?? 0} Free disponibles`}>
-          <Text style={s.topMetricValue}>{freeBalance ?? '…'}</Text><Text style={s.topMetricLabel}>FREE</Text>
-        </TouchableOpacity>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
+        <TouchableOpacity style={[s.topMetricItem, s.topMetricFree]} onPress={() => { setCommunityMode(null); setMenuOpen(true); setExpandedMenuItem('free'); }}><Text style={s.topMetricValue}>{freeBalance ?? '…'}</Text><Text style={s.topMetricLabel}>FREE</Text></TouchableOpacity>
         <TouchableOpacity style={s.topMetricItem} onPress={() => setCommunityMode((v) => v === 'followers' ? null : 'followers')}><Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => setRepriseListOpen(true)}><Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => switchProfileTab('TRACKS')}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); setRepriseListOpen(true); }}><Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); switchProfileTab('TRACKS'); }}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
         <TouchableOpacity style={[s.topMetricItem, s.topMetricLast]} onPress={() => setCommunityMode((v) => v === 'following' ? null : 'following')}><Text style={s.topMetricValue}>{profileFollowingCount}</Text><Text style={s.topMetricLabel}>Abonnements</Text></TouchableOpacity>
-      </View>
-      {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
+      </ScrollView>
+      {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>{communityMode === 'followers' ? 'Tes abonnés' : 'Tes abonnements'}</Text><TouchableOpacity hitSlop={12} onPress={() => setCommunityMode(null)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
 
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
@@ -1290,7 +1289,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
       <View style={s.collectionHeader}>
-        <Text style={s.collectionTitle}>Mes styles</Text>
+        <Text style={s.collectionTitle}>Ma musique</Text>
         <Text style={s.collectionCount}>{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau{profileTotalKeepCount > 1 ? 'x' : ''}</Text>
       </View>
       <MotionActionButton
