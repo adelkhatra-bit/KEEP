@@ -1305,8 +1305,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } catch (e: any) {
       const rawMessage = String(e?.message || e || '');
       const message = rawMessage.replace(/\\n/g, ' ');
-      const dailyLimitMatch = message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
-        || message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
+      const dailyLimitMatch = message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\\s*[:_]\\s*(\\d+)/i)
+        || message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\\d+)/i);
       if (message.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
         const limit = Number(dailyLimitMatch?.[1] || 0);
         Alert.alert(
