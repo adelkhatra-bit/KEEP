@@ -24,7 +24,7 @@ type Props = {
 
 export default function ProfileCounterRow({ items, kind = 'keeps', style }: Props) {
   return (
-    <View style={[styles.row, kind === 'connections' ? styles.connections : styles.keeps, style]}>
+    <View style={[styles.row, kind === 'connections' ? styles.connections : styles.keeps, items.length >= 4 && styles.fourItems, style]}>
       {items.map((item) => {
         const content = (
           <>
@@ -35,7 +35,7 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
         return item.onPress ? (
           <TouchableOpacity
             key={item.label}
-            style={[styles.item, styles.itemClickable, item.active && styles.itemActive]}
+            style={[styles.item, items.length >= 4 && styles.itemFour, styles.itemClickable, item.active && styles.itemActive]}
             onPress={item.onPress}
             accessibilityRole="button"
             accessibilityLabel={`${item.value} ${item.label}`}
@@ -43,7 +43,7 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
             {content}
           </TouchableOpacity>
         ) : (
-          <View key={item.label} style={styles.item}>{content}</View>
+          <View key={item.label} style={[styles.item, items.length >= 4 && styles.itemFour]}>{content}</View>
         );
       })}
     </View>
@@ -62,17 +62,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   connections: { marginTop: 8 },
+  fourItems: { marginTop: 8 },
   keeps: { marginTop: 10 },
   item: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6 },
+  itemFour: { paddingHorizontal: 2 },
   // Adel (07/09/2026) : "fais un contour ... pour qu'on comprenne que c'est
   // cliquable" -- un chiffre cliquable (Morceaux, Reprises, Abonnés...) doit
   // se voir avant même d'être touché, pas seulement au survol/à l'appui.
   itemClickable: { margin: 3, borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(139,92,246,.45)' },
   itemActive: { backgroundColor: 'rgba(139,92,246,.16)' },
-  value: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  value: { color: '#FFFFFF', fontSize: 19, fontWeight: '800', textAlign: 'center' },
   // Adel (11/09/2026) : retours utilisateurs "le profil c'est trop petit,
   // on a du mal à voir" -- 11px illisible pour Abonnés/Reprises/Morceaux/
   // Abonnements sur un vrai écran de téléphone, remonté à 13px partout où
   // ce composant est utilisé (profil propriétaire, visité, partagé, Discover).
-  label: { color: '#FFFFFF', fontSize: 13, width: '100%', lineHeight: 16, marginTop: 3, textAlign: 'center', fontWeight: '700' },
+  label: { color: '#FFFFFF', fontSize: 12, width: '100%', lineHeight: 16, marginTop: 3, textAlign: 'center', fontWeight: '700' },
 });
