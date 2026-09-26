@@ -2506,7 +2506,7 @@ const s = StyleSheet.create({
   battleSetupEyebrow: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   battleSetupTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '900', marginTop: 3 },
   battleSetupBadge: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
-  battleModes: { gap: 9, marginTop: 10 },
+  battleModes: { gap: 9, marginTop: 10, flexDirection: 'row', alignItems: 'stretch' },
   modeTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   modeIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: 'rgba(255,255,255,.13)', alignItems: 'center', justifyContent: 'center' },
   modeIconOnline: { backgroundColor: 'rgba(124,92,252,.18)', borderWidth: 1, borderColor: colors.primary },
