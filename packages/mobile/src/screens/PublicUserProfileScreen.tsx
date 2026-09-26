@@ -35,6 +35,7 @@ import { recordProfileSwipeListen } from '../services/profileSwipeListenService'
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
+import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
 
 type PublicKeepTrack = {
   id: string;
@@ -170,6 +171,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [marketplacePurchaseEnabled, setMarketplacePurchaseEnabled] = useState(false);
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
   const [battleInviteBusy, setBattleInviteBusy] = useState(false);
+  const [profilePresence, setProfilePresence] = useState<{ lastSeenAt: string | null; online: boolean }>({ lastSeenAt: null, online: false });
+  useEffect(() => {
+    if (!profile?.id) return undefined;
+    let live = true;
+    const refreshPresence = () => loadProfilePresence(profile.id).then((value) => { if (live) setProfilePresence(value); }).catch(() => {});
+    void refreshPresence();
+    const timer = setInterval(refreshPresence, 60000);
+    return () => { live = false; clearInterval(timer); };
+  }, [profile?.id]);
+
   useEffect(() => {
     let live = true;
     isKeepBattleEnabled().then((enabled) => { if (live) setBattleFeatureEnabled(enabled); }).catch(() => { if (live) setBattleFeatureEnabled(false); });
@@ -1061,6 +1072,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <View style={styles.profileMetaLeft}>
                   <View style={[styles.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.kindBadgeText, { color: certificationColors.ring }]}>{kindLabel}</Text></View>
                   {(profile.city || profile.countryCode) && <Text style={styles.location}>{[profile.city, profile.countryCode].filter(Boolean).join(' · ')}</Text>}
+                  <View style={styles.presencePill} accessibilityLabel={formatProfilePresence(profilePresence.lastSeenAt, profilePresence.online)}>
+                    <View style={[styles.presenceDot, profilePresence.online && styles.presenceDotOnline]} />
+                    <Text style={[styles.presenceText, profilePresence.online && styles.presenceTextOnline]}>{formatProfilePresence(profilePresence.lastSeenAt, profilePresence.online)}</Text>
+                  </View>
                 </View>
 
               </View>
@@ -1576,7 +1591,7 @@ const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},
   inlineListenNotice:{position:'absolute',top:54,left:18,right:18,zIndex:30,minHeight:42,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',paddingHorizontal:14},
   inlineListenNoticeText:{color:colors.keep,fontSize:11,fontWeight:'900',textAlign:'center'},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
+  hero:{paddingHorizontal:18,paddingBottom:12},identity:{flexDirection:'row',alignItems:'center'},avatar:{width:64,height:64,borderRadius:32,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:25,fontWeight:'800'},identityText:{flex:1,marginLeft:12},usernameLine:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},username:{...typography.h2,color:colors.textPrimary},profileMetaRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:7,marginTop:6},profileMetaLeft:{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:1},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:'#FFFFFF',fontSize:13,fontWeight:'800'},presencePill:{flexDirection:'row',alignItems:'center',gap:5,minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},presenceDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.textMuted},presenceDotOnline:{backgroundColor:colors.success},presenceText:{color:colors.textMuted,fontSize:10,fontWeight:'800'},presenceTextOnline:{color:colors.success},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:12},
 visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},visitorBattleButton:{minHeight:46,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,width:'100%'},visitorBattleButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
 
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
