@@ -1304,7 +1304,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       void updateSoloPresenceTheme(themeCode).catch(() => {});
     } catch (e: any) {
       const rawMessage = String(e?.message || e || '');
-      const message = rawMessage.replace(/\\n/g, ' ');
+      // Supabase/PostgREST peut échapper les séparateurs dans le message
+      // d'exception. Normalise-les avant d'afficher une erreur utilisateur.
+      const message = rawMessage.replace(/\\n/g, ' ').replace(/\\_/g, '_');
       const dailyLimitMatch = message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\\s*[:_]\\s*(\\d+)/i)
         || message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\\d+)/i);
       if (message.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
