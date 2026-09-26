@@ -461,15 +461,6 @@ export default function MusicSwipeDeckModal({
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <Text style={s.title}>{title}</Text>
-          {sourceUsername ? (
-            <View style={s.sourceIdentity}>
-              {sourceAvatarUrl ? <Image source={{ uri: sourceAvatarUrl }} style={s.sourceAvatar} /> : <View style={s.sourceAvatarFallback}><Text style={s.sourceAvatarText}>{sourceUsername.replace(/^@/, '').slice(0,1).toUpperCase()}</Text></View>}
-              <View style={s.sourceIdentityCopy}>
-                <Text style={s.sourceIdentityKicker}>TU ÉCOUTES L’UNIVERS DE</Text>
-                <Text style={s.sourceIdentityName}>{sourceUsername.replace(/^@/, '')}</Text>
-              </View>
-            </View>
-          ) : null}
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
         </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
@@ -505,6 +496,15 @@ export default function MusicSwipeDeckModal({
             </SwipeDeck>
           </View>
 
+          {sourceUsername ? (
+            <View style={s.sourceIdentityBottom}>
+              {sourceAvatarUrl ? <Image source={{ uri: sourceAvatarUrl }} style={s.sourceAvatar} /> : <View style={s.sourceAvatarFallback}><Text style={s.sourceAvatarText}>{sourceUsername.replace(/^@/, '').slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.sourceIdentityCopy}>
+                <Text style={s.sourceIdentityKicker}>TU ÉCOUTES L’UNIVERS DE</Text>
+                <Text style={s.sourceIdentityName}>{sourceUsername.replace(/^@/, '')}</Text>
+              </View>
+            </View>
+          ) : null}
           <View style={s.decisionBand}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
@@ -593,7 +593,7 @@ const s = StyleSheet.create({
   container:{flex:1,backgroundColor:'#090610'},
   header:{minHeight:78,paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:12,marginTop:3},
-  sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+  sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},sourceIdentityBottom:{marginHorizontal:18,marginBottom:7,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:6,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},
   body:{flex:1,paddingHorizontal:18},deckArea:{flex:1,justifyContent:'center',paddingBottom:10},
