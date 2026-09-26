@@ -31,7 +31,7 @@ ok('Render push loop is fallback only', backend.includes("process.env.KEEP_PUSH_
 ok('money sound is generated before native builds', mobilePackage.includes('generate-notification-sounds.cjs') && soundGenerator.includes('keep_money.wav'));
 ok('Expo bundles the money notification sound', appConfig.includes('keep_money.wav'));
 ok('mobile registers a dedicated money notification channel', service.includes("setNotificationChannelAsync('money'") && service.includes("sound: 'keep_money.wav'"));
-ok('Edge worker selects the money sound from notification metadata', worker.includes('isMoneyNotification') && worker.includes('keep_money.wav') && worker.includes('channelId: money ? "money" : "default"'));
+ok('Edge worker applies persisted category sound preferences including money and silent', worker.includes('deliveryPreference') && worker.includes('isMoneyNotification') && worker.includes('keep_money.wav') && worker.includes('SILENT') && worker.includes('pref.channelId'));
 ok('invalid APNs environment tokens are pruned', worker.includes('BadEnvironmentKeyInToken'));
 
 console.log('KEEP direct Supabase push architecture: PASS');
