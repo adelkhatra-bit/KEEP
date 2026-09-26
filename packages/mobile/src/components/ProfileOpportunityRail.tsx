@@ -26,7 +26,7 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
-        <View style={s.top}><Text style={s.kicker}>✦ SUGGESTION LOKI</Text><View style={s.liveDot} /></View>
+        <View style={s.top}><Text style={s.kicker}>✦ POUR TON OREILLE</Text><View style={s.liveDot} /></View>
         {suggestion ? <View style={s.personRow}>{suggestion.sellerAvatarUrl ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar} /> : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{suggestion.sellerUsername.slice(0,1).toUpperCase()}</Text></View>}<View style={s.personText}><Text style={s.title} numberOfLines={1}>{suggestion.playlistName}</Text><Text style={s.meta} numberOfLines={1}>{suggestion.sellerUsername} · {suggestion.trackCount} pépite{suggestion.trackCount > 1 ? 's' : ''}</Text></View></View> : <Text style={s.title}>Ton prochain univers arrive…</Text>}
         <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion?.matchScore ? `MATCH GOÛTS · ${genres} · ÉCOUTE →` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
       </TouchableOpacity>
@@ -44,23 +44,23 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
 
 const s=StyleSheet.create({
   rail:{paddingHorizontal:18,paddingVertical:8,gap:10},
-  card:{width:276,minHeight:142,borderRadius:20,padding:14,borderWidth:1,overflow:'hidden'},
+  card:{width:276,minHeight:118,borderRadius:18,padding:12,borderWidth:1,overflow:'hidden'},
   suggestion:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
   participate:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},
   top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   kicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   liveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.success},
-  personRow:{flexDirection:'row',alignItems:'center',gap:9,marginTop:10},
-  avatar:{width:38,height:38,borderRadius:19},
-  avatarFallback:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},
+  personRow:{flexDirection:'row',alignItems:'center',gap:9,marginTop:7},
+  avatar:{width:32,height:32,borderRadius:16},
+  avatarFallback:{width:32,height:32,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},
   avatarLetter:{color:'#fff',fontSize:15,fontWeight:'900'},
   personText:{flex:1,minWidth:0},
-  title:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:8},
+  title:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:6},
   meta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
-  marqueeClip:{overflow:'hidden',marginTop:11},
+  marqueeClip:{overflow:'hidden',marginTop:7},
   marquee:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8,width:330},
-  body:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:6},
-  actions:{flexDirection:'row',gap:7,marginTop:10},
+  body:{color:colors.textMuted,fontSize:9,lineHeight:12,fontWeight:'700',marginTop:5},
+  actions:{flexDirection:'row',gap:7,marginTop:7},
   primary:{paddingHorizontal:10,paddingVertical:7,borderRadius:12,backgroundColor:colors.primary},
   primaryText:{color:'#fff',fontSize:9,fontWeight:'900'},
   secondary:{paddingHorizontal:10,paddingVertical:7,borderRadius:12,borderWidth:1,borderColor:colors.border},
