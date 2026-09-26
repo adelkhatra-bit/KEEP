@@ -2462,10 +2462,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         'Pourquoi jouer à Loki Music Battle ?',
         'JOUER SOLO : entraîne-toi seul sur 8, 15, 20 ou 30 morceaux et gagne des Free selon tes bonnes réponses.\n\nBATTLE EN LIGNE : affronte d’autres joueurs en direct sur le même nombre de morceaux — plus tu choisis un grand nombre de morceaux, plus la mise ET le gain en Free sont importants.\n\nÀ quoi servent les Free ? Ils te permettent d’intégrer plus d’artistes et de morceaux à ton profil, dans ton style musical. Plus ton profil te ressemble, plus tu attires une vraie communauté musicale autour de toi — et une communauté, ça se monétise un jour.',
       )}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
-      <View style={s.battleHero}>
-        <View style={s.battleHeroMark}><Text style={s.homeIcon}>⚡</Text></View>
-        <View style={s.battleHeroCopy}><Text style={s.homeTitle}>LOKI MUSIC BATTLE</Text><Text style={s.homeSub}>Écoute · réponds · affronte</Text></View>
-        <View style={s.homeCreditPill}><Text style={s.homeCreditText}>🎁 {myCreditStatus?.remainingFree ?? '…'} Free</Text></View>
+      <View style={s.battleHeroCompact}>
+        <Text style={s.homeSub}>⚡ Écoute · réponds · affronte</Text>
       </View></View>{myPlayerStats ? (
         <View style={s.playerStatsContainer}>
           <View style={s.playerStatsBigRow}>
@@ -2488,7 +2486,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               <Text style={s.playerStatsSmallLabel}>Abonnés</Text>
             </View>
             <View style={s.playerStatsSmallItem}>
-              <Text style={s.playerStatsSmallValue}>{myPlayerStats.freeBalance}</Text>
+              <Text style={s.playerStatsSmallValue}>{myCreditStatus?.remainingFree ?? myPlayerStats.freeBalance}</Text>
               <Text style={s.playerStatsSmallLabel}>Free restant</Text>
             </View>
             <View style={s.playerStatsSmallItem}>
@@ -2526,6 +2524,7 @@ const s = StyleSheet.create({
   matchContextText: { flex: 1, color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', textAlign: 'center' },
   matchContextStake: { color: colors.success, fontSize: 11, fontWeight: '900' },
   battleHero: { minHeight: 76, marginHorizontal: 42, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  battleHeroCompact:{marginHorizontal:42,minHeight:30,alignItems:'center',justifyContent:'center'},
   battleHeroMark: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(124,92,252,.18)', borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   battleHeroCopy: { flex: 1, minWidth: 0 },
   homeCreditPill: { minHeight: 30, paddingHorizontal: 9, borderRadius: 15, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.45)', alignItems: 'center', justifyContent: 'center' },
