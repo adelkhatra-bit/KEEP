@@ -59,7 +59,7 @@ function notificationTypeLabel(type: string) {
 export default function NotificationsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const [items, setItems] = useState<KeepNotification[]>([]);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true, eventsEnabled: true });
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true, eventsEnabled: true, moneyEnabled: true, battleEnabled: true, musicEnabled: true, moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -438,6 +438,12 @@ export default function NotificationsScreen({ navigation }: any) {
             value={prefs.systemEnabled}
             onValueChange={(v) => updatePrefs({ systemEnabled: v })}
           />
+          <Preference label="Ventes & argent" hint="Ventes, paiements reçus et activité financière." value={prefs.moneyEnabled} onValueChange={(v) => updatePrefs({ moneyEnabled: v })} />
+          <SoundPreference label="Son ventes" value={prefs.moneySound} money onChange={(v) => updatePrefs({ moneySound: v as NotificationPreferences['moneySound'] })} />
+          <Preference label="Battle" hint="Invitations, réponses, résultats et disponibilité Battle." value={prefs.battleEnabled} onValueChange={(v) => updatePrefs({ battleEnabled: v })} />
+          <SoundPreference label="Son Battle" value={prefs.battleSound} onChange={(v) => updatePrefs({ battleSound: v as NotificationPreferences['battleSound'] })} />
+          <Preference label="Musique" hint="Nouvelles pépites, reprises et activité liée à tes découvertes." value={prefs.musicEnabled} onValueChange={(v) => updatePrefs({ musicEnabled: v })} />
+          <SoundPreference label="Son musique" value={prefs.musicSound} onChange={(v) => updatePrefs({ musicSound: v as NotificationPreferences['musicSound'] })} />
           <Preference
             label="Social"
             hint="Nouveaux abonnés, visites de ton profil, partages musicaux entre utilisateurs."
@@ -507,6 +513,11 @@ export default function NotificationsScreen({ navigation }: any) {
   );
 }
 
+function SoundPreference({ label, value, onChange, money = false }: { label: string; value: string; onChange: (value: string) => void; money?: boolean }) {
+  const choices = money ? [['MONEY','Argent'],['DEFAULT','Classique'],['SILENT','Muet']] : [['DEFAULT','Classique'],['SILENT','Muet']];
+  return <View style={styles.soundRow}><Text style={styles.soundLabel}>{label}</Text><View style={styles.soundChoices}>{choices.map(([key,name]) => <TouchableOpacity key={key} style={[styles.soundChoice,value===key&&styles.soundChoiceActive]} onPress={() => onChange(key)}><Text style={[styles.soundChoiceText,value===key&&styles.soundChoiceTextActive]}>{name}</Text></TouchableOpacity>)}</View></View>;
+}
+
 function Preference({ label, hint, value, onValueChange, locked }: { label: string; hint?: string; value: boolean; onValueChange: (value: boolean) => void; locked?: boolean }) {
   return <View style={styles.preference}>
     <View style={styles.preferenceCopy}>
@@ -518,6 +529,7 @@ function Preference({ label, hint, value, onValueChange, locked }: { label: stri
 }
 
 const styles = StyleSheet.create({
+  soundRow:{paddingVertical:10,borderBottomWidth:1,borderBottomColor:'rgba(255,255,255,.07)'},soundLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'800',marginBottom:7},soundChoices:{flexDirection:'row',gap:7},soundChoice:{minHeight:34,paddingHorizontal:12,borderRadius:17,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},soundChoiceActive:{borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.15)'},soundChoiceText:{color:colors.textMuted,fontSize:11,fontWeight:'800'},soundChoiceTextActive:{color:colors.textPrimary},
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.xl, paddingBottom: spacing.xxxl },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl },
