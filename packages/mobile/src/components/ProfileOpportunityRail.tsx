@@ -13,6 +13,7 @@ type Props = {
 export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, onParticipatePress, onOffersPress }: Props) {
   const drift = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
+  const [tipIndex, setTipIndex] = React.useState(0);
   useEffect(() => {
     drift.setValue(0);
     const loop = Animated.loop(Animated.sequence([
@@ -26,6 +27,17 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
     loop.start(); pulseLoop.start();
     return () => { loop.stop(); pulseLoop.stop(); };
   }, [drift, pulse]);
+  useEffect(() => {
+    const timer = setInterval(() => setTipIndex((value) => (value + 1) % 3), 5200);
+    return () => clearInterval(timer);
+  }, []);
+
+  const tips = [
+    { kicker: '◆ FAIS CIRCULER TES PÉPITES', title: 'Partage ton profil, Loki propage le reste.', body: 'Tes abonnés et les personnes qui ont aimé ou gardé une découverte attribuée à ton profil peuvent retrouver tes nouveautés, sélections et événements.' },
+    { kicker: '◆ CRÉE TON RENDEZ-VOUS', title: 'Une soirée devient une occasion de revenir.', body: 'Crée un événement : ton activité peut apparaître ici sans ajouter un nouveau bloc au profil.' },
+    { kicker: '◆ CONSTRUIS TA COMMUNAUTÉ', title: 'Une découverte reconnue à ton nom continue de vivre.', body: 'Plus tes découvertes sont gardées et partagées, plus ton profil crée des raisons naturelles de revenir.' },
+  ];
+  const tip = tips[tipIndex];
 
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   return (
@@ -36,13 +48,12 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
         <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion?.matchScore ? `MATCH GOÛTS · ${genres} · ÉCOUTE →` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
       </TouchableOpacity>
 
-      <View style={[s.card, s.participate]}>
-        <Text style={s.kicker}>◆ À TOI DE JOUER</Text>
-        <Text style={s.title}>Ton oreille peut avoir de la valeur.</Text>
-        <Text style={s.body}>Débloque tes sélections par une formule, ou construis ta communauté : partage, Solo, Battle et progression.</Text>
-        <View style={s.actions}><TouchableOpacity style={s.primary} onPress={onParticipatePress}><Text style={s.primaryText}>MES PÉPITES</Text></TouchableOpacity><TouchableOpacity style={s.secondary} onPress={onOffersPress}><Text style={s.secondaryText}>FORMULES</Text></TouchableOpacity></View>
-        <Text style={s.foot}>Communauté · sélections · revenus · événements</Text>
-      </View>
+      <TouchableOpacity style={[s.card, s.participate]} onPress={tipIndex === 0 ? onParticipatePress : tipIndex === 1 ? onParticipatePress : onOffersPress} accessibilityLabel={tip.title}>
+        <Text style={s.kicker}>{tip.kicker}</Text>
+        <Text style={s.title}>{tip.title}</Text>
+        <Text style={s.body}>{tip.body}</Text>
+        <View style={s.tipFooter}><View style={s.tipDots}>{tips.map((_, index) => <View key={index} style={[s.tipDot, index === tipIndex && s.tipDotOn]} />)}</View><Text style={s.tipCta}>EN SAVOIR PLUS →</Text></View>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -72,4 +83,5 @@ const s=StyleSheet.create({
   secondary:{paddingHorizontal:10,paddingVertical:7,borderRadius:12,borderWidth:1,borderColor:colors.border},
   secondaryText:{color:colors.textPrimary,fontSize:9,fontWeight:'900'},
   foot:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:8},
+  tipFooter:{marginTop:9,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tipDots:{flexDirection:'row',gap:4},tipDot:{width:5,height:5,borderRadius:3,backgroundColor:colors.border},tipDotOn:{width:13,backgroundColor:colors.primaryLight},tipCta:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.5},
 });
