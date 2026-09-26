@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-  metricPanelHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4,paddingBottom:4},metricPanelTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},metricPanelClose:{color:colors.textMuted,fontSize:24,fontWeight:'700'},
 import { Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
@@ -1615,6 +1614,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.muted}>{text}</Text></View>}
 
 const s=StyleSheet.create({
+  metricPanelHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4,paddingBottom:4},metricPanelTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},metricPanelClose:{color:colors.textMuted,fontSize:24,fontWeight:'700'},
   profileShareBottom:{marginHorizontal:18,marginTop:10,minHeight:52,borderRadius:18,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:14},profileShareBottomIcon:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},profileShareBottomTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},profileShareBottomMeta:{color:colors.textMuted,fontSize:9,lineHeight:13,marginTop:2},
 
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
