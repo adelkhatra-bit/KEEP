@@ -1170,12 +1170,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             immédiatement visible, puis compteurs regroupés et collection. */}
         <View style={styles.unifiedCounters}>
           <ProfileCounterRow kind="connections" items={[
-            { value: followerCount, label: 'Abonnés', hint: 'Personnes qui suivent ce profil et ses nouvelles découvertes.', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-            { value: socialKeepCount, label: 'Reprises', hint: 'Nombre de fois où les découvertes de ce profil ont été reprises par la communauté.', onPress: () => setRepriseListOpen(true) },
-            { value: directKeepCount, label: 'Morceaux', hint: 'Morceaux publics actuellement visibles dans son univers musical.', onPress: () => setActiveTab('TRACKS') },
-            { value: followingCount, label: 'Abonnements', hint: 'Profils musicaux suivis par cet utilisateur.', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+            { value: followerCount, label: 'Abonnés', disabled: true },
+            { value: socialKeepCount, label: 'Reprises', hint: 'Impact public de ses découvertes dans la communauté.', onPress: () => setRepriseListOpen(true) },
+            { value: directKeepCount, label: 'Morceaux', hint: 'Ouvre ses morceaux publics.', onPress: () => setActiveTab('TRACKS') },
+            { value: followingCount, label: 'Abonnements', disabled: true },
           ]} />
-          {!isLocalGuest && !isDemoMode && communityMode ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
         <View style={styles.collectionHeader}>
