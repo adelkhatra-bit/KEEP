@@ -174,8 +174,8 @@ for (const [marker, capability] of [
 }
 
 const viewedProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/PublicUserProfileScreen.tsx'), 'utf8');
-for (const marker of ['+ Suivre', "from('follows')", 'toggleFollow']) {
-  if (!viewedProfile.includes(marker)) failures.push(`FOLLOW MARKER MISSING: ${marker}`);
+for (const [marker, capability] of [["from('follows')", 'follow persistence'], ['toggleFollow', 'follow action'], ['keep_follow_profile', 'follow RPC']]) {
+  if (!viewedProfile.includes(marker)) failures.push(`FOLLOW CAPABILITY MISSING: ${capability}`);
 }
 
 const recognition = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepMusicCoreRecognition.ts'), 'utf8');
