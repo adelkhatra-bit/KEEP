@@ -107,6 +107,10 @@ function simplifyArtistCredit(raw: string): string {
 // mais themeCodes porte la selection reelle pour que le serveur restreigne le
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
+  // Cost guard: every SOLO start consumes one of the server-side daily slots
+  // before any music pack is returned. The limit is remote-configurable.
+  const { error: dailyLimitError } = await client().rpc('keep_battle_solo_consume_daily_start');
+  if (dailyLimitError) throw new Error(String(dailyLimitError.message || dailyLimitError.code || 'BATTLE_SOLO_DAILY_LIMIT_REACHED'));
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code && code !== 'MIX'))).slice(0, 3);
