@@ -1,5 +1,5 @@
-import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
@@ -14,6 +14,7 @@ export type ProfileCounterItem = {
   onPress?: () => void;
   active?: boolean;
   hint?: string;
+  disabled?: boolean;
 };
 
 type Props = {
@@ -24,6 +25,15 @@ type Props = {
 };
 
 export default function ProfileCounterRow({ items, kind = 'keeps', style }: Props) {
+  const glow = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(glow, { toValue: 1, duration: 1300, useNativeDriver: false }),
+      Animated.timing(glow, { toValue: 0, duration: 1300, useNativeDriver: false }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [glow]);
   const explain = (item: ProfileCounterItem) => Alert.alert(item.label, item.hint || `${formatCompactNumber(item.value)} ${item.label.toLowerCase()} sur ce profil.`);
   return (
     <View style={[styles.row, kind === 'connections' ? styles.connections : styles.keeps, items.length >= 4 && styles.fourItems, style]}>
@@ -34,16 +44,18 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
             <Text style={styles.label}>{item.label}</Text>
           </>
         );
-        const handlePress = () => { explain(item); item.onPress?.(); };
+        const handlePress = () => { if (item.disabled) return; explain(item); item.onPress?.(); };
         return (
           <TouchableOpacity
             key={item.label}
-            style={[styles.item, items.length >= 4 && styles.itemFour, styles.itemClickable, item.active && styles.itemActive]}
+            style={[styles.item, items.length >= 4 && styles.itemFour, !item.disabled && styles.itemClickable, item.disabled && styles.itemPrivate, item.active && styles.itemActive]}
             onPress={handlePress}
+            disabled={item.disabled}
             accessibilityRole="button"
             accessibilityLabel={`${item.value} ${item.label}`}
           >
             {content}
+            {!item.disabled ? <Animated.View pointerEvents="none" style={[styles.clickCue,{opacity:glow}]} /> : null}
           </TouchableOpacity>
         );
       })}
@@ -73,6 +85,8 @@ const styles = StyleSheet.create({
   // se voir avant même d'être touché, pas seulement au survol/à l'appui.
   itemClickable: { borderRightWidth: 1, borderRightColor: colors.border },
   itemActive: { backgroundColor: 'rgba(139,92,246,.16)' },
+  itemPrivate: { opacity: 0.82 },
+  clickCue: { position:'absolute', left:8, right:8, bottom:4, height:1, borderRadius:1, backgroundColor:'rgba(255,255,255,.55)' },
   value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   // Adel (11/09/2026) : retours utilisateurs "le profil c'est trop petit,
   // on a du mal à voir" -- 11px illisible pour Abonnés/Reprises/Morceaux/
