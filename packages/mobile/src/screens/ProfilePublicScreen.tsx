@@ -1297,13 +1297,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <ProfileCounterRow kind="connections" items={[
           { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
           { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
-        ]} />
-        {!accountRequired && communityMode === 'followers' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
-        <ProfileCounterRow kind="keeps" items={[
           { value: profileTotalKeepCount, label: 'Morceaux', onPress: () => switchProfileTab('TRACKS') },
           { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
         ]} />
-        {!accountRequired && communityMode === 'following' ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
+        {!accountRequired && communityMode ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
       </View>
 
       {!accountRequired && growthStatus ? (
