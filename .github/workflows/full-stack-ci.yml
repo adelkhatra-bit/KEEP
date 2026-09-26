@@ -21,6 +21,8 @@ on:
       - 'START_KEEP_LATEST.bat'
       - 'FORCE_START_LATEST_KEEP.bat'
       - '.github/workflows/full-stack-ci.yml'
+      - '.github/workflows/mobile-ci.yml'
+      - 'APP_STORE_CHECKLIST.md'
   workflow_dispatch:
 
 concurrency:
