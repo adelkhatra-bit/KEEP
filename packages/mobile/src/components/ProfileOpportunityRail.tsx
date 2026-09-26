@@ -12,21 +12,26 @@ type Props = {
 
 export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, onParticipatePress, onOffersPress }: Props) {
   const drift = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     drift.setValue(0);
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(drift, { toValue: 1, duration: 4200, useNativeDriver: true }),
       Animated.timing(drift, { toValue: 0, duration: 4200, useNativeDriver: true }),
     ]));
-    loop.start();
-    return () => loop.stop();
-  }, [drift]);
+    const pulseLoop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
+    ]));
+    loop.start(); pulseLoop.start();
+    return () => { loop.stop(); pulseLoop.stop(); };
+  }, [drift, pulse]);
 
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
-        <View style={s.top}><Text style={s.kicker}>✦ POUR TON OREILLE</Text><View style={s.liveDot} /></View>
+        <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ POUR TON OREILLE</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
         {suggestion ? <View style={s.personRow}>{suggestion.sellerAvatarUrl ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar} /> : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{suggestion.sellerUsername.slice(0,1).toUpperCase()}</Text></View>}<View style={s.personText}><Text style={s.title} numberOfLines={1}>{suggestion.playlistName}</Text><Text style={s.meta} numberOfLines={1}>{suggestion.sellerUsername} · {suggestion.trackCount} pépite{suggestion.trackCount > 1 ? 's' : ''}</Text></View></View> : <Text style={s.title}>Ton prochain univers arrive…</Text>}
         <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion?.matchScore ? `MATCH GOÛTS · ${genres} · ÉCOUTE →` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
       </TouchableOpacity>
@@ -46,6 +51,7 @@ const s=StyleSheet.create({
   rail:{paddingHorizontal:18,paddingVertical:8,gap:10},
   card:{width:276,minHeight:118,borderRadius:18,padding:12,borderWidth:1,overflow:'hidden'},
   suggestion:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
+  aura:{position:'absolute',right:-30,top:-55,width:160,height:160,borderRadius:80,backgroundColor:colors.primaryLight},
   participate:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},
   top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   kicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
