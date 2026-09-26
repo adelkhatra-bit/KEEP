@@ -1077,6 +1077,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         </View>
 
 
+
         <View style={styles.unifiedCounters}>
           <ProfileCounterRow kind="connections" items={[
             { value: followerCount, label: 'Abonnés', disabled: true },
