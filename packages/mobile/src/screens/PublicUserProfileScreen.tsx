@@ -24,7 +24,7 @@ import ProfileStyleCard from '../components/ProfileStyleCard';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
-import { shareProfile, shareProfileTrack } from '../services/sharingService';
+import { shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
@@ -749,11 +749,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
   };
   const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
-  const shareThisProfile = async () => {
-    if (!profile) return;
-    try { await shareProfile(profile.username); }
-    catch { Alert.alert('Partage', 'Impossible d’ouvrir le partage pour le moment.'); }
-  };
 
   const challengeProfileToBattle = async () => {
     if (!profile || battleInviteBusy || viewer?.id === profile.id) return;
@@ -1055,7 +1050,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           {viewer?.id !== profile.id ? (
             <TouchableOpacity style={styles.shareTopButton} onPress={() => setModerationMenuOpen(true)} accessibilityLabel="Signaler ou bloquer ce profil"><Text style={styles.shareTopText}>⋯</Text></TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.shareTopButton} onPress={() => void shareThisProfile()} accessibilityLabel="Partager ce profil"><Text style={styles.shareTopText}>↗</Text></TouchableOpacity>
         </View>
 
         <ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>
@@ -1108,7 +1102,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>PÉPITES</Text>
+                <Text style={styles.marketplaceKicker}>✦ PÉPITES EN MOUVEMENT</Text>
                 <Text style={styles.sectionTitle}>À découvrir</Text>
               </View>
               {saleOffers.length > 0 ? (
@@ -1117,7 +1111,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ) : null}
             </View>
-            <Text style={styles.marketplaceHint}>Écoute avant de savoir.</Text>
+            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>Écoute avant de savoir · {saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres cachés</Text></View>
             {saleOffers.length === 0 ? (
               <View style={styles.marketplaceEmpty}>
                 <Text style={styles.marketplaceEmptyText}>Aucune pépite à révéler pour le moment</Text>
@@ -1148,7 +1142,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                           ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
                           : `${offer.trackCount} pépite${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`}
                         mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
-                        badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '✦ PÉPITES À RÉVÉLER'}
+                        badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : `✦ ${offer.trackCount} À RÉVÉLER`}
                         priceLabel={unlocked ? undefined : priceLabel}
                         onPress={() => openSaleFolder(offer)}
                         accessibilityLabel={unlocked
@@ -1626,6 +1620,8 @@ const styles = StyleSheet.create({
   marketplaceSection:{marginHorizontal:18,marginTop:14,padding:14,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:10},
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
+  marketplacePulseLine:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6},
+  marketplaceLiveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},
   marketplaceCountPill:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
   marketplaceCountText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.5},
   saleCarouselContent:{gap:12,paddingTop:12,paddingRight:14},
