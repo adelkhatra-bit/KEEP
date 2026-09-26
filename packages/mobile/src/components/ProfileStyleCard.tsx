@@ -89,6 +89,7 @@ export default function ProfileStyleCard({
   const scale = useRef(new Animated.Value(1)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const waveMotion = useRef(new Animated.Value(0)).current;
+  const signalMotion = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
   const locked = mode === 'LOCKED';
   const unlocked = mode === 'UNLOCKED';
@@ -118,13 +119,16 @@ export default function ProfileStyleCard({
     );
     loop.start();
     waveMotion.setValue(0);
+    signalMotion.setValue(0);
     const waveLoop = Animated.loop(Animated.sequence([
       Animated.timing(waveMotion, { toValue: 1, duration: 1500, useNativeDriver: true }),
       Animated.timing(waveMotion, { toValue: 0, duration: 1500, useNativeDriver: true }),
     ]));
     waveLoop.start();
-    return () => { loop.stop(); waveLoop.stop(); };
-  }, [locked, pulse, reduceMotion, waveMotion]);
+    const signalLoop = Animated.loop(Animated.timing(signalMotion, { toValue: 1, duration: 2600, useNativeDriver: true }));
+    signalLoop.start();
+    return () => { loop.stop(); waveLoop.stop(); signalLoop.stop(); };
+  }, [locked, pulse, reduceMotion, signalMotion, waveMotion]);
 
   const pressTo = (value: number) => {
     if (reduceMotion) {
@@ -219,11 +223,16 @@ export default function ProfileStyleCard({
             style={s.visual}
           >
             {locked ? (
-              <Animated.View pointerEvents="none" style={[s.wave, { transform: [{ translateX: waveMotion.interpolate({ inputRange: [0, 1], outputRange: [-18, 18] }) }] }]}>
-                {[20, 34, 54, 72, 46, 64, 30, 50, 24].map((height, index) => (
-                  <View key={index} style={[s.waveBar, { height }]} />
-                ))}
-              </Animated.View>
+              <>
+                <Animated.View pointerEvents="none" style={[s.signalOrb, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.14, 0.42] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1.18] }) }] }]} />
+                <Animated.View pointerEvents="none" style={[s.signalSweep, { transform: [{ translateX: signalMotion.interpolate({ inputRange: [0, 1], outputRange: [-210, 210] }) }, { rotate: '-12deg' }] }]} />
+                <Animated.View pointerEvents="none" style={[s.wave, { transform: [{ translateX: waveMotion.interpolate({ inputRange: [0, 1], outputRange: [-18, 18] }) }] }]}>
+                  {[20, 34, 54, 72, 46, 64, 30, 50, 24].map((height, index) => (
+                    <Animated.View key={index} style={[s.waveBar, { height, opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.32 + (index % 3) * .08, 0.9] }), transform: [{ scaleY: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.7 + (index % 2) * .15, 1.08] }) }] }]} />
+                  ))}
+                </Animated.View>
+                <View pointerEvents="none" style={s.signalLabel}><Text style={s.signalLabelText}>SIGNAL SECRET · EN ÉCOUTE</Text></View>
+              </>
             ) : null}
             <LinearGradient colors={['rgba(4,3,10,.06)', 'rgba(4,3,10,.88)']} style={s.overlay}>
               {foreground}
@@ -335,13 +344,16 @@ const s = StyleSheet.create({
   playUnlocked: { borderColor: colors.keep },
   playActive: { transform: [{ scale: 1.06 }], backgroundColor: colors.primary },
   playText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  signalOrb: { position:'absolute', width:170, height:170, borderRadius:85, backgroundColor:'rgba(124,92,255,.34)', alignSelf:'center', top:-8 },
+  signalSweep: { position:'absolute', width:90, height:240, top:-40, backgroundColor:'rgba(255,255,255,.08)' },
+  signalLabel: { position:'absolute', left:12, bottom:10, paddingHorizontal:8, paddingVertical:4, borderRadius:10, backgroundColor:'rgba(4,3,10,.36)', borderWidth:1, borderColor:'rgba(255,255,255,.16)' },
+  signalLabelText:{color:'rgba(255,255,255,.76)',fontSize:7,fontWeight:'900',letterSpacing:1.1},
   wave: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    opacity: 0.38,
   },
   waveBar: { width: 5, borderRadius: 3, backgroundColor: colors.primaryLight },
 });
