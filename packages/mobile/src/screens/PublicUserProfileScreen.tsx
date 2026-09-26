@@ -119,6 +119,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // et il m'a pas demande" -- meme choix que dans SWIPER/TrackRow, jamais
   // saute pour ce bouton en ligne.
   const [keepPromptTrack, setKeepPromptTrack] = useState<PublicKeepTrack | null>(null);
+  const [followNudgeVisible, setFollowNudgeVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -942,6 +943,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     Alert.alert('Déjà dans ta collection', `« ${title} » est déjà dans tes musiques. Loki Music ne crée pas de doublon.`);
   };
 
+  const maybeSuggestFollow = () => {
+    if (!profile || !viewer || viewer.id === profile.id || isFollowing) return;
+    setFollowNudgeVisible(true);
+  };
+
   const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
     if (!viewer || isLocalGuest) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
@@ -957,6 +963,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile_swipe', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(canonical.id));
+      maybeSuggestFollow();
       if (isDemoMode) {
         Alert.alert('Mode démo', `Morceau gardé temporairement en ${visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'}. Rien n’est envoyé sur un compte réel.`);
       }
@@ -1016,6 +1023,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));
+      maybeSuggestFollow();
       Alert.alert(
         isDemoMode ? 'Mode démo' : 'Ajouté à ta collection',
         isDemoMode
@@ -1049,6 +1057,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {followNudgeVisible && profile && !isFollowing ? <View style={styles.followNudge}>
+        <View style={styles.followNudgeCopy}><Text style={styles.followNudgeTitle}>Ne rate pas ses prochaines pépites</Text><Text style={styles.followNudgeText} numberOfLines={1}>Tu viens de reprendre une découverte de @{profile.username}</Text></View>
+        <TouchableOpacity style={styles.followNudgeButton} disabled={followBusy} onPress={async () => { await toggleFollow(); setFollowNudgeVisible(false); }}><Text style={styles.followNudgeButtonText}>{followBusy ? '…' : 'S’ABONNER'}</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.followNudgeClose} onPress={() => setFollowNudgeVisible(false)} accessibilityLabel="Fermer"><Text style={styles.followNudgeCloseText}>×</Text></TouchableOpacity>
+      </View> : null}
       {inlineListenNotice ? (
         <View pointerEvents="none" style={styles.inlineListenNotice}>
           <Text style={styles.inlineListenNoticeText}>{inlineListenNotice}</Text>
@@ -1587,6 +1600,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
 
 const styles = StyleSheet.create({
+  followNudge:{marginHorizontal:14,marginTop:6,minHeight:58,borderRadius:16,borderWidth:1,borderColor:'rgba(139,92,246,.55)',backgroundColor:'rgba(24,20,38,.97)',paddingLeft:12,paddingRight:6,flexDirection:'row',alignItems:'center',gap:8},
+  followNudgeCopy:{flex:1,minWidth:0},followNudgeTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},followNudgeText:{color:colors.textMuted,fontSize:11,marginTop:2},
+  followNudgeButton:{minHeight:36,paddingHorizontal:11,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},followNudgeButtonText:{color:'#fff',fontSize:11,fontWeight:'900'},
+  followNudgeClose:{width:28,height:36,alignItems:'center',justifyContent:'center'},followNudgeCloseText:{color:colors.textMuted,fontSize:22,lineHeight:24},
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},
   inlineListenNotice:{position:'absolute',top:54,left:18,right:18,zIndex:30,minHeight:42,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',paddingHorizontal:14},
   inlineListenNoticeText:{color:colors.keep,fontSize:11,fontWeight:'900',textAlign:'center'},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
