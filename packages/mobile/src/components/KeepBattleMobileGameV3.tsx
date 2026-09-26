@@ -892,7 +892,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setArena(await loadKeepBattleArena(result.id));
       if (result.myStatus === 'QUEUED') Alert.alert('Battle', 'Le match est en cours : tu entres automatiquement au prochain.');
     } catch (e: any) {
-      const message = String(e?.message || e || '');
+      const message = String(e?.message || e || '').replace(/\\n/g, ' ');
       if (message.includes('MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert(`Il te faut au moins ${parseRequiredFree(message, stakeForRounds(spectating?.roundCount || roundCount))} Free pour rejoindre ce Battle`);
       else Alert.alert('Battle', 'Impossible de rejoindre ce Battle pour le moment.');
     } finally {
@@ -1305,7 +1305,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-        const limit = Number(message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[:_](\d+)/)?.[1] || 0);
+        const limit = Number(message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/)?.[1] || 0);
         Alert.alert(
           'Limite Solo atteinte',
           limit > 0
