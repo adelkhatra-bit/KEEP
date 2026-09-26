@@ -34,6 +34,24 @@ function isMoneyNotification(data: Record<string, unknown> | null) {
   const event = String(data?.event || data?.type || "").toUpperCase();
   return kind === "money" || ["PLAYLIST_SALE_COMPLETED", "EVENT_TICKET_SALE_COMPLETED"].includes(event);
 }
+
+function notificationCategory(notification: PendingNotification) {
+  const type = String(notification.data?.type || notification.data?.event || "").toUpperCase();
+  if (isMoneyNotification(notification.data)) return "money";
+  if (type.includes("BATTLE")) return "battle";
+  if (type.includes("EVENT")) return "events";
+  if (["NEW_PUBLIC_KEEP","MUSIC_TAKEN","DETECTED_TRACK","TRACK_DETECTED"].includes(type) || type.includes("MUSIC")) return "music";
+  if (["NEW_FOLLOWER","FOLLOWER_LEFT","PROFILE_VIEW","SOCIAL_REQUEST"].includes(type)) return "social";
+  return "system";
+}
+async function deliveryPreference(profileId: string, notification: PendingNotification) {
+  const category = notificationCategory(notification);
+  const { data } = await db.from("notification_preferences").select("system_enabled,social_enabled,events_enabled,money_enabled,battle_enabled,music_enabled,money_sound,social_sound,battle_sound,music_sound,events_sound").eq("profile_id", profileId).maybeSingle();
+  if (!data) return { enabled: true, sound: category === "money" ? "keep_money.wav" : "default", channelId: category === "money" ? "money" : "default" };
+  const enabled = category === "money" ? data.money_enabled !== false : category === "battle" ? data.battle_enabled !== false : category === "music" ? data.music_enabled !== false : category === "events" ? data.events_enabled !== false : category === "social" ? data.social_enabled !== false : data.system_enabled !== false;
+  const soundPref = category === "money" ? data.money_sound : category === "battle" ? data.battle_sound : category === "music" ? data.music_sound : category === "events" ? data.events_sound : category === "social" ? data.social_sound : "DEFAULT";
+  return { enabled, sound: soundPref === "SILENT" ? null : soundPref === "MONEY" ? "keep_money.wav" : "default", channelId: soundPref === "MONEY" ? "money" : "default" };
+}
 function invalidatesExpoToken(code: string, message: string) {
   return code === "DeviceNotRegistered" || /BadEnvironmentKeyInToken/i.test(message);
 }
@@ -104,15 +122,19 @@ async function processPending() {
         continue;
       }
 
-      const money = isMoneyNotification(notification.data);
+      const pref = await deliveryPreference(notification.profile_id, notification);
+      if (!pref.enabled) {
+        await db.from("notifications").update({ pushed_at: now, push_delivery_status: "DISABLED_BY_USER", push_attempt_count: attemptNumber, push_last_error: null }).eq("id", notification.id);
+        continue;
+      }
       const messages = valid.map(({ token: to }) => ({
         to,
         title: notification.title,
         body: notification.body || "",
         data: notification.data || {},
-        sound: money ? "keep_money.wav" : "default",
+        ...(pref.sound ? { sound: pref.sound } : {}),
         priority: "high",
-        channelId: money ? "money" : "default",
+        channelId: pref.channelId,
       }));
       const response = await fetch(EXPO_PUSH_URL, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(messages) });
       if (!response.ok) throw new Error(`EXPO_PUSH_HTTP_${response.status}`);
