@@ -1289,7 +1289,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // Ne jamais extraire le premier nombre de toute la réponse PostgREST
       // (code HTTP, position SQL, etc.). Seul un nombre accolé explicitement
       // au marqueur métier peut représenter la limite quotidienne.
-      const explicitLimit = rawMessage.toUpperCase().match(/BATTLE[_\\s-]*SOLO[_\\s-]*DAILY[_\\s-]*LIMIT[_\\s-]*REACHED\\s*[:=_-]?\\s*(\\d+)/)?.[1];
+      const explicitLimit = rawMessage.toUpperCase().match(/BATTLE(?:_|\\s|\\\\|-) *SOLO(?:_|\\s|\\\\|-) *DAILY(?:_|\\s|\\\\|-) *LIMIT(?:_|\\s|\\\\|-) *REACHED(?:_|\\s|\\\\|:|=|-)*(\\d+)/)?.[1];
       const limit = Number(explicitLimit || 0);
       void loadKeepBattleSoloDailyStatus().then((status) => {
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
