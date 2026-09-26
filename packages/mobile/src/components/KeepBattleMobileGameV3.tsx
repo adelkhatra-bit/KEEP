@@ -1291,13 +1291,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // au marqueur métier peut représenter la limite quotidienne.
       const explicitLimit = rawMessage.toUpperCase().match(/BATTLE[_\\s-]*SOLO[_\\s-]*DAILY[_\\s-]*LIMIT[_\\s-]*REACHED\\s*[:=_-]?\\s*(\\d+)/)?.[1];
       const limit = Number(explicitLimit || 0);
-      Alert.alert(
-        'Solo terminé pour aujourd’hui',
-        limit > 0
-          ? `Tu as utilisé tes ${limit} parties Solo du jour. Elles reviennent automatiquement demain. Tu peux continuer en Battle en ligne.`
-          : 'Tu as utilisé tes parties Solo du jour. Elles reviennent automatiquement demain. Tu peux continuer en Battle en ligne.',
-        [{ text: 'OK' }],
-      );
+      void loadKeepBattleSoloDailyStatus().then((status) => {
+        const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
+        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé tes ${status.limit ?? limit} parties Solo du jour. Il t’en reste 0. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`, [{ text: 'OK' }]);
+      }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', limit > 0 ? `Tu as utilisé tes ${limit} parties Solo du jour. Elles reviennent automatiquement demain.` : 'Tes parties Solo reviennent automatiquement demain.', [{ text: 'OK' }]));
       return;
     }
     Alert.alert('Loki Music Battle', 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.');
@@ -1354,9 +1351,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let dailyLimitReached = false;
     try {
       const status = await loadKeepBattleSoloDailyStatus();
-      if (status.remaining <= 0) {
+      if (!status.unlimited && status.remaining != null && status.remaining <= 0) {
         dailyLimitReached = true;
-        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit} parties incluses aujourd’hui. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.`);
+        const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
+        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd’hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`);
       }
     } catch {
       // Le serveur fera le contrôle atomique au démarrage : ne jamais bloquer
