@@ -1336,11 +1336,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // un invité/démo pouvait lancer un Battle solo sans jamais être bloqué.
     if (!enabled) { onRequireAccount?.(); return; }
     setBusy(true);
+    let dailyLimitReached = false;
     try {
       const status = await loadKeepBattleSoloDailyStatus();
       if (status.remaining <= 0) {
+        dailyLimitReached = true;
         Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit} parties incluses aujourd’hui. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.`);
-        return;
       }
     } catch {
       // Le serveur fera le contrôle atomique au démarrage : ne jamais bloquer
@@ -1348,6 +1349,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } finally {
       setBusy(false);
     }
+    if (dailyLimitReached) return;
     Alert.alert(
       'Sauvegarder ce Battle ?',
       'Veux-tu retrouver les morceaux de cette partie dans Mes Sessions à la fin (les garder, les réécouter ou les effacer) ?',
