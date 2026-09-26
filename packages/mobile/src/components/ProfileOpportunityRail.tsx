@@ -42,6 +42,7 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
 
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
+  const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
   const priceLabel = suggestion
     ? suggestion.paymentMode === 'FREE'
       ? `${suggestion.freePrice ?? 0} FREE`
@@ -87,7 +88,7 @@ const s=StyleSheet.create({
   title:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:6},
   meta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
   ctaRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:7},listenCta:{paddingHorizontal:9,paddingVertical:6,borderRadius:10,backgroundColor:colors.primary},listenCtaText:{color:'#fff',fontSize:9,fontWeight:'900'},ctaHint:{flex:1,color:colors.textMuted,fontSize:8,fontWeight:'700'},marqueeClip:{overflow:'hidden',marginTop:6},
-  marquee:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8,width:330},
+  marquee:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8,width:360},offerCta:{marginTop:8,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},offerCtaText:{color:'#fff',fontSize:10,fontWeight:'900'},offerPrice:{color:colors.success,fontSize:11,fontWeight:'900'},
   saleActions:{marginTop:8,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},listen:{minHeight:32,paddingHorizontal:11,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},listenText:{color:'#fff',fontSize:9,fontWeight:'900'},saleTag:{minHeight:30,paddingHorizontal:9,borderRadius:11,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.success},saleTagText:{color:colors.success,fontSize:9,fontWeight:'900'},body:{color:colors.textMuted,fontSize:9,lineHeight:12,fontWeight:'700',marginTop:5},
   tipFooter:{marginTop:9,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tipDots:{flexDirection:'row',gap:4},tipDot:{width:5,height:5,borderRadius:3,backgroundColor:colors.border},tipDotOn:{width:13,backgroundColor:colors.primaryLight},tipCta:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.5},
 });
