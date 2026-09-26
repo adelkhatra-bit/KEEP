@@ -1313,7 +1313,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             : 'Tu as atteint ta limite de parties Solo pour aujourd’hui. Reviens demain pour continuer.',
         );
       } else {
-        Alert.alert('Loki Music Battle', message || 'Impossible de démarrer.');
+        const friendlyMessage = message.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')
+          ? 'Tu as atteint ta limite de parties Solo pour aujourd’hui. Reviens demain pour continuer.'
+          : 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.';
+        Alert.alert('Loki Music Battle', friendlyMessage);
       }
     }
     finally { setBusy(false); }
