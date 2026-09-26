@@ -1302,7 +1302,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // joueurs voient quel style musical on joue, best-effort (ne bloque pas
       // le démarrage de la partie si ça échoue).
       void updateSoloPresenceTheme(themeCode).catch(() => {});
-    } catch (e: any) { Alert.alert('Loki Music Battle', String(e?.message || 'Impossible de démarrer.')); }
+    } catch (e: any) {
+      const message = String(e?.message || e || '');
+      if (message.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+        const limit = Number(message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[:_](\d+)/)?.[1] || 0);
+        Alert.alert(
+          'Limite Solo atteinte',
+          limit > 0
+            ? `Tu as joué tes ${limit} parties Solo disponibles aujourd’hui. Reviens demain pour continuer.`
+            : 'Tu as atteint ta limite de parties Solo pour aujourd’hui. Reviens demain pour continuer.',
+        );
+      } else {
+        Alert.alert('Loki Music Battle', message || 'Impossible de démarrer.');
+      }
+    }
     finally { setBusy(false); }
   };
 
