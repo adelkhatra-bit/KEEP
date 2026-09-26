@@ -1271,7 +1271,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // contrôles manuels ("je suis disponible, j'appuie et ça repart").
 
   const showSoloStartError = (error: unknown) => {
-    const rawMessage = String((error as any)?.message || error || '');
+    const rawMessage = [
+      String((error as any)?.message || ''),
+      String((error as any)?.details || ''),
+      String((error as any)?.hint || ''),
+      String((error as any)?.code || ''),
+      String(error || ''),
+      (() => { try { return JSON.stringify(error); } catch { return ''; } })(),
+    ].join(' ');
     // Supabase/PostgREST peut renvoyer le code serveur échappé, avec des
     // guillemets, antislashs ou ponctuations différentes. On ne montre
     // jamais ce code technique au joueur : la présence du marqueur suffit.
