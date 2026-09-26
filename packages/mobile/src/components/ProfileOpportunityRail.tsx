@@ -41,6 +41,7 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
   const tip = tips[tipIndex];
 
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
+  const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
   const priceLabel = suggestion
     ? suggestion.paymentMode === 'FREE'
       ? `${suggestion.freePrice ?? 0} FREE`
