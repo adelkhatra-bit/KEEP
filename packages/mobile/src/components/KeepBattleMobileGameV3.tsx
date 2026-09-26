@@ -1270,6 +1270,24 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // cas depuis le client. Retiré : ×, ‹ et REVANCHE sont déjà les bons
   // contrôles manuels ("je suis disponible, j'appuie et ça repart").
 
+  const showSoloStartError = (error: unknown) => {
+    const rawMessage = String((error as any)?.message || error || '');
+    const normalizedMessage = rawMessage.replace(/\\n/g, ' ').replace(/\\_/g, '_').replace(/\\:/g, ':').replace(/\\/g, '');
+    const dailyLimitMatch = normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
+      || normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
+    if (normalizedMessage.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+      const limit = Number(dailyLimitMatch?.[1] || 0);
+      Alert.alert(
+        'Tes parties Solo du jour sont terminées',
+        limit > 0
+          ? `Tu as joué tes ${limit} parties Solo disponibles aujourd’hui. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.`
+          : 'Tes parties Solo du jour sont terminées. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.',
+      );
+      return;
+    }
+    Alert.alert('Loki Music Battle', 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.');
+  };
+
   const runStartSolo = async (saveSession: boolean) => {
     if (busy) return;
     // Adel (03/09/2026) : "j'entends pas le son" -- vrai bug root-causé : les
@@ -1303,25 +1321,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // le démarrage de la partie si ça échoue).
       void updateSoloPresenceTheme(themeCode).catch(() => {});
     } catch (e: any) {
-      const rawMessage = String(e?.message || e || '');
-      // Supabase/PostgREST peut échapper les séparateurs dans le message
-      // d'exception. Normalise-les avant d'afficher une erreur utilisateur.
-      const message = rawMessage.replace(/\\n/g, ' ').replace(/\\_/g, '_').replace(/\\:/g, ':');
-      const normalizedMessage = message.replace(/\\/g, '');
-      const dailyLimitMatch = normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
-        || normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
-      if (normalizedMessage.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-        const limit = Number(dailyLimitMatch?.[1] || 0);
-        Alert.alert(
-          'Limite Solo atteinte',
-          limit > 0
-            ? `Tu as joué tes ${limit} parties Solo disponibles aujourd’hui. Reviens demain pour continuer.`
-            : 'Tes parties Solo du jour sont terminées. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.',
-        );
-      } else {
-        Alert.alert('Loki Music Battle', 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.');
-      }
-    }
+      showSoloStartError(e);
     finally { setBusy(false); }
   };
 
