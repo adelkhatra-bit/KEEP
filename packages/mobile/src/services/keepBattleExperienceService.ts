@@ -164,7 +164,16 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
   // Consume atomically only once a valid Solo session is ready to start.
   const { error: dailyLimitError } = await client().rpc('keep_battle_solo_consume_daily_start');
-  if (dailyLimitError) throw new Error(String(dailyLimitError.message || dailyLimitError.code || 'BATTLE_SOLO_DAILY_LIMIT_REACHED'));
+  if (dailyLimitError) {
+    const raw = [dailyLimitError.message, dailyLimitError.details, dailyLimitError.hint, dailyLimitError.code].filter(Boolean).join(' ');
+    // Preserve the semantic error token for the UI. PostgREST can append the
+    // configured limit (e.g. ":40"); exposing that raw database exception in
+    // an Alert produced BATTLE_SOLO_DAILY_LIMIT_REACHED:40 on mobile.
+    if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(raw)) {
+      throw new Error('BATTLE_SOLO_DAILY_LIMIT_REACHED');
+    }
+    throw new Error('BATTLE_SOLO_UNAVAILABLE');
+  }
   // Adel (18/09/2026) : "il faut au moins quatre réponses ... aucun doublon ...
   // une seule bonne réponse" -- le serveur historique renvoie 3 choix. Pour
   // conserver la même source musicale et garantir EXACTEMENT 4 réponses sans
