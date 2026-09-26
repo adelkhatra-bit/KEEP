@@ -495,9 +495,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     catch (e: any) { Alert.alert('Mes musiques', e?.message ?? 'Impossible de charger les morceaux.'); }
   };
 
-  const setWholeLibraryVisibility = async (visibility: 'PUBLIC' | 'PRIVATE') => {
-    const needsChange = visibility === 'PUBLIC' ? privateKeepCount : publicKeepCount;
-    if (!needsChange || bulkVisibilityBusy) return;
+  const applyWholeLibraryVisibility = async (visibility: 'PUBLIC' | 'PRIVATE') => {
     setBulkVisibilityBusy(visibility);
     try {
       await setAllKeptVisibility(visibility);
@@ -507,6 +505,28 @@ export default function MyMusicScreen({ navigation, route }: any) {
     } finally {
       setBulkVisibilityBusy(null);
     }
+  };
+
+  const setWholeLibraryVisibility = async (visibility: 'PUBLIC' | 'PRIVATE') => {
+    const needsChange = visibility === 'PUBLIC' ? privateKeepCount : publicKeepCount;
+    if (!needsChange || bulkVisibilityBusy) return;
+    if (visibility === 'PUBLIC') {
+      const saleTracks = Object.values(myOfferedTrackIds);
+      const offerIds = Array.from(new Set(saleTracks.map((row) => row.offerId).filter(Boolean)));
+      if (saleTracks.length > 0) {
+        Alert.alert(
+          'Collections protégées',
+          `${saleTracks.length} morceau${saleTracks.length > 1 ? 'x sont' : ' est'} dans ${offerIds.length} collection${offerIds.length > 1 ? 's' : ''} à débloquer. Ils resteront masqués tant que la collection est active. Pour les rendre publics, retire-les d’abord de la collection.`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Gérer mes collections', onPress: () => { setActiveTab('MUSIQUES'); setSaleSelectionMode(false); setSaleEditOfferTarget(null); setManageMusicMode(true); } },
+            { text: 'Publier le reste', onPress: () => { void applyWholeLibraryVisibility('PUBLIC'); } },
+          ],
+        );
+        return;
+      }
+    }
+    await applyWholeLibraryVisibility(visibility);
   };
 
   const analyzeCurrentLibrary = async () => {
