@@ -106,7 +106,7 @@ function simplifyArtistCredit(raw: string): string {
 // etiquette generique des qu'il y a 2+ styles coches (voir KeepBattleMobileGameV3),
 // mais themeCodes porte la selection reelle pour que le serveur restreigne le
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
-export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number; remaining: number; resetsAt: string | null };
+export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number | null; remaining: number | null; unlimited: boolean; resetsAt: string | null };
 
 export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDailyStatus> {
   const { data, error } = await client().rpc('keep_battle_solo_daily_status');
@@ -115,8 +115,9 @@ export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDai
   return {
     plan: String(raw.plan || 'FREE').toUpperCase(),
     used: Math.max(0, Number(raw.used || 0)),
-    limit: Math.max(0, Number(raw.limit || 0)),
-    remaining: Math.max(0, Number(raw.remaining || 0)),
+    limit: raw.limit == null ? null : Math.max(0, Number(raw.limit)),
+    remaining: raw.remaining == null ? null : Math.max(0, Number(raw.remaining)),
+    unlimited: raw.unlimited === true,
     resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
   };
 }
